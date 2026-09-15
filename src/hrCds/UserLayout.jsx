@@ -14,6 +14,7 @@ import SupportChatWidget from './pages/SupportChatWidget';
 import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate from './components/PageAccessGate';
+import PageErrorBoundary from '../components/PageErrorBoundary';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
 
 const drawerWidthOpen = 224;
@@ -201,11 +202,13 @@ const UserLayout = () => {
               },
             }}
           >
+            <PageErrorBoundary>
             <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
               <PageAccessGate>
                 <Outlet />
               </PageAccessGate>
             </Suspense>
+            </PageErrorBoundary>
           </Box>
         </CallProvider>
       </MainContent>

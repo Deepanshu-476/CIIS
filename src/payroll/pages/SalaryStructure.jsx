@@ -15,7 +15,6 @@ import {
 } from "react-icons/fi";
 import axiosInstance from "../../utils/axiosConfig";
 import "../styles/SalaryStructure.css";
-import "../styles/SalaryStructureOverrides.css";
 
 const emptyStructureForm = {
   name: "",
@@ -235,6 +234,7 @@ export default function SalaryStructure() {
 
   const loadData = async () => {
     try {
+      setLoading(true);
       const [compRes, structRes] = await Promise.allSettled([
         axiosInstance.get("/salary-components", { noCache: true }),
         axiosInstance.get("/salary-structures", { noCache: true })
@@ -261,6 +261,8 @@ export default function SalaryStructure() {
       console.error("Unable to load salary structure data", err);
       setMasters([]);
       setStructures([]);
+    } finally {
+      setLoading(false);
     }
   };
 

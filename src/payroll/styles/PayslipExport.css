@@ -1,0 +1,79 @@
+.ps2-company-name img { width:140px; height:80px; object-fit:contain; flex-shrink:0; padding:0; box-sizing:border-box; border:0; border-radius:0; background:transparent; box-shadow:none; margin:0; }
+.ps2-company-name { gap:18px; align-items:center; }
+.ps2-company-name h3 { font-size:21px; line-height:1.4; }
+.ps2-logo-badge { width:88px; height:88px; flex-shrink:0; }
+.ps2-breakdown { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
+.ps2-breakdown > div { min-width:0; }
+.ps2-breakdown th,.ps2-breakdown td { vertical-align:middle; }
+.ps2-breakdown th:last-child,.ps2-breakdown td:last-child { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.ps2-breakdown .deduction,.ps2-breakdown .deduction table,.ps2-breakdown .deduction tbody { display:flex; flex-direction:column; }
+.ps2-breakdown .deduction table,.ps2-breakdown .deduction tbody { flex:1; }
+.ps2-breakdown .deduction thead { display:block; }
+.ps2-breakdown .deduction tr { display:table; table-layout:fixed; width:100%; }
+.ps2-breakdown .deduction td:last-child,.ps2-breakdown .deduction th:last-child { width:35%; }
+.ps2-breakdown .deduction tr.total { margin-top:auto; }
+.ps2-document .ps2-pdf-only { display:none; }
+@media(max-width:768px) { .ps2-breakdown { grid-template-columns:1fr; } }
+.ps2-document.ps2-pdf-sheet { width:794px; max-width:none; min-height:1065px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:flex-start; gap:24px; padding:26px; border:0; border-radius:0; box-shadow:none; color:#243247; font-family:Arial,Helvetica,sans-serif; }
+.ps2-pdf-sheet .ps2-pdf-only { display:grid; }
+.ps2-pdf-sheet > section { margin-top:0; }
+.ps2-pdf-sheet .ps2-company { padding:0 0 22px; border:0; border-bottom:2px solid #243b55; border-radius:0; background:#fff; }
+.ps2-pdf-sheet .ps2-company-name { width:100%; flex-direction:column; align-items:center; gap:14px; text-align:center; }
+.ps2-pdf-sheet .ps2-company-name > div:last-child { width:100%; min-width:0; }
+.ps2-pdf-sheet .ps2-company-name h3 { font-size:19px; white-space:nowrap; }
+.ps2-pdf-logo-frame { width:226px; height:90px; display:flex; align-items:center; justify-content:center; border:0; border-radius:0; background:transparent; }
+.ps2-pdf-sheet .ps2-employee { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.ps2-pdf-sheet .ps2-employee > div { padding:18px; }
+.ps2-pdf-sheet .ps2-detail-list p,.ps2-pdf-sheet .ps2-employee span { font-size:11px; line-height:1.6; }
+.ps2-pdf-sheet .ps2-breakdown table { font-size:12px; }
+.ps2-pdf-sheet .ps2-breakdown th,.ps2-pdf-sheet .ps2-breakdown td { padding:13px 12px; }
+.ps2-pdf-sheet .ps2-breakdown td small { font-size:10px; }
+.ps2-pdf-sheet .ps2-final { padding:20px 14px; }
+.ps2-pdf-sheet .ps2-company-name p { font-size:11px; letter-spacing:1px; color:#64748b; margin-top:8px; }
+.ps2-pdf-sheet .ps2-doc-title { padding:0 0 16px; border-bottom:1px solid #dbe2ea; }
+.ps2-pdf-sheet .ps2-doc-title h2 { font-size:17px; font-weight:700; color:#243b55; }
+.ps2-pdf-sheet .ps2-doc-title p { font-size:10px; }
+.ps2-pdf-sheet .ps2-employee { gap:0; padding:0; border:1px solid #dbe2ea; border-radius:4px; }
+.ps2-pdf-sheet .ps2-employee > div { min-height:112px; padding:18px; border:0; border-radius:0; border-right:1px solid #dbe2ea; background:#fff; }
+.ps2-pdf-sheet .ps2-employee > div:nth-child(even) { border-right:0; }
+.ps2-pdf-sheet .ps2-employee > div:nth-child(n+3) { border-top:1px solid #dbe2ea; }
+.ps2-pdf-sheet .ps2-employee-identity { align-content:center; }
+.ps2-pdf-sheet .ps2-employee-identity strong { font-size:18px; }
+.ps2-pdf-sheet .ps2-detail-list h5 { margin:0 0 10px; padding:0 0 7px; border-bottom:1px solid #e5eaf0; color:#475569; font-size:10px; letter-spacing:.6px; }
+.ps2-pdf-sheet .ps2-detail-list p { margin:0; display:grid; grid-template-columns:110px minmax(0,1fr); gap:8px; }
+.ps2-pdf-sheet .ps2-detail-list p strong { font-size:11px; overflow-wrap:anywhere; }
+.ps2-pdf-sheet .ps2-breakdown { gap:18px; flex:0 0 auto; min-height:0; }
+.ps2-pdf-sheet .ps2-breakdown > div { border:1px solid #dbe2ea; border-radius:4px; }
+.ps2-pdf-sheet .ps2-breakdown h3 { padding:15px 12px; font-size:13px; font-weight:700; }
+.ps2-pdf-sheet .ps2-breakdown .earning h3,.ps2-pdf-sheet .ps2-breakdown .deduction h3 { background:#f1f5f9; color:#243b55; }
+.ps2-pdf-sheet .ps2-breakdown th { background:#fafbfd; color:#64748b; font-size:9px; letter-spacing:.4px; }
+.ps2-pdf-sheet .ps2-breakdown .earning tr.total,.ps2-pdf-sheet .ps2-breakdown .deduction tr.total { background:#f1f5f9; color:#243b55; }
+.ps2-pdf-sheet .ps2-earned-row td { background:#edf5f3; color:#24594d; border-color:#d5e4df!important; }
+.ps2-pdf-sheet .ps2-final-block { margin-top:0; gap:12px; }
+.ps2-pdf-sheet .ps2-final { margin:0; background:#f1f5f9; border:1px solid #dbe2ea; border-radius:4px; }
+.ps2-pdf-sheet .ps2-final span { font-size:10px; line-height:1.5; color:#526174; }
+.ps2-pdf-sheet .ps2-final strong { font-size:17px; }
+.ps2-pdf-sheet .ps2-final strong.blue { font-size:20px; color:#243b55; }
+.ps2-pdf-sheet .ps2-final strong.red { color:#475569; }
+.ps2-pdf-sheet .ps2-net-words { padding:12px 0; font-size:11px; border:0; border-top:1px solid #e5eaf0; border-radius:0; background:#fff; }
+@media print { .ps2-screen-only { display:none; } .ps2-document .ps2-pdf-only { display:grid; } }
+
+/* A4 rhythm: compact branding, consistent details, and content-sized tables. */
+.ps2-document.ps2-pdf-sheet { gap:22px; padding:18px 24px 12px; }
+.ps2-pdf-sheet .ps2-company { padding-bottom:18px; }
+.ps2-pdf-sheet .ps2-company-name { gap:10px; }
+.ps2-pdf-logo-frame { height:76px; }
+.ps2-pdf-sheet .ps2-company-name p { margin-top:5px; }
+.ps2-pdf-sheet .ps2-doc-title { padding-bottom:14px; }
+.ps2-pdf-sheet .ps2-employee > div { padding:19px 20px; min-height:120px; }
+.ps2-pdf-sheet .ps2-detail-list { gap:8px; }
+.ps2-pdf-sheet .ps2-detail-list p { line-height:1.7; }
+.ps2-pdf-sheet .ps2-breakdown h3 { padding:14px 16px; }
+.ps2-pdf-sheet .ps2-breakdown th,.ps2-pdf-sheet .ps2-breakdown td { padding:14px 16px; }
+.ps2-pdf-sheet .ps2-breakdown .ps2-empty-deductions { display:table; }
+.ps2-pdf-sheet .ps2-empty-deductions td:last-child { width:auto; white-space:normal; text-align:left; color:#718096; font-size:11px; padding:22px 16px; font-weight:400; }
+.ps2-pdf-sheet .ps2-final-block { margin-top:auto; padding-top:0; }
+.ps2-pdf-sheet .ps2-final { background:#f4f7fa; padding:20px 16px; }
+.ps2-pdf-sheet .ps2-final > div { flex:1; min-width:0; }
+.ps2-pdf-sheet .ps2-final > div:last-child { border-left:1px solid #ccd6e1; padding-left:14px; }
+.ps2-pdf-sheet .ps2-final strong.blue { color:#173e56; font-size:23px; }

@@ -123,7 +123,7 @@ export default function PayrollReports() {
       <label>Pay Frequency<select value={filters.payGroup} onChange={event => setFilters({ ...filters, payGroup: event.target.value })}><option>All</option>{payGroups.map(item => <option key={item}>{item}</option>)}</select></label>
       <label>Department<select value={filters.department} onChange={event => setFilters({ ...filters, department: event.target.value })}><option>All</option>{departments.map(item => <option key={item}>{item}</option>)}</select></label>
       <label>Employee<select value={filters.employee} onChange={event => setFilters({ ...filters, employee: event.target.value })}><option value="All">All Employees</option>{sourceEmployees.map(item => <option key={employeeKey(item)} value={employeeKey(item)}>{employeeName(item)} ({employeeCode(item)})</option>)}</select></label>
-      <label>Status<select value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}><option>All</option><option>Approved</option><option>Locked</option></select></label>
+      <label>Status<select value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}><option>All</option><option>Released</option></select></label>
       <div className="pr-filter-actions"><button onClick={reset}><FiRefreshCw />Reset</button><button className="primary" onClick={() => setApplied(filters)}><FiEye />View Report</button></div>
     </section>
     {loading && <section className="pr-state">Loading approved payroll report...</section>}
@@ -141,7 +141,7 @@ export default function PayrollReports() {
       <section className="pr-report" ref={reportRef}>
         <div className="pr-report-head"><div><h2>{applied.reportType} — {monthLabel(applied.month)}</h2><p>{filtered.length} approved/locked employee record(s)</p></div><div className="pr-exports pr-no-print" data-html2canvas-ignore="true"><button onClick={exportPdf} disabled={!reportRows.length || exporting}><FiFileText />{exporting === "pdf" ? "Exporting..." : "Export PDF"}</button></div></div>
         <div className="pr-table-wrap"><table><thead><tr><th>#</th>{Object.keys(reportRows[0] || {}).map(key => <th key={key}>{key}</th>)}</tr></thead><tbody>{reportRows.map((row, index) => <tr key={`${row["Employee ID"] || row.Department}-${index}`}><td>{index + 1}</td>{Object.entries(row).map(([key, value]) => <td key={key}>{isMoneyColumn(key) ? money(value) : value}</td>)}</tr>)}{!reportRows.length && <tr><td colSpan="20" className="empty">No approved or locked payroll data matches these filters.</td></tr>}</tbody></table></div>
-        <footer>Reports use saved Approved/Locked payroll snapshots. Amounts are in INR.</footer>
+        <footer>Reports use saved released payroll snapshots. Amounts are in INR.</footer>
       </section>
       <section className="pr-report-insights pr-no-print">
         <article className="pr-comparison-card">

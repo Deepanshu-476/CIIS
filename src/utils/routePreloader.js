@@ -1,4 +1,12 @@
 const routeLoaders = {
+  "/ciisUser/salary-component": () => import("../payroll/pages/SalaryComponent.jsx"),
+  "/ciisUser/salary-structure": () => import("../payroll/pages/SalaryStructure.jsx"),
+  "/ciisUser/salary-assignment": () => import("../payroll/pages/EmployeeSalaryAssignment.jsx"),
+  "/ciisUser/assign-salary": () => import("../payroll/pages/AssignSalary.jsx"),
+  "/ciisUser/payroll-process": () => import("../payroll/pages/PayrollProcess.jsx"),
+  "/ciisUser/release-payroll": () => import("../payroll/pages/ReleasePayroll.jsx"),
+  "/ciisUser/payslip": () => import("../payroll/pages/Payslip.jsx"),
+  "/ciisUser/payroll-reports": () => import("../payroll/pages/PayrollReports.jsx"),
   "/ciisUser/user-dashboard": () => import("../hrCds/pages/UserDashboard"),
   "/ciisUser/attendance": () => import("../hrCds/pages/Attendance"),
   "/ciisUser/my-leaves": () => import("../hrCds/pages/MyLeaves"),
@@ -64,10 +72,37 @@ const routeLoaders = {
 };
 
 const normalizePath = (path = "") => String(path || "").trim().replace(/\/+$/, "").toLowerCase();
+const normalizedRouteLoaders = new Map(Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader]));
+const crmModules = import.meta.glob('../crm/admin/*.jsx');
+const crmPageModules = {
+  'admin/dashboard': 'AdminCrmDashboard', 'admin/lead-overview': 'LeadOverview',
+  'admin/all-leads': 'AllLeads', 'admin/add-lead': 'AddLead',
+  'admin/lead-sources': 'LeadSources', 'admin/lead-types': 'LeadTypes',
+  'admin/import-export-leads': 'ImportExportLeads', 'admin/call-overview': 'CallOverview',
+  'admin/assigned-calls': 'AssignedCalls', 'admin/todays-calls': 'TodaysCalls',
+  'admin/pending-calls': 'PendingCalls', 'admin/scheduled-calls': 'ScheduledCalls',
+  'admin/completed-calls': 'CompletedCalls', 'admin/converted-calls': 'ConvertedCalls',
+  'admin/transferred-calls': 'TransferredCalls', 'admin/call-history': 'CallHistory',
+  'admin/follow-ups': 'FollowUpCenter', 'admin/assignments': 'AssignmentsOverview',
+  'admin/assignment-bulk': 'BulkAssignment', 'admin/assignment-history': 'AssignmentHistory',
+  'admin/workload': 'WorkloadDistribution', 'admin/team': 'TeamOverview',
+  'admin/users': 'CrmUsersList', 'admin/add-user': 'CrmAddUser', 'admin/user-type': 'CrmUserTypes',
+  'marketing/overview': 'MarketingOverview', 'marketing/follow-ups': 'MarketingFollowUps',
+  'marketing/visits': 'VisitManagement', 'marketing/activities': 'MarketingActivityHistory',
+  'marketing/converted-leads': 'MarketingConvertedLeads',
+  'reports/overview': 'ReportsOverview', 'reports/leads': 'LeadReports',
+  'reports/calls': 'CallReports', 'reports/visits': 'VisitReports',
+  'reports/follow-ups': 'FollowUpReports', 'reports/team-performance': 'TeamPerformanceReports',
+  'reports/conversion-funnel': 'ConversionFunnelReports', 'reports/user-activity': 'UserActivityReports'
+};
+for (const [path, moduleName] of Object.entries(crmPageModules)) {
+  normalizedRouteLoaders.set(normalizePath(`/ciisUser/crm/${path}`), crmModules[`../crm/admin/${moduleName}.jsx`]);
+}
 
 export const preloadRouteChunk = (path) => {
-  const loader = routeLoaders[normalizePath(path)];
-  return loader ? loader() : Promise.resolve();
+  const loader = normalizedRouteLoaders.get(normalizePath(path));
+  // A failed speculative preload must not break navigation; lazy routes can retry.
+  return loader ? loader().catch(() => undefined) : Promise.resolve();
 };
 
 export const preloadRouteByPath = preloadRouteChunk;
@@ -77,4 +112,4 @@ export const preloadRouteChunks = (paths = []) => {
   return Promise.all(uniquePaths.map(path => preloadRouteChunk(path)));
 };
 
-export const routeChunkPaths = Object.keys(routeLoaders);
+export const routeChunkPaths = [...normalizedRouteLoaders.keys()];

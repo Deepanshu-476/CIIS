@@ -30,6 +30,7 @@ const PAYROLL_PERMISSION_ACTIONS = {
   "salary-assignment": { view: "View", edit: "Save / Edit", delete: "Unassign / Delete" },
   "assign-salary": { view: "View", edit: "Assign / Edit", delete: "Unassign" },
   "payroll-process": { view: "View", edit: "Review / Settings / Fine", generate: "Generate", lock: "Lock", unlock: "Unlock", delete: "Delete Process" },
+  "release-payroll": { view: "View", edit: "Release Payroll" },
   payslip: { view: "View", edit: "Email / Download", delete: "Delete" },
   "payroll-reports": { view: "View Reports", edit: "Export / Download", delete: "Delete" },
 };
@@ -50,6 +51,7 @@ const FALLBACK_PAGES = [
   { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-assignment"] },
   { pageKey: "assign-salary", name: "Assign Salary", path: "/ciisUser/assign-salary", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["assign-salary"] },
   { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-process"] },
+  { pageKey: "release-payroll", name: "Release Payroll", path: "/ciisUser/release-payroll", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["release-payroll"] },
   { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS.payslip },
   { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-reports"] },
 ];
@@ -70,6 +72,7 @@ const ICON_MAP = {
   "salary-assignment": WorkOutline,
   "assign-salary": WorkOutline,
   "payroll-process": WorkOutline,
+  "release-payroll": WorkOutline,
   payslip: WorkOutline,
   "payroll-reports": WorkOutline,
 };
@@ -419,9 +422,8 @@ const normalizePage = (page) => ({
 
 const mergePagesWithFallback = (pages = []) => {
   const merged = new Map();
-  FALLBACK_PAGES.map(normalizePage).forEach((page) => merged.set(page.pageKey, page));
   pages.map(normalizePage).forEach((page) => {
-    const fallbackPage = merged.get(page.pageKey) || {};
+    const fallbackPage = FALLBACK_PAGES.map(normalizePage).find(item => item.pageKey === page.pageKey) || {};
     merged.set(page.pageKey, {
       ...fallbackPage,
       ...page,

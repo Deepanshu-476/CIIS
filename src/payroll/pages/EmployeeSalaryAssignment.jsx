@@ -673,12 +673,12 @@ export default function EmployeeSalaryAssignment() {
       setSaving(true);
       await axiosInstance.delete(`/employee-salaries/${currentAssignment._id}`);
       setMessage({ type: "success", text: "Salary unassigned successfully." });
+      setAssignments((prev) => prev.filter((a) => a._id !== currentAssignment._id));
       setSelectedUserObj(null);
       setForm(emptyForm);
       setComponentRows([]);
       setOverrides({});
       setLockedMap({});
-      setCurrentAssignment(null);
     } catch (err) {
       setMessage({ type: "error", text: err.response?.data?.message || "Unable to unassign salary." });
     } finally {
@@ -1035,9 +1035,10 @@ export default function EmployeeSalaryAssignment() {
                 min="0"
                 step="any"
                 className="esa-input"
-                placeholder="Auto-calculated from salary structure"
+                placeholder="Enter gross salary (e.g. 50000)"
                 value={form.grossSalary}
-                readOnly
+                onChange={(e) => setForm({ ...form, grossSalary: e.target.value })}
+                readOnly={Boolean(selectedStructureObj?.defaultGross && Number(selectedStructureObj.defaultGross) > 0)}
                 required
               />
             </div>

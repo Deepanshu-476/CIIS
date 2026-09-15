@@ -1,3 +1,4 @@
+import { CRM_PAGES } from '../../config/crmPages';
 import React, { useState, useEffect } from 'react';
 import axios from "../../utils/axiosConfig";
 import axiosInstance from "../../utils/axiosConfig";
@@ -5,6 +6,7 @@ import Swal from 'sweetalert2';
 import './SidebarManagement.css';
 import CIISLoader from '../../Loader/CIISLoader';
 import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../utils/pageAccess";
+import { TELECALLER_PAGES } from '../../crm/telecaller/telecallerPages';
 
 
 const APP_ROUTES = [
@@ -31,6 +33,7 @@ const APP_ROUTES = [
   { path: 'salary-assignment', name: 'Employee Salary', icon: 'Work', category: 'payroll' },
   { path: 'assign-salary', name: 'Assign Salary', icon: 'Work', category: 'payroll' },
   { path: 'payroll-process', name: 'Payroll Process', icon: 'Work', category: 'payroll' },
+  { path: 'release-payroll', name: 'Release Payroll', icon: 'Work', category: 'payroll' },
   { path: 'payslip', name: 'Payslip', icon: 'Work', category: 'payroll' },
   { path: 'payroll-reports', name: 'Payroll Reports', icon: 'Work', category: 'payroll' },
   { path: 'client-dashboard', name: 'Client Dashboard', icon: 'Dashboard', category: 'clients' },
@@ -56,6 +59,9 @@ const APP_ROUTES = [
   { path: 'support-desk', name: 'Support Desk', icon: 'SupportAgent', category: 'communication' },
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
   { path: 'feedback-questionnaire', name: 'Feedback / Questionnaire', icon: 'Assignment', category: 'administration' },
+  ...CRM_PAGES.map((page, index) => ({ ...page, icon: 'Dashboard', order: 24.6 + index / 100 })),
+  ...TELECALLER_PAGES.filter(page => !['call-workspace', 'lead-detail'].includes(page.slug))
+    .map(page => ({ ...page, path: page.path.replace('/ciisUser/', '') })),
 ];
 
 
@@ -365,7 +371,7 @@ const SidebarManagement = () => {
     const pages = APP_ROUTES.map(route => {
       const isClientPath = route.path.startsWith('client-');
       return {
-        id: route.path,
+        id: route.id || route.path,
         name: route.name,
         path: isClientPath ? `/client/${route.path.substring(7)}` : `/ciisUser/${route.path}`,
         icon: route.icon,
@@ -1237,6 +1243,8 @@ const SidebarManagement = () => {
       'communication': 'Communication',
       'clients': 'Clients',
       'supperAdmin': 'Super Admin',
+      'admin-crm': 'Admin CRM',
+      'admin-telecaller': 'Admin Telecaller',
     };
     return categoryNames[category] || category;
   };

@@ -635,7 +635,19 @@
 
 @media (max-width: 650px) {
   .salary-structure-page {
-    padding: 16px;
+    padding: 12px;
+  }
+  .ss-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .ss-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .ss-header-actions button {
+    flex: 1;
   }
   .ss-form-grid {
     grid-template-columns: 1fr;
@@ -643,4 +655,9 @@
   .ss-span-2 {
     grid-column: span 1;
   }
+  .ss-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
+

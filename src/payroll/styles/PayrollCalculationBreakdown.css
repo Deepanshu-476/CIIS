@@ -1,3 +1,102 @@
+.payroll-process-page .pp-calculation-modal {
+  width: min(900px, 100%);
+  height: min(780px, calc(100dvh - 40px));
+  color: #23324a;
+}
+
+.payroll-process-page .pp-calculation-modal > header {
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px 28px;
+  background: #fff;
+}
+
+.pp-calculation-modal .pp-calc-eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.payroll-process-page .pp-calculation-modal h3 { font-size: 23px; line-height: 1.3; }
+.payroll-process-page .pp-calculation-modal header > button { flex-shrink: 0; }
+.pp-calculation-modal .pp-calc-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pp-calculation-modal .pp-calc-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #52627a;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.pp-calculation-modal .pp-calc-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 28px;
+  background: #f8fafc;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.pp-calculation-modal .pp-calc-attendance-title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.pp-calculation-modal .pp-calc-attendance-title > span { color: #64748b; font-size: 12px; font-weight: 400; }
+.pp-calculation-modal .pp-stat-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; }
+.pp-calculation-modal .pp-stat-chips > span {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+}
+.pp-calculation-modal .pp-stat-chips b { color: #1e293b; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.payroll-process-page .pp-calculation-modal .pp-detail-grid { padding: 0; gap: 16px; align-items: start; }
+.pp-calculation-modal .pp-detail-grid > section { min-width: 0; background: #fff; }
+.pp-calculation-modal .pp-detail-grid h4 { padding: 16px; background: #fff; font-size: 14px; }
+.pp-calculation-modal .pp-detail-grid p { align-items: center; padding: 14px 16px; font-size: 13px; line-height: 1.5; }
+.pp-calculation-modal .pp-detail-grid p > span { min-width: 0; overflow-wrap: anywhere; }
+.pp-calculation-modal .pp-detail-grid p > b { flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pp-calculation-modal .pp-detail-grid section:first-child p:not(.pp-payable-row) > b { color: #1e293b; }
+.pp-calculation-modal .pp-calc-empty { display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 28px 18px; border-top: 1px solid #eef1f5; text-align: center; }
+.pp-calculation-modal .pp-calc-empty svg { color: #16a34a; font-size: 26px; }
+.pp-calculation-modal .pp-calc-empty strong { font-size: 13px; color: #334155; }
+.pp-calculation-modal .pp-calc-empty span { max-width: 240px; color: #64748b; font-size: 12px; line-height: 1.6; }
+.payroll-process-page .pp-calculation-modal .pp-pending-pay { margin: 0 0 20px; grid-template-columns: 1fr auto; }
+.pp-calculation-modal .pp-pending-pay small { grid-column: 1 / -1; font-size: 12px; line-height: 1.5; }
+.payroll-process-page .pp-calculation-modal > footer { gap: 16px; padding: 22px 28px; border-top: 1px solid #dbeafe; box-shadow: none; }
+.pp-calculation-modal > footer span { font-size: 14px; }
+.pp-calculation-modal > footer strong { font-size: 28px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 600px) {
+  .payroll-process-page .pp-modal-backdrop:has(.pp-calculation-modal) { padding: 10px; }
+  .payroll-process-page .pp-calculation-modal { height: calc(100dvh - 20px); }
+  .payroll-process-page .pp-calculation-modal > header,
+  .payroll-process-page .pp-calculation-modal > footer { padding: 18px; }
+  .pp-calculation-modal .pp-calc-body { padding: 18px; }
+  .pp-calculation-modal .pp-stat-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pp-calculation-modal .pp-detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .pp-calculation-modal > footer { flex-wrap: wrap; }
+  .pp-calculation-modal > footer strong { font-size: 24px; }
+}
+
 .payroll-process-page .pp-detail-days {
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }

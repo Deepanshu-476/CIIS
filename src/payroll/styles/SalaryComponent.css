@@ -553,7 +553,19 @@
 
 @media (max-width: 650px) {
   .scm-container {
-    padding: 16px;
+    padding: 12px;
+  }
+  .scm-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .scm-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .scm-header-actions button {
+    flex: 1;
   }
   .scm-grid-4 {
     grid-template-columns: 1fr;
@@ -564,4 +576,9 @@
   .scm-status-box {
     width: 100%;
   }
+  .scm-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
+

@@ -1,0 +1,304 @@
+/* CrmAddUser Component Styles */
+
+.cau-root {
+  background-color: #f8fafc;
+  min-height: 100vh;
+  padding: 24px;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+/* Page Header & Breadcrumb */
+.cau-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.cau-page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.cau-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.cau-breadcrumb a {
+  color: #94a3b8;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.cau-breadcrumb a:hover {
+  color: #475569;
+}
+
+.cau-breadcrumb .separator {
+  color: #cbd5e1;
+  font-size: 10px;
+}
+
+.cau-breadcrumb .active {
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Card Outer */
+.cau-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.cau-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.cau-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.cau-btn-listings {
+  background-color: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.cau-btn-listings:hover {
+  background-color: #4f46e5;
+}
+
+.cau-btn-listings .btn-icon {
+  font-size: 14px;
+}
+
+/* Card Body Layout */
+.cau-card-body {
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+}
+
+.cau-form-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Section Styling */
+.cau-section {
+  margin-bottom: 24px;
+}
+
+.cau-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 16px;
+}
+
+.cau-section-header .section-icon {
+  font-size: 15px;
+  color: #64748b;
+}
+
+.cau-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .cau-card-body {
+    flex-direction: column;
+  }
+  .cau-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cau-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cau-field-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.cau-field-group label .req {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.cau-field-group input,
+.cau-field-group select {
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  outline: none;
+  background-color: #ffffff;
+  transition: border-color 0.15s ease;
+}
+
+.cau-field-group input:focus,
+.cau-field-group select:focus {
+  border-color: #6366f1;
+}
+
+.cau-field-group input::placeholder {
+  color: #94a3b8;
+}
+
+/* Form Action Buttons */
+.cau-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.cau-btn-submit {
+  background-color: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cau-btn-submit:hover {
+  background-color: #4f46e5;
+}
+
+.cau-btn-cancel {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cau-btn-cancel:hover {
+  background-color: #e2e8f0;
+}
+
+/* Alert Boxes */
+.cau-alert {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 18px;
+}
+
+.cau-alert-danger {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.cau-alert-success {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+/* Right Quick Tips Panel */
+.cau-tips-panel {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+.cau-tips-card {
+  background-color: #e6f7ff;
+  border: 1px solid #bae7ff;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.cau-tips-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0050b3;
+  margin-bottom: 14px;
+}
+
+.cau-tips-header .tips-icon {
+  font-size: 16px;
+}
+
+.cau-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cau-tips-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.cau-tips-list li .check-icon {
+  color: #13c2c2;
+  font-size: 14px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}

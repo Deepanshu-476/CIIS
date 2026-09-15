@@ -1,0 +1,349 @@
+/* Add Lead Page Styles - Pixel Perfect to Reference UI media_1788342523038.png */
+
+.al-root {
+  background-color: #f8fafc;
+  min-height: 100vh;
+  padding: 24px;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+/* Page Header & Breadcrumb */
+.al-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.al-page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.al-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.al-breadcrumb .separator {
+  color: #cbd5e1;
+  font-size: 10px;
+}
+
+.al-breadcrumb .active {
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Main Form Card */
+.al-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.al-card-header {
+  padding: 16px 24px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.al-card-header.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.al-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.al-btn-view-all {
+  background-color: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.al-btn-view-all:hover {
+  background-color: #4f46e5;
+}
+
+.al-card-body {
+  padding: 24px;
+}
+
+/* Form Sections */
+.al-section {
+  margin-bottom: 20px;
+}
+
+.al-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.al-section-title .section-icon {
+  color: #6366f1;
+}
+
+.al-divider {
+  height: 1px;
+  background-color: #f1f5f9;
+  margin: 24px 0;
+}
+
+/* Form Grid & Fields */
+.al-grid {
+  display: grid;
+  gap: 18px 20px;
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-2-limited {
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 67%;
+}
+
+.mt-3 {
+  margin-top: 14px;
+}
+
+.mt-4 {
+  margin-top: 18px;
+}
+
+.al-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.al-field label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.al-field label .req {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.al-field input,
+.al-field select,
+.al-field textarea {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: #1e293b;
+  background-color: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.al-field textarea {
+  height: auto;
+  min-height: 90px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.al-field input::placeholder,
+.al-field textarea::placeholder {
+  color: #94a3b8;
+}
+
+.al-field input:focus,
+.al-field select:focus,
+.al-field textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.al-field input.is-invalid,
+.al-field select.is-invalid {
+  border-color: #ef4444;
+}
+
+.al-err {
+  font-size: 10px;
+  color: #ef4444;
+  margin-top: 2px;
+}
+
+/* Success Banner */
+.al-success-banner {
+  background-color: #d1fae5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+/* Form Action Buttons */
+.al-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.al-btn-save {
+  background-color: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 24px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.al-btn-save:hover {
+  background-color: #4f46e5;
+}
+
+.al-btn-cancel {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.al-btn-cancel:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Footer */
+.al-footer {
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+  padding-top: 16px;
+  margin-top: 10px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid-2-limited {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-3,
+  .grid-2-limited {
+    grid-template-columns: 1fr;
+  }
+  .al-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .al-card-header.flex-between {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* Error and Validation Styles */
+.al-field input.is-invalid,
+.al-field select.is-invalid,
+.al-field textarea.is-invalid {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2;
+}
+
+.al-field input.is-invalid:focus,
+.al-field select.is-invalid:focus,
+.al-field textarea.is-invalid:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.al-err {
+  font-size: 11px;
+  color: #ef4444;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+div.al-err[role="alert"] {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+div.al-err[role="alert"] button {
+  background: #ffffff;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+}
+

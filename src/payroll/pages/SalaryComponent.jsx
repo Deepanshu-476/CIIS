@@ -79,6 +79,7 @@ export default function SalaryComponent() {
 
   const loadComponents = async () => {
     try {
+      setLoading(true);
       const response = await axiosInstance.get("/salary-components");
       const list = response.data?.components;
       if (Array.isArray(list) && list.length > 0) {
@@ -89,6 +90,8 @@ export default function SalaryComponent() {
     } catch (error) {
       console.error("Unable to load salary components", error);
       setComponents([]);
+    } finally {
+      setLoading(false);
     }
   };
 

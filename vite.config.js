@@ -72,8 +72,7 @@ export default defineConfig({
   },
 
   optimizeDeps: {
-    force: true,
-    include: ['react', 'react-dom', 'socket.io-client'] 
+    include: ['react', 'react-dom', 'socket.io-client', 'recharts']
   },
 
   define: {

@@ -1,0 +1,378 @@
+/* CallComponents.css - shared styling for call tables, filters, stats */
+
+.haps-table-card {
+  margin-bottom: 22px;
+}
+
+.haps-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.haps-entries-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.haps-entries-select select {
+  border: 1px solid #dfe3eb;
+  border-radius: 4px;
+  height: 30px;
+  padding: 0 8px;
+  color: #52617c;
+  outline: none;
+  background: #ffffff;
+}
+
+.haps-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.haps-search-box input {
+  border: 1px solid #dfe3eb;
+  border-radius: 4px;
+  height: 30px;
+  padding: 0 10px;
+  width: 155px;
+  color: #52617c;
+  outline: none;
+  background: #ffffff;
+}
+
+.haps-search-box input:focus {
+  border-color: #6958e8;
+}
+
+.haps-table-wrap {
+  overflow-x: auto;
+}
+
+.haps-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+}
+
+.haps-data-table th {
+  background: #edf2f8;
+  color: #4a5568;
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 12px 10px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #d8dfeb;
+  white-space: nowrap;
+}
+
+.haps-th-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.haps-sort-arrows {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.haps-th-btn {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.haps-data-table td {
+  padding: 14px 10px;
+  border-bottom: 1px solid #edf0f6;
+  color: #4a5568;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.haps-data-table tbody tr:hover {
+  background: #fafbfe;
+}
+
+.haps-lead-code {
+  font-weight: 500;
+  color: #34435d;
+}
+
+.haps-lead-name {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.haps-lead-phone {
+  color: #4a5568;
+}
+
+.haps-remarks-text {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  color: #718096;
+}
+
+.haps-time-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.haps-time-main {
+  font-size: 11px;
+  color: #4a5568;
+}
+
+.haps-time-sub {
+  font-size: 9.5px;
+  color: #a0aec0;
+  margin-top: 2px;
+}
+
+.haps-actions-group {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.haps-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  border: 0;
+  color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.haps-icon-btn:hover {
+  opacity: 0.88;
+}
+
+.haps-view-btn {
+  background: #3dbddd;
+}
+
+.haps-call-btn {
+  background: #14b99c;
+}
+
+.haps-empty-state {
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 42px 20px 50px;
+  text-align: center;
+}
+
+.haps-empty-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}
+
+.haps-empty-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 5px 0;
+}
+
+.haps-empty-sub {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.haps-empty-cell {
+  text-align: center !important;
+  color: #a0aec0;
+  padding: 24px !important;
+}
+
+.haps-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  font-size: 11px;
+  color: #77849c;
+}
+
+.haps-pagination-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.haps-pagination-controls button {
+  border: 1px solid #e0e4ed;
+  color: #7d8bad;
+  background: #ffffff;
+  min-width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.haps-pagination-controls button.active {
+  background: #6958df;
+  border-color: #6958df;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.haps-pagination-controls button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.haps-records-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: #0f766e;
+  background: #ccfbf1;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.haps-btn-view-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #38bdf8;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.haps-btn-view-pill:hover {
+  opacity: 0.9;
+}
+
+.haps-badge-pill-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.tcl-page-subtitle {
+  font-size: 11.5px;
+  color: #8c98a9;
+  margin: -12px 0 16px 0;
+}
+
+/* Follow-Up Center Tabs & Panel */
+.tcl-followup-panel {
+  margin-top: 10px;
+}
+
+.tcl-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tcl-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #dfe3eb;
+  border-radius: 4px;
+  padding: 7px 14px;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tcl-tabs button:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.tcl-tabs button.active {
+  background: #ffffff;
+  border-color: #6366f1;
+  color: #6366f1;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.12);
+}
+
+.tcl-count {
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  line-height: 1.2;
+}
+
+.tcl-reminder {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  color: #9f1239;
+}
+
+.tcl-reminder strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.tcl-reminder p {
+  font-size: 11.5px;
+  color: #be123c;
+  margin: 0;
+}

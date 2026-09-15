@@ -468,6 +468,24 @@
   }
 }
 
+@media (max-width: 480px) {
+  .pr-page {
+    padding: 10px !important;
+  }
+  .pr-filter-card {
+    padding: 14px !important;
+  }
+  .pr-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pr-table th, .pr-table td {
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+  }
+}
+
+
 @media print {
   body * {
     visibility: hidden !important;

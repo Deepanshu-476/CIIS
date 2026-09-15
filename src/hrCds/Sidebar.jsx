@@ -38,15 +38,27 @@ import {
   CreditCard as CreditCardIcon,
   Folder as FolderIcon,
   SupportAgent as SupportAgentIcon,
+  PhoneInTalk as PhoneInTalkIcon,
+  Speed as CallOverviewIcon,
+  AssignmentInd as AssignedCallsIcon,
+  AccessTime as PendingCallsIcon,
+  EventAvailable as ScheduledCallsIcon,
+  CheckCircle as CompletedCallsIcon,
+  Verified as ConvertedCallsIcon,
+  SwapHoriz as TransferredCallsIcon,
+  History as CallHistoryIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
-import { hasPageAccess } from '../utils/pageAccess';
+import { isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
+import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
+import { CRM_PAGES } from '../config/crmPages';
 import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
 import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
   CLIENT_PORTAL_SELECTION_EVENT,
   getClientDisplayName,
+  getClientServices,
   getClientPortalCompanyContext,
   getCompanyScopedClientParams,
   isClientForLoggedInUser
@@ -59,15 +71,6 @@ const BADGE_REFRESH_INTERVAL = 120000;
 const BADGE_CACHE_TTL = 120000;
 const getBadgeCacheKey = userId => `ciis-sidebar-badges-cache:${userId || 'anonymous'}`;
 const PAGE_ACCESS_ROLES = new Set(['owner', 'company_owner', 'companyowner', 'admin', 'super_admin', 'superadmin']);
-const STRICT_PAYROLL_PATHS = new Set([
-  '/ciisuser/salary-component',
-  '/ciisuser/salary-structure',
-  '/ciisuser/salary-assignment',
-  '/ciisuser/assign-salary',
-  '/ciisuser/payroll-process',
-  '/ciisuser/payslip',
-  '/ciisuser/payroll-reports',
-]);
 const normalizePermissionRole = value => String(value || '')
   .trim()
   .toLowerCase()
@@ -282,6 +285,15 @@ const CollapsedHeading = styled(Box)(({ theme }) => ({
 
 
 const iconMap = {
+  'CallOverview': CallOverviewIcon,
+  'AssignedCalls': AssignedCallsIcon,
+  'TodaysCalls': PhoneInTalkIcon,
+  'PendingCalls': PendingCallsIcon,
+  'ScheduledCalls': ScheduledCallsIcon,
+  'CompletedCalls': CompletedCallsIcon,
+  'ConvertedCalls': ConvertedCallsIcon,
+  'TransferredCalls': TransferredCallsIcon,
+  'CallHistory': CallHistoryIcon,
   'Dashboard': DashboardIcon,
   'dashboard': DashboardIcon,
   'Calendar': CalendarIcon,
@@ -338,7 +350,21 @@ const iconMap = {
   'support': SupportAgentIcon,
   'SupportAgent': SupportAgentIcon,
   'supportagent': SupportAgentIcon,
+  'Call': PhoneInTalkIcon,
+  'call': PhoneInTalkIcon,
 };
+
+// Admin CRM sidebar scaffold. Add new page ids to a group's itemIds when its
+// route is added to the normal sidebar configuration.
+const ADMIN_CRM_MENU_GROUPS = [
+  { id: 'lead-management', name: 'Lead Management', icon: 'Person', itemIds: ['admin-crm-lead-overview', 'admin-crm-all-leads', 'admin-crm-add-lead', 'admin-crm-lead-sources', 'admin-crm-lead-types', 'admin-crm-import-export-leads'] },
+  { id: 'call-management', name: 'Call Management', icon: 'Call', itemIds: ['admin-crm-call-overview', 'admin-crm-assigned-calls', 'admin-crm-todays-calls', 'admin-crm-pending-calls', 'admin-crm-scheduled-calls', 'admin-crm-completed-calls', 'admin-crm-converted-calls', 'admin-crm-transferred-calls', 'admin-crm-call-history'] },
+  { id: 'follow-up-center', name: 'Follow-Up Center', icon: 'EventNote', itemIds: ['admin-crm-follow-ups'], direct: true },
+  { id: 'assignments', name: 'Assignments', icon: 'Groups', itemIds: ['admin-crm-assignments', 'admin-crm-assignment-bulk', 'admin-crm-assignment-history', 'admin-crm-workload'] },
+  { id: 'marketing-admin', name: 'Marketing Admin', icon: 'Person', itemIds: ['marketing-overview', 'marketing-follow-ups', 'visit-management', 'marketing-activity-history', 'marketing-converted-leads'] },
+  { id: 'team-access', name: 'Team & Access', icon: 'Groups', itemIds: ['admin-crm-team-overview', 'admin-crm-users', 'admin-crm-add-user', 'admin-crm-user-types'] },
+  { id: 'reports', name: 'Reports', icon: 'ListAlt', itemIds: ['admin-crm-reports-overview', 'admin-crm-reports-leads', 'admin-crm-reports-calls', 'admin-crm-reports-visits', 'admin-crm-reports-follow-ups', 'admin-crm-reports-team-performance', 'admin-crm-reports-conversion-funnel', 'admin-crm-reports-user-activity'] },
+];
 
 
 const getIconComponent = (iconName) => {
@@ -522,6 +548,15 @@ const clientMenuItems = [
 
 
 const allPagesItems = [
+  ...TELECALLER_PAGES,
+  {
+    id: 'admin-crm-scheduled-calls',
+    name: 'Scheduled Calls',
+    icon: 'ScheduledCalls',
+    path: '/ciisUser/crm/admin/scheduled-calls',
+    category: 'crm',
+    order: 24.6135
+  },
   {
     id: 'dashboard',
     name: 'Dashboard',
@@ -771,6 +806,14 @@ const allPagesItems = [
     order: 24.3
   },
   {
+    id: 'release-payroll',
+    name: 'Release Payroll',
+    icon: 'Work',
+    path: '/ciisUser/release-payroll',
+    category: 'payroll',
+    order: 24.35
+  },
+  {
     id: 'payslip',
     name: 'Payslip',
     icon: 'Work',
@@ -793,6 +836,302 @@ const allPagesItems = [
     path: '/ciisUser/chat',
     category: 'communication',
     order: 25
+  },
+  {
+    id: 'admin-crm-dashboard',
+    name: 'Admin CRM',
+    icon: 'Dashboard',
+    path: '/ciisUser/crm/admin/dashboard',
+    category: 'crm',
+    order: 24.6
+  },
+  {
+    id: 'admin-crm-lead-overview',
+    name: 'Lead Overview',
+    icon: 'Dashboard',
+    path: '/ciisUser/crm/admin/lead-overview',
+    category: 'crm',
+    order: 24.6005
+  },
+  {
+    id: 'admin-crm-all-leads',
+    name: 'All Leads',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/admin/all-leads',
+    category: 'crm',
+    order: 24.6008
+  },
+  {
+    id: 'admin-crm-add-lead',
+    name: 'Add Lead',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/add-lead',
+    category: 'crm',
+    order: 24.601
+  },
+  {
+    id: 'admin-crm-lead-sources',
+    name: 'Lead Sources',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/admin/lead-sources',
+    category: 'crm',
+    order: 24.602
+  },
+  {
+    id: 'admin-crm-lead-types',
+    name: 'Lead Types',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/admin/lead-types',
+    category: 'crm',
+    order: 24.603
+  },
+  {
+    id: 'admin-crm-import-export-leads',
+    name: 'Import & Export',
+    icon: 'Folder',
+    path: '/ciisUser/crm/admin/import-export-leads',
+    category: 'crm',
+    order: 24.604
+  },
+  {
+    id: 'admin-crm-assigned-calls',
+    name: 'Assigned Calls',
+    icon: 'AssignedCalls',
+    path: '/ciisUser/crm/admin/assigned-calls',
+    category: 'crm',
+    order: 24.61
+  },
+  {
+    id: 'admin-crm-call-overview',
+    name: 'Call Overview',
+    icon: 'CallOverview',
+    path: '/ciisUser/crm/admin/call-overview',
+    category: 'crm',
+    order: 24.605
+  },
+  {
+    id: 'admin-crm-todays-calls',
+    name: "Today's Calls",
+    icon: 'TodaysCalls',
+    path: '/ciisUser/crm/admin/todays-calls',
+    category: 'crm',
+    order: 24.612
+  },
+  {
+    id: 'admin-crm-pending-calls',
+    name: 'Pending Calls',
+    icon: 'PendingCalls',
+    path: '/ciisUser/crm/admin/pending-calls',
+    category: 'crm',
+    order: 24.613
+  },
+  {
+    id: 'admin-crm-completed-calls',
+    name: 'Completed Calls',
+    icon: 'CompletedCalls',
+    path: '/ciisUser/crm/admin/completed-calls',
+    category: 'crm',
+    order: 24.614
+  },
+  {
+    id: 'admin-crm-converted-calls',
+    name: 'Converted Calls',
+    icon: 'ConvertedCalls',
+    path: '/ciisUser/crm/admin/converted-calls',
+    category: 'crm',
+    order: 24.615
+  },
+  {
+    id: 'admin-crm-transferred-calls',
+    name: 'Transferred Calls',
+    icon: 'TransferredCalls',
+    path: '/ciisUser/crm/admin/transferred-calls',
+    category: 'crm',
+    order: 24.616
+  },
+  {
+    id: 'admin-crm-call-history',
+    name: 'Call History',
+    icon: 'CallHistory',
+    path: '/ciisUser/crm/admin/call-history',
+    category: 'crm',
+    order: 24.617
+  },
+  {
+    id: 'admin-crm-follow-ups',
+    name: 'Follow-Up Center',
+    icon: 'EventNote',
+    path: '/ciisUser/crm/admin/follow-ups',
+    category: 'crm',
+    order: 24.618
+  },
+  {
+    id: 'admin-crm-assignments',
+    name: 'Assignments Overview',
+    icon: 'Assignment',
+    path: '/ciisUser/crm/admin/assignments',
+    category: 'crm',
+    order: 24.619
+  },
+  {
+    id: 'admin-crm-assignment-bulk',
+    name: 'Bulk Assignment',
+    icon: 'Folder',
+    path: '/ciisUser/crm/admin/assignment-bulk',
+    category: 'crm',
+    order: 24.620
+  },
+  {
+    id: 'admin-crm-assignment-history',
+    name: 'Assignment History',
+    icon: 'History',
+    path: '/ciisUser/crm/admin/assignment-history',
+    category: 'crm',
+    order: 24.621
+  },
+  {
+    id: 'admin-crm-workload',
+    name: 'Workload Distribution',
+    icon: 'BarChart',
+    path: '/ciisUser/crm/admin/workload',
+    category: 'crm',
+    order: 24.622
+  },
+  {
+    id: 'admin-crm-team-overview',
+    name: 'Team Overview',
+    icon: 'Groups',
+    path: '/ciisUser/crm/admin/team',
+    category: 'crm',
+    order: 24.623
+  },
+  {
+    id: 'admin-crm-users',
+    name: 'Users',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/users',
+    category: 'crm',
+    order: 24.624
+  },
+  {
+    id: 'admin-crm-add-user',
+    name: 'Add User',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/add-user',
+    category: 'crm',
+    order: 24.625
+  },
+  {
+    id: 'admin-crm-user-types',
+    name: 'User Types',
+    icon: 'Groups',
+    path: '/ciisUser/crm/admin/user-type',
+    category: 'crm',
+    order: 24.626
+  },
+  {
+    id: 'marketing-overview',
+    name: 'Overview',
+    icon: 'Dashboard',
+    path: '/ciisUser/crm/marketing/overview',
+    category: 'crm',
+    order: 24.627
+  },
+  {
+    id: 'marketing-follow-ups',
+    name: 'Follow-Ups',
+    icon: 'Event',
+    path: '/ciisUser/crm/marketing/follow-ups',
+    category: 'crm',
+    order: 24.628
+  },
+  {
+    id: 'visit-management',
+    name: 'Visit Management',
+    icon: 'Computer',
+    path: '/ciisUser/crm/marketing/visits',
+    category: 'crm',
+    order: 24.629
+  },
+  {
+    id: 'marketing-activity-history',
+    name: 'Activity History',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/marketing/activities',
+    category: 'crm',
+    order: 24.630
+  },
+  {
+    id: 'marketing-converted-leads',
+    name: 'Converted Leads',
+    icon: 'Person',
+    path: '/ciisUser/crm/marketing/converted-leads',
+    category: 'crm',
+    order: 24.631
+  },
+  {
+    id: 'admin-crm-reports-overview',
+    name: 'Reports Overview',
+    icon: 'BarChart',
+    path: '/ciisUser/crm/reports/overview',
+    category: 'crm',
+    order: 24.627
+  },
+  {
+    id: 'admin-crm-reports-leads',
+    name: 'Lead Reports',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/reports/leads',
+    category: 'crm',
+    order: 24.628
+  },
+  {
+    id: 'admin-crm-reports-calls',
+    name: 'Call Reports',
+    icon: 'Call',
+    path: '/ciisUser/crm/reports/calls',
+    category: 'crm',
+    order: 24.629
+  },
+  {
+    id: 'admin-crm-reports-visits',
+    name: 'Visit Reports',
+    icon: 'Folder',
+    path: '/ciisUser/crm/reports/visits',
+    category: 'crm',
+    order: 24.630
+  },
+  {
+    id: 'admin-crm-reports-follow-ups',
+    name: 'Follow-Up Reports',
+    icon: 'EventNote',
+    path: '/ciisUser/crm/reports/follow-ups',
+    category: 'crm',
+    order: 24.631
+  },
+  {
+    id: 'admin-crm-reports-team-performance',
+    name: 'Team Performance',
+    icon: 'Groups',
+    path: '/ciisUser/crm/reports/team-performance',
+    category: 'crm',
+    order: 24.632
+  },
+  {
+    id: 'admin-crm-reports-conversion-funnel',
+    name: 'Conversion Funnel',
+    icon: 'BarChart',
+    path: '/ciisUser/crm/reports/conversion-funnel',
+    category: 'crm',
+    order: 24.633
+  },
+  {
+    id: 'admin-crm-reports-user-activity',
+    name: 'User Activity',
+    icon: 'History',
+    path: '/ciisUser/crm/reports/user-activity',
+    category: 'crm',
+    order: 24.634
   },
   {
     id: 'support-operations',
@@ -878,6 +1217,7 @@ const getPathFromName = (name) => {
     'Employee Salary': '/ciisUser/salary-assignment',
     'Assign Salary': '/ciisUser/assign-salary',
     'Payroll Process': '/ciisUser/payroll-process',
+    'Release Payroll': '/ciisUser/release-payroll',
     'Payslip': '/ciisUser/payslip',
     'Payroll Reports': '/ciisUser/payroll-reports',
     'Payment': '/client/payments',
@@ -891,7 +1231,52 @@ const getPathFromName = (name) => {
     'Documents': '/client/documents',
     'Services & Tasks': '/client/services-tasks',
     'Create User': '/ciisUser/create-user',
-    'Change Password': '/ciisUser/change-password'
+    'Change Password': '/ciisUser/change-password',
+    'Team Overview': '/ciisUser/crm/admin/team',
+    'Users': '/ciisUser/crm/admin/users',
+    'Add User': '/ciisUser/crm/admin/add-user',
+    'User Type': '/ciisUser/crm/admin/user-type',
+    'User Types': '/ciisUser/crm/admin/user-type',
+    'Lead Overview': '/ciisUser/crm/admin/lead-overview',
+    'All Leads': '/ciisUser/crm/admin/all-leads',
+    'Add Lead': '/ciisUser/crm/admin/add-lead',
+    'Lead Sources': '/ciisUser/crm/admin/lead-sources',
+    'Lead Types': '/ciisUser/crm/admin/lead-types',
+    'Import & Export': '/ciisUser/crm/admin/import-export-leads',
+    'Import & Export Leads': '/ciisUser/crm/admin/import-export-leads',
+    'Call Overview': '/ciisUser/crm/admin/call-overview',
+    'Assigned Calls': '/ciisUser/crm/admin/assigned-calls',
+    "Today's Calls": '/ciisUser/crm/admin/todays-calls',
+    'Pending Calls': '/ciisUser/crm/admin/pending-calls',
+    'Scheduled Calls': '/ciisUser/crm/admin/scheduled-calls',
+    'Completed Calls': '/ciisUser/crm/admin/completed-calls',
+    'Converted Calls': '/ciisUser/crm/admin/converted-calls',
+    'Transferred Calls': '/ciisUser/crm/admin/transferred-calls',
+    'Call History': '/ciisUser/crm/admin/call-history',
+    'Follow-Up Center': '/ciisUser/crm/admin/follow-ups',
+    'Follow Up Center': '/ciisUser/crm/admin/follow-ups',
+    'Assignments': '/ciisUser/crm/admin/assignments',
+    'Assignments Overview': '/ciisUser/crm/admin/assignments',
+    'Bulk Assignment': '/ciisUser/crm/admin/assignment-bulk',
+    'Assignment History': '/ciisUser/crm/admin/assignment-history',
+    'Workload Distribution': '/ciisUser/crm/admin/workload',
+    'Team Workload': '/ciisUser/crm/admin/workload',
+    'Reports Overview': '/ciisUser/crm/reports/overview',
+    'Lead Reports': '/ciisUser/crm/reports/leads',
+    'Call Reports': '/ciisUser/crm/reports/calls',
+    'Visit Reports': '/ciisUser/crm/reports/visits',
+    'Follow-Up Reports': '/ciisUser/crm/reports/follow-ups',
+    'Team Performance': '/ciisUser/crm/reports/team-performance',
+    'Conversion Funnel': '/ciisUser/crm/reports/conversion-funnel',
+    'User Activity': '/ciisUser/crm/reports/user-activity',
+    'Overview': '/ciisUser/crm/marketing/overview',
+    'Marketing Overview': '/ciisUser/crm/marketing/overview',
+    'Follow-Ups': '/ciisUser/crm/marketing/follow-ups',
+    'Marketing Follow-Ups': '/ciisUser/crm/marketing/follow-ups',
+    'Visit Management': '/ciisUser/crm/marketing/visits',
+    'Activity History': '/ciisUser/crm/marketing/activities',
+    'Marketing Activity History': '/ciisUser/crm/marketing/activities',
+    'Converted Leads': '/ciisUser/crm/marketing/converted-leads'
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
@@ -920,8 +1305,17 @@ const getMenuAccessKeys = item => {
   }
 
   if (cleanPath) {
+    keys.add(cleanPath.replace(/^ciisUser\//i, ''));
     keys.add(`/ciisUser/${cleanPath}`);
     keys.add(`ciisUser/${cleanPath}`);
+  }
+
+  // Release Payroll belongs to the Payroll Process company module. This keeps
+  // new child pages available to existing payroll-enabled companies.
+  if (id === 'release-payroll') {
+    keys.add('payroll-process');
+    keys.add('/ciisUser/payroll-process');
+    keys.add('ciisUser/payroll-process');
   }
 
   const clientKey = id.startsWith('client-')
@@ -942,6 +1336,8 @@ const getMenuAccessKeys = item => {
 };
 
 const companyAccessFallbackItems = [
+  ...TELECALLER_PAGES,
+  ...allPagesItems.filter(item => item.category === 'crm'),
   {
     id: 'active-clients',
     name: 'Active Clients',
@@ -949,6 +1345,222 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 22.5
+  },
+  {
+    id: 'admin-crm-dashboard',
+    name: 'Admin CRM',
+    icon: 'Dashboard',
+    path: '/ciisUser/crm/admin/dashboard',
+    category: 'crm',
+    order: 24.6
+  },
+  {
+    id: 'admin-crm-lead-overview',
+    name: 'Lead Overview',
+    icon: 'Dashboard',
+    path: '/ciisUser/crm/admin/lead-overview',
+    category: 'crm',
+    order: 24.6005
+  },
+  {
+    id: 'admin-crm-all-leads',
+    name: 'All Leads',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/admin/all-leads',
+    category: 'crm',
+    order: 24.6008
+  },
+  {
+    id: 'admin-crm-add-lead',
+    name: 'Add Lead',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/add-lead',
+    category: 'crm',
+    order: 24.601
+  },
+  {
+    id: 'admin-crm-lead-sources',
+    name: 'Lead Sources',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/admin/lead-sources',
+    category: 'crm',
+    order: 24.602
+  },
+  {
+    id: 'admin-crm-lead-types',
+    name: 'Lead Types',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/admin/lead-types',
+    category: 'crm',
+    order: 24.603
+  },
+  {
+    id: 'admin-crm-import-export-leads',
+    name: 'Import & Export',
+    icon: 'Folder',
+    path: '/ciisUser/crm/admin/import-export-leads',
+    category: 'crm',
+    order: 24.604
+  },
+  {
+    id: 'admin-crm-assigned-calls',
+    name: 'Assigned Calls',
+    icon: 'AssignedCalls',
+    path: '/ciisUser/crm/admin/assigned-calls',
+    category: 'crm',
+    order: 24.61
+  },
+  {
+    id: 'admin-crm-call-overview',
+    name: 'Call Overview',
+    icon: 'CallOverview',
+    path: '/ciisUser/crm/admin/call-overview',
+    category: 'crm',
+    order: 24.605
+  },
+  {
+    id: 'admin-crm-todays-calls',
+    name: "Today's Calls",
+    icon: 'TodaysCalls',
+    path: '/ciisUser/crm/admin/todays-calls',
+    category: 'crm',
+    order: 24.612
+  },
+  {
+    id: 'admin-crm-pending-calls',
+    name: 'Pending Calls',
+    icon: 'PendingCalls',
+    path: '/ciisUser/crm/admin/pending-calls',
+    category: 'crm',
+    order: 24.613
+  },
+  {
+    id: 'admin-crm-completed-calls',
+    name: 'Completed Calls',
+    icon: 'CompletedCalls',
+    path: '/ciisUser/crm/admin/completed-calls',
+    category: 'crm',
+    order: 24.614
+  },
+  {
+    id: 'admin-crm-converted-calls',
+    name: 'Converted Calls',
+    icon: 'ConvertedCalls',
+    path: '/ciisUser/crm/admin/converted-calls',
+    category: 'crm',
+    order: 24.615
+  },
+  {
+    id: 'admin-crm-transferred-calls',
+    name: 'Transferred Calls',
+    icon: 'TransferredCalls',
+    path: '/ciisUser/crm/admin/transferred-calls',
+    category: 'crm',
+    order: 24.616
+  },
+  {
+    id: 'admin-crm-call-history',
+    name: 'Call History',
+    icon: 'CallHistory',
+    path: '/ciisUser/crm/admin/call-history',
+    category: 'crm',
+    order: 24.617
+  },
+  {
+    id: 'admin-crm-team-overview',
+    name: 'Team Overview',
+    icon: 'Groups',
+    path: '/ciisUser/crm/admin/team',
+    category: 'crm',
+    order: 24.623
+  },
+  {
+    id: 'admin-crm-users',
+    name: 'Users',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/users',
+    category: 'crm',
+    order: 24.624
+  },
+  {
+    id: 'admin-crm-add-user',
+    name: 'Add User',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/add-user',
+    category: 'crm',
+    order: 24.625
+  },
+  {
+    id: 'admin-crm-user-types',
+    name: 'User Types',
+    icon: 'Groups',
+    path: '/ciisUser/crm/admin/user-type',
+    category: 'crm',
+    order: 24.626
+  },
+  {
+    id: 'admin-crm-reports-overview',
+    name: 'Reports Overview',
+    icon: 'BarChart',
+    path: '/ciisUser/crm/reports/overview',
+    category: 'crm',
+    order: 24.627
+  },
+  {
+    id: 'admin-crm-reports-leads',
+    name: 'Lead Reports',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/reports/leads',
+    category: 'crm',
+    order: 24.628
+  },
+  {
+    id: 'admin-crm-reports-calls',
+    name: 'Call Reports',
+    icon: 'Call',
+    path: '/ciisUser/crm/reports/calls',
+    category: 'crm',
+    order: 24.629
+  },
+  {
+    id: 'admin-crm-reports-visits',
+    name: 'Visit Reports',
+    icon: 'Folder',
+    path: '/ciisUser/crm/reports/visits',
+    category: 'crm',
+    order: 24.630
+  },
+  {
+    id: 'admin-crm-reports-follow-ups',
+    name: 'Follow-Up Reports',
+    icon: 'EventNote',
+    path: '/ciisUser/crm/reports/follow-ups',
+    category: 'crm',
+    order: 24.631
+  },
+  {
+    id: 'admin-crm-reports-team-performance',
+    name: 'Team Performance',
+    icon: 'Groups',
+    path: '/ciisUser/crm/reports/team-performance',
+    category: 'crm',
+    order: 24.632
+  },
+  {
+    id: 'admin-crm-reports-conversion-funnel',
+    name: 'Conversion Funnel',
+    icon: 'BarChart',
+    path: '/ciisUser/crm/reports/conversion-funnel',
+    category: 'crm',
+    order: 24.633
+  },
+  {
+    id: 'admin-crm-reports-user-activity',
+    name: 'User Activity',
+    icon: 'History',
+    path: '/ciisUser/crm/reports/user-activity',
+    category: 'crm',
+    order: 24.634
   },
   {
     id: 'salary-component',
@@ -991,6 +1603,222 @@ const companyAccessFallbackItems = [
     order: 24.3
   },
   {
+    id: 'release-payroll',
+    name: 'Release Payroll',
+    icon: 'Work',
+    path: '/ciisUser/release-payroll',
+    category: 'payroll',
+    order: 24.35
+  },
+  {
+    id: 'payslip',
+    name: 'Payslip',
+    icon: 'Work',
+    path: '/ciisUser/payslip',
+    category: 'payroll',
+    order: 24.4
+  },
+  {
+    id: 'payroll-reports',
+    name: 'Payroll Reports',
+    icon: 'Work',
+    path: '/ciisUser/payroll-reports',
+    category: 'payroll',
+    order: 24.5
+  },
+  {
+    id: 'admin-crm-todays-calls',
+    name: "Today's Calls",
+    icon: 'TodaysCalls',
+    path: '/ciisUser/crm/admin/todays-calls',
+    category: 'crm',
+    order: 24.612
+  },
+  {
+    id: 'admin-crm-pending-calls',
+    name: 'Pending Calls',
+    icon: 'PendingCalls',
+    path: '/ciisUser/crm/admin/pending-calls',
+    category: 'crm',
+    order: 24.613
+  },
+  {
+    id: 'admin-crm-completed-calls',
+    name: 'Completed Calls',
+    icon: 'CompletedCalls',
+    path: '/ciisUser/crm/admin/completed-calls',
+    category: 'crm',
+    order: 24.614
+  },
+  {
+    id: 'admin-crm-converted-calls',
+    name: 'Converted Calls',
+    icon: 'ConvertedCalls',
+    path: '/ciisUser/crm/admin/converted-calls',
+    category: 'crm',
+    order: 24.615
+  },
+  {
+    id: 'admin-crm-transferred-calls',
+    name: 'Transferred Calls',
+    icon: 'TransferredCalls',
+    path: '/ciisUser/crm/admin/transferred-calls',
+    category: 'crm',
+    order: 24.616
+  },
+  {
+    id: 'admin-crm-call-history',
+    name: 'Call History',
+    icon: 'CallHistory',
+    path: '/ciisUser/crm/admin/call-history',
+    category: 'crm',
+    order: 24.617
+  },
+  {
+    id: 'admin-crm-team-overview',
+    name: 'Team Overview',
+    icon: 'Groups',
+    path: '/ciisUser/crm/admin/team',
+    category: 'crm',
+    order: 24.623
+  },
+  {
+    id: 'admin-crm-users',
+    name: 'Users',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/users',
+    category: 'crm',
+    order: 24.624
+  },
+  {
+    id: 'admin-crm-add-user',
+    name: 'Add User',
+    icon: 'Person',
+    path: '/ciisUser/crm/admin/add-user',
+    category: 'crm',
+    order: 24.625
+  },
+  {
+    id: 'admin-crm-user-types',
+    name: 'User Types',
+    icon: 'Groups',
+    path: '/ciisUser/crm/admin/user-type',
+    category: 'crm',
+    order: 24.626
+  },
+  {
+    id: 'admin-crm-reports-overview',
+    name: 'Reports Overview',
+    icon: 'BarChart',
+    path: '/ciisUser/crm/reports/overview',
+    category: 'crm',
+    order: 24.627
+  },
+  {
+    id: 'admin-crm-reports-leads',
+    name: 'Lead Reports',
+    icon: 'ListAlt',
+    path: '/ciisUser/crm/reports/leads',
+    category: 'crm',
+    order: 24.628
+  },
+  {
+    id: 'admin-crm-reports-calls',
+    name: 'Call Reports',
+    icon: 'Call',
+    path: '/ciisUser/crm/reports/calls',
+    category: 'crm',
+    order: 24.629
+  },
+  {
+    id: 'admin-crm-reports-visits',
+    name: 'Visit Reports',
+    icon: 'Folder',
+    path: '/ciisUser/crm/reports/visits',
+    category: 'crm',
+    order: 24.630
+  },
+  {
+    id: 'admin-crm-reports-follow-ups',
+    name: 'Follow-Up Reports',
+    icon: 'EventNote',
+    path: '/ciisUser/crm/reports/follow-ups',
+    category: 'crm',
+    order: 24.631
+  },
+  {
+    id: 'admin-crm-reports-team-performance',
+    name: 'Team Performance',
+    icon: 'Groups',
+    path: '/ciisUser/crm/reports/team-performance',
+    category: 'crm',
+    order: 24.632
+  },
+  {
+    id: 'admin-crm-reports-conversion-funnel',
+    name: 'Conversion Funnel',
+    icon: 'BarChart',
+    path: '/ciisUser/crm/reports/conversion-funnel',
+    category: 'crm',
+    order: 24.633
+  },
+  {
+    id: 'admin-crm-reports-user-activity',
+    name: 'User Activity',
+    icon: 'History',
+    path: '/ciisUser/crm/reports/user-activity',
+    category: 'crm',
+    order: 24.634
+  },
+  {
+    id: 'salary-component',
+    name: 'Salary Component',
+    icon: 'Work',
+    path: '/ciisUser/salary-component',
+    category: 'payroll',
+    order: 24.0
+  },
+  {
+    id: 'salary-structure',
+    name: 'Salary Structure',
+    icon: 'Work',
+    path: '/ciisUser/salary-structure',
+    category: 'payroll',
+    order: 24.1
+  },
+  {
+    id: 'salary-assignment',
+    name: 'Employee Salary',
+    icon: 'Work',
+    path: '/ciisUser/salary-assignment',
+    category: 'payroll',
+    order: 24.2
+  },
+  {
+    id: 'assign-salary',
+    name: 'Assign Salary',
+    icon: 'Work',
+    path: '/ciisUser/assign-salary',
+    category: 'payroll',
+    order: 24.25
+  },
+  {
+    id: 'payroll-process',
+    name: 'Payroll Process',
+    icon: 'Work',
+    path: '/ciisUser/payroll-process',
+    category: 'payroll',
+    order: 24.3
+  },
+  {
+    id: 'release-payroll',
+    name: 'Release Payroll',
+    icon: 'Work',
+    path: '/ciisUser/release-payroll',
+    category: 'payroll',
+    order: 24.35
+  },
+  {
     id: 'payslip',
     name: 'Payslip',
     icon: 'Work',
@@ -1010,31 +1838,62 @@ const companyAccessFallbackItems = [
 
 const filterItemsByCompanyAccess = (items, companyData) => {
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
-  if (allowedPages.length === 0) return items;
+  if (allowedPages.length === 0) return items.filter(item => item.category !== 'admin-telecaller');
 
   const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
-  return items.filter(item =>
-    [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)))
-  );
+  const hasCrmAccess = allowedSet.has('crm') || allowedSet.has('admin-crm');
+
+  return items.filter(item => {
+    if (String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/')) {
+      return hasCrmAccess || [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)));
+    }
+    return [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)));
+  });
 };
 
-const addCompanyAccessFallbackItems = (items, companyData) => {
+const addCompanyAccessFallbackItems = (items, companyData, isPageAccessAdmin = false) => {
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
-  if (allowedPages.length === 0) return items;
 
   const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
-  const existingKeys = new Set(items.flatMap(item => (
-    [...getMenuAccessKeys(item)].map(key => normalizeKey(key))
-  )).filter(Boolean));
+  // Duplicate detection must use the item's own identity only. Access aliases
+  // (for example Release Payroll inheriting Payroll Process company access)
+  // are eligibility keys, not proof that the child menu item already exists.
+  const existingKeys = new Set(items.flatMap(item => [
+    item?.id,
+    item?.path
+  ].map(key => normalizeKey(key))).filter(Boolean));
 
-  const fallbackItems = companyAccessFallbackItems.filter(item => (
-    [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key))) &&
-    ![...getMenuAccessKeys(item)].some(key => existingKeys.has(normalizeKey(key)))
-  ));
+  const fallbackItems = companyAccessFallbackItems.filter(item => {
+    const identityKeys = [item?.id, item?.path].map(normalizeKey).filter(Boolean);
+    const eligible = item.category === 'crm'
+      || allowedPages.length === 0
+      || isPageAccessAdmin
+      || [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)));
+    if (!eligible || identityKeys.some(key => existingKeys.has(key))) return false;
+    identityKeys.forEach(key => existingKeys.add(key));
+    return true;
+  });
 
   return fallbackItems.length ? [...items, ...fallbackItems] : items;
+};
+
+const placeReleasePayrollAfterProcess = items => {
+  const ordered = [...items];
+  const releaseIndex = ordered.findIndex(item => (
+    String(item?.id || '').toLowerCase() === 'release-payroll' ||
+    String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/release-payroll'
+  ));
+  if (releaseIndex < 0) return ordered;
+
+  const [releaseItem] = ordered.splice(releaseIndex, 1);
+  const processIndex = ordered.findIndex(item => (
+    String(item?.id || '').toLowerCase() === 'payroll-process' ||
+    String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/payroll-process'
+  ));
+  ordered.splice(processIndex >= 0 ? processIndex + 1 : ordered.length, 0, releaseItem);
+  return ordered;
 };
 
 const Sidebar = ({ isMobile = false, closeSidebar }) => {
@@ -1064,6 +1923,16 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const [clientCompanies, setClientCompanies] = useState([]);
   const [selectedClientCompanyId, setSelectedClientCompanyId] = useState("");
   const [clientCompanyDropdownOpen, setClientCompanyDropdownOpen] = useState(true);
+  const [telecallerWorkspaceOpen, setTelecallerWorkspaceOpen] = useState(true);
+  useEffect(() => {
+    if (/\/telecaller\/(call-dashboard|assigned-calls|todays-calls|pending-calls|scheduled-calls|completed-calls|call-history|call-workspace|lead-detail)(\/|$)/i.test(location.pathname)) {
+      setTelecallerWorkspaceOpen(true);
+    }
+  }, [location.pathname]);
+  const [openAdminCrmGroups, setOpenAdminCrmGroups] = useState(() => new Set(
+    location.pathname.includes('/crm/marketing') ? ['marketing-admin'] :
+    location.pathname.includes('/crm/admin/add-lead') ? ['lead-management'] : ['call-management']
+  ));
   const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
   const [seenBadgeCounts, setSeenBadgeCounts] = useState({});
   const sidebarRef = useRef(null);
@@ -1471,30 +2340,34 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
 
     let cancelled = false;
-    axiosInstance.get('/page-permissions/pages', { _skipErrorNotify: true, noCache: true })
-      .then(async response => {
-        const pages = Array.isArray(response.data?.pages) ? response.data.pages : [];
-        const payrollPages = pages.filter(page => STRICT_PAYROLL_PATHS.has(
-          String(page?.path || '').toLowerCase().replace(/\/+$/, '')
-        ));
-        const detailedPayrollPages = await Promise.all(payrollPages.map(async page => {
-          try {
-            const detailResponse = await axiosInstance.get('/page-permissions/by-path', {
-              params: { path: page.path },
-              _skipErrorNotify: true,
-              noCache: true
-            });
-            return detailResponse.data?.page || page;
-          } catch {
-            return page;
+    loadPagePermissionCatalog()
+      .then(async catalog => {
+        const pages = Array.isArray(catalog?.pages) ? catalog.pages : [];
+        // Older servers can omit CRM entries from their page catalog even
+        // though by-path permissions already exist for those pages.
+        const pagesByPath = new Map(pages.map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page]));
+        [...CRM_PAGES.map(page => ({ ...page, path: `/ciisUser/${page.path}` })), ...TELECALLER_PAGES].forEach(page => {
+          const key = page.path.toLowerCase();
+          if (!pagesByPath.has(key)) pagesByPath.set(key, { ...page, pageKey: page.id });
+        });
+        const completePages = [...pagesByPath.values()];
+        const strictPages = completePages.filter(page => requiresPageAccess(page?.path));
+        const detailedPages = [...(catalog.accessPages || [])];
+        // Older servers do not support the batch. Bound their request concurrency.
+        if (!Array.isArray(catalog.accessPages)) {
+          for (let offset = 0; offset < strictPages.length && !cancelled; offset += 4) {
+            detailedPages.push(...await Promise.all(strictPages.slice(offset, offset + 4).map(async page => {
+              try { return await loadPagePermission(page.path); }
+              catch { return page; }
+            })));
           }
-        }));
-        const payrollDetailsByPath = new Map(detailedPayrollPages.map(page => [
+        }
+        const detailsByPath = new Map(detailedPages.map(page => [
           String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
           page
         ]));
-        const permissionPages = pages.map(page => (
-          payrollDetailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
+        const permissionPages = completePages.map(page => (
+          detailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
         ));
 
         if (!cancelled) setPagePermissions(permissionPages);
@@ -1713,18 +2586,22 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
     );
     const filterItemsByPageAccess = items => {
+      items = items.filter(item => {
+        if (item.category !== 'admin-telecaller') return true;
+        if (!hasTelecallerCompanyAccess(item, companyData)) return false;
+        const permission = allPermissionPages.get(String(item.path).toLowerCase());
+        return Boolean(permission && hasPageAccess(permission, userId, 'view'));
+      });
       if (!pagePermissions) {
-        return items.filter(item => !STRICT_PAYROLL_PATHS.has(
-          String(item?.path || '').toLowerCase().replace(/\/+$/, '')
-        ));
+        return items.filter(item => !isCrmPage(item?.path) && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
-        if (STRICT_PAYROLL_PATHS.has(itemPath)) {
-          const payrollPage = allPermissionPages.get(itemPath);
-          return Boolean(payrollPage && hasPageAccess(payrollPage, userId, 'view'));
-        }
+        if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
         if (isPageAccessAdmin) return true;
+        if (requiresPageAccess(itemPath)) {
+          return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+        }
         const page = configuredPages.get(itemPath);
         if (!page) return true;
         return getPermissionUserIds(page).includes(userId);
@@ -1745,7 +2622,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     
     if (isSuperAdminWithManagement) {
       void 0;
-      return filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData)));
+      return placeReleasePayrollAfterProcess(filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData))));
     }
 
     let items = [];
@@ -1755,13 +2632,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       
       items = sidebarConfig.menuItems
         .map((item, index) => {
+          const crmPage = allPagesItems.find(page => ['crm', 'admin-telecaller'].includes(page.category) && (
+            page.id === item.id ||
+            page.path.toLowerCase() === String(item.path || '').toLowerCase().replace(/\/+$/, '')
+          ));
           const processedItem = {
-            id: item.id || item._id || Math.random().toString(36).substr(2, 9),
+            id: crmPage?.id || item.id || item._id || Math.random().toString(36).substr(2, 9),
             name: getMenuDisplayName(item.name || 'Unnamed Item'),
-            icon: item.icon || 'Dashboard',
-            category: item.category || 'main',
+            icon: crmPage?.icon || item.icon || 'Dashboard',
+            category: crmPage?.category || item.category || 'main',
             order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
-            path: item.path || getPathFromName(item.name),
+            path: crmPage?.path || item.path || getPathFromName(item.name),
             disabled: item.disabled || false,
             visible: item.visible !== false
           };
@@ -1784,13 +2665,35 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
     }
 
-    const hasRoleConfig = sidebarConfig && Array.isArray(sidebarConfig.menuItems);
-    let accessFilteredItems = hasRoleConfig
-      ? filterItemsByCompanyAccess(items, companyData)
-      : filterItemsByCompanyAccess(
-          addCompanyAccessFallbackItems(items, companyData),
-          companyData
-        );
+    // Plan-enabled strict pages (Payroll/CRM) must remain discoverable even
+    // when the user's role has an older saved sidebar configuration. The
+    // page-access filter below still removes every page not assigned to them.
+    let accessFilteredItems = filterItemsByCompanyAccess(
+      addCompanyAccessFallbackItems(items, companyData, isPageAccessAdmin),
+      companyData
+    );
+
+    // Strict payroll permissions are the source of truth. Older role sidebar
+    // configs may not contain newly introduced pages, so inject an assigned
+    // Release Payroll item before the final access filter and ordering pass.
+    const releasePermission = allPermissionPages.get('/ciisuser/release-payroll');
+    const canViewReleasePayroll = Boolean(
+      releasePermission && hasPageAccess(releasePermission, userId, 'view')
+    );
+    const hasReleasePayrollItem = accessFilteredItems.some(item => (
+      String(item?.id || '').toLowerCase() === 'release-payroll' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/release-payroll'
+    ));
+    if (canViewReleasePayroll && !hasReleasePayrollItem) {
+      accessFilteredItems = [...accessFilteredItems, {
+        id: 'release-payroll',
+        name: 'Release Payroll',
+        icon: 'Work',
+        path: '/ciisUser/release-payroll',
+        category: 'payroll',
+        order: 24.35
+      }];
+    }
 
     // Keep the register approval page available to the same privileged roles
     // that are allowed by the backend controller, including companies with a
@@ -1865,7 +2768,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
     void 0;
 
-    return filterItemsByPageAccess(removeHiddenSidebarItems(sortedItems));
+    return placeReleasePayrollAfterProcess(filterItemsByPageAccess(removeHiddenSidebarItems(sortedItems)));
   }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData, pagePermissions, userId]);
 
   const userSubtitle = useMemo(() => {
@@ -2041,6 +2944,151 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
   };
 
+  const renderTelecallerMenu = (items) => {
+    const callSlugs = ['call-dashboard', 'assigned-calls', 'todays-calls', 'pending-calls', 'scheduled-calls', 'completed-calls', 'call-history', 'call-workspace', 'lead-detail'];
+    const getSlug = item => String(item.path || '').replace(/\/+$/, '').split('/').pop();
+    const children = callSlugs.map(slug => items.find(item => getSlug(item) === slug)).filter(Boolean);
+    const dashboard = items.find(item => getSlug(item) === 'dashboard');
+    const remaining = items.filter(item => getSlug(item) !== 'dashboard' && !callSlugs.includes(getSlug(item)));
+    const selected = children.some(item => location.pathname === item.path)
+      || /\/telecaller\/(call-workspace|lead-detail)(\/|$)/i.test(location.pathname);
+    const submenuId = `telecaller-call-menu-${isMobile ? 'mobile' : 'desktop'}`;
+
+    return (
+      <List sx={{ py: 0 }}>
+        {dashboard && <StyledListItem disablePadding>{renderMenuItem(dashboard, isSidebarOpen)}</StyledListItem>}
+        {children.length > 0 && (
+          <>
+            <StyledListItem disablePadding>
+              <Tooltip title={isSidebarOpen ? '' : 'Call Workspace'} placement="right">
+                <StyledListItemButton
+                  component="button"
+                  type="button"
+                  selected={selected}
+                  aria-label="Call Workspace"
+                  aria-expanded={isSidebarOpen && telecallerWorkspaceOpen}
+                  aria-controls={submenuId}
+                  onClick={() => setTelecallerWorkspaceOpen(open => !open)}
+                  sx={{ minHeight: 48, width: '100%', mx: isSidebarOpen ? 0.5 : 0, px: isSidebarOpen ? 1 : 0, justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+                >
+                  <StyledListItemIcon sx={{ mr: isSidebarOpen ? 1 : 0 }}><SupportAgentIcon /></StyledListItemIcon>
+                  {isSidebarOpen && (
+                    <>
+                      <ListItemText primary="Call Workspace" primaryTypographyProps={{ fontSize: '0.72rem', fontWeight: selected ? 600 : 500 }} />
+                      {telecallerWorkspaceOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
+                    </>
+                  )}
+                </StyledListItemButton>
+              </Tooltip>
+            </StyledListItem>
+            <Collapse id={submenuId} in={isSidebarOpen && telecallerWorkspaceOpen} timeout="auto">
+              <List disablePadding sx={{ ml: 1.5, pl: 1, borderLeft: '1px solid', borderColor: 'divider' }}>
+                {children.map(item => (
+                  <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, true)}</StyledListItem>
+                ))}
+              </List>
+            </Collapse>
+          </>
+        )}
+        {remaining.map(item => (
+          <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, isSidebarOpen)}</StyledListItem>
+        ))}
+      </List>
+    );
+  };
+
+  const renderAdminCrmMenu = (items) => {
+    const dashboardItem = items.find(item => item.id === 'admin-crm-dashboard');
+    const groupedIds = new Set(ADMIN_CRM_MENU_GROUPS.flatMap(group => group.itemIds));
+    const remainingItems = items.filter(item => item.id !== 'admin-crm-dashboard' && !groupedIds.has(item.id));
+
+    const toggleGroup = (groupId) => {
+      setOpenAdminCrmGroups(current => {
+        const next = new Set(current);
+        if (next.has(groupId)) next.delete(groupId);
+        else next.add(groupId);
+        return next;
+      });
+    };
+
+    return (
+      <List sx={{ py: 0 }}>
+        {dashboardItem && (
+          <StyledListItem disablePadding>
+            {renderMenuItem({ ...dashboardItem, name: 'Dashboard' }, isSidebarOpen)}
+          </StyledListItem>
+        )}
+
+        {ADMIN_CRM_MENU_GROUPS.map(group => {
+          const children = group.itemIds.map(id => items.find(item => item.id === id)).filter(Boolean);
+          if (!children.length) return null;
+          if (group.direct) return (
+            <StyledListItem key={group.id} disablePadding>
+              {renderMenuItem(children[0], isSidebarOpen)}
+            </StyledListItem>
+          );
+          const isOpen = openAdminCrmGroups.has(group.id);
+          const hasSelectedChild = children.some(item => location.pathname === item.path);
+          const groupButton = (
+            <StyledListItemButton
+              selected={hasSelectedChild}
+              onClick={() => toggleGroup(group.id)}
+              sx={{
+                minHeight: 48,
+                mx: isSidebarOpen ? 0.5 : 0,
+                px: isSidebarOpen ? 1 : 0,
+                justifyContent: isSidebarOpen ? 'flex-start' : 'center'
+              }}
+            >
+              <StyledListItemIcon sx={{ mr: isSidebarOpen ? 1 : 0 }}>
+                {getIconComponent(group.icon)}
+              </StyledListItemIcon>
+              {isSidebarOpen && (
+                <>
+                  <ListItemText
+                    primary={group.name}
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      fontWeight: hasSelectedChild ? 600 : 500,
+                      fontSize: '0.72rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                  />
+                  {isOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
+                </>
+              )}
+            </StyledListItemButton>
+          );
+
+          return (
+            <React.Fragment key={group.id}>
+              <StyledListItem disablePadding>
+                {isSidebarOpen ? groupButton : (
+                  <Tooltip title={group.name} placement="right">{groupButton}</Tooltip>
+                )}
+              </StyledListItem>
+              <Collapse in={isSidebarOpen && isOpen} timeout="auto" unmountOnExit>
+                <List disablePadding sx={{ pl: 2.25 }}>
+                  {children.map(item => (
+                    <StyledListItem key={item.id} disablePadding>
+                      {renderMenuItem(item, true)}
+                    </StyledListItem>
+                  ))}
+                </List>
+              </Collapse>
+            </React.Fragment>
+          );
+        })}
+
+        {remainingItems.map(item => (
+          <StyledListItem key={item.id} disablePadding>
+            {renderMenuItem(item, isSidebarOpen)}
+          </StyledListItem>
+        ))}
+      </List>
+    );
+  };
+
   
   const getWebsiteCategory = (item) => {
     const id = String(item?.id || '').toLowerCase();
@@ -2080,12 +3128,14 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const groupedItems = useMemo(() => {
     const groups = {};
     const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients'];
+    // Keep CRM sections below ordinary and custom sidebar sections.
+    const crmSectionOrder = category => category === 'crm' ? 1 : category === 'admin-telecaller' ? 2 : 0;
     const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
     const hasCustomRanges = customRanges.length > 0;
     
     menuItems.forEach(item => {
-      let category = '';
-      if (hasCustomRanges && Number.isFinite(Number(item.order))) {
+      let category = String(item.path || '').toLowerCase().startsWith('/ciisuser/telecaller/') ? 'admin-telecaller' : String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/') ? 'crm' : '';
+      if (!category && hasCustomRanges && Number.isFinite(Number(item.order))) {
         const orderVal = Number(item.order);
         const matchedRange = customRanges.find(r => orderVal >= r.min && orderVal <= r.max);
         if (matchedRange) {
@@ -2117,12 +3167,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
         return (a.order ?? 99) - (b.order ?? 99);
       });
+
+      const payrollOrderedItems = placeReleasePayrollAfterProcess(items);
+      items.splice(0, items.length, ...payrollOrderedItems);
     });
     
     if (hasCustomRanges) {
       const rangeHeadingMap = new Map(customRanges.map(r => [r.heading, r.min]));
       return Object.fromEntries(
         Object.entries(groups).sort(([categoryA], [categoryB]) => {
+          const sectionDifference = crmSectionOrder(categoryA) - crmSectionOrder(categoryB);
+          if (sectionDifference) return sectionDifference;
           const minA = rangeHeadingMap.has(categoryA) ? rangeHeadingMap.get(categoryA) : 9999;
           const minB = rangeHeadingMap.has(categoryB) ? rangeHeadingMap.get(categoryB) : 9999;
           return minA - minB;
@@ -2132,6 +3187,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
     return Object.fromEntries(
       Object.entries(groups).sort(([categoryA], [categoryB]) => {
+        const sectionDifference = crmSectionOrder(categoryA) - crmSectionOrder(categoryB);
+        if (sectionDifference) return sectionDifference;
         const indexA = categoryOrder.indexOf(categoryA);
         const indexB = categoryOrder.indexOf(categoryB);
         const orderA = indexA === -1 ? 99 : indexA;
@@ -2375,6 +3432,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       'projects': 'Projects',
       'meetings': 'Meetings',
       'clients': 'Clients'
+      ,'crm': 'Admin CRM'
+      ,'admin-telecaller': 'Admin Telecaller'
     };
     
     const label = categoryLabels[category] || category;
@@ -2614,13 +3673,15 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
             {renderCategoryHeading(category)}
             
             
-            <List sx={{ py: 0 }}>
-              {groupedItems[category].map((item) => (
-                <StyledListItem key={item.id} disablePadding>
-                  {renderMenuItem(item, isSidebarOpen)}
-                </StyledListItem>
-              ))}
-            </List>
+            {category === 'crm' ? renderAdminCrmMenu(groupedItems[category]) : category === 'admin-telecaller' ? renderTelecallerMenu(groupedItems[category]) : (
+              <List sx={{ py: 0 }}>
+                {groupedItems[category].map((item) => (
+                  <StyledListItem key={item.id} disablePadding>
+                    {renderMenuItem(item, isSidebarOpen)}
+                  </StyledListItem>
+                ))}
+              </List>
+            )}
           </Box>
         ))}
       </Box>

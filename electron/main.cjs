@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Notification, ipcMain, net, protocol, session, Tray, Menu } = require('electron');
+const { app, BrowserWindow, Notification, ipcMain, net, protocol, session, Tray, Menu, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -6,6 +6,7 @@ const { pathToFileURL } = require('node:url');
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const appScheme = 'app';
+const appHost = 'ciis';
 const backendRequestFilter = {
   urls: [
     'https://backendcds.ciisnetwork.in/*',
@@ -25,9 +26,9 @@ if (!hasSingleInstanceLock) {
   app.quit();
 }
 
-if (remoteDebugPort) {
+// Never expose Chromium remote debugging from a packaged production build.
+if (isDev && remoteDebugPort) {
   app.commandLine.appendSwitch('remote-debugging-port', remoteDebugPort);
-  app.commandLine.appendSwitch('remote-allow-origins', '*');
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -42,18 +43,37 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-function resolveDistPath(requestUrl) {
-  const distRoot = path.join(__dirname, '..', 'dist');
-  const url = new URL(requestUrl);
-  const requestedPath = decodeURIComponent(url.pathname);
-  const relativePath = requestedPath === '/' ? 'index.html' : requestedPath.slice(1);
-  const filePath = path.normalize(path.join(distRoot, relativePath));
+function getIndexPath(distRoot) {
+  return path.join(distRoot, 'index.html');
+}
 
-  if (!filePath.startsWith(distRoot)) {
-    return path.join(distRoot, 'index.html');
+function resolveDistPath(requestUrl) {
+  const distRoot = path.resolve(__dirname, '..', 'dist');
+  const indexPath = getIndexPath(distRoot);
+
+  let requestedPath;
+  try {
+    const url = new URL(requestUrl);
+    requestedPath = decodeURIComponent(url.pathname || '/');
+  } catch {
+    return indexPath;
   }
 
-  return fs.existsSync(filePath) ? filePath : path.join(distRoot, 'index.html');
+  const relativePath = requestedPath === '/'
+    ? 'index.html'
+    : requestedPath.replace(/^\/+/, '');
+  const filePath = path.resolve(distRoot, relativePath);
+  const relativeToDist = path.relative(distRoot, filePath);
+
+  if (relativeToDist.startsWith('..') || path.isAbsolute(relativeToDist)) {
+    return indexPath;
+  }
+
+  try {
+    return fs.statSync(filePath).isFile() ? filePath : indexPath;
+  } catch {
+    return indexPath;
+  }
 }
 
 function registerAppProtocol() {
@@ -63,22 +83,48 @@ function registerAppProtocol() {
   });
 }
 
-function isAllowedAppOrigin(origin) {
-  if (!origin) return false;
+function isTrustedAppUrl(value) {
+  if (!value) return false;
 
-  let parsedOrigin;
+  let parsed;
   try {
-    parsedOrigin = new URL(origin).origin;
+    parsed = new URL(value);
   } catch {
     return false;
   }
 
-  const allowedOrigins = [
-    devServerUrl,
-    `${appScheme}://ciis`,
-  ].filter(Boolean).map((value) => new URL(value).origin);
+  // Do not compare custom schemes through URL.origin: non-standard schemes can
+  // serialize to the same opaque "null" origin. Match protocol + host exactly.
+  if (parsed.protocol === `${appScheme}:`) {
+    return parsed.hostname === appHost;
+  }
 
-  return allowedOrigins.includes(parsedOrigin);
+  if (isDev && devServerUrl) {
+    try {
+      return parsed.origin === new URL(devServerUrl).origin;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function isSafeExternalUrl(value) {
+  if (!value) return false;
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'mailto:') return true;
+    return isDev && parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function openExternalUrl(url) {
+  if (!isSafeExternalUrl(url)) return;
+  void shell.openExternal(url);
 }
 
 function configureDesktopPermissions() {
@@ -92,12 +138,12 @@ function configureDesktopPermissions() {
   ]);
 
   session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => (
-    allowedPermissions.has(permission) && isAllowedAppOrigin(requestingOrigin)
+    allowedPermissions.has(permission) && isTrustedAppUrl(requestingOrigin)
   ));
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details = {}) => {
     const requestingOrigin = details.requestingOrigin || webContents.getURL();
-    callback(allowedPermissions.has(permission) && isAllowedAppOrigin(requestingOrigin));
+    callback(allowedPermissions.has(permission) && isTrustedAppUrl(requestingOrigin));
   });
 }
 
@@ -180,7 +226,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: isDev,
+      webSecurity: true,
     },
   });
 
@@ -206,27 +252,27 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    mainWindow.loadURL(url);
+    if (isTrustedAppUrl(url)) {
+      mainWindow.loadURL(url);
+    } else {
+      openExternalUrl(url);
+    }
+
     return { action: 'deny' };
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowedOrigins = [
-      devServerUrl,
-      `${appScheme}://ciis`,
-    ].filter(Boolean).map((value) => new URL(value).origin);
+    if (isTrustedAppUrl(url)) return;
 
-    if (!allowedOrigins.includes(new URL(url).origin)) {
-      event.preventDefault();
-      mainWindow.loadURL(url);
-    }
+    event.preventDefault();
+    openExternalUrl(url);
   });
 
   if (isDev && devServerUrl) {
     mainWindow.loadURL(devServerUrl);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadURL(`${appScheme}://ciis/`);
+    mainWindow.loadURL(`${appScheme}://${appHost}/`);
   }
 }
 

@@ -2334,14 +2334,14 @@ textarea.EmppAttendence-form-input {
 }
 .EmppAttendence-view-month-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; padding:7px 10px; border:1px solid #c7d2fe; border-radius:8px; color:#4338ca; background:#eef2ff; font-size:11px; font-weight:750; white-space:nowrap; cursor:pointer; transition:.18s ease; }
 .EmppAttendence-view-month-btn:hover { border-color:#818cf8; background:#e0e7ff; transform:translateY(-1px); }
-.EmppAttendence-monthly-overlay { position:fixed; inset:0; z-index:10020; display:grid; place-items:center; padding:22px; background:rgba(15,23,42,.58); backdrop-filter:blur(4px); }
+.EmppAttendence-monthly-overlay { position:fixed; inset:0; z-index:10020; display:grid; place-items:center; padding:22px; background:rgba(15,23,42,.58); backdrop-filter:blur(4px); overscroll-behavior:contain; }
 .EmppAttendence-monthly-modal { width:min(940px,96vw); max-height:92vh; overflow:hidden; border-radius:18px; background:#f8fafc; box-shadow:0 26px 70px rgba(15,23,42,.28); }
 .EmppAttendence-monthly-header { display:flex; align-items:center; gap:13px; padding:18px 22px; border-bottom:1px solid #e5e7eb; background:#fff; }
 .EmppAttendence-monthly-header h2 { margin:0; color:#172036; font-size:21px; }
 .EmppAttendence-monthly-header p { margin:3px 0 0; color:#718096; font-size:13px; }
 .EmppAttendence-monthly-header>button { margin-left:auto; border:0; background:transparent; color:#94a3b8; font-size:23px; cursor:pointer; }
 .EmppAttendence-monthly-title-icon { width:44px; height:44px; display:grid; place-items:center; border-radius:12px; color:#fff; font-size:21px; background:linear-gradient(135deg,#6366f1,#7c3aed); box-shadow:0 8px 18px rgba(99,102,241,.25); }
-.EmppAttendence-monthly-body { padding:16px; overflow:auto; max-height:calc(92vh - 81px); }
+.EmppAttendence-monthly-body { padding:16px; overflow:auto; max-height:calc(92vh - 81px); overscroll-behavior:contain; }
 .EmppAttendence-monthly-employee { display:flex; align-items:center; gap:12px; padding:13px 15px; border:1px solid #e2e8f0; border-radius:13px; background:#fff; }
 .EmppAttendence-monthly-employee>span { width:42px; height:42px; display:grid; place-items:center; border-radius:50%; background:#5b6ee1; color:#fff; font-weight:800; }
 .EmppAttendence-monthly-employee div { display:flex; flex-direction:column; gap:2px; }
@@ -2366,11 +2366,11 @@ textarea.EmppAttendence-form-input {
 @media(max-width:760px){.EmppAttendence-monthly-stats{grid-template-columns:repeat(2,1fr)}.EmppAttendence-monthly-day,.EmppAttendence-monthly-calendar .empty{min-height:52px;padding:4px}.EmppAttendence-monthly-meta{display:none!important}.EmppAttendence-monthly-overlay{padding:8px}}
 
 /* Compact monthly overview */
-.EmppAttendence-monthly-overlay{padding:16px;background:rgba(15,23,42,.52);backdrop-filter:blur(3px)}
+.EmppAttendence-monthly-overlay{padding:16px;background:rgba(15,23,42,.52);backdrop-filter:blur(3px);overscroll-behavior:contain}
 .EmppAttendence-monthly-modal{width:min(780px,94vw);max-height:88vh;border:1px solid rgba(255,255,255,.7);border-radius:15px;box-shadow:0 24px 60px rgba(15,23,42,.25)}
 .EmppAttendence-monthly-header{gap:10px;padding:13px 16px}.EmppAttendence-monthly-header h2{font-size:18px}.EmppAttendence-monthly-header p{margin-top:2px;font-size:11px}
 .EmppAttendence-monthly-title-icon{width:37px;height:37px;border-radius:10px;font-size:17px}
-.EmppAttendence-monthly-body{padding:11px;max-height:calc(88vh - 64px)}
+.EmppAttendence-monthly-body{padding:11px;max-height:calc(88vh - 64px);overscroll-behavior:contain}
 .EmppAttendence-monthly-employee{gap:9px;padding:8px 10px;border-radius:9px}.EmppAttendence-monthly-employee>span{width:34px;height:34px;font-size:13px}.EmppAttendence-monthly-employee strong{font-size:12px}.EmppAttendence-monthly-employee small{font-size:10px}.EmppAttendence-monthly-meta{padding-left:16px}
 .EmppAttendence-monthly-stats{gap:6px;margin:8px 0}.EmppAttendence-monthly-stats article{padding:7px 8px;border-left-width:3px;border-radius:7px}.EmppAttendence-monthly-stats span{font-size:9px}.EmppAttendence-monthly-stats strong{font-size:16px}
 .EmppAttendence-monthly-calendar-card{padding:9px;border-radius:9px}.EmppAttendence-monthly-calendar-heading{padding:1px 2px 7px;font-size:12px}.EmppAttendence-monthly-calendar-heading span{font-size:8px}

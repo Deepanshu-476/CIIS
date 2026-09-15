@@ -374,15 +374,15 @@ export default function PayrollProcess() {
       <section className="esa-card pp-table-card">
         <div className="pp-table-head"><div><h2>Payroll Register — {monthLabel}</h2><p>Identify issues via View Calculation and correct them in Attendance, Leave, or Employee Salary.</p></div><span>{pagination.total} Employees</span></div>
         <div className="pp-table-wrap"><table className="pp-register-table">
-          <thead><tr><th className="pp-sno">S.No.</th><th>Employee</th><th>Department / Job Role</th><th>Salary Structure</th><th>Present Days</th><th>Week Offs</th><th>Holidays</th><th>Half Days</th><th>Absent Days</th><th>Uninformed Leave</th><th>Overtime (OT)</th><th>Gross Salary</th><th>Total Deductions</th><th>Net Salary</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th className="pp-sno">S.No.</th><th>Employee</th><th>Department / Job Role</th><th>Salary Structure</th><th>Present Days</th><th>Week Offs</th><th>Holidays</th><th>Half Days</th><th>Absent Days</th><th>Uninformed Leave</th><th>Overtime (OT)</th><th>Assigned Salary</th><th>Payable Gross</th><th>Total Deductions</th><th>Net Salary</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>{employees.length ? employees.map((item, index) => <tr key={item._id}>
             <td className="pp-sno">{(pagination.page - 1) * pagination.limit + index + 1}</td>
             <td><strong>{item.user?.name || "—"}</strong><small>{item.user?.employeeId || item.user?.email || ""}</small></td>
             <td><strong>{item.department || nameOf(item.user?.department)}</strong><small>{item.designation || nameOf(item.user?.jobRole)}</small></td>
             <td className="pp-structure"><strong>{item.salaryStructure?.name || "Not Assigned"}</strong><small>{item.salaryStructure?.code || ""}</small></td>
             <td className="pp-number pp-positive">{item.attendance?.presentDays || 0}</td>
-            <td className="pp-number" style={{ background: "#f0fdf4", color: "#166534", fontWeight: 700 }}>{item.attendance?.weekOffDays ?? Math.max(0, (item.attendance?.daysInMonth || 30) - (item.attendance?.workingDays || 0))} <span style={{ fontSize: 10, color: "#15803d", display: "block" }}>PAID</span></td>
-            <td className="pp-number" style={{ background: "#f0f9ff", color: "#0369a1", fontWeight: 700 }}>{item.attendance?.holidayDays || 0} <span style={{ fontSize: 10, color: "#0284c7", display: "block" }}>PAID</span></td>
+            <td className="pp-number" style={{ background: "#f0fdf4", color: "#166534", fontWeight: 700 }}>{item.attendance?.paidWeekOffDays ?? item.attendance?.weekOffDays ?? Math.max(0, (item.attendance?.daysInMonth || 30) - (item.attendance?.workingDays || 0))} <span style={{ fontSize: 10, color: "#15803d", display: "block" }}>PAID</span></td>
+            <td className="pp-number" style={{ background: "#f0f9ff", color: "#0369a1", fontWeight: 700 }}>{item.attendance?.paidHolidayDays ?? item.attendance?.holidayDays ?? 0} <span style={{ fontSize: 10, color: "#0284c7", display: "block" }}>PAID</span></td>
             <td className="pp-number pp-halfday">{item.attendance?.halfDayDays || 0}</td>
             <td className="pp-number pp-negative">{item.attendance?.actualAbsentDays ?? Math.max(0, Number(item.attendance?.lopDays || 0) - Number(item.attendance?.uninformedLeaveDays || 0))}</td>
             <td className="pp-number pp-negative">{item.attendance?.uninformedLeaveDays || 0}</td>
@@ -399,9 +399,12 @@ export default function PayrollProcess() {
                 </span>
               )}
             </td>
-            <td className="pp-money">{money(item.monthlyGross || item.assignedGross)}</td><td className="pp-money pp-negative">{money(Number(item.totalDeductions || 0) + Number(item.adjustmentDeductions || 0))}</td><td className="pp-money pp-net"><strong>{money(item.monthlyNet)}</strong></td>
+            <td className="pp-money" style={{ color: "#475569", fontWeight: 600 }}>{money(item.assignedGross)}</td>
+            <td className="pp-money pp-positive">{money(item.monthlyGross ?? item.payableGross ?? 0)}</td>
+            <td className="pp-money pp-negative">{money(Number(item.totalDeductions || 0) + Number(item.adjustmentDeductions || 0))}</td>
+            <td className="pp-money pp-net"><strong>{money(item.monthlyNet)}</strong></td>
             <td><span className={`pp-ready ${item.payrollStatus === "Reviewed" ? "reviewed" : item.payrollStatus === "Approved" ? "approved" : item.payrollStatus === "Locked" ? "locked" : ""}`}>{item.payrollStatus}</span>{Number(item.attendance?.pendingDays || 0) > 0 && <small>{item.attendance.pendingDays} attendance pending</small>}</td><td><div className="pp-row-actions"><button type="button" className="pp-view" onClick={() => setSelectedEmployee(item)} aria-label={`View ${item.user?.name || "employee"} calculation`} title="View calculation"><FiEye /></button><button type="button" className="pp-fix" onClick={() => setFixingEmployee(item)} disabled={acting || ["Approved", "Locked"].includes(item.payrollStatus || status)} aria-label={`Edit ${item.user?.name || "employee"} payroll source`} title={["Approved", "Locked"].includes(item.payrollStatus || status) ? "Unlock payroll to edit this employee" : "Edit / Fix source data"}><FiEdit2 /></button><button type="button" className="pp-recalculate-employee" onClick={() => reprocessSingleEmployee(item)} disabled={acting || ["Approved", "Locked"].includes(item.payrollStatus || status)} aria-label={`Recalculate ${item.user?.name || "employee"} payroll`} title="Recalculate single employee payroll"><FiRefreshCw /></button><button type="button" className="pp-history" onClick={() => setHistoryEmployee(item)} aria-label={`View ${item.user?.name || "employee"} payroll history`} title="Employee history"><FiList /></button>{item.payrollStatus === "Calculated" && <button type="button" className="pp-status-btn pp-btn-review" onClick={() => changeEmployeePayrollStatus(item, "review")} disabled={acting} title="Mark employee payroll Reviewed"><FiCheckCircle /> Mark Reviewed</button>}{item.payrollStatus === "Reviewed" && <button type="button" className="pp-status-btn pp-btn-approve" onClick={() => changeEmployeePayrollStatus(item, "approve")} disabled={acting} title="Approve employee payroll till calculation date"><FiCheckCircle /> Approve</button>}{item.payrollStatus === "Approved" && <button type="button" className="pp-status-btn pp-btn-lock" onClick={(event) => lockEmployeePayroll(event, item)} disabled={acting} title="Lock employee payroll"><FiLock /> Lock</button>}{["Approved", "Locked"].includes(item.payrollStatus) && <button type="button" className="pp-status-btn pp-btn-unlock" onClick={(event) => unlockEmployeePayroll(event, item)} disabled={acting} title="Unlock/Reopen payroll for this employee"><FiUnlock /> Unlock</button>}</div></td>
-          </tr>) : <tr><td colSpan="16" className="pp-empty">No active salary assignment found.</td></tr>}</tbody>
+          </tr>) : <tr><td colSpan="17" className="pp-empty">No active salary assignment found.</td></tr>}</tbody>
         </table></div>
         {pagination.totalPages > 1 && <div className="pp-pagination"><span>Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}</span><div><button onClick={() => setPage(current => Math.max(1, current - 1))} disabled={pagination.page <= 1 || loading}>Previous</button>{Array.from({ length: pagination.totalPages }, (_, index) => index + 1).map(number => <button key={number} className={number === pagination.page ? "active" : ""} onClick={() => setPage(number)} disabled={loading}>{number}</button>)}<button onClick={() => setPage(current => Math.min(pagination.totalPages, current + 1))} disabled={pagination.page >= pagination.totalPages || loading}>Next</button></div></div>}
       </section>
@@ -413,8 +416,8 @@ export default function PayrollProcess() {
       <div className="pp-calculation-scroll">
         <div className="pp-detail-days">
           <span>Working <b>{selectedEmployee.attendance?.workingDays || 0}</b></span>
-          <span>Week Off <b>{selectedEmployee.attendance?.weekOffDays ?? Math.max(0, (selectedEmployee.attendance?.daysInMonth || 30) - (selectedEmployee.attendance?.workingDays || 0))}</b></span>
-          <span>Holiday <b>{selectedEmployee.attendance?.holidayDays || 0}</b></span>
+          <span>Week Off <b>{selectedEmployee.attendance?.paidWeekOffDays ?? selectedEmployee.attendance?.weekOffDays ?? Math.max(0, (selectedEmployee.attendance?.daysInMonth || 30) - (selectedEmployee.attendance?.workingDays || 0))}</b></span>
+          <span>Holiday <b>{selectedEmployee.attendance?.paidHolidayDays ?? selectedEmployee.attendance?.holidayDays ?? 0}</b></span>
           <span>Present <b>{selectedEmployee.attendance?.presentDays || 0}</b></span>
           <span>Half Day <b>{selectedEmployee.attendance?.halfDayDays || 0}</b></span>
           <span>Paid Leave <b>{selectedEmployee.attendance?.paidLeaveDays || 0}</b></span>
@@ -430,13 +433,14 @@ export default function PayrollProcess() {
             </span>
           )}
         </div>
-        {Number(selectedEmployee.attendance?.pendingDays || 0) > 0 && <div className="pp-pending-pay"><span>Provisional Calculation</span><strong>{selectedEmployee.attendance.pendingDays} days pending</strong><small>Full monthly salary is shown below. Payable earnings and net salary currently include only recorded attendance; pending days are not treated as absence.</small></div>}
+        {Number(selectedEmployee.attendance?.pendingDays || 0) > 0 && <div className="pp-pending-pay" style={{ borderColor: "#f59e0b", background: "#fffbeb", color: "#92400e" }}><span>Pending Attendance</span><strong>{selectedEmployee.attendance.pendingDays} days pending verification</strong><small>Pending days are unverified and not counted in salary earned or net payable until verified/regularized in Attendance.</small></div>}
         <div className="pp-detail-grid">
           <section>
-            <h4>Monthly Earnings (Full Salary)</h4>
+            <h4>Assigned Monthly Earnings</h4>
             {(selectedEmployee.components || []).filter((item) => item.type === "earning").map((item) => <p key={`${item.component?._id || item.component}-${item.code}`}><span>{item.name}</span><b>{money(item.amount)}</b></p>)}
-            <p className="pp-section-total"><span>Full Monthly Earnings</span><b>{money(selectedEmployee.monthlyGross || selectedEmployee.assignedGross)}</b></p>
-            {Number(selectedEmployee.attendance?.futureDays || 0) > 0 && <p className="pp-payable-row"><span>Earned Salary Till Date</span><b>{money(selectedEmployee.earnedTillDateGross ?? selectedEmployee.monthlyGross)}</b></p>}
+            <p className="pp-section-total"><span>Assigned Monthly Salary</span><b>{money(selectedEmployee.assignedGross)}</b></p>
+            <p className="pp-payable-row" style={{ marginTop: "12px", borderTop: "2px solid #e2e8f0", paddingTop: "8px" }}><span>Verified Payable Days</span><b>{selectedEmployee.attendance?.payableDays || 0} / {selectedEmployee.attendance?.daysBasisCount || 30} days</b></p>
+            <p className="pp-payable-row"><span>Earned / Payable Gross</span><b style={{ color: "#16a34a", fontSize: "16px" }}>{money(selectedEmployee.monthlyGross ?? selectedEmployee.payableGross ?? 0)}</b></p>
           </section>
           <section>
             <h4>Applied Deductions</h4>
@@ -449,7 +453,7 @@ export default function PayrollProcess() {
           </section>
         </div>
       </div>
-      <footer><span>{Number(selectedEmployee.attendance?.futureDays || 0) > 0 ? "Net Salary Till Date" : "Final Net Salary"}</span><strong>{money(Number(selectedEmployee.attendance?.futureDays || 0) > 0 ? (selectedEmployee.earnedTillDateNet ?? selectedEmployee.monthlyNet) : selectedEmployee.monthlyNet)}</strong></footer>
+      <footer><span>Final Net Payable</span><strong>{money(selectedEmployee.monthlyNet ?? 0)}</strong></footer>
     </section></div>}
 
     {fixingEmployee && <div className="pp-modal-backdrop" onMouseDown={() => { setFixingEmployee(null); setShowFineForm(false); }}><section className="pp-modal pp-fix-modal" onMouseDown={(event) => event.stopPropagation()}>

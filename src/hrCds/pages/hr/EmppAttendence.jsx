@@ -49,25 +49,53 @@ import {
   FiCalendar as FiRangeCalendar
 } from "react-icons/fi";
 
-const getIndiaDateKey = (value) => new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
-}).format(new Date(value));
+const getIndiaDateKey = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(d);
+};
 
 const MonthlyAttendanceModal = ({ state, onClose }) => {
+  useEffect(() => {
+    if (!state.open) return;
+
+    const scrollContainers = [
+      document.body,
+      document.documentElement,
+      document.querySelector('main'),
+      document.querySelector('.hr-main-content'),
+      document.querySelector('.ClientDashboard-sidebar-open')
+    ].filter(Boolean);
+
+    const originalStyles = scrollContainers.map(el => ({ el, overflow: el.style.overflow }));
+    scrollContainers.forEach(el => { el.style.overflow = 'hidden'; });
+
+    return () => {
+      originalStyles.forEach(({ el, overflow }) => { el.style.overflow = overflow; });
+    };
+  }, [state.open]);
+
   if (!state.open) return null;
   const { employee, records = [], leaves = [], loading, error, month, year } = state;
   const monthLabel = new Date(year, month, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   const approvedLeaves = leaves.filter(leave => String(leave.status).toLowerCase() === 'approved');
   const leaveByDate = new Map();
   approvedLeaves.forEach(leave => {
+    if (!leave.startDate || !leave.endDate) return;
     const cursor = new Date(leave.startDate);
     const end = new Date(leave.endDate);
+    if (isNaN(cursor.getTime()) || isNaN(end.getTime())) return;
     while (cursor <= end) {
-      leaveByDate.set(getIndiaDateKey(cursor), leave);
+      const key = getIndiaDateKey(cursor);
+      if (key) leaveByDate.set(key, leave);
       cursor.setDate(cursor.getDate() + 1);
     }
   });
-  const normalizedRecords = records.map(record => ({
+  const sortedRecords = [...records].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const normalizedRecords = sortedRecords.map(record => ({
     ...record,
     normalizedStatus: String(record.status || 'NO RECORD').trim().toUpperCase().replace(/_/g, ' '),
     leave: leaveByDate.get(getIndiaDateKey(record.date))
@@ -81,6 +109,9 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
   const halfDay = count('HALF DAY', 'HALFDAY');
   const leaveDays = normalizedRecords.filter(item => item.leave).length;
   const firstDay = new Date(year, month, 1).getDay();
+  const departmentName = typeof employee?.department === 'object'
+    ? (employee?.department?.name || 'Unassigned')
+    : (employee?.department || 'Unassigned');
 
   return (
     <div className="EmppAttendence-monthly-overlay" onMouseDown={onClose}>
@@ -95,7 +126,7 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
           <div className="EmppAttendence-monthly-employee">
             <span>{String(employee?.name || 'E').charAt(0).toUpperCase()}</span>
             <div><strong>{employee?.name || 'Employee'}</strong><small>{employee?.email || ''}</small></div>
-            <div className="EmppAttendence-monthly-meta"><small>Department</small><strong>{employee?.department || 'Unassigned'}</strong></div>
+            <div className="EmppAttendence-monthly-meta"><small>Department</small><strong>{departmentName}</strong></div>
           </div>
 
           {loading ? (
@@ -121,7 +152,7 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
                   {normalizedRecords.map(record => {
                     const day = new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', timeZone: 'Asia/Kolkata' });
                     const statusClass = record.leave ? 'leave' : record.normalizedStatus.toLowerCase().replace(/\s+/g, '-');
-                    const label = record.leave ? record.leave.type : record.normalizedStatus;
+                    const label = record.leave ? (record.leave.type || record.leave.leaveType || 'Leave') : record.normalizedStatus;
                     return <div className={`EmppAttendence-monthly-day ${statusClass}`} key={record._id || record.date}><b>{day}</b><span>{label}</span></div>;
                   })}
                 </div>
@@ -4291,6 +4322,11 @@ const EmployeeAttendance = () => {
           </div>
         </div>
       )}
+
+      <MonthlyAttendanceModal
+        state={monthlyAttendance}
+        onClose={() => setMonthlyAttendance(current => ({ ...current, open: false }))}
+      />
 
       {snackbar.open && (
         <div className="EmppAttendence-snackbar">

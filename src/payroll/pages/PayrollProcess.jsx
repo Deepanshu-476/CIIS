@@ -45,7 +45,7 @@ export default function PayrollProcess() {
   const [fineForm, setFineForm] = useState({ reason: "Late Fine", amount: "", remarks: "" });
   const [fineError, setFineError] = useState("");
   const [showPolicyModal, setShowPolicyModal] = useState(false);
-  const [policyForm, setPolicyForm] = useState({ salaryDaysBasis: "calendar", sandwichRuleEnabled: false });
+  const [policyForm, setPolicyForm] = useState({ salaryDaysBasis: "fixed30", sandwichRuleEnabled: false });
 
   const loadRun = useCallback(async () => {
     setLoading(true);
@@ -254,7 +254,7 @@ export default function PayrollProcess() {
         <label>
           Salary Calculation Days
           <select
-            value={policyForm.salaryDaysBasis === "fixed30" ? "fixed30" : "calendar"}
+            value={policyForm.salaryDaysBasis || "fixed30"}
             disabled={acting || ["Approved", "Locked"].includes(status)}
             onChange={async (event) => {
               const newBasis = event.target.value;
@@ -275,8 +275,9 @@ export default function PayrollProcess() {
               }
             }}
           >
-            <option value="calendar">31 Days Basis</option>
             <option value="fixed30">30 Days Basis</option>
+            <option value="fixed31">31 Days Basis</option>
+            <option value="calendar">Calendar Month Days</option>
           </select>
         </label>
       </div>
@@ -423,6 +424,11 @@ export default function PayrollProcess() {
           {Number(selectedEmployee.attendance?.sandwichLopDays || 0) > 0 && <span style={{ background: "#fef2f2", color: "#dc2626", borderColor: "#fca5a5" }}>Sandwich LOP <b>{selectedEmployee.attendance.sandwichLopDays}</b></span>}
           <span>Future Working <b>{selectedEmployee.attendance?.futureDays || 0}</b></span>
           <span style={{ background: "#f5f3ff", color: "#6d28d9", borderColor: "#ddd6fe" }}>Overtime <b>{selectedEmployee.attendance?.totalOvertimeHoursFormatted || selectedEmployee.attendance?.totalOvertimeDuration || "00:00:00"}</b></span>
+          {Number(selectedEmployee.overtimePay || selectedEmployee.attendance?.overtimePay || 0) > 0 && (
+            <span style={{ background: "#f0fdf4", color: "#166534", borderColor: "#86efac" }}>
+              OT Pay <b>+ {money(selectedEmployee.overtimePay || selectedEmployee.attendance?.overtimePay)}</b>
+            </span>
+          )}
         </div>
         {Number(selectedEmployee.attendance?.pendingDays || 0) > 0 && <div className="pp-pending-pay"><span>Provisional Calculation</span><strong>{selectedEmployee.attendance.pendingDays} days pending</strong><small>Full monthly salary is shown below. Payable earnings and net salary currently include only recorded attendance; pending days are not treated as absence.</small></div>}
         <div className="pp-detail-grid">
@@ -483,15 +489,20 @@ export default function PayrollProcess() {
                 1️⃣ Salary Calculation Days Rule (Per-Day Rate)
               </label>
               <select
-                value={policyForm.salaryDaysBasis === "fixed30" ? "fixed30" : "calendar"}
+                value={policyForm.salaryDaysBasis || "fixed30"}
                 onChange={(event) => setPolicyForm({ ...policyForm, salaryDaysBasis: event.target.value })}
                 style={{ width: "100%", height: 42, padding: "0 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
               >
-                <option value="calendar">31 Days Basis</option>
                 <option value="fixed30">30 Days Basis</option>
+                <option value="fixed31">31 Days Basis</option>
+                <option value="calendar">Calendar Month Days</option>
               </select>
               <small style={{ color: "#64748b", fontSize: 12, marginTop: 6, display: "block", lineHeight: 1.4 }}>
-                {policyForm.salaryDaysBasis === "fixed30" ? "💡 Divides monthly salary by fixed 30 days." : "💡 Divides monthly salary by 31 days (or calendar month days)."}
+                {policyForm.salaryDaysBasis === "fixed30"
+                  ? "💡 Divides monthly salary by fixed 30 days (1 Day = Salary / 30, 1 Hour = Day / 9, 1 Min = Hour / 60)."
+                  : policyForm.salaryDaysBasis === "fixed31"
+                  ? "💡 Divides monthly salary by fixed 31 days (1 Day = Salary / 31, 1 Hour = Day / 9, 1 Min = Hour / 60)."
+                  : "💡 Divides monthly salary by actual calendar month days."}
               </small>
             </div>
 

@@ -1892,12 +1892,20 @@
   border-radius: 16px;
   width: 100%;
   max-width: 540px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: 88vh;
+  overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   animation: attOtModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.att-ot-modal::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @keyframes attOtModalIn {
@@ -1917,6 +1925,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
+  background: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .att-ot-modal-header h3 {
@@ -1954,11 +1967,32 @@
   color: #334155;
 }
 
+.att-ot-modal form,
+.att-ot-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .att-ot-modal-body {
   padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.att-ot-modal-body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .att-ot-type-selector {
@@ -2059,6 +2093,11 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
+  background: #ffffff;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 .att-ot-btn-cancel {
@@ -2132,4 +2171,289 @@
   background: #fee2e2;
   color: #b91c1c;
 }
+
+/* ==========================================================================
+   Today's Overtime Shift Session Widget Card
+   ========================================================================== */
+.att-ot-session-card {
+  margin-top: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.att-ot-session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.att-ot-session-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.att-ot-session-title-group h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.att-ot-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #94a3b8;
+  display: inline-block;
+}
+
+.att-ot-pulse-dot.active {
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  animation: attOtPulse 1.8s infinite;
+}
+
+@keyframes attOtPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.att-ot-approved-badge {
+  background: #f3e8ff;
+  color: #7e22ce;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.2px;
+}
+
+.att-ot-session-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* State Boxes */
+.att-ot-state-box {
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.att-ot-state-box.locked {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+
+.att-ot-state-box.ready {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.att-ot-state-box.running {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(49, 46, 129, 0.2);
+}
+
+.att-ot-state-box.completed {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.att-ot-state-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.att-ot-state-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.att-ot-state-tag.locked {
+  color: #64748b;
+}
+
+.att-ot-state-tag.ready {
+  color: #15803d;
+}
+
+.att-ot-state-tag.completed {
+  color: #047857;
+}
+
+.att-ot-state-msg {
+  font-size: 12.5px;
+  color: #475569;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.att-ot-state-msg strong {
+  color: #0f172a;
+}
+
+/* Action Buttons */
+.att-ot-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.att-ot-action-btn.start {
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+
+.att-ot-action-btn.start:hover:not(:disabled) {
+  background: #15803d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+}
+
+.att-ot-action-btn.stop {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.att-ot-action-btn.stop:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+}
+
+.att-ot-action-btn.locked {
+  background: #e2e8f0;
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.att-ot-action-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Running Timer Display */
+.att-ot-timer-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px 6px;
+}
+
+.att-ot-timer-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  color: #a5b4fc;
+}
+
+.att-ot-timer-digits {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin: 4px 0 2px;
+}
+
+.att-ot-timer-detail {
+  font-size: 11px;
+  color: #c7d2fe;
+}
+
+/* Completed Header & Summary */
+.att-ot-completed-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.att-ot-check-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.att-ot-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.att-ot-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.att-stat-label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.att-stat-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.att-stat-val.highlight {
+  color: #7c3aed;
+}
+
+.att-stat-val.earn {
+  color: #16a34a;
+}
+
 

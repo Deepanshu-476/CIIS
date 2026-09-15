@@ -1291,6 +1291,7 @@ const EmployeeAttendance = () => {
   const [loadingAdminOt, setLoadingAdminOt] = useState(false);
   const [adminOtStatusFilter, setAdminOtStatusFilter] = useState('ALL');
   const [adminOtActioning, setAdminOtActioning] = useState(false);
+  const [adminOtFullDayCheck, setAdminOtFullDayCheck] = useState({});
 
   const fetchAdminOvertimeRequests = useCallback(async () => {
     try {
@@ -1306,12 +1307,13 @@ const EmployeeAttendance = () => {
     }
   }, []);
 
-  const handleAdminOtAction = async (requestId, action, reason = '') => {
+  const handleAdminOtAction = async (requestId, action, reason = '', isFullDayApproved = true) => {
     try {
       setAdminOtActioning(true);
       const res = await axios.put(`/overtime/admin-action/${requestId}`, {
         action,
-        rejectionReason: reason
+        rejectionReason: reason,
+        isFullDayApproved
       });
       if (res.data?.success) {
         showSnackbar(`Overtime request ${action === 'Approve' ? 'approved' : 'rejected'} successfully`, 'success');
@@ -3982,7 +3984,9 @@ const EmployeeAttendance = () => {
                 borderBottom: '1px solid #f1f5f9',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                flexShrink: 0,
+                background: '#ffffff'
               }}
             >
               <div>
@@ -4003,7 +4007,7 @@ const EmployeeAttendance = () => {
             </div>
 
             {/* Filter Pills */}
-            <div style={{ padding: '12px 22px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
+            <div style={{ padding: '12px 22px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px', flexShrink: 0 }}>
               {['ALL', 'Pending', 'Approved', 'Rejected'].map((statusOption) => (
                 <button
                   key={statusOption}
@@ -4028,7 +4032,7 @@ const EmployeeAttendance = () => {
             </div>
 
             {/* Content List */}
-            <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
+            <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1, minHeight: 0, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {loadingAdminOt ? (
                 <p style={{ textAlign: 'center', color: '#64748b', margin: '30px 0' }}>Loading requests...</p>
               ) : adminOtRequests.filter(r => adminOtStatusFilter === 'ALL' || r.status === adminOtStatusFilter).length === 0 ? (
@@ -4079,6 +4083,36 @@ const EmployeeAttendance = () => {
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {otReq.calculationType === 'FULL_DAY_PRESENT' ? (
+                              <span
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: '#dcfce7',
+                                  color: '#15803d',
+                                  border: '1px solid #bbf7d0'
+                                }}
+                              >
+                                📅 1 Full Day Present
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: '#e0f2fe',
+                                  color: '#0369a1',
+                                  border: '1px solid #bae6fd'
+                                }}
+                              >
+                                ⏱ By Hours ({otReq.requestedHours || 0}h)
+                              </span>
+                            )}
+
                             <span
                               style={{
                                 padding: '4px 10px',
@@ -4105,32 +4139,76 @@ const EmployeeAttendance = () => {
                           </div>
                         </div>
 
-                        <div style={{ fontSize: '12px', color: '#334155', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px' }}>
-                          <div>
-                            <b>Type: </b>
-                            {otReq.requestType === 'SINGLE_DAY'
-                              ? 'Single Day'
-                              : otReq.requestType === 'MULTIPLE_DAYS'
-                              ? 'Multiple Days'
-                              : 'Full Month'}
+                        <div style={{ fontSize: '12px', color: '#334155', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                            <div>
+                              <b>Type: </b>
+                              {otReq.requestType === 'SINGLE_DAY'
+                                ? 'Single Day'
+                                : otReq.requestType === 'MULTIPLE_DAYS'
+                                ? 'Multiple Days'
+                                : 'Full Month'}
+                            </div>
+                            <div>
+                              <b>Overtime Duration: </b>
+                              <span style={{ fontWeight: 600, color: '#4338ca' }}>
+                                {otReq.calculationType === 'FULL_DAY_PRESENT'
+                                  ? `1 Full Day Present (${(otReq.dateKeys || []).length || 1} day)`
+                                  : `${otReq.requestedHours || 0} Hour(s) / Day (Total: ${Number(otReq.requestedHours || 0) * ((otReq.dateKeys || []).length || 1)} hrs)`}
+                              </span>
+                            </div>
                           </div>
-                          <div style={{ marginTop: '3px' }}>
+
+                          <div>
                             <b>Dates: </b>
                             {otReq.requestType === 'FULL_MONTH'
                               ? otReq.month
                               : (otReq.dateKeys || []).join(', ') || '-'}
                           </div>
+
+                          {/* Calculated Amount Display */}
+                          <div style={{ marginTop: '4px', padding: '6px 10px', background: '#ecfdf5', borderRadius: '6px', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: 600 }}>Calculated Overtime Pay:</span>
+                              <strong style={{ fontSize: '13.5px', color: '#065f46', marginLeft: '6px' }}>
+                                ₹{Number(otReq.calculatedAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </strong>
+                            </div>
+                            <small style={{ fontSize: '10.5px', color: '#059669' }}>
+                              {otReq.calculationType === 'FULL_DAY_PRESENT' ? 'Based on 1 Full Day Wage' : `Based on 9h Workday (${otReq.requestedHours || 0}h)`}
+                            </small>
+                          </div>
+
                           {otReq.reason && (
-                            <div style={{ marginTop: '3px' }}>
+                            <div style={{ marginTop: '2px' }}>
                               <b>Reason: </b>{otReq.reason}
                             </div>
                           )}
                           {otReq.rejectionReason && (
-                            <div style={{ marginTop: '3px', color: '#dc2626' }}>
+                            <div style={{ marginTop: '2px', color: '#dc2626' }}>
                               <b>Rejection Remarks: </b>{otReq.rejectionReason}
                             </div>
                           )}
                         </div>
+
+                        {/* Admin Checkbox for Full Day Present Confirmation */}
+                        {otReq.calculationType === 'FULL_DAY_PRESENT' && otReq.status === 'Pending' && (
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', background: '#f0fdf4', border: '1px solid #86efac', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#166534' }}>
+                            <input
+                              type="checkbox"
+                              checked={adminOtFullDayCheck[otReq._id] ?? true}
+                              onChange={(e) => setAdminOtFullDayCheck(prev => ({ ...prev, [otReq._id]: e.target.checked }))}
+                              style={{ width: '16px', height: '16px', accentColor: '#16a34a', cursor: 'pointer' }}
+                            />
+                            <span>✓ Count as 1 Additional Full Day Present in Attendance (+ ₹{Number(otReq.calculatedAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+                          </label>
+                        )}
+
+                        {otReq.calculationType === 'FULL_DAY_PRESENT' && otReq.status === 'Approved' && otReq.isFullDayApproved && (
+                          <div style={{ fontSize: '11.5px', color: '#15803d', fontWeight: 600, background: '#f0fdf4', padding: '4px 8px', borderRadius: '4px', border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '5px', width: 'fit-content' }}>
+                            ✓ 1 Additional Full Day Present Counted in Attendance
+                          </div>
+                        )}
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                           <small style={{ color: '#94a3b8', fontSize: '11px' }}>
@@ -4142,7 +4220,12 @@ const EmployeeAttendance = () => {
                               <button
                                 type="button"
                                 disabled={adminOtActioning}
-                                onClick={() => handleAdminOtAction(otReq._id, 'Approve')}
+                                onClick={() => {
+                                  const isFullDay = otReq.calculationType === 'FULL_DAY_PRESENT'
+                                    ? (adminOtFullDayCheck[otReq._id] ?? true)
+                                    : false;
+                                  handleAdminOtAction(otReq._id, 'Approve', '', isFullDay);
+                                }}
                                 style={{
                                   padding: '5px 14px',
                                   background: '#16a34a',
@@ -4187,7 +4270,7 @@ const EmployeeAttendance = () => {
               )}
             </div>
 
-            <div style={{ padding: '12px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ padding: '12px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, background: '#ffffff' }}>
               <button
                 type="button"
                 onClick={() => setShowOtAdminModal(false)}

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { clearAllCaches } from '../utils/axiosConfig';
 
 
 export const AuthContext = createContext(null);
@@ -69,6 +70,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
+    clearAllCaches();
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event(AUTH_SYNC_EVENT));

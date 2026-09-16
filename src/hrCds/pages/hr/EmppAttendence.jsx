@@ -3508,7 +3508,7 @@ const EmployeeAttendance = () => {
             <thead>
               <tr>
                 {bulkEditMode && <th style={{ width: '50px' }}></th>}
-                {dateRangeMode && <th className="EmppAttendence-col-date-header">Date</th>}
+                {dateRangeMode && <th className="EmppAttendence-col-date">Date</th>}
                 <th className="EmppAttendence-col-employee">Employee</th>
                 <th className="EmppAttendence-col-department">Department</th>
                 <th className="EmppAttendence-col-type">Type</th>

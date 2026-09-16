@@ -180,7 +180,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: isDev,
+      webSecurity: true,
     },
   });
 

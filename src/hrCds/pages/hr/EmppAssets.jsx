@@ -122,12 +122,11 @@ const EmpAssets = () => {
 
   
   useEffect(() => { 
-    if (currentUserCompanyCode) {
+    if (currentUserCompanyCode || currentUserCompanyId) {
       fetchRequests();
     }
-  }, [currentUserCompanyCode, isOwner, approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
+  }, [currentUserCompanyCode, currentUserCompanyId, isOwner, approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
 
-  
   useEffect(() => {
     if (currentUserCompanyId) {
       fetchDepartments();
@@ -135,31 +134,23 @@ const EmpAssets = () => {
     }
   }, [currentUserCompanyId]);
 
-  
-  
-  
   const fetchCurrentUserAndCompany = async () => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem('user') || localStorage.getItem('currentUser');
       if (!userStr) {
         void 0;
         return;
       }
 
-      const user = JSON.parse(userStr);
+      const parsedData = JSON.parse(userStr);
+      const user = parsedData?.user || parsedData;
       
       const userId = user._id || user.id || '';
-      const companyId = user.company || user.companyId || '';
-      const companyCode = user.companyCode || user.companyDetails?.companyCode || '';
+      const companyId = user.company || user.companyId || (typeof user.company === 'object' ? user.company._id : '') || localStorage.getItem('companyId') || '';
+      const companyCode = user.companyCode || user.companyDetails?.companyCode || (typeof user.company === 'object' ? user.company.companyCode : '') || localStorage.getItem('companyCode') || '';
       const department = user.department || '';
       const name = user.name || user.username || 'User';
-      let role = '';
-      
-      if (user.companyRole) {
-        role = user.companyRole;
-      } else if (user.role) {
-        role = user.role;
-      }
+      let role = user.companyRole || user.jobRole || user.role || '';
       
       setCurrentUser(user);
       setCurrentUserId(userId);
@@ -169,10 +160,14 @@ const EmpAssets = () => {
       setCurrentUserName(name);
       setCurrentUserRole(role);
       
-      const isOwnerRole = role === 'Owner' || role === 'owner' || role === 'OWNER';
-      const isAdminRole = role === 'Admin' || role === 'admin' || role === 'ADMIN';
-      const isHRRole = role === 'HR' || role === 'hr' || role === 'Hr';
-      const isManagerRole = role === 'Manager' || role === 'manager' || role === 'MANAGER';
+      const roleCandidates = [user.companyRole, user.jobRole, user.role, user.userType]
+        .filter(Boolean)
+        .map(r => String(r).trim().toLowerCase().replace(/[\s_-]+/g, '_'));
+      
+      const isOwnerRole = roleCandidates.some(r => ['owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin'].includes(r));
+      const isAdminRole = roleCandidates.some(r => ['admin', 'company_admin', 'companyadmin'].includes(r));
+      const isHRRole = roleCandidates.some(r => ['hr', 'hr_manager', 'human_resources'].includes(r));
+      const isManagerRole = roleCandidates.some(r => ['manager'].includes(r));
       
       setIsOwner(isOwnerRole);
       setIsAdmin(isAdminRole);
@@ -201,14 +196,18 @@ const EmpAssets = () => {
       const res = await axios.get(`/users/${userId}`);
       if (res.data && res.data.success && res.data.user) {
         const user = res.data.user;
-        const userRole = user.companyRole || user.role;
+        const userRole = user.companyRole || user.jobRole || user.role || '';
         
         setCurrentUserRole(userRole);
         
-        const isOwnerRole = userRole === 'Owner' || userRole === 'owner' || userRole === 'OWNER';
-        const isAdminRole = userRole === 'Admin' || userRole === 'admin' || userRole === 'ADMIN';
-        const isHRRole = userRole === 'HR' || userRole === 'hr' || userRole === 'Hr';
-        const isManagerRole = userRole === 'Manager' || userRole === 'manager' || userRole === 'MANAGER';
+        const roleCandidates = [user.companyRole, user.jobRole, user.role, user.userType]
+          .filter(Boolean)
+          .map(r => String(r).trim().toLowerCase().replace(/[\s_-]+/g, '_'));
+        
+        const isOwnerRole = roleCandidates.some(r => ['owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin'].includes(r));
+        const isAdminRole = roleCandidates.some(r => ['admin', 'company_admin', 'companyadmin'].includes(r));
+        const isHRRole = roleCandidates.some(r => ['hr', 'hr_manager', 'human_resources'].includes(r));
+        const isManagerRole = roleCandidates.some(r => ['manager'].includes(r));
         
         setIsOwner(isOwnerRole);
         setIsAdmin(isAdminRole);

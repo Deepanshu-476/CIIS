@@ -69,7 +69,19 @@ export const hasConfiguredPageAccess = (page) => [
 export const hasPageAccess = (page, userId, accessType = 'view') => {
   const normalizedUserId = normalizeUserId(userId);
   if (!normalizedUserId) return false;
-  return getPageAccessUserIds(page, accessType).includes(normalizedUserId);
+  const type = String(accessType || 'view').trim().toLowerCase();
+  if (type === 'view') {
+    return [
+      'view',
+      'edit',
+      'delete',
+      'approve',
+      'generate',
+      'lock',
+      'unlock'
+    ].some(action => getPageAccessUserIds(page, action).includes(normalizedUserId));
+  }
+  return getPageAccessUserIds(page, type).includes(normalizedUserId);
 };
 
 export const loadPagePermission = async (path) => {

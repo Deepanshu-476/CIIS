@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Phone,
   PhoneCall,
@@ -40,7 +40,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { localDateTime, isTerminal, outcomes } from "./liveData";
+import api from "../../utils/axiosConfig";
+import { localDateTime, isTerminal, outcomes, normalizeLead } from "./liveData";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import { useTelecaller } from "./useTelecaller";
 import { dateLabel } from "./LeadComponents";
@@ -90,34 +91,134 @@ export const outcomeToneMap = {
   "Converted": "tone-green",
 };
 
+export const outcomeCategories = [
+  {
+    category: "Positive & Interested",
+    badge: "Positive",
+    badgeClass: "badge-green",
+    items: ["Connected", "Interested", "Converted"],
+  },
+  {
+    category: "Follow-up & Callbacks",
+    badge: "Callback Required",
+    badgeClass: "badge-purple",
+    items: ["Need Callback", "Follow-up", "Call Later"],
+  },
+  {
+    category: "Unreachable / No Response",
+    badge: "Try Again",
+    badgeClass: "badge-amber",
+    items: ["No Answer", "Busy", "Switched Off", "Not Reachable"],
+  },
+  {
+    category: "Disqualified & Closed",
+    badge: "Drop / Closed",
+    badgeClass: "badge-rose",
+    items: [
+      "Not Interested",
+      "Wrong Number",
+      "Wrong Person",
+      "Invalid Number",
+      "Language Barrier",
+      "Do Not Call",
+      "Duplicate",
+      "Spam",
+      "Call Closed",
+    ],
+  },
+];
+
 export default function CallWorkspace() {
   const { leadId } = useParams();
   const { assigned, calls, can, editAllowed, saveCall } = useTelecaller();
-  
+  const [directLead, setDirectLead] = useState(null);
+  const [fetchingDirect, setFetchingDirect] = useState(false);
+  const [directError, setDirectError] = useState(null);
+
   const leadIndex = assigned.findIndex((row) => row.id === leadId);
-  const lead = leadIndex >= 0 ? assigned[leadIndex] : null;
+  const leadFromAssigned = leadIndex >= 0 ? assigned[leadIndex] : null;
   const prevLead = leadIndex > 0 ? assigned[leadIndex - 1] : null;
   const nextLead = leadIndex >= 0 && leadIndex < assigned.length - 1 ? assigned[leadIndex + 1] : null;
 
-  return lead ? (
+  // Direct fetch fallback if URL has a leadId not found in local assigned list
+  useEffect(() => {
+    if (leadId && !leadFromAssigned) {
+      let active = true;
+      setFetchingDirect(true);
+      setDirectError(null);
+      api.get(`/crm/telecaller/${leadId}`)
+        .then(({ data }) => {
+          if (active && data?.item) {
+            setDirectLead(normalizeLead(data.item));
+          }
+        })
+        .catch((err) => {
+          if (active) {
+            setDirectError(err.response?.data?.message || 'Lead not found in this company.');
+          }
+        })
+        .finally(() => {
+          if (active) setFetchingDirect(false);
+        });
+      return () => { active = false; };
+    } else {
+      setDirectLead(null);
+      setDirectError(null);
+    }
+  }, [leadId, leadFromAssigned]);
+
+  const activeLead = leadFromAssigned || directLead;
+  const activeCalls = activeLead
+    ? (leadFromAssigned
+        ? calls.filter((call) => call.leadId === leadId && call.outcome !== 'Note Added')
+        : (directLead?.calls || []).filter((call) => call.outcome !== 'Note Added'))
+    : [];
+
+  const handleSaveDirect = async (callData) => {
+    const savedItem = await saveCall(callData);
+    if (savedItem && !leadFromAssigned) {
+      setDirectLead(normalizeLead(savedItem));
+    }
+    return savedItem;
+  };
+
+  if (leadId && fetchingDirect) {
+    return (
+      <div className="cw-container" style={{ alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <div className="cw-spinner" />
+          <p style={{ color: "var(--cw-text-muted)", fontSize: "13.5px", fontWeight: 500 }}>
+            Loading calling workspace for lead #{leadId}...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return activeLead ? (
     <CallWorkspaceContent
-      key={leadId}
-      lead={lead}
-      calls={calls.filter((call) => call.leadId === leadId && call.outcome !== 'Note Added')}
+      key={activeLead.id}
+      lead={activeLead}
+      calls={activeCalls}
       can={can}
-      editAllowed={editAllowed && !isTerminal(lead)}
-      onSave={saveCall}
+      editAllowed={editAllowed && !isTerminal(activeLead)}
+      onSave={handleSaveDirect}
       prevLead={prevLead}
       nextLead={nextLead}
-      totalLeads={assigned.length}
-      currentIndex={leadIndex + 1}
+      totalLeads={assigned.length || 1}
+      currentIndex={leadIndex >= 0 ? leadIndex + 1 : 1}
     />
   ) : (
-    <CallQueueDirectory assigned={assigned} can={can} />
+    <CallQueueDirectory
+      assigned={assigned}
+      can={can}
+      notFoundId={leadId}
+      error={directError}
+    />
   );
 }
 
-function CallQueueDirectory({ assigned, can }) {
+function CallQueueDirectory({ assigned, can, notFoundId, error }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -142,6 +243,30 @@ function CallQueueDirectory({ assigned, can }) {
 
   return (
     <div className="cw-container">
+      {/* Alert if direct leadId was not found */}
+      {notFoundId && (
+        <div style={{
+          background: "#fffbeb",
+          border: "1px solid #fde68a",
+          borderRadius: 12,
+          padding: "14px 18px",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 12,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+        }}>
+          <AlertTriangle size={18} style={{ color: "#d97706", marginTop: 2, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "13.5px", color: "#92400e" }}>
+              Lead #{notFoundId} not found in calling queue
+            </div>
+            <p style={{ margin: "3px 0 0", fontSize: "12.5px", color: "#b45309", lineHeight: 1.4 }}>
+              {error || "This lead may not be assigned to your account or has been closed. You can select another student lead from the queue below to open the calling workspace:"}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="cw-card">
         <div className="cw-card-header">
           <h2 className="cw-card-title">
@@ -494,7 +619,7 @@ function CallWorkspaceContent({
             <div className="cw-details-block">
               <div className="cw-title-row">
                 <h1 className="cw-name">{lead.name}</h1>
-                <span className="cw-id-tag">#{lead.id}</span>
+                <span className="cw-id-tag" title={`Lead ID: ${lead.id}`}>#{lead.id}</span>
               </div>
 
               <div className="cw-tags-row">
@@ -503,15 +628,15 @@ function CallWorkspaceContent({
                 </span>
 
                 <span className="cw-badge cw-badge-purple">
-                  <Tag size={11} /> {lead.source || "—"}
+                  <Tag size={11} /> {lead.source || "Direct"}
                 </span>
 
                 <span className="cw-badge cw-badge-cyan">
-                  <Sparkles size={11} /> {lead.type || "—"}
+                  <Sparkles size={11} /> {lead.type || "General Inquiry"}
                 </span>
 
                 <span className="cw-badge cw-badge-warning">
-                  <Flame size={11} /> {lead.priority || "—"} Priority
+                  <Flame size={11} /> {lead.priority || "Normal"} Priority
                 </span>
               </div>
             </div>
@@ -586,10 +711,17 @@ function CallWorkspaceContent({
           {/* Call Outcome Card */}
           <div className="cw-card">
             <div className="cw-card-header">
-              <h2 className="cw-card-title">
-                <PhoneOutgoing size={16} />
-                Select Call Outcome
-              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <h2 className="cw-card-title">
+                  <PhoneOutgoing size={16} />
+                  Select Call Outcome
+                </h2>
+                {outcome && (
+                  <span className="cw-selected-outcome-tag">
+                    Selected: <strong>{outcome}</strong>
+                  </span>
+                )}
+              </div>
 
               {/* Call Direction Switcher */}
               <div className="cw-call-type-toggle" aria-label="Call direction">
@@ -598,45 +730,59 @@ function CallWorkspaceContent({
                   className={`cw-call-type-btn ${callType === "Outbound" ? "active" : ""}`}
                   onClick={() => setCallType("Outbound")}
                 >
-                  <PhoneOutgoing size={12} /> Outbound
+                  <PhoneOutgoing size={13} /> Outbound Call
                 </button>
                 <button
                   type="button"
                   className={`cw-call-type-btn ${callType === "Inbound" ? "active" : ""}`}
                   onClick={() => setCallType("Inbound")}
                 >
-                  <PhoneIncoming size={12} /> Inbound
+                  <PhoneIncoming size={13} /> Inbound Call
                 </button>
               </div>
             </div>
 
-            <div className="cw-card-body">
-              {/* Outcomes Grid */}
-              <div className="cw-outcomes-grid">
-                {outcomes.map((value) => {
-                  const Icon = outcomeIconsMap[value] || Phone;
-                  const toneClass = outcomeToneMap[value] || "tone-dark";
-                  const isSelected = outcome === value;
+            <div className="cw-card-body" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {outcomeCategories.map((cat) => (
+                <div key={cat.category} className="cw-outcome-category-block">
+                  <div className="cw-category-header">
+                    <span className="cw-category-title">{cat.category}</span>
+                    <span className={`cw-category-pill ${cat.badgeClass}`}>{cat.badge}</span>
+                  </div>
 
-                  return (
-                    <button
-                      disabled={!editAllowed}
-                      type="button"
-                      aria-pressed={isSelected}
-                      className={`cw-outcome-btn ${toneClass} ${isSelected ? "selected" : ""}`}
-                      key={value}
-                      onClick={() => {
-                        setOutcome(value);
-                        if (['Converted', 'Call Closed'].includes(value)) setFollowUp('');
-                        setMessage("");
-                      }}
-                    >
-                      <Icon size={20} />
-                      <span>{value}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                  <div className="cw-category-items-grid">
+                    {cat.items.map((value) => {
+                      const Icon = outcomeIconsMap[value] || Phone;
+                      const isSelected = outcome === value;
+
+                      return (
+                        <button
+                          disabled={!editAllowed}
+                          type="button"
+                          aria-pressed={isSelected}
+                          className={`cw-outcome-chip ${cat.badgeClass} ${isSelected ? "selected" : ""}`}
+                          key={value}
+                          onClick={() => {
+                            setOutcome(value);
+                            if (['Converted', 'Call Closed'].includes(value)) setFollowUp('');
+                            setMessage("");
+                          }}
+                        >
+                          <span className="cw-chip-icon-wrap">
+                            <Icon size={15} />
+                          </span>
+                          <span className="cw-chip-label">{value}</span>
+                          {isSelected && (
+                            <span className="cw-chip-check">
+                              <Check size={12} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

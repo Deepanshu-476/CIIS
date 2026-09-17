@@ -152,29 +152,6 @@ const staticConfigPatterns = [
 
 const getRequestCacheTtlMs = (url) => {
   const normalizedUrl = normalizeGetUrl(url).toLowerCase();
-<<<<<<< HEAD
-  const noisyEndpointPatterns = [
-    '/departments',
-    '/job-roles',
-    '/branches/company',
-    '/menu-access',
-    '/menu-items',
-    '/page-permissions',
-    '/sidebar',
-    '/notifications/unread-count',
-    '/notifications',
-    '/alerts',
-    '/groups',
-    '/leaves/status',
-    '/asset-requests/my-requests',
-    '/tasks/self',
-    '/tasks/assigned/to-me',
-    '/task/my',
-    '/task/assigned',
-    '/attendance/status',
-  ];
-=======
->>>>>>> ae12d4a8c6f833b23e0df2a19064a41310b1aeb8
 
   // Sensitive endpoints must never have a long cache.
   // We use 1000ms maximum exclusively for deduplicating immediate simultaneous component mounts.

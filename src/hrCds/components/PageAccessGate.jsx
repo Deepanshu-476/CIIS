@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, Navigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
-import { getCurrentUserId, getStoredUser, hasConfiguredPageAccess, hasPageAccess, loadPagePermission } from "../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, hasConfiguredPageAccess, hasPageAccess, getPageAccessUserIds, loadPagePermission } from "../../utils/pageAccess";
 
 const PRIVILEGED_ROLES = new Set([
   "owner",
   "company_owner",
   "companyowner",
   "admin",
+  "company_admin",
+  "companyadmin",
   "super_admin",
   "superadmin",
+  "hr",
 ]);
 
 const STRICT_ACCESS_PATHS = new Set([
@@ -20,6 +23,11 @@ const STRICT_ACCESS_PATHS = new Set([
   "/ciisUser/payroll-process",
   "/ciisUser/payslip",
   "/ciisUser/payroll-reports",
+].map(path => path.toLowerCase()));
+
+const APPROVAL_WORKFLOW_PATHS = new Set([
+  "/ciisUser/emp-assets",
+  "/ciisUser/emp-leaves",
 ].map(path => path.toLowerCase()));
 
 const normalizeRole = value => String(value || "")
@@ -57,9 +65,19 @@ const PageAccessGate = ({ children }) => {
 
       try {
         const page = await loadPagePermission(pagePath);
-        const allowed = requiresExplicitAccess
-          ? hasConfiguredPageAccess(page) && hasPageAccess(page, userId, "view")
-          : !hasConfiguredPageAccess(page) || hasPageAccess(page, userId, "view");
+        const lowerPath = String(pagePath || "").toLowerCase();
+        const isApprovalWorkflow = APPROVAL_WORKFLOW_PATHS.has(lowerPath) ||
+          String(page?.permissionPattern || "").toLowerCase() === "approvereject";
+
+        let allowed = false;
+        if (requiresExplicitAccess) {
+          allowed = hasConfiguredPageAccess(page) && hasPageAccess(page, userId, "view");
+        } else if (isApprovalWorkflow) {
+          allowed = true;
+        } else {
+          const viewUsersCount = getPageAccessUserIds(page, "view").length;
+          allowed = !hasConfiguredPageAccess(page) || viewUsersCount === 0 || hasPageAccess(page, userId, "view");
+        }
         if (!cancelled) setState({ loading: false, allowed });
       } catch {
         // Strict pages stay closed if their permission cannot be verified.

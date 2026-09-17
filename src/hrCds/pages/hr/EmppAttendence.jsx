@@ -1332,7 +1332,9 @@ const EmployeeAttendance = () => {
         setAdminOtRequests(res.data.data || []);
       }
     } catch (err) {
-      console.error('Failed to load overtime requests:', err);
+      if (err.response?.status !== 403) {
+        console.error('Failed to load overtime requests:', err);
+      }
     } finally {
       setLoadingAdminOt(false);
     }
@@ -1370,8 +1372,8 @@ const EmployeeAttendance = () => {
   const [currentUserCompanyCode, setCurrentUserCompanyCode] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   
-  const [canEditAttendance, setCanEditAttendance] = useState(true);
-  const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
+  const [canEditAttendance, setCanEditAttendance] = useState(false);
+  const [canViewAllAttendance, setCanViewAllAttendance] = useState(false);
   const [pageAccessReady, setPageAccessReady] = useState(false);
 
   const tableRef = useRef(null);
@@ -1383,7 +1385,6 @@ const EmployeeAttendance = () => {
       setLoading(true);
       try {
         await fetchCurrentUserAndCompany();
-        fetchAdminOvertimeRequests();
       } catch (error) {
         console.error("Error initializing data:", error);
       } finally {
@@ -1396,7 +1397,13 @@ const EmployeeAttendance = () => {
     };
     
     initializeData();
-  }, [fetchAdminOvertimeRequests]);
+  }, []);
+
+  useEffect(() => {
+    if (pageAccessReady && (canViewAllAttendance || canEditAttendance)) {
+      fetchAdminOvertimeRequests();
+    }
+  }, [pageAccessReady, canViewAllAttendance, canEditAttendance, fetchAdminOvertimeRequests]);
 
   useEffect(() => {
     let active = true;
@@ -1417,10 +1424,19 @@ const EmployeeAttendance = () => {
           ...getPageAccessUserIds(page, 'delete')
         ];
         const hasPermissionConfig = configuredIds.length > 0;
-        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '')
-          .trim()
-          .toLowerCase();
-        const fallbackAllowed = ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(fallbackRole);
+        const roleCandidates = [
+          currentUser?.companyRole,
+          currentUser?.jobRole,
+          currentUser?.role,
+          currentUser?.userType
+        ].filter(Boolean).map(r => String(r).trim().toLowerCase().replace(/[\s_-]+/g, '_'));
+
+        const fallbackAllowed = roleCandidates.some(r => [
+          'owner', 'company_owner', 'companyowner',
+          'admin', 'company_admin', 'companyadmin',
+          'hr', 'hr_manager', 'manager',
+          'super_admin', 'superadmin'
+        ].includes(r));
 
         const canEdit = editUserIds.includes(currentUserIdValue) || (!hasPermissionConfig && fallbackAllowed);
         const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasPermissionConfig && fallbackAllowed);
@@ -1705,8 +1721,10 @@ const EmployeeAttendance = () => {
       calculateStats(combinedRecords);
       
     } catch (err) {
-      console.error("❌ Failed to load attendance", err);
-      showSnackbar("Error loading attendance data", "error");
+      if (err.response?.status !== 403) {
+        console.error("❌ Failed to load attendance", err);
+        showSnackbar("Error loading attendance data", "error");
+      }
       setRecords([]);
       calculateStats([]);
     } finally {
@@ -1923,8 +1941,10 @@ const EmployeeAttendance = () => {
       calculateStats(allRecords);
       
     } catch (err) {
-      console.error("❌ Failed to load attendance range", err);
-      showSnackbar("Error loading attendance data", "error");
+      if (err.response?.status !== 403) {
+        console.error("❌ Failed to load attendance range", err);
+        showSnackbar("Error loading attendance data", "error");
+      }
       setRecords([]);
       calculateStats([]);
     } finally {

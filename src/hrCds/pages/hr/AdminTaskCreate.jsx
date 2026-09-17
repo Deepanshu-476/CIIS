@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from '../../../utils/axiosConfig';
 import { API_URL_IMG } from '../../../config';
 import { useNavigate } from 'react-router-dom';
 import './AdminTaskManagement.css';
 import CIISLoader from '../../../Loader/CIISLoader';
+import {
+  getCurrentUserId,
+  getStoredUser,
+  loadPagePermission,
+  hasPageAccess,
+  getUserPageScope,
+  hasConfiguredPageAccess
+} from '../../../utils/pageAccess';
 
 
 import {
@@ -14,7 +22,7 @@ import {
   FiEye, FiClock, FiCheckCircle, FiXCircle, FiAlertTriangle,
   FiMoreVertical, FiRefreshCw, FiUserCheck, FiUserX,
   FiLogOut, FiEdit3, FiMessageCircle,
-  FiZoomIn, FiImage, FiCamera, FiBriefcase
+  FiZoomIn, FiImage, FiCamera, FiBriefcase, FiLock
 } from 'react-icons/fi';
 
 const createEmptyCheckpoint = () => ({ title: '', completed: false });
@@ -36,6 +44,16 @@ const AdminTaskManagement = () => {
   const [departments, setDepartments] = useState([]);
   const [departmentMap, setDepartmentMap] = useState({});
   const [companyMap, setCompanyMap] = useState({});
+  const [branches, setBranches] = useState([]);
+  const [branchMap, setBranchMap] = useState({});
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState('all');
+  const [selectedCreateBranch, setSelectedCreateBranch] = useState('');
+  const [pagePermission, setPagePermission] = useState(null);
+  const [pageScope, setPageScope] = useState(null);
+  const [pageAccessReady, setPageAccessReady] = useState(false);
+  const [canViewPage, setCanViewPage] = useState(true);
+  const [canCreateTask, setCanCreateTask] = useState(true);
   const [userRole, setUserRole] = useState('');
   const [companyRole, setCompanyRole] = useState('');
   const [jobRole, setJobRole] = useState('');
@@ -296,6 +314,7 @@ const AdminTaskManagement = () => {
   };
 
   const isTaskEditable = (task) => {
+    if (!canCreateTask) return false;
     if (!task) return false;
     const hasStatusChanged = (task.overallStatus && task.overallStatus !== 'pending') || 
       (task.statusByUser && task.statusByUser.some(s => s.status !== 'pending'));
@@ -440,11 +459,90 @@ const AdminTaskManagement = () => {
     return Boolean(selectedDepartmentName && userDepartmentName && selectedDepartmentName === userDepartmentName);
   };
 
+  const getUserBranchIds = (user = {}) => {
+    if (!user) return [];
+    const directBranch = user.branch?._id || user.branch?.id || user.branch || user.branchId;
+    const assigned = Array.isArray(user.assignedBranches)
+      ? user.assignedBranches.map(b => b?._id || b?.id || b).filter(Boolean)
+      : [];
+    return [...new Set([directBranch, ...assigned].filter(Boolean).map(String))];
+  };
+
+  const isUserInScope = (user = {}) => {
+    if (isOwner()) return true;
+    if (!pageScope) return true;
+
+    // 1. Branch scoping from Page Management
+    if (Array.isArray(pageScope.branchIds) && !pageScope.branchIds.includes('all') && pageScope.branchIds.length > 0) {
+      const userBranchIds = getUserBranchIds(user);
+      const hasBranchMatch = userBranchIds.some(bId => pageScope.branchIds.includes(bId));
+      if (!hasBranchMatch) return false;
+    }
+
+    // 2. Department scoping from Page Management
+    if (Array.isArray(pageScope.departmentIds) && !pageScope.departmentIds.includes('all') && pageScope.departmentIds.length > 0) {
+      const userDeptId = getDepartmentIdFromUser(user);
+      const userDeptName = normalizeDepartmentName(getUserDepartmentDisplay(user));
+      const hasDeptMatch = pageScope.departmentIds.includes(userDeptId) || pageScope.departmentIds.some(scopedId => {
+        const scopedDept = departments.find(d => String(d._id || d.id) === scopedId);
+        return scopedDept && normalizeDepartmentName(scopedDept.name || scopedDept.departmentName) === userDeptName;
+      });
+      if (!hasDeptMatch) return false;
+    }
+
+    return true;
+  };
+
+  const allowedBranches = useMemo(() => {
+    if (isOwner() || !pageScope || !Array.isArray(pageScope.branchIds) || pageScope.branchIds.includes('all') || !pageScope.branchIds.length) {
+      return branches;
+    }
+    return branches.filter(b => {
+      const bId = String(b._id || b.id || '');
+      return pageScope.branchIds.includes(bId);
+    });
+  }, [branches, pageScope, companyRole, userRole]);
+
+  const allowedDepartments = useMemo(() => {
+    let list = departments;
+    if (!isOwner() && pageScope && Array.isArray(pageScope.departmentIds) && !pageScope.departmentIds.includes('all') && pageScope.departmentIds.length) {
+      list = list.filter(d => {
+        const dId = String(d._id || d.id || '');
+        const dName = normalizeDepartmentName(d.name || d.departmentName || '');
+        return pageScope.departmentIds.includes(dId) || pageScope.departmentIds.some(scopedId => {
+          const scopedDept = departments.find(item => String(item._id || item.id) === scopedId);
+          return scopedDept && normalizeDepartmentName(scopedDept.name || scopedDept.departmentName) === dName;
+        });
+      });
+    }
+    return list;
+  }, [departments, pageScope, companyRole, userRole]);
+
+  const availableFilterDepartments = useMemo(() => {
+    if (selectedBranchFilter && selectedBranchFilter !== 'all') {
+      return allowedDepartments.filter(d => {
+        const deptBranch = d.branch?._id || d.branch?.id || d.branch || d.branchId;
+        return !deptBranch || String(deptBranch) === String(selectedBranchFilter);
+      });
+    }
+    return allowedDepartments;
+  }, [allowedDepartments, selectedBranchFilter]);
+
   const filteredUsers = users.filter(user => {
     const isSameCompany = checkSameCompany(user);
     const isSelf = (user.id || user._id) === currentUser.id;
 
     if (!isSameCompany || isSelf) return false;
+    if (!isUserInScope(user)) return false;
+
+    if (selectedBranchFilter && selectedBranchFilter !== 'all') {
+      const userBranchIds = getUserBranchIds(user);
+      if (!userBranchIds.includes(String(selectedBranchFilter))) return false;
+    }
+
+    if (selectedDepartmentFilter && selectedDepartmentFilter !== 'all') {
+      if (!isUserInDepartment(user, selectedDepartmentFilter)) return false;
+    }
 
     return user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
            user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -454,7 +552,15 @@ const AdminTaskManagement = () => {
   const departmentOptionsForCreate = (() => {
     const optionsMap = new Map();
 
-    departments.forEach(department => {
+    let candidateDepts = allowedDepartments;
+    if (selectedCreateBranch && selectedCreateBranch !== 'all') {
+      candidateDepts = candidateDepts.filter(d => {
+        const deptBranch = d.branch?._id || d.branch?.id || d.branch || d.branchId;
+        return !deptBranch || String(deptBranch) === String(selectedCreateBranch);
+      });
+    }
+
+    candidateDepts.forEach(department => {
       const id = getDepartmentId(department);
       const name = getReadableDepartmentName(department) || department?.name || department?.departmentName || '';
       if (id && name) {
@@ -464,6 +570,11 @@ const AdminTaskManagement = () => {
 
     users.forEach(user => {
       if (!checkSameCompany(user) || (user.id || user._id) === currentUser.id) return;
+      if (!isUserInScope(user)) return;
+      if (selectedCreateBranch && selectedCreateBranch !== 'all') {
+        const userBranchIds = getUserBranchIds(user);
+        if (!userBranchIds.includes(String(selectedCreateBranch))) return;
+      }
       const departmentId = getDepartmentIdFromUser(user);
       if (!departmentId) return;
       const departmentName = getUserDepartmentDisplay(user) || departmentMap[getLookupKey(departmentId)] || 'Department';
@@ -476,10 +587,31 @@ const AdminTaskManagement = () => {
       .sort((a, b) => a.name.localeCompare(b.name));
   })();
 
-  const createAssignableUsers = filteredUsers.filter(user => {
-    if (selectedCreateDepartment && selectedCreateDepartment !== 'all') {
-      return isUserInDepartment(user, selectedCreateDepartment);
+  const createAssignableUsers = users.filter(user => {
+    const isSameCompany = checkSameCompany(user);
+    const isSelf = (user.id || user._id) === currentUser.id;
+
+    if (!isSameCompany || isSelf) return false;
+    if (!isUserInScope(user)) return false;
+
+    if (selectedCreateBranch && selectedCreateBranch !== 'all') {
+      const userBranchIds = getUserBranchIds(user);
+      if (!userBranchIds.includes(String(selectedCreateBranch))) return false;
     }
+
+    if (selectedCreateDepartment && selectedCreateDepartment !== 'all') {
+      if (!isUserInDepartment(user, selectedCreateDepartment)) return false;
+    }
+
+    if (userSearch) {
+      const q = userSearch.toLowerCase();
+      return (
+        user.name?.toLowerCase().includes(q) ||
+        user.email?.toLowerCase().includes(q) ||
+        user.role?.toLowerCase().includes(q)
+      );
+    }
+
     return true;
   });
 
@@ -870,6 +1002,29 @@ const AdminTaskManagement = () => {
     try {
       const companyId = currentUser.company?._id || currentUser.company;
       let loadedDepartmentMap = {};
+
+      try {
+        const branchUrl = companyId ? `/branches/company/${companyId}` : '/branches';
+        const branchRes = await apiCall('get', branchUrl);
+        let branchesData = [];
+        if (branchRes?.branches && Array.isArray(branchRes.branches)) {
+          branchesData = branchRes.branches;
+        } else if (branchRes?.data && Array.isArray(branchRes.data)) {
+          branchesData = branchRes.data;
+        } else if (Array.isArray(branchRes)) {
+          branchesData = branchRes;
+        }
+        setBranches(branchesData);
+        const nextBranchMap = {};
+        branchesData.forEach(b => {
+          const bId = b?._id || b?.id;
+          const bName = b?.name || b?.branchCode;
+          if (bId && bName) nextBranchMap[getLookupKey(bId)] = bName;
+        });
+        setBranchMap(nextBranchMap);
+      } catch (branchErr) {
+        console.error('Failed to load branches', branchErr);
+      }
       
       
       try {
@@ -974,6 +1129,11 @@ const AdminTaskManagement = () => {
 
   
   const handleCreateTask = async () => {
+    if (!canCreateTask) {
+      showSnackbar('You have view-only access. Task creation is not allowed.', 'error');
+      return;
+    }
+
     if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
       showSnackbar('Please fill all required fields', 'error');
       return;
@@ -986,6 +1146,15 @@ const AdminTaskManagement = () => {
 
     if (newTask.assignedUsers.length === 0 && newTask.assignedGroups.length === 0) {
       showSnackbar('Please assign to at least one user or group', 'error');
+      return;
+    }
+
+    const outOfScopeUsers = newTask.assignedUsers.filter(uId => {
+      const user = users.find(u => String(u._id || u.id) === String(uId));
+      return user && !isUserInScope(user);
+    });
+    if (outOfScopeUsers.length > 0) {
+      showSnackbar('Cannot assign task to users outside your assigned branch/department scope', 'error');
       return;
     }
 
@@ -1051,6 +1220,11 @@ const AdminTaskManagement = () => {
 
   
   const handleEditTask = async () => {
+    if (!canCreateTask) {
+      showSnackbar('You have view-only access. Task editing is not allowed.', 'error');
+      return;
+    }
+
     if (!editTask.title || !editTask.description || !editTask.dueDateTime) {
       showSnackbar('Please fill all required fields', 'error');
       return;
@@ -1089,6 +1263,11 @@ const AdminTaskManagement = () => {
   };
 
   const handleCreateGroup = async () => {
+    if (!canCreateTask) {
+      showSnackbar('You have view-only access. Group creation is not allowed.', 'error');
+      return;
+    }
+
     if (!newGroup.name || !newGroup.description) {
       showSnackbar('Please fill group name and description', 'error');
       return;
@@ -1107,6 +1286,16 @@ const AdminTaskManagement = () => {
 
     if (invalidMembers.length > 0) {
       showSnackbar('Cannot add users from different company to group', 'error');
+      return;
+    }
+
+    const invalidScopeMembers = newGroup.members.filter(memberId => {
+      const user = users.find(u => String(u._id || u.id) === String(memberId));
+      return user && !isUserInScope(user);
+    });
+
+    if (invalidScopeMembers.length > 0) {
+      showSnackbar('Cannot add users outside your assigned branch/department scope to group', 'error');
       return;
     }
 
@@ -1148,6 +1337,11 @@ const AdminTaskManagement = () => {
   };
 
   const handleDeleteGroup = async (groupId) => {
+    if (!canCreateTask) {
+      showSnackbar('You have view-only access. Group deletion is not allowed.', 'error');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this group?')) return;
 
     try {
@@ -1161,6 +1355,11 @@ const AdminTaskManagement = () => {
 
   
   const handleStatusChange = async () => {
+    if (!canCreateTask) {
+      showSnackbar('You have view-only access. Status change is not allowed.', 'error');
+      return;
+    }
+
     if (!statusChange.status) {
       showSnackbar('Please select status', 'error');
       return;
@@ -1372,6 +1571,8 @@ const AdminTaskManagement = () => {
     setPriorityFilter('');
     setAssignedToFilter('');
     setOverdueFilter('');
+    setSelectedBranchFilter('all');
+    setSelectedDepartmentFilter('all');
     setDateRange({
       startDate: null,
       endDate: null
@@ -1410,6 +1611,7 @@ const AdminTaskManagement = () => {
     clearVoiceRecordingPreview();
     setUserSearch('');
     setGroupSearch('');
+    setSelectedCreateBranch('');
     setSelectedCreateDepartment('');
     setCreateDueDateTime('');
     setActiveGroupMenu(null);
@@ -1898,6 +2100,44 @@ const AdminTaskManagement = () => {
 
         
         <div className="AdminTaskManagement-filter-grid">
+          <div className="AdminTaskManagement-filter-select-container">
+            <label>Branch</label>
+            <select
+              className="AdminTaskManagement-filter-select"
+              value={selectedBranchFilter}
+              onChange={(e) => {
+                setSelectedBranchFilter(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="all">All Allowed Branches</option>
+              {allowedBranches.map(branch => (
+                <option key={branch._id || branch.id} value={branch._id || branch.id}>
+                  {branch.name || branch.branchCode}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="AdminTaskManagement-filter-select-container">
+            <label>Department</label>
+            <select
+              className="AdminTaskManagement-filter-select"
+              value={selectedDepartmentFilter}
+              onChange={(e) => {
+                setSelectedDepartmentFilter(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="all">All Allowed Departments</option>
+              {availableFilterDepartments.map(department => (
+                <option key={department._id || department.id} value={department._id || department.id}>
+                  {department.name || department.departmentName}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="AdminTaskManagement-filter-select-container">
             <label>Status</label>
             <select
@@ -2604,6 +2844,32 @@ const AdminTaskManagement = () => {
               </label>
               <div className="AdminTaskManagement-multi-select-container">
                 <div className="AdminTaskManagement-form-group" style={{ marginBottom: '12px' }}>
+                  <label>Select Branch</label>
+                  <select
+                    className="AdminTaskManagement-form-select"
+                    value={selectedCreateBranch}
+                    onChange={(event) => {
+                      const nextBranch = event.target.value;
+                      setSelectedCreateBranch(nextBranch);
+                      setSelectedCreateDepartment('');
+                      setNewTask(prev => ({
+                        ...prev,
+                        assignedUsers: []
+                      }));
+                    }}
+                  >
+                    <option value="">All Allowed Branches</option>
+                    {allowedBranches.map(branch => (
+                      <option key={branch._id || branch.id} value={branch._id || branch.id}>
+                        {branch.name || branch.branchCode}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="AdminTaskManagement-form-hint">
+                    Filter assignable users by branch.
+                  </small>
+                </div>
+                <div className="AdminTaskManagement-form-group" style={{ marginBottom: '12px' }}>
                   <label>Select Department</label>
                   <select
                     className="AdminTaskManagement-form-select"
@@ -3217,7 +3483,49 @@ const AdminTaskManagement = () => {
 
   
   useEffect(() => {
+    let isMounted = true;
+    const checkPagePermissions = async () => {
+      try {
+        const perm = await loadPagePermission('/ciisUser/admin-task-create');
+        if (!isMounted) return;
+        setPagePermission(perm);
+
+        const user = getStoredUser();
+        const cUserId = getCurrentUserId() || user?._id || user?.id || '';
+        const cRole = String(user?.role || user?.userRole || '').toLowerCase();
+        const cCompanyRole = String(user?.companyRole || '').toLowerCase();
+        const isUserOwner = cRole.includes('owner') || cCompanyRole.includes('owner') || (cRole.includes('admin') && cRole.includes('super'));
+
+        const hasConfig = hasConfiguredPageAccess(perm);
+        const userScope = getUserPageScope(perm, cUserId);
+        setPageScope(userScope);
+
+        if (isUserOwner) {
+          setCanViewPage(true);
+          setCanCreateTask(true);
+        } else if (!hasConfig) {
+          setCanViewPage(true);
+          setCanCreateTask(true);
+        } else {
+          const viewAllowed = hasPageAccess(perm, cUserId, 'view') || hasPageAccess(perm, cUserId, 'edit');
+          const createAllowed = hasPageAccess(perm, cUserId, 'edit');
+          setCanViewPage(viewAllowed);
+          setCanCreateTask(createAllowed);
+        }
+      } catch (err) {
+        console.error('Failed to load page permissions for admin-task-create:', err);
+        setCanViewPage(true);
+        setCanCreateTask(true);
+      } finally {
+        if (isMounted) setPageAccessReady(true);
+      }
+    };
+
+    checkPagePermissions();
     fetchUserData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -3250,18 +3558,66 @@ const AdminTaskManagement = () => {
       return <CIISLoader />;
     }
 
-    if (tasks.length === 0) {
+    const scopedTasks = tasks.filter(task => {
+      const currentUid = String(currentUser.id || userId);
+      const isCreator = String(task.createdBy?._id || task.createdBy || '') === currentUid;
+      if (isOwner() || isCreator) {
+        if (selectedBranchFilter && selectedBranchFilter !== 'all') {
+          const hasBranchUser = (task.assignedUsers || []).some(u => {
+            const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
+            return fullUser && getUserBranchIds(fullUser).includes(String(selectedBranchFilter));
+          });
+          if (!hasBranchUser) return false;
+        }
+        if (selectedDepartmentFilter && selectedDepartmentFilter !== 'all') {
+          const hasDeptUser = (task.assignedUsers || []).some(u => {
+            const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
+            return fullUser && isUserInDepartment(fullUser, selectedDepartmentFilter);
+          });
+          if (!hasDeptUser) return false;
+        }
+        return true;
+      }
+
+      const assigned = task.assignedUsers || [];
+      const hasScopedAssignee = assigned.some(u => {
+        const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
+        return fullUser && isUserInScope(fullUser);
+      });
+      if (!hasScopedAssignee && assigned.length > 0) return false;
+
+      if (selectedBranchFilter && selectedBranchFilter !== 'all') {
+        const hasBranchUser = assigned.some(u => {
+          const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
+          return fullUser && getUserBranchIds(fullUser).includes(String(selectedBranchFilter));
+        });
+        if (!hasBranchUser) return false;
+      }
+      if (selectedDepartmentFilter && selectedDepartmentFilter !== 'all') {
+        const hasDeptUser = assigned.some(u => {
+          const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
+          return fullUser && isUserInDepartment(fullUser, selectedDepartmentFilter);
+        });
+        if (!hasDeptUser) return false;
+      }
+
+      return true;
+    });
+
+    if (scopedTasks.length === 0) {
       return (
         <div className="AdminTaskManagement-empty-state">
           <FiCalendar size={48} className="AdminTaskManagement-empty-icon" />
           <h4>No tasks found</h4>
           <p>Try adjusting your filters or create a new task</p>
-          <button 
-            className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
-            onClick={() => setOpenCreateDialog(true)}
-          >
-            <FiPlus /> Create New Task
-          </button>
+          {canCreateTask && (
+            <button 
+              className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
+              onClick={() => setOpenCreateDialog(true)}
+            >
+              <FiPlus /> Create New Task
+            </button>
+          )}
         </div>
       );
     }
@@ -3281,7 +3637,7 @@ const AdminTaskManagement = () => {
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task, index) => (
+            {scopedTasks.map((task, index) => (
               <tr key={task._id} className={isOverdue(task) ? 'AdminTaskManagement-task-overdue' : ''}>
                 <td className="AdminTaskManagement-serial-cell">
                   {page * rowsPerPage + index + 1}
@@ -3302,7 +3658,7 @@ const AdminTaskManagement = () => {
                       <span style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Admin Check:</span>
                       <select
                         value={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')}
-                        disabled={task.overallStatus === 'overdue'}
+                        disabled={task.overallStatus === 'overdue' || !canCreateTask}
                         onChange={async (e) => {
                           const newAdminStatus = e.target.value;
                           setTasksRefreshing(true);
@@ -3323,7 +3679,7 @@ const AdminTaskManagement = () => {
                           border: '1px solid #ccc',
                           fontSize: '12px',
                           backgroundColor: '#fff',
-                          cursor: task.overallStatus === 'overdue' ? 'not-allowed' : 'pointer'
+                          cursor: (task.overallStatus === 'overdue' || !canCreateTask) ? 'not-allowed' : 'pointer'
                         }}
                       >
                         <option value="pending">Pending</option>
@@ -3387,7 +3743,7 @@ const AdminTaskManagement = () => {
                     >
                       <FiUsers />
                     </button>
-                    {task.overallStatus !== 'overdue' && (
+                    {task.overallStatus !== 'overdue' && canCreateTask && (
                       <button
                         className="AdminTaskManagement-icon-btn AdminTaskManagement-btn-sm"
                         onClick={() => openStatusChangeDialog(task)}
@@ -3406,7 +3762,7 @@ const AdminTaskManagement = () => {
         
         <div className="AdminTaskManagement-pagination">
           <div className="AdminTaskManagement-pagination-info">
-            Showing {tasks.length} of {totalTasks} tasks
+            Showing {scopedTasks.length} of {totalTasks} tasks
           </div>
           <div className="AdminTaskManagement-pagination-controls">
             <button
@@ -3459,8 +3815,52 @@ const AdminTaskManagement = () => {
     </div>
   );
 
-  if (loading && tasks.length === 0) {
+  if (!pageAccessReady || (loading && tasks.length === 0)) {
     return <CIISLoader />;
+  }
+
+  if (pageAccessReady && !canViewPage) {
+    return (
+      <div className="AdminTaskManagement-container">
+        <div style={{
+          margin: '60px auto',
+          maxWidth: '480px',
+          backgroundColor: '#fff',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+          padding: '40px 24px',
+          textAlign: 'center',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: '#fee2e2',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px'
+          }}>
+            <FiLock size={32} color="#dc2626" />
+          </div>
+          <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
+            Access Denied
+          </h3>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 24px 0', lineHeight: 1.5 }}>
+            You do not have permission to access the <strong>Admin Task Create</strong> page. Please contact your administrator to grant access in Page Management.
+          </p>
+          <button
+            className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
+            onClick={() => window.history.back()}
+            style={{ padding: '8px 20px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            Go Back
+          </button>
+        </div>
+        {renderSnackbar()}
+      </div>
+    );
   }
 
   return (
@@ -3480,18 +3880,40 @@ const AdminTaskManagement = () => {
                 
               </div>
             )}
-            <button 
-              className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
-              onClick={() => setOpenCreateDialog(true)}
-            >
-              <FiPlus /> Create Task
-            </button>
-            <button 
-              className="AdminTaskManagement-btn"
-              onClick={() => setOpenGroupDialog(true)}
-            >
-              <FiUsers /> Manage Groups
-            </button>
+            {!canCreateTask && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  backgroundColor: '#f3f4f6',
+                  color: '#4b5563',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  border: '1px solid #e5e7eb'
+                }}
+              >
+                <FiLock size={14} color="#6b7280" /> View Only Access
+              </span>
+            )}
+            {canCreateTask && (
+              <>
+                <button 
+                  className="AdminTaskManagement-btn AdminTaskManagement-btn-primary"
+                  onClick={() => setOpenCreateDialog(true)}
+                >
+                  <FiPlus /> Create Task
+                </button>
+                <button 
+                  className="AdminTaskManagement-btn"
+                  onClick={() => setOpenGroupDialog(true)}
+                >
+                  <FiUsers /> Manage Groups
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

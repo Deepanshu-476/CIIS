@@ -32,6 +32,7 @@ const PAYROLL_PERMISSION_ACTIONS = {
   "payroll-process": { view: "View", edit: "Review / Settings / Fine", generate: "Generate", lock: "Lock", unlock: "Unlock", delete: "Delete Process" },
   payslip: { view: "View", edit: "Email / Download", delete: "Delete" },
   "payroll-reports": { view: "View Reports", edit: "Export / Download", delete: "Delete" },
+  "admin-task-create": { view: "View", edit: "Create Task", delete: "Delete" },
 };
 
 const FALLBACK_PAGES = [
@@ -56,6 +57,7 @@ const FALLBACK_PAGES = [
   { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-reports"] },
   { pageKey: "task-management", name: "Create Task", path: "/ciisUser/task-management", permissionPattern: "viewEdit" },
   { pageKey: "admin-task-create", name: "Admin Create Task", path: "/ciisUser/admin-task-create", permissionPattern: "viewEdit" },
+  { pageKey: "admin-task-create", name: "Admin Create Task", path: "/ciisUser/admin-task-create", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["admin-task-create"] },
 ];
 
 const ALLOWED_PAGE_KEYS = FALLBACK_PAGES.map((p) => p.pageKey);
@@ -925,6 +927,16 @@ const PageManagement = () => {
         ])
       ),
     };
+
+    if (activeTab === "edit") {
+      const editScopeEntries = nextUserScopes["edit"] || {};
+      const currentViewScopes = { ...(nextUserScopes["view"] || {}) };
+      Object.entries(editScopeEntries).forEach(([userId, scope]) => {
+        currentViewScopes[userId] = scope;
+      });
+      nextUserScopes["view"] = currentViewScopes;
+    }
+
     const nextPermissions = buildDraftPermissionsForTab(draftPermissions, selectedPage, activeTab, [...candidateSelection]);
     setDraftUserScopes(nextUserScopes);
     setDraftPermissions(nextPermissions);
@@ -1512,6 +1524,7 @@ const PageManagement = () => {
                   {summaryPage.name} - {summaryAccessTypeLabel}
                 </h3>
                 <p>Yahan woh users dikh rahe hain jinko is page par ye access diya gaya hai.</p>
+                <p>Showing users who have been granted this access permission for this page.</p>
               </div>
               <button type="button" className="pm-icon-btn" onClick={closePermissionSummaryDialog} aria-label="Close">
                 <Close />

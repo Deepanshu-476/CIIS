@@ -1114,28 +1114,28 @@ const UserCreateTask = () => {
 
   
   const getEffectiveOverdueDate = useCallback((dueDateTime, task) => {
-    if (!dueDateTime) return null;
-    const dueDate = new Date(dueDateTime);
-    if (Number.isNaN(dueDate.getTime())) return null;
-
-    const isSelfTask = task?.taskFor === 'self' || task?.taskSource === 'self' || task?.__taskSource === 'self' || task?.source === 'self';
-    if (isSelfTask && task?.onHoldReleasedAt) {
+    if (task?.onHoldReleasedAt) {
       const releasedAt = new Date(task.onHoldReleasedAt);
-      if (!Number.isNaN(releasedAt.getTime()) && dueDate <= releasedAt) {
+      if (!Number.isNaN(releasedAt.getTime())) {
         return new Date(releasedAt.getTime() + 24 * 60 * 60 * 1000);
       }
     }
+
+    if (!dueDateTime) return null;
+    const dueDate = new Date(dueDateTime);
+    if (Number.isNaN(dueDate.getTime())) return null;
 
     return dueDate;
   }, []);
 
   const isOverdue = useCallback((dueDateTime, status, task = null) => {
-    if (!dueDateTime) return false;
-    if (status === 'overdue') return true;
-    
+    const normalized = normalizeStatus(status);
+    if (OVERDUE_LOCKED_STATUSES.has(normalized) && normalized !== 'overdue') return false;
+    if (normalized === 'overdue') return true;
+
     const dueDate = getEffectiveOverdueDate(dueDateTime, task);
     if (!dueDate) return false;
-    
+
     const isPastDue = dueDate < new Date();
     return isPastDue && canMoveToOverdue(status);
   }, [getEffectiveOverdueDate]);
@@ -1518,6 +1518,12 @@ const UserCreateTask = () => {
   }, [userId]);
 
   const getDueDateForTask = useCallback((task) => {
+    if (task?.onHoldReleasedAt) {
+      const releasedAt = new Date(task.onHoldReleasedAt);
+      if (!Number.isNaN(releasedAt.getTime())) {
+        return new Date(releasedAt.getTime() + 24 * 60 * 60 * 1000);
+      }
+    }
     return task?.dueDateTime || task?.dueDate;
   }, []);
 
@@ -1813,6 +1819,17 @@ const UserCreateTask = () => {
 
       if (remarks) {
         updatedTask.remarks = task?.remarks || [];
+      }
+
+      const prevStatus = normalizeStatus(task?.status || task?.userStatus || task?.overallStatus || '');
+      if (prevStatus === 'onhold' && normalizedStatus === 'in-progress') {
+        const releasedAt = new Date();
+        const newDue = new Date(releasedAt.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        updatedTask.onHoldReleasedAt = releasedAt.toISOString();
+        updatedTask.dueDateTime = newDue;
+        updatedTask.dueDate = newDue;
+      } else if (normalizedStatus === 'onhold') {
+        updatedTask.onHoldReleasedAt = null;
       }
 
       if (normalizedStatus === 'completed') {
@@ -3651,8 +3668,10 @@ const UserCreateTask = () => {
 
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3693,8 +3712,10 @@ const UserCreateTask = () => {
 
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3738,8 +3759,10 @@ const UserCreateTask = () => {
 
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3944,8 +3967,10 @@ const UserCreateTask = () => {
 
     const task = typeof taskOrId === 'object' ? taskOrId : findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');

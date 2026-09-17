@@ -26,7 +26,9 @@ import {
   FiMapPin,
   FiSmartphone,
   FiGlobe,
-  FiVolume2
+  FiVolume2,
+  FiPlay,
+  FiSquare
 } from "react-icons/fi";
 import { MdCelebration } from "react-icons/md";
 
@@ -104,12 +106,116 @@ const Attendance = () => {
   const [selectedDayRecord, setSelectedDayRecord] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  // Overtime Request States & Modals
+  const [showOvertimeModal, setShowOvertimeModal] = useState(false);
+  const [showMyOvertimeModal, setShowMyOvertimeModal] = useState(false);
+  const [otRequestType, setOtRequestType] = useState("SINGLE_DAY");
+  const [otCalculationType, setOtCalculationType] = useState("BY_HOURS");
+  const [otRequestedHours, setOtRequestedHours] = useState(2);
+  const [userSalaryInfo, setUserSalaryInfo] = useState(null);
+  const [otSingleDate, setOtSingleDate] = useState(new Date().toISOString().split("T")[0]);
+  const [otMultipleDates, setOtMultipleDates] = useState([new Date().toISOString().split("T")[0]]);
+  const [otNewDateInput, setOtNewDateInput] = useState("");
+  const [otMonth, setOtMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [otReason, setOtReason] = useState("");
+  const [otSubmitting, setOtSubmitting] = useState(false);
+  const [myOvertimeRequests, setMyOvertimeRequests] = useState([]);
+  const [loadingMyOt, setLoadingMyOt] = useState(false);
+
   // Live timer for today's working hours
   const [liveWorkingTime, setLiveWorkingTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
+  // Today's Live Overtime Session
+  const [todayOtSession, setTodayOtSession] = useState(null);
+  const [loadingOtSession, setLoadingOtSession] = useState(false);
+  const [actioningOt, setActioningOt] = useState(false);
+  const [liveOtSeconds, setLiveOtSeconds] = useState(0);
 
   // Refs for dropdown outside click
   const statusDropdownRef = useRef(null);
   const monthDropdownRef = useRef(null);
+
+  // Overtime API actions
+  const fetchMyOvertimeRequests = useCallback(async () => {
+    try {
+      setLoadingMyOt(true);
+      const res = await axios.get("/overtime/my-requests");
+      if (res.data?.success) {
+        setMyOvertimeRequests(res.data.data || []);
+        if (res.data?.salaryInfo) {
+          setUserSalaryInfo(res.data.salaryInfo);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch overtime requests:", err);
+    } finally {
+      setLoadingMyOt(false);
+    }
+  }, []);
+
+  const handleOpenMyOtModal = () => {
+    fetchMyOvertimeRequests();
+    setShowMyOvertimeModal(true);
+  };
+
+  const handleAddMultipleDate = () => {
+    if (!otNewDateInput) return;
+    if (!otMultipleDates.includes(otNewDateInput)) {
+      setOtMultipleDates([...otMultipleDates, otNewDateInput].sort());
+    }
+    setOtNewDateInput("");
+  };
+
+  const handleRemoveMultipleDate = (dToRemove) => {
+    setOtMultipleDates(otMultipleDates.filter((d) => d !== dToRemove));
+  };
+
+  const handleSubmitOvertime = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (otRequestType === "MULTIPLE_DAYS" && otMultipleDates.length === 0) {
+      toast.error("Please add at least one date for multiple days request.");
+      return;
+    }
+    if (otRequestType === "FULL_MONTH" && !otMonth) {
+      toast.error("Please select a valid month.");
+      return;
+    }
+    try {
+      setOtSubmitting(true);
+      const payload = {
+        requestType: otRequestType,
+        dates: otRequestType === "SINGLE_DAY" ? [otSingleDate] : otMultipleDates,
+        month: otMonth,
+        reason: otReason,
+        calculationType: otCalculationType,
+        requestedHours: otCalculationType === "BY_HOURS" ? Number(otRequestedHours || 0) : 0
+      };
+      const res = await axios.post("/overtime/request", payload);
+      if (res.data?.success) {
+        toast.success(res.data.message || "Overtime request submitted!");
+        setShowOvertimeModal(false);
+        setOtReason("");
+        fetchMyOvertimeRequests();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to submit overtime request.");
+    } finally {
+      setOtSubmitting(false);
+    }
+  };
+
+  const handleCancelOtRequest = async (id) => {
+    if (!window.confirm("Are you sure you want to cancel this pending overtime request?")) return;
+    try {
+      const res = await axios.delete(`/overtime/request/${id}`);
+      if (res.data?.success) {
+        toast.success("Overtime request cancelled.");
+        fetchMyOvertimeRequests();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to cancel request.");
+    }
+  };
 
   // ----------------------------------------------------
   // 3. Close Dropdowns on Outside Click
@@ -131,7 +237,7 @@ const Attendance = () => {
   // 4. Modal Scroll Lock Hook
   // ----------------------------------------------------
   useEffect(() => {
-    if (showDetailModal) {
+    if (showDetailModal || showOvertimeModal || showMyOvertimeModal) {
       const originalBodyOverflow = document.body.style.overflow;
       const originalHtmlOverflow = document.documentElement.style.overflow;
       const mainEl = document.querySelector("main");
@@ -147,7 +253,7 @@ const Attendance = () => {
         if (mainEl) mainEl.style.overflow = originalMainOverflow;
       };
     }
-  }, [showDetailModal]);
+  }, [showDetailModal, showOvertimeModal, showMyOvertimeModal]);
 
   // ----------------------------------------------------
   // 5. Data Fetching (Attendance, Holidays & Today's Clock Status)
@@ -198,6 +304,81 @@ const Attendance = () => {
     }
   }, [token]);
 
+  // Today's Overtime Session API call (/overtime/today-session)
+  const fetchTodayOtSession = useCallback(async () => {
+    try {
+      setLoadingOtSession(true);
+      const res = await axios.get("/overtime/today-session");
+      if (res.data?.success && res.data?.hasApprovedOt) {
+        setTodayOtSession(res.data.data);
+      } else {
+        setTodayOtSession(null);
+      }
+    } catch (err) {
+      console.error("Failed to load today overtime session:", err);
+      setTodayOtSession(null);
+    } finally {
+      setLoadingOtSession(false);
+    }
+  }, []);
+
+  // Overtime Live Timer interval
+  useEffect(() => {
+    let interval = null;
+    if (todayOtSession?.isOtRunning && todayOtSession?.otStartTime) {
+      const startMs = new Date(todayOtSession.otStartTime).getTime();
+      const tick = () => {
+        const diffSec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+        setLiveOtSeconds(diffSec);
+      };
+      tick();
+      interval = setInterval(tick, 1000);
+    } else {
+      setLiveOtSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [todayOtSession?.isOtRunning, todayOtSession?.otStartTime]);
+
+  // Start Overtime handler
+  const handleStartOvertime = async () => {
+    try {
+      setActioningOt(true);
+      const res = await axios.post("/overtime/start");
+      if (res.data?.success) {
+        toast.success(res.data.message || "Overtime started! Timer is now active.");
+        await fetchTodayOtSession();
+        await fetchAttendanceData();
+        window.dispatchEvent(new CustomEvent("ciis-attendance-updated"));
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to start overtime.");
+    } finally {
+      setActioningOt(false);
+    }
+  };
+
+  // Stop Overtime handler
+  const handleStopOvertime = async () => {
+    if (!window.confirm("Are you sure you want to stop overtime? Your worked duration will be recorded.")) return;
+    try {
+      setActioningOt(true);
+      const res = await axios.post("/overtime/stop");
+      if (res.data?.success) {
+        const msg = res.data.message || `Overtime stopped. Recorded ${res.data?.data?.overTime || ""}!`;
+        toast.success(msg);
+        await fetchTodayOtSession();
+        await fetchAttendanceData();
+        window.dispatchEvent(new CustomEvent("ciis-attendance-updated"));
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to stop overtime.");
+    } finally {
+      setActioningOt(false);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     const init = async () => {
@@ -205,22 +386,24 @@ const Attendance = () => {
       await Promise.all([
         fetchAttendanceData(),
         fetchHolidaysData(),
-        fetchTodayClockStatus()
+        fetchTodayClockStatus(),
+        fetchTodayOtSession()
       ]);
       setPageLoading(false);
     };
     init();
-  }, [fetchAttendanceData, fetchHolidaysData, fetchTodayClockStatus]);
+  }, [fetchAttendanceData, fetchHolidaysData, fetchTodayClockStatus, fetchTodayOtSession]);
 
   // Listen to attendance updates across the app (clock-in / clock-out events)
   useEffect(() => {
     const handleAttendanceChange = () => {
       fetchTodayClockStatus();
       fetchAttendanceData();
+      fetchTodayOtSession();
     };
     window.addEventListener("ciis-attendance-updated", handleAttendanceChange);
     return () => window.removeEventListener("ciis-attendance-updated", handleAttendanceChange);
-  }, [fetchTodayClockStatus, fetchAttendanceData]);
+  }, [fetchTodayClockStatus, fetchAttendanceData, fetchTodayOtSession]);
 
   // ----------------------------------------------------
   // 6. Time & Helper Formatter Functions
@@ -240,6 +423,14 @@ const Attendance = () => {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  const formatOtDuration = (totalSec) => {
+    const safeSec = Math.max(0, Number(totalSec) || 0);
+    const hrs = Math.floor(safeSec / 3600);
+    const mins = Math.floor((safeSec % 3600) / 60);
+    const secs = safeSec % 60;
+    return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
   const normalizeToDateKey = (val) => {
@@ -1084,6 +1275,25 @@ const Attendance = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Overtime Action Buttons */}
+                <button
+                  type="button"
+                  className="att-header-ot-btn primary-ot"
+                  onClick={() => setShowOvertimeModal(true)}
+                  title="Request Overtime Shift"
+                >
+                  <FiClock /> Request Overtime
+                </button>
+
+                <button
+                  type="button"
+                  className="att-header-ot-btn secondary-ot"
+                  onClick={handleOpenMyOtModal}
+                  title="View your overtime requests"
+                >
+                  My OT Requests
+                </button>
               </div>
             </div>
 
@@ -1179,31 +1389,55 @@ const Attendance = () => {
                             {item.totalTime || item.workingHours || "00:00:00"}
                           </td>
                           <td>
-                            <span
-                              className={`att-status-pill ${
-                                normStatus === "PRESENT"
-                                  ? "present"
-                                  : normStatus === "LATE"
-                                  ? "late"
-                                  : normStatus === "HALF DAY"
-                                  ? "halfday"
-                                  : normStatus === "WEEKLY OFF"
-                                  ? "weeklyoff"
-                                  : normStatus === "HOLIDAY"
-                                  ? "holiday"
-                                  : normStatus === "ON LEAVE"
-                                  ? "onleave"
-                                  : "absent"
-                              }`}
-                            >
-                              {normStatus === "PRESENT" && <FiCheck className="status-icon" />}
-                              {normStatus === "ABSENT" && <FiX className="status-icon" />}
-                              {normStatus === "PRESENT"
-                                ? "Present"
-                                : normStatus === "ABSENT"
-                                ? "Absent"
-                                : normStatus}
-                            </span>
+                            {(() => {
+                              const hasApprovedOt = Boolean(item.hasOvertimeApproved);
+                              const hasOtDuration = Boolean(item.overTime && item.overTime !== "00:00:00");
+                              const isPresentWithOt = (normStatus === "PRESENT" || normStatus === "LATE") && hasApprovedOt && hasOtDuration;
+                              return (
+                                <>
+                                  <span
+                                    className={`att-status-pill ${
+                                      isPresentWithOt
+                                        ? "present-overtime"
+                                        : normStatus === "PRESENT"
+                                        ? "present"
+                                        : normStatus === "LATE"
+                                        ? "late"
+                                        : normStatus === "HALF DAY"
+                                        ? "halfday"
+                                        : normStatus === "WEEKLY OFF"
+                                        ? "weeklyoff"
+                                        : normStatus === "HOLIDAY"
+                                        ? "holiday"
+                                        : normStatus === "ON LEAVE"
+                                        ? "onleave"
+                                        : "absent"
+                                    }`}
+                                  >
+                                    {isPresentWithOt ? (
+                                      <>
+                                        <FiClock className="status-icon" /> Present + Overtime
+                                      </>
+                                    ) : normStatus === "PRESENT" ? (
+                                      <>
+                                        <FiCheck className="status-icon" /> Present
+                                      </>
+                                    ) : normStatus === "ABSENT" ? (
+                                      <>
+                                        <FiX className="status-icon" /> Absent
+                                      </>
+                                    ) : (
+                                      normStatus
+                                    )}
+                                  </span>
+                                  {hasApprovedOt && hasOtDuration && (
+                                    <div className="att-ot-badge" title="Actual overtime duration">
+                                      <FiClock /> OT: {item.overTime}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </td>
                           <td>
                             {item.lateBy && item.lateBy !== "-" && item.lateBy !== "00:00:00" ? (
@@ -1456,6 +1690,124 @@ const Attendance = () => {
               <span>View Detailed Log</span>
             </button>
           </div>
+
+          {/* Today's Overtime Session Widget (Only shown if user has approved OT for today) */}
+          {todayOtSession && (
+            <div className="att-card att-ot-session-card">
+              <div className="att-ot-session-header">
+                <div className="att-ot-session-title-group">
+                  <span className={`att-ot-pulse-dot ${todayOtSession.isOtRunning ? "active" : ""}`} />
+                  <h4>Today's Overtime</h4>
+                </div>
+                <span className="att-ot-approved-badge">
+                  Approved: {todayOtSession.requestedHours || 0}h Max
+                </span>
+              </div>
+
+              <div className="att-ot-session-body">
+                {/* Case 1: Shift is still in progress (Cannot start yet) */}
+                {!todayOtSession.isShiftEnded && !todayOtSession.isOtRunning && !todayOtSession.otCompleted && (
+                  <div className="att-ot-state-box locked">
+                    <div className="att-ot-state-text">
+                      <span className="att-ot-state-tag locked">Shift in Progress</span>
+                      <p className="att-ot-state-msg">
+                        Your regular shift ends at <strong>{todayOtSession.shiftEndFormatted || todayOtSession.shiftEndStr || "7:00 PM"}</strong>.
+                        Overtime tracking will be enabled once your regular shift ends.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="att-ot-action-btn locked"
+                      disabled
+                      title="You can start overtime after regular shift ends"
+                    >
+                      <FiClock />
+                      <span>Shift Ends at {todayOtSession.shiftEndFormatted || todayOtSession.shiftEndStr || "7:00 PM"}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Case 2: Shift ended & Ready to Start Overtime */}
+                {todayOtSession.isShiftEnded && !todayOtSession.isOtRunning && !todayOtSession.otCompleted && (
+                  <div className="att-ot-state-box ready">
+                    <div className="att-ot-state-text">
+                      <span className="att-ot-state-tag ready">Ready for Overtime</span>
+                      <p className="att-ot-state-msg">
+                        Regular shift ended at <strong>{todayOtSession.shiftEndFormatted || todayOtSession.shiftEndStr}</strong>. Click below to start your overtime shift.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="att-ot-action-btn start"
+                      onClick={handleStartOvertime}
+                      disabled={actioningOt}
+                    >
+                      <FiPlay />
+                      <span>{actioningOt ? "Starting..." : "Start OT"}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Case 3: Overtime is currently Running */}
+                {todayOtSession.isOtRunning && (
+                  <div className="att-ot-state-box running">
+                    <div className="att-ot-timer-banner">
+                      <span className="att-ot-timer-label">OVERTIME IN PROGRESS</span>
+                      <div className="att-ot-timer-digits">
+                        {formatOtDuration(liveOtSeconds)}
+                      </div>
+                      <span className="att-ot-timer-detail">
+                        Started at {formatTime(todayOtSession.otStartTime)} • Max Limit: {todayOtSession.requestedHours}h
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="att-ot-action-btn stop"
+                      onClick={handleStopOvertime}
+                      disabled={actioningOt}
+                    >
+                      <FiSquare />
+                      <span>{actioningOt ? "Stopping..." : "Stop OT"}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Case 4: Overtime Completed Today */}
+                {todayOtSession.otCompleted && (
+                  <div className="att-ot-state-box completed">
+                    <div className="att-ot-completed-head">
+                      <div className="att-ot-check-circle">
+                        <FiCheck />
+                      </div>
+                      <div>
+                        <span className="att-ot-state-tag completed">Overtime Recorded</span>
+                        <p className="att-ot-state-msg">
+                          Completed for today. Validated and integrated into attendance & payroll.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="att-ot-stats-row">
+                      <div className="att-ot-stat-card">
+                        <span className="att-stat-label">Counted OT</span>
+                        <span className="att-stat-val highlight">{todayOtSession.overTime || "00:00:00"}</span>
+                      </div>
+                      <div className="att-ot-stat-card">
+                        <span className="att-stat-label">Approved Cap</span>
+                        <span className="att-stat-val">{todayOtSession.requestedHours} hrs</span>
+                      </div>
+                      {todayOtSession.earnedAmount > 0 && (
+                        <div className="att-ot-stat-card">
+                          <span className="att-stat-label">OT Earnings</span>
+                          <span className="att-stat-val earn">+₹{todayOtSession.earnedAmount}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1590,6 +1942,447 @@ const Attendance = () => {
                   type="button"
                   className="att-modal-primary-btn"
                   onClick={() => setShowDetailModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 7. Request Overtime Modal */}
+      {showOvertimeModal &&
+        createPortal(
+          <div
+            className="att-ot-modal-overlay"
+            onClick={() => setShowOvertimeModal(false)}
+          >
+            <div
+              className="att-ot-modal"
+              style={{
+                maxHeight: "88vh",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none"
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="att-ot-modal-header" style={{ flexShrink: 0, position: "sticky", top: 0, zIndex: 10, background: "#ffffff" }}>
+                <div>
+                  <h3><FiClock style={{ color: "#7c3aed" }} /> Request Overtime Shift</h3>
+                  <p>Submit request for admin approval to work overtime</p>
+                </div>
+                <button
+                  type="button"
+                  className="att-ot-modal-close"
+                  onClick={() => setShowOvertimeModal(false)}
+                >
+                  <FiX />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleSubmitOvertime}
+                className="att-ot-form"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  flex: 1,
+                  minHeight: 0,
+                  overflow: "hidden",
+                  margin: 0
+                }}
+              >
+                <div
+                  className="att-ot-modal-body"
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: "auto",
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none"
+                  }}
+                >
+                  <div className="att-ot-field">
+                    <label>Select Overtime Duration / Type</label>
+                    <div className="att-ot-type-selector">
+                      <button
+                        type="button"
+                        className={`att-ot-type-btn ${otRequestType === "SINGLE_DAY" ? "active" : ""}`}
+                        onClick={() => setOtRequestType("SINGLE_DAY")}
+                      >
+                        Single Date
+                      </button>
+                      <button
+                        type="button"
+                        className={`att-ot-type-btn ${otRequestType === "MULTIPLE_DAYS" ? "active" : ""}`}
+                        onClick={() => setOtRequestType("MULTIPLE_DAYS")}
+                      >
+                        Multiple Dates
+                      </button>
+                      <button
+                        type="button"
+                        className={`att-ot-type-btn ${otRequestType === "FULL_MONTH" ? "active" : ""}`}
+                        onClick={() => setOtRequestType("FULL_MONTH")}
+                      >
+                        Full Month
+                      </button>
+                    </div>
+                  </div>
+
+                  {otRequestType === "SINGLE_DAY" && (
+                    <div className="att-ot-field">
+                      <label>Overtime Date</label>
+                      <input
+                        type="date"
+                        value={otSingleDate}
+                        onChange={(e) => setOtSingleDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {otRequestType === "MULTIPLE_DAYS" && (
+                    <div className="att-ot-field">
+                      <label>Choose and Add Dates</label>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <input
+                          type="date"
+                          value={otNewDateInput}
+                          onChange={(e) => setOtNewDateInput(e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="att-ot-btn-submit"
+                          onClick={handleAddMultipleDate}
+                          disabled={!otNewDateInput}
+                          style={{ padding: "8px 14px", fontSize: "12px" }}
+                        >
+                          + Add Date
+                        </button>
+                      </div>
+
+                      {otMultipleDates.length > 0 ? (
+                        <div className="att-ot-chips-container">
+                          {otMultipleDates.map((d) => (
+                            <span key={d} className="att-ot-chip">
+                              {d}
+                              <button
+                                type="button"
+                                className="att-ot-chip-remove"
+                                onClick={() => handleRemoveMultipleDate(d)}
+                              >
+                                <FiX />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <small style={{ color: "#94a3b8" }}>No dates added yet.</small>
+                      )}
+                    </div>
+                  )}
+
+                  {otRequestType === "FULL_MONTH" && (
+                    <div className="att-ot-field">
+                      <label>Select Month</label>
+                      <input
+                        type="month"
+                        value={otMonth}
+                        onChange={(e) => setOtMonth(e.target.value)}
+                        required
+                      />
+                      <small style={{ color: "#64748b" }}>
+                        Overtime permission will apply to all scheduled working days in this month.
+                      </small>
+                    </div>
+                  )}
+
+                  {/* Calculation Type Option */}
+                  <div className="att-ot-field">
+                    <label style={{ fontWeight: 600, color: "#1e293b", marginBottom: "6px" }}>Calculation Type</label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                      <button
+                        type="button"
+                        onClick={() => setOtCalculationType("BY_HOURS")}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: "8px",
+                          border: otCalculationType === "BY_HOURS" ? "2px solid #7c3aed" : "1px solid #e2e8f0",
+                          background: otCalculationType === "BY_HOURS" ? "#f5f3ff" : "#ffffff",
+                          color: otCalculationType === "BY_HOURS" ? "#7c3aed" : "#475569",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          textAlign: "left"
+                        }}
+                      >
+                        <div style={{ fontSize: "13px" }}>⏱️ Calculate by Hours</div>
+                        <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 400, marginTop: "2px" }}>Custom overtime hours</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setOtCalculationType("FULL_DAY_PRESENT")}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: "8px",
+                          border: otCalculationType === "FULL_DAY_PRESENT" ? "2px solid #059669" : "1px solid #e2e8f0",
+                          background: otCalculationType === "FULL_DAY_PRESENT" ? "#ecfdf5" : "#ffffff",
+                          color: otCalculationType === "FULL_DAY_PRESENT" ? "#059669" : "#475569",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          textAlign: "left"
+                        }}
+                      >
+                        <div style={{ fontSize: "13px" }}>📅 1 Full Day Present</div>
+                        <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 400, marginTop: "2px" }}>Counts as +1 present day</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {otCalculationType === "BY_HOURS" ? (
+                    <div className="att-ot-field">
+                      <label>Overtime Hours (Per Day)</label>
+                      <select
+                        value={otRequestedHours}
+                        onChange={(e) => setOtRequestedHours(Number(e.target.value))}
+                        style={{
+                          padding: "9px 12px",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: "8px",
+                          fontSize: "13.5px",
+                          width: "100%"
+                        }}
+                      >
+                        <option value={1}>1 Hour</option>
+                        <option value={2}>2 Hours</option>
+                        <option value={3}>3 Hours</option>
+                        <option value={4}>4 Hours</option>
+                        <option value={5}>5 Hours</option>
+                        <option value={6}>6 Hours</option>
+                        <option value={8}>8 Hours</option>
+                        <option value={9}>9 Hours (Full Day Shift)</option>
+                      </select>
+                      <small style={{ color: "#64748b" }}>
+                        Rate: 1 Day Wage ÷ 9 hours ÷ 60 minutes.
+                      </small>
+                    </div>
+                  ) : (
+                    <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "10px 14px", borderRadius: "8px", fontSize: "12.5px", color: "#065f46" }}>
+                      <strong>✓ 1 Full Day Present:</strong> Overtime approval will add <strong>1 Additional Present Day</strong> to attendance and credit a full 1-day wage to monthly salary.
+                    </div>
+                  )}
+
+                  {/* Estimated Overtime Pay Display */}
+                  {userSalaryInfo?.dailyWage > 0 && (
+                    <div style={{
+                      background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
+                      border: "1px solid #d8b4fe",
+                      padding: "12px 14px",
+                      borderRadius: "8px",
+                      marginTop: "6px"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12.5px", color: "#6b21a8", fontWeight: 600 }}>
+                          Estimated Overtime Amount:
+                        </span>
+                        <span style={{ fontSize: "16px", color: "#7c3aed", fontWeight: 800 }}>
+                          ₹{(() => {
+                            const daysCount = otRequestType === "SINGLE_DAY" ? 1 : otRequestType === "MULTIPLE_DAYS" ? (otMultipleDates.length || 1) : 30;
+                            if (otCalculationType === "FULL_DAY_PRESENT") {
+                              return (userSalaryInfo.dailyWage * daysCount).toFixed(2);
+                            }
+                            return (userSalaryInfo.hourlyWage * otRequestedHours * daysCount).toFixed(2);
+                          })()}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#7e22ce", marginTop: "4px" }}>
+                        Based on Monthly Gross: ₹{userSalaryInfo.monthlyGross?.toLocaleString()} | 1 Day Wage: ₹{userSalaryInfo.dailyWage?.toFixed(2)} | 1 Hr Wage: ₹{userSalaryInfo.hourlyWage?.toFixed(2)}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="att-ot-field">
+                    <label>Reason / Task Description</label>
+                    <textarea
+                      rows="3"
+                      value={otReason}
+                      onChange={(e) => setOtReason(e.target.value)}
+                      placeholder="e.g., Deliver pending client project deliverables, critical system release, etc."
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="att-ot-modal-footer" style={{ flexShrink: 0, position: "sticky", bottom: 0, zIndex: 10, background: "#ffffff" }}>
+                  <button
+                    type="button"
+                    className="att-ot-btn-cancel"
+                    onClick={() => setShowOvertimeModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="att-ot-btn-submit"
+                    disabled={otSubmitting}
+                  >
+                    {otSubmitting ? "Submitting..." : "Submit to Admin"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 8. My Overtime Requests History Modal */}
+      {showMyOvertimeModal &&
+        createPortal(
+          <div
+            className="att-ot-modal-overlay"
+            onClick={() => setShowMyOvertimeModal(false)}
+          >
+            <div
+              className="att-ot-modal"
+              style={{
+                maxWidth: "600px",
+                maxHeight: "85vh",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none"
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="att-ot-modal-header" style={{ flexShrink: 0, position: "sticky", top: 0, zIndex: 10, background: "#ffffff" }}>
+                <div>
+                  <h3><FiClock style={{ color: "#7c3aed" }} /> My Overtime Requests</h3>
+                  <p>Track approval status of your overtime requests</p>
+                </div>
+                <button
+                  type="button"
+                  className="att-ot-modal-close"
+                  onClick={() => setShowMyOvertimeModal(false)}
+                >
+                  <FiX />
+                </button>
+              </div>
+
+              <div
+                className="att-ot-modal-body"
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: "auto",
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none"
+                }}
+              >
+                {loadingMyOt ? (
+                  <p style={{ textAlign: "center", color: "#64748b", margin: "20px 0" }}>
+                    Loading your requests...
+                  </p>
+                ) : myOvertimeRequests.length === 0 ? (
+                  <p style={{ textAlign: "center", color: "#94a3b8", margin: "30px 0" }}>
+                    No overtime requests submitted yet.
+                  </p>
+                ) : (
+                  myOvertimeRequests.map((req) => (
+                    <div key={req._id} className="att-ot-request-card">
+                      <div className="att-ot-request-top">
+                        <strong style={{ fontSize: "13px", color: "#1e293b" }}>
+                          {req.requestType === "SINGLE_DAY"
+                            ? "Single Day Overtime"
+                            : req.requestType === "MULTIPLE_DAYS"
+                            ? `Multiple Days (${req.dateKeys?.length || 0} dates)`
+                            : `Full Month (${req.month})`}
+                        </strong>
+                        <span
+                          className={`att-ot-status-badge ${
+                            req.status?.toLowerCase() || "pending"
+                          }`}
+                        >
+                          {req.status}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: "12px", color: "#475569" }}>
+                        <b>Dates: </b>
+                        {req.requestType === "FULL_MONTH"
+                          ? req.month
+                          : (req.dateKeys || []).join(", ") || "-"}
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px", fontSize: "12px" }}>
+                        <div>
+                          <b>Type: </b>
+                          <span style={{
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            background: req.calculationType === "FULL_DAY_PRESENT" ? "#ecfdf5" : "#f5f3ff",
+                            color: req.calculationType === "FULL_DAY_PRESENT" ? "#059669" : "#7c3aed"
+                          }}>
+                            {req.calculationType === "FULL_DAY_PRESENT" ? "1 Full Day Present" : `By Hours (${req.requestedHours || 0} hrs)`}
+                          </span>
+                        </div>
+                        {Number(req.calculatedAmount || 0) > 0 && (
+                          <div style={{ fontWeight: 800, color: "#16a34a", fontSize: "13px" }}>
+                            + ₹{Number(req.calculatedAmount).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+
+                      {req.reason && (
+                        <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+                          <b>Reason: </b>{req.reason}
+                        </div>
+                      )}
+
+                      {req.rejectionReason && (
+                        <div style={{ fontSize: "12px", color: "#dc2626", marginTop: "4px" }}>
+                          <b>Admin Remarks: </b>{req.rejectionReason}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                        <small style={{ color: "#94a3b8", fontSize: "11px" }}>
+                          Requested on {new Date(req.createdAt).toLocaleDateString()}
+                        </small>
+                        {req.status === "Pending" && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelOtRequest(req._id)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#ef4444",
+                              fontSize: "12px",
+                              cursor: "pointer",
+                              fontWeight: 600
+                            }}
+                          >
+                            Cancel Request
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="att-ot-modal-footer" style={{ flexShrink: 0, position: "sticky", bottom: 0, zIndex: 10, background: "#ffffff" }}>
+                <button
+                  type="button"
+                  className="att-ot-btn-cancel"
+                  onClick={() => setShowMyOvertimeModal(false)}
                 >
                   Close
                 </button>

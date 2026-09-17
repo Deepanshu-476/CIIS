@@ -730,7 +730,7 @@ const ClientPlansPage = () => {
           </div>
 
           <form onSubmit={handleSubmitPlan}>
-            <div className="cp-form-row-2">
+            <div className="cp-form-row-4">
               <div className="cp-form-group">
                 <label className="cp-label">
                   Plan Name <span className="cp-required">*</span>
@@ -759,9 +759,7 @@ const ClientPlansPage = () => {
                   required
                 />
               </div>
-            </div>
 
-            <div className="cp-form-row-2">
               <div className="cp-form-group">
                 <label className="cp-label">
                   Plan Duration (Months) <span className="cp-required">*</span>

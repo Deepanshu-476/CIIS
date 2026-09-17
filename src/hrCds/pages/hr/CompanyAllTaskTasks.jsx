@@ -174,6 +174,40 @@ const getRemarkAuthorName = (remark) => {
     || "User";
 };
 
+const formatActivityAction = (value) => {
+  if (!value) return "Activity";
+  const str = String(value).trim().toLowerCase();
+  const map = {
+    task_created: "Task Created",
+    task_created_for_others: "Task Assigned",
+    self_task_created: "Self Task Created",
+    task_updated: "Task Updated",
+    task_deleted: "Task Deleted",
+    status_updated: "Status Updated",
+    status_change: "Status Changed",
+    remark_added: "Remark Added",
+    checkpoint_updated: "Checkpoint Updated",
+    checkpoint_toggle: "Checkpoint Toggled",
+    file_uploaded: "File Uploaded",
+    task_completed: "Task Completed",
+    task_assigned: "Task Assigned",
+    creation: "Task Created",
+    update: "Task Updated",
+  };
+  if (map[str]) return map[str];
+  return str.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const renderActivityDescription = (description = "") => {
+  const statusPattern = /(in[- ]progress|pending|completed|cancelled|on[- ]hold|overdue|reopen|rejected|approved)/gi;
+  return String(description).split(statusPattern).map((part, index) => {
+    const statusClass = part.toLowerCase().replace(/[\s_]+/g, "-");
+    return /^(in[- ]progress|pending|completed|cancelled|on[- ]hold|overdue|reopen|rejected|approved)$/i.test(part)
+      ? <span className={`activity-status-text ${statusClass}`} key={`${part}-${index}`}>{part}</span>
+      : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
+  });
+};
+
 const formatDate = (value) => {
   if (!value) return "Not set";
   const date = new Date(value);
@@ -299,7 +333,7 @@ const normalizeStats = (payload, fallbackTasks = []) => {
 };
 
 const COMPANY_TASK_CACHE_TTL = 10 * 60 * 1000;
-const COMPANY_TASK_CACHE_KEY_PREFIX = "ciis-company-all-task-cache-v1";
+const COMPANY_TASK_CACHE_KEY_PREFIX = "ciis-company-all-task-cache-v2";
 
 const buildCompanyTaskCacheKey = ({
   userId = "",
@@ -704,11 +738,22 @@ const CompanyAllTaskTasks = () => {
 
       const remarksPayload = remarksResponse.status === "fulfilled" ? remarksResponse.value.data : {};
       const activityPayload = activityResponse.status === "fulfilled" ? activityResponse.value.data : {};
+      
+      let fetchedLogs = activityPayload.logs || activityPayload.data || activityPayload.activityLogs || [];
+      if (activityPayload.data && Array.isArray(activityPayload.data.logs)) {
+        fetchedLogs = activityPayload.data.logs;
+      }
+      if (!Array.isArray(fetchedLogs)) {
+        fetchedLogs = [];
+      }
+
       return {
         remarks: extractRemarks(remarksPayload).length > 0
           ? extractRemarks(remarksPayload)
           : (Array.isArray(task.remarks) ? task.remarks : []),
-        activityLogs: activityPayload.logs || activityPayload.data || activityPayload.activityLogs || (Array.isArray(task.activityLogs) ? task.activityLogs : []),
+        activityLogs: fetchedLogs.length > 0
+          ? fetchedLogs
+          : (Array.isArray(task.activityLogs) ? task.activityLogs : []),
       };
     } catch {
       return { remarks: Array.isArray(task.remarks) ? task.remarks : [], activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [] };
@@ -1072,12 +1117,46 @@ const CompanyAllTaskTasks = () => {
     }
   };
 
-  const openActivityModal = (task, logs) => {
-    setActivityModal({ open: true, task, logs: Array.isArray(logs) ? logs : [] });
+  const openActivityModal = async (task, logs) => {
+    const initialLogs = Array.isArray(logs) && logs.length > 0
+      ? logs
+      : (taskDetailsById[task?._id]?.activityLogs || []);
+
+    setActivityModal({
+      open: true,
+      task,
+      logs: initialLogs,
+      loading: initialLogs.length === 0,
+    });
+
+    if (task?._id) {
+      try {
+        const details = await fetchTaskDetails(task);
+        if (Array.isArray(details?.activityLogs) && details.activityLogs.length > 0) {
+          setActivityModal((prev) => ({
+            ...prev,
+            logs: details.activityLogs,
+            loading: false,
+          }));
+          setTaskDetailsById((prev) => ({
+            ...prev,
+            [task._id]: {
+              ...(prev[task._id] || {}),
+              activityLogs: details.activityLogs,
+              loading: false,
+            },
+          }));
+        } else {
+          setActivityModal((prev) => ({ ...prev, loading: false }));
+        }
+      } catch {
+        setActivityModal((prev) => ({ ...prev, loading: false }));
+      }
+    }
   };
 
   const closeActivityModal = () => {
-    setActivityModal({ open: false, task: null, logs: [] });
+    setActivityModal({ open: false, task: null, logs: [], loading: false });
   };
 
   const openRemarksModal = (task, remarks) => {
@@ -1133,16 +1212,26 @@ const CompanyAllTaskTasks = () => {
       <p className="company-task-muted">{emptyText}</p>
     ) : (
       <div className="company-task-timeline">
-        {logs.map((log, index) => (
-          <div className="company-task-log" key={log._id || index}>
-            <div className="company-task-dot" />
-            <div>
-              <strong>{log.action || log.status || log.type || "Activity"}</strong>
-              <span>{formatDateTime(log.createdAt || log.timestamp || log.performedAt)}</span>
-              <p>{log.description || log.message || log.remarks || log.remark || "No activity details"}</p>
+        {logs.map((log, index) => {
+          const actorName = log.userName || log.user?.name || log.performedBy?.name || log.createdBy?.name || "";
+          const actionText = formatActivityAction(log.action || log.status || log.type || "Activity");
+          const timestamp = log.createdAt || log.timestamp || log.performedAt || log.date;
+          const desc = log.description || log.message || log.remarks || log.remark || "No activity details";
+
+          return (
+            <div className="company-task-log" key={log._id || index}>
+              <div className="company-task-dot" />
+              <div>
+                <div className="company-task-log-header">
+                  <strong>{actionText}</strong>
+                  {actorName && <span className="company-task-log-actor">{actorName}</span>}
+                </div>
+                <span>{formatDateTime(timestamp)}</span>
+                <p>{renderActivityDescription(desc)}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     )
   );
@@ -1489,13 +1578,13 @@ const CompanyAllTaskTasks = () => {
                       <div className="company-task-inline-section">
                         <div className="company-task-section-title-row">
                           <h4><FiActivity size={15} />Activity</h4>
-                          {!details.loading && details.activityLogs.length > 0 && (
+                          {!details.loading && (
                             <button
                               type="button"
                               className="company-task-view-all"
                               onClick={() => openActivityModal(task, details.activityLogs)}
                             >
-                              View All
+                              {details.activityLogs?.length > 0 ? "View All" : "Check Activity"}
                             </button>
                           )}
                         </div>
@@ -1660,7 +1749,11 @@ const CompanyAllTaskTasks = () => {
               </button>
             </div>
             <div className="company-task-modal-body">
-              {renderActivityTimeline(activityModal.logs)}
+              {activityModal.loading ? (
+                <p className="company-task-muted">Loading activities...</p>
+              ) : (
+                renderActivityTimeline(activityModal.logs)
+              )}
             </div>
           </div>
         </div>

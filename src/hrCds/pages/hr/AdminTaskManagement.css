@@ -427,6 +427,8 @@
   position: relative;
   overflow: hidden;
   animation: AdminTaskManagement-scaleIn 0.3s ease;
+  cursor: pointer;
+  user-select: none;
 }
 
 .AdminTaskManagement-stat-card::after {
@@ -448,6 +450,12 @@
 
 .AdminTaskManagement-stat-card:hover::after {
   transform: translateX(100%);
+}
+
+.AdminTaskManagement-stat-card-active {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: var(--shadow-lg);
+  border-width: 2px;
 }
 
 .AdminTaskManagement-stat-card-content {

@@ -32,10 +32,10 @@ const PAYROLL_PERMISSION_ACTIONS = {
   "payroll-process": { view: "View", edit: "Review / Settings / Fine", generate: "Generate", lock: "Lock", unlock: "Unlock", delete: "Delete Process" },
   payslip: { view: "View", edit: "Email / Download", delete: "Delete" },
   "payroll-reports": { view: "View Reports", edit: "Export / Download", delete: "Delete" },
+  "admin-task-create": { view: "View", edit: "Create Task", delete: "Delete" },
 };
 
 const FALLBACK_PAGES = [
-  { pageKey: "dashboard-1", name: "Dashboard 1", path: "/ciisUser/dashboard-1", permissionPattern: "viewEdit" },
   { pageKey: "emp-details", name: "Emp - Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
   { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
   { pageKey: "leave-policy", name: "Leave - Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
@@ -47,6 +47,7 @@ const FALLBACK_PAGES = [
   { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
+  { pageKey: "emp-client", name: "Client Management", path: "/ciisUser/emp-client", permissionPattern: "viewEdit" },
   { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-component"] },
   { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-structure"] },
   { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-assignment"] },
@@ -54,6 +55,9 @@ const FALLBACK_PAGES = [
   { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-process"] },
   { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS.payslip },
   { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-reports"] },
+  { pageKey: "task-management", name: "Create Task", path: "/ciisUser/task-management", permissionPattern: "viewEdit" },
+  { pageKey: "admin-task-create", name: "Admin Create Task", path: "/ciisUser/admin-task-create", permissionPattern: "viewEdit" },
+  { pageKey: "admin-task-create", name: "Admin Create Task", path: "/ciisUser/admin-task-create", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["admin-task-create"] },
 ];
 
 const ALLOWED_PAGE_KEYS = FALLBACK_PAGES.map((p) => p.pageKey);
@@ -734,6 +738,15 @@ const PageManagement = () => {
 
   const isRoleScopedPage = selectedPageRoleTokenSet.size > 0;
   const isUserVisibleForSelectedPage = (user) => {
+    // Always show Super Admin / Owner regardless of page role scoping
+    if (
+      user?.companyRole === "Super Admin" ||
+      user?.companyRole === "Owner" ||
+      user?.role === "Super Admin"
+    ) {
+      return true;
+    }
+
     if (!isRoleScopedPage) return true;
     const userTokens = getUserRoleTokens(user, jobRoleNameById);
     return userTokens.some((token) => selectedPageRoleTokenSet.has(token));
@@ -761,9 +774,13 @@ const PageManagement = () => {
   const activeUserIdSet = useMemo(() => new Set(activeIds), [activeIds]);
   const modalUsers = useMemo(() => {
     const query = candidateSearch.trim().toLowerCase();
+    
+    // When searching, search all users. Otherwise, only show role-matched users.
+    const sourceUsers = query ? users : visibleUsers;
+    
     const filtered = !query
-      ? visibleUsers
-      : visibleUsers.filter((user) =>
+      ? sourceUsers
+      : sourceUsers.filter((user) =>
           [user?.name, user?.email, user?.jobRole, user?.companyRole]
             .filter(Boolean)
             .join(" ")
@@ -777,7 +794,7 @@ const PageManagement = () => {
       if (leftSelected === rightSelected) return 0;
       return leftSelected ? -1 : 1;
     });
-  }, [candidateSearch, candidateSelection, visibleUsers]);
+  }, [candidateSearch, candidateSelection, visibleUsers, users]);
 
   const stats = useMemo(() => {
     const totalPages = pages.length;
@@ -910,6 +927,16 @@ const PageManagement = () => {
         ])
       ),
     };
+
+    if (activeTab === "edit") {
+      const editScopeEntries = nextUserScopes["edit"] || {};
+      const currentViewScopes = { ...(nextUserScopes["view"] || {}) };
+      Object.entries(editScopeEntries).forEach(([userId, scope]) => {
+        currentViewScopes[userId] = scope;
+      });
+      nextUserScopes["view"] = currentViewScopes;
+    }
+
     const nextPermissions = buildDraftPermissionsForTab(draftPermissions, selectedPage, activeTab, [...candidateSelection]);
     setDraftUserScopes(nextUserScopes);
     setDraftPermissions(nextPermissions);
@@ -1497,6 +1524,7 @@ const PageManagement = () => {
                   {summaryPage.name} - {summaryAccessTypeLabel}
                 </h3>
                 <p>Yahan woh users dikh rahe hain jinko is page par ye access diya gaya hai.</p>
+                <p>Showing users who have been granted this access permission for this page.</p>
               </div>
               <button type="button" className="pm-icon-btn" onClick={closePermissionSummaryDialog} aria-label="Close">
                 <Close />

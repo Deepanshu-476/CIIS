@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
-import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 
@@ -1750,12 +1749,6 @@ const EmployeeDirectory = () => {
   
   // Custom hooks
   const user = useUser();
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
   
   // State
   const [employees, setEmployees] = useState([]);
@@ -2094,8 +2087,7 @@ const EmployeeDirectory = () => {
           ...config,
           params: {
             companyId: currentUserCompanyId,
-            includeInactive: true,
-            ...branchQueryParams
+            includeInactive: true
           }
         });
       } else {
@@ -2104,8 +2096,7 @@ const EmployeeDirectory = () => {
           ...config,
           params: {
             department: currentUserDepartmentId,
-            includeInactive: true,
-            ...branchQueryParams
+            includeInactive: true
           }
         });
       }
@@ -2162,8 +2153,7 @@ const EmployeeDirectory = () => {
     showSnackbar, 
     user.getAuthToken,
     fetchJobRoles,
-    fetchBranches,
-    branchQueryParams.branchId
+    fetchBranches
   ]);
   
   // Initial data fetch
@@ -2173,10 +2163,6 @@ const EmployeeDirectory = () => {
     }
     fetchData();
   }, [fetchData, pageAccessReady]);
-
-  useEffect(() => {
-    setSelectedDepartment('all');
-  }, [branchQueryParams.branchId]);
   
   // Handle view user
   const handleOpenUser = useCallback((userData) => {
@@ -2828,12 +2814,6 @@ const EmployeeDirectory = () => {
           </div>
         </div>
       </div>
-
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
 
       {!isMobile && (
         <div className="EmployeeDirectory-search-filter-container">

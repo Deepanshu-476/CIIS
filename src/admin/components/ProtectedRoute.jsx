@@ -4,29 +4,10 @@ const ProtectedRoute = ({ children }) => {
   const location = useLocation();
   const path = location.pathname;
 
-  // Intercept query parameters for auto-authentication handoff
-  const query = new URLSearchParams(location.search);
-  const qToken = query.get('token');
-  const qUser = query.get('user');
-  const qClient = query.get('client');
-  const qCompanyCode = query.get('companyCode') || query.get('companyIdentifier');
-
-  if (qToken && qUser) {
-    try {
-      localStorage.setItem('token', qToken);
-      localStorage.setItem('user', qUser);
-      if (qClient) localStorage.setItem('client', qClient);
-      if (qCompanyCode) {
-        localStorage.setItem('companyCode', qCompanyCode);
-        localStorage.setItem('companyIdentifier', qCompanyCode);
-      }
-    } catch (e) {
-      console.error('Auto-login storage failed:', e);
-    }
-  }
 
   const token = localStorage.getItem('token');
   const isSuperAdminRoute = path.startsWith('/Ciis-network');
+
   if (!token) {
     const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
 
@@ -36,6 +17,47 @@ const ProtectedRoute = ({ children }) => {
       return <Navigate to={`/company/${companyCode}/login`} replace />;
     } else {
       return <Navigate to="/" replace />;
+    }
+  }
+
+  if (isSuperAdminRoute) {
+    let isSuperAdmin = false;
+    try {
+      const superAdminRaw = localStorage.getItem('superAdmin');
+      if (superAdminRaw) {
+        const parsed = JSON.parse(superAdminRaw);
+        const account = parsed?.user || parsed;
+        const role = String(account?.role || account?.jobRole || account?.companyRole || '').trim().toLowerCase();
+        if (account?.isSuperAdmin === true || role === 'super_admin' || role === 'superadmin') {
+          isSuperAdmin = true;
+        }
+      }
+      if (!isSuperAdmin) {
+        const userRaw = localStorage.getItem('user');
+        if (userRaw) {
+          const parsed = JSON.parse(userRaw);
+          const account = parsed?.user || parsed;
+          const role = String(account?.role || account?.jobRole || account?.companyRole || '').trim().toLowerCase();
+          if (account?.isSuperAdmin === true || role === 'super_admin' || role === 'superadmin') {
+            isSuperAdmin = true;
+          }
+        }
+      }
+    } catch {
+      isSuperAdmin = false;
+    }
+
+    if (!isSuperAdmin) {
+      // Non-superadmin user attempting to access /Ciis-network routes must be rejected and redirected away
+      const isClient = Boolean(localStorage.getItem('client') || localStorage.getItem('authToken'));
+      if (isClient) {
+        return <Navigate to="/client/dashboard" replace />;
+      }
+      const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
+      if (companyCode) {
+        return <Navigate to="/ciisUser/user-dashboard" replace />;
+      }
+      return <Navigate to="/SuperAdminLogin" replace />;
     }
   }
 

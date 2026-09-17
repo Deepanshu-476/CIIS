@@ -6,7 +6,7 @@ import {
   Drawer,
   Box
 } from '@mui/material';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate } from 'react-router-dom';
 
 import Header from './SuperAdminHeader';
 import Sidebar from './SuperAdminSidebar';
@@ -58,6 +58,44 @@ const MainContent = styled('main', {
 }));
 
 const SuperAdminLayout = () => {
+  let isSuperAdmin = false;
+  try {
+    const superAdminRaw = localStorage.getItem('superAdmin');
+    if (superAdminRaw) {
+      const parsed = JSON.parse(superAdminRaw);
+      const account = parsed?.user || parsed;
+      const role = String(account?.role || account?.jobRole || account?.companyRole || '').trim().toLowerCase();
+      if (account?.isSuperAdmin === true || role === 'super_admin' || role === 'superadmin') {
+        isSuperAdmin = true;
+      }
+    }
+    if (!isSuperAdmin) {
+      const userRaw = localStorage.getItem('user');
+      if (userRaw) {
+        const parsed = JSON.parse(userRaw);
+        const account = parsed?.user || parsed;
+        const role = String(account?.role || account?.jobRole || account?.companyRole || '').trim().toLowerCase();
+        if (account?.isSuperAdmin === true || role === 'super_admin' || role === 'superadmin') {
+          isSuperAdmin = true;
+        }
+      }
+    }
+  } catch {
+    isSuperAdmin = false;
+  }
+
+  if (!isSuperAdmin) {
+    const isClient = Boolean(localStorage.getItem('client') || localStorage.getItem('authToken'));
+    if (isClient) {
+      return <Navigate to="/client/dashboard" replace />;
+    }
+    const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
+    if (companyCode) {
+      return <Navigate to="/ciisUser/user-dashboard" replace />;
+    }
+    return <Navigate to="/SuperAdminLogin" replace />;
+  }
+
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const theme = useTheme();

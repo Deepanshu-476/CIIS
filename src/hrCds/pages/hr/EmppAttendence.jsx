@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
 import CIISLoader from '../../../Loader/CIISLoader'; 
-import PageBranchDropdown, { usePageBranchScope } from '../../components/PageBranchDropdown';
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 const loadXlsx = () => import('xlsx').then(module => module.default || module);
@@ -50,25 +49,53 @@ import {
   FiCalendar as FiRangeCalendar
 } from "react-icons/fi";
 
-const getIndiaDateKey = (value) => new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
-}).format(new Date(value));
+const getIndiaDateKey = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(d);
+};
 
 const MonthlyAttendanceModal = ({ state, onClose }) => {
+  useEffect(() => {
+    if (!state.open) return;
+
+    const scrollContainers = [
+      document.body,
+      document.documentElement,
+      document.querySelector('main'),
+      document.querySelector('.hr-main-content'),
+      document.querySelector('.ClientDashboard-sidebar-open')
+    ].filter(Boolean);
+
+    const originalStyles = scrollContainers.map(el => ({ el, overflow: el.style.overflow }));
+    scrollContainers.forEach(el => { el.style.overflow = 'hidden'; });
+
+    return () => {
+      originalStyles.forEach(({ el, overflow }) => { el.style.overflow = overflow; });
+    };
+  }, [state.open]);
+
   if (!state.open) return null;
   const { employee, records = [], leaves = [], loading, error, month, year } = state;
   const monthLabel = new Date(year, month, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   const approvedLeaves = leaves.filter(leave => String(leave.status).toLowerCase() === 'approved');
   const leaveByDate = new Map();
   approvedLeaves.forEach(leave => {
+    if (!leave.startDate || !leave.endDate) return;
     const cursor = new Date(leave.startDate);
     const end = new Date(leave.endDate);
+    if (isNaN(cursor.getTime()) || isNaN(end.getTime())) return;
     while (cursor <= end) {
-      leaveByDate.set(getIndiaDateKey(cursor), leave);
+      const key = getIndiaDateKey(cursor);
+      if (key) leaveByDate.set(key, leave);
       cursor.setDate(cursor.getDate() + 1);
     }
   });
-  const normalizedRecords = records.map(record => ({
+  const sortedRecords = [...records].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const normalizedRecords = sortedRecords.map(record => ({
     ...record,
     normalizedStatus: String(record.status || 'NO RECORD').trim().toUpperCase().replace(/_/g, ' '),
     leave: leaveByDate.get(getIndiaDateKey(record.date))
@@ -82,6 +109,9 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
   const halfDay = count('HALF DAY', 'HALFDAY');
   const leaveDays = normalizedRecords.filter(item => item.leave).length;
   const firstDay = new Date(year, month, 1).getDay();
+  const departmentName = typeof employee?.department === 'object'
+    ? (employee?.department?.name || 'Unassigned')
+    : (employee?.department || 'Unassigned');
 
   return (
     <div className="EmppAttendence-monthly-overlay" onMouseDown={onClose}>
@@ -96,7 +126,7 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
           <div className="EmppAttendence-monthly-employee">
             <span>{String(employee?.name || 'E').charAt(0).toUpperCase()}</span>
             <div><strong>{employee?.name || 'Employee'}</strong><small>{employee?.email || ''}</small></div>
-            <div className="EmppAttendence-monthly-meta"><small>Department</small><strong>{employee?.department || 'Unassigned'}</strong></div>
+            <div className="EmppAttendence-monthly-meta"><small>Department</small><strong>{departmentName}</strong></div>
           </div>
 
           {loading ? (
@@ -122,7 +152,7 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
                   {normalizedRecords.map(record => {
                     const day = new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', timeZone: 'Asia/Kolkata' });
                     const statusClass = record.leave ? 'leave' : record.normalizedStatus.toLowerCase().replace(/\s+/g, '-');
-                    const label = record.leave ? record.leave.type : record.normalizedStatus;
+                    const label = record.leave ? (record.leave.type || record.leave.leaveType || 'Leave') : record.normalizedStatus;
                     return <div className={`EmppAttendence-monthly-day ${statusClass}`} key={record._id || record.date}><b>{day}</b><span>{label}</span></div>;
                   })}
                 </div>
@@ -1286,7 +1316,52 @@ const EmployeeAttendance = () => {
     month: new Date().getMonth(), year: new Date().getFullYear()
   });
 
-  
+  // Admin Overtime Management States
+  const [showOtAdminModal, setShowOtAdminModal] = useState(false);
+  const [adminOtRequests, setAdminOtRequests] = useState([]);
+  const [loadingAdminOt, setLoadingAdminOt] = useState(false);
+  const [adminOtStatusFilter, setAdminOtStatusFilter] = useState('ALL');
+  const [adminOtActioning, setAdminOtActioning] = useState(false);
+  const [adminOtFullDayCheck, setAdminOtFullDayCheck] = useState({});
+
+  const fetchAdminOvertimeRequests = useCallback(async () => {
+    try {
+      setLoadingAdminOt(true);
+      const res = await axios.get('/overtime/admin-requests');
+      if (res.data?.success) {
+        setAdminOtRequests(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load overtime requests:', err);
+    } finally {
+      setLoadingAdminOt(false);
+    }
+  }, []);
+
+  const handleAdminOtAction = async (requestId, action, reason = '', isFullDayApproved = true) => {
+    try {
+      setAdminOtActioning(true);
+      const res = await axios.put(`/overtime/admin-action/${requestId}`, {
+        action,
+        rejectionReason: reason,
+        isFullDayApproved
+      });
+      if (res.data?.success) {
+        showSnackbar(`Overtime request ${action === 'Approve' ? 'approved' : 'rejected'} successfully`, 'success');
+        await fetchAdminOvertimeRequests();
+        if (dateRangeMode) {
+          fetchAttendanceDataRange(selectedStartDate, selectedEndDate);
+        } else {
+          fetchAttendanceData(selectedDate);
+        }
+      }
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to update overtime request', 'error');
+    } finally {
+      setAdminOtActioning(false);
+    }
+  };
+
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState('');
   const [currentUserDepartment, setCurrentUserDepartment] = useState('');
@@ -1295,29 +1370,20 @@ const EmployeeAttendance = () => {
   const [currentUserCompanyCode, setCurrentUserCompanyCode] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   
-  
   const [canEditAttendance, setCanEditAttendance] = useState(true);
   const [canViewAllAttendance, setCanViewAllAttendance] = useState(true);
   const [pageAccessReady, setPageAccessReady] = useState(false);
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
 
   const tableRef = useRef(null);
   const exportMenuRef = useRef(null);
 
-  
-  
-  
   useEffect(() => {
     const initializeData = async () => {
       setPageLoading(true);
       setLoading(true);
       try {
         await fetchCurrentUserAndCompany();
+        fetchAdminOvertimeRequests();
       } catch (error) {
         console.error("Error initializing data:", error);
       } finally {
@@ -1330,7 +1396,7 @@ const EmployeeAttendance = () => {
     };
     
     initializeData();
-  }, []);
+  }, [fetchAdminOvertimeRequests]);
 
   useEffect(() => {
     let active = true;
@@ -1375,12 +1441,11 @@ const EmployeeAttendance = () => {
     };
   }, []);
 
-  
   useEffect(() => {
     if (currentUserCompanyId) {
       fetchAllUsers();
     }
-  }, [currentUserCompanyId, branchQueryParams.branchId]);
+  }, [currentUserCompanyId]);
 
   
   useEffect(() => {
@@ -1392,7 +1457,7 @@ const EmployeeAttendance = () => {
         fetchAttendanceData(selectedDate);
       }
     }
-  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, branchQueryParams.branchId, pageAccessReady, canViewAllAttendance]);
+  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, pageAccessReady, canViewAllAttendance]);
 
   
   useEffect(() => {
@@ -1492,9 +1557,7 @@ const EmployeeAttendance = () => {
       }
       
       
-      const res = await axios.get('/users/company-users', {
-        params: branchQueryParams
-      });
+      const res = await axios.get('/users/company-users');
       
       let usersData = [];
       
@@ -1564,7 +1627,7 @@ const EmployeeAttendance = () => {
       void 0;
       
       const res = await axios.get('/attendance/all', {
-        params: { date: formatted, ...branchQueryParams },
+        params: { date: formatted },
         cache: false
       });
       
@@ -1666,7 +1729,7 @@ const EmployeeAttendance = () => {
     try {
       const [attendanceResponse, leaveResponse] = await Promise.all([
         axios.get(`/attendance/user/${employeeId}`, { params: { month, year } }),
-        axios.get('/leaves/all', { params: { userId: employeeId, month, year, limit: 100, ...branchQueryParams } })
+        axios.get('/leaves/all', { params: { userId: employeeId, month, year, limit: 100 } })
       ]);
       setMonthlyAttendance(current => current.open && String(current.employee?._id || current.employee?.id) === String(employeeId)
         ? {
@@ -1705,7 +1768,7 @@ const EmployeeAttendance = () => {
       const fetchPromises = dateRange.map(async (date) => {
         try {
           const res = await axios.get('/attendance/all', {
-            params: { date, ...branchQueryParams },
+            params: { date },
             cache: false
           });
           return { date, data: res.data };
@@ -2253,8 +2316,6 @@ const EmployeeAttendance = () => {
       const pageHeight = doc.internal.pageSize.getHeight();
       const exportedAt = new Date();
 
-      const activeBranchObj = (branchOptions || []).find(b => String(b.id || b._id) === String(selectedBranchId));
-      const branchName = activeBranchObj ? (activeBranchObj.name || activeBranchObj.label) : "All Branches";
       const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
 
       // 1. Header Banner Background (Dark Slate)
@@ -2278,7 +2339,7 @@ const EmployeeAttendance = () => {
       doc.setTextColor(148, 163, 184);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
-      const metaLeft = `Branch: ${branchName}   |   Department: ${deptName}   |   Filter: ${getStatusFilterLabel(statusFilter)}`;
+      const metaLeft = `Department: ${deptName}   |   Filter: ${getStatusFilterLabel(statusFilter)}`;
       doc.text(metaLeft, 28, 60);
 
       // Right Header text
@@ -2509,8 +2570,6 @@ const EmployeeAttendance = () => {
     setLoading(true);
     
     try {
-      const activeBranchObj = (branchOptions || []).find(b => String(b.id || b._id) === String(selectedBranchId));
-      const branchName = activeBranchObj ? (activeBranchObj.name || activeBranchObj.label) : "All Branches";
       const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
       const exportedAt = new Date();
 
@@ -2578,7 +2637,7 @@ const EmployeeAttendance = () => {
 
       ctx.fillStyle = "#94a3b8";
       ctx.font = "14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(`Branch: ${branchName}   |   Department: ${deptName}   |   Status Filter: ${getStatusFilterLabel(statusFilter)}`, padding, 100);
+      ctx.fillText(`Department: ${deptName}   |   Status Filter: ${getStatusFilterLabel(statusFilter)}`, padding, 100);
 
       // Right Header Text
       ctx.textAlign = "right";
@@ -3100,13 +3159,32 @@ const EmployeeAttendance = () => {
 
         
         <div className="EmppAttendence-header-actions">
-              <button
-                className="EmppAttendence-date-chip"
-                onClick={handleAddRecord}
-                title="Add Attendance Record"
-                style={{ marginRight: '8px' }}
-                disabled={!canEditAttendance}
-              >
+          <button
+            className="EmppAttendence-date-chip"
+            onClick={() => {
+              fetchAdminOvertimeRequests();
+              setShowOtAdminModal(true);
+            }}
+            title="Manage Employee Overtime Requests"
+            style={{
+              marginRight: '8px',
+              background: '#7c3aed',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 600
+            }}
+          >
+            <FiClock size={16} />
+            <span>Overtime Requests {adminOtRequests.filter(r => r.status === 'Pending').length > 0 ? `(${adminOtRequests.filter(r => r.status === 'Pending').length})` : ''}</span>
+          </button>
+
+          <button
+            className="EmppAttendence-date-chip"
+            onClick={handleAddRecord}
+            title="Add Attendance Record"
+            style={{ marginRight: '8px' }}
+            disabled={!canEditAttendance}
+          >
             <FiPlus size={16} />
             <span>Add Attendance</span>
           </button>
@@ -3162,11 +3240,6 @@ const EmployeeAttendance = () => {
         </div>
       </div>
 
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
 
       
       <div className="EmppAttendence-filter-section">
@@ -3435,7 +3508,7 @@ const EmployeeAttendance = () => {
             <thead>
               <tr>
                 {bulkEditMode && <th style={{ width: '50px' }}></th>}
-                {dateRangeMode && <th className="EmppAttendence-col-date-header">Date</th>}
+                {dateRangeMode && <th className="EmppAttendence-col-date">Date</th>}
                 <th className="EmppAttendence-col-employee">Employee</th>
                 <th className="EmppAttendence-col-department">Department</th>
                 <th className="EmppAttendence-col-type">Type</th>
@@ -3581,12 +3654,26 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-status">
-                            <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {formatStatusLabel(rec.status)}
-                            </span>
-                            <div className="EmppAttendence-status-explanation">
-                              {getStatusExplanation(rec.status)}
-                            </div>
+                            {(() => {
+                              const hasApprovedOt = Boolean(rec.hasOvertimeApproved);
+                              const hasOtDuration = Boolean(rec.overTime && rec.overTime !== "00:00:00");
+                              const isPresentWithOt = (String(rec.status).toUpperCase().includes("PRESENT") || String(rec.status).toUpperCase().includes("LATE")) && hasApprovedOt && hasOtDuration;
+                              return (
+                                <>
+                                  <span className={`EmppAttendence-status-chip ${isPresentWithOt ? 'EmppAttendence-status-present-ot' : getStatusClass(rec.status)}`}>
+                                    {isPresentWithOt ? "Present + Overtime" : formatStatusLabel(rec.status)}
+                                  </span>
+                                  {hasApprovedOt && hasOtDuration && (
+                                    <div style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 700, marginTop: "2px" }}>
+                                      OT: {rec.overTime}
+                                    </div>
+                                  )}
+                                  <div className="EmppAttendence-status-explanation">
+                                    {getStatusExplanation(rec.status)}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </td>
 
                           <td className="EmppAttendence-col-late">
@@ -3738,12 +3825,26 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-status">
-                            <span className={`EmppAttendence-status-chip ${getStatusClass(rec.status)}`}>
-                              {formatStatusLabel(rec.status)}
-                            </span>
-                            <div className="EmppAttendence-status-explanation">
-                              {getStatusExplanation(rec.status)}
-                            </div>
+                            {(() => {
+                              const hasApprovedOt = Boolean(rec.hasOvertimeApproved);
+                              const hasOtDuration = Boolean(rec.overTime && rec.overTime !== "00:00:00");
+                              const isPresentWithOt = (String(rec.status).toUpperCase().includes("PRESENT") || String(rec.status).toUpperCase().includes("LATE")) && hasApprovedOt && hasOtDuration;
+                              return (
+                                <>
+                                  <span className={`EmppAttendence-status-chip ${isPresentWithOt ? 'EmppAttendence-status-present-ot' : getStatusClass(rec.status)}`}>
+                                    {isPresentWithOt ? "Present + Overtime" : formatStatusLabel(rec.status)}
+                                  </span>
+                                  {hasApprovedOt && hasOtDuration && (
+                                    <div style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 700, marginTop: "2px" }}>
+                                      OT: {rec.overTime}
+                                    </div>
+                                  )}
+                                  <div className="EmppAttendence-status-explanation">
+                                    {getStatusExplanation(rec.status)}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </td>
 
                           <td className="EmppAttendence-col-late">
@@ -3876,12 +3977,357 @@ const EmployeeAttendance = () => {
         />
       )}
 
+      {/* Overtime Requests Management Modal */}
+      {showOtAdminModal && (
+        <div
+          className="EmppAttendence-modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setShowOtAdminModal(false)}
+        >
+          <div
+            className="EmppAttendence-modal"
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '850px',
+              maxHeight: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: '16px 22px',
+                borderBottom: '1px solid #f1f5f9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexShrink: 0,
+                background: '#ffffff'
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FiClock style={{ color: '#7c3aed' }} /> Employee Overtime Requests
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  Review and approve overtime shift requests submitted by employees
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOtAdminModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '22px', cursor: 'pointer', display: 'flex' }}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {/* Filter Pills */}
+            <div style={{ padding: '12px 22px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px', flexShrink: 0 }}>
+              {['ALL', 'Pending', 'Approved', 'Rejected'].map((statusOption) => (
+                <button
+                  key={statusOption}
+                  type="button"
+                  onClick={() => setAdminOtStatusFilter(statusOption)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: '1px solid',
+                    borderColor: adminOtStatusFilter === statusOption ? '#7c3aed' : '#e2e8f0',
+                    background: adminOtStatusFilter === statusOption ? '#7c3aed' : '#ffffff',
+                    color: adminOtStatusFilter === statusOption ? '#ffffff' : '#64748b',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {statusOption === 'ALL' ? 'All Requests' : statusOption}
+                </button>
+              ))}
+            </div>
+
+            {/* Content List */}
+            <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1, minHeight: 0, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {loadingAdminOt ? (
+                <p style={{ textAlign: 'center', color: '#64748b', margin: '30px 0' }}>Loading requests...</p>
+              ) : adminOtRequests.filter(r => adminOtStatusFilter === 'ALL' || r.status === adminOtStatusFilter).length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#94a3b8', margin: '40px 0' }}>
+                  No {adminOtStatusFilter !== 'ALL' ? adminOtStatusFilter.toLowerCase() : ''} overtime requests found.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {adminOtRequests
+                    .filter(r => adminOtStatusFilter === 'ALL' || r.status === adminOtStatusFilter)
+                    .map((otReq) => (
+                      <div
+                        key={otReq._id}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          padding: '14px 16px',
+                          background: '#ffffff',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                background: '#ede9fe',
+                                color: '#7c3aed',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '13px'
+                              }}
+                            >
+                              {String(otReq.user?.name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <strong style={{ fontSize: '13.5px', color: '#1e293b' }}>{otReq.user?.name || 'Employee'}</strong>
+                              <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                                {otReq.user?.department?.name || otReq.user?.department || 'Unassigned'} • {otReq.user?.email || ''}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {otReq.calculationType === 'FULL_DAY_PRESENT' ? (
+                              <span
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: '#dcfce7',
+                                  color: '#15803d',
+                                  border: '1px solid #bbf7d0'
+                                }}
+                              >
+                                📅 1 Full Day Present
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: '#e0f2fe',
+                                  color: '#0369a1',
+                                  border: '1px solid #bae6fd'
+                                }}
+                              >
+                                ⏱ By Hours ({otReq.requestedHours || 0}h)
+                              </span>
+                            )}
+
+                            <span
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                background:
+                                  otReq.status === 'Approved'
+                                    ? '#dcfce7'
+                                    : otReq.status === 'Rejected'
+                                    ? '#fee2e2'
+                                    : '#fef3c7',
+                                color:
+                                  otReq.status === 'Approved'
+                                    ? '#15803d'
+                                    : otReq.status === 'Rejected'
+                                    ? '#b91c1c'
+                                    : '#b45309'
+                              }}
+                            >
+                              {otReq.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '12px', color: '#334155', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                            <div>
+                              <b>Type: </b>
+                              {otReq.requestType === 'SINGLE_DAY'
+                                ? 'Single Day'
+                                : otReq.requestType === 'MULTIPLE_DAYS'
+                                ? 'Multiple Days'
+                                : 'Full Month'}
+                            </div>
+                            <div>
+                              <b>Overtime Duration: </b>
+                              <span style={{ fontWeight: 600, color: '#4338ca' }}>
+                                {otReq.calculationType === 'FULL_DAY_PRESENT'
+                                  ? `1 Full Day Present (${(otReq.dateKeys || []).length || 1} day)`
+                                  : `${otReq.requestedHours || 0} Hour(s) / Day (Total: ${Number(otReq.requestedHours || 0) * ((otReq.dateKeys || []).length || 1)} hrs)`}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <b>Dates: </b>
+                            {otReq.requestType === 'FULL_MONTH'
+                              ? otReq.month
+                              : (otReq.dateKeys || []).join(', ') || '-'}
+                          </div>
+
+                          {/* Calculated Amount Display */}
+                          <div style={{ marginTop: '4px', padding: '6px 10px', background: '#ecfdf5', borderRadius: '6px', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: 600 }}>Calculated Overtime Pay:</span>
+                              <strong style={{ fontSize: '13.5px', color: '#065f46', marginLeft: '6px' }}>
+                                ₹{Number(otReq.calculatedAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </strong>
+                            </div>
+                            <small style={{ fontSize: '10.5px', color: '#059669' }}>
+                              {otReq.calculationType === 'FULL_DAY_PRESENT' ? 'Based on 1 Full Day Wage' : `Based on 9h Workday (${otReq.requestedHours || 0}h)`}
+                            </small>
+                          </div>
+
+                          {otReq.reason && (
+                            <div style={{ marginTop: '2px' }}>
+                              <b>Reason: </b>{otReq.reason}
+                            </div>
+                          )}
+                          {otReq.rejectionReason && (
+                            <div style={{ marginTop: '2px', color: '#dc2626' }}>
+                              <b>Rejection Remarks: </b>{otReq.rejectionReason}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Admin Checkbox for Full Day Present Confirmation */}
+                        {otReq.calculationType === 'FULL_DAY_PRESENT' && otReq.status === 'Pending' && (
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', background: '#f0fdf4', border: '1px solid #86efac', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#166534' }}>
+                            <input
+                              type="checkbox"
+                              checked={adminOtFullDayCheck[otReq._id] ?? true}
+                              onChange={(e) => setAdminOtFullDayCheck(prev => ({ ...prev, [otReq._id]: e.target.checked }))}
+                              style={{ width: '16px', height: '16px', accentColor: '#16a34a', cursor: 'pointer' }}
+                            />
+                            <span>✓ Count as 1 Additional Full Day Present in Attendance (+ ₹{Number(otReq.calculatedAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+                          </label>
+                        )}
+
+                        {otReq.calculationType === 'FULL_DAY_PRESENT' && otReq.status === 'Approved' && otReq.isFullDayApproved && (
+                          <div style={{ fontSize: '11.5px', color: '#15803d', fontWeight: 600, background: '#f0fdf4', padding: '4px 8px', borderRadius: '4px', border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '5px', width: 'fit-content' }}>
+                            ✓ 1 Additional Full Day Present Counted in Attendance
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                          <small style={{ color: '#94a3b8', fontSize: '11px' }}>
+                            Submitted on {new Date(otReq.createdAt).toLocaleDateString()}
+                          </small>
+
+                          {otReq.status === 'Pending' && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                type="button"
+                                disabled={adminOtActioning}
+                                onClick={() => {
+                                  const isFullDay = otReq.calculationType === 'FULL_DAY_PRESENT'
+                                    ? (adminOtFullDayCheck[otReq._id] ?? true)
+                                    : false;
+                                  handleAdminOtAction(otReq._id, 'Approve', '', isFullDay);
+                                }}
+                                style={{
+                                  padding: '5px 14px',
+                                  background: '#16a34a',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✓ Approve
+                              </button>
+                              <button
+                                type="button"
+                                disabled={adminOtActioning}
+                                onClick={() => {
+                                  const reason = window.prompt('Please provide a reason for rejecting this overtime request:');
+                                  if (reason !== null) {
+                                    handleAdminOtAction(otReq._id, 'Reject', reason);
+                                  }
+                                }}
+                                style={{
+                                  padding: '5px 14px',
+                                  background: '#ef4444',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✕ Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '12px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, background: '#ffffff' }}>
+              <button
+                type="button"
+                onClick={() => setShowOtAdminModal(false)}
+                style={{
+                  padding: '7px 16px',
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <MonthlyAttendanceModal
         state={monthlyAttendance}
         onClose={() => setMonthlyAttendance(current => ({ ...current, open: false }))}
       />
 
-      
       {snackbar.open && (
         <div className="EmppAttendence-snackbar">
           <div className={`EmppAttendence-snackbar-content EmppAttendence-snackbar-${snackbar.type}`}>

@@ -36,6 +36,31 @@
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbars across all scrollable containers in client-plans page */
+body:has(.cp-page-container),
+main:has(.cp-page-container),
+.cp-page-container,
+.cp-page-container *,
+.cp-modal-backdrop,
+.cp-modal-backdrop * {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+body:has(.cp-page-container)::-webkit-scrollbar,
+main:has(.cp-page-container)::-webkit-scrollbar,
+.cp-page-container::-webkit-scrollbar,
+.cp-page-container *::-webkit-scrollbar,
+.cp-modal-backdrop::-webkit-scrollbar,
+.cp-modal-backdrop *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 /* Back Link Button */
@@ -325,12 +350,16 @@
 
 /* ==========================================================================
    3. Main 2-Column Section Layout (Zero Page Horizontal Scroll)
+   3. Main Stacked Section Layout (Top Form, Bottom Table)
    ========================================================================== */
 .cp-main-layout {
   display: grid;
   grid-template-columns: 350px minmax(0, 1fr);
   gap: 1.15rem;
   align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -421,6 +450,25 @@
 /* ==========================================================================
    4. Left Column: Compact Form & Services Selector
    ========================================================================== */
+.cp-form-row-4 {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.2fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .cp-form-row-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .cp-form-row-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .cp-form-row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -644,25 +692,25 @@
   font-size: 0.8rem;
 }
 
-/* Services List Items - FLEX SHRINK 0 IS MANDATORY TO PREVENT COLLAPSING */
+/* Services List Items - Grid layout for full-width card */
 .cp-services-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-height: 380px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.5rem;
+  max-height: 400px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 2px;
   width: 100%;
   box-sizing: border-box;
+  align-items: start;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* Custom Scrollbar */
 .cp-services-list::-webkit-scrollbar {
-  width: 4px;
-}
-.cp-services-list::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .cp-service-item {
@@ -994,6 +1042,14 @@
   overflow-x: auto;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.cp-table-responsive::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .cp-table {
@@ -1467,13 +1523,23 @@
 .cp-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
-  padding: 1rem;
+  z-index: 10000;
+  padding: 2.5rem 1.25rem;
+  box-sizing: border-box;
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.cp-modal-backdrop::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .cp-modal-content {
@@ -1481,11 +1547,21 @@
   border-radius: 14px;
   width: 100%;
   max-width: 550px;
-  max-height: 85vh;
+  max-height: min(80vh, 650px);
   overflow-y: auto;
-  box-shadow: 0 16px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-  padding: 1.25rem;
+  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.25), 0 10px 15px -5px rgba(0, 0, 0, 0.1);
+  padding: 1.35rem;
   box-sizing: border-box;
+  margin: auto;
+  position: relative;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.cp-modal-content::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .cp-modal-header {
@@ -1493,25 +1569,35 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 0.65rem;
+  padding-bottom: 0.75rem;
   margin-bottom: 0.85rem;
 }
 
 .cp-modal-header h3 {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #0f172a;
   margin: 0;
 }
 
 .cp-modal-close-btn {
-  background: transparent;
+  background: #f1f5f9;
   border: none;
   color: #64748b;
   cursor: pointer;
   font-size: 1.1rem;
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.cp-modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .cp-modal-service-card {

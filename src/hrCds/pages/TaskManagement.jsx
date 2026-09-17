@@ -713,6 +713,7 @@ const UserCreateTask = () => {
   const [loadingAssignableUsers, setLoadingAssignableUsers] = useState(false);
   const [selectedAssigneeId, setSelectedAssigneeId] = useState('');
   const [clientTaskForm, setClientTaskForm] = useState({
+    _id: null,
     name: '',
     description: '',
     service: '',
@@ -720,6 +721,8 @@ const UserCreateTask = () => {
     priority: 'Medium',
     checkpoints: []
   });
+  const [servicePendingTasks, setServicePendingTasks] = useState([]);
+  const [loadingServiceTasks, setLoadingServiceTasks] = useState(false);
   const [isCreatingClientTask, setIsCreatingClientTask] = useState(false);
   const [projects, setProjects] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
@@ -893,7 +896,7 @@ const UserCreateTask = () => {
   };
   const repeatPatternDescriptions = {
     none: 'Create one task only.',
-    daily: 'Auto-create a repeat task every day, or only on selected weekdays.'
+    daily: 'Auto-create a repeat task every day, or only on selected weekdays. Tasks will not repeat on days you are absent.'
   };
   const updateRepeatPattern = (value) => {
     setNewTask(prev => ({
@@ -981,6 +984,33 @@ const UserCreateTask = () => {
       document.body.style.overflow = previousOverflow;
     };
   }, [selectedTaskDetails]);
+
+  useEffect(() => {
+    if (openClientTaskDialog && selectedClientId && clientTaskForm.service) {
+      const fetchServiceTasks = async () => {
+        setLoadingServiceTasks(true);
+        try {
+          const encodedService = encodeURIComponent(clientTaskForm.service);
+          const res = await axios.get(`/tasks/client-tasks/client/${selectedClientId}/service/${encodedService}`);
+          if (res.data?.success) {
+            const tasks = res.data.data.filter(t => {
+              const isAssigned = t.assigneeId || (t.assignee && t.assignee !== 'Unassigned');
+              const status = t.status ? t.status.toLowerCase() : 'pending';
+              return status === 'pending' && !isAssigned;
+            });
+            setServicePendingTasks(tasks);
+          }
+        } catch (err) {
+          console.error('Failed to fetch service pending tasks:', err);
+        } finally {
+          setLoadingServiceTasks(false);
+        }
+      };
+      fetchServiceTasks();
+    } else {
+      setServicePendingTasks([]);
+    }
+  }, [openClientTaskDialog, selectedClientId, clientTaskForm.service]);
 
   
   const showSnackbar = (message, severity = 'info') => {
@@ -1084,28 +1114,28 @@ const UserCreateTask = () => {
 
   
   const getEffectiveOverdueDate = useCallback((dueDateTime, task) => {
-    if (!dueDateTime) return null;
-    const dueDate = new Date(dueDateTime);
-    if (Number.isNaN(dueDate.getTime())) return null;
-
-    const isSelfTask = task?.taskFor === 'self' || task?.taskSource === 'self' || task?.__taskSource === 'self' || task?.source === 'self';
-    if (isSelfTask && task?.onHoldReleasedAt) {
+    if (task?.onHoldReleasedAt) {
       const releasedAt = new Date(task.onHoldReleasedAt);
-      if (!Number.isNaN(releasedAt.getTime()) && dueDate <= releasedAt) {
+      if (!Number.isNaN(releasedAt.getTime())) {
         return new Date(releasedAt.getTime() + 24 * 60 * 60 * 1000);
       }
     }
+
+    if (!dueDateTime) return null;
+    const dueDate = new Date(dueDateTime);
+    if (Number.isNaN(dueDate.getTime())) return null;
 
     return dueDate;
   }, []);
 
   const isOverdue = useCallback((dueDateTime, status, task = null) => {
-    if (!dueDateTime) return false;
-    if (status === 'overdue') return true;
-    
+    const normalized = normalizeStatus(status);
+    if (OVERDUE_LOCKED_STATUSES.has(normalized) && normalized !== 'overdue') return false;
+    if (normalized === 'overdue') return true;
+
     const dueDate = getEffectiveOverdueDate(dueDateTime, task);
     if (!dueDate) return false;
-    
+
     const isPastDue = dueDate < new Date();
     return isPastDue && canMoveToOverdue(status);
   }, [getEffectiveOverdueDate]);
@@ -1488,6 +1518,12 @@ const UserCreateTask = () => {
   }, [userId]);
 
   const getDueDateForTask = useCallback((task) => {
+    if (task?.onHoldReleasedAt) {
+      const releasedAt = new Date(task.onHoldReleasedAt);
+      if (!Number.isNaN(releasedAt.getTime())) {
+        return new Date(releasedAt.getTime() + 24 * 60 * 60 * 1000);
+      }
+    }
     return task?.dueDateTime || task?.dueDate;
   }, []);
 
@@ -1701,6 +1737,18 @@ const UserCreateTask = () => {
     return Array.isArray(selectedClient?.services) ? selectedClient.services.filter(Boolean) : [];
   }, [selectedClient]);
 
+  const isClientPlanExpired = useMemo(() => {
+    if (!selectedClient) return false;
+    if (String(selectedClient.status).toLowerCase() === 'expired') {
+      return true;
+    }
+    if (Array.isArray(selectedClient.subscriptions) && selectedClient.subscriptions.length > 0) {
+      const hasActive = selectedClient.subscriptions.some(sub => String(sub.status).toLowerCase() === 'active');
+      if (!hasActive) return true;
+    }
+    return false;
+  }, [selectedClient]);
+
   const selectedProject = useMemo(() => {
     return projects.find(project => String(project._id || project.id) === String(selectedProjectId)) || null;
   }, [projects, selectedProjectId]);
@@ -1771,6 +1819,17 @@ const UserCreateTask = () => {
 
       if (remarks) {
         updatedTask.remarks = task?.remarks || [];
+      }
+
+      const prevStatus = normalizeStatus(task?.status || task?.userStatus || task?.overallStatus || '');
+      if (prevStatus === 'onhold' && normalizedStatus === 'in-progress') {
+        const releasedAt = new Date();
+        const newDue = new Date(releasedAt.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        updatedTask.onHoldReleasedAt = releasedAt.toISOString();
+        updatedTask.dueDateTime = newDue;
+        updatedTask.dueDate = newDue;
+      } else if (normalizedStatus === 'onhold') {
+        updatedTask.onHoldReleasedAt = null;
       }
 
       if (normalizedStatus === 'completed') {
@@ -2354,6 +2413,106 @@ const UserCreateTask = () => {
       service: firstService
     }));
   }, [clients]);
+
+  const handleSelectPendingTask = useCallback((task) => {
+    let formattedDate = '';
+    if (task.dueDate || task.dueDateTime) {
+      const dateVal = task.dueDate || task.dueDateTime;
+      const date = new Date(dateVal);
+      if (!Number.isNaN(date.getTime())) {
+        formattedDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000)).toISOString().slice(0, 16);
+      }
+    }
+    
+    setClientTaskForm(prev => ({
+      ...prev,
+      _id: task._id || task.id,
+      name: task.name || task.title || '',
+      description: task.description || '',
+      dueDateTime: formattedDate,
+      priority: task.priority || 'Medium',
+      checkpoints: task.checkpoints || []
+    }));
+  }, []);
+
+  const handleUpdateAndAssignClientTask = useCallback(async () => {
+    if (!clientTaskForm._id) return;
+    
+    const assigneeToUse = selectedAssignee || currentLoggedInAssignee;
+    if (!assigneeToUse) {
+      showSnackbar('Please log in again to assign tasks', 'error');
+      return;
+    }
+    
+    if (!clientTaskForm.name.trim() || !clientTaskForm.description.trim() || !clientTaskForm.dueDateTime) {
+      showSnackbar('Please fill task title, description, and due date', 'error');
+      return;
+    }
+
+    const dueDateIso = formatDateTimeInputToIso(clientTaskForm.dueDateTime);
+    if (!dueDateIso) {
+      showSnackbar('Invalid due date', 'error');
+      return;
+    }
+
+    setIsCreatingClientTask(true);
+    try {
+      const payload = {
+        name: clientTaskForm.name.trim(),
+        description: clientTaskForm.description.trim(),
+        dueDate: dueDateIso,
+        dueDateTime: dueDateIso,
+        priority: clientTaskForm.priority,
+        checkpoints: getCleanCheckpoints(clientTaskForm.checkpoints),
+        assignee: assigneeToUse.name || assigneeToUse.email || String(assigneeToUse._id || assigneeToUse.id),
+        assigneeId: String(assigneeToUse._id || assigneeToUse.id),
+      };
+
+      const response = await axios.put(`/tasks/client-tasks/${clientTaskForm._id}`, payload);
+      
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to update and assign task');
+      }
+
+      showSnackbar('Task assigned to you successfully', 'success');
+      
+      // Remove from the pending list
+      setServicePendingTasks(prev => prev.filter(t => (t._id || t.id) !== clientTaskForm._id));
+      
+      const updatedTask = {
+        ...(servicePendingTasks.find(t => (t._id || t.id) === clientTaskForm._id) || {}),
+        ...payload,
+        ...(response.data.data || {}),
+        status: normalizeStatus(response.data.data?.status || 'pending'),
+        __taskSource: 'client',
+        taskSource: 'client'
+      };
+      
+      setClientTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const filteredTasks = existingTasks.filter(t => (t._id || t.id) !== clientTaskForm._id);
+        const updatedGrouped = groupTasksByDate([updatedTask, ...filteredTasks]);
+        calculateClientStatsFromTasks(updatedGrouped);
+        return updatedGrouped;
+      });
+
+      setClientTaskForm(prev => ({
+        ...prev,
+        _id: null,
+        name: '',
+        description: '',
+        dueDateTime: '',
+        priority: 'Medium',
+        checkpoints: []
+      }));
+      
+    } catch (err) {
+      console.error('Error assigning task:', err);
+      showSnackbar(err.response?.data?.message || err.message || 'Failed to assign task', 'error');
+    } finally {
+      setIsCreatingClientTask(false);
+    }
+  }, [clientTaskForm, currentLoggedInAssignee, servicePendingTasks, selectedAssignee, groupTasksByDate, calculateClientStatsFromTasks]);
 
   const handleCreateClientTask = useCallback(async () => {
     if (!selectedClient) {
@@ -3509,8 +3668,10 @@ const UserCreateTask = () => {
 
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3551,8 +3712,10 @@ const UserCreateTask = () => {
 
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3596,8 +3759,10 @@ const UserCreateTask = () => {
 
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3802,8 +3967,10 @@ const UserCreateTask = () => {
 
     const task = typeof taskOrId === 'object' ? taskOrId : findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
+    const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
+      !isResumedFromHold &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -5155,6 +5322,61 @@ const UserCreateTask = () => {
                 </select>
               </div>
 
+              {clientTaskForm.service && (
+                <div className="user-create-task-form-control">
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#333', marginBottom: '8px', display: 'block' }}>
+                    Pending Tasks for {clientTaskForm.service}
+                  </label>
+                  {loadingServiceTasks ? (
+                    <div style={{ fontSize: '13px', color: '#666', padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>Loading tasks...</div>
+                  ) : servicePendingTasks.length > 0 ? (
+                    <div style={{ 
+                      maxHeight: '180px', 
+                      overflowY: 'auto', 
+                      border: '1px solid #e0e0e0', 
+                      borderRadius: '6px',
+                      backgroundColor: '#fafafa'
+                    }}>
+                      {servicePendingTasks.map((task, index) => (
+                        <div key={task._id || index} style={{
+                          padding: '10px 12px',
+                          borderBottom: index < servicePendingTasks.length - 1 ? '1px solid #eee' : 'none',
+                        }}>
+                          <div style={{ fontWeight: 500, color: '#333', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{task.name || task.title}</span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <StatusChip status={task.status || 'pending'} />
+                              <button
+                                type="button"
+                                onClick={() => handleSelectPendingTask(task)}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  backgroundColor: clientTaskForm._id === (task._id || task.id) ? '#4caf50' : '#1976d2',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {clientTaskForm._id === (task._id || task.id) ? 'Selected' : 'Select for Edit'}
+                              </button>
+                            </div>
+                          </div>
+                          <div style={{ color: '#666', marginTop: '4px', fontSize: '11px' }}>
+                            Due: {task.dueDate || task.dueDateTime ? formatDueDateTime(task.dueDate || task.dueDateTime) : 'No date'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#666', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px dashed #ccc' }}>
+                      No unassigned pending tasks found for this service.
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="user-create-task-form-control">
                 <label>Assign To</label>
                 <select
@@ -5247,7 +5469,9 @@ const UserCreateTask = () => {
           </div>
 
           <div className="user-create-task-dialog-actions client-task-create-actions">
-            {selectedClient && selectedClientServices.length === 0 && (
+            {isClientPlanExpired ? (
+              <span className="client-task-create-warning" style={{ color: 'red' }}>Client plan expired. You cannot create or assign tasks.</span>
+            ) : selectedClient && selectedClientServices.length === 0 && (
               <span className="client-task-create-warning">Selected client has no services.</span>
             )}
             <button
@@ -5264,17 +5488,18 @@ const UserCreateTask = () => {
             <button
               type="button"
               className="user-create-task-button user-create-task-button-contained"
-              onClick={handleCreateClientTask}
+              onClick={clientTaskForm._id ? handleUpdateAndAssignClientTask : handleCreateClientTask}
               disabled={
                 isCreatingClientTask ||
                 !selectedClient ||
+                isClientPlanExpired ||
                 !clientTaskForm.service ||
                 !clientTaskForm.name.trim() ||
                 !clientTaskForm.description.trim() ||
                 !clientTaskForm.dueDateTime
               }
             >
-              {isCreatingClientTask ? 'Creating...' : <><FiCheck size={16} /> Create Task</>}
+              {isCreatingClientTask ? (clientTaskForm._id ? 'Updating...' : 'Creating...') : <><FiCheck size={16} /> {clientTaskForm._id ? 'Assign Task' : 'Create Task'}</>}
             </button>
           </div>
           </div>
@@ -6418,7 +6643,7 @@ const UserCreateTask = () => {
                         : (repeatPatternLabels[newTask.repeatPattern] || 'No repeat')}
                     </div>
                     <div className="personal-task-recurring-summary-text">
-                      Auto-created tasks keep the same due time as the source task.
+                      Auto-created tasks keep the same due time as the source task. Tasks will not repeat on days when you are marked absent.
                     </div>
                   </div>
                 </div>

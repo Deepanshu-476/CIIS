@@ -3,7 +3,15 @@ import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
 import { useNavigate, useParams } from "react-router-dom";
 import "./EmpAllTask.css";
-import PageBranchDropdown, { getRecordId, usePageBranchScope } from "../../components/PageBranchDropdown";
+import { getCurrentUserId, getStoredUser, loadPagePermission, getUserPageScope } from "../../../utils/pageAccess";
+
+const getRecordId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return String(value._id || value.id || value.branchId || value.value || '').trim();
+  }
+  return String(value).trim();
+};
 import {
   FiUsers, FiUser, FiCalendar, FiCheckCircle, FiClock,
   FiAlertCircle, FiXCircle, FiTrendingUp, FiList,
@@ -379,14 +387,34 @@ const getImageUrl = (imagePath) => {
 
 const TaskDetails = () => {
   const navigate = useNavigate();
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
+  const [pageAccessReady, setPageAccessReady] = useState(false);
+  const [pageScope, setPageScope] = useState(null);
   const { userId: routeUserId } = useParams();
   const isTaskPageMode = Boolean(routeUserId);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTaskPermissions = async () => {
+      try {
+        const page = await loadPagePermission('/ciisUser/company-all-task');
+        if (!active) return;
+
+        const currentUserIdValue = getCurrentUserId();
+        const scope = getUserPageScope(page, currentUserIdValue);
+        setPageScope(scope);
+      } catch (err) {
+        console.error('Failed to load company-all-task permissions:', err);
+      } finally {
+        if (active) setPageAccessReady(true);
+      }
+    };
+
+    loadTaskPermissions();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   
   const isMounted = useRef(true);
@@ -463,7 +491,6 @@ const TaskDetails = () => {
     const todayStr = getDateInputValue();
     params.set('startDate', todayStr);
     params.set('endDate', todayStr);
-    if (selectedBranchId) params.set('branchId', selectedBranchId);
     const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`, {
       state: {
@@ -471,7 +498,7 @@ const TaskDetails = () => {
         taskStats: selectedUser?.taskStats || null,
       },
     });
-  }, [navigate, selectedBranchId, users]);
+  }, [navigate, users]);
 
   
   useEffect(() => {
@@ -923,8 +950,7 @@ const TaskDetails = () => {
       const res = await axios.get('/attendance/all', {
         params: {
           date: getDateInputValue(),
-          limit: 10000,
-          ...branchQueryParams
+          limit: 10000
         },
         _skipErrorNotify: true,
       });
@@ -959,7 +985,7 @@ const TaskDetails = () => {
         setTodayClockedInLoading(false);
       }
     }
-  }, [branchQueryParams.branchId, showSnackbar]);
+  }, [showSnackbar]);
 
   const handleTodayClockInToggle = useCallback(async () => {
     if (clockedInTodayOnly) {
@@ -1053,7 +1079,6 @@ const TaskDetails = () => {
 
       const todayStr = getDateInputValue();
       const cacheKey = buildEmpUsersCacheKey({
-        branchId: selectedBranchId,
         fromDate: todayStr,
         toDate: todayStr,
       });
@@ -1102,8 +1127,7 @@ const TaskDetails = () => {
             ...config,
             params: {
               noPagination: 'true',
-              view: 'task-overview',
-              ...branchQueryParams
+              view: 'task-overview'
             }
           });
         } catch (apiError) {
@@ -1128,7 +1152,25 @@ const TaskDetails = () => {
             const statusText = String(user?.status || '').trim().toLowerCase();
             return user?.isActive !== false && statusText !== 'inactive';
           })
-          .filter(user => isUserInBranch(user, selectedBranchId))
+          .filter(user => {
+            if (isOwner()) return true;
+            if (!pageScope) return true;
+
+            // Branch restriction from Page Management scope
+            if (pageScope.branchIds && !pageScope.branchIds.includes('all') && pageScope.branchIds.length > 0) {
+              const userBranchIds = getUserBranchIds(user);
+              const hasBranchMatch = userBranchIds.some(bId => pageScope.branchIds.includes(bId));
+              if (!hasBranchMatch) return false;
+            }
+
+            // Department restriction from Page Management scope
+            if (pageScope.departmentIds && !pageScope.departmentIds.includes('all') && pageScope.departmentIds.length > 0) {
+              const userDeptId = String(user.department?._id || user.department?.id || user.department || '');
+              if (!pageScope.departmentIds.includes(userDeptId)) return false;
+            }
+
+            return true;
+          })
           .map(user => ({
             ...user,
             _id: user._id || user.id,
@@ -1159,7 +1201,6 @@ const TaskDetails = () => {
               toDate: todayStr,
               status: 'all',
               priority: 'all',
-              ...branchQueryParams,
             },
           };
           const statsRes = await fetchTaskStats(statsPayload, {
@@ -1244,11 +1285,11 @@ const TaskDetails = () => {
       }
     }, 300); 
 
-  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, selectedBranchId, branchQueryParams.branchId]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, pageScope]);
 
   
   useEffect(() => {
-    if (currentUser && isMounted.current) {
+    if (currentUser && isMounted.current && pageAccessReady) {
       hasFetchedUsers.current = true;
       fetchUsersWithTasks();
     }
@@ -1258,7 +1299,7 @@ const TaskDetails = () => {
         clearTimeout(fetchUsersTimeoutRef.current);
       }
     };
-  }, [currentUser, fetchUsersWithTasks]);
+  }, [currentUser, fetchUsersWithTasks, pageAccessReady]);
 
   
 
@@ -4163,12 +4204,6 @@ const TaskDetails = () => {
 
         </div>
       </div>
-
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
 
       <div className="TaskDetails-card">
         <div className="TaskDetails-card-content">

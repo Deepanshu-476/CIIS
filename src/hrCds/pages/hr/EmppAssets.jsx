@@ -12,7 +12,6 @@ import {
 } from 'react-icons/fi';
 import './EmpAssets.css';
 import { API_URL_IMG } from '../../../config';
-import { usePageBranchScope } from '../../components/PageBranchDropdown';
 import { getPageAccessUserIds } from '../../../utils/pageAccess';
 
 const EmpAssets = () => {
@@ -63,12 +62,6 @@ const EmpAssets = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHR, setIsHR] = useState(false);
   const [isManager, setIsManager] = useState(false);
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
   const [permissions, setPermissions] = useState({
     canViewAllRequests: false,
     canApproveRequests: false,
@@ -132,7 +125,7 @@ const EmpAssets = () => {
     if (currentUserCompanyCode) {
       fetchRequests();
     }
-  }, [currentUserCompanyCode, isOwner, approverPermissionUserIds, deletePermissionUserIds, currentUserId, branchQueryParams.branchId]);
+  }, [currentUserCompanyCode, isOwner, approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
 
   
   useEffect(() => {
@@ -394,9 +387,6 @@ const EmpAssets = () => {
       
       if (currentUserCompanyCode) {
         params.push(`companyCode=${currentUserCompanyCode}`);
-      }
-      if (branchQueryParams.branchId) {
-        params.push(`branchId=${branchQueryParams.branchId}`);
       }
       
       
@@ -671,10 +661,13 @@ const EmpAssets = () => {
 
   const buildStatusPayload = (request, newStatus) => {
     const actorField = newStatus === 'approved' ? 'approvedBy' : 'rejectedBy';
+    const approvalAboutText = request?.approvalDetails?.about || (newStatus === 'approved' ? 'Approved by administrator' : '');
 
     return {
       status: newStatus,
       requestStatus: newStatus,
+      approvalAbout: approvalAboutText,
+      about: approvalAboutText,
       [actorField]: currentUserId,
       actionBy: currentUserId,
       actionByName: currentUserName,
@@ -1102,7 +1095,7 @@ const EmpAssets = () => {
         <div className="EmpAssets-header-copy">
           <h1>Asset Requests Management</h1>
           <p>
-            Review and manage employee asset requests across all branches
+            Review and manage employee asset requests
             <RoleBadge />
             {!canApproveRequest() && (
               <span className="EmpAssets-view-only-badge">
@@ -1136,25 +1129,6 @@ const EmpAssets = () => {
 
       <section className="EmpAssets-filter-shell">
         <div className="EmpAssets-filter-grid">
-          <div className="EmpAssets-filter-field">
-            <label htmlFor="branch-filter">Branch</label>
-            <div className="EmpAssets-select-wrap">
-              <FiFilter size={16} />
-              <select
-                id="branch-filter"
-                className="EmpAssets-select"
-                value={selectedBranchId}
-                onChange={(e) => setSelectedBranchId(e.target.value)}
-              >
-                {branchOptions.map(option => (
-                  <option key={option.id || 'all-branches'} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           <div className="EmpAssets-filter-field">
             <label htmlFor="department-filter">Department</label>
             <div className="EmpAssets-select-wrap">
@@ -1240,10 +1214,6 @@ const EmpAssets = () => {
 
         <div className="EmpAssets-filter-footer">
           <span>{filteredRequests.length} results found</span>
-          <span className="EmpAssets-filter-scope">
-            <FiCalendar size={14} />
-            {selectedBranchId ? 'Branch filtered' : 'All branches'}
-          </span>
         </div>
       </section>
 

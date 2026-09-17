@@ -17,16 +17,8 @@ import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import { Panel, Metrics } from "./DashboardComponents";
 import { DataTable } from "./CallComponents";
 import { useTelecaller } from "./useTelecaller";
+import { localDateTime, isTerminal } from './liveData';
 
-const trendChartData = [
-  { day: "Wed", calls: 18, connected: 14 },
-  { day: "Thu", calls: 24, connected: 19 },
-  { day: "Fri", calls: 22, connected: 17 },
-  { day: "Sat", calls: 15, connected: 11 },
-  { day: "Sun", calls: 8, connected: 6 },
-  { day: "Mon", calls: 32, connected: 26 },
-  { day: "Tue", calls: 28, connected: 21 }
-];
 
 function CustomChartTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
@@ -58,7 +50,12 @@ function CustomChartTooltip({ active, payload, label }) {
 }
 
 export default function Dashboard() {
-  const { calls, enriched, can } = useTelecaller();
+  const { calls, enriched, assigned, today, pending, can } = useTelecaller();
+  const trendChartData = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(); date.setDate(date.getDate() - 6 + index);
+    const rows = enriched.filter(call => call.date.startsWith(localDateTime(date).slice(0, 10)));
+    return { day: date.toLocaleDateString('en-GB', { weekday: 'short' }), calls: rows.length, connected: rows.filter(call => ['Connected', 'Interested', 'Not Interested', 'Follow-up', 'Need Callback', 'Call Later', 'Converted', 'Call Closed'].includes(call.outcome)).length };
+  });
   const [activeSeries, setActiveSeries] = useState({ calls: true, connected: true });
 
   const toggleSeries = (key) => {
@@ -76,40 +73,40 @@ export default function Dashboard() {
   const metrics = [
     {
       label: "Total Calls",
-      value: "2",
+      value: enriched.length,
       Icon: Phone,
       tone: "purple",
-      changeText: "0 from yesterday",
+      changeText: "Recorded calls",
       changeTone: "green"
     },
     {
       label: "In Queue",
-      value: "1",
+      value: assigned.filter(lead => !isTerminal(lead)).length,
       Icon: Clock,
       tone: "orange",
-      changeText: "1 from yesterday",
+      changeText: "Active leads",
       changeTone: "pink"
     },
     {
       label: "Today's Calls",
-      value: "0",
+      value: today.length,
       Icon: Phone,
       tone: "teal",
-      changeText: "0 from yesterday",
+      changeText: "Recorded today",
       changeTone: "green"
     },
     {
       label: "Pending",
-      value: "1",
+      value: pending.length,
       Icon: Hourglass,
       tone: "pink",
-      changeText: "1 from yesterday",
+      changeText: "Awaiting first call",
       changeTone: "pink"
     }
   ];
 
   const outcomeCounts = useMemo(() => {
-    const counts = { Converted: 0, Connected: 0, Interested: 0, "Not Interested": 0, "Need Callback": 0 };
+    const counts = { Converted: 0, Connected: 0, Interested: 0, "Not Interested": 0, "Need Callback": 0, Other: 0 };
     (enriched || []).forEach((c) => {
       const outcome = c.outcome || "Converted";
       if (counts[outcome] !== undefined) {
@@ -117,20 +114,18 @@ export default function Dashboard() {
       } else if (outcome.includes("Follow")) {
         counts["Need Callback"]++;
       } else {
-        counts.Converted++;
+        counts.Other++;
       }
     });
-    if (Object.values(counts).reduce((a, b) => a + b, 0) === 0) {
-      counts.Converted = 1;
-    }
     return counts;
   }, [enriched]);
 
   const totalOutcomeCalls = useMemo(() => {
-    return Object.values(outcomeCounts).reduce((a, b) => a + b, 0) || 1;
+    return Object.values(outcomeCounts).reduce((a, b) => a + b, 0);
   }, [outcomeCounts]);
 
   const outcomeData = [
+    { name: 'Other', count: outcomeCounts.Other, color: '#64748b' },
     { name: "Converted", count: outcomeCounts.Converted, color: "#14b8a6" },
     { name: "Connected", count: outcomeCounts.Connected, color: "#6366f1" },
     { name: "Interested", count: outcomeCounts.Interested, color: "#f43f5e" },

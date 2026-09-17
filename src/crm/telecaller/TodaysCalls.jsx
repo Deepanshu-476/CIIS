@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { Phone, ThumbsUp, Calendar } from "lucide-react";
-import { DEMO_DATE } from "./demoData";
+import { todayKey } from "./liveData";
 import { useTelecaller } from "./useTelecaller";
 import { DataTable, Filters, Stats, day } from "./CallComponents";
 import { filterCalls } from "./filterCalls";
 
 export default function TodaysCalls() {
-  const { today, followups, enriched, can } = useTelecaller();
+  const { today, followups, assigned, enriched, can } = useTelecaller();
+  const dueToday = assigned.filter(row => !['Converted', 'Closed'].includes(row.status) && (
+    (row.followUp && day(row.followUp) <= todayKey()) || (!row.date && day(row.assigned) === todayKey())
+  ));
   const [filters, setFilters] = useState({});
   const allRows = today.map((row) => ({
     ...row,
@@ -32,7 +35,7 @@ export default function TodaysCalls() {
     },
     {
       label: "Follow Ups Today",
-      value: followups.filter((r) => day(r.followUp) === DEMO_DATE).length,
+      value: followups.filter((r) => day(r.followUp) === todayKey()).length,
       Icon: Calendar,
       tone: "orange"
     }
@@ -41,6 +44,7 @@ export default function TodaysCalls() {
   return (
     <div className="tcl-views">
       <Stats items={statItems} />
+      <DataTable rows={dueToday} kind="assigned" title="Today's Calling Queue" emptyTitle="No calls due" emptySubtitle="Today's new assignments and due callbacks appear here." can={can} />
       <Filters kind="today" rows={allRows} onApply={setFilters} />
       <DataTable
         rows={rows}

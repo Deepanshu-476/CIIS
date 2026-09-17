@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Calendar, Trophy, TrendingUp } from "lucide-react";
-import { DEMO_DATE } from "./demoData";
+import { todayKey } from "./liveData";
 import { useTelecaller } from "./useTelecaller";
 import { DataTable, Filters, Stats, day } from "./CallComponents";
 import { filterCalls } from "./filterCalls";
@@ -24,14 +24,14 @@ export default function ConvertedLeads() {
           ["Total Converted", converted.length, Trophy, "teal"],
           [
             "Converted Today",
-            converted.filter((r) => day(r.date) === DEMO_DATE).length,
+            converted.filter((r) => day(r.date) === todayKey()).length,
             Calendar,
             "purple",
           ],
           [
             "This Month",
             converted.filter((r) =>
-              day(r.date).startsWith(DEMO_DATE.slice(0, 7)),
+              day(r.date).startsWith(todayKey().slice(0, 7)),
             ).length,
             Calendar,
             "cyan",

@@ -8,7 +8,7 @@ export default function AssignedCalls() {
   const { assigned, enriched, can } = useTelecaller();
   const [filters, setFilters] = useState({});
   const allRows = assigned
-    .filter((row) => row.status !== "Converted")
+    .filter((row) => !["Converted", "Closed"].includes(row.status))
     .map((row) => ({
       ...row,
       attempts: enriched.filter((call) => call.id === row.id).length,

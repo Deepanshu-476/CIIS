@@ -14,7 +14,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
-import { DEMO_DATE, outcomes, formatDate } from "./demoData";
+import { todayKey, outcomes, formatDate } from "./liveData";
 import "./CallComponents.css";
 
 export const day = (value) => String(value || "").slice(0, 10);
@@ -32,9 +32,9 @@ export const dateText = (value) =>
     : "—";
 
 export const followStatus = (row) =>
-  day(row.followUp) < DEMO_DATE
+  day(row.followUp) < todayKey()
     ? "Overdue"
-    : day(row.followUp) === DEMO_DATE
+    : day(row.followUp) === todayKey()
       ? "Today"
       : "Upcoming";
 
@@ -104,7 +104,7 @@ export function Card({ title, children, action, className = "" }) {
 }
 
 export function FollowupCalendar({ rows = [], can = () => false }) {
-  const [month, setMonth] = useState("2026-09");
+  const [month, setMonth] = useState(() => todayKey().slice(0, 7));
   const [year, m] = month.split("-").map(Number);
   const days = new Date(year, m, 0).getDate();
   const offset = new Date(year, m - 1, 1).getDay();
@@ -379,7 +379,7 @@ export function DataTable({
                       row.date ? (
                         <div className="haps-time-cell">
                           <span className="haps-time-main">{formatDate(row.date)}</span>
-                          <span className="haps-time-sub">{row.timeAgo || "1 week ago"}</span>
+                          <span className="haps-time-sub">{row.timeAgo || ""}</span>
                         </div>
                       ) : (
                         <span className="haps-badge outcome-interested">Never Called</span>
@@ -399,18 +399,18 @@ export function DataTable({
                     ) : key === "attempts" ? (
                       <span className="haps-attempts-badge">{row.attempts !== undefined ? row.attempts : 0}</span>
                     ) : kind === "assigned" && key === "assigned" ? (
-                      <span className="haps-assigned-age">{row.timeAgo || "1 week ago"}</span>
+                      <span className="haps-assigned-age">{formatDate(row.assigned)}</span>
                     ) : kind === "converted" && key === "status" ? (
                       <span className="haps-badge-pill-green">
                         <CheckCircle size={11} style={{ marginRight: 3, verticalAlign: "-1px" }} /> Converted
                       </span>
                     ) : kind === "converted" && key === "date" ? (
-                      <span className="haps-time-main">{formatDate(row.date || "2026-08-24T14:28")}</span>
+                      <span className="haps-time-main">{formatDate(row.date)}</span>
                     ) : ["date", "followUp", "assigned"].includes(key) ? (
                       row[key] || key === "assigned" ? (
                         <div className="haps-time-cell">
-                          <span className="haps-time-main">{formatDate(row[key] || "2026-08-22")}</span>
-                          <span className="haps-time-sub">{row.timeAgo || "1 week ago"}</span>
+                          <span className="haps-time-main">{formatDate(row[key])}</span>
+                          <span className="haps-time-sub">{row.timeAgo || ""}</span>
                         </div>
                       ) : (
                         "—"
@@ -532,7 +532,7 @@ export function DataTable({
   );
 }
 
-export function Filters({ onApply, kind }) {
+export function Filters({ onApply, kind, rows = [] }) {
   const [values, setValues] = useState({});
 
   const field = (key, label, options, type = "text", placeholder = "") => (
@@ -571,8 +571,8 @@ export function Filters({ onApply, kind }) {
     >
       {kind === "pending" ? (
         <>
-          {field("source", "Lead Source", ["Facebook", "Instagram", "Google", "Website", "Referral"], null, "All Sources")}
-          {field("type", "Lead Type", ["NEET", "JEE", "CAT"], null, "All Types")}
+          {field("source", "Lead Source", [...new Set(rows.map(row => row.source).filter(Boolean))], null, "All Sources")}
+          {field("type", "Lead Type", [...new Set(rows.map(row => row.type).filter(Boolean))], null, "All Types")}
           {field("status", "Status", ["Assigned", "Interested", "Follow-up"], null, "All Status")}
           {field("attempts", "Attempts", ["Never Called", "1–3 Calls", "4+ Calls"], null, "Any")}
         </>
@@ -580,22 +580,22 @@ export function Filters({ onApply, kind }) {
         <>
           {field("scheduledDate", "Schedule Date", null, "date", "01 Sep, 2026")}
           {field("scheduleStatus", "Schedule Status", ["Pending", "Today", "Upcoming", "Overdue"], null, "All")}
-          {field("source", "Lead Source", ["Facebook", "Instagram", "Google", "Website", "Referral"], null, "All Sources")}
-          {field("type", "Lead Type", ["NEET", "JEE", "CAT"], null, "All Types")}
+          {field("source", "Lead Source", [...new Set(rows.map(row => row.source).filter(Boolean))], null, "All Sources")}
+          {field("type", "Lead Type", [...new Set(rows.map(row => row.type).filter(Boolean))], null, "All Types")}
         </>
       ) : kind === "completed" ? (
         <>
           {field("outcome", "Outcome", outcomes, null, "All Outcomes")}
           {field("callType", "Call Type", ["Outbound", "Inbound"], null, "All Types")}
-          {field("source", "Lead Source", ["Facebook", "Instagram", "Google", "Website", "Referral"], null, "All Sources")}
-          {field("type", "Lead Type", ["NEET", "JEE", "CAT"], null, "All Types")}
+          {field("source", "Lead Source", [...new Set(rows.map(row => row.source).filter(Boolean))], null, "All Sources")}
+          {field("type", "Lead Type", [...new Set(rows.map(row => row.type).filter(Boolean))], null, "All Types")}
           {field("completedDate", "Completed Date", null, "date", "01 Sep, 2026")}
         </>
       ) : (
         <>
           {kind === "history" && field("search", "Search Lead", null, "text", "Search lead...")}
-          {field("source", "Source", ["Facebook", "Instagram", "Google", "Website", "Referral"], null, "Select Lead Source")}
-          {field("type", "Lead Type", ["NEET", "JEE", "CAT"], null, "Select Lead Type")}
+          {field("source", "Source", [...new Set(rows.map(row => row.source).filter(Boolean))], null, "Select Lead Source")}
+          {field("type", "Lead Type", [...new Set(rows.map(row => row.type).filter(Boolean))], null, "Select Lead Type")}
           {kind === "today" ? (
             field("callType", "Call Type", ["Outbound", "Inbound"], null, "All Calls")
           ) : (

@@ -3583,7 +3583,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         <Box sx={{ px: 2, py: 2.25, borderBottom: `1px solid ${theme.palette.divider}` }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1.35 }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle1" fontWeight={800} noWrap sx={{ lineHeight: 1.25, color: 'text.primary' }}>
+              <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ fontSize: '0.875rem', lineHeight: 1.4, color: 'text.primary' }}>
                 {userData?.name || 'User'}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.35, textTransform: 'capitalize' }}>

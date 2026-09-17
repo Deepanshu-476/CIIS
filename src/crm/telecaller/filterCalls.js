@@ -1,20 +1,20 @@
-import { DEMO_DATE } from "./demoData";
+import { todayKey } from "./liveData";
 
 const day = (value) => String(value || "").slice(0, 10);
 const followStatus = (row) =>
-  day(row.followUp) < DEMO_DATE
+  day(row.followUp) < todayKey()
     ? "Overdue"
-    : day(row.followUp) === DEMO_DATE
+    : day(row.followUp) === todayKey()
       ? "Today"
       : "Upcoming";
 export function filterCalls(allRows, filters, kind) {
   return allRows.filter((row) => {
-    if (
+    if (  
       kind === "scheduled" &&
       !filters.scheduleStatus &&
       !filters.scheduledDate &&
-      day(row.followUp) < DEMO_DATE
-    )
+      day(row.followUp) < todayKey()
+    ) 
       return false;
     return Object.entries(filters).every(([key, value]) => {
       if (!value || value === "All" || value === "All Sources" || value === "All Types" || value === "All Status" || value === "Any") return true;

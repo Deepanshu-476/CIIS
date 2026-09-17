@@ -1,9 +1,9 @@
 /* Lead Sources Page Styles - Pixel Perfect to Reference UI media_1788343086997.png */
 
 .ls-root {
-  background-color: #f8fafc;
-  min-height: 100vh;
-  padding: 24px;
+  background-color: transparent;
+  min-height: auto;
+  padding: 4px 4px 32px 4px;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #1e293b;
   box-sizing: border-box;

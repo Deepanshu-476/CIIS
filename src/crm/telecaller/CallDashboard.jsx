@@ -13,7 +13,7 @@ import {
   CalendarClock
 } from "lucide-react";
 
-import { DEMO_DATE } from "./demoData";
+import { todayKey } from "./liveData";
 import { TELECALLER_BASE as BASE, TELECALLER_PAGES } from "./telecallerPages";
 import {
   Panel,
@@ -23,6 +23,7 @@ import {
 } from "./DashboardComponents";
 import { DataTable } from "./CallComponents";
 import { useTelecaller } from "./useTelecaller";
+import './CallDashboard.css';
 
 export default function CallDashboard() {
   const { enriched, assigned, today, followups, can } = useTelecaller();
@@ -30,7 +31,7 @@ export default function CallDashboard() {
   const metrics = [
     {
       label: "My Assigned Leads",
-      value: assigned.filter((row) => row.status !== "Converted").length || 2,
+      value: assigned.filter((row) => !["Converted", "Closed"].includes(row.status)).length,
       Icon: Users,
       tone: "purple",
       badgeText: "👥 Active Leads",
@@ -63,14 +64,14 @@ export default function CallDashboard() {
   ];
 
   const dueToday = followups.filter((row) =>
-    row.followUp && row.followUp.startsWith(DEMO_DATE)
+    row.followUp && row.followUp.startsWith(todayKey())
   );
   const upcoming = followups
-    .filter((row) => row.followUp && row.followUp.slice(0, 10) >= DEMO_DATE)
+    .filter((row) => row.followUp && row.followUp.slice(0, 10) > todayKey())
     .sort((a, b) => a.followUp.localeCompare(b.followUp));
 
   return (
-    <div className="tcd-dashboard">
+    <div className="tcd-dashboard call-management-dashboard">
       <Metrics items={metrics} />
 
       {/* Quick Access Grid Card */}
@@ -105,18 +106,18 @@ export default function CallDashboard() {
             </span>
           }
         >
-          <Schedule rows={dueToday} can={can} />
+          <div className="cmd-schedule-scroll"><Schedule rows={dueToday} can={can} /></div>
         </Panel>
 
         <Panel
           title="Upcoming Scheduled Calls"
           action={
             <span className="haps-pill-counter counter-purple">
-              {dueToday.length} Today
+              {upcoming.length} Upcoming
             </span>
           }
         >
-          <Schedule rows={upcoming} upcoming can={can} />
+          <div className="cmd-schedule-scroll"><Schedule rows={upcoming} upcoming can={can} /></div>
         </Panel>
       </div>
 

@@ -9,7 +9,7 @@ import {
   PhoneCall,
   Calendar
 } from "lucide-react";
-import { formatDate } from "./demoData";
+import { formatDate } from "./liveData";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import "./DashboardComponents.css";
 

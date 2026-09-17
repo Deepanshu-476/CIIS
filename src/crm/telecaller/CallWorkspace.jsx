@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Phone,
   PhoneCall,
@@ -40,7 +40,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { DEMO_DATE, outcomes, formatDate } from "./demoData";
+import { localDateTime, isTerminal, outcomes } from "./liveData";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import { useTelecaller } from "./useTelecaller";
 import { dateLabel } from "./LeadComponents";
@@ -103,9 +103,9 @@ export default function CallWorkspace() {
     <CallWorkspaceContent
       key={leadId}
       lead={lead}
-      calls={calls.filter((call) => call.leadId === leadId)}
+      calls={calls.filter((call) => call.leadId === leadId && call.outcome !== 'Note Added')}
       can={can}
-      editAllowed={editAllowed}
+      editAllowed={editAllowed && !isTerminal(lead)}
       onSave={saveCall}
       prevLead={prevLead}
       nextLead={nextLead}
@@ -132,7 +132,7 @@ function CallQueueDirectory({ assigned, can }) {
       
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "Pending" && row.status !== "Converted") ||
+        (filterStatus === "Pending" && !["Converted", "Closed"].includes(row.status)) ||
         (filterStatus === "Converted" && row.status === "Converted") ||
         (filterStatus === "High" && row.priority === "High");
 
@@ -241,11 +241,11 @@ function CallQueueDirectory({ assigned, can }) {
                   <div style={{ fontSize: "12px", color: "var(--cw-text-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
                     <span>{row.phone}</span>
                     <span>•</span>
-                    <span>{row.city || "Surat"}</span>
+                    <span>{row.city || "—"}</span>
                   </div>
 
                   <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", justifyContent: "space-between" }}>
-                    <span className="cw-badge cw-badge-cyan">{row.type || "NEET"}</span>
+                    <span className="cw-badge cw-badge-cyan">{row.type || "—"}</span>
                     <Link
                       to={`${BASE}/call-workspace/${row.id}`}
                       className="cw-btn cw-btn-call"
@@ -281,6 +281,9 @@ function CallWorkspaceContent({
   const [callType, setCallType] = useState("Outbound");
   const [message, setMessage] = useState("");
   const [toastMessage, setToastMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const callId = useRef(crypto.randomUUID());
 
   const needsFollowUp = ["Follow-up", "Need Callback", "Call Later"].includes(outcome);
   const lastCall = calls[0];
@@ -315,12 +318,14 @@ function CallWorkspaceContent({
       d.setDate(d.getDate() + 7);
       d.setHours(11, 0, 0, 0);
     }
-    const isoString = d.toISOString().slice(0, 16);
+    if (d <= new Date()) d.setDate(d.getDate() + 1);
+    const isoString = localDateTime(d);
     setFollowUp(isoString);
   };
 
-  const save = (event) => {
+  const save = async (event) => {
     event.preventDefault();
+    if (savingRef.current) return;
     if (!editAllowed) {
       setMessage("You do not have edit permission to save call details.");
       return;
@@ -336,23 +341,24 @@ function CallWorkspaceContent({
     if (
       followUp &&
       (!Number.isFinite(new Date(followUp).getTime()) ||
-        followUp <= `${DEMO_DATE}T14:45`)
+        new Date(followUp) <= new Date())
     ) {
       setMessage(
-        "Follow-up time must be after the preview timestamp (1 Sep 2026, 2:45 PM).",
+        "Follow-up time must be in the future.",
       );
       return;
     }
 
-    onSave({
-      id: crypto.randomUUID ? crypto.randomUUID() : `call-${Date.now()}`,
+    savingRef.current = true;
+    setSaving(true);
+    try {
+    await onSave({
+      id: callId.current,
       leadId: lead.id,
-      date: `${DEMO_DATE}T14:45`,
       callType,
       outcome,
       notes: notes.trim(),
-      followUp,
-      createdByName: "Telecaller 1",
+      followUp: ['Converted', 'Call Closed'].includes(outcome) ? '' : followUp,
     });
 
     setMessage("✅ Call details recorded and saved successfully!");
@@ -360,6 +366,13 @@ function CallWorkspaceContent({
     setOutcome("");
     setNotes("");
     setFollowUp("");
+    callId.current = crypto.randomUUID();
+    } catch (error) {
+      setMessage(error.response?.data?.message || error.message || 'Unable to save call. Please retry.');
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   const cleanPhone = (lead.phone || "").replace(/\D/g, "");
@@ -369,7 +382,7 @@ function CallWorkspaceContent({
 
   const summaryRows = [
     [Info, "Current Status", <span key="status" className={`cw-badge ${lead.status === "Converted" ? "cw-badge-success" : "cw-badge-primary"}`}>{lead.status}</span>],
-    [User, "Assigned To", lead.assignedTo || "Telecaller 1"],
+    [User, "Assigned To", lead.assignedTo || "—"],
     [
       PhoneCall,
       "Last Outcome",
@@ -387,7 +400,7 @@ function CallWorkspaceContent({
       `${calls.length} ${calls.length === 1 ? "Call" : "Calls"}`,
     ],
     [Clock, "Last Contact", dateLabel(lastCall?.date)],
-    [CalendarClock, "Next Follow-up", dateLabel(lastCall?.followUp)],
+    [CalendarClock, "Next Follow-up", dateLabel(lead.followUp)],
     [UserPlus, "Assigned On", dateLabel(lead.assigned)],
     [
       Lock,
@@ -490,15 +503,15 @@ function CallWorkspaceContent({
                 </span>
 
                 <span className="cw-badge cw-badge-purple">
-                  <Tag size={11} /> {lead.source || "Facebook"}
+                  <Tag size={11} /> {lead.source || "—"}
                 </span>
 
                 <span className="cw-badge cw-badge-cyan">
-                  <Sparkles size={11} /> {lead.type || "NEET"}
+                  <Sparkles size={11} /> {lead.type || "—"}
                 </span>
 
                 <span className="cw-badge cw-badge-warning">
-                  <Flame size={11} /> {lead.priority || "High"} Priority
+                  <Flame size={11} /> {lead.priority || "—"} Priority
                 </span>
               </div>
             </div>
@@ -556,18 +569,18 @@ function CallWorkspaceContent({
 
           <div className="cw-contact-chip">
             <Clock size={13} style={{ color: "var(--cw-primary)" }} />
-            <span>City: <strong>{lead.city || "Surat"}</strong></span>
+            <span>City: <strong>{lead.city || "—"}</strong></span>
           </div>
 
           <div className="cw-contact-chip">
             <UserPlus size={13} style={{ color: "var(--cw-primary)" }} />
-            <span>Agent: <strong>{lead.assignedTo || "Telecaller 1"}</strong></span>
+            <span>Agent: <strong>{lead.assignedTo || "—"}</strong></span>
           </div>
         </div>
       </section>
 
       {/* Main 2-Column Calling Workspace */}
-      <div className="cw-grid">
+      <fieldset className="cw-grid" disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         {/* Left Column: Outcomes & Previous Calls */}
         <div>
           {/* Call Outcome Card */}
@@ -614,6 +627,7 @@ function CallWorkspaceContent({
                       key={value}
                       onClick={() => {
                         setOutcome(value);
+                        if (['Converted', 'Call Closed'].includes(value)) setFollowUp('');
                         setMessage("");
                       }}
                     >
@@ -781,7 +795,7 @@ function CallWorkspaceContent({
                 <input
                   disabled={!editAllowed}
                   type="datetime-local"
-                  min={`${DEMO_DATE}T14:46`}
+                  min={localDateTime()}
                   className="cw-followup-input"
                   value={followUp}
                   onChange={(event) => setFollowUp(event.target.value)}
@@ -817,14 +831,14 @@ function CallWorkspaceContent({
             <button
               className="cw-btn-save"
               type="submit"
-              disabled={!editAllowed}
+              disabled={!editAllowed || saving}
             >
-              <Save size={16} /> Save Call Details
+              <Save size={16} /> {saving ? 'Saving...' : 'Save Call Details'}
             </button>
 
             {!editAllowed && (
               <p className="cw-alert cw-alert-error">
-                <AlertCircle size={14} /> Edit access is required to save calls.
+                <AlertCircle size={14} /> {isTerminal(lead) ? 'This lead is converted or closed.' : 'Edit access is required to save calls.'}
               </p>
             )}
 
@@ -835,7 +849,7 @@ function CallWorkspaceContent({
             )}
           </div>
         </aside>
-      </div>
+      </fieldset>
     </form>
   );
 }

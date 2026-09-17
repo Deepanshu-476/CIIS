@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Phone,
   PhoneCall,
@@ -31,7 +31,7 @@ import {
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { TELECALLER_BASE } from "./telecallerPages";
 import { useTelecaller } from "./useTelecaller";
-import { DEMO_DATE, formatDate } from "./demoData";
+import { todayKey, formatDate } from "./liveData";
 import { dateLabel } from "./LeadComponents";
 import "./LeadDetail.css";
 
@@ -54,7 +54,7 @@ export default function LeadDetail() {
       const matchesStatus =
         filterStatus === "all" ||
         (filterStatus === "Converted" && row.status === "Converted") ||
-        (filterStatus === "Assigned" && row.status !== "Converted") ||
+        (filterStatus === "Assigned" && !["Converted", "Closed"].includes(row.status)) ||
         (filterStatus === "High" && row.priority === "High");
 
       return matchesSearch && matchesStatus;
@@ -173,12 +173,12 @@ export default function LeadDetail() {
                   <div style={{ fontSize: "12px", color: "var(--ld-text-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
                     <span>{row.phone}</span>
                     <span>•</span>
-                    <span>{row.city || "Surat"}</span>
+                    <span>{row.city || "—"}</span>
                   </div>
 
                   <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <span className="ld-badge ld-badge-cyan">{row.type || "NEET"}</span>
+                      <span className="ld-badge ld-badge-cyan">{row.type || "—"}</span>
                       <span className={`ld-badge ${row.status === "Converted" ? "ld-badge-success" : "ld-badge-primary"}`}>
                         {row.status || "Assigned"}
                       </span>
@@ -221,6 +221,9 @@ function LeadDetailContent({
   const [activeTab, setActiveTab] = useState("Activity");
   const [newNote, setNewNote] = useState("");
   const [toastMessage, setToastMessage] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const noteId = useRef(crypto.randomUUID());
+  const notePending = useRef(false);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -234,23 +237,31 @@ function LeadDetailContent({
     }
   };
 
-  const handleAddNote = (e) => {
+  const handleAddNote = async (e) => {
     e.preventDefault();
-    if (!newNote.trim()) return;
+    if (!newNote.trim() || !editAllowed || notePending.current) return;
 
     const noteRecord = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `note-${Date.now()}`,
+      id: noteId.current,
       leadId: lead.id,
-      date: `${DEMO_DATE}T14:45`,
       callType: "Outbound",
       outcome: "Note Added",
       notes: newNote.trim(),
-      createdByName: "Telecaller 1",
     };
 
-    onSaveCall(noteRecord);
+    notePending.current = true;
+    setSavingNote(true);
+    try {
+    await onSaveCall(noteRecord);
     setNewNote("");
     showToast("Note added successfully!");
+    noteId.current = crypto.randomUUID();
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Unable to save note.');
+    } finally {
+      notePending.current = false;
+      setSavingNote(false);
+    }
   };
 
   // Status & Priority Tones
@@ -280,10 +291,10 @@ function LeadDetailContent({
     }
   };
 
-  const lastCall = calls[0];
+  const callRecords = calls.filter(call => call.outcome !== 'Note Added');
+  const lastCall = callRecords[0];
   const totalNotes = calls.filter((c) => c.notes).length;
-  const followUpCalls = calls.filter((c) => c.followUp);
-  const nextFollowUp = followUpCalls.length > 0 ? followUpCalls[0].followUp : lead.followUp;
+  const nextFollowUp = lead.followUp;
 
   const cleanPhone = (lead.phone || "").replace(/\D/g, "");
   const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(
@@ -379,16 +390,16 @@ function LeadDetailContent({
                   <CheckCircle size={12} /> {lead.status || "Assigned"}
                 </span>
 
-                <span className={`ld-badge ${getPriorityBadgeClass(lead.priority || "High")}`}>
-                  <Flame size={12} /> {lead.priority || "High"} Priority
+                <span className={`ld-badge ${getPriorityBadgeClass(lead.priority || "—")}`}>
+                  <Flame size={12} /> {lead.priority || "—"} Priority
                 </span>
 
                 <span className="ld-badge ld-badge-purple">
-                  <Tag size={12} /> {lead.source || "Facebook"}
+                  <Tag size={12} /> {lead.source || "—"}
                 </span>
 
                 <span className="ld-badge ld-badge-cyan">
-                  <Sparkles size={12} /> {lead.type || "NEET"}
+                  <Sparkles size={12} /> {lead.type || "—"}
                 </span>
               </div>
             </div>
@@ -463,12 +474,12 @@ function LeadDetailContent({
 
           <div className="ld-contact-chip">
             <MapPin size={13} className="ld-contact-chip-icon" />
-            <span>{lead.city || "Surat, Gujarat"}</span>
+            <span>{lead.city || "—"}</span>
           </div>
 
           <div className="ld-contact-chip">
             <User size={13} className="ld-contact-chip-icon" />
-            <span>Assigned: <strong>{lead.assignedTo || "Telecaller 1"}</strong></span>
+            <span>Assigned: <strong>{lead.assignedTo || "—"}</strong></span>
           </div>
 
           <div className="ld-contact-chip">
@@ -496,7 +507,7 @@ function LeadDetailContent({
           </div>
           <div className="ld-stat-content">
             <span className="ld-stat-label">Total Call Attempts</span>
-            <span className="ld-stat-value">{calls.length} {calls.length === 1 ? "Call" : "Calls"}</span>
+            <span className="ld-stat-value">{callRecords.length} {callRecords.length === 1 ? "Call" : "Calls"}</span>
           </div>
         </div>
 
@@ -561,8 +572,8 @@ function LeadDetailContent({
                     <Flame size={13} /> Priority
                   </dt>
                   <dd className="ld-info-val">
-                    <span className={`ld-badge ${getPriorityBadgeClass(lead.priority || "High")}`}>
-                      {lead.priority || "High"}
+                    <span className={`ld-badge ${getPriorityBadgeClass(lead.priority || "—")}`}>
+                      {lead.priority || "—"}
                     </span>
                   </dd>
                 </div>
@@ -572,7 +583,7 @@ function LeadDetailContent({
                     <Sparkles size={13} /> Source
                   </dt>
                   <dd className="ld-info-val">
-                    <span className="ld-badge ld-badge-purple">{lead.source || "Facebook"}</span>
+                    <span className="ld-badge ld-badge-purple">{lead.source || "—"}</span>
                   </dd>
                 </div>
 
@@ -581,7 +592,7 @@ function LeadDetailContent({
                     <TrendingUp size={13} /> Target Program
                   </dt>
                   <dd className="ld-info-val">
-                    <span className="ld-badge ld-badge-cyan">{lead.type || "NEET"}</span>
+                    <span className="ld-badge ld-badge-cyan">{lead.type || "—"}</span>
                   </dd>
                 </div>
 
@@ -589,7 +600,7 @@ function LeadDetailContent({
                   <dt className="ld-info-key">
                     <User size={13} /> Assigned Agent
                   </dt>
-                  <dd className="ld-info-val">{lead.assignedTo || "Telecaller 1"}</dd>
+                  <dd className="ld-info-val">{lead.assignedTo || "—"}</dd>
                 </div>
 
                 <div className="ld-info-row">
@@ -672,7 +683,7 @@ function LeadDetailContent({
                     <MapPin size={15} className="ld-contact-item-icon" />
                     <div className="ld-contact-item-text">
                       <span className="ld-contact-item-label">Location / City</span>
-                      <span className="ld-contact-item-val">{lead.city || "Surat, Gujarat"}</span>
+                      <span className="ld-contact-item-val">{lead.city || "—"}</span>
                     </div>
                   </div>
                 </div>
@@ -689,11 +700,9 @@ function LeadDetailContent({
             </div>
             <div className="ld-card-body">
               <div className="ld-tags-cloud">
-                <span className="ld-tag-pill"># {lead.type || "NEET-2026"}</span>
-                <span className="ld-tag-pill"># {lead.source || "Facebook-Campaign"}</span>
-                <span className="ld-tag-pill"># {lead.city || "Gujarat-Region"}</span>
-                <span className="ld-tag-pill"># High-Intent</span>
-                <span className="ld-tag-pill"># Priority-Lead</span>
+                <span className="ld-tag-pill"># {lead.type || "—"}</span>
+                <span className="ld-tag-pill"># {lead.source || "—"}</span>
+                <span className="ld-tag-pill"># {lead.city || "—"}</span>
               </div>
             </div>
           </div>
@@ -733,7 +742,7 @@ function LeadDetailContent({
               onClick={() => setActiveTab("Calls")}
             >
               <PhoneCall size={15} /> Call Logs
-              <span className="ld-tab-count">{calls.length}</span>
+              <span className="ld-tab-count">{callRecords.length}</span>
             </button>
           </div>
 
@@ -757,7 +766,7 @@ function LeadDetailContent({
                             {call.outcome}
                           </span>
                           <span className="ld-badge ld-badge-gray">
-                            <User size={10} /> {call.createdByName || lead.assignedTo || "Telecaller 1"}
+                            <User size={10} /> {call.createdByName || lead.assignedTo || "—"}
                           </span>
                         </div>
                         <span className="ld-timeline-time">
@@ -797,7 +806,7 @@ function LeadDetailContent({
                       </span>
                     </div>
                     <p className="ld-timeline-body">
-                      Assigned to <strong>{lead.assignedTo || "Telecaller 1"}</strong> for outreach, counseling, and customer engagement.
+                      Assigned to <strong>{lead.assignedTo || "—"}</strong> for outreach, counseling, and customer engagement.
                     </p>
                   </div>
                 </div>
@@ -818,7 +827,7 @@ function LeadDetailContent({
                       </span>
                     </div>
                     <p className="ld-timeline-body">
-                      Lead captured via <strong>{lead.source || "Facebook"}</strong> for <strong>{lead.type || "NEET"}</strong> program.
+                      Lead captured via <strong>{lead.source || "—"}</strong> for <strong>{lead.type || "—"}</strong> program.
                     </p>
                   </div>
                 </div>
@@ -842,7 +851,7 @@ function LeadDetailContent({
                   <div className="ld-note-footer">
                     <button
                       type="submit"
-                      disabled={!newNote.trim()}
+                      disabled={!newNote.trim() || !editAllowed || savingNote}
                       className="ld-btn ld-btn-primary"
                       style={{ padding: "7px 16px", fontSize: "12px" }}
                     >
@@ -864,7 +873,7 @@ function LeadDetailContent({
                           <p className="ld-note-text">{call.notes}</p>
                           <div className="ld-note-meta">
                             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              <User size={12} /> {call.createdByName || lead.assignedTo || "Telecaller 1"}
+                              <User size={12} /> {call.createdByName || lead.assignedTo || "—"}
                             </span>
                             <span>•</span>
                             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -901,7 +910,7 @@ function LeadDetailContent({
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                   <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--ld-text-main)" }}>
-                    All Call Records ({calls.length})
+                    All Call Records ({callRecords.length})
                   </span>
                   {can("call-workspace") && (
                     <Link
@@ -927,7 +936,7 @@ function LeadDetailContent({
                       </tr>
                     </thead>
                     <tbody>
-                      {calls.map((call) => (
+                      {callRecords.map((call) => (
                         <tr key={call.id}>
                           <td style={{ fontWeight: 600 }}>{dateLabel(call.date)}</td>
                           <td>
@@ -952,13 +961,13 @@ function LeadDetailContent({
                           <td style={{ maxWidth: 220, color: "var(--ld-text-muted)" }}>
                             {call.notes || "—"}
                           </td>
-                          <td>{call.createdByName || lead.assignedTo || "Telecaller 1"}</td>
+                          <td>{call.createdByName || lead.assignedTo || "—"}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
 
-                  {!calls.length && (
+                  {!callRecords.length && (
                     <div className="ld-empty-state">
                       <div className="ld-empty-icon">
                         <PhoneCall size={24} />

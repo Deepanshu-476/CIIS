@@ -1,18 +1,18 @@
-.al-root {
-  background: #f1f5f9;
-  min-height: 100vh;
-  padding: 20px 24px;
+.al-root.crm-all-leads {
+  background: transparent;
+  min-height: auto;
+  padding: 4px 4px 32px 4px;
   color: #1e293b;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   box-sizing: border-box;
 }
 
-.al-root * {
+.al-root.crm-all-leads * {
   box-sizing: border-box;
 }
 
 /* Page Header */
-.al-header {
+.crm-all-leads .al-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -20,7 +20,7 @@
   margin-bottom: 20px;
 }
 
-.al-header h1 {
+.crm-all-leads .al-header h1 {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
@@ -28,7 +28,7 @@
   letter-spacing: -0.01em;
 }
 
-.al-header nav {
+.crm-all-leads .al-header nav {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -36,23 +36,23 @@
   color: #94a3b8;
 }
 
-.al-header a {
+.crm-all-leads .al-header a {
   color: #64748b;
   text-decoration: none;
   font-weight: 500;
   transition: color 0.15s ease;
 }
 
-.al-header a:hover {
+.crm-all-leads .al-header a:hover {
   color: #2563eb;
 }
 
-.al-crumb-arrow {
+.crm-all-leads .al-crumb-arrow {
   color: #cbd5e1;
 }
 
 /* Card Container */
-.al-card {
+.crm-all-leads .al-card {
   background: #ffffff;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
@@ -61,31 +61,31 @@
 }
 
 /* Filter Card */
-.al-filter-card {
+.crm-all-leads .al-filter-card {
   padding: 16px 20px;
 }
 
-.al-filter-grid {
+.crm-all-leads .al-filter-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
   gap: 14px;
   align-items: flex-end;
 }
 
-.al-field {
+.crm-all-leads .al-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.al-field label {
+.crm-all-leads .al-field label {
   font-size: 11px;
   font-weight: 600;
   color: #64748b;
 }
 
-.al-select,
-.al-input {
+.crm-all-leads .al-select,
+.crm-all-leads .al-input {
   width: 100%;
   height: 38px;
   padding: 0 12px;
@@ -98,19 +98,19 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.al-select:focus,
-.al-input:focus {
+.crm-all-leads .al-select:focus,
+.crm-all-leads .al-input:focus {
   border-color: #635bff;
   box-shadow: 0 0 0 3px rgba(99, 91, 255, 0.1);
 }
 
-.al-field-actions {
+.crm-all-leads .al-field-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.al-btn-apply {
+.crm-all-leads .al-btn-apply {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -127,11 +127,11 @@
   transition: background-color 0.15s ease;
 }
 
-.al-btn-apply:hover {
+.crm-all-leads .al-btn-apply:hover {
   background: #4f46e5;
 }
 
-.al-btn-reset {
+.crm-all-leads .al-btn-reset {
   display: grid;
   place-items: center;
   width: 38px;
@@ -144,17 +144,17 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.al-btn-reset:hover {
+.crm-all-leads .al-btn-reset:hover {
   background: #f8fafc;
   color: #1e293b;
 }
 
 /* Table Card */
-.al-table-card {
+.crm-all-leads .al-table-card {
   padding: 20px;
 }
 
-.al-table-header {
+.crm-all-leads .al-table-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -164,20 +164,20 @@
   margin-bottom: 16px;
 }
 
-.al-table-header h2 {
+.crm-all-leads .al-table-header h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
   color: #1e293b;
 }
 
-.al-header-btns {
+.crm-all-leads .al-header-btns {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.al-btn-import {
+.crm-all-leads .al-btn-import {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -191,11 +191,11 @@
   transition: background-color 0.15s ease;
 }
 
-.al-btn-import:hover {
+.crm-all-leads .al-btn-import:hover {
   background: #0891b2;
 }
 
-.al-btn-add {
+.crm-all-leads .al-btn-add {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -209,12 +209,12 @@
   transition: background-color 0.15s ease;
 }
 
-.al-btn-add:hover {
+.crm-all-leads .al-btn-add:hover {
   background: #4f46e5;
 }
 
 /* Table Controls */
-.al-table-controls {
+.crm-all-leads .al-table-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -224,13 +224,13 @@
   color: #64748b;
 }
 
-.al-entries-control {
+.crm-all-leads .al-entries-control {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.al-entries-select {
+.crm-all-leads .al-entries-select {
   height: 32px;
   padding: 0 8px;
   border: 1px solid #cbd5e1;
@@ -240,13 +240,13 @@
   outline: none;
 }
 
-.al-search-control {
+.crm-all-leads .al-search-control {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.al-search-box input {
+.crm-all-leads .al-search-box input {
   height: 32px;
   padding: 0 10px;
   border: 1px solid #cbd5e1;
@@ -255,24 +255,24 @@
   font-size: 12px;
 }
 
-.al-search-box input:focus {
+.crm-all-leads .al-search-box input:focus {
   border-color: #635bff;
 }
 
 /* Table Styling */
-.al-table-wrapper {
+.crm-all-leads .al-table-wrapper {
   overflow-x: auto;
   margin-bottom: 16px;
 }
 
-.al-table {
+.crm-all-leads .al-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
   text-align: left;
 }
 
-.al-table th {
+.crm-all-leads .al-table th {
   background: #f8fafc;
   color: #64748b;
   font-size: 11px;
@@ -283,31 +283,31 @@
   white-space: nowrap;
 }
 
-.al-sort {
+.crm-all-leads .al-sort {
   font-size: 10px;
   color: #94a3b8;
   margin-left: 3px;
 }
 
-.al-table td {
+.crm-all-leads .al-table td {
   padding: 12px 14px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
   color: #334155;
 }
 
-.al-table tbody tr:hover {
+.crm-all-leads .al-table tbody tr:hover {
   background: #f8fafc;
 }
 
 /* Specific Cells */
-.al-td-sl {
+.crm-all-leads .al-td-sl {
   position: relative;
   font-weight: 600;
   color: #ef4444;
 }
 
-.al-sl-indicator {
+.crm-all-leads .al-sl-indicator {
   position: absolute;
   left: 0;
   top: 25%;
@@ -316,34 +316,34 @@
   background: #ef4444;
 }
 
-.al-td-leadid {
+.crm-all-leads .al-td-leadid {
   font-weight: 600;
   color: #475569;
 }
 
-.al-td-lead {
+.crm-all-leads .al-td-lead {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.al-td-lead strong {
+.crm-all-leads .al-td-lead strong {
   color: #1e293b;
   font-weight: 600;
 }
 
-.al-lead-note {
+.crm-all-leads .al-lead-note {
   font-size: 10px;
   color: #94a3b8;
 }
 
-.al-td-phone {
+.crm-all-leads .al-td-phone {
   color: #475569;
   letter-spacing: 0.02em;
 }
 
 /* Badges */
-.al-badge {
+.crm-all-leads .al-badge {
   display: inline-block;
   padding: 3px 8px;
   border-radius: 4px;
@@ -351,34 +351,34 @@
   font-weight: 500;
 }
 
-.al-badge-source-purple {
+.crm-all-leads .al-badge-source-purple {
   background: #f3e8ff;
   color: #7c3aed;
 }
 
-.al-badge-source-blue {
+.crm-all-leads .al-badge-source-blue {
   background: #e0e7ff;
   color: #4338ca;
 }
 
-.al-badge-type-green {
+.crm-all-leads .al-badge-type-green {
   background: #dcfce7;
   color: #15803d;
 }
 
-.al-badge-status-mint {
+.crm-all-leads .al-badge-status-mint {
   background: #d1fae5;
   color: #047857;
 }
 
-.al-badge-status-blue {
+.crm-all-leads .al-badge-status-blue {
   background: #e0f2fe;
   color: #0369a1;
 }
 
 /* Assigned & Date Pills */
-.al-assigned-pill,
-.al-date-pill {
+.crm-all-leads .al-assigned-pill,
+.crm-all-leads .al-date-pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -390,14 +390,14 @@
   font-weight: 500;
 }
 
-.al-age-txt {
+.crm-all-leads .al-age-txt {
   color: #ef4444;
   font-size: 11px;
   font-weight: 500;
 }
 
 /* Action Eye Button */
-.al-btn-eye {
+.crm-all-leads .al-btn-eye {
   display: grid;
   place-items: center;
   width: 28px;
@@ -410,12 +410,12 @@
   transition: background-color 0.15s ease;
 }
 
-.al-btn-eye:hover {
+.crm-all-leads .al-btn-eye:hover {
   background: #0891b2;
 }
 
 /* Table Footer & Pagination */
-.al-table-footer {
+.crm-all-leads .al-table-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -425,13 +425,13 @@
   margin-top: 12px;
 }
 
-.al-pagination {
+.crm-all-leads .al-pagination {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.al-pg-btn {
+.crm-all-leads .al-pg-btn {
   display: grid;
   place-items: center;
   min-width: 28px;
@@ -445,25 +445,25 @@
   cursor: pointer;
 }
 
-.al-pg-btn:hover:not(:disabled) {
+.crm-all-leads .al-pg-btn:hover:not(:disabled) {
   background: #f8fafc;
   border-color: #cbd5e1;
 }
 
-.al-pg-active {
+.crm-all-leads .al-pg-active {
   background: #635bff;
   color: #ffffff;
   border-color: #635bff;
   font-weight: 600;
 }
 
-.al-pg-dots {
+.crm-all-leads .al-pg-dots {
   color: #94a3b8;
   padding: 0 4px;
 }
 
 /* Modal Overlay */
-.al-modal-overlay {
+.crm-all-leads .al-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.6);
@@ -479,7 +479,7 @@
   animation: alFadeIn 0.15s ease-out;
 }
 
-.al-modal-overlay::-webkit-scrollbar {
+.crm-all-leads .al-modal-overlay::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
@@ -490,7 +490,7 @@
   to { opacity: 1; transform: scale(1); }
 }
 
-.al-modal-content {
+.crm-all-leads .al-modal-content {
   background: #ffffff;
   border-radius: 12px;
   width: 100%;
@@ -503,7 +503,7 @@
   overflow: hidden;
 }
 
-.al-modal-header {
+.crm-all-leads .al-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -512,13 +512,13 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
-.al-modal-title-box {
+.crm-all-leads .al-modal-title-box {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.al-modal-lead-badge {
+.crm-all-leads .al-modal-lead-badge {
   background: #e0e7ff;
   color: #4338ca;
   font-size: 11px;
@@ -528,14 +528,14 @@
   letter-spacing: 0.02em;
 }
 
-.al-modal-header h3 {
+.crm-all-leads .al-modal-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
   color: #0f172a;
 }
 
-.al-modal-close {
+.crm-all-leads .al-modal-close {
   background: transparent;
   border: none;
   color: #64748b;
@@ -548,12 +548,12 @@
   transition: all 0.15s;
 }
 
-.al-modal-close:hover {
+.crm-all-leads .al-modal-close:hover {
   background: #e2e8f0;
   color: #0f172a;
 }
 
-.al-modal-body {
+.crm-all-leads .al-modal-body {
   padding: 20px 24px;
   overflow-y: auto;
   -ms-overflow-style: none; /* IE & Edge */
@@ -564,14 +564,14 @@
   font-size: 13px;
 }
 
-.al-modal-body::-webkit-scrollbar {
+.crm-all-leads .al-modal-body::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
 }
 
 /* Hero Box */
-.al-modal-hero {
+.crm-all-leads .al-modal-hero {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -581,7 +581,7 @@
   border-radius: 8px;
 }
 
-.al-modal-avatar {
+.crm-all-leads .al-modal-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -593,20 +593,20 @@
   flex-shrink: 0;
 }
 
-.al-modal-hero-info {
+.crm-all-leads .al-modal-hero-info {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.al-modal-name {
+.crm-all-leads .al-modal-name {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
   color: #0f172a;
 }
 
-.al-modal-badges {
+.crm-all-leads .al-modal-badges {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -614,13 +614,13 @@
 }
 
 /* Contact Bar */
-.al-modal-contact-bar {
+.crm-all-leads .al-modal-contact-bar {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
-.al-modal-contact-item {
+.crm-all-leads .al-modal-contact-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -635,14 +635,14 @@
   transition: all 0.15s;
 }
 
-.al-modal-contact-item:hover {
+.crm-all-leads .al-modal-contact-item:hover {
   border-color: #6366f1;
   background: #f5f3ff;
   color: #4338ca;
 }
 
 /* Section Title */
-.al-modal-section-title {
+.crm-all-leads .al-modal-section-title {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -653,18 +653,18 @@
   text-transform: uppercase;
 }
 
-.al-modal-section-title.mt-2 {
+.crm-all-leads .al-modal-section-title.mt-2 {
   margin-top: 6px;
 }
 
 /* Information Grid */
-.al-modal-grid {
+.crm-all-leads .al-modal-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
 }
 
-.al-modal-info-item {
+.crm-all-leads .al-modal-info-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -674,11 +674,11 @@
   border-radius: 6px;
 }
 
-.al-modal-info-item.full-width {
+.crm-all-leads .al-modal-info-item.full-width {
   grid-column: span 2;
 }
 
-.al-modal-info-item label {
+.crm-all-leads .al-modal-info-item label {
   font-size: 10.5px;
   font-weight: 600;
   color: #64748b;
@@ -686,7 +686,7 @@
   letter-spacing: 0.02em;
 }
 
-.al-modal-info-item span {
+.crm-all-leads .al-modal-info-item span {
   font-size: 12.5px;
   color: #1e293b;
   font-weight: 500;
@@ -695,13 +695,13 @@
   gap: 6px;
 }
 
-.al-modal-assigned-pill {
+.crm-all-leads .al-modal-assigned-pill {
   color: #4338ca !important;
   font-weight: 600 !important;
 }
 
 /* Notes Box */
-.al-modal-notes-box {
+.crm-all-leads .al-modal-notes-box {
   background: #fffbeb;
   border: 1px solid #fef3c7;
   border-left: 3px solid #f59e0b;
@@ -709,7 +709,7 @@
   padding: 12px 14px;
 }
 
-.al-modal-notes-header {
+.crm-all-leads .al-modal-notes-header {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -718,7 +718,7 @@
   margin-bottom: 4px;
 }
 
-.al-modal-notes-box p {
+.crm-all-leads .al-modal-notes-box p {
   margin: 0;
   font-size: 12.5px;
   color: #78350f;
@@ -726,7 +726,7 @@
 }
 
 /* Modal Footer */
-.al-modal-footer {
+.crm-all-leads .al-modal-footer {
   padding: 14px 24px;
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
@@ -734,7 +734,7 @@
   justify-content: flex-end;
 }
 
-.al-modal-btn-close {
+.crm-all-leads .al-modal-btn-close {
   background: #1e293b;
   color: #ffffff;
   border: none;
@@ -746,12 +746,12 @@
   transition: background 0.15s;
 }
 
-.al-modal-btn-close:hover {
+.crm-all-leads .al-modal-btn-close:hover {
   background: #0f172a;
 }
 
 /* Footer */
-.al-footer {
+.crm-all-leads .al-footer {
   text-align: center;
   color: #94a3b8;
   font-size: 11px;
@@ -760,13 +760,13 @@
 }
 
 /* Action Group */
-.al-action-group {
+.crm-all-leads .al-action-group {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.al-btn-assign {
+.crm-all-leads .al-btn-assign {
   display: grid;
   place-items: center;
   width: 28px;
@@ -779,20 +779,20 @@
   transition: all 0.15s ease;
 }
 
-.al-btn-assign:hover {
+.crm-all-leads .al-btn-assign:hover {
   background: #4f46e5;
   transform: translateY(-1px);
 }
 
 /* Assign inside Eye Modal */
-.al-modal-assign-row {
+.crm-all-leads .al-modal-assign-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.al-btn-quick-assign {
+.crm-all-leads .al-btn-quick-assign {
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
   color: #4338ca;
@@ -804,23 +804,23 @@
   transition: all 0.15s;
 }
 
-.al-btn-quick-assign:hover {
+.crm-all-leads .al-btn-quick-assign:hover {
   background: #e0e7ff;
   border-color: #a5b4fc;
 }
 
 /* Assign Modal Specific */
-.al-assign-modal-content {
+.crm-all-leads .al-assign-modal-content {
   max-width: 460px;
 }
 
-.al-assign-form {
+.crm-all-leads .al-assign-form {
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
 }
 
-.al-assign-lead-card {
+.crm-all-leads .al-assign-lead-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -831,41 +831,41 @@
   margin-bottom: 16px;
 }
 
-.al-assign-lead-info {
+.crm-all-leads .al-assign-lead-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.al-assign-lead-info strong {
+.crm-all-leads .al-assign-lead-info strong {
   font-size: 14px;
   color: #0f172a;
 }
 
-.al-assign-lead-info span {
+.crm-all-leads .al-assign-lead-info span {
   font-size: 11.5px;
   color: #64748b;
 }
 
-.al-assign-current-badge {
+.crm-all-leads .al-assign-current-badge {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
 }
 
-.al-assign-current-lbl {
+.crm-all-leads .al-assign-current-lbl {
   font-size: 10px;
   text-transform: uppercase;
   color: #94a3b8;
   font-weight: 700;
 }
 
-.al-modal-assigned-pill.is-unassigned {
+.crm-all-leads .al-modal-assigned-pill.is-unassigned {
   color: #64748b !important;
 }
 
-.al-assign-select {
+.crm-all-leads .al-assign-select {
   width: 100%;
   height: 40px;
   border-radius: 6px;
@@ -879,19 +879,74 @@
   margin-top: 6px;
 }
 
-.al-assign-select:focus {
+.crm-all-leads .al-assign-select:focus {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
-.al-hint-text {
+.crm-all-leads .al-member-select { margin-top: 8px; font-size: 13px; }
+.crm-all-leads .al-member-select .al-member__control {
+  min-height: 48px;
+  border: 1px solid #d8dee9;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px #0f172a05;
+  cursor: pointer;
+}
+.crm-all-leads .al-member-select .al-member__control:hover { border-color: #a5b4fc; }
+.crm-all-leads .al-member-select .al-member__control--is-focused {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px #6366f11a;
+}
+.crm-all-leads .al-member-select .al-member__value-container { padding: 5px 12px; }
+.crm-all-leads .al-member-select .al-member__placeholder { color: #94a3b8; }
+.crm-all-leads .al-member-select .al-member__indicator-separator { display: none; }
+.crm-all-leads .al-member-select .al-member__dropdown-indicator { color: #64748b; padding: 10px; }
+.crm-all-leads .al-member__menu-portal .al-member__menu {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 36px #0f172a24, 0 2px 6px #0f172a0a;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 13px;
+}
+.crm-all-leads .al-member__menu-portal .al-member__menu-list { padding: 6px; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.crm-all-leads .al-member__menu-portal .al-member__option {
+  padding: 10px;
+  border-radius: 8px;
+  color: #334155;
+  background: #fff;
+  cursor: pointer;
+}
+.crm-all-leads .al-member__menu-portal .al-member__option--is-focused { background: #f8fafc; }
+.crm-all-leads .al-member__menu-portal .al-member__option--is-selected { background: #eef2ff; color: #4338ca; }
+.crm-all-leads .al-member-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.crm-all-leads .al-member-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 700;
+}
+.crm-all-leads .al-member-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.crm-all-leads .al-member-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-all-leads .al-member-detail { color: #64748b; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-all-leads .al-member-check { flex-shrink: 0; color: #6366f1; }
+.crm-all-leads .al-member-unassign .al-member-avatar { background: #fff1f2; color: #e11d48; }
+
+.crm-all-leads .al-hint-text {
   font-size: 11px;
   color: #64748b;
   margin-top: 6px;
   line-height: 1.4;
 }
 
-.al-assign-actions {
+.crm-all-leads .al-assign-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -901,7 +956,7 @@
   border-top: 1px solid #f1f5f9;
 }
 
-.al-btn-cancel {
+.crm-all-leads .al-btn-cancel {
   background: #f8fafc;
   color: #64748b;
   border: 1px solid #e2e8f0;
@@ -913,12 +968,12 @@
   transition: all 0.15s;
 }
 
-.al-btn-cancel:hover:not(:disabled) {
+.crm-all-leads .al-btn-cancel:hover:not(:disabled) {
   background: #f1f5f9;
   color: #0f172a;
 }
 
-.al-btn-save-assign {
+.crm-all-leads .al-btn-save-assign {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -933,32 +988,32 @@
   transition: all 0.15s;
 }
 
-.al-btn-save-assign:hover:not(:disabled) {
+.crm-all-leads .al-btn-save-assign:hover:not(:disabled) {
   background: #4f46e5;
 }
 
-.al-btn-save-assign:disabled,
-.al-btn-cancel:disabled {
+.crm-all-leads .al-btn-save-assign:disabled,
+.crm-all-leads .al-btn-cancel:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .al-filter-grid {
+  .crm-all-leads .al-filter-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
-  .al-filter-grid {
+  .crm-all-leads .al-filter-grid {
     grid-template-columns: 1fr;
   }
-  .al-table-header {
+  .crm-all-leads .al-table-header {
     flex-direction: column;
     align-items: flex-start;
   }
-  .al-table-footer {
+  .crm-all-leads .al-table-footer {
     flex-direction: column;
     align-items: center;
   }

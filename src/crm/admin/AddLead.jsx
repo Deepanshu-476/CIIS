@@ -62,7 +62,8 @@ export default function AddLead() {
     if (pending.current || savedSuccess) return;
     const { name, value } = e.target;
     if (name === 'phone') {
-      const onlyDigits = value.replace(/\D/g, '').slice(0, 10);
+      const digits = value.replace(/\D/g, '');
+      const onlyDigits = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
       setForm(prev => ({ ...prev, phone: onlyDigits }));
       if (errors.phone) {
         setErrors(prev => ({ ...prev, phone: '' }));
@@ -117,7 +118,7 @@ export default function AddLead() {
   };
 
   return (
-    <div className="al-root">
+    <div className="al-root crm-add-lead">
       {/* Page Header & Breadcrumb */}
       <div className="al-page-header">
         <h1 className="al-page-title">Add Lead</h1>
@@ -196,7 +197,7 @@ export default function AddLead() {
                   value={form.phone}
                   onChange={handleChange}
                   placeholder="Enter 10-digit mobile number"
-                  maxLength={10}
+                  maxLength={30}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   className={errors.phone ? 'is-invalid' : ''}

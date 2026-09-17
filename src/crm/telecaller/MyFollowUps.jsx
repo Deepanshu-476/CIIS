@@ -6,7 +6,7 @@ import {
   List,
   AlertTriangle,
 } from "lucide-react";
-import { DEMO_DATE } from "./demoData";
+import { todayKey } from "./liveData";   
 import { useTelecaller } from "./useTelecaller";
 import {  
   DataTable,
@@ -17,16 +17,16 @@ import {
 export default function MyFollowUps() {
   const { followups, enriched, can } = useTelecaller();
   const [tab, setTab] = useState("List View");
-  const tomorrow = new Date(`${DEMO_DATE}T12:00:00`);
+  const tomorrow = new Date(`${todayKey()}T12:00:00`);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowKey = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-  const overdue = followups.filter((r) => day(r.followUp) < DEMO_DATE);
+  const overdue = followups.filter((r) => day(r.followUp) < todayKey());
 
   const allRows = followups.map((row) => ({
     ...row,
     attempts: enriched.filter((call) => call.id === row.id || call.leadId === row.id).length,
   }));
-  const overdueRows = allRows.filter((r) => day(r.followUp) < DEMO_DATE);
+  const overdueRows = allRows.filter((r) => day(r.followUp) < todayKey());
 
   return (
     <div className="tcl-views">
@@ -34,7 +34,7 @@ export default function MyFollowUps() {
         items={[
           [
             "Today's Follow-ups",
-            followups.filter((r) => day(r.followUp) === DEMO_DATE).length,
+            followups.filter((r) => day(r.followUp) === todayKey()).length,
             Calendar,
             "purple",
           ],
@@ -46,7 +46,7 @@ export default function MyFollowUps() {
           ],
           [
             "Upcoming",
-            followups.filter((r) => day(r.followUp) > DEMO_DATE).length,
+            followups.filter((r) => day(r.followUp) > todayKey()).length,
             Calendar,
             "teal",
           ],

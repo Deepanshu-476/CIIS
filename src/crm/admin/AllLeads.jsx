@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import Select from 'react-select';
 import {
   FiChevronRight,
   FiFilter,
@@ -27,12 +28,25 @@ export default function AllLeads() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
+  const [teamError, setTeamError] = useState('');
 
   // Assignment Modal State
   const [assignModalLead, setAssignModalLead] = useState(null);
   const [assignTargetUserId, setAssignTargetUserId] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const memberOptions = useMemo(() => {
+    const options = teamMembers.map(member => ({
+      value: member._id,
+      label: member.name || 'Team member',
+      detail: member.email || 'Team member',
+      initials: (member.name || 'Team member').trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()
+    }));
+    if (assignModalLead && assignModalLead.assignedTo !== 'Unassigned') {
+      options.unshift({ value: 'unassign', label: 'Unassign lead', detail: 'Remove the current assignment', initials: '-' });
+    }
+    return options;
+  }, [teamMembers, assignModalLead]);
 
   useEffect(() => {
     let active = true;
@@ -41,22 +55,23 @@ export default function AllLeads() {
         source:item.leadSource?.name || item.source || '-', type:item.leadType?.name || '-',
         status: item.status ? item.status.charAt(0).toUpperCase()+item.status.slice(1) : 'New',
         assignedTo:item.assignedTo?.name || 'Unassigned',
+        assignedUserId:item.assignedTo?._id || '',
         assignedDate: (item.assignedTo && item.assignedAt) ? new Date(item.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
         createdDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
-        assignedAge:'-'})));
+        assignedAge:item.assignedTo && item.assignedAt ? `${Math.max(0, Math.floor((Date.now() - new Date(item.assignedAt).getTime()) / 86400000))} days` : '-'})));
     }).catch(err => {if(active) setError(err.response?.data?.message || 'Could not load leads. Please refresh to retry.');})
       .finally(() => {if(active) setLoading(false);});
 
     api.get('/crm/leads/team', {cache:false}).then(({data}) => {
       if(active && data.users) setTeamMembers(data.users);
-    }).catch(() => {});
+    }).catch(() => { if (active) setTeamError('Could not load team members. Refresh the page to retry.'); });
 
     return () => {active=false;};
   }, []);
 
   const handleSaveAssignment = async (e) => {
     e.preventDefault();
-    if (!assignModalLead || assignLoading) return;
+    if (!assignModalLead || assignLoading || !assignTargetUserId) return;
 
     setAssignLoading(true);
     setAssignError('');
@@ -75,6 +90,8 @@ export default function AllLeads() {
       setLeads(prev => prev.map(l => l.id === assignModalLead.id ? {
         ...l,
         assignedTo: newAssignedTo,
+        assignedUserId: updatedItem.assignedTo?._id || '',
+        assignedAge: updatedItem.assignedTo ? '0 days' : '-',
         assignedDate: newAssignedDate
       } : l));
 
@@ -82,6 +99,8 @@ export default function AllLeads() {
         setSelectedLead(prev => ({
           ...prev,
           assignedTo: newAssignedTo,
+          assignedUserId: updatedItem.assignedTo?._id || '',
+          assignedAge: updatedItem.assignedTo ? '0 days' : '-',
           assignedDate: newAssignedDate
         }));
       }
@@ -109,15 +128,15 @@ export default function AllLeads() {
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       const matchesSearch =
-        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(lead.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.leadId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.phone.includes(searchTerm) ||
+        String(lead.phone || '').includes(searchTerm) ||
         lead.note.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesSource = !filterSource || lead.source === filterSource;
       const matchesType = !filterType || lead.type === filterType;
 
-      return matchesSearch && matchesSource && matchesType && (filterAssignedTo === 'All Users' || lead.assignedTo === filterAssignedTo) && (!filterDateFrom || lead.leadDate >= filterDateFrom) && (!filterDateTo || lead.leadDate <= filterDateTo);
+      return matchesSearch && matchesSource && matchesType && (filterAssignedTo === 'All Users' || (filterAssignedTo === 'Unassigned' ? !lead.assignedUserId : lead.assignedUserId === filterAssignedTo)) && (!filterDateFrom || lead.leadDate >= filterDateFrom) && (!filterDateTo || lead.leadDate <= filterDateTo);
     });
   }, [leads, searchTerm, filterSource, filterType, filterAssignedTo, filterDateFrom, filterDateTo]);
 
@@ -138,7 +157,7 @@ export default function AllLeads() {
   };
 
   return (
-    <div className="al-root">
+    <div className="al-root crm-all-leads">
       {/* Header & Breadcrumbs */}
       <header className="al-header">
         <h1>All Leads</h1>
@@ -162,7 +181,7 @@ export default function AllLeads() {
               className="al-select"
             >
               <option value="All Users">All Users</option>
-              {[...new Set(leads.map(lead => lead.assignedTo))].filter(value => value !== 'Unassigned').map(value => <option key={value} value={value}>{value}</option>)}
+              {[...new Map(leads.filter(lead => lead.assignedUserId).map(lead => [lead.assignedUserId, lead])).values()].map(lead => <option key={lead.assignedUserId} value={lead.assignedUserId}>{lead.assignedTo} ({teamMembers.find(member => member._id === lead.assignedUserId)?.email || lead.assignedUserId.slice(-6)})</option>)}
               <option value="Unassigned">Unassigned</option>
             </select>
           </div>
@@ -567,30 +586,47 @@ export default function AllLeads() {
                 </div>
               </div>
 
+              {teamError && <div role="alert" className="al-err mb-3">{teamError}</div>}
               {assignError && <div role="alert" className="al-err mb-3">{assignError}</div>}
 
               <div className="al-field mb-4">
-                <label>
+                <label htmlFor="al-assignment-member">
                   Select Team Member / Telecaller <span className="req">*</span>
                 </label>
-                <select
-                  value={assignTargetUserId}
-                  onChange={(e) => setAssignTargetUserId(e.target.value)}
-                  className="al-select al-assign-select"
-                  required
-                >
-                  <option value="">-- Choose User to Assign --</option>
-                  {assignModalLead.assignedTo !== 'Unassigned' && (
-                    <option value="unassign">❌ Unassign Lead (Remove current assignment)</option>
+                <Select
+                  inputId="al-assignment-member"
+                  instanceId="al-assignment-member"
+                  className="al-member-select"
+                  classNamePrefix="al-member"
+                  options={memberOptions}
+                  value={memberOptions.find(option => option.value === assignTargetUserId) || null}
+                  onChange={option => setAssignTargetUserId(option?.value || '')}
+                  isDisabled={assignLoading}
+                  isSearchable
+                  placeholder="Search by name or email..."
+                  noOptionsMessage={({ inputValue }) => inputValue ? 'No matching team members' : 'No team members available'}
+                  filterOption={({ data }, input) => `${data.label} ${data.detail}`.toLowerCase().includes(input.trim().toLowerCase())}
+                  menuPortalTarget={document.body}
+                  menuPosition="fixed"
+                  menuPlacement="auto"
+                  maxMenuHeight={240}
+                  menuShouldScrollIntoView={false}
+                  // Keep the body portal above the modal overlay (z-index: 99999).
+                  styles={{ menuPortal: base => ({ ...base, zIndex: 100000 }) }}
+                  formatOptionLabel={(option, { context }) => (
+                    <div className={`al-member-row ${option.value === 'unassign' ? 'al-member-unassign' : ''}`}>
+                      <span className="al-member-avatar" aria-hidden="true">{option.initials}</span>
+                      <span className="al-member-copy">
+                        <span className="al-member-name">{option.label}</span>
+                        {context === 'menu' && <span className="al-member-detail">{option.detail}</span>}
+                      </span>
+                      {context === 'menu' && option.value === assignTargetUserId && <FiCheckCircle className="al-member-check" aria-hidden="true" />}
+                    </div>
                   )}
-                  {teamMembers.map((member) => (
-                    <option key={member._id} value={member._id}>
-                      👤 {member.name} {member.jobRole || member.role ? `(${member.jobRole || member.role})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <span className="al-hint-text">
-                  Choosing a member will instantly route this lead to their calling queue.
+                  aria-describedby="al-assignment-hint"
+                />
+                <span className="al-hint-text" id="al-assignment-hint">
+                  Select a member, then confirm to update the lead assignment.
                 </span>
               </div>
 

@@ -918,6 +918,8 @@ const getPathFromName = (name) => {
 };
 
 const getMenuDisplayName = (name) => {
+  const normalizedName = String(name || '').trim().toLowerCase();
+  if (normalizedName === 'gate qr kiosk terminal') return 'Gate QR';
   if (name === 'My Details') return 'My Profile';
   if (name === 'Projects') return 'My Projects';
   if (name === 'Admin Projects' || name === 'Admin Project') return 'Manage Projects';

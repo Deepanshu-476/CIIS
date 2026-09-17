@@ -109,7 +109,6 @@ const getRequestCacheTtlMs = (url) => {
     '/menu-items',
     '/page-permissions',
     '/sidebar',
-    '/projects',
     '/notifications/unread-count',
     '/notifications',
     '/alerts',

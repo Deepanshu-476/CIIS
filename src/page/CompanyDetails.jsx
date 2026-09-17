@@ -16,10 +16,7 @@ import {
   Refresh,
   ArrowBack,
   Security,
-  Domain,
   Link,
-  Image,
-  Storage,
   Settings,
   People,
   ListAlt,
@@ -781,20 +778,6 @@ const CompanyDetails = () => {
 
                 <Grid item xs={12} md={6}>
                   <Box sx={styles.detailItem}>
-                    <Domain sx={styles.detailIcon} />
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        Domain
-                      </Typography>
-                      <Typography variant="body1">
-                        {company.companyDomain || "Not specified"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Box sx={styles.detailItem}>
                     <Link sx={styles.detailIcon} />
                     <Box>
                       <Typography variant="body2" color="textSecondary">
@@ -802,34 +785,6 @@ const CompanyDetails = () => {
                       </Typography>
                       <Typography variant="body1" sx={styles.urlText}>
                         {window.location.origin}{company.loginUrl}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Box sx={styles.detailItem}>
-                    <Storage sx={styles.detailIcon} />
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        Database Identifier
-                      </Typography>
-                      <Typography variant="body1" sx={styles.dbText}>
-                        {company.dbIdentifier}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Box sx={styles.detailItem}>
-                    <Image sx={styles.detailIcon} />
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        Logo URL
-                      </Typography>
-                      <Typography variant="body1" sx={styles.urlText}>
-                        {company.logo || "Not provided"}
                       </Typography>
                     </Box>
                   </Box>

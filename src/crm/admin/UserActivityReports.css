@@ -1,0 +1,32 @@
+@import './ReportsOverview.css';
+
+/* User Activity Reports CSS */
+.cr-badge-act-cyan {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.cr-standalone-chart-container {
+  width: 100%;
+  height: 240px;
+  position: relative;
+}
+
+.cr-vector-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+@media (max-width: 768px) {
+  .cr-standalone-chart-container {
+    height: 200px;
+  }
+}
+

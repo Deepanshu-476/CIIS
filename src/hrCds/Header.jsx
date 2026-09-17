@@ -727,6 +727,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
               <Typography
                 variant="subtitle1"
                 sx={{
+                  fontSize: '0.875rem',
                   fontWeight: 500,
                   color: theme.palette.text.secondary,
                   display: 'flex',
@@ -741,6 +742,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
               <Typography 
                 variant="subtitle1" 
                 sx={{ 
+                  fontSize: '0.875rem',
                   fontWeight: 500, 
                   color: theme.palette.text.secondary,
                   display: 'flex',

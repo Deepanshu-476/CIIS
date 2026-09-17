@@ -186,6 +186,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cw-tags-row {
@@ -403,57 +407,204 @@
   box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
 }
 
-/* Outcome Tiles Grid */
-.cw-outcomes-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+/* Selected Outcome Tag in Header */
+.cw-selected-outcome-tag {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #4f46e5;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.cw-outcome-btn {
+.cw-selected-outcome-tag strong {
+  font-weight: 700;
+  color: #3730a3;
+}
+
+/* Category Blocks */
+.cw-outcome-category-block {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 8px;
-  min-height: 72px;
+}
+
+.cw-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 5px;
+  border-bottom: 1px dashed var(--cw-border);
+}
+
+.cw-category-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cw-text-muted);
+}
+
+.cw-category-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.cw-category-pill.badge-green {
+  background: #ecfdf5;
+  color: #059669;
+}
+.cw-category-pill.badge-purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+.cw-category-pill.badge-amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+.cw-category-pill.badge-rose {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* Category Grid */
+.cw-category-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+/* Outcome Chip */
+.cw-outcome-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  min-height: 42px;
   border: 1px solid var(--cw-border);
   border-radius: 10px;
   background: white;
-  color: #475569;
-  font-size: 11px;
+  color: var(--cw-text-main);
+  font-size: 12.5px;
   font-weight: 500;
-  padding: 10px 6px;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  text-align: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  box-sizing: border-box;
 }
 
-.cw-outcome-btn:hover:not(:disabled) {
+.cw-outcome-chip:hover:not(:disabled) {
   border-color: #cbd5e1;
   background: #f8fafc;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.04);
 }
 
-.cw-outcome-btn.selected {
-  border-color: var(--cw-primary);
+.cw-chip-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: #f1f5f9;
+  color: #64748b;
+  transition: all 0.16s;
+}
+
+.cw-chip-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.cw-chip-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  color: white;
+  flex-shrink: 0;
+}
+
+/* Category-specific icon default colors */
+.cw-outcome-chip.badge-green .cw-chip-icon-wrap { color: #059669; background: #ecfdf5; }
+.cw-outcome-chip.badge-purple .cw-chip-icon-wrap { color: #7c3aed; background: #f5f3ff; }
+.cw-outcome-chip.badge-amber .cw-chip-icon-wrap { color: #d97706; background: #fffbeb; }
+.cw-outcome-chip.badge-rose .cw-chip-icon-wrap { color: #dc2626; background: #fef2f2; }
+
+/* Selected States per category */
+.cw-outcome-chip.badge-green.selected {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3), 0 3px 8px rgba(16, 185, 129, 0.12);
+}
+.cw-outcome-chip.badge-green.selected .cw-chip-icon-wrap {
+  background: #10b981;
+  color: white;
+}
+.cw-outcome-chip.badge-green.selected .cw-chip-check {
+  background: #10b981;
+}
+
+.cw-outcome-chip.badge-purple.selected {
+  border-color: #8b5cf6;
   background: #f5f3ff;
-  color: var(--cw-primary);
-  font-weight: 700;
-  box-shadow: 0 0 0 2px var(--cw-primary), 0 4px 12px rgba(99, 102, 241, 0.15);
-  transform: translateY(-2px);
+  color: #5b21b6;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3), 0 3px 8px rgba(139, 92, 246, 0.12);
+}
+.cw-outcome-chip.badge-purple.selected .cw-chip-icon-wrap {
+  background: #8b5cf6;
+  color: white;
+}
+.cw-outcome-chip.badge-purple.selected .cw-chip-check {
+  background: #8b5cf6;
 }
 
-/* Outcome Color Themes */
-.cw-outcome-btn.tone-green svg { color: #10b981; }
-.cw-outcome-btn.tone-red svg { color: #ef4444; }
-.cw-outcome-btn.tone-purple svg { color: #8b5cf6; }
-.cw-outcome-btn.tone-cyan svg { color: #06b6d4; }
-.cw-outcome-btn.tone-orange svg { color: #f59e0b; }
-.cw-outcome-btn.tone-blue svg { color: #3b82f6; }
-.cw-outcome-btn.tone-dark svg { color: #475569; }
+.cw-outcome-chip.badge-amber.selected {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3), 0 3px 8px rgba(245, 158, 11, 0.12);
+}
+.cw-outcome-chip.badge-amber.selected .cw-chip-icon-wrap {
+  background: #f59e0b;
+  color: white;
+}
+.cw-outcome-chip.badge-amber.selected .cw-chip-check {
+  background: #f59e0b;
+}
+
+.cw-outcome-chip.badge-rose.selected {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3), 0 3px 8px rgba(239, 68, 68, 0.12);
+}
+.cw-outcome-chip.badge-rose.selected .cw-chip-icon-wrap {
+  background: #ef4444;
+  color: white;
+}
+.cw-outcome-chip.badge-rose.selected .cw-chip-check {
+  background: #ef4444;
+}
 
 /* Right Sidebar Elements */
 .cw-summary-list {
@@ -719,5 +870,19 @@
   .cw-outcomes-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.cw-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--cw-primary);
+  border-radius: 50%;
+  animation: cw-spin 0.8s linear infinite;
+}
+
+@keyframes cw-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 

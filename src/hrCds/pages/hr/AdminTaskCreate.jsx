@@ -61,6 +61,7 @@ const AdminTaskManagement = () => {
   const [authError, setAuthError] = useState(false);
   const [initialAuthCheck, setInitialAuthCheck] = useState(false);
   const supportingDataLoadedRef = useRef(false);
+  const initialScopeAppliedRef = useRef(false);
   
   
   const [currentUser, setCurrentUser] = useState({
@@ -515,6 +516,13 @@ const AdminTaskManagement = () => {
         });
       });
     }
+
+    if (!isOwner() && pageScope && Array.isArray(pageScope.branchIds) && !pageScope.branchIds.includes('all') && pageScope.branchIds.length) {
+      list = list.filter(d => {
+        const deptBranch = d.branch?._id || d.branch?.id || d.branch || d.branchId;
+        return !deptBranch || pageScope.branchIds.includes(String(deptBranch));
+      });
+    }
     return list;
   }, [departments, pageScope, companyRole, userRole]);
 
@@ -553,10 +561,14 @@ const AdminTaskManagement = () => {
     const optionsMap = new Map();
 
     let candidateDepts = allowedDepartments;
-    if (selectedCreateBranch && selectedCreateBranch !== 'all') {
+    const effectiveCreateBranch = selectedCreateBranch && selectedCreateBranch !== 'all'
+      ? selectedCreateBranch
+      : (allowedBranches.length === 1 ? String(allowedBranches[0]._id || allowedBranches[0].id) : null);
+
+    if (effectiveCreateBranch) {
       candidateDepts = candidateDepts.filter(d => {
         const deptBranch = d.branch?._id || d.branch?.id || d.branch || d.branchId;
-        return !deptBranch || String(deptBranch) === String(selectedCreateBranch);
+        return !deptBranch || String(deptBranch) === String(effectiveCreateBranch);
       });
     }
 
@@ -571,14 +583,13 @@ const AdminTaskManagement = () => {
     users.forEach(user => {
       if (!checkSameCompany(user) || (user.id || user._id) === currentUser.id) return;
       if (!isUserInScope(user)) return;
-      if (selectedCreateBranch && selectedCreateBranch !== 'all') {
+      if (effectiveCreateBranch) {
         const userBranchIds = getUserBranchIds(user);
-        if (!userBranchIds.includes(String(selectedCreateBranch))) return;
+        if (!userBranchIds.includes(String(effectiveCreateBranch))) return;
       }
       const departmentId = getDepartmentIdFromUser(user);
-      if (!departmentId) return;
-      const departmentName = getUserDepartmentDisplay(user) || departmentMap[getLookupKey(departmentId)] || 'Department';
-      const current = optionsMap.get(departmentId) || { id: departmentId, name: departmentName, count: 0 };
+      if (!departmentId || !optionsMap.has(departmentId)) return;
+      const current = optionsMap.get(departmentId);
       current.count += 1;
       optionsMap.set(departmentId, current);
     });
@@ -594,13 +605,21 @@ const AdminTaskManagement = () => {
     if (!isSameCompany || isSelf) return false;
     if (!isUserInScope(user)) return false;
 
-    if (selectedCreateBranch && selectedCreateBranch !== 'all') {
+    const effectiveCreateBranch = selectedCreateBranch && selectedCreateBranch !== 'all'
+      ? selectedCreateBranch
+      : (allowedBranches.length === 1 ? String(allowedBranches[0]._id || allowedBranches[0].id) : null);
+
+    if (effectiveCreateBranch) {
       const userBranchIds = getUserBranchIds(user);
-      if (!userBranchIds.includes(String(selectedCreateBranch))) return false;
+      if (!userBranchIds.includes(String(effectiveCreateBranch))) return false;
     }
 
-    if (selectedCreateDepartment && selectedCreateDepartment !== 'all') {
-      if (!isUserInDepartment(user, selectedCreateDepartment)) return false;
+    const effectiveCreateDept = selectedCreateDepartment && selectedCreateDepartment !== 'all'
+      ? selectedCreateDepartment
+      : (departmentOptionsForCreate.length === 1 ? String(departmentOptionsForCreate[0].id) : null);
+
+    if (effectiveCreateDept) {
+      if (!isUserInDepartment(user, effectiveCreateDept)) return false;
     }
 
     if (userSearch) {
@@ -619,11 +638,21 @@ const AdminTaskManagement = () => {
   const visibleCreateAssignableUsers = createAssignableUsers.slice(0, modalUserRenderLimit);
   const visibleFilteredUsers = filteredUsers.slice(0, modalUserRenderLimit);
 
-  
-  const filteredGroups = groups.filter(group => 
-    group.name?.toLowerCase().includes(groupSearch.toLowerCase()) ||
-    group.description?.toLowerCase().includes(groupSearch.toLowerCase())
-  );
+  const filteredGroups = groups.filter(group => {
+    const matchesSearch = group.name?.toLowerCase().includes(groupSearch.toLowerCase()) ||
+      group.description?.toLowerCase().includes(groupSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (isOwner() || !pageScope) return true;
+
+    if (Array.isArray(group.members) && group.members.length > 0) {
+      const hasOutOfScope = group.members.some(memberId => {
+        const u = users.find(usr => String(usr._id || usr.id) === String(memberId));
+        return u && !isUserInScope(u);
+      });
+      if (hasOutOfScope) return false;
+    }
+    return true;
+  });
 
   
   const fetchUserData = () => {
@@ -887,6 +916,8 @@ const AdminTaskManagement = () => {
       if (filters.priority) params.priority = filters.priority;
       if (filters.assignedTo) params.assignedTo = filters.assignedTo;
       if (filters.overdue) params.overdue = filters.overdue;
+      if (filters.branch) params.branch = filters.branch;
+      if (filters.department) params.department = filters.department;
       
       if (filters.startDate) {
         params.startDate = new Date(filters.startDate).toISOString();
@@ -1187,6 +1218,14 @@ const AdminTaskManagement = () => {
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups));
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
 
+      const effectiveCreateBranchId = selectedCreateBranch && selectedCreateBranch !== 'all'
+        ? selectedCreateBranch
+        : (allowedBranches.length === 1 ? String(allowedBranches[0]._id || allowedBranches[0].id) : (pageScope?.branchIds?.[0] || ''));
+      if (effectiveCreateBranchId) {
+        formData.append('branchId', effectiveCreateBranchId);
+        formData.append('branch', effectiveCreateBranchId);
+      }
+
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
           formData.append('files', newTask.files[i]);
@@ -1210,6 +1249,7 @@ const AdminTaskManagement = () => {
       setDateRange({ startDate: null, endDate: null });
       setPage(0);
       await fetchTasks(0, rowsPerPage, {});
+      await fetchTasks(0, rowsPerPage, getCurrentFilters());
       fetchSupportingData();
     } catch (error) {
       console.error('Error creating task:', error);
@@ -1555,6 +1595,12 @@ const AdminTaskManagement = () => {
     if (priorityFilter) filters.priority = priorityFilter;
     if (assignedToFilter) filters.assignedTo = assignedToFilter;
     if (overdueFilter) filters.overdue = overdueFilter;
+    if (selectedBranchFilter && selectedBranchFilter !== 'all') {
+      filters.branch = selectedBranchFilter;
+    }
+    if (selectedDepartmentFilter && selectedDepartmentFilter !== 'all') {
+      filters.department = selectedDepartmentFilter;
+    }
     if (dateRange.startDate) filters.startDate = dateRange.startDate;
     if (dateRange.endDate) filters.endDate = dateRange.endDate;
     return filters;
@@ -1573,12 +1619,20 @@ const AdminTaskManagement = () => {
     setOverdueFilter('');
     setSelectedBranchFilter('all');
     setSelectedDepartmentFilter('all');
+    const defaultBranch = allowedBranches.length === 1 ? String(allowedBranches[0]._id || allowedBranches[0].id) : 'all';
+    const defaultDept = availableFilterDepartments.length === 1 ? String(availableFilterDepartments[0]._id || availableFilterDepartments[0].id) : 'all';
+    setSelectedBranchFilter(defaultBranch);
+    setSelectedDepartmentFilter(defaultDept);
     setDateRange({
       startDate: null,
       endDate: null
     });
     setPage(0);
     fetchTasks(0, rowsPerPage, {});
+    const resetFilterParams = {};
+    if (defaultBranch !== 'all') resetFilterParams.branch = defaultBranch;
+    if (defaultDept !== 'all') resetFilterParams.department = defaultDept;
+    fetchTasks(0, rowsPerPage, resetFilterParams);
     fetchSupportingData();
   };
 
@@ -2105,12 +2159,33 @@ const AdminTaskManagement = () => {
             <select
               className="AdminTaskManagement-filter-select"
               value={selectedBranchFilter}
+              disabled={allowedBranches.length === 1}
               onChange={(e) => {
                 setSelectedBranchFilter(e.target.value);
+                const newBranch = e.target.value;
+                setSelectedBranchFilter(newBranch);
+                let newDept = selectedDepartmentFilter;
+                if (newBranch !== 'all') {
+                  const deptObj = allowedDepartments.find(d => String(d._id || d.id) === String(selectedDepartmentFilter));
+                  const deptBranch = deptObj?.branch?._id || deptObj?.branch?.id || deptObj?.branch || deptObj?.branchId;
+                  if (deptBranch && String(deptBranch) !== String(newBranch)) {
+                    newDept = 'all';
+                    setSelectedDepartmentFilter('all');
+                  }
+                }
                 setPage(0);
+                const nextFilters = getCurrentFilters();
+                if (newBranch && newBranch !== 'all') nextFilters.branch = newBranch;
+                else delete nextFilters.branch;
+                if (newDept && newDept !== 'all') nextFilters.department = newDept;
+                else delete nextFilters.department;
+                fetchTasks(0, rowsPerPage, nextFilters);
               }}
             >
               <option value="all">All Allowed Branches</option>
+              {allowedBranches.length > 1 && (
+                <option value="all">All Assigned Branches</option>
+              )}
               {allowedBranches.map(branch => (
                 <option key={branch._id || branch.id} value={branch._id || branch.id}>
                   {branch.name || branch.branchCode}
@@ -2124,12 +2199,22 @@ const AdminTaskManagement = () => {
             <select
               className="AdminTaskManagement-filter-select"
               value={selectedDepartmentFilter}
+              disabled={availableFilterDepartments.length === 1}
               onChange={(e) => {
                 setSelectedDepartmentFilter(e.target.value);
+                const newDept = e.target.value;
+                setSelectedDepartmentFilter(newDept);
                 setPage(0);
+                const nextFilters = getCurrentFilters();
+                if (newDept && newDept !== 'all') nextFilters.department = newDept;
+                else delete nextFilters.department;
+                fetchTasks(0, rowsPerPage, nextFilters);
               }}
             >
               <option value="all">All Allowed Departments</option>
+              {availableFilterDepartments.length > 1 && (
+                <option value="all">All Assigned Departments</option>
+              )}
               {availableFilterDepartments.map(department => (
                 <option key={department._id || department.id} value={department._id || department.id}>
                   {department.name || department.departmentName}
@@ -2207,6 +2292,8 @@ const AdminTaskManagement = () => {
     if (searchTerm) baseFilters.search = searchTerm;
     if (priorityFilter) baseFilters.priority = priorityFilter;
     if (assignedToFilter) baseFilters.assignedTo = assignedToFilter;
+    if (selectedBranchFilter && selectedBranchFilter !== 'all') baseFilters.branch = selectedBranchFilter;
+    if (selectedDepartmentFilter && selectedDepartmentFilter !== 'all') baseFilters.department = selectedDepartmentFilter;
     if (dateRange.startDate) baseFilters.startDate = dateRange.startDate;
     if (dateRange.endDate) baseFilters.endDate = dateRange.endDate;
 
@@ -2848,6 +2935,7 @@ const AdminTaskManagement = () => {
                   <select
                     className="AdminTaskManagement-form-select"
                     value={selectedCreateBranch}
+                    disabled={allowedBranches.length === 1}
                     onChange={(event) => {
                       const nextBranch = event.target.value;
                       setSelectedCreateBranch(nextBranch);
@@ -2859,6 +2947,9 @@ const AdminTaskManagement = () => {
                     }}
                   >
                     <option value="">All Allowed Branches</option>
+                    {allowedBranches.length > 1 && (
+                      <option value="">All Assigned Branches</option>
+                    )}
                     {allowedBranches.map(branch => (
                       <option key={branch._id || branch.id} value={branch._id || branch.id}>
                         {branch.name || branch.branchCode}
@@ -2874,6 +2965,7 @@ const AdminTaskManagement = () => {
                   <select
                     className="AdminTaskManagement-form-select"
                     value={selectedCreateDepartment}
+                    disabled={departmentOptionsForCreate.length === 1}
                     onChange={(event) => {
                       const nextDepartment = event.target.value;
                       setSelectedCreateDepartment(nextDepartment);
@@ -2889,6 +2981,9 @@ const AdminTaskManagement = () => {
                     }}
                   >
                     <option value="">All Departments</option>
+                    {departmentOptionsForCreate.length > 1 && (
+                      <option value="">All Assigned Departments</option>
+                    )}
                     {departmentOptionsForCreate.map(department => (
                       <option key={department.id} value={department.id}>
                         {department.name} ({department.count})
@@ -2897,6 +2992,7 @@ const AdminTaskManagement = () => {
                   </select>
                   <small className="AdminTaskManagement-form-hint">
                     Filter users by department, or select "All Departments" to view all users.
+                    Filter users by department.
                   </small>
                 </div>
                 <div className="AdminTaskManagement-select-search-bar">
@@ -3529,7 +3625,7 @@ const AdminTaskManagement = () => {
   }, []);
 
   useEffect(() => {
-    if (initialAuthCheck) {
+    if (initialAuthCheck && pageAccessReady) {
       if (authError && !localStorage.getItem('token')) {
         void 0;
       } else if (userId) {
@@ -3540,9 +3636,44 @@ const AdminTaskManagement = () => {
         }
       }
     }
-  }, [authError, initialAuthCheck, userId, page, rowsPerPage]);
+  }, [authError, initialAuthCheck, pageAccessReady, userId, page, rowsPerPage]);
 
-  
+  useEffect(() => {
+    if (!pageAccessReady) return;
+
+    if (allowedBranches.length === 1 && !initialScopeAppliedRef.current) {
+      const singleBranchId = String(allowedBranches[0]._id || allowedBranches[0].id);
+      setSelectedBranchFilter(singleBranchId);
+      setSelectedCreateBranch(singleBranchId);
+
+      const singleDeptId = availableFilterDepartments.length === 1
+        ? String(availableFilterDepartments[0]._id || availableFilterDepartments[0].id)
+        : null;
+      if (singleDeptId) {
+        setSelectedDepartmentFilter(singleDeptId);
+      }
+
+      initialScopeAppliedRef.current = true;
+      if (userId) {
+        fetchTasks(0, rowsPerPage, {
+          ...getCurrentFilters(),
+          branch: singleBranchId,
+          ...(singleDeptId ? { department: singleDeptId } : {})
+        });
+      }
+    } else if (availableFilterDepartments.length === 1 && selectedDepartmentFilter === 'all') {
+      const singleDeptId = String(availableFilterDepartments[0]._id || availableFilterDepartments[0].id);
+      setSelectedDepartmentFilter(singleDeptId);
+    }
+  }, [pageAccessReady, allowedBranches, availableFilterDepartments, userId, rowsPerPage]);
+
+  useEffect(() => {
+    if (!pageAccessReady) return;
+    if (departmentOptionsForCreate.length === 1 && !selectedCreateDepartment) {
+      setSelectedCreateDepartment(String(departmentOptionsForCreate[0].id));
+    }
+  }, [pageAccessReady, departmentOptionsForCreate, selectedCreateDepartment]);
+
   useEffect(() => {
     if (authError && initialAuthCheck) {
       const timer = setTimeout(() => {
@@ -3552,51 +3683,73 @@ const AdminTaskManagement = () => {
     }
   }, [authError, initialAuthCheck, navigate]);
 
-  
   const renderTasksTable = () => {
     if (loading && tasks.length === 0) {
       return <CIISLoader />;
     }
 
     const scopedTasks = tasks.filter(task => {
-      const currentUid = String(currentUser.id || userId);
-      const isCreator = String(task.createdBy?._id || task.createdBy || '') === currentUid;
-      if (isOwner() || isCreator) {
-        if (selectedBranchFilter && selectedBranchFilter !== 'all') {
-          const hasBranchUser = (task.assignedUsers || []).some(u => {
-            const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
-            return fullUser && getUserBranchIds(fullUser).includes(String(selectedBranchFilter));
-          });
-          if (!hasBranchUser) return false;
+      if (!isOwner() && pageScope) {
+        const taskBranch = task.branch?._id || task.branch?.id || task.branch;
+        if (taskBranch && pageScope.branchIds.length > 0 && !pageScope.branchIds.includes(String(taskBranch))) {
+          return false;
         }
-        if (selectedDepartmentFilter && selectedDepartmentFilter !== 'all') {
-          const hasDeptUser = (task.assignedUsers || []).some(u => {
-            const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
-            return fullUser && isUserInDepartment(fullUser, selectedDepartmentFilter);
+
+        const assigned = task.assignedUsers || [];
+        if (assigned.length > 0) {
+          const hasScopedAssignee = assigned.some(u => {
+            const uId = String(u._id || u.id || u);
+            const fullUser = users.find(usr => String(usr._id || usr.id) === uId);
+            if (fullUser) {
+              return isUserInScope(fullUser);
+            }
+            if (typeof u === 'object') {
+              const uBranch = u.branch?._id || u.branch?.id || u.branch;
+              const uDept = u.department?._id || u.department?.id || u.department;
+              const branchMatch = pageScope.branchIds.length === 0 || (uBranch && pageScope.branchIds.includes(String(uBranch)));
+              const deptMatch = pageScope.departmentIds.length === 0 || (uDept && pageScope.departmentIds.includes(String(uDept)));
+              return branchMatch && deptMatch;
+            }
+            return false;
           });
-          if (!hasDeptUser) return false;
+          if (!hasScopedAssignee) return false;
+        } else if (taskBranch) {
+          if (pageScope.branchIds.length > 0 && !pageScope.branchIds.includes(String(taskBranch))) {
+            return false;
+          }
         }
-        return true;
       }
 
       const assigned = task.assignedUsers || [];
-      const hasScopedAssignee = assigned.some(u => {
-        const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
-        return fullUser && isUserInScope(fullUser);
-      });
-      if (!hasScopedAssignee && assigned.length > 0) return false;
 
       if (selectedBranchFilter && selectedBranchFilter !== 'all') {
+        const taskBranch = task.branch?._id || task.branch?.id || task.branch;
+        const matchesTaskBranch = taskBranch && String(taskBranch) === String(selectedBranchFilter);
         const hasBranchUser = assigned.some(u => {
           const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
-          return fullUser && getUserBranchIds(fullUser).includes(String(selectedBranchFilter));
+          if (fullUser) {
+            return getUserBranchIds(fullUser).includes(String(selectedBranchFilter));
+          }
+          if (typeof u === 'object') {
+            const uBranch = u.branch?._id || u.branch?.id || u.branch;
+            return uBranch && String(uBranch) === String(selectedBranchFilter);
+          }
+          return false;
         });
-        if (!hasBranchUser) return false;
+        if (!matchesTaskBranch && !hasBranchUser) return false;
       }
+
       if (selectedDepartmentFilter && selectedDepartmentFilter !== 'all') {
         const hasDeptUser = assigned.some(u => {
           const fullUser = users.find(usr => String(usr._id || usr.id) === String(u._id || u.id || u));
-          return fullUser && isUserInDepartment(fullUser, selectedDepartmentFilter);
+          if (fullUser) {
+            return isUserInDepartment(fullUser, selectedDepartmentFilter);
+          }
+          if (typeof u === 'object') {
+            const uDept = u.department?._id || u.department?.id || u.department;
+            return uDept && String(uDept) === String(selectedDepartmentFilter);
+          }
+          return false;
         });
         if (!hasDeptUser) return false;
       }

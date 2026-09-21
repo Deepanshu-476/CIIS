@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Calendar,
   CalendarCheck,
@@ -6,47 +6,129 @@ import {
   List,
   AlertTriangle,
 } from "lucide-react";
-import { todayKey } from "./liveData";   
+import { todayKey } from "./liveData";
 import { useTelecaller } from "./useTelecaller";
-import {  
+import api from "../../utils/axiosConfig";
+import {
   DataTable,
   Stats,
   FollowupCalendar,
   day,
 } from "./CallComponents";
+
 export default function MyFollowUps() {
-  const { followups, enriched, can } = useTelecaller();
+  const { followups: leadFollowups, enriched, can, refresh } = useTelecaller();
   const [tab, setTab] = useState("List View");
+  const [apiFollowUps, setApiFollowUps] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const fetchFollowUps = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/followups");
+      const list = Array.isArray(res.data) ? res.data : [];
+      setApiFollowUps(list);
+    } catch {
+      // Fallback gracefully to lead-based followups
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFollowUps();
+  }, []);
+
+  const handleCompleteFollowUp = async (row) => {
+    const followId = row.followUpId || row._id;
+    if (followId) {
+      try {
+        await api.patch(`/followups/${followId}/complete`);
+        setMessage("✅ Follow-up marked as completed!");
+        setTimeout(() => setMessage(""), 3000);
+        await fetchFollowUps();
+        if (typeof refresh === "function") {
+          refresh();
+        }
+      } catch (err) {
+        setMessage(err.response?.data?.msg || err.message || "Failed to complete follow-up");
+      }
+    } else {
+      setMessage("✅ Follow-up noted as completed");
+      setTimeout(() => setMessage(""), 3000);
+      if (typeof refresh === "function") {
+        refresh();
+      }
+    }
+  };
+
   const tomorrow = new Date(`${todayKey()}T12:00:00`);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowKey = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-  const overdue = followups.filter((r) => day(r.followUp) < todayKey());
 
-  const allRows = followups.map((row) => ({
+  // Merge lead-derived followups and API followups
+  const apiRows = apiFollowUps.map((f) => ({
+    id: String(f.lead?._id || f.lead || ""),
+    followUpId: String(f._id),
+    name: f.lead?.name || "Lead Follow-up",
+    phone: f.lead?.phone || "",
+    source: f.lead?.source || "Follow-up",
+    type: f.lead?.type || "General",
+    status: f.status === "done" ? "Completed" : "Pending",
+    followUp: f.date ? new Date(f.date).toISOString().slice(0, 16) : "",
+    notes: f.note || "",
+    priority: "Normal",
+  }));
+
+  const combinedFollowups = [
+    ...leadFollowups.filter((lf) => !apiRows.some((af) => af.id === lf.id)),
+    ...apiRows,
+  ];
+
+  const overdue = combinedFollowups.filter((r) => day(r.followUp) < todayKey() && r.status !== "Completed");
+
+  const allRows = combinedFollowups.map((row) => ({
     ...row,
     attempts: enriched.filter((call) => call.id === row.id || call.leadId === row.id).length,
   }));
-  const overdueRows = allRows.filter((r) => day(r.followUp) < todayKey());
+
+  const overdueRows = allRows.filter((r) => day(r.followUp) < todayKey() && r.status !== "Completed");
 
   return (
     <div className="tcl-views">
+      {message && (
+        <div style={{
+          padding: "10px 16px",
+          background: message.startsWith("✅") ? "#ecfdf5" : "#fef2f2",
+          border: `1px solid ${message.startsWith("✅") ? "#a7f3d0" : "#fecaca"}`,
+          color: message.startsWith("✅") ? "#065f46" : "#991b1b",
+          borderRadius: 8,
+          marginBottom: 16,
+          fontSize: "13px",
+          fontWeight: 500,
+        }}>
+          {message}
+        </div>
+      )}
+
       <Stats
         items={[
           [
             "Today's Follow-ups",
-            followups.filter((r) => day(r.followUp) === todayKey()).length,
+            combinedFollowups.filter((r) => day(r.followUp) === todayKey() && r.status !== "Completed").length,
             Calendar,
             "purple",
           ],
           [
             "Tomorrow",
-            followups.filter((r) => day(r.followUp) === tomorrowKey).length,
+            combinedFollowups.filter((r) => day(r.followUp) === tomorrowKey && r.status !== "Completed").length,
             Calendar,
             "cyan",
           ],
           [
             "Upcoming",
-            followups.filter((r) => day(r.followUp) > todayKey()).length,
+            combinedFollowups.filter((r) => day(r.followUp) > todayKey() && r.status !== "Completed").length,
             Calendar,
             "teal",
           ],
@@ -82,12 +164,12 @@ export default function MyFollowUps() {
           ))}
         </div>
         <div
-          role="tabpanel"
+          role="tabpanel" 
           id="tcl-followup-content"
           aria-labelledby={`tcl-tab-${tab.replaceAll(" ", "-")}`}
         >
           {tab === "Calendar" ? (
-            <FollowupCalendar rows={followups} can={can} />
+            <FollowupCalendar rows={combinedFollowups} can={can} />
           ) : (
             <>
               {tab === "Reminder Center" && (
@@ -113,6 +195,7 @@ export default function MyFollowUps() {
                 emptyTitle="No Follow-Ups"
                 emptySubtitle="No scheduled follow-up calls found."
                 can={can}
+                onCompleteFollowUp={handleCompleteFollowUp}
               />
             </>
           )}

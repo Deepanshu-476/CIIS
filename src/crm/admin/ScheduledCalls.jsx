@@ -1,28 +1,58 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiCalendar, FiChevronRight, FiFilter, FiRefreshCw } from 'react-icons/fi';
+import axiosInstance from '../../utils/axiosConfig';
 import './ScheduledCalls.css';
 
 const EMPTY_CALLS = [];
 const defaultFilters = () => {
-  const today = new Date();
-  const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  return { assignedTo: '', date, status: '', source: '', leadType: '' };
+  return { assignedTo: '', date: '', status: '', source: '', leadType: '' };
 };
 const columns = ['Sl No.', 'Lead', 'Name', 'Phone', 'Source', 'Lead Type', 'Status', 'Last Call', 'Scheduled Date', 'Assigned Age', 'Attempts', 'Assigned To', 'Action'];
 
 export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
+  const [fetchedCalls, setFetchedCalls] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState(filters);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchScheduled = async () => {
+      try {
+        const res = await axiosInstance.get('/crm/admin/calls/scheduled', { _skipErrorNotify: true });
+        if (isMounted && res.data && Array.isArray(res.data.items)) {
+          const items = res.data.items.map((lead, idx) => ({
+            id: lead._id || idx + 1,
+            lead: `#LD-${String(lead._id).slice(-3)}`,
+            name: lead.name || 'Lead',
+            phone: lead.phone || '—',
+            source: lead.leadSource?.name || lead.source || 'Direct',
+            leadType: lead.leadType?.name || 'General',
+            status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Scheduled',
+            lastCall: 'Never Called',
+            scheduledDate: lead.nextFollowUp ? new Date(lead.nextFollowUp).toISOString().slice(0, 10) : '—',
+            assignedAge: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
+            attempts: 0,
+            assignedTo: lead.assignedTo?.name || 'Unassigned'
+          }));
+          setFetchedCalls(items);
+        }
+      } catch (err) {}
+    };
+    fetchScheduled();
+    return () => { isMounted = false; };
+  }, []);
+
+  const allCalls = calls.length ? calls : fetchedCalls;
   const updateFilter = event => setFilters(current => ({ ...current, [event.target.name]: event.target.value }));
-  const visibleCalls = useMemo(() => calls.filter(call => (
+  const visibleCalls = useMemo(() => allCalls.filter(call => (
     (!appliedFilters.assignedTo || call.assignedTo === appliedFilters.assignedTo) &&
     (!appliedFilters.date || String(call.scheduledDate || '').slice(0, 10) === appliedFilters.date) &&
     (!appliedFilters.status || call.status === appliedFilters.status) &&
     (!appliedFilters.source || call.source === appliedFilters.source) &&
     (!appliedFilters.leadType || call.leadType === appliedFilters.leadType)
-  )), [calls, appliedFilters]);
-  const optionsFor = key => [...new Set(calls.map(call => call[key]).filter(Boolean))];
+  )), [allCalls, appliedFilters]);
+  const optionsFor = key => [...new Set(allCalls.map(call => call[key]).filter(Boolean))];
   const resetFilters = () => {
     const next = defaultFilters();
     setFilters(next);

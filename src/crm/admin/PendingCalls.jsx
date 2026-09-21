@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -10,6 +10,7 @@ import {
   FiSearch,
   FiPhoneCall
 } from 'react-icons/fi';
+import axiosInstance from '../../utils/axiosConfig';
 import './PendingCalls.css';
 
 const initialPendingCalls = [
@@ -176,7 +177,46 @@ const initialPendingCalls = [
 ];
 
 export default function PendingCalls() {
-  const [calls] = useState(initialPendingCalls);
+  const [calls, setCalls] = useState(initialPendingCalls);
+  const [teamUsers, setTeamUsers] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPending = async () => {
+      try {
+        const [res, teamRes] = await Promise.allSettled([
+          axiosInstance.get('/crm/admin/calls/pending', { _skipErrorNotify: true }),
+          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+        ]);
+        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
+          const items = res.value.data.items.map((lead, idx) => ({
+            id: lead._id || idx + 1,
+            leadId: `#LD-${String(lead._id).slice(-3)}`,
+            name: lead.name || 'Lead',
+            phone: lead.phone || '—',
+            source: lead.leadSource?.name || lead.source || 'Direct',
+            leadType: lead.leadType?.name || 'General',
+            status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Assigned',
+            lastCall: 'Never Called',
+            nextFollowup: lead.nextFollowUp ? new Date(lead.nextFollowUp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Not Scheduled',
+            assignedDate: lead.assignedAt ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+            assignedAgo: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
+            priority: lead.priority || 'High',
+            assignedTo: lead.assignedTo?.name || 'Unassigned',
+            attempts: 0
+          }));
+          if (items.length > 0) {
+            setCalls(items);
+          }
+        }
+        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
+          setTeamUsers(teamRes.value.data.users);
+        }
+      } catch (err) {}
+    };
+    fetchPending();
+    return () => { isMounted = false; };
+  }, []);
   
   // Filters state
   const [filters, setFilters] = useState({
@@ -276,8 +316,12 @@ export default function PendingCalls() {
               onChange={e => handleFilterChange('assignedTo', e.target.value)}
             >
               <option value="">All Users</option>
-              <option value="Telecaller 1">Telecaller 1</option>
-              <option value="Telecaller 2">Telecaller 2</option>
+              {Array.from(new Set([
+                ...(teamUsers.map(u => u.name).filter(Boolean)),
+                ...(calls.map(c => c.assignedTo).filter(Boolean))
+              ])).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
 
@@ -288,10 +332,12 @@ export default function PendingCalls() {
               onChange={e => handleFilterChange('source', e.target.value)}
             >
               <option value="">All Sources</option>
-              <option value="Facebook">Facebook</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Referral">Referral</option>
-              <option value="Website">Website</option>
+              {Array.from(new Set([
+                'Facebook', 'Instagram', 'Referral', 'Website',
+                ...(calls.map(c => c.source).filter(Boolean))
+              ])).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
           </div>
 
@@ -302,9 +348,12 @@ export default function PendingCalls() {
               onChange={e => handleFilterChange('leadType', e.target.value)}
             >
               <option value="">All Types</option>
-              <option value="NEET">NEET</option>
-              <option value="JEE">JEE</option>
-              <option value="CAT">CAT</option>
+              {Array.from(new Set([
+                'NEET', 'JEE', 'CAT',
+                ...(calls.map(c => c.leadType).filter(Boolean))
+              ])).map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
             </select>
           </div>
 

@@ -14,6 +14,7 @@ const TelecallerMyFollowUps = lazy(() => import("./crm/telecaller/MyFollowUps.js
 const TelecallerConvertedLeads = lazy(() => import("./crm/telecaller/ConvertedLeads.jsx"));
 const TelecallerCallWorkspace = lazy(() => import("./crm/telecaller/CallWorkspace.jsx"));
 const TelecallerLeadDetail = lazy(() => import("./crm/telecaller/LeadDetail.jsx"));
+const CallLogs = lazy(() => import("./admin/page/CallLogs.jsx"));
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import RouteBoundaryLoader from "./components/RouteBoundaryLoader.jsx";
@@ -161,6 +162,9 @@ function App() {
         <Route path="/:companyCode/register" element={<SelfRegister />} />
         <Route path="/company/:companyCode/register" element={<SelfRegister />} />
         <Route path="/RegisterCompany" element={<RegisterCompany />} />
+        <Route path="/call-management" element={<Navigate to="/ciisUser/telecaller/call-dashboard" replace />} />
+        <Route path="/lead-management" element={<Navigate to="/ciisUser/telecaller/assigned-calls" replace />} />
+        <Route path="/talicaliler" element={<Navigate to="/ciisUser/telecaller/dashboard" replace />} />
         <Route
           path="/Ciis-network/*"
           element={
@@ -310,7 +314,9 @@ function App() {
             <Route path="converted-leads" element={<TelecallerConvertedLeads/>}/>
             <Route path="call-workspace/:leadId?" element={<TelecallerCallWorkspace/>}/>
             <Route path="lead-detail/:leadId?" element={<TelecallerLeadDetail/>}/>
+            <Route path="call-logs" element={<CallLogs/>}/>
           </Route>
+          <Route path="call-logs" element={<CallLogs/>}/>
           <Route path="crm" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
           <Route path="crm/admin" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
           <Route path="crm/leads" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />

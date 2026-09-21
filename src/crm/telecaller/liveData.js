@@ -6,6 +6,19 @@ export const localDateTime = (value = new Date()) => {
 export const todayKey = () => localDateTime().slice(0, 10);
 export const outcomes = ['Connected', 'Interested', 'Not Interested', 'Need Callback', 'Follow-up', 'Call Later', 'No Answer', 'Busy', 'Switched Off', 'Not Reachable', 'Wrong Number', 'Wrong Person', 'Invalid Number', 'Language Barrier', 'Do Not Call', 'Duplicate', 'Spam', 'Call Closed', 'Converted'];
 export const isTerminal = lead => ['Converted', 'Closed'].includes(lead.status);
+export const conversionRate = leads => leads.length
+  ? ((leads.filter(lead => lead.status === 'Converted').length / leads.length) * 100).toFixed(1)
+  : '0.0';
+export function countCallOutcomes(calls) {
+  const counts = { Converted: 0, Connected: 0, Interested: 0, 'Not Interested': 0, 'Need Callback': 0, Other: 0 };
+  for (const call of calls) {
+    if (call.outcome === 'Note Added') continue;
+    const outcome = ['Follow-up', 'Call Later'].includes(call.outcome) ? 'Need Callback' : call.outcome;
+    const key = Object.hasOwn(counts, outcome) ? outcome : 'Other';
+    counts[key] += 1;
+  }
+  return counts;
+}
 export const formatDate = value => {
   if (!value) return '—';
   const date = new Date(value);

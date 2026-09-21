@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, Navigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from "../../crm/telecaller/telecallerPages";
-import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermission } from "../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermission, hasConfiguredPageAccess } from "../../utils/pageAccess";
+import api from '../../utils/axiosConfig';
 
 const PRIVILEGED_ROLES = new Set([
   "owner",
@@ -65,15 +66,48 @@ const PageAccessGate = ({ children }) => {
     const requiresExplicitAccess = requiresPageAccess(pagePath);
 
     const checkAccess = async () => {
-      if (isPrivileged && !isCrmPage(pagePath)) {
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
-        return;
+      if (isPrivileged) {
+        if (!isCrmPage(pagePath) || telecallerPage) {
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
+          return;
+        }
       }
       if (telecallerPage) {
         let company;
         try { company = JSON.parse(localStorage.getItem('companyDetails') || '{}'); } catch { company = {}; }
+        // Login can store only company branding; the sidebar loads enabled pages later.
+        // Resolve that data before treating an incomplete cache as an access denial.
+        if (!hasTelecallerCompanyAccess(telecallerPage, company)) {
+          const companyRef = currentUser?.companyId || currentUser?.company;
+          const companyId = company?._id || company?.id || currentUser?.companyDetails?._id
+            || (typeof companyRef === 'object' ? companyRef?._id || companyRef?.id : companyRef);
+          if (companyId) {
+            try {
+              const { data } = await api.get(`/company/${encodeURIComponent(companyId)}`);
+              const latest = data?.company || data?.data || data;
+              if (Array.isArray(latest?.allowedPages)) {
+                company = { ...company, ...latest };
+                if (!cancelled) localStorage.setItem('companyDetails', JSON.stringify(company));
+              }
+            } catch { /* An unavailable company lookup must not grant access. */ }
+          }
+        }
         if (!hasTelecallerCompanyAccess(telecallerPage, company)) {
           if (!cancelled) setState({ path: pagePath, loading: false, allowed: false });
+          return;
+        }
+
+        try {
+          const page = await loadPagePermission(pagePath);
+          if (!hasConfiguredPageAccess(page)) {
+            if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
+            return;
+          }
+          const allowed = hasPageAccess(page, userId, "view");
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed });
+          return;
+        } catch {
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
           return;
         }
       }
@@ -94,7 +128,11 @@ const PageAccessGate = ({ children }) => {
       }
     };
 
-    setState({ path: pagePath, loading: requiresExplicitAccess || !isPrivileged, allowed: !requiresExplicitAccess });
+    setState({
+      path: pagePath,
+      loading: (requiresExplicitAccess || !isPrivileged) && !(telecallerPage && isPrivileged),
+      allowed: (!requiresExplicitAccess && !telecallerPage) || (telecallerPage && isPrivileged)
+    });
     checkAccess();
 
     return () => {

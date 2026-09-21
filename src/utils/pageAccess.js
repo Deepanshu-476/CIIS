@@ -47,6 +47,7 @@ const STRICT_PAGE_PATHS = new Set([
   '/ciisuser/payroll-reports',
 ]);
 
+export const isTelecallerPage = path => /^\/ciisuser\/telecaller(\/|$)/i.test(String(path || '').trim());
 export const isCrmPage = path => /^\/ciisuser\/(crm|telecaller)(\/|$)/i.test(String(path || '').trim());
 
 export const requiresPageAccess = path => {
@@ -120,6 +121,9 @@ export const hasConfiguredPageAccess = (page) => [
 export const hasPageAccess = (page, userId, accessType = 'view') => {
   const normalizedUserId = normalizeUserId(userId);
   if (!normalizedUserId) return false;
+  if (isTelecallerPage(page?.path || page?.id || '') && !hasConfiguredPageAccess(page)) {
+    return true;
+  }
   return getPageAccessUserIds(page, accessType).includes(normalizedUserId);
 };
 

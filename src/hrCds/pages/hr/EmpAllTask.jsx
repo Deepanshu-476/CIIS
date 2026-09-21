@@ -1929,7 +1929,7 @@ const TaskDetails = () => {
         setActivityLogs([]);
       }
     } catch (err) {
-      console.error(`Error fetching activity logs for task ${taskId} (${taskType}):`, err);
+      console.error(`Error fetching activity logs for task ${taskId} (${source}):`, err);
       setActivityLogs([]);
     } finally {
       if (isMounted.current) {

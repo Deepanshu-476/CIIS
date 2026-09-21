@@ -18,7 +18,11 @@ export const TELECALLER_PAGES = [
 }));
 
 export function hasTelecallerCompanyAccess(page, company) {
-  const keys = new Set((company?.allowedPages || []).map(value => String(value).replace(/^\/+/, '').toLowerCase()));
+  const list = company?.allowedPages;
+  if (!Array.isArray(list) || list.length === 0) return true;
+  const keys = new Set(list.map(value => String(value).replace(/^\/+/, '').toLowerCase()));
+  if (keys.has('telecaller') || keys.has('admin-telecaller') || keys.has('crm')) return true;
   return [page.id, page.path, page.path.replace('/ciisUser/', '')]
     .some(key => keys.has(key.replace(/^\/+/, '').toLowerCase()));
 }
+

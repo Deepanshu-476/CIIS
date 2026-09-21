@@ -18,10 +18,28 @@ import {
   FiFileText,
   FiClock,
   FiUserCheck,
-  FiCheckCircle
+  FiCheckCircle,
+  FiUserMinus
 } from 'react-icons/fi';
 import './AllLeads.css';
 import api from '../../utils/axiosConfig';
+
+const formatName = (str = '') => {
+  if (!str) return '';
+  return String(str)
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const getInitials = (name = '') => {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'U';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 export default function AllLeads() {
   const [leads, setLeads] = useState([]);
@@ -36,17 +54,105 @@ export default function AllLeads() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
   const memberOptions = useMemo(() => {
-    const options = teamMembers.map(member => ({
-      value: member._id,
-      label: member.name || 'Team member',
-      detail: member.email || 'Team member',
-      initials: (member.name || 'Team member').trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()
-    }));
+    const options = teamMembers.map(member => {
+      const rawName = member.name || (member.email ? member.email.split('@')[0] : 'Team Member');
+      const formattedName = formatName(rawName);
+      const roleName = member.jobRole || member.role || member.companyRole || '';
+      const cleanRole = roleName && !['client', 'user'].includes(roleName.toLowerCase()) ? formatName(roleName) : '';
+
+      return {
+        value: member._id,
+        label: formattedName,
+        detail: member.email || 'No email provided',
+        role: cleanRole,
+        initials: getInitials(formattedName)
+      };
+    });
     if (assignModalLead && assignModalLead.assignedTo !== 'Unassigned') {
-      options.unshift({ value: 'unassign', label: 'Unassign lead', detail: 'Remove the current assignment', initials: '-' });
+      options.unshift({
+        value: 'unassign',
+        label: 'Unassign Lead',
+        detail: 'Remove current telecaller assignment',
+        role: '',
+        initials: '-'
+      });
     }
     return options;
   }, [teamMembers, assignModalLead]);
+
+  const memberSelectStyles = useMemo(() => ({
+    menuPortal: base => ({
+      ...base,
+      zIndex: 100000
+    }),
+    control: (base, state) => ({
+      ...base,
+      minHeight: '46px',
+      backgroundColor: '#ffffff',
+      borderRadius: '8px',
+      borderColor: state.isFocused ? '#6366f1' : '#cbd5e1',
+      boxShadow: state.isFocused ? '0 0 0 3px rgba(99, 102, 241, 0.15)' : 'none',
+      '&:hover': {
+        borderColor: state.isFocused ? '#6366f1' : '#94a3b8'
+      },
+      cursor: 'pointer',
+      fontSize: '13px',
+      transition: 'all 0.15s ease'
+    }),
+    valueContainer: base => ({
+      ...base,
+      padding: '4px 12px'
+    }),
+    placeholder: base => ({
+      ...base,
+      color: '#94a3b8',
+      fontSize: '13px'
+    }),
+    indicatorSeparator: () => ({
+      display: 'none'
+    }),
+    dropdownIndicator: (base, state) => ({
+      ...base,
+      color: state.isFocused ? '#6366f1' : '#64748b',
+      padding: '8px',
+      transition: 'transform 0.2s ease, color 0.15s ease',
+      transform: state.selectProps.menuIsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+      '&:hover': {
+        color: '#4f46e5'
+      }
+    }),
+    menu: base => ({
+      ...base,
+      borderRadius: '10px',
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 16px 36px rgba(15, 23, 42, 0.14), 0 4px 10px rgba(15, 23, 42, 0.05)',
+      overflow: 'hidden',
+      padding: '6px',
+      backgroundColor: '#ffffff',
+      zIndex: 100000
+    }),
+    menuList: base => ({
+      ...base,
+      padding: '2px',
+      maxHeight: '250px'
+    }),
+    option: (base, state) => ({
+      ...base,
+      borderRadius: '7px',
+      padding: '8px 10px',
+      marginBottom: '2px',
+      cursor: 'pointer',
+      backgroundColor: state.isSelected
+        ? '#eef2ff'
+        : state.isFocused
+          ? '#f8fafc'
+          : 'transparent',
+      color: state.isSelected ? '#4338ca' : '#1e293b',
+      '&:active': {
+        backgroundColor: '#e0e7ff'
+      }
+    })
+  }), []);
 
   useEffect(() => {
     let active = true;
@@ -382,7 +488,8 @@ export default function AllLeads() {
                         className="al-btn-assign"
                         onClick={() => {
                           setAssignModalLead(item);
-                          setAssignTargetUserId(item.assignedTo && item.assignedTo !== 'Unassigned' ? (teamMembers.find(u => u.name === item.assignedTo)?._id || '') : '');
+                          const currentId = item.assignedUserId || (item.assignedTo && item.assignedTo !== 'Unassigned' ? (teamMembers.find(u => u._id === item.assignedUserId || u.name?.toLowerCase() === item.assignedTo?.toLowerCase())?._id || '') : '');
+                          setAssignTargetUserId(currentId);
                           setAssignError('');
                         }}
                         title={item.assignedTo && item.assignedTo !== 'Unassigned' ? "Reassign / Unassign Lead" : "Assign Lead"}
@@ -485,7 +592,8 @@ export default function AllLeads() {
                       className="al-btn-quick-assign"
                       onClick={() => {
                         setAssignModalLead(selectedLead);
-                        setAssignTargetUserId(selectedLead.assignedTo && selectedLead.assignedTo !== 'Unassigned' ? (teamMembers.find(u => u.name === selectedLead.assignedTo)?._id || '') : '');
+                        const currentId = selectedLead.assignedUserId || (selectedLead.assignedTo && selectedLead.assignedTo !== 'Unassigned' ? (teamMembers.find(u => u._id === selectedLead.assignedUserId || u.name?.toLowerCase() === selectedLead.assignedTo?.toLowerCase())?._id || '') : '');
+                        setAssignTargetUserId(currentId);
                         setAssignError('');
                       }}
                     >
@@ -581,7 +689,7 @@ export default function AllLeads() {
                 <div className="al-assign-current-badge">
                   <span className="al-assign-current-lbl">Currently:</span>
                   <span className={`al-modal-assigned-pill ${assignModalLead.assignedTo === 'Unassigned' ? 'is-unassigned' : ''}`}>
-                    <FiUser size={12} /> {assignModalLead.assignedTo}
+                    <FiUser size={12} /> {formatName(assignModalLead.assignedTo)}
                   </span>
                 </div>
               </div>
@@ -603,24 +711,36 @@ export default function AllLeads() {
                   onChange={option => setAssignTargetUserId(option?.value || '')}
                   isDisabled={assignLoading}
                   isSearchable
-                  placeholder="Search by name or email..."
+                  placeholder="Search by name, email, or role..."
                   noOptionsMessage={({ inputValue }) => inputValue ? 'No matching team members' : 'No team members available'}
-                  filterOption={({ data }, input) => `${data.label} ${data.detail}`.toLowerCase().includes(input.trim().toLowerCase())}
+                  filterOption={({ data }, input) => {
+                    const query = input.trim().toLowerCase();
+                    if (!query) return true;
+                    return `${data.label} ${data.detail} ${data.role || ''}`.toLowerCase().includes(query);
+                  }}
                   menuPortalTarget={document.body}
                   menuPosition="fixed"
                   menuPlacement="auto"
-                  maxMenuHeight={240}
+                  maxMenuHeight={250}
                   menuShouldScrollIntoView={false}
-                  // Keep the body portal above the modal overlay (z-index: 99999).
-                  styles={{ menuPortal: base => ({ ...base, zIndex: 100000 }) }}
+                  styles={memberSelectStyles}
                   formatOptionLabel={(option, { context }) => (
                     <div className={`al-member-row ${option.value === 'unassign' ? 'al-member-unassign' : ''}`}>
-                      <span className="al-member-avatar" aria-hidden="true">{option.initials}</span>
+                      <span className="al-member-avatar" aria-hidden="true">
+                        {option.value === 'unassign' ? <FiUserMinus size={15} /> : option.initials}
+                      </span>
                       <span className="al-member-copy">
-                        <span className="al-member-name">{option.label}</span>
+                        <span className="al-member-header-row">
+                          <span className="al-member-name">{option.label}</span>
+                          {context === 'menu' && option.role && (
+                            <span className="al-member-role-badge">{option.role}</span>
+                          )}
+                        </span>
                         {context === 'menu' && <span className="al-member-detail">{option.detail}</span>}
                       </span>
-                      {context === 'menu' && option.value === assignTargetUserId && <FiCheckCircle className="al-member-check" aria-hidden="true" />}
+                      {context === 'menu' && option.value === assignTargetUserId && (
+                        <FiCheckCircle className="al-member-check" aria-hidden="true" size={16} />
+                      )}
                     </div>
                   )}
                   aria-describedby="al-assignment-hint"

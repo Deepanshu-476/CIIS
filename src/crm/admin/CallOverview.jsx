@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../../utils/axiosConfig';
 import {
   FiUsers,
   FiPhoneCall,
@@ -17,6 +18,8 @@ import {
 } from 'react-icons/fi';
 import {
   ResponsiveContainer,
+  AreaChart,
+  Area,
   LineChart,
   Line,
   XAxis,
@@ -126,9 +129,9 @@ const quickAccessItems = [
   }
 ];
 
-// Call Trends Data with rich, visible curves
-const trendData = [
-  { day: 'Wed', calls: 12, connected: 8 },
+  // Call Trends Data with rich, visible curves
+  const trendData = [
+    { day: 'Wed', calls: 12, connected: 8 },
   { day: 'Thu', calls: 18, connected: 14 },
   { day: 'Fri', calls: 28, connected: 22 },
   { day: 'Sat', calls: 16, connected: 11 },
@@ -182,41 +185,109 @@ const recentCallsData = [
   }
 ];
 
-// SVG Curve Generator for Call Trends
-const generateCallSvgPath = (data, key) => {
-  const points = data.map((d, i) => {
-    const x = 40 + (i / (data.length - 1)) * 490;
-    const y = 185 - (d[key] / 40) * 160;
-    return { x, y };
-  });
+// Custom Floating Tooltip for Call Trends AreaChart
+const CustomTrendTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const callsVal = payload.find(p => p.dataKey === 'calls')?.value ?? 0;
+    const connVal = payload.find(p => p.dataKey === 'connected')?.value ?? 0;
+    const rate = callsVal > 0 ? Math.round((connVal / callsVal) * 100) : 0;
+    const fullDate = payload[0]?.payload?.date || label;
 
-  return points.reduce((acc, point, i, a) => {
-    if (i === 0) return `M ${point.x.toFixed(1)},${point.y.toFixed(1)}`;
-    const prev = a[i - 1];
-    const cx1 = (prev.x + (point.x - prev.x) / 2).toFixed(1);
-    const cy1 = prev.y.toFixed(1);
-    const cx2 = (prev.x + (point.x - prev.x) / 2).toFixed(1);
-    const cy2 = point.y.toFixed(1);
-    return `${acc} C ${cx1},${cy1} ${cx2},${cy2} ${point.x.toFixed(1)},${point.y.toFixed(1)}`;
-  }, '');
+    return (
+      <div className="co-trend-custom-tooltip">
+        <div className="tooltip-header">
+          <span className="tooltip-day">{label}</span>
+          {fullDate && fullDate !== label && (
+            <span className="tooltip-date">({fullDate})</span>
+          )}
+        </div>
+        <div className="tooltip-row">
+          <div className="tooltip-label-group">
+            <span className="tooltip-dot bg-purple" />
+            <span className="tooltip-label">Calls Made:</span>
+          </div>
+          <span className="tooltip-value">{callsVal}</span>
+        </div>
+        <div className="tooltip-row">
+          <div className="tooltip-label-group">
+            <span className="tooltip-dot bg-teal" />
+            <span className="tooltip-label">Connected:</span>
+          </div>
+          <span className="tooltip-value">{connVal}</span>
+        </div>
+        <div className="tooltip-divider" />
+        <div className="tooltip-row">
+          <span className="tooltip-sub">Connection Rate:</span>
+          <span className="tooltip-rate font-semibold text-emerald-400">{rate}%</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
 };
 
 export default function CallOverview() {
   const navigate = useNavigate();
+  const [statCards, setStatCards] = useState(statCardsData);
+  const [trendRange, setTrendRange] = useState('7d');
+  const [trendList7d, setTrendList7d] = useState(trendData);
+  const [trendList30d, setTrendList30d] = useState([]);
+  const [outcomeList, setOutcomeList] = useState(outcomeData);
+  const [recentCalls, setRecentCalls] = useState(recentCallsData);
+  const [quickCounts, setQuickCounts] = useState(null);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
-  const [callHoverIndex, setCallHoverIndex] = useState(null);
 
-  const activeCallPoint = callHoverIndex !== null ? trendData[callHoverIndex] : null;
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOverview = async () => {
+      try {
+        const res = await axiosInstance.get('/crm/admin/calls/overview', { _skipErrorNotify: true });
+        if (isMounted && res.data) {
+          if (Array.isArray(res.data.statCards)) {
+            setStatCards(res.data.statCards.map((c, i) => ({
+              ...c,
+              icon: statCardsData[i]?.icon || FiPhoneCall,
+              iconBg: statCardsData[i]?.iconBg || 'bg-purple-100 text-purple-600'
+            })));
+          }
+          if (res.data.quickAccessCounts) {
+            setQuickCounts(res.data.quickAccessCounts);
+          }
+          if (Array.isArray(res.data.trendData) && res.data.trendData.length > 0) {
+            setTrendList7d(res.data.trendData);
+          }
+          if (Array.isArray(res.data.trendData30d) && res.data.trendData30d.length > 0) {
+            setTrendList30d(res.data.trendData30d);
+          }
+          if (Array.isArray(res.data.outcomeData) && res.data.outcomeData.length > 0) {
+            setOutcomeList(res.data.outcomeData);
+          }
+          if (Array.isArray(res.data.recentCalls)) {
+            setRecentCalls(res.data.recentCalls);
+          }
+        }
+      } catch (err) {}
+    };
+    fetchOverview();
+    return () => { isMounted = false; };
+  }, []);
 
-  const filteredCalls = recentCallsData.filter(c => {
+  const activeTrendData = trendRange === '30d' && trendList30d.length > 0 ? trendList30d : trendList7d;
+  const totalCallsInPeriod = activeTrendData.reduce((acc, curr) => acc + (Number(curr.calls) || 0), 0);
+  const totalConnectedInPeriod = activeTrendData.reduce((acc, curr) => acc + (Number(curr.connected) || 0), 0);
+  const connectRateInPeriod = totalCallsInPeriod > 0 ? Math.round((totalConnectedInPeriod / totalCallsInPeriod) * 100) : 0;
+  const avgDailyCalls = activeTrendData.length > 0 ? (totalCallsInPeriod / activeTrendData.length).toFixed(1) : '0.0';
+  const peakDayObj = activeTrendData.reduce((max, curr) => (Number(curr.calls) > (Number(max.calls) || 0) ? curr : max), { calls: 0, day: '—' });
+
+  const filteredCalls = recentCalls.filter(c => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      c.lead.toLowerCase().includes(q) ||
-      c.name.toLowerCase().includes(q) ||
-      c.phone.includes(q) ||
-      c.source.toLowerCase().includes(q)
+      (c.lead && c.lead.toLowerCase().includes(q)) ||
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.phone && c.phone.includes(q)) ||
+      (c.source && c.source.toLowerCase().includes(q))
     );
   });
 
@@ -234,7 +305,7 @@ export default function CallOverview() {
 
       {/* Top 4 Stat Cards */}
       <div className="co-stats-grid">
-        {statCardsData.map((card, idx) => {
+        {statCards.map((card, idx) => {
           const IconComp = card.icon;
           return (
             <div key={idx} className="co-stat-card">
@@ -334,11 +405,66 @@ export default function CallOverview() {
       {/* Row 4: Call Trends & Call Outcomes */}
       <div className="co-row-two-col charts-row">
         {/* Call Trends */}
-        <div className="co-card chart-card">
-          <div className="co-card-header">
-            <h2 className="co-card-title">Call Trends</h2>
+        <div className="co-card chart-card co-trend-card">
+          <div className="co-card-header flex-between">
+            <div>
+              <h2 className="co-card-title">Call Trends & Analytics</h2>
+              <p className="co-card-sub">Daily outbound calls vs connected conversations</p>
+            </div>
+            <div className="co-trend-header-right">
+              <div className="co-trend-range-selector">
+                <button
+                  type="button"
+                  className={`co-range-btn ${trendRange === '7d' ? 'active' : ''}`}
+                  onClick={() => setTrendRange('7d')}
+                >
+                  7 Days
+                </button>
+                <button
+                  type="button"
+                  className={`co-range-btn ${trendRange === '30d' ? 'active' : ''}`}
+                  onClick={() => setTrendRange('30d')}
+                >
+                  30 Days
+                </button>
+              </div>
+            </div>
           </div>
           <div className="co-card-body">
+            {/* KPI Summary Strip */}
+            <div className="co-trend-metrics-strip">
+              <div className="co-trend-metric-item">
+                <div className="co-trend-metric-dot bg-purple" />
+                <div className="co-trend-metric-info">
+                  <span className="co-trend-metric-val">{totalCallsInPeriod}</span>
+                  <span className="co-trend-metric-lbl">Total Calls</span>
+                </div>
+              </div>
+              <div className="co-trend-metric-item">
+                <div className="co-trend-metric-dot bg-teal" />
+                <div className="co-trend-metric-info">
+                  <span className="co-trend-metric-val">{totalConnectedInPeriod}</span>
+                  <span className="co-trend-metric-lbl">Connected</span>
+                </div>
+              </div>
+              <div className="co-trend-metric-item">
+                <div className="co-trend-metric-dot bg-emerald" />
+                <div className="co-trend-metric-info">
+                  <span className="co-trend-metric-val">{connectRateInPeriod}%</span>
+                  <span className="co-trend-metric-lbl">Connect Rate</span>
+                </div>
+              </div>
+              <div className="co-trend-metric-item">
+                <div className="co-trend-metric-dot bg-amber" />
+                <div className="co-trend-metric-info">
+                  <span className="co-trend-metric-val">
+                    {peakDayObj.calls > 0 ? `${peakDayObj.day} (${peakDayObj.calls})` : '—'}
+                  </span>
+                  <span className="co-trend-metric-lbl">Peak Day</span>
+                </div>
+              </div>
+            </div>
+
             {/* Custom Legend Header */}
             <div className="co-trend-legend-header">
               <span className="legend-item">
@@ -349,80 +475,72 @@ export default function CallOverview() {
               </span>
             </div>
 
-            {/* Bulletproof SVG Vector Line Engine */}
-            <div className="co-svg-chart-container">
-              <svg viewBox="0 0 550 220" className="co-svg-trend-chart">
-                {/* Horizontal Grid Ticks & Labels */}
-                {[40, 30, 20, 10, 0].map((val, idx) => {
-                  const y = 25 + idx * 40;
-                  return (
-                    <g key={val}>
-                      <line x1="40" y1={y} x2="530" y2={y} stroke="#f1f5f9" strokeDasharray="3 3" />
-                      <text x="32" y={y + 3} textAnchor="end" fontSize="10" fill="#64748b" fontWeight="500">
-                        {val}
-                      </text>
-                    </g>
-                  );
-                })}
-
-                {/* X-Axis Days Labels */}
-                {trendData.map((d, i) => {
-                  const x = 40 + (i / (trendData.length - 1)) * 490;
-                  return (
-                    <text key={d.day} x={x} y="210" fontSize="10" fill="#64748b" textAnchor="middle" fontWeight="500">
-                      {d.day}
-                    </text>
-                  );
-                })}
-
-                {/* Connected Line (Teal) */}
-                <path
-                  d={generateCallSvgPath(trendData, 'connected')}
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Calls Made Line (Purple) */}
-                <path
-                  d={generateCallSvgPath(trendData, 'calls')}
-                  fill="none"
-                  stroke="#6366f1"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Interactive Points */}
-                {trendData.map((d, i) => {
-                  const x = 40 + (i / (trendData.length - 1)) * 490;
-                  const yCalls = 185 - (d.calls / 40) * 160;
-                  const yConn = 185 - (d.connected / 40) * 160;
-                  return (
-                    <g key={i} onMouseEnter={() => setCallHoverIndex(i)} onMouseLeave={() => setCallHoverIndex(null)}>
-                      <circle cx={x} cy={yCalls} r="4" fill="#6366f1" stroke="#ffffff" strokeWidth="2" className="chart-dot" />
-                      <circle cx={x} cy={yConn} r="4" fill="#10b981" stroke="#ffffff" strokeWidth="2" className="chart-dot" />
-                      <rect x={x - 15} y="15" width="30" height="180" fill="transparent" style={{ cursor: 'pointer' }} />
-                    </g>
-                  );
-                })}
-              </svg>
-
-              {/* Hover Tooltip Card */}
-              {activeCallPoint && (
-                <div
-                  className="co-svg-chart-tooltip"
-                  style={{
-                    left: `${40 + (callHoverIndex / (trendData.length - 1)) * 85}%`,
-                    top: '25px'
-                  }}
-                >
-                  <strong>{activeCallPoint.day}</strong>
-                  <div><span className="dot bg-purple" /> Calls Made: {activeCallPoint.calls}</div>
-                  <div><span className="dot bg-teal" /> Connected: {activeCallPoint.connected}</div>
-                </div>
-              )}
+            {/* Modern AreaChart */}
+            <div className="co-trend-chart-container">
+              <ResponsiveContainer width="100%" height={210}>
+                <AreaChart data={activeTrendData} margin={{ top: 12, right: 12, bottom: 4, left: -22 }}>
+                  <defs>
+                    <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="connGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                  />
+                  <YAxis
+                    domain={[0, dataMax => Math.max(4, Math.ceil(dataMax * 1.25))]}
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                  />
+                  <Tooltip content={<CustomTrendTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="calls"
+                    name="Calls Made"
+                    stroke="#6366f1"
+                    strokeWidth={2.5}
+                    fill="url(#callsGradient)"
+                    activeDot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#6366f1' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="connected"
+                    name="Connected"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fill="url(#connGradient)"
+                    activeDot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
+
+            {totalCallsInPeriod === 0 && (
+              <div className="co-trend-empty-hint">
+                <FiPhoneCall size={14} className="text-slate-400 flex-shrink-0" />
+                <span className="co-trend-empty-text">
+                  No call activity recorded for this period. Calls made by telecallers will automatically plot here.
+                </span>
+                <button
+                  type="button"
+                  className="co-trend-action-link"
+                  onClick={() => navigate('/ciisUser/crm/admin/assigned-calls')}
+                >
+                  Go to Assigned Calls &rarr;
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -437,7 +555,7 @@ export default function CallOverview() {
                 <ResponsiveContainer width={150} height={150}>
                   <PieChart>
                     <Pie
-                      data={outcomeData}
+                      data={outcomeList}
                       cx="50%"
                       cy="50%"
                       innerRadius={48}
@@ -445,7 +563,7 @@ export default function CallOverview() {
                       paddingAngle={2}
                       dataKey="value"
                     >
-                      {outcomeData.map((entry, index) => (
+                      {outcomeList.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -453,7 +571,7 @@ export default function CallOverview() {
                 </ResponsiveContainer>
               </div>
               <div className="co-outcome-legend-list">
-                {outcomeData.map((item, idx) => (
+                {outcomeList.map((item, idx) => (
                   <div className="co-outcome-legend-item" key={idx}>
                     <span className="dot" style={{ backgroundColor: item.color }} />
                     <div className="info">

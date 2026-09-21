@@ -2,8 +2,8 @@ import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Phone, Clock, Hourglass } from "lucide-react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -17,7 +17,7 @@ import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import { Panel, Metrics } from "./DashboardComponents";
 import { DataTable } from "./CallComponents";
 import { useTelecaller } from "./useTelecaller";
-import { localDateTime, isTerminal } from './liveData';
+import { localDateTime, isTerminal, countCallOutcomes } from './liveData';
 
 
 function CustomChartTooltip({ active, payload, label }) {
@@ -51,11 +51,48 @@ function CustomChartTooltip({ active, payload, label }) {
 
 export default function Dashboard() {
   const { calls, enriched, assigned, today, pending, can } = useTelecaller();
-  const trendChartData = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(); date.setDate(date.getDate() - 6 + index);
-    const rows = enriched.filter(call => call.date.startsWith(localDateTime(date).slice(0, 10)));
-    return { day: date.toLocaleDateString('en-GB', { weekday: 'short' }), calls: rows.length, connected: rows.filter(call => ['Connected', 'Interested', 'Not Interested', 'Follow-up', 'Need Callback', 'Call Later', 'Converted', 'Call Closed'].includes(call.outcome)).length };
-  });
+  const [timeframe, setTimeframe] = useState("7d");
+  const daysCount = timeframe === "30d" ? 30 : 7;
+
+  const trendChartData = useMemo(() => {
+    return Array.from({ length: daysCount }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (daysCount - 1) + index);
+      const dateStr = localDateTime(date).slice(0, 10);
+      const rows = enriched.filter((call) => {
+        if (!call?.date) return false;
+        if (typeof call.date === "string") {
+          return call.date.startsWith(dateStr) || localDateTime(call.date).startsWith(dateStr);
+        }
+        return localDateTime(call.date).startsWith(dateStr);
+      });
+      const connected = rows.filter((call) =>
+        ['Connected', 'Interested', 'Not Interested', 'Follow-up', 'Need Callback', 'Call Later', 'Converted', 'Call Closed'].includes(call.outcome)
+      ).length;
+      return {
+        day: daysCount <= 7
+          ? date.toLocaleDateString('en-GB', { weekday: 'short' })
+          : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        date: dateStr,
+        calls: rows.length,
+        connected,
+      };
+    });
+  }, [enriched, daysCount]);
+
+  const periodStats = useMemo(() => {
+    const totalCalls = trendChartData.reduce((acc, d) => acc + d.calls, 0);
+    const totalConnected = trendChartData.reduce((acc, d) => acc + d.connected, 0);
+    const connectRate = totalCalls > 0 ? Math.round((totalConnected / totalCalls) * 100) : 0;
+    const peak = trendChartData.reduce((max, d) => (d.calls > max.calls ? d : max), trendChartData[0] || { calls: 0, day: '—' });
+    return {
+      totalCalls,
+      totalConnected,
+      connectRate,
+      peakDay: peak.calls > 0 ? `${peak.day} (${peak.calls})` : '—',
+    };
+  }, [trendChartData]);
+
   const [activeSeries, setActiveSeries] = useState({ calls: true, connected: true });
 
   const toggleSeries = (key) => {
@@ -70,7 +107,7 @@ export default function Dashboard() {
     });
   };
 
-  const metrics = [
+  const metrics = useMemo(() => [
     {
       label: "Total Calls",
       value: enriched.length,
@@ -103,28 +140,15 @@ export default function Dashboard() {
       changeText: "Awaiting first call",
       changeTone: "pink"
     }
-  ];
+  ], [enriched, assigned, today, pending]);
 
-  const outcomeCounts = useMemo(() => {
-    const counts = { Converted: 0, Connected: 0, Interested: 0, "Not Interested": 0, "Need Callback": 0, Other: 0 };
-    (enriched || []).forEach((c) => {
-      const outcome = c.outcome || "Converted";
-      if (counts[outcome] !== undefined) {
-        counts[outcome]++;
-      } else if (outcome.includes("Follow")) {
-        counts["Need Callback"]++;
-      } else {
-        counts.Other++;
-      }
-    });
-    return counts;
-  }, [enriched]);
+  const outcomeCounts = useMemo(() => countCallOutcomes(enriched), [enriched]);
 
   const totalOutcomeCalls = useMemo(() => {
     return Object.values(outcomeCounts).reduce((a, b) => a + b, 0);
   }, [outcomeCounts]);
 
-  const outcomeData = [
+  const outcomeData = useMemo(() => [
     { name: 'Other', count: outcomeCounts.Other, color: '#64748b' },
     { name: "Converted", count: outcomeCounts.Converted, color: "#14b8a6" },
     { name: "Connected", count: outcomeCounts.Connected, color: "#6366f1" },
@@ -138,13 +162,13 @@ export default function Dashboard() {
       pct: `${pctVal.toFixed(1)}% of calls`,
       barWidth: Math.max(pctVal, item.count > 0 ? 6 : 0)
     };
-  });
+  }), [outcomeCounts, totalOutcomeCalls]);
 
-  const pieChartData = outcomeData
+  const pieChartData = useMemo(() => outcomeData
     .filter((d) => d.count > 0)
-    .map((d) => ({ name: d.name, value: d.count, color: d.color }));
+    .map((d) => ({ name: d.name, value: d.count, color: d.color })), [outcomeData]);
 
-  const primaryOutcome = outcomeData.find((d) => d.count > 0) || outcomeData[0];
+  const primaryOutcome = outcomeData.reduce((largest, item) => item.count > largest.count ? item : largest, outcomeData[0]);
   const primaryRate = totalOutcomeCalls > 0 ? Math.round((primaryOutcome.count / totalOutcomeCalls) * 100) : 0;
 
   return (
@@ -153,8 +177,54 @@ export default function Dashboard() {
 
       <div className="haps-charts-grid">
         {/* Call Trends Analytics Card */}
-        <Panel title="Call Trends">
+        {/* Call Trends Analytics Card */}
+        <Panel
+          title="Call Trends"
+          subtitle="Daily outbound calls vs connected conversations"
+          action={
+            <div className="modern-timeframe-tabs">
+              <button
+                type="button"
+                className={`timeframe-tab ${timeframe === "7d" ? "active" : ""}`}
+                onClick={() => setTimeframe("7d")}
+              >
+                7 Days
+              </button>
+              <button
+                type="button"
+                className={`timeframe-tab ${timeframe === "30d" ? "active" : ""}`}
+                onClick={() => setTimeframe("30d")}
+              >
+                30 Days
+              </button>
+            </div>
+          }
+        >
           <div className="haps-linechart-body">
+            {/* KPI Summary Strip */}
+            <div className="tc-trend-kpis">
+              <div className="tc-trend-kpi-item">
+                <span className="tc-trend-kpi-dot purple" />
+                <span className="tc-trend-kpi-val">{periodStats.totalCalls}</span>
+                <span className="tc-trend-kpi-lbl">Total Calls</span>
+              </div>
+              <div className="tc-trend-kpi-item">
+                <span className="tc-trend-kpi-dot teal" />
+                <span className="tc-trend-kpi-val">{periodStats.totalConnected}</span>
+                <span className="tc-trend-kpi-lbl">Connected</span>
+              </div>
+              <div className="tc-trend-kpi-item">
+                <span className="tc-trend-kpi-dot emerald" />
+                <span className="tc-trend-kpi-val">{periodStats.connectRate}%</span>
+                <span className="tc-trend-kpi-lbl">Connect Rate</span>
+              </div>
+              <div className="tc-trend-kpi-item">
+                <span className="tc-trend-kpi-dot amber" />
+                <span className="tc-trend-kpi-val">{periodStats.peakDay}</span>
+                <span className="tc-trend-kpi-lbl">Peak Day</span>
+              </div>
+            </div>
+
             <div className="haps-chart-legend-center">
               <span
                 className={`haps-legend-item ${!activeSeries.calls ? "dimmed" : ""}`}
@@ -173,54 +243,83 @@ export default function Dashboard() {
                 <span className="haps-legend-text">Connected</span>
               </span>
             </div>
-            <ResponsiveContainer width="100%" height={235}>
-              <LineChart
-                data={trendChartData}
-                margin={{ top: 12, right: 20, left: -10, bottom: 5 }}
+
+            {periodStats.totalCalls === 0 && (
+              <div className="tc-trend-empty-hint">
+                <span>No call activity recorded in this {timeframe === "7d" ? "7-day" : "30-day"} timeframe</span>
+              </div>
+            )}
+
+            <div className="haps-chart-wrapper">
+              <ResponsiveContainer
+                width="100%"
+                height={235}
+                minWidth={0}
+                initialDimension={{ width: 600, height: 235 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#eaedf1" vertical={true} horizontal={true} />
-                <XAxis
-                  dataKey="day"
-                  stroke="#8c98a9"
-                  fontSize={11.5}
-                  tickLine={false}
-                  axisLine={{ stroke: "#eaedf1" }}
-                  dy={6}
-                />
-                <YAxis
-                  stroke="#8c98a9"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  domain={[0, 40]}
-                  ticks={[0, 10, 20, 30, 40]}
-                />
-                <Tooltip
-                  content={<CustomChartTooltip />}
-                  cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
-                />
-                {activeSeries.calls && (
-                  <Line
-                    type="monotone"
-                    dataKey="calls"
-                    stroke="#6c5ffc"
-                    strokeWidth={2.5}
-                    dot={{ r: 3.5, fill: "#ffffff", stroke: "#6c5ffc", strokeWidth: 2 }}
-                    activeDot={{ r: 5.5, fill: "#6c5ffc", stroke: "#ffffff", strokeWidth: 2.5 }}
+                <AreaChart
+                  data={trendChartData}
+                  margin={{ top: 12, right: 20, left: -15, bottom: 5 }}
+                >
+                  <defs>
+                    <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6c5ffc" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#6c5ffc" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="connGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#05c3fb" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#05c3fb" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eaedf1" vertical={false} horizontal={true} />
+                  <XAxis
+                    dataKey="day"
+                    stroke="#8c98a9"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#eaedf1" }}
+                    dy={6}
+                    interval={daysCount > 7 ? 4 : 0}
                   />
-                )}
-                {activeSeries.connected && (
-                  <Line
-                    type="monotone"
-                    dataKey="connected"
-                    stroke="#05c3fb"
-                    strokeWidth={2.5}
-                    dot={{ r: 3.5, fill: "#ffffff", stroke: "#05c3fb", strokeWidth: 2 }}
-                    activeDot={{ r: 5.5, fill: "#05c3fb", stroke: "#ffffff", strokeWidth: 2.5 }}
+                  <YAxis
+                    stroke="#8c98a9"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, (dataMax) => Math.max(4, Math.ceil(dataMax * 1.25))]}
+                    allowDecimals={false}
                   />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
+                  <Tooltip
+                    content={<CustomChartTooltip />}
+                    cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
+                  />
+                  {activeSeries.calls && (
+                    <Area
+                      type="monotone"
+                      dataKey="calls"
+                      name="Calls Made"
+                      stroke="#6c5ffc"
+                      strokeWidth={2.5}
+                      fill="url(#callsGradient)"
+                      dot={{ r: 3.5, fill: "#ffffff", stroke: "#6c5ffc", strokeWidth: 2 }}
+                      activeDot={{ r: 5.5, fill: "#6c5ffc", stroke: "#ffffff", strokeWidth: 2.5 }}
+                    />
+                  )}
+                  {activeSeries.connected && (
+                    <Area
+                      type="monotone"
+                      dataKey="connected"
+                      name="Connected"
+                      stroke="#05c3fb"
+                      strokeWidth={2.5}
+                      fill="url(#connGradient)"
+                      dot={{ r: 3.5, fill: "#ffffff", stroke: "#05c3fb", strokeWidth: 2 }}
+                      activeDot={{ r: 5.5, fill: "#05c3fb", stroke: "#ffffff", strokeWidth: 2.5 }}
+                    />
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </Panel>
 
@@ -282,7 +381,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <div className="outcome-item-bottom">
-                    <span>{item.pct} of calls</span>
+                    <span>{item.pct}</span>
                   </div>
                 </div>
               ))}

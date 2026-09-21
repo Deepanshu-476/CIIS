@@ -697,7 +697,7 @@ const CompanyDetails = () => {
                   </Box>
                   
                   
-                  {process.env.NODE_ENV === 'development' && (
+                  {import.meta.env.DEV && (
                     <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
                       Company ID: {company._id}
                     </Typography>

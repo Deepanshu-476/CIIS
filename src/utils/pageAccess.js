@@ -2,6 +2,26 @@ import axios from "./axiosConfig";
 
 const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
+const PERMISSION_RETRY_DELAYS_MS = [400, 800, 1600, 3000];
+
+const isRetryablePermissionError = error => {
+  const status = Number(error?.response?.status || 0);
+  return !error?.response || status >= 500 || status === 408 || status === 429;
+};
+
+const withPermissionRetry = async load => {
+  let lastError;
+  for (let attempt = 0; attempt <= PERMISSION_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await load();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryablePermissionError(error) || attempt === PERMISSION_RETRY_DELAYS_MS.length) throw error;
+      await new Promise(resolve => setTimeout(resolve, PERMISSION_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw lastError;
+};
 
 export const getStoredUser = () => {
   try {
@@ -91,9 +111,9 @@ export const loadPagePermission = async (path, options = {}) => {
     return cached.value;
   }
 
-  const response = await axios.get("/page-permissions/by-path", {
-    params: { path }
-  });
+  const response = await withPermissionRetry(() => axios.get("/page-permissions/by-path", {
+    params: { path }, noCache: true, _skipErrorNotify: true
+  }));
 
   const value = response.data?.page || {
     path,

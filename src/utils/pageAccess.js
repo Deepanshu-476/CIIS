@@ -1,6 +1,9 @@
 import axios from "./axiosConfig";
+import { CRM_PAGES, resolveCrmPermissionPath } from "../config/crmPages";
+import { TELECALLER_PAGES } from "../crm/telecaller/telecallerPages";
 
 const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
+const pagePermissionCatalogCache = globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ = { createdAt: 0, value: null });
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
 const PERMISSION_RETRY_DELAYS_MS = [400, 800, 1600, 3000];
 
@@ -65,6 +68,27 @@ const ACCESS_FIELD_BY_TYPE = {
   unlock: 'unlockUsers'
 };
 
+const normalizePagePath = path => {
+  const value = String(path || '').trim();
+  if (!value) return '';
+  return `/${value.replace(/^\/+/, '')}`.replace(/\/+$/, '');
+};
+
+const normalizeComparablePath = path => normalizePagePath(path).toLowerCase();
+
+const CRM_PERMISSION_PATHS = new Set(CRM_PAGES.map(page => normalizeComparablePath(`/ciisUser/${page.path}`)));
+const TELECALLER_PERMISSION_PATHS = new Set(TELECALLER_PAGES.map(page => normalizeComparablePath(page.path)));
+
+export const isCrmPage = path => {
+  const normalizedPath = normalizeComparablePath(resolveCrmPermissionPath(normalizePagePath(path)));
+  return normalizedPath.startsWith('/ciisuser/crm/') || CRM_PERMISSION_PATHS.has(normalizedPath);
+};
+
+export const requiresPageAccess = path => {
+  const normalizedPath = normalizeComparablePath(resolveCrmPermissionPath(normalizePagePath(path)));
+  return isCrmPage(normalizedPath) || TELECALLER_PERMISSION_PATHS.has(normalizedPath);
+};
+
 export const getPageAccessUserIds = (page, accessType = 'view') => {
   const type = String(accessType || 'view').trim().toLowerCase();
   const field = ACCESS_FIELD_BY_TYPE[type] || ACCESS_FIELD_BY_TYPE.view;
@@ -105,17 +129,18 @@ export const hasPageAccess = (page, userId, accessType = 'view') => {
 };
 
 export const loadPagePermission = async (path, options = {}) => {
-  const cacheKey = String(path || "").trim().toLowerCase();
+  const permissionPath = resolveCrmPermissionPath(normalizePagePath(path)) || path;
+  const cacheKey = String(permissionPath || "").trim().toLowerCase();
   const cached = pagePermissionCache.get(cacheKey);
   if (!options?.force && cached && (Date.now() - cached.createdAt) < PAGE_PERMISSION_TTL_MS) {
     return cached.value;
   }
   const response = await withPermissionRetry(() => axios.get("/page-permissions/by-path", {
-    params: { path }, noCache: true, _skipErrorNotify: true
+    params: { path: permissionPath }, noCache: true, _skipErrorNotify: true
   }));
 
   const value = response.data?.page || {
-    path,
+    path: permissionPath,
     approvers: [],
     viewUsers: [],
     editUsers: [],
@@ -133,12 +158,36 @@ export const loadPagePermission = async (path, options = {}) => {
   return value;
 };
 
+export const loadPagePermissionCatalog = async (options = {}) => {
+  if (!options?.force && pagePermissionCatalogCache.value && (Date.now() - pagePermissionCatalogCache.createdAt) < PAGE_PERMISSION_TTL_MS) {
+    return pagePermissionCatalogCache.value;
+  }
+
+  const response = await withPermissionRetry(() => axios.get("/page-permissions/pages", {
+    noCache: true,
+    _skipErrorNotify: true
+  }));
+  const pages = Array.isArray(response.data?.pages) ? response.data.pages : [];
+  const accessPages = Array.isArray(response.data?.accessPages) ? response.data.accessPages : undefined;
+  const value = {
+    ...response.data,
+    pages,
+    ...(accessPages ? { accessPages } : {})
+  };
+
+  pagePermissionCatalogCache.createdAt = Date.now();
+  pagePermissionCatalogCache.value = value;
+  return value;
+};
+
 export const invalidatePagePermissionCache = (path) => {
   if (!path) {
     pagePermissionCache.clear();
+    pagePermissionCatalogCache.createdAt = 0;
+    pagePermissionCatalogCache.value = null;
     return;
   }
-  pagePermissionCache.delete(String(path).trim().toLowerCase());
+  pagePermissionCache.delete(String(resolveCrmPermissionPath(normalizePagePath(path)) || path).trim().toLowerCase());
 };
 
 export const getUserPageScope = (page, userId, accessType = '') => {

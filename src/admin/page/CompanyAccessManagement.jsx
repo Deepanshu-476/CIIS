@@ -1,4 +1,3 @@
-import { CRM_PAGES } from '../../config/crmPages';
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -34,11 +33,11 @@ import {
   Search as SearchIcon,
 } from "@mui/icons-material";
 import axiosInstance from "../../utils/axiosConfig";
-import { TELECALLER_PAGES } from "../../crm/telecaller/telecallerPages";
 import "./JobRoleManagement.css";
 
 const APP_ROUTES = [
   { id: "user-dashboard", path: "user-dashboard", name: "Dashboard", category: "main" },
+  { id: "dashboard-1", path: "dashboard-1", name: "Dashboard 1", category: "main" },
   { id: "attendance", path: "attendance", name: "My Attendance", category: "main" },
   { id: "my-leaves", path: "my-leaves", name: "My Leaves", category: "main" },
   { id: "my-assets", path: "my-assets", name: "My Assets", category: "main" },
@@ -48,6 +47,7 @@ const APP_ROUTES = [
   { id: "emp-leaves", path: "emp-leaves", name: "Employee Leaves", category: "administration" },
   { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "administration" },
   { id: "emp-assets", path: "emp-assets", name: "Employee Assets", category: "administration" },
+  { id: "company-assets", path: "company-assets", name: "Asset Management", category: "administration" },
   { id: "emp-attendance", path: "emp-attendance", name: "Employee Attendance", category: "administration" },
   { id: "department", path: "department", name: "Department Management", category: "administration" },
   { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Role Management", category: "administration" },
@@ -82,39 +82,8 @@ const APP_ROUTES = [
   { id: "salary-assignment", path: "salary-assignment", name: "Employee Salary", category: "payroll" },
   { id: "assign-salary", path: "assign-salary", name: "Assign Salary", category: "payroll" },
   { id: "payroll-process", path: "payroll-process", name: "Payroll Process", category: "payroll" },
-  { id: "release-payroll", path: "release-payroll", name: "Release Payroll", category: "payroll" },
   { id: "payslip", path: "payslip", name: "Payslip", category: "payroll" },
   { id: "payroll-reports", path: "payroll-reports", name: "Payroll Reports", category: "payroll" },
-  { id: "admin-crm-dashboard", path: "crm/admin/dashboard", name: "Admin Dashboard", category: "admin-crm" },
-  { id: "admin-crm-lead-overview", path: "crm/admin/lead-overview", name: "Lead Overview", category: "admin-crm" },
-  { id: "admin-crm-all-leads", path: "crm/admin/all-leads", name: "All Leads", category: "admin-crm" },
-  { id: "admin-crm-add-lead", path: "crm/admin/add-lead", name: "Add Lead", category: "admin-crm" },
-  { id: "admin-crm-lead-sources", path: "crm/admin/lead-sources", name: "Lead Sources", category: "admin-crm" },
-  { id: "admin-crm-lead-types", path: "crm/admin/lead-types", name: "Lead Types", category: "admin-crm" },
-  { id: "admin-crm-import-export-leads", path: "crm/admin/import-export-leads", name: "Import & Export Leads", category: "admin-crm" },
-  { id: "admin-crm-call-overview", path: "crm/admin/call-overview", name: "Call Overview", category: "admin-crm" },
-  { id: "admin-crm-assigned-calls", path: "crm/admin/assigned-calls", name: "Assigned Calls", category: "admin-crm" },
-  { id: "admin-crm-todays-calls", path: "crm/admin/todays-calls", name: "Today's Calls", category: "admin-crm" },
-  { id: "admin-crm-pending-calls", path: "crm/admin/pending-calls", name: "Pending Calls", category: "admin-crm" },
-  { id: "admin-crm-scheduled-calls", path: "crm/admin/scheduled-calls", name: "Scheduled Calls", category: "admin-crm" },
-  { id: "admin-crm-completed-calls", path: "crm/admin/completed-calls", name: "Completed Calls", category: "admin-crm" },
-  { id: "admin-crm-converted-calls", path: "crm/admin/converted-calls", name: "Converted Calls", category: "admin-crm" },
-  { id: "admin-crm-transferred-calls", path: "crm/admin/transferred-calls", name: "Transferred Calls", category: "admin-crm" },
-  { id: "admin-crm-call-history", path: "crm/admin/call-history", name: "Call History", category: "admin-crm" },
-  { id: "admin-crm-follow-ups", path: "crm/admin/follow-ups", name: "Follow-Up Center", category: "admin-crm" },
-  { id: "admin-crm-assignments", path: "crm/admin/assignments", name: "Assignments Overview", category: "admin-crm" },
-  { id: "admin-crm-assignment-bulk", path: "crm/admin/assignment-bulk", name: "Bulk Assignment", category: "admin-crm" },
-  { id: "admin-crm-assignment-history", path: "crm/admin/assignment-history", name: "Assignment History", category: "admin-crm" },
-  { id: "admin-crm-workload", path: "crm/admin/workload", name: "Workload Distribution", category: "admin-crm" },
-  { id: "admin-crm-reports-overview", path: "crm/reports/overview", name: "Reports Overview", category: "admin-crm" },
-  { id: "admin-crm-reports-leads", path: "crm/reports/leads", name: "Lead Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-calls", path: "crm/reports/calls", name: "Call Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-visits", path: "crm/reports/visits", name: "Visit Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-follow-ups", path: "crm/reports/follow-ups", name: "Follow-Up Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-team-performance", path: "crm/reports/team-performance", name: "Team Performance", category: "admin-crm" },
-  { id: "admin-crm-reports-conversion-funnel", path: "crm/reports/conversion-funnel", name: "Conversion Funnel", category: "admin-crm" },
-  { id: "admin-crm-reports-user-activity", path: "crm/reports/user-activity", name: "User Activity", category: "admin-crm" },
-  ...TELECALLER_PAGES.map(page => ({ ...page, path: page.path.replace('/ciisUser/', '') })),
 ];
 
 const SUPER_ADMIN_ROUTES = [
@@ -147,8 +116,6 @@ const categoryNames = {
   clients: "Clients",
   communication: "Communication",
   payroll: "Payroll",
-  "admin-crm": "Admin CRM",
-  "admin-telecaller": "Admin Telecaller",
   management: "Super Admin Management",
   owner: "Owner Only",
 };
@@ -162,8 +129,6 @@ const categoryColors = {
   clients: "#db2777",
   communication: "#475569",
   payroll: "#4f46e5",
-  "admin-crm": "#0f766e",
-  "admin-telecaller": "#0284c7",
   management: "#2563eb",
   owner: "#7c3aed",
 };
@@ -193,7 +158,7 @@ const normalizeAllowedPages = pages => {
     });
   });
 
-  const normalized = [...new Set(
+  return [...new Set(
     pages
       .map(page => {
         const cleanPage = String(page || "").trim();
@@ -201,17 +166,22 @@ const normalizeAllowedPages = pages => {
       })
       .filter(Boolean)
   )];
-  // Release Payroll is a child page of Payroll Process. Keep it selected for
-  // existing payroll-enabled companies and persist it on the next normal save.
-  if (normalized.includes("payroll-process") && !normalized.includes("release-payroll")) {
-    normalized.push("release-payroll");
-  }
-  return normalized;
 };
 
 const getStoredAdminId = () => {
   try {
     const raw = localStorage.getItem("superAdmin") || localStorage.getItem("user");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?._id || parsed?.id || parsed?.user?._id || parsed?.user?.id || null;
+  } catch {
+    return null;
+  }
+};
+
+const getStoredActiveCompanyId = () => {
+  try {
+    const raw = localStorage.getItem("company") || localStorage.getItem("companyDetails");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?._id || parsed?.id || null;
@@ -264,18 +234,14 @@ export default function CompanyAccessManagement() {
 
   const groupedRoutes = useMemo(() => {
     const cleanSearch = search.trim().toLowerCase();
-    const groups = APP_ROUTES.filter(route => {
+    return APP_ROUTES.filter(route => {
       if (!cleanSearch) return true;
-      return `${route.name} ${route.path} ${route.category} ${categoryNames[route.category] || ''}`.toLowerCase().includes(cleanSearch);
+      return `${route.name} ${route.path} ${route.category}`.toLowerCase().includes(cleanSearch);
     }).reduce((groups, route) => {
       if (!groups[route.category]) groups[route.category] = [];
       groups[route.category].push(route);
       return groups;
     }, {});
-    if (!cleanSearch || "admin telecaller admin-telecaller".includes(cleanSearch)) {
-      groups["admin-telecaller"] ||= [];
-    }
-    return groups;
   }, [search]);
 
   const groupedSuperAdminRoutes = useMemo(() => {
@@ -399,13 +365,18 @@ export default function CompanyAccessManagement() {
       setCompanies(prev => prev.map(company => (
         company._id === updatedCompany._id ? updatedCompany : company
       )));
-      localStorage.setItem("company", JSON.stringify(updatedCompany));
-      localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
+
+      // Only update local storage if the company being edited is the currently logged-in active company
+      const activeCompanyId = getStoredActiveCompanyId();
+      if (activeCompanyId && activeCompanyId === updatedCompany._id) {
+        localStorage.setItem("company", JSON.stringify(updatedCompany));
+        localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
+      }
+
       setNotice({
         severity: "success",
-        message: response.data.message || "Company access saved successfully. Opening Sidebar Management...",
+        message: response.data.message || "Company access saved successfully.",
       });
-      setTimeout(() => navigate("/Ciis-network/SidebarManagement"), 700);
     } catch (error) {
       setNotice({
         severity: "error",
@@ -513,12 +484,6 @@ export default function CompanyAccessManagement() {
           <div className="JobRoleManagement-header-actions">
             <button
               className="JobRoleManagement-btn-outline"
-              onClick={() => setSearch("telecaller")}
-            >
-              Telecaller ({TELECALLER_PAGES.length} pages)
-            </button>
-            <button
-              className="JobRoleManagement-btn-outline"
               onClick={() => setSelectedPages(APP_ROUTES.map(route => route.id))}
             >
               Select All
@@ -550,16 +515,11 @@ export default function CompanyAccessManagement() {
                         </span>
                       </div>
                     </div>
-                    {routes.length > 0 && <button className="JobRoleManagement-btn-outline" onClick={() => toggleCategory(routes)}>
+                    <button className="JobRoleManagement-btn-outline" onClick={() => toggleCategory(routes)}>
                       {selectedCount === routes.length ? "Deselect" : "Select"}
-                    </button>}
+                    </button>
                   </div>
 
-                  {routes.length === 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      No pages added yet.
-                    </Typography>
-                  )}
                   <Grid container spacing={1.2}>
                     {routes.map(route => {
                       const selected = selectedPages.includes(route.id);

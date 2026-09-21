@@ -1517,6 +1517,12 @@
   box-shadow: 0 6px 14px rgba(37, 99, 235, 0.08);
 }
 
+.pm-scope-empty {
+  color: #64748b;
+  font-size: 13px;
+  padding: 8px 2px;
+}
+
 .pm-modal-list {
   padding: 14px 18px 18px;
   overflow: auto;

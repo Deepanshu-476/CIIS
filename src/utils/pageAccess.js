@@ -84,10 +84,10 @@ export const hasPageAccess = (page, userId, accessType = 'view') => {
   return getPageAccessUserIds(page, type).includes(normalizedUserId);
 };
 
-export const loadPagePermission = async (path) => {
+export const loadPagePermission = async (path, options = {}) => {
   const cacheKey = String(path || "").trim().toLowerCase();
   const cached = pagePermissionCache.get(cacheKey);
-  if (cached && (Date.now() - cached.createdAt) < PAGE_PERMISSION_TTL_MS) {
+  if (!options?.force && cached && (Date.now() - cached.createdAt) < PAGE_PERMISSION_TTL_MS) {
     return cached.value;
   }
 
@@ -122,11 +122,16 @@ export const invalidatePagePermissionCache = (path) => {
   pagePermissionCache.delete(String(path).trim().toLowerCase());
 };
 
-export const getUserPageScope = (page, userId) => {
+export const getUserPageScope = (page, userId, accessType = '') => {
   const normalizedUserId = normalizeUserId(userId);
   if (!page || !normalizedUserId) return null;
   const scopes = Array.isArray(page?.userAccessScopes) ? page.userAccessScopes : [];
-  const matchingScopes = scopes.filter(s => normalizeUserId(s?.user) === normalizedUserId);
+  const normalizedAccessType = String(accessType || '').trim().toLowerCase();
+  const matchingScopes = scopes.filter(s => {
+    const userMatches = normalizeUserId(s?.user) === normalizedUserId;
+    if (!userMatches) return false;
+    return !normalizedAccessType || String(s?.accessType || '').trim().toLowerCase() === normalizedAccessType;
+  });
   if (!matchingScopes.length) return null;
 
   let branchIds = [];

@@ -1204,13 +1204,18 @@ const UserCreateTask = () => {
   
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
-    // Project tasks stay anchored to their due date so the list matches the
+    // Project and client tasks stay anchored to their due date so the list matches the
     // delivery day. Completion timestamps are reserved for time-based stats.
-    const getTaskGroupDate = task => (
-      task?.__taskSource === 'project' || task?.taskSource === 'project' || task?.source === 'project'
-        ? getProjectTaskDueDate(task) || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on
-        : task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task)
-    );
+    const getTaskGroupDate = task => {
+      const source = task?.__taskSource || task?.taskSource || task?.source;
+      if (source === 'project') {
+        return getProjectTaskDueDate(task) || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on;
+      }
+      if (source === 'client' || Boolean(task?.clientId)) {
+        return task?.dueDateTime || task?.dueDate || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on;
+      }
+      return task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task);
+    };
     const getTaskSortTime = task => {
       const dateToUse = getTaskGroupDate(task);
       const date = new Date(dateToUse || 0);
@@ -2483,6 +2488,13 @@ const UserCreateTask = () => {
         ...(servicePendingTasks.find(t => (t._id || t.id) === clientTaskForm._id) || {}),
         ...payload,
         ...(response.data.data || {}),
+        dueDate: dueDateIso,
+        dueDateTime: dueDateIso,
+        clientId: selectedClient || response.data.data?.clientId,
+        clientName: selectedClient?.company || selectedClient?.client || selectedClient?.name || 'Client',
+        clientCompany: selectedClient?.company,
+        service: clientTaskForm.service,
+        title: clientTaskForm.name.trim(),
         status: normalizeStatus(response.data.data?.status || 'pending'),
         __taskSource: 'client',
         taskSource: 'client'
@@ -2496,6 +2508,20 @@ const UserCreateTask = () => {
         return updatedGrouped;
       });
 
+      setAllTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const filteredTasks = existingTasks.filter(t => (t._id || t.id) !== clientTaskForm._id);
+        const updatedGrouped = groupTasksByDate([updatedTask, ...filteredTasks]);
+        return updatedGrouped;
+      });
+
+      setAllTasksStatsGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const filteredTasks = existingTasks.filter(t => (t._id || t.id) !== clientTaskForm._id);
+        const updatedGrouped = groupTasksByDate([updatedTask, ...filteredTasks]);
+        return updatedGrouped;
+      });
+
       setClientTaskForm(prev => ({
         ...prev,
         _id: null,
@@ -2505,6 +2531,10 @@ const UserCreateTask = () => {
         priority: 'Medium',
         checkpoints: []
       }));
+      setSelectedAssigneeId(userId || '');
+      setTaskViewsLoaded(prev => ({ ...prev, client: true }));
+      setOpenClientTaskDialog(false);
+      fetchClientTasks();
       
     } catch (err) {
       console.error('Error assigning task:', err);
@@ -2512,7 +2542,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [clientTaskForm, currentLoggedInAssignee, servicePendingTasks, selectedAssignee, groupTasksByDate, calculateClientStatsFromTasks]);
+  }, [clientTaskForm, currentLoggedInAssignee, servicePendingTasks, selectedAssignee, groupTasksByDate, calculateClientStatsFromTasks, selectedClient, userId, fetchClientTasks, showSnackbar]);
 
   const handleCreateClientTask = useCallback(async () => {
     if (!selectedClient) {
@@ -2565,6 +2595,8 @@ const UserCreateTask = () => {
       const createdTask = {
         ...payload,
         ...(response.data.data || {}),
+        dueDate: dueDateIso,
+        dueDateTime: dueDateIso,
         clientId: response.data.data?.clientId || selectedClient,
         clientName: selectedClient.company || selectedClient.client || selectedClient.name || 'Client',
         clientCompany: selectedClient.company,
@@ -2580,6 +2612,18 @@ const UserCreateTask = () => {
         const existingTasks = Object.values(prev || {}).flat();
         const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
         calculateClientStatsFromTasks(updatedGrouped);
+        return updatedGrouped;
+      });
+
+      setAllTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
+        return updatedGrouped;
+      });
+
+      setAllTasksStatsGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
         return updatedGrouped;
       });
 
@@ -2601,7 +2645,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient]);
+  }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient, userId, showSnackbar]);
 
   useEffect(() => {
     if (!selectedProjectId) return;

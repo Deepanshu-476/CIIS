@@ -285,6 +285,31 @@ const getScopeSummary = (scope = {}, branches = [], departments = []) => {
   return `${branchLabel} / ${departmentLabel}`;
 };
 
+const getDepartmentBranchTokens = (department = {}) => [
+  getRecordId(department?.branch),
+  getRecordId(department?.branchId),
+  getRecordId(department?.branchCode),
+  department?.branch?.branchCode ? String(department.branch.branchCode).trim() : "",
+  department?.branch?.name ? String(department.branch.name).trim() : "",
+].filter(Boolean);
+
+const getDepartmentsForScopeBranches = (scope = {}, departments = [], branches = []) => {
+  const branchIds = normalizeScopeIds(scope.branchIds || ["all"]);
+  if (!branchIds.length || branchIds.includes("all")) return departments;
+  const branchTokenSet = new Set(branchIds);
+  branches.forEach((branch) => {
+    const id = getRecordId(branch);
+    if (!branchIds.includes(id)) return;
+    [branch?._id, branch?.id, branch?.branchCode, branch?.name].filter(Boolean).forEach((value) => {
+      branchTokenSet.add(String(value).trim());
+    });
+  });
+  return departments.filter((department) => {
+    const departmentBranchTokens = getDepartmentBranchTokens(department);
+    return !departmentBranchTokens.length || departmentBranchTokens.some((token) => branchTokenSet.has(token));
+  });
+};
+
 const DEFAULT_SCOPE = { branchIds: ["all"], departmentIds: ["all"] };
 
 const normalizeScopeValue = (scope = DEFAULT_SCOPE) => ({
@@ -961,12 +986,25 @@ const PageManagement = () => {
         if (!nextValues.length) nextValues = ["all"];
       }
 
+      const nextScope = {
+        ...current,
+        [field]: nextValues,
+      };
+
+      if (field === "branchIds" && !nextValues.includes("all")) {
+        const availableDepartmentIds = new Set(
+          getDepartmentsForScopeBranches(nextScope, departments, branches).map(getRecordId).filter(Boolean)
+        );
+        const currentDepartmentIds = normalizeScopeIds(nextScope.departmentIds || ["all"]);
+        if (!currentDepartmentIds.includes("all")) {
+          const filteredDepartmentIds = currentDepartmentIds.filter((departmentId) => availableDepartmentIds.has(departmentId));
+          nextScope.departmentIds = filteredDepartmentIds.length ? filteredDepartmentIds : ["all"];
+        }
+      }
+
       return {
         ...prev,
-        [normalizedId]: {
-          ...current,
-          [field]: nextValues,
-        },
+        [normalizedId]: nextScope,
       };
     });
   };
@@ -1417,6 +1455,7 @@ const PageManagement = () => {
                   const userId = getRecordId(user);
                   const checked = candidateSelection.has(userId);
                   const scope = normalizeScopeValue(candidateUserScopes[userId] || DEFAULT_SCOPE);
+                  const scopeDepartments = getDepartmentsForScopeBranches(scope, departments, branches);
                   return (
                     <label key={userId} className={`pm-modal-user ${checked ? "is-selected" : ""}`}>
                       <input
@@ -1432,7 +1471,7 @@ const PageManagement = () => {
                         )}
                       </span>
                       {checked && (
-                        <div className="pm-modal-user-scope">
+                        <div className="pm-modal-user-scope" onClick={(event) => event.stopPropagation()}>
                           <div className="pm-modal-user-scope-head">
                             <strong>Scope</strong>
                             <span>{getScopeSummary(scope, branches, departments)}</span>
@@ -1476,7 +1515,7 @@ const PageManagement = () => {
                                 >
                                   All Departments
                                 </button>
-                                {departments.map((department) => {
+                                {scopeDepartments.map((department) => {
                                   const id = getRecordId(department);
                                   const selected = scope.departmentIds.includes(id);
                                   return (
@@ -1490,6 +1529,9 @@ const PageManagement = () => {
                                     </button>
                                   );
                                 })}
+                                {!scopeDepartments.length && (
+                                  <span className="pm-scope-empty">No departments for selected branch.</span>
+                                )}
                               </div>
                             </div>
                           </div>

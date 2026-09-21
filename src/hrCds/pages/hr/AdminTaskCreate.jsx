@@ -469,19 +469,33 @@ const AdminTaskManagement = () => {
     return [...new Set([directBranch, ...assigned].filter(Boolean).map(String))];
   };
 
+  const scopeAllowsAll = (ids = []) => {
+    if (!Array.isArray(ids) || ids.length === 0) return true;
+    return ids.map(String).includes('all');
+  };
+
+  const scopeContainsId = (ids = [], id) => {
+    if (scopeAllowsAll(ids)) return true;
+    if (!id) return false;
+    return ids.map(String).includes(String(id));
+  };
+
+  const hasRestrictedBranchScope = Boolean(pageScope && !scopeAllowsAll(pageScope.branchIds));
+  const hasRestrictedDepartmentScope = Boolean(pageScope && !scopeAllowsAll(pageScope.departmentIds));
+
   const isUserInScope = (user = {}) => {
     if (isOwner()) return true;
     if (!pageScope) return true;
 
     // 1. Branch scoping from Page Management
-    if (Array.isArray(pageScope.branchIds) && !pageScope.branchIds.includes('all') && pageScope.branchIds.length > 0) {
+    if (!scopeAllowsAll(pageScope.branchIds)) {
       const userBranchIds = getUserBranchIds(user);
       const hasBranchMatch = userBranchIds.some(bId => pageScope.branchIds.includes(bId));
       if (!hasBranchMatch) return false;
     }
 
     // 2. Department scoping from Page Management
-    if (Array.isArray(pageScope.departmentIds) && !pageScope.departmentIds.includes('all') && pageScope.departmentIds.length > 0) {
+    if (!scopeAllowsAll(pageScope.departmentIds)) {
       const userDeptId = getDepartmentIdFromUser(user);
       const userDeptName = normalizeDepartmentName(getUserDepartmentDisplay(user));
       const hasDeptMatch = pageScope.departmentIds.includes(userDeptId) || pageScope.departmentIds.some(scopedId => {
@@ -495,7 +509,7 @@ const AdminTaskManagement = () => {
   };
 
   const allowedBranches = useMemo(() => {
-    if (isOwner() || !pageScope || !Array.isArray(pageScope.branchIds) || pageScope.branchIds.includes('all') || !pageScope.branchIds.length) {
+    if (isOwner() || !pageScope || scopeAllowsAll(pageScope.branchIds)) {
       return branches;
     }
     return branches.filter(b => {
@@ -506,7 +520,7 @@ const AdminTaskManagement = () => {
 
   const allowedDepartments = useMemo(() => {
     let list = departments;
-    if (!isOwner() && pageScope && Array.isArray(pageScope.departmentIds) && !pageScope.departmentIds.includes('all') && pageScope.departmentIds.length) {
+    if (!isOwner() && pageScope && !scopeAllowsAll(pageScope.departmentIds)) {
       list = list.filter(d => {
         const dId = String(d._id || d.id || '');
         const dName = normalizeDepartmentName(d.name || d.departmentName || '');
@@ -517,7 +531,7 @@ const AdminTaskManagement = () => {
       });
     }
 
-    if (!isOwner() && pageScope && Array.isArray(pageScope.branchIds) && !pageScope.branchIds.includes('all') && pageScope.branchIds.length) {
+    if (!isOwner() && pageScope && !scopeAllowsAll(pageScope.branchIds)) {
       list = list.filter(d => {
         const deptBranch = d.branch?._id || d.branch?.id || d.branch || d.branchId;
         return !deptBranch || pageScope.branchIds.includes(String(deptBranch));
@@ -907,8 +921,7 @@ const AdminTaskManagement = () => {
     try {
       const params = {
         page: page + 1,
-        limit: limit,
-        createdBy: userId
+        limit: limit
       };
 
       if (filters.search) params.search = filters.search;
@@ -2182,8 +2195,10 @@ const AdminTaskManagement = () => {
                 fetchTasks(0, rowsPerPage, nextFilters);
               }}
             >
-              <option value="all">All Allowed Branches</option>
-              {allowedBranches.length > 1 && (
+              {!hasRestrictedBranchScope && (
+                <option value="all">All Allowed Branches</option>
+              )}
+              {hasRestrictedBranchScope && allowedBranches.length > 1 && (
                 <option value="all">All Assigned Branches</option>
               )}
               {allowedBranches.map(branch => (
@@ -2211,8 +2226,10 @@ const AdminTaskManagement = () => {
                 fetchTasks(0, rowsPerPage, nextFilters);
               }}
             >
-              <option value="all">All Allowed Departments</option>
-              {availableFilterDepartments.length > 1 && (
+              {!hasRestrictedDepartmentScope && (
+                <option value="all">All Allowed Departments</option>
+              )}
+              {hasRestrictedDepartmentScope && availableFilterDepartments.length > 1 && (
                 <option value="all">All Assigned Departments</option>
               )}
               {availableFilterDepartments.map(department => (
@@ -2946,9 +2963,8 @@ const AdminTaskManagement = () => {
                       }));
                     }}
                   >
-                    <option value="">All Allowed Branches</option>
-                    {allowedBranches.length > 1 && (
-                      <option value="">All Assigned Branches</option>
+                    {!hasRestrictedBranchScope && (
+                      <option value="">All Allowed Branches</option>
                     )}
                     {allowedBranches.map(branch => (
                       <option key={branch._id || branch.id} value={branch._id || branch.id}>
@@ -2980,9 +2996,8 @@ const AdminTaskManagement = () => {
                       }
                     }}
                   >
-                    <option value="">All Departments</option>
-                    {departmentOptionsForCreate.length > 1 && (
-                      <option value="">All Assigned Departments</option>
+                    {!hasRestrictedDepartmentScope && (
+                      <option value="">All Departments</option>
                     )}
                     {departmentOptionsForCreate.map(department => (
                       <option key={department.id} value={department.id}>
@@ -3582,7 +3597,7 @@ const AdminTaskManagement = () => {
     let isMounted = true;
     const checkPagePermissions = async () => {
       try {
-        const perm = await loadPagePermission('/ciisUser/admin-task-create');
+        const perm = await loadPagePermission('/ciisUser/admin-task-create', { force: true });
         if (!isMounted) return;
         setPagePermission(perm);
 
@@ -3593,18 +3608,21 @@ const AdminTaskManagement = () => {
         const isUserOwner = cRole.includes('owner') || cCompanyRole.includes('owner') || (cRole.includes('admin') && cRole.includes('super'));
 
         const hasConfig = hasConfiguredPageAccess(perm);
-        const userScope = getUserPageScope(perm, cUserId);
-        setPageScope(userScope);
-
         if (isUserOwner) {
+          setPageScope(null);
           setCanViewPage(true);
           setCanCreateTask(true);
         } else if (!hasConfig) {
+          setPageScope(null);
           setCanViewPage(true);
           setCanCreateTask(true);
         } else {
           const viewAllowed = hasPageAccess(perm, cUserId, 'view') || hasPageAccess(perm, cUserId, 'edit');
           const createAllowed = hasPageAccess(perm, cUserId, 'edit');
+          const createScope = getUserPageScope(perm, cUserId, 'edit');
+          const viewScope = getUserPageScope(perm, cUserId, 'view');
+          const userScope = createAllowed ? (createScope || viewScope) : viewScope;
+          setPageScope(userScope);
           setCanViewPage(viewAllowed);
           setCanCreateTask(createAllowed);
         }
@@ -3669,10 +3687,16 @@ const AdminTaskManagement = () => {
 
   useEffect(() => {
     if (!pageAccessReady) return;
+    if (hasRestrictedBranchScope && allowedBranches.length > 0) {
+      const allowedBranchIds = allowedBranches.map(branch => String(branch._id || branch.id));
+      if (!selectedCreateBranch || !allowedBranchIds.includes(String(selectedCreateBranch))) {
+        setSelectedCreateBranch(allowedBranchIds[0]);
+      }
+    }
     if (departmentOptionsForCreate.length === 1 && !selectedCreateDepartment) {
       setSelectedCreateDepartment(String(departmentOptionsForCreate[0].id));
     }
-  }, [pageAccessReady, departmentOptionsForCreate, selectedCreateDepartment]);
+  }, [pageAccessReady, hasRestrictedBranchScope, allowedBranches, selectedCreateBranch, departmentOptionsForCreate, selectedCreateDepartment]);
 
   useEffect(() => {
     if (authError && initialAuthCheck) {
@@ -3691,7 +3715,7 @@ const AdminTaskManagement = () => {
     const scopedTasks = tasks.filter(task => {
       if (!isOwner() && pageScope) {
         const taskBranch = task.branch?._id || task.branch?.id || task.branch;
-        if (taskBranch && pageScope.branchIds.length > 0 && !pageScope.branchIds.includes(String(taskBranch))) {
+        if (taskBranch && !scopeContainsId(pageScope.branchIds, taskBranch)) {
           return false;
         }
 
@@ -3706,15 +3730,15 @@ const AdminTaskManagement = () => {
             if (typeof u === 'object') {
               const uBranch = u.branch?._id || u.branch?.id || u.branch;
               const uDept = u.department?._id || u.department?.id || u.department;
-              const branchMatch = pageScope.branchIds.length === 0 || (uBranch && pageScope.branchIds.includes(String(uBranch)));
-              const deptMatch = pageScope.departmentIds.length === 0 || (uDept && pageScope.departmentIds.includes(String(uDept)));
+              const branchMatch = scopeContainsId(pageScope.branchIds, uBranch);
+              const deptMatch = scopeContainsId(pageScope.departmentIds, uDept);
               return branchMatch && deptMatch;
             }
             return false;
           });
           if (!hasScopedAssignee) return false;
         } else if (taskBranch) {
-          if (pageScope.branchIds.length > 0 && !pageScope.branchIds.includes(String(taskBranch))) {
+          if (!scopeContainsId(pageScope.branchIds, taskBranch)) {
             return false;
           }
         }

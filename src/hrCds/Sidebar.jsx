@@ -38,10 +38,16 @@ import {
   CreditCard as CreditCardIcon,
   Folder as FolderIcon,
   SupportAgent as SupportAgentIcon,
+  PhoneInTalk as PhoneInTalkIcon,
+  AccessTime as PendingCallsIcon,
+  CheckCircle as CompletedCallsIcon,
+  Verified as ConvertedCallsIcon,
+  History as CallHistoryIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
 import { hasPageAccess } from '../utils/pageAccess';
+import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
 import { preloadRouteByPath } from '../utils/routePreloader';
 import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
@@ -540,6 +546,7 @@ const clientMenuItems = [
 
 
 const allPagesItems = [
+  ...TELECALLER_PAGES,
   {
     id: 'dashboard',
     name: 'Dashboard',
@@ -993,6 +1000,7 @@ const getMenuAccessKeys = item => {
 };
 
 const companyAccessFallbackItems = [
+  ...TELECALLER_PAGES,
   {
     id: 'active-clients',
     name: 'Active Clients',
@@ -1154,6 +1162,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const [clientCompanies, setClientCompanies] = useState([]);
   const [selectedClientCompanyId, setSelectedClientCompanyId] = useState("");
   const [clientCompanyDropdownOpen, setClientCompanyDropdownOpen] = useState(true);
+  const [telecallerWorkspaceOpen, setTelecallerWorkspaceOpen] = useState(true);
   const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
   const [seenBadgeCounts, setSeenBadgeCounts] = useState({});
   const sidebarRef = useRef(null);
@@ -1798,6 +1807,13 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
+        if (item.category === 'admin-telecaller') {
+          if (!hasTelecallerCompanyAccess(item, companyData)) return false;
+          if (!pagePermissions) return true;
+          if (isPageAccessAdmin) return true;
+          const telecallerPermission = allPermissionPages.get(itemPath);
+          return Boolean(telecallerPermission && hasPageAccess(telecallerPermission, userId, 'view'));
+        }
         if (STRICT_PAYROLL_PATHS.has(itemPath)) {
           const payrollPage = allPermissionPages.get(itemPath);
           return Boolean(payrollPage && hasPageAccess(payrollPage, userId, 'view'));
@@ -1867,6 +1883,26 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           addCompanyAccessFallbackItems(items, companyData),
           companyData
         );
+
+    if (hasRoleConfig) {
+      const existingTelecallerPaths = new Set(
+        accessFilteredItems
+          .filter(item => item.category === 'admin-telecaller')
+          .map(item => String(item.path || '').toLowerCase().replace(/\/+$/, ''))
+      );
+      const telecallerFallbackItems = TELECALLER_PAGES.filter(page => (
+        !existingTelecallerPaths.has(String(page.path || '').toLowerCase().replace(/\/+$/, ''))
+        && hasTelecallerCompanyAccess(page, companyData)
+        && (isPageAccessAdmin || hasPageAccess(
+          allPermissionPages.get(String(page.path || '').toLowerCase().replace(/\/+$/, '')),
+          userId,
+          'view'
+        ))
+      ));
+      if (telecallerFallbackItems.length) {
+        accessFilteredItems = [...accessFilteredItems, ...telecallerFallbackItems];
+      }
+    }
 
     // Keep the register approval page available to the same privileged roles
     // that are allowed by the backend controller, including companies with a
@@ -2111,6 +2147,51 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   };
 
   
+  const renderTelecallerMenu = (items) => {
+    const callSlugs = ['call-dashboard', 'assigned-calls', 'todays-calls', 'pending-calls', 'scheduled-calls', 'completed-calls', 'call-history', 'call-workspace', 'lead-detail'];
+    const getSlug = item => String(item.path || '').replace(/\/+$/, '').split('/').pop();
+    const children = callSlugs.map(slug => items.find(item => getSlug(item) === slug)).filter(Boolean);
+    const dashboard = items.find(item => getSlug(item) === 'dashboard');
+    const remaining = items.filter(item => getSlug(item) !== 'dashboard' && !callSlugs.includes(getSlug(item)));
+    const selected = children.some(item => location.pathname === item.path)
+      || /\/telecaller\/(call-workspace|lead-detail)(\/|$)/i.test(location.pathname);
+
+    return (
+      <List sx={{ py: 0 }}>
+        {dashboard && <StyledListItem disablePadding>{renderMenuItem(dashboard, isSidebarOpen)}</StyledListItem>}
+        {children.length > 0 && (
+          <>
+            <StyledListItem disablePadding>
+              <StyledListItemButton
+                selected={selected}
+                onClick={() => setTelecallerWorkspaceOpen(open => !open)}
+                sx={{ minHeight: 48, mx: isSidebarOpen ? 0.5 : 0, px: isSidebarOpen ? 1 : 0, justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+              >
+                <StyledListItemIcon sx={{ mr: isSidebarOpen ? 1 : 0 }}><SupportAgentIcon /></StyledListItemIcon>
+                {isSidebarOpen && (
+                  <>
+                    <ListItemText primary="Call Workspace" primaryTypographyProps={{ fontSize: '0.72rem', fontWeight: selected ? 600 : 500 }} />
+                    {telecallerWorkspaceOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
+                  </>
+                )}
+              </StyledListItemButton>
+            </StyledListItem>
+            <Collapse in={isSidebarOpen && telecallerWorkspaceOpen} timeout="auto" unmountOnExit>
+              <List disablePadding sx={{ ml: 1.5, pl: 1, borderLeft: '1px solid', borderColor: 'divider' }}>
+                {children.map(item => (
+                  <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, true)}</StyledListItem>
+                ))}
+              </List>
+            </Collapse>
+          </>
+        )}
+        {remaining.map(item => (
+          <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, isSidebarOpen)}</StyledListItem>
+        ))}
+      </List>
+    );
+  };
+
   const getWebsiteCategory = (item) => {
     const id = String(item?.id || '').toLowerCase();
     const name = String(item?.name || '').toLowerCase();
@@ -2443,7 +2524,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       'tasks': 'Tasks',
       'projects': 'Projects',
       'meetings': 'Meetings',
-      'clients': 'Clients'
+      'clients': 'Clients',
+      'admin-telecaller': 'Telecaller'
     };
     
     const label = categoryLabels[category] || category;
@@ -2683,13 +2765,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
             {renderCategoryHeading(category)}
             
             
-            <List sx={{ py: 0 }}>
-              {groupedItems[category].map((item) => (
-                <StyledListItem key={item.id} disablePadding>
-                  {renderMenuItem(item, isSidebarOpen)}
-                </StyledListItem>
-              ))}
-            </List>
+            {category === 'admin-telecaller'
+              ? renderTelecallerMenu(groupedItems[category])
+              : (
+                <List sx={{ py: 0 }}>
+                  {groupedItems[category].map((item) => (
+                    <StyledListItem key={item.id} disablePadding>
+                      {renderMenuItem(item, isSidebarOpen)}
+                    </StyledListItem>
+                  ))}
+                </List>
+              )}
           </Box>
         ))}
       </Box>

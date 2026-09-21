@@ -36,13 +36,15 @@ const defaultPlatform = {
 const defaultForm = {
   ios: {
     ...defaultPlatform,
-    latestVersionName: '1.1.15',
+    latestVersionName: '1.1.29',
+    latestVersionCode: 44,
     appIdentifier: 'ciisnetwork.in',
     storeId: '6780872642'
   },
   android: {
     ...defaultPlatform,
-    latestVersionName: '1.1.16',
+    latestVersionName: '1.1.29',
+    latestVersionCode: 39,
     appIdentifier: 'ciisnetwork.in'
   }
 };

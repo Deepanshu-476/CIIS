@@ -265,6 +265,15 @@ function App() {
           <Route index element={<ClientDashboardPage />} />
           <Route path="dashboard" element={<ClientDashboardPage />} />
           <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
+          <Route
+            path="task-management"
+            element={(
+              <Suspense fallback={<RouteBoundaryLoader label="Loading tasks..." />}>
+                <TaskManagement />
+              </Suspense>
+            )}
+          />
+          <Route path="admin-task-create" element={<AdminTaskCreate />} />
           <Route path="my-services" element={<MyServicesPage />} />
           <Route path="services-tasks" element={<ClientServicesTasks />} />
           <Route path="account-settings" element={<ClientAccountSettingsPage />} />

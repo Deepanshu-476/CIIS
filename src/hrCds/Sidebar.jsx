@@ -489,6 +489,22 @@ const clientMenuItems = [
     order: 3
   },
   {
+    id: 'client-task-management',
+    name: 'Create Task',
+    icon: 'Task',
+    path: '/client/task-management',
+    category: 'main',
+    order: 3.1
+  },
+  {
+    id: 'client-admin-task-create',
+    name: 'Admin Create Task',
+    icon: 'Task',
+    path: '/client/admin-task-create',
+    category: 'main',
+    order: 3.2
+  },
+  {
     id: 'client-marketplace',
     name: 'Explore Services',
     icon: 'Folder',
@@ -898,6 +914,8 @@ const getPathFromName = (name) => {
     'Payments': '/client/payments',
     'My Services': '/client/my-services',
     'Tasks & Updates': '/client/tasks-updates',
+    'Client Create Task': '/client/task-management',
+    'Client Admin Create Task': '/client/admin-task-create',
     'Explore Services': '/client/marketplace',
     'Service Marketplace': '/client/marketplace',
     'Meetings': '/client/support-tickets',
@@ -1097,6 +1115,8 @@ const normalizeSidebarItemPath = (rawPath, itemName) => {
     if (sub === 'marketplace') return '/client/marketplace';
     if (sub === 'my-services') return '/client/my-services';
     if (sub === 'tasks-updates') return '/client/tasks-updates';
+    if (sub === 'task-management') return '/client/task-management';
+    if (sub === 'admin-task-create') return '/client/admin-task-create';
     if (sub === 'documents') return '/client/documents';
     if (sub === 'payments') return '/client/payments';
     return `/client/${sub}`;

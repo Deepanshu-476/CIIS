@@ -614,6 +614,14 @@ const ServicesTasks = () => {
               <h2>Tasks & Updates</h2>
               <p>Track tasks, milestones and latest project activity.</p>
             </div>
+            <div className="ClientTasksUpdatesPage-topActions">
+              <button type="button" className="ClientTasksUpdatesPage-primary" onClick={() => navigate('/client/task-management')}>
+                <FiPlus /> Create Task
+              </button>
+              <button type="button" className="ClientTasksUpdatesPage-filter" onClick={() => navigate('/client/admin-task-create')}>
+                <FiGrid /> Admin Create Task
+              </button>
+            </div>
           </div>
 
           <section className="ClientTasksUpdatesPage-stats">

@@ -84,6 +84,14 @@ const APP_ROUTES = [
   { id: "admin-crm-assignment-bulk", path: "crm/admin/assignment-bulk", name: "Bulk Assignment", category: "admin-crm" },
   { id: "admin-crm-assignment-history", path: "crm/admin/assignment-history", name: "Assignment History", category: "admin-crm" },
   { id: "admin-crm-workload", path: "crm/admin/workload", name: "Workload Distribution", category: "admin-crm" },
+  { id: "admin-crm-reports-overview", path: "crm/reports/overview", name: "Reports Overview", category: "admin-crm" },
+  { id: "admin-crm-reports-leads", path: "crm/reports/leads", name: "Lead Reports", category: "admin-crm" },
+  { id: "admin-crm-reports-calls", path: "crm/reports/calls", name: "Call Reports", category: "admin-crm" },
+  { id: "admin-crm-reports-visits", path: "crm/reports/visits", name: "Visit Reports", category: "admin-crm" },
+  { id: "admin-crm-reports-follow-ups", path: "crm/reports/follow-ups", name: "Follow-Up Reports", category: "admin-crm" },
+  { id: "admin-crm-reports-team-performance", path: "crm/reports/team-performance", name: "Team Performance", category: "admin-crm" },
+  { id: "admin-crm-reports-conversion-funnel", path: "crm/reports/conversion-funnel", name: "Conversion Funnel", category: "admin-crm" },
+  { id: "admin-crm-reports-user-activity", path: "crm/reports/user-activity", name: "User Activity", category: "admin-crm" },
 ];
 
 const SUPER_ADMIN_ROUTES = [

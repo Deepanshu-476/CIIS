@@ -126,14 +126,7 @@ const AssignmentHistory = lazy(() => import("./crm/admin/AssignmentHistory.jsx")
 const WorkloadDistribution = lazy(() => import("./crm/admin/WorkloadDistribution.jsx"));
 const CallHistory = lazy(() => import("./crm/admin/CallHistory.jsx"));
 const ScheduledCalls = lazy(() => import("./crm/admin/ScheduledCalls.jsx"));
-const ReportsOverview = lazy(() => import("./crm/admin/ReportsOverview.jsx"));
-const LeadReports = lazy(() => import("./crm/admin/LeadReports.jsx"));
-const CallReports = lazy(() => import("./crm/admin/CallReports.jsx"));
-const VisitReports = lazy(() => import("./crm/admin/VisitReports.jsx"));
-const FollowUpReports = lazy(() => import("./crm/admin/FollowUpReports.jsx"));
-const TeamPerformanceReports = lazy(() => import("./crm/admin/TeamPerformanceReports.jsx"));
-const ConversionFunnelReports = lazy(() => import("./crm/admin/ConversionFunnelReports.jsx"));
-const UserActivityReports = lazy(() => import("./crm/admin/UserActivityReports.jsx"));
+const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 
 function App() {
   return (
@@ -370,16 +363,16 @@ function App() {
           <Route path="crm/workload" element={<Navigate to="/ciisUser/crm/admin/workload" replace />} />
           <Route path="crm/calls" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
 
-          <Route path="crm/reports/overview" element={<ReportsOverview />} />
-          <Route path="crm/reports/leads" element={<LeadReports />} />
-          <Route path="crm/reports/calls" element={<CallReports />} />
-          <Route path="crm/reports/visits" element={<VisitReports />} />
-          <Route path="crm/reports/follow-ups" element={<FollowUpReports />} />
-          <Route path="crm/reports/team-performance" element={<TeamPerformanceReports />} />
+          <Route path="crm/reports/overview" element={<LiveCrmReport type="overview" title="Reports Overview" />} />
+          <Route path="crm/reports/leads" element={<LiveCrmReport type="leads" title="Lead Reports" />} />
+          <Route path="crm/reports/calls" element={<LiveCrmReport type="calls" title="Call Reports" />} />
+          <Route path="crm/reports/visits" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
+          <Route path="crm/reports/follow-ups" element={<LiveCrmReport type="follow-ups" title="Follow-Up Reports" />} />
+          <Route path="crm/reports/team-performance" element={<LiveCrmReport type="team-performance" title="Team Performance" />} />
           <Route path="crm/reports/team" element={<Navigate to="/ciisUser/crm/reports/team-performance" replace />} />
-          <Route path="crm/reports/conversion-funnel" element={<ConversionFunnelReports />} />
+          <Route path="crm/reports/conversion-funnel" element={<LiveCrmReport type="conversion-funnel" title="Conversion Funnel" />} />
           <Route path="crm/reports/funnel" element={<Navigate to="/ciisUser/crm/reports/conversion-funnel" replace />} />
-          <Route path="crm/reports/user-activity" element={<UserActivityReports />} />
+          <Route path="crm/reports/user-activity" element={<LiveCrmReport type="user-activity" title="User Activity" />} />
           <Route path="crm/reports" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
           <Route path="*" element={
             <section style={{ padding: 24, color: '#334155' }}>

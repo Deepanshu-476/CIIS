@@ -20,6 +20,13 @@ export const CRM_PAGES = [
   { id: "admin-crm-assignment-bulk", path: "crm/admin/assignment-bulk", name: "Bulk Assignment", category: "admin-crm" },
   { id: "admin-crm-assignment-history", path: "crm/admin/assignment-history", name: "Assignment History", category: "admin-crm" },
   { id: "admin-crm-workload", path: "crm/admin/workload", name: "Workload Distribution", category: "admin-crm" },
+  { id: "admin-crm-reports-overview", path: "crm/reports/overview", name: "Reports Overview", category: "admin-crm" },
+  { id: "admin-crm-reports-leads", path: "crm/reports/leads", name: "Lead Reports", category: "admin-crm" },
+  { id: "admin-crm-reports-calls", path: "crm/reports/calls", name: "Call Reports", category: "admin-crm" },
+  { id: "admin-crm-reports-follow-ups", path: "crm/reports/follow-ups", name: "Follow-Up Reports", category: "admin-crm" },
+  { id: "admin-crm-reports-team-performance", path: "crm/reports/team-performance", name: "Team Performance", category: "admin-crm" },
+  { id: "admin-crm-reports-conversion-funnel", path: "crm/reports/conversion-funnel", name: "Conversion Funnel", category: "admin-crm" },
+  { id: "admin-crm-reports-user-activity", path: "crm/reports/user-activity", name: "User Activity", category: "admin-crm" },
 ];
 
 // Legacy URLs use the same permission as their canonical page.
@@ -62,6 +69,17 @@ const CRM_PERMISSION_ALIASES = {
   "/ciisuser/crm/assignment-history": "/ciisUser/crm/admin/assignment-history",
   "/ciisuser/crm/workload": "/ciisUser/crm/admin/workload",
   "/ciisuser/crm/calls": "/ciisUser/crm/admin/call-overview",
+  "/ciisuser/crm/reports": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/overview": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/leads": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/calls": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/visits": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/follow-ups": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/team-performance": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/team": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/conversion-funnel": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/funnel": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports/user-activity": "/ciisUser/crm/admin/dashboard",
   "/ciisuser/telecaller": "/ciisUser/telecaller/dashboard"
 };
 

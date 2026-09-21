@@ -74,9 +74,7 @@ const routeLoaders = {
 const normalizePath = (path = "") => String(path || "").trim().replace(/\/+$/, "").toLowerCase();
 const normalizedRouteLoaders = new Map(Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader]));
 const crmModules = import.meta.glob([
-  '../crm/admin/*.jsx',
-  '!../crm/admin/*Reports.jsx',
-  '!../crm/admin/ReportsOverview.jsx'
+  '../crm/admin/*.jsx'
 ]);
 const crmPageModules = {
   'admin/dashboard': 'AdminCrmDashboard', 'admin/lead-overview': 'LeadOverview',
@@ -90,6 +88,10 @@ const crmPageModules = {
   'admin/follow-ups': 'FollowUpCenter', 'admin/assignments': 'AssignmentsOverview',
   'admin/assignment-bulk': 'BulkAssignment', 'admin/assignment-history': 'AssignmentHistory',
   'admin/workload': 'WorkloadDistribution',
+  'reports/overview': 'LiveCrmReport', 'reports/leads': 'LiveCrmReport',
+  'reports/calls': 'LiveCrmReport',
+  'reports/follow-ups': 'LiveCrmReport', 'reports/team-performance': 'LiveCrmReport',
+  'reports/conversion-funnel': 'LiveCrmReport', 'reports/user-activity': 'LiveCrmReport',
 };
 for (const [path, moduleName] of Object.entries(crmPageModules)) {
   normalizedRouteLoaders.set(normalizePath(`/ciisUser/crm/${path}`), crmModules[`../crm/admin/${moduleName}.jsx`]);

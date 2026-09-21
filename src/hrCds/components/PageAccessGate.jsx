@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, Navigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from "../../crm/telecaller/telecallerPages";
-import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermission } from "../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, loadPagePermission } from "../../utils/pageAccess";
 import api from '../../utils/axiosConfig';
 
 const PRIVILEGED_ROLES = new Set([
@@ -65,7 +65,7 @@ const PageAccessGate = ({ children }) => {
     const requiresExplicitAccess = requiresPageAccess(pagePath);
 
     const checkAccess = async () => {
-      if (isPrivileged && !isCrmPage(pagePath)) {
+      if (isPrivileged) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
         return;
       }
@@ -113,11 +113,17 @@ const PageAccessGate = ({ children }) => {
         return;
       }
       try {
-        const page = await loadPagePermission(pagePath);
-        const allowed = hasPageAccess(page, userId, "view");
+        let page = await loadPagePermission(pagePath);
+        if (!hasConfiguredPageAccess(page) && isCrmPage(pagePath)) {
+          const dashboardPerm = await loadPagePermission('/ciisUser/crm/admin/dashboard');
+          if (hasConfiguredPageAccess(dashboardPerm)) {
+            page = dashboardPerm;
+          }
+        }
+        const allowed = hasPageAccess(page, userId, "view") || (!hasConfiguredPageAccess(page) && hasCrmPlanAccess(pagePath, isPrivileged));
         if (!cancelled) setState({ path: pagePath, loading: false, allowed });
       } catch {
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed: !requiresExplicitAccess });
+        if (!cancelled) setState({ path: pagePath, loading: false, allowed: isPrivileged || !requiresExplicitAccess });
       }
     };
 

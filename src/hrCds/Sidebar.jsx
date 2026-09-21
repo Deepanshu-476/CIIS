@@ -50,7 +50,7 @@ import {
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
-import { isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
+import { isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
 import { CRM_PAGES } from '../config/crmPages';
 import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
@@ -361,6 +361,7 @@ const ADMIN_CRM_MENU_GROUPS = [
   { id: 'call-management', name: 'Call Management', icon: 'Call', itemIds: ['admin-crm-call-overview', 'admin-crm-assigned-calls', 'admin-crm-todays-calls', 'admin-crm-pending-calls', 'admin-crm-scheduled-calls', 'admin-crm-completed-calls', 'admin-crm-converted-calls', 'admin-crm-transferred-calls', 'admin-crm-call-history'] },
   { id: 'follow-up-center', name: 'Follow-Up Center', icon: 'EventNote', itemIds: ['admin-crm-follow-ups'], direct: true },
   { id: 'assignments', name: 'Assignments', icon: 'Groups', itemIds: ['admin-crm-assignments', 'admin-crm-assignment-bulk', 'admin-crm-assignment-history', 'admin-crm-workload'] },
+  { id: 'reports', name: 'Reports', icon: 'ListAlt', itemIds: ['admin-crm-reports-overview', 'admin-crm-reports-leads', 'admin-crm-reports-calls', 'admin-crm-reports-follow-ups', 'admin-crm-reports-team-performance', 'admin-crm-reports-conversion-funnel', 'admin-crm-reports-user-activity'] },
 ];
 
 
@@ -1019,14 +1020,6 @@ const allPagesItems = [
     order: 24.629
   },
   {
-    id: 'admin-crm-reports-visits',
-    name: 'Visit Reports',
-    icon: 'Folder',
-    path: '/ciisUser/crm/reports/visits',
-    category: 'crm',
-    order: 24.630
-  },
-  {
     id: 'admin-crm-reports-follow-ups',
     name: 'Follow-Up Reports',
     icon: 'EventNote',
@@ -1189,7 +1182,6 @@ const getPathFromName = (name) => {
     'Reports Overview': '/ciisUser/crm/reports/overview',
     'Lead Reports': '/ciisUser/crm/reports/leads',
     'Call Reports': '/ciisUser/crm/reports/calls',
-    'Visit Reports': '/ciisUser/crm/reports/visits',
     'Follow-Up Reports': '/ciisUser/crm/reports/follow-ups',
     'Team Performance': '/ciisUser/crm/reports/team-performance',
     'Conversion Funnel': '/ciisUser/crm/reports/conversion-funnel',
@@ -1408,14 +1400,6 @@ const companyAccessFallbackItems = [
     order: 24.629
   },
   {
-    id: 'admin-crm-reports-visits',
-    name: 'Visit Reports',
-    icon: 'Folder',
-    path: '/ciisUser/crm/reports/visits',
-    category: 'crm',
-    order: 24.630
-  },
-  {
     id: 'admin-crm-reports-follow-ups',
     name: 'Follow-Up Reports',
     icon: 'EventNote',
@@ -1582,14 +1566,6 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/crm/reports/calls',
     category: 'crm',
     order: 24.629
-  },
-  {
-    id: 'admin-crm-reports-visits',
-    name: 'Visit Reports',
-    icon: 'Folder',
-    path: '/ciisUser/crm/reports/visits',
-    category: 'crm',
-    order: 24.630
   },
   {
     id: 'admin-crm-reports-follow-ups',
@@ -2424,8 +2400,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         'team & access', 'team overview', 'team users', 'add team user', 'user types'
       ]);
       const removedCrmPath = path.startsWith('/ciisuser/crm/marketing/')
-        || path.startsWith('/ciisuser/crm/reports/')
-        || path === '/ciisuser/crm/reports'
         || ['/ciisuser/crm/admin/team', '/ciisuser/crm/admin/users', '/ciisuser/crm/admin/add-user', '/ciisuser/crm/admin/user-type'].includes(path);
       return id !== "contact-support"
         && !removedCrmIds.has(id)
@@ -2459,6 +2433,12 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       (Array.isArray(pagePermissions) ? pagePermissions : [])
         .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
     );
+    const crmDashboardPermission = allPermissionPages.get('/ciisuser/crm/admin/dashboard');
+    const permissionForPath = itemPath => {
+      const directPermission = allPermissionPages.get(itemPath);
+      if (hasConfiguredPageAccess(directPermission) || !isCrmPage(itemPath)) return directPermission;
+      return hasConfiguredPageAccess(crmDashboardPermission) ? crmDashboardPermission : directPermission;
+    };
     const filterItemsByPageAccess = items => {
       items = items.filter(item => {
         if (item.category !== 'admin-telecaller') return true;
@@ -2467,13 +2447,11 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         return Boolean(permission && hasPageAccess(permission, userId, 'view'));
       });
       if (!pagePermissions) {
-        // Fail closed for CRM/payroll pages until the permission catalog is
-        // available. This prevents unauthorized links flashing on refresh.
-        return items.filter(item => !isCrmPage(item?.path) && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
+        return items.filter(item => isPageAccessAdmin || (!isCrmPage(item?.path) && !requiresPageAccess(item?.path)));
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
-        if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+        if (isCrmPage(itemPath)) return hasPageAccess(permissionForPath(itemPath), userId, 'view');
         if (isPageAccessAdmin) return true;
         if (requiresPageAccess(itemPath)) {
           return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
@@ -2484,28 +2462,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       });
     };
 
-    void 0;
-    void 0;
-    void 0;
-
-    
     if (isClientUser) {
-      // Client portal users should always see the full client navigation,
-      // even if a saved sidebar config exists for internal staff.
       return removeHiddenSidebarItems([...clientMenuItems]);
     }
 
-    
     if (isSuperAdminWithManagement) {
-      void 0;
       return placeReleasePayrollAfterProcess(filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData))));
     }
 
     let items = [];
 
     if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
-      void 0;
-      
       items = sidebarConfig.menuItems
         .map((item, index) => {
           const crmPage = allPagesItems.find(page => ['crm', 'admin-telecaller'].includes(page.category) && (

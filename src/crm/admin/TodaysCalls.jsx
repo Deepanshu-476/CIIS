@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axiosInstance from '../../utils/axiosConfig';
 import {
   FiPhoneCall,
   FiPhoneIncoming,
@@ -15,37 +16,47 @@ import {
 } from 'react-icons/fi';
 import './TodaysCalls.css';
 
-const initialCallsData = [
-  {
-    id: 1,
-    lead: 'Ashok Pillai',
-    time: '10:30 AM',
-    phone: '8016315999',
-    source: 'Facebook',
-    leadType: 'NEET',
-    callType: 'Outbound',
-    outcome: 'Connected',
-    notes: 'Interested in NEET regular batch',
-    assignedTo: 'Telecaller 1'
-  },
-  {
-    id: 2,
-    lead: 'Komal Wadhwa',
-    time: '11:15 AM',
-    phone: '9598564205',
-    source: 'Instagram',
-    leadType: 'JEE',
-    callType: 'Inbound',
-    outcome: 'Interested',
-    notes: 'Requested fee structure PDF',
-    assignedTo: 'Telecaller 2'
-  }
-];
-
 export default function TodaysCalls() {
-  const [calls] = useState(initialCallsData);
-  const [showData, setShowData] = useState(false); // Default empty state matching screenshot (0 calls)
-  
+  const [calls, setCalls] = useState([]);
+  const [teamUsers, setTeamUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchToday = async () => {
+      setLoading(true);
+      try {
+        const [res, teamRes] = await Promise.allSettled([
+          axiosInstance.get('/crm/admin/calls/today', { _skipErrorNotify: true }),
+          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+        ]);
+        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
+          const mapped = res.value.data.items.map((c, idx) => ({
+            id: c._id || idx + 1,
+            lead: c.lead?.name || 'Lead',
+            time: new Date(c.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            phone: c.lead?.phone || '—',
+            source: c.lead?.leadSource?.name || c.lead?.source || 'Direct',
+            leadType: c.lead?.leadType?.name || 'General',
+            callType: 'Outbound',
+            outcome: c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : 'Answered',
+            notes: c.notes || '—',
+            assignedTo: c.agent?.name || 'Agent',
+            duration: c.duration ? `${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : '0s'
+          }));
+          setCalls(mapped);
+        }
+        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
+          setTeamUsers(teamRes.value.data.users);
+        }
+      } catch (err) {} finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchToday();
+    return () => { isMounted = false; };
+  }, []);
+
   const [filters, setFilters] = useState({
     assignedTo: '',
     source: '',
@@ -80,7 +91,6 @@ export default function TodaysCalls() {
   };
 
   const filteredCalls = useMemo(() => {
-    if (!showData) return [];
     return calls.filter(call => {
       if (appliedFilters.assignedTo && call.assignedTo !== appliedFilters.assignedTo) return false;
       if (appliedFilters.source && call.source !== appliedFilters.source) return false;
@@ -88,12 +98,12 @@ export default function TodaysCalls() {
       if (appliedFilters.callType && call.callType !== appliedFilters.callType) return false;
       return true;
     });
-  }, [calls, appliedFilters, showData]);
+  }, [calls, appliedFilters]);
 
-  const totalToday = showData ? calls.length : 0;
-  const connectedToday = showData ? calls.filter(c => c.outcome === 'Connected' || c.outcome === 'Interested').length : 0;
-  const interestedToday = showData ? calls.filter(c => c.outcome === 'Interested').length : 0;
-  const followupsToday = 0;
+  const totalToday = calls.length;
+  const connectedToday = calls.filter(c => ['Connected', 'Interested', 'Answered'].includes(c.outcome)).length;
+  const interestedToday = calls.filter(c => c.outcome === 'Interested').length;
+  const followupsToday = calls.filter(c => ['Follow-up', 'Need Callback'].includes(c.outcome)).length;
 
   return (
     <div className="tc-root">
@@ -162,8 +172,9 @@ export default function TodaysCalls() {
               onChange={e => handleFilterChange('assignedTo', e.target.value)}
             >
               <option value="">All Users</option>
-              <option value="Telecaller 1">Telecaller 1</option>
-              <option value="Telecaller 2">Telecaller 2</option>
+              {teamUsers.map(u => (
+                <option key={u._id} value={u.name}>{u.name}</option>
+              ))}
             </select>
           </div>
 
@@ -238,14 +249,6 @@ export default function TodaysCalls() {
           </button>
           <button type="button" className="tc-btn-reset" onClick={handleReset} title="Reset filters">
             <FiRefreshCw size={14} />
-          </button>
-          <button 
-            type="button" 
-            className="tc-btn-toggle" 
-            onClick={() => setShowData(!showData)}
-            title="Toggle sample data for preview"
-          >
-            {showData ? 'Show Empty State' : 'Sample Data'}
           </button>
         </div>
       </section>

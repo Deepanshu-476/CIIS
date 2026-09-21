@@ -1,4 +1,4 @@
-import { todayKey } from "./liveData";
+import { todayKey } from "./liveData.js";
 
 const day = (value) => String(value || "").slice(0, 10);
 const followStatus = (row) =>
@@ -17,7 +17,7 @@ export function filterCalls(allRows, filters, kind) {
     ) 
       return false;
     return Object.entries(filters).every(([key, value]) => {
-      if (!value || value === "All" || value === "All Sources" || value === "All Types" || value === "All Status" || value === "Any") return true;
+      if (!value || value === "All" || value === "Any" || String(value).startsWith("All ") || String(value).startsWith("Select ")) return true;
       const date = day(
         kind === "assigned"
           ? row.assigned

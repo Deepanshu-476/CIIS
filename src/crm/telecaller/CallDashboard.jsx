@@ -13,7 +13,7 @@ import {
   CalendarClock
 } from "lucide-react";
 
-import { todayKey } from "./liveData";
+import { todayKey, isTerminal } from "./liveData";
 import { TELECALLER_BASE as BASE, TELECALLER_PAGES } from "./telecallerPages";
 import {
   Panel,
@@ -31,7 +31,7 @@ export default function CallDashboard() {
   const metrics = [
     {
       label: "My Assigned Leads",
-      value: assigned.filter((row) => !["Converted", "Closed"].includes(row.status)).length,
+      value: assigned.filter((row) => !isTerminal(row)).length,
       Icon: Users,
       tone: "purple",
       badgeText: "👥 Active Leads",
@@ -55,7 +55,7 @@ export default function CallDashboard() {
     },
     {
       label: "Interested Leads",
-      value: assigned.filter((row) => row.outcome === "Interested").length || 0,
+      value: assigned.filter((row) => row.status === "Interested").length,
       Icon: ThumbsUp,
       tone: "cyan",
       badgeText: "↗ Positive Response",

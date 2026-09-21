@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -13,6 +13,7 @@ import {
   FiClock,
   FiCheckCircle
 } from 'react-icons/fi';
+import axiosInstance from '../../utils/axiosConfig';
 import './TransferredCalls.css';
 
 const initialTransferredCalls = [
@@ -45,7 +46,43 @@ const initialTransferredCalls = [
 ];
 
 const TransferredCalls = () => {
-  const [calls] = useState(initialTransferredCalls);
+  const [calls, setCalls] = useState(initialTransferredCalls);
+  const [teamUsers, setTeamUsers] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTransferred = async () => {
+      try {
+        const [res, teamRes] = await Promise.allSettled([
+          axiosInstance.get('/crm/admin/calls/transferred', { _skipErrorNotify: true }),
+          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+        ]);
+        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
+          const items = res.value.data.items.map((lead, idx) => ({
+            id: lead._id || idx + 1,
+            leadId: `#LD-${String(lead._id).slice(-3)}`,
+            name: lead.name || 'Lead',
+            phone: lead.phone || '—',
+            transferredFrom: lead.transferredFrom?.name || 'System Auto-Assign',
+            transferredTo: lead.assignedTo?.name || 'Unassigned',
+            reason: lead.transferReason || lead.remarks || 'Direct lead assignment / consultation',
+            dateTime: lead.assignedAt ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : (lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'),
+            status: 'Transferred',
+            transferredBy: 'Admin / Manager',
+            notes: lead.remarks || 'Assigned to counselor for telecall follow up.'
+          }));
+          if (items.length > 0) {
+            setCalls(items);
+          }
+        }
+        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
+          setTeamUsers(teamRes.value.data.users);
+        }
+      } catch (err) {}
+    };
+    fetchTransferred();
+    return () => { isMounted = false; };
+  }, []);
   const [filters, setFilters] = useState({
     from: '',
     to: '',
@@ -175,8 +212,12 @@ const TransferredCalls = () => {
               onChange={e => handleFilterChange('from', e.target.value)}
             >
               <option value="">All Users</option>
-              <option value="Telecaller 1">Telecaller 1</option>
-              <option value="Telecaller 2">Telecaller 2</option>
+              {Array.from(new Set([
+                ...(teamUsers.map(u => u.name).filter(Boolean)),
+                ...(calls.map(c => c.transferredFrom).filter(Boolean))
+              ])).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
 
@@ -187,9 +228,12 @@ const TransferredCalls = () => {
               onChange={e => handleFilterChange('to', e.target.value)}
             >
               <option value="">All Users</option>
-              <option value="Telecaller 1">Telecaller 1</option>
-              <option value="Telecaller 2">Telecaller 2</option>
-              <option value="Senior Counselor">Senior Counselor</option>
+              {Array.from(new Set([
+                ...(teamUsers.map(u => u.name).filter(Boolean)),
+                ...(calls.map(c => c.transferredTo).filter(Boolean))
+              ])).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
 

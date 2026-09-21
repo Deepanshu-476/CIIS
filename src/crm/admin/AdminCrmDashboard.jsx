@@ -99,7 +99,7 @@ const generateTrendData = () => {
   return dates;
 };
 
-const trendData = generateTrendData();
+const initialTrendData = generateTrendData();
 
 // SVG Curve Generator
 const generateSvgPath = (data, key) => {
@@ -121,7 +121,7 @@ const generateSvgPath = (data, key) => {
 };
 
 // Pipeline Donut Data
-const pipelineData = [
+const initialPipelineData = [
   { name: 'New', value: 93.9, color: '#06b6d4' },
   { name: 'Assigned', value: 5.1, color: '#3b82f6' },
   { name: 'Interested', value: 0.3, color: '#10b981' },
@@ -176,7 +176,7 @@ const quickAccessItems = [
 ];
 
 // Recent Activity List
-const recentActivities = [
+const initialRecentActivities = [
   {
     id: 1,
     title: "Marketing: Parth Gupta",
@@ -243,7 +243,7 @@ const recentActivities = [
 ];
 
 // Team Performance Table Data
-const teamPerformanceData = [
+const initialTeamPerformanceData = [
   { member: "Telecaller 1", role: "Telecaller", roleBadge: "blue", calls: 2, visits: 0, leads: 3, conversion: "33.3%", conversionHigh: true },
   { member: "Marketing Exec3", role: "Marketing Exec", roleBadge: "purple", calls: 0, visits: 2, leads: 6, conversion: "0%", conversionHigh: false },
   { member: "Admin", role: "Admin", roleBadge: "blue", calls: 0, visits: 0, leads: 0, conversion: "0%", conversionHigh: false },
@@ -256,18 +256,43 @@ const teamPerformanceData = [
 export default function AdminCrmDashboard() {
   const navigate = useNavigate();
   const [statCards, setStatCards] = useState(initialStatCardsData);
+  const [trendData, setTrendData] = useState(initialTrendData);
+  const [pipelineData, setPipelineData] = useState(initialPipelineData);
+  const [teamPerformanceData, setTeamPerformanceData] = useState(initialTeamPerformanceData);
+  const [recentActivitiesList, setRecentActivitiesList] = useState(initialRecentActivities);
   const [hoverIndex, setHoverIndex] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
     const fetchCrmData = async () => {
       try {
-        const res = await axiosInstance.get('/leads', { _skipErrorNotify: true });
-        if (isMounted && res.data && Array.isArray(res.data) && res.data.length > 0) {
-          setStatCards(prev => prev.map((card, idx) => idx === 0 ? { ...card, value: String(res.data.length) } : card));
+        const res = await axiosInstance.get('/crm/admin/dashboard', { _skipErrorNotify: true });
+        if (isMounted && res.data) {
+          if (res.data.metrics) {
+            setStatCards([
+              { title: "Total Leads", value: String(res.data.metrics.totalLeads ?? 0), badge: "Active Leads", badgeType: "purple", icon: FiUsers, iconBg: "bg-purple-100 text-purple-600" },
+              { title: "Total Calls", value: String(res.data.metrics.totalCalls ?? 0), badge: `${res.data.metrics.todaysCalls ?? 0} today`, badgeType: "green", icon: FiPhoneCall, iconBg: "bg-emerald-100 text-emerald-600" },
+              { title: "Today's Visits", value: String(res.data.metrics.todaysVisits ?? 0), badge: "Scheduled", badgeType: "yellow", icon: FiMapPin, iconBg: "bg-amber-100 text-amber-600" },
+              { title: "Conversion Rate", value: res.data.metrics.conversionRate || "0%", badge: "Overall", badgeType: "cyan", icon: FiTrendingUp, iconBg: "bg-cyan-100 text-cyan-600" },
+              { title: "Pending Follow-Ups", value: String(res.data.metrics.pendingFollowUps ?? 0), badge: "Needs Attention", badgeType: "pink", icon: FiClock, iconBg: "bg-rose-100 text-rose-600" },
+              { title: "Active Users", value: String(res.data.metrics.activeUsers ?? 0), badge: `${res.data.metrics.unassignedLeads ?? 0} unassigned`, badgeType: "blue", icon: FiUserCheck, iconBg: "bg-blue-100 text-blue-600" }
+            ]);
+          }
+          if (Array.isArray(res.data.trendData) && res.data.trendData.length > 0) {
+            setTrendData(res.data.trendData);
+          }
+          if (Array.isArray(res.data.pipelineData) && res.data.pipelineData.length > 0) {
+            setPipelineData(res.data.pipelineData);
+          }
+          if (Array.isArray(res.data.teamPerformance) && res.data.teamPerformance.length > 0) {
+            setTeamPerformanceData(res.data.teamPerformance);
+          }
+          if (Array.isArray(res.data.recentActivities) && res.data.recentActivities.length > 0) {
+            setRecentActivitiesList(res.data.recentActivities);
+          }
         }
       } catch (err) {
-        // Keep fallback stat cards
+        // Fallback gracefully
       }
     };
     fetchCrmData();
@@ -521,7 +546,7 @@ export default function AdminCrmDashboard() {
           </div>
           <div className="crm-card-body activity-body">
             <div className="activity-timeline">
-              {recentActivities.map((act) => (
+              {recentActivitiesList.map((act) => (
                 <div className="activity-item" key={act.id}>
                   <div className={`activity-icon-badge ${act.type === 'visit' ? 'badge-green' : 'badge-amber'}`}>
                     {act.type === 'visit' ? <FiMapPin size={12} /> : <FiUsers size={12} />}

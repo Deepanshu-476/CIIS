@@ -378,12 +378,7 @@
   outline-offset: 2px;
 }
 
-.ActiveClientsOverview-summaryGrid article > span,
-.tone-blue,
-.tone-green,
-.tone-orange,
-.tone-red,
-.tone-purple {
+.ActiveClientsOverview-summaryGrid article > span {
   width: 48px;
   height: 48px;
   display: grid;
@@ -392,11 +387,11 @@
   font-size: 22px;
 }
 
-.tone-blue { background: #e8efff; color: #2563eb; }
-.tone-green { background: #e3f8eb; color: #18a058; }
-.tone-orange { background: #fff0dc; color: #f59e0b; }
-.tone-red { background: #ffe6e6; color: #ef4444; }
-.tone-purple { background: #f0e9ff; color: #7c3aed; }
+.ActiveClientsOverview-summaryGrid .tone-blue { background: #e8efff; color: #2563eb; }
+.ActiveClientsOverview-summaryGrid .tone-green { background: #e3f8eb; color: #18a058; }
+.ActiveClientsOverview-summaryGrid .tone-orange { background: #fff0dc; color: #f59e0b; }
+.ActiveClientsOverview-summaryGrid .tone-red { background: #ffe6e6; color: #ef4444; }
+.ActiveClientsOverview-summaryGrid .tone-purple { background: #f0e9ff; color: #7c3aed; }
 
 .ActiveClientsOverview-summaryGrid p {
   margin: 0 0 8px;
@@ -1211,12 +1206,7 @@
     padding: 12px;
   }
 
-  .ActiveClientsOverview-summaryGrid article > span,
-  .tone-blue,
-  .tone-green,
-  .tone-orange,
-  .tone-red,
-  .tone-purple {
+  .ActiveClientsOverview-summaryGrid article > span {
     width: 40px;
     height: 40px;
     font-size: 19px;

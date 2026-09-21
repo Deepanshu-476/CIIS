@@ -144,11 +144,13 @@ export default function CallWorkspace() {
   useEffect(() => {
     if (leadId && !leadFromAssigned) {
       let active = true;
+      setDirectLead(null);
       setFetchingDirect(true);
       setDirectError(null);
-      api.get(`/crm/telecaller/${leadId}`)
+      api.get(`/crm/telecaller/${leadId}`, { noCache: true })
         .then(({ data }) => {
-          if (active && data?.item) {
+          if (!data?.item) throw new Error('Lead is unavailable.');
+          if (active) {
             setDirectLead(normalizeLead(data.item));
           }
         })
@@ -167,7 +169,7 @@ export default function CallWorkspace() {
     }
   }, [leadId, leadFromAssigned]);
 
-  const activeLead = leadFromAssigned || directLead;
+  const activeLead = leadFromAssigned || (directLead?.id === leadId ? directLead : null);
   const activeCalls = activeLead
     ? (leadFromAssigned
         ? calls.filter((call) => call.leadId === leadId && call.outcome !== 'Note Added')
@@ -195,13 +197,13 @@ export default function CallWorkspace() {
     );
   }
 
-  return activeLead ? (
+  return activeLead ? ( 
     <CallWorkspaceContent
       key={activeLead.id}
       lead={activeLead}
       calls={activeCalls}
       can={can}
-      editAllowed={editAllowed && !isTerminal(activeLead)}
+      editAllowed={editAllowed}
       onSave={handleSaveDirect}
       prevLead={prevLead}
       nextLead={nextLead}
@@ -410,6 +412,54 @@ function CallWorkspaceContent({
   const savingRef = useRef(false);
   const callId = useRef(crypto.randomUUID());
 
+  const [isCalling, setIsCalling] = useState(false);
+  const [activeCallLogId, setActiveCallLogId] = useState(null);
+  const [callDuration, setCallDuration] = useState(0);
+  const [callStarting, setCallStarting] = useState(false);
+  const [callStatus, setCallStatus] = useState("answered");
+  const callTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (isCalling) {
+      callTimerRef.current = setInterval(() => {
+        setCallDuration((d) => d + 1);
+      }, 1000);
+    } else {
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+    }
+    return () => {
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+    };
+  }, [isCalling]);
+
+  const handleStartCall = async () => {
+    if (isCalling || callStarting) return;
+    setCallStarting(true);
+    setMessage("");
+    try {
+      const res = await api.post("/calls/start", { leadId: lead.id });
+      if (res.data?._id) {
+        setActiveCallLogId(res.data._id);
+      }
+      setCallDuration(0);
+      setIsCalling(true);
+      showToast(`📞 Call initiated with ${lead.name}`);
+    } catch (err) {
+      setMessage(err.response?.data?.msg || err.message || "Unable to initiate call log. Please retry.");
+    } finally {
+      setCallStarting(false);
+    }
+  };
+
+  const handleEndCall = () => {
+    if (!isCalling) return;
+    setIsCalling(false);
+    showToast(`Call ended (${callDuration}s). Please confirm status and save.`);
+    if (!outcome) {
+      setOutcome("Connected");
+    }
+  };
+
   const needsFollowUp = ["Follow-up", "Need Callback", "Call Later"].includes(outcome);
   const lastCall = calls[0];
 
@@ -477,30 +527,34 @@ function CallWorkspaceContent({
     savingRef.current = true;
     setSaving(true);
     try {
-    await onSave({
-      id: callId.current,
-      leadId: lead.id,
-      callType,
-      outcome,
-      notes: notes.trim(),
-      followUp: ['Converted', 'Call Closed'].includes(outcome) ? '' : followUp,
-    });
+      await onSave({
+        id: callId.current,
+        leadId: lead.id,
+        callType,
+        outcome,
+        notes: notes.trim(),
+        followUp: ["Converted", "Call Closed"].includes(outcome) ? "" : followUp,
+        duration: callDuration,
+        callLogId: activeCallLogId,
+      });
 
-    setMessage("✅ Call details recorded and saved successfully!");
-    showToast("Call details saved successfully!");
-    setOutcome("");
-    setNotes("");
-    setFollowUp("");
-    callId.current = crypto.randomUUID();
+      setMessage("✅ Call details recorded and saved successfully!");
+      showToast("Call details saved successfully!");
+      setOutcome("");
+      setNotes("");
+      setFollowUp("");
+      setActiveCallLogId(null);
+      setCallDuration(0);
+      callId.current = crypto.randomUUID();
     } catch (error) {
-      setMessage(error.response?.data?.message || error.message || 'Unable to save call. Please retry.');
+      setMessage(error.response?.data?.message || error.message || "Unable to save call. Please retry.");
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
   };
 
-  const cleanPhone = (lead.phone || "").replace(/\D/g, "");
+  const cleanPhone = (lead.phone || "").replace(/\D/g, "").replace(/^91/, "");
   const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(
     `Hello ${lead.name}, this is from CIIS Network regarding your inquiry for ${lead.type || "course"}.`
   )}`;
@@ -644,23 +698,67 @@ function CallWorkspaceContent({
 
           {/* Action Buttons */}
           <div className="cw-hero-actions">
-            <a
-              href={`tel:${lead.phone}`}
-              className="cw-btn cw-btn-call"
-              title="Click to dial phone"
-            >
-              <PhoneCall size={14} /> Call {lead.phone}
-            </a>
+            {isCalling ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    background: "#fee2e2",
+                    border: "1px solid #fca5a5",
+                    color: "#991b1b",
+                    padding: "7px 14px",
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontWeight: 600,
+                    fontSize: "12.5px",
+                  }}
+                >
+                  <PhoneCall size={14} style={{ color: "#dc2626" }} />
+                  <span>Call Active: {Math.floor(callDuration / 60).toString().padStart(2, "0")}:{(callDuration % 60).toString().padStart(2, "0")}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEndCall}
+                  className="cw-btn"
+                  style={{ background: "#dc2626", color: "white", borderColor: "#dc2626", fontWeight: 600 }}
+                >
+                  <PhoneOff size={14} /> End Call
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleStartCall}
+                  disabled={callStarting}
+                  className="cw-btn cw-btn-call"
+                  title="Start call and timer"
+                >
+                  <PhoneCall size={14} /> {callStarting ? "Starting..." : `Start Call`}
+                </button>
 
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="cw-btn cw-btn-whatsapp"
-              title="Open WhatsApp chat"
-            >
-              <MessageSquare size={14} /> WhatsApp
-            </a>
+                <a
+                  href={`tel:${lead.phone}`}
+                  onClick={() => { if (!isCalling) handleStartCall(); }}
+                  className="cw-btn cw-btn-call"
+                  style={{ background: "#059669", borderColor: "#059669" }}
+                  title="Click to dial phone"
+                >
+                  <Smartphone size={14} /> Dial {lead.phone}
+                </a>
+
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cw-btn cw-btn-whatsapp"
+                  title="Open WhatsApp chat"
+                >
+                  <MessageSquare size={14} /> WhatsApp
+                </a>
+              </>
+            )}
           </div>
         </div>
 
@@ -743,6 +841,47 @@ function CallWorkspaceContent({
             </div>
 
             <div className="cw-card-body" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {/* Call Result Status */}
+              <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--cw-text-muted)", marginBottom: 8 }}>
+                  Call Result Status:
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[
+                    { id: "answered", label: "Answered", color: "#10b981", bg: "#ecfdf5" },
+                    { id: "missed", label: "Missed", color: "#f59e0b", bg: "#fffbeb" },
+                    { id: "not reachable", label: "Not Reachable", color: "#3b82f6", bg: "#eff6ff" },
+                    { id: "rejected", label: "Rejected", color: "#ef4444", bg: "#fef2f2" }
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setCallStatus(s.id);
+                        if (s.id === "answered" && !outcome) setOutcome("Connected");
+                        if (s.id === "missed") setOutcome("No Answer");
+                        if (s.id === "not reachable") setOutcome("Not Reachable");
+                        if (s.id === "rejected") setOutcome("Wrong Number");
+                      }}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: 6,
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        border: "1.5px solid",
+                        borderColor: callStatus === s.id ? s.color : "#cbd5e1",
+                        background: callStatus === s.id ? s.bg : "white",
+                        color: callStatus === s.id ? s.color : "#64748b",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {outcomeCategories.map((cat) => (
                 <div key={cat.category} className="cw-outcome-category-block">
                   <div className="cw-category-header">

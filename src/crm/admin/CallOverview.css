@@ -311,19 +311,116 @@
   font-size: 11px;
 }
 
-/* Call Trends SVG Vector Chart */
+/* Call Trends & Analytics Header and Controls */
+.co-trend-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.co-trend-range-selector {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.co-range-btn {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.co-range-btn:hover {
+  color: #0f172a;
+}
+
+.co-range-btn.active {
+  background: #ffffff;
+  color: #7c3aed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Call Trends KPI Highlights Strip */
+.co-trend-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+}
+
+.co-trend-metric-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.co-trend-metric-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bg-purple {
+  background-color: #6366f1 !important;
+}
+
+.bg-teal {
+  background-color: #10b981 !important;
+}
+
+.bg-emerald {
+  background-color: #059669 !important;
+}
+
+.bg-amber {
+  background-color: #f59e0b !important;
+}
+
+.co-trend-metric-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.co-trend-metric-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.co-trend-metric-lbl {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+/* Call Trends Legend Header */
 .co-trend-legend-header {
   display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 10px;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-bottom: 6px;
 }
 
 .co-trend-legend-header .legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #475569;
 }
@@ -334,51 +431,126 @@
   border-radius: 2px;
 }
 
-.co-svg-chart-container {
+/* Call Trends Chart Container */
+.co-trend-chart-container {
   position: relative;
   width: 100%;
-  height: 220px;
+  height: 210px;
 }
 
-.co-svg-trend-chart {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.co-svg-chart-tooltip {
-  position: absolute;
+/* Custom Floating Dark Tooltip */
+.co-trend-custom-tooltip {
   background: #0f172a;
   color: #ffffff;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 10px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-  pointer-events: none;
-  transform: translateX(-50%);
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.co-svg-chart-tooltip strong {
+  padding: 10px 12px;
+  border-radius: 8px;
   font-size: 11px;
-  color: #e2e8f0;
-  margin-bottom: 2px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  border: 1px solid #334155;
+  min-width: 145px;
 }
 
-.co-svg-chart-tooltip div {
+.co-trend-custom-tooltip .tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.co-trend-custom-tooltip .tooltip-day {
+  font-weight: 700;
+  color: #f8fafc;
+  font-size: 12px;
+}
+
+.co-trend-custom-tooltip .tooltip-date {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.co-trend-custom-tooltip .tooltip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 3px 0;
+}
+
+.co-trend-custom-tooltip .tooltip-label-group {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.co-svg-chart-tooltip .dot {
-  width: 8px;
-  height: 8px;
+.co-trend-custom-tooltip .tooltip-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   display: inline-block;
+}
+
+.co-trend-custom-tooltip .tooltip-label {
+  color: #cbd5e1;
+  font-size: 10.5px;
+}
+
+.co-trend-custom-tooltip .tooltip-value {
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.co-trend-custom-tooltip .tooltip-divider {
+  height: 1px;
+  background: #334155;
+  margin: 6px 0;
+}
+
+.co-trend-custom-tooltip .tooltip-sub {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.co-trend-custom-tooltip .tooltip-rate {
+  font-weight: 700;
+  font-size: 11px;
+  color: #34d399;
+}
+
+/* Empty hint banner inside Call Trends */
+.co-trend-empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.co-trend-empty-text {
+  flex: 1;
+}
+
+.co-trend-action-link {
+  background: none;
+  border: none;
+  color: #7c3aed;
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  white-space: nowrap;
+  padding: 0;
+}
+
+.co-trend-action-link:hover {
+  color: #6d28d9;
 }
 
 /* Call Outcomes Layout */

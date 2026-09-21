@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -15,6 +15,7 @@ import {
   FiCalendar,
   FiPhoneCall
 } from 'react-icons/fi';
+import axiosInstance from '../../utils/axiosConfig';
 import './CompletedCalls.css';
 
 const initialCompletedCalls = [
@@ -53,7 +54,46 @@ const initialCompletedCalls = [
 ];
 
 const CompletedCalls = () => {
-  const [calls] = useState(initialCompletedCalls);
+  const [calls, setCalls] = useState(initialCompletedCalls);
+  const [teamUsers, setTeamUsers] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCompleted = async () => {
+      try {
+        const [res, teamRes] = await Promise.allSettled([
+          axiosInstance.get('/crm/admin/calls/completed', { _skipErrorNotify: true }),
+          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+        ]);
+        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
+          const items = res.value.data.items.map((lead, idx) => ({
+            id: lead._id || idx + 1,
+            leadId: `#LD-${String(lead._id).slice(-3)}`,
+            name: lead.name || 'Lead',
+            note: lead.remarks || lead.customField1 || '—',
+            phone: lead.phone || '—',
+            source: lead.leadSource?.name || lead.source || 'Direct',
+            leadType: lead.leadType?.name || 'General',
+            leadStatus: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Converted',
+            outcome: lead.status === 'converted' ? 'Converted' : 'Interested',
+            callType: 'Outbound',
+            completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
+            attempts: 1,
+            assignedTo: lead.assignedTo?.name || 'Unassigned',
+            remarks: lead.remarks || 'Completed call inquiry.'
+          }));
+          if (items.length > 0) {
+            setCalls(items);
+          }
+        }
+        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
+          setTeamUsers(teamRes.value.data.users);
+        }
+      } catch (err) {}
+    };
+    fetchCompleted();
+    return () => { isMounted = false; };
+  }, []);
   const [filters, setFilters] = useState({
     assignedTo: '',
     outcome: '',
@@ -201,8 +241,12 @@ const CompletedCalls = () => {
               onChange={e => handleFilterChange('assignedTo', e.target.value)}
             >
               <option value="">All Users</option>
-              <option value="Telecaller 1">Telecaller 1</option>
-              <option value="Telecaller 2">Telecaller 2</option>
+              {Array.from(new Set([
+                ...(teamUsers.map(u => u.name).filter(Boolean)),
+                ...(calls.map(c => c.assignedTo).filter(Boolean))
+              ])).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
 
@@ -240,10 +284,12 @@ const CompletedCalls = () => {
               onChange={e => handleFilterChange('source', e.target.value)}
             >
               <option value="">Select Lead Source</option>
-              <option value="Facebook">Facebook</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Referral">Referral</option>
-              <option value="Website">Website</option>
+              {Array.from(new Set([
+                'Facebook', 'Instagram', 'Referral', 'Website',
+                ...(calls.map(c => c.source).filter(Boolean))
+              ])).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
           </div>
 
@@ -254,9 +300,12 @@ const CompletedCalls = () => {
               onChange={e => handleFilterChange('leadType', e.target.value)}
             >
               <option value="">Select Lead Type</option>
-              <option value="NEET">NEET</option>
-              <option value="JEE">JEE</option>
-              <option value="CAT">CAT</option>
+              {Array.from(new Set([
+                'NEET', 'JEE', 'CAT',
+                ...(calls.map(c => c.leadType).filter(Boolean))
+              ])).map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
             </select>
           </div>
 

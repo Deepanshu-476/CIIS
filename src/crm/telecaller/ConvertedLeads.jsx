@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Calendar, Trophy, TrendingUp } from "lucide-react";
-import { todayKey } from "./liveData";
+import { todayKey, conversionRate } from "./liveData";
 import { useTelecaller } from "./useTelecaller";
 import { DataTable, Filters, Stats, day } from "./CallComponents";
 import { filterCalls } from "./filterCalls";
@@ -38,7 +38,7 @@ export default function ConvertedLeads() {
           ],
           [
             "Conversion Rate",
-            `${assigned.length ? ((converted.length / assigned.length) * 100).toFixed(1) : "33.3"}%`,
+            `${conversionRate(assigned)}%`,
             TrendingUp,
             "orange",
           ],

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -13,6 +13,7 @@ import {
   FiPhone,
   FiUser
 } from 'react-icons/fi';
+import axiosInstance from '../../utils/axiosConfig';
 import './FollowUpCenter.css';
 
 const INITIAL_FOLLOWUPS = [
@@ -48,6 +49,43 @@ const INITIAL_FOLLOWUPS = [
 
 export default function FollowUpCenter() {
   const [followups, setFollowups] = useState(INITIAL_FOLLOWUPS);
+  const [teamUsers, setTeamUsers] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFollowups = async () => {
+      try {
+        const [res, teamRes] = await Promise.allSettled([
+          axiosInstance.get('/crm/admin/calls/follow-ups', { _skipErrorNotify: true }),
+          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+        ]);
+        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
+          const items = res.value.data.items.map((item, idx) => ({
+            id: item._id || idx + 1,
+            department: 'Telecaller',
+            type: [item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Call'],
+            leadId: `#LD-${String(item.lead?._id || item._id).slice(-3)}`,
+            institute: item.lead?.name || 'Lead',
+            phone: item.lead?.phone || '—',
+            assignedTo: item.agent?.name || 'Telecaller',
+            assignedRole: 'Telecaller',
+            dueDate: item.date ? new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) + (item.time ? ` ${item.time}` : '') : '—',
+            dueRelative: item.date && new Date(item.date) < new Date() ? 'Overdue' : 'Upcoming',
+            status: item.status === 'completed' ? 'Completed' : (item.date && new Date(item.date) < new Date() ? 'Overdue' : 'Pending'),
+            priority: item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : 'Medium'
+          }));
+          if (items.length > 0) {
+            setFollowups(items);
+          }
+        }
+        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
+          setTeamUsers(teamRes.value.data.users);
+        }
+      } catch (err) {}
+    };
+    fetchFollowups();
+    return () => { isMounted = false; };
+  }, []);
   
   // Filter States
   const [deptFilter, setDeptFilter] = useState('All Departments');
@@ -260,9 +298,12 @@ export default function FollowUpCenter() {
               onChange={(e) => setAssignedFilter(e.target.value)}
             >
               <option value="All Users">All Users</option>
-              <option value="Marketing Exec3">Marketing Exec3</option>
-              <option value="Telecaller 1">Telecaller 1</option>
-              <option value="Telecaller 2">Telecaller 2</option>
+              {Array.from(new Set([
+                ...(teamUsers.map(u => u.name).filter(Boolean)),
+                ...(followups.map(f => f.assignedTo).filter(Boolean))
+              ])).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Phone,
   PhoneCall,
@@ -29,15 +29,19 @@ import {
   Filter,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
+import api from "../../utils/axiosConfig";
 import { TELECALLER_BASE } from "./telecallerPages";
 import { useTelecaller } from "./useTelecaller";
-import { todayKey, formatDate } from "./liveData";
+import { todayKey, formatDate, normalizeLead } from "./liveData";
 import { dateLabel } from "./LeadComponents";
 import "./LeadDetail.css";
 
 export default function LeadDetail() {
   const { leadId } = useParams();
   const { assigned, calls, can, editAllowed, saveCall } = useTelecaller();
+  const [directLead, setDirectLead] = useState(null);
+  const [fetchingDirect, setFetchingDirect] = useState(false);
+  const [directError, setDirectError] = useState(null);
   
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -62,22 +66,75 @@ export default function LeadDetail() {
   }, [assigned, searchTerm, filterStatus]);
 
   const leadIndex = assigned.findIndex((row) => row.id === leadId);
-  const lead = leadIndex >= 0 ? assigned[leadIndex] : null;
+  const leadFromAssigned = leadIndex >= 0 ? assigned[leadIndex] : null;
   const prevLead = leadIndex > 0 ? assigned[leadIndex - 1] : null;
   const nextLead = leadIndex >= 0 && leadIndex < assigned.length - 1 ? assigned[leadIndex + 1] : null;
 
-  return lead ? (
+  useEffect(() => {
+    if (leadId && !leadFromAssigned) {
+      let active = true;
+      setDirectLead(null);
+      setFetchingDirect(true);
+      setDirectError(null);
+      api.get(`/crm/telecaller/${leadId}`, { noCache: true })
+        .then(({ data }) => {
+          if (!data?.item) throw new Error('Lead is unavailable.');
+          if (active) {
+            setDirectLead(normalizeLead(data.item));
+          }
+        })
+        .catch((err) => {
+          if (active) {
+            setDirectError(err.response?.data?.message || 'Lead not found in this company.');
+          }
+        })
+        .finally(() => {
+          if (active) setFetchingDirect(false);
+        });
+      return () => { active = false; };
+    } else {
+      setDirectLead(null);
+      setDirectError(null);
+    }
+  }, [leadId, leadFromAssigned]);
+
+  const activeLead = leadFromAssigned || (directLead?.id === leadId ? directLead : null);
+  const activeCalls = activeLead
+    ? (leadFromAssigned
+        ? calls.filter((call) => call.leadId === leadId)
+        : (directLead?.calls || []))
+    : [];
+
+  const handleSaveDirect = async (callData) => {
+    const savedItem = await saveCall(callData);
+    if (savedItem && !leadFromAssigned) {
+      setDirectLead(normalizeLead(savedItem));
+    }
+    return savedItem;
+  };
+
+  if (leadId && fetchingDirect) {
+    return (
+      <div className="ld-container" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
+        <p style={{ color: "var(--ld-text-muted)", fontSize: "13.5px", fontWeight: 500 }}>
+          Loading profile for lead #{leadId}...
+        </p>
+      </div>
+    );
+  }
+
+  return activeLead ? (
     <LeadDetailContent
-      key={leadId}
-      lead={lead}
-      calls={calls.filter((call) => call.leadId === leadId)}
+      key={activeLead.id}
+      lead={activeLead}
+      calls={activeCalls}
       can={can}
       editAllowed={editAllowed}
-      onSaveCall={saveCall}
+      onSaveCall={handleSaveDirect}
       prevLead={prevLead}
       nextLead={nextLead}
-      totalLeads={assigned.length}
-      currentIndex={leadIndex + 1}
+      totalLeads={assigned.length || 1}
+      currentIndex={leadIndex >= 0 ? leadIndex + 1 : 1}
     />
   ) : (
     <div className="ld-container">
@@ -222,6 +279,7 @@ function LeadDetailContent({
   const [newNote, setNewNote] = useState("");
   const [toastMessage, setToastMessage] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState('');
   const noteId = useRef(crypto.randomUUID());
   const notePending = useRef(false);
 
@@ -250,6 +308,7 @@ function LeadDetailContent({
     };
 
     notePending.current = true;
+    setNoteError('');
     setSavingNote(true);
     try {
     await onSaveCall(noteRecord);
@@ -257,7 +316,7 @@ function LeadDetailContent({
     showToast("Note added successfully!");
     noteId.current = crypto.randomUUID();
     } catch (error) {
-      showToast(error.response?.data?.message || error.message || 'Unable to save note.');
+      setNoteError(error.response?.data?.message || error.message || 'Unable to save note. Please retry.');
     } finally {
       notePending.current = false;
       setSavingNote(false);
@@ -296,7 +355,7 @@ function LeadDetailContent({
   const totalNotes = calls.filter((c) => c.notes).length;
   const nextFollowUp = lead.followUp;
 
-  const cleanPhone = (lead.phone || "").replace(/\D/g, "");
+  const cleanPhone = (lead.phone || "").replace(/\D/g, "").replace(/^91/, "");
   const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(
     `Hello ${lead.name}, this is from CIIS Network regarding your inquiry for ${lead.type || "course"}.`
   )}`;
@@ -843,6 +902,7 @@ function LeadDetailContent({
                     <FileText size={14} /> Add Quick Note / Interaction Log
                   </label>
                   <textarea
+                    disabled={!editAllowed || savingNote}
                     className="ld-note-textarea"
                     placeholder="Type details about your conversation, student interest level, next steps..."
                     value={newNote}
@@ -858,6 +918,7 @@ function LeadDetailContent({
                       <Send size={13} /> Save Note
                     </button>
                   </div>
+                  {noteError && <p role="alert">{noteError}</p>}
                 </form>
 
                 {/* List of Notes */}

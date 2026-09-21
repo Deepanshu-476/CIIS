@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axiosInstance from '../../utils/axiosConfig';
 import {
   FiChevronRight,
   FiFilter,
@@ -75,7 +76,39 @@ const initialCallHistory = [
 ];
 
 const CallHistory = () => {
-  const [calls] = useState(initialCallHistory);
+  const [calls, setCalls] = useState(initialCallHistory);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchHistory = async () => {
+      setLoading(true);
+      try {
+        const res = await axiosInstance.get('/crm/admin/calls/history', { _skipErrorNotify: true });
+        if (isMounted && res.data && Array.isArray(res.data.items) && res.data.items.length > 0) {
+          const mapped = res.data.items.map((log, idx) => ({
+            id: log._id || idx + 1,
+            leadId: `#LD-${String(log.lead?._id || idx + 1).slice(-3)}`,
+            name: log.lead?.name || 'Lead',
+            phone: log.lead?.phone || '—',
+            source: log.lead?.leadSource?.name || log.lead?.source || 'Direct',
+            leadType: log.lead?.leadType?.name || 'General',
+            callType: 'Outbound',
+            outcome: log.status ? log.status.charAt(0).toUpperCase() + log.status.slice(1) : 'Answered',
+            remarks: log.notes || '—',
+            callTime: new Date(log.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+            assignedTo: log.agent?.name || 'Agent',
+            duration: log.duration ? `${Math.floor(log.duration / 60).toString().padStart(2, '0')}m ${(log.duration % 60).toString().padStart(2, '0')}s` : '00m 00s'
+          }));
+          setCalls(mapped);
+        }
+      } catch (err) {} finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchHistory();
+    return () => { isMounted = false; };
+  }, []);
   const [filters, setFilters] = useState({
     searchLead: '',
     outcome: '',

@@ -886,58 +886,165 @@
 
 .crm-all-leads .al-member-select { margin-top: 8px; font-size: 13px; }
 .crm-all-leads .al-member-select .al-member__control {
-  min-height: 48px;
-  border: 1px solid #d8dee9;
-  border-radius: 10px;
+  min-height: 46px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: 0 1px 2px #0f172a05;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   cursor: pointer;
+  transition: all 0.15s ease;
 }
-.crm-all-leads .al-member-select .al-member__control:hover { border-color: #a5b4fc; }
+.crm-all-leads .al-member-select .al-member__control:hover { border-color: #94a3b8; }
 .crm-all-leads .al-member-select .al-member__control--is-focused {
   border-color: #6366f1;
-  box-shadow: 0 0 0 3px #6366f11a;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
-.crm-all-leads .al-member-select .al-member__value-container { padding: 5px 12px; }
-.crm-all-leads .al-member-select .al-member__placeholder { color: #94a3b8; }
+.crm-all-leads .al-member-select .al-member__value-container { padding: 4px 12px; }
+.crm-all-leads .al-member-select .al-member__placeholder { color: #94a3b8; font-size: 13px; }
 .crm-all-leads .al-member-select .al-member__indicator-separator { display: none; }
-.crm-all-leads .al-member-select .al-member__dropdown-indicator { color: #64748b; padding: 10px; }
-.crm-all-leads .al-member__menu-portal .al-member__menu {
+.crm-all-leads .al-member-select .al-member__dropdown-indicator { color: #64748b; padding: 8px; }
+
+/* Menu Portal & Dropdown styles */
+.al-member__menu-portal {
+  z-index: 100000 !important;
+}
+
+.al-member__menu-portal .al-member__menu,
+.crm-all-leads .al-member__menu {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 12px 36px #0f172a24, 0 2px 6px #0f172a0a;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14), 0 4px 10px rgba(15, 23, 42, 0.05);
   overflow: hidden;
   font-family: inherit;
   font-size: 13px;
+  margin-top: 6px;
 }
-.crm-all-leads .al-member__menu-portal .al-member__menu-list { padding: 6px; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-.crm-all-leads .al-member__menu-portal .al-member__option {
-  padding: 10px;
-  border-radius: 8px;
-  color: #334155;
-  background: #fff;
+
+.al-member__menu-portal .al-member__menu-list,
+.crm-all-leads .al-member__menu-list {
+  padding: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.al-member__menu-portal .al-member__option,
+.crm-all-leads .al-member__option {
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: #1e293b;
+  background: #ffffff;
   cursor: pointer;
+  margin-bottom: 2px;
+  transition: background-color 0.12s ease;
 }
-.crm-all-leads .al-member__menu-portal .al-member__option--is-focused { background: #f8fafc; }
-.crm-all-leads .al-member__menu-portal .al-member__option--is-selected { background: #eef2ff; color: #4338ca; }
-.crm-all-leads .al-member-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.crm-all-leads .al-member-avatar {
-  display: grid;
-  place-items: center;
-  flex: 0 0 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #ede9fe;
-  color: #6d28d9;
-  font-size: 11px;
-  font-weight: 700;
+
+.al-member__menu-portal .al-member__option--is-focused,
+.crm-all-leads .al-member__option--is-focused {
+  background: #f8fafc;
+  color: #0f172a;
 }
-.crm-all-leads .al-member-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
-.crm-all-leads .al-member-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crm-all-leads .al-member-detail { color: #64748b; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crm-all-leads .al-member-check { flex-shrink: 0; color: #6366f1; }
-.crm-all-leads .al-member-unassign .al-member-avatar { background: #fff1f2; color: #e11d48; }
+
+.al-member__menu-portal .al-member__option--is-selected,
+.crm-all-leads .al-member__option--is-selected {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+/* Member row, avatar, copy layout */
+.al-member-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.al-member-avatar {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50% !important;
+  background: #e0e7ff !important;
+  color: #4338ca !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  border: 1px solid #c7d2fe !important;
+  user-select: none !important;
+}
+
+.al-member-unassign .al-member-avatar {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+  border-color: #fca5a5 !important;
+}
+
+.al-member-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+  text-align: left !important;
+}
+
+.al-member-header-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+}
+
+.al-member-name {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  line-height: 1.3 !important;
+}
+
+.al-member-role-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 1px 7px !important;
+  border-radius: 9999px !important;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  text-transform: capitalize !important;
+  flex-shrink: 0 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.al-member-detail {
+  color: #64748b !important;
+  font-size: 11.5px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  line-height: 1.2 !important;
+}
+
+.al-member-unassign .al-member-name {
+  color: #dc2626 !important;
+}
+
+.al-member-unassign .al-member-detail {
+  color: #ef4444 !important;
+}
+
+.al-member-check {
+  flex-shrink: 0 !important;
+  color: #4f46e5 !important;
+  margin-left: auto !important;
+}
 
 .crm-all-leads .al-hint-text {
   font-size: 11px;

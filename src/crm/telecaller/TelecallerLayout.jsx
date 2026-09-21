@@ -8,13 +8,13 @@ import {
   loadPagePermission,
   hasPageAccess,
 } from "../../utils/pageAccess";
+import { AlertCircle } from "lucide-react";
+import TelecallerSkeleton from "./TelecallerSkeleton";
 import "./Telecaller.css";
 import "./DashboardComponents.css";
 import "./CallComponents.css";
 import "./ResponsiveLayout.css";
 import { TelecallerContext } from "./useTelecaller";
-
-import { getDemoAssignedLeads } from "./demoData";
 
 const getCompany = () => {
   try {
@@ -41,104 +41,87 @@ function TelecallerSession({ slug }) {
     let active = true;
     setLoading(true);
     setError('');
-    api.get('/crm/telecaller', { cache: false })
+    api.get('/crm/telecaller', { noCache: true })
       .then(({ data }) => {
+        if (!Array.isArray(data?.items)) throw new Error('Unable to load assigned leads: invalid server response.');
+        if (active) setAssigned(data.items.map(normalizeLead));
+      })
+      .catch(error => {
         if (active) {
-          if (Array.isArray(data?.items) && data.items.length > 0) {
-            setAssigned(data.items.map(normalizeLead));
-          } else {
-            // Restore demo leads so telecaller flow is fully active and visible
-            setAssigned(getDemoAssignedLeads());
-          }
+          setAssigned([]);
+          setError(error.response?.data?.message || error.message || 'Unable to load assigned leads. Please retry.');
         }
       })
-      .catch(() => {
-        if (active) {
-          // Gracefully fallback to demo data if API fails or is unconfigured
-          setAssigned(getDemoAssignedLeads());
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [version, slug]);
+  }, [version]);
 
   const [access, setAccess] = useState([]);
-  const [editAllowed, setEditAllowed] = useState(true);
+  const [editAllowed, setEditAllowed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
     const company = getCompany();
-    Promise.all(
-      TELECALLER_PAGES.map(async (page) => {
-        if (!hasTelecallerCompanyAccess(page, company)) return page.slug;
-        try {
-          const permission = await loadPagePermission(page.path);
-          const hasView = hasPageAccess(permission, getCurrentUserId(), "view");
-          return hasView !== false ? page.slug : null;
-        } catch {
-          return page.slug;
-        }
-      }),
-    ).then((pages) => {
-      if (!cancelled) {
-        setAccess(pages.filter(Boolean));
-        setEditAllowed(true);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
+    const accessible = TELECALLER_PAGES.filter(p => hasTelecallerCompanyAccess(p, company)).map(p => p.slug);
+    let active = true;
+    setAccess([]);
+    setEditAllowed(false);
+    Promise.all(TELECALLER_PAGES.filter(p => accessible.includes(p.slug)).map(async page => {
+      const permission = await loadPagePermission(page.path);
+      return { page, permission };
+    })).then(results => {
+      if (!active) return;
+      const userId = getCurrentUserId();
+      setAccess(results.filter(({ permission }) => {
+        const viewUsers = permission?.viewUsers;
+        const isConfigured = Array.isArray(viewUsers) && viewUsers.length > 0;
+        return !isConfigured || hasPageAccess(permission, userId, 'view');
+      }).map(({ page }) => page.slug));
+      const current = results.find(({ page }) => page.slug === slug);
+      const workspace = results.find(({ page }) => page.slug === 'call-workspace');
+      const targetPermission = slug === 'lead-detail' ? (workspace?.permission || current?.permission) : current?.permission;
+      const editConfigured = Array.isArray(targetPermission?.editUsers) && targetPermission.editUsers.length > 0;
+      setEditAllowed(Boolean(!editConfigured || hasPageAccess(targetPermission, userId, 'edit')));
+    }).catch(() => { if (active) setEditAllowed(false); });
+    return () => { active = false; };
   }, [slug]);
 
-  const can = (key) => access.length === 0 || access.includes(key);
-  const calls = assigned.flatMap(lead => lead.calls || []).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
-  const enriched = calls.map((call) => ({
-    ...assigned.find((lead) => lead.id === call.leadId),
-    ...call,
-    id: call.leadId,
-    rowId: call.id,
-  })).filter(call => call.outcome !== 'Note Added');
-  const today = enriched.filter((row) => row.date && row.date.startsWith(todayKey()));
+  const can = (key) => access.includes(key);
+  const calls = assigned
+    .flatMap(lead => Array.isArray(lead?.calls) ? lead.calls : [])
+    .filter(Boolean)
+    .sort((a, b) => String(b?.date || '').localeCompare(String(a?.date || '')));
+  const enriched = calls.map((call) => {
+    const parentLead = assigned.find((lead) => lead?.id === call?.leadId) || {};
+    return {
+      ...parentLead,
+      ...call,
+      id: call?.leadId || parentLead?.id,
+      rowId: call?.id,
+    };
+  }).filter(call => call && call.outcome !== 'Note Added');
+  const today = enriched.filter((row) => typeof row?.date === 'string' && row.date.startsWith(todayKey()));
   const followups = assigned.filter(
-    (row) => row.followUp && !isTerminal(row),
+    (row) => row && row.followUp && !isTerminal(row),
   );
   const pending = assigned.filter(
-    (row) => !row.date && !isTerminal(row),
+    (row) => row && !row.date && !isTerminal(row),
   );
-  const converted = assigned.filter((row) => row.status === "Converted");
+  const converted = assigned.filter((row) => row && row.status === "Converted");
   const page = TELECALLER_PAGES.find((page) => page.slug === slug);
 
   const saveCall = async call => {
-    try {
-      const { data } = await api.post(`/crm/telecaller/${call.leadId}/calls`, {
-        id: call.id, outcome: call.outcome, callType: call.callType, notes: call.notes,
-        followUp: call.followUp ? new Date(call.followUp).toISOString() : null,
-      });
-      if (data?.item) {
-        setAssigned(current => current.map(lead => lead.id === call.leadId ? normalizeLead(data.item) : lead));
-        return;
-      }
-    } catch {
-      // In demo mode or offline, update locally so flow continues
+    const { data } = await api.post(`/crm/telecaller/${call.leadId}/calls`, {
+      id: call.id, outcome: call.outcome, callType: call.callType, notes: call.notes,
+      followUp: call.followUp ? new Date(call.followUp).toISOString() : null,
+    });
+    if (!data?.item?._id || String(data.item._id) !== String(call.leadId)) {
+      throw new Error('Save could not be confirmed. Please retry.');
     }
-
-    setAssigned(current => current.map(lead => {
-      if (lead.id === call.leadId) {
-        const updatedCalls = [call, ...(lead.calls || []).filter(c => c.id !== call.id)];
-        return {
-          ...lead,
-          date: call.date || new Date().toISOString(),
-          outcome: call.outcome,
-          notes: call.notes,
-          followUp: call.followUp ? String(call.followUp).slice(0, 16) : '',
-          calls: updatedCalls,
-          status: call.outcome === 'Converted' ? 'Converted' : lead.status
-        };
-      }
-      return lead;
-    }));
+    const savedLead = normalizeLead(data.item);
+    setAssigned(current => current.some(lead => lead.id === savedLead.id)
+      ? current.map(lead => lead.id === savedLead.id ? savedLead : lead)
+      : [...current, savedLead]);
+    return data.item;
   };
 
   const value = {
@@ -152,6 +135,7 @@ function TelecallerSession({ slug }) {
     can,
     editAllowed,
     saveCall,
+    refresh: () => setVersion(v => v + 1),
   };
 
   const pageTitle = ["dashboard", "call-dashboard"].includes(slug)
@@ -181,6 +165,7 @@ function TelecallerSession({ slug }) {
       <main className="haps-page-wrapper">
         <div className="haps-top-header">
           <h1 className="haps-page-title">{pageTitle}</h1>
+          <button type="button" className="cw-btn-nav" disabled={loading} onClick={() => setVersion(v => v + 1)}>Refresh leads</button>
           <div className="haps-breadcrumbs">
             {slug === "converted-leads" ? (
               <>
@@ -212,7 +197,25 @@ function TelecallerSession({ slug }) {
           </div>
         </div>
 
-        {loading ? <p role="status">Loading assigned leads...</p> : error ? <div role="alert">{error} <button onClick={() => setVersion(v => v + 1)}>Retry</button></div> : <Outlet />}
+        {loading ? (
+          <TelecallerSkeleton slug={slug} />
+        ) : error ? (
+          <div className="tc-error-state" role="alert">
+            <AlertCircle size={32} className="tc-error-icon" />
+            <h3>Unable to load leads</h3>
+            <p>{error}</p>
+            <button
+              type="button"
+              className="cw-btn-nav"
+              style={{ background: "#6366f1", color: "#ffffff", borderColor: "#6366f1" }}
+              onClick={() => setVersion(v => v + 1)}
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
     </TelecallerContext.Provider>
   );

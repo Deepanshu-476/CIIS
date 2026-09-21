@@ -11,6 +11,7 @@ import {
   ChevronsRight,
   ArrowUp,
   Calendar,
+  Check,
   CheckCircle
 } from "lucide-react";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
@@ -37,6 +38,24 @@ export const followStatus = (row) =>
     : day(row.followUp) === todayKey()
       ? "Today"
       : "Upcoming";
+
+export const formatRelativeAge = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "—";
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 0) return formatDate(value);
+  const diffMinutes = Math.floor(diffMs / (60 * 1000));
+  const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 30) return `${diffDays} days ago`;
+  return formatDate(value);
+};
 
 const getBadgeClass = (key, val) => {
   if (key === "source") return "haps-badge source-facebook";
@@ -163,7 +182,8 @@ export function DataTable({
   title = "Recent Calls",
   showViewAll = false,
   emptyTitle,
-  emptySubtitle
+  emptySubtitle,
+  onCompleteFollowUp
 }) {
   const [search, setSearch] = useState("");
   const [size, setSize] = useState(10);
@@ -357,12 +377,29 @@ export function DataTable({
                 {columns.map(([key]) => (
                   <td key={key}>
                     {key === "id" ? (
-                      <span className="haps-lead-code">#{row.id}</span>
+                      can("lead-detail") ? (
+                        <Link
+                          to={`${BASE}/lead-detail/${row.id}`}
+                          className="haps-lead-code"
+                          title={`Lead ID: #${row.id} (Click to view)`}
+                          style={{ textDecoration: 'none' }}
+                        >
+                          #{String(row.id).length > 10 ? `...${String(row.id).slice(-6)}` : row.id}
+                        </Link>
+                      ) : (
+                        <span className="haps-lead-code" title={`Lead ID: #${row.id}`}>
+                          #{String(row.id).length > 10 ? `...${String(row.id).slice(-6)}` : row.id}
+                        </span>
+                      )
                     ) : key === "name" ? (
                       kind === "assigned" || kind === "converted" ? (
                         <div className="haps-lead-info-cell">
                           <span className="haps-lead-name">{row.name}</span>
-                          <small className="haps-lead-sub">{kind === "converted" ? (row.email || "zara.nair67@gmail.com") : "Student inquiry"}</small>
+                          <small className="haps-lead-sub" title={row.notes || row.remarks || ""}>
+                            {kind === "converted"
+                              ? (row.email || "—")
+                              : (row.notes || row.remarks || row.interest || row.course || "Inquiry")}
+                          </small>
                         </div>
                       ) : (
                         <span className="haps-lead-name">{row.name}</span>
@@ -399,7 +436,9 @@ export function DataTable({
                     ) : key === "attempts" ? (
                       <span className="haps-attempts-badge">{row.attempts !== undefined ? row.attempts : 0}</span>
                     ) : kind === "assigned" && key === "assigned" ? (
-                      <span className="haps-assigned-age">{formatDate(row.assigned)}</span>
+                      <span className="haps-assigned-age" title={`Assigned: ${formatDate(row.assigned)}`}>
+                        {formatRelativeAge(row.assigned)}
+                      </span>
                     ) : kind === "converted" && key === "status" ? (
                       <span className="haps-badge-pill-green">
                         <CheckCircle size={11} style={{ marginRight: 3, verticalAlign: "-1px" }} /> Converted
@@ -455,6 +494,17 @@ export function DataTable({
                           <Eye size={13} />
                         </Link>
                       )}
+                      {kind === "follow-ups" && onCompleteFollowUp && row.status !== "done" && (
+                        <button
+                          type="button"
+                          className="haps-icon-btn"
+                          style={{ color: "#10b981", borderColor: "#a7f3d0", background: "#ecfdf5", cursor: "pointer" }}
+                          title="Complete Follow-up"
+                          onClick={() => onCompleteFollowUp(row)}
+                        >
+                          <Check size={13} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </td>
@@ -499,16 +549,37 @@ export function DataTable({
             >
               <ChevronLeft size={14} />
             </button>
-            {Array.from({ length: pages }, (_, idx) => (
-              <button
-                key={idx + 1}
-                type="button"
-                className={current === idx + 1 ? "active" : ""}
-                onClick={() => setPage(idx + 1)}
-              >
-                {idx + 1}
-              </button>
-            ))}
+            {(() => {
+              const pageNumbers = [];
+              const delta = 2;
+              const rangeLeft = Math.max(2, current - delta);
+              const rangeRight = Math.min(pages - 1, current + delta);
+
+              pageNumbers.push(1);
+              if (rangeLeft > 2) pageNumbers.push('...');
+              for (let i = rangeLeft; i <= rangeRight; i++) {
+                pageNumbers.push(i);
+              }
+              if (rangeRight < pages - 1) pageNumbers.push('...');
+              if (pages > 1) pageNumbers.push(pages);
+
+              return pageNumbers.map((p, idx) =>
+                p === '...' ? (
+                  <span key={`ellip-${idx}`} style={{ padding: '0 6px', alignSelf: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    className={current === p ? "active" : ""}
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </button>
+                )
+              );
+            })()}
             <button
               type="button"
               disabled={current === pages}
@@ -596,6 +667,7 @@ export function Filters({ onApply, kind, rows = [] }) {
           {kind === "history" && field("search", "Search Lead", null, "text", "Search lead...")}
           {field("source", "Source", [...new Set(rows.map(row => row.source).filter(Boolean))], null, "Select Lead Source")}
           {field("type", "Lead Type", [...new Set(rows.map(row => row.type).filter(Boolean))], null, "Select Lead Type")}
+          {kind === "assigned" && field("status", "Status", ["Assigned", "Follow-up", "Interested", "Need Callback"], null, "All Statuses")}
           {kind === "today" ? (
             field("callType", "Call Type", ["Outbound", "Inbound"], null, "All Calls")
           ) : (

@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import './SidebarManagement.css';
 import CIISLoader from '../../Loader/CIISLoader';
 import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../utils/pageAccess";
+import { CRM_PAGES } from '../../config/crmPages';
 
 
 const APP_ROUTES = [
@@ -58,6 +59,12 @@ const APP_ROUTES = [
   { path: 'support-desk', name: 'Support Desk', icon: 'SupportAgent', category: 'communication' },
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
   { path: 'feedback-questionnaire', name: 'Feedback / Questionnaire', icon: 'Assignment', category: 'administration' },
+  ...CRM_PAGES.map(page => ({
+    path: page.path,
+    name: page.name,
+    icon: 'ListAlt',
+    category: page.category || 'admin-crm'
+  })),
 ];
 
 
@@ -1274,6 +1281,7 @@ const SidebarManagement = () => {
       'settings': 'Settings',
       'communication': 'Communication',
       'clients': 'Clients',
+      'admin-crm': 'CRM',
       'supperAdmin': 'Super Admin',
     };
     return categoryNames[category] || category;

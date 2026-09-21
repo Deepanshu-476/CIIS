@@ -311,7 +311,7 @@ export default function AssignmentsOverview() {
               </div>
               <div className="aso-hub-item-text">
                 <h4>Bulk Assign Leads</h4>
-                <p>Assign leads in bulk batches or via round-robin distribution</p>
+                <p>Select a role and distribute leads equally across chosen users</p>
               </div>
               <FiArrowRight className="aso-hub-item-arrow" />
             </div>

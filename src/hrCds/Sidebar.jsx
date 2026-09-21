@@ -42,6 +42,7 @@ import {
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
 import { hasPageAccess } from '../utils/pageAccess';
+import { CRM_PAGES } from '../config/crmPages';
 import { preloadRouteByPath } from '../utils/routePreloader';
 import {
   CLIENT_PORTAL_SELECTED_CLIENT_KEY,
@@ -462,6 +463,14 @@ const fixedDefaultItems = [
   }
 ];
 
+const crmSidebarItems = CRM_PAGES.map((page, index) => ({
+  id: page.id,
+  name: page.name,
+  icon: 'ListAlt',
+  path: `/ciisUser/${page.path}`,
+  category: page.category || 'admin-crm',
+  order: 31 + index / 100
+}));
 
 const clientMenuItems = [
   {
@@ -859,7 +868,8 @@ const allPagesItems = [
     path: '/ciisUser/change-password',
     category: 'settings',
     order: 30
-  }
+  },
+  ...crmSidebarItems
 ];
 
 
@@ -1056,7 +1066,8 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/payroll-reports',
     category: 'payroll',
     order: 24.5
-  }
+  },
+  ...crmSidebarItems
 ];
 
 const filterItemsByCompanyAccess = (items, companyData) => {
@@ -2148,7 +2159,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
   const groupedItems = useMemo(() => {
     const groups = {};
-    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients', 'payroll'];
+    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients', 'payroll', 'admin-crm'];
     const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
     const hasCustomRanges = customRanges.length > 0;
     
@@ -2443,7 +2454,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       'tasks': 'Tasks',
       'projects': 'Projects',
       'meetings': 'Meetings',
-      'clients': 'Clients'
+      'clients': 'Clients',
+      'admin-crm': 'CRM'
     };
     
     const label = categoryLabels[category] || category;
@@ -2468,6 +2480,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
               category === 'tasks' ? 'Task' :
               category === 'projects' ? 'Groups' :
               category === 'meetings' ? 'VideoCall' :
+              category === 'admin-crm' ? 'ListAlt' :
               category === 'clients' ? 'Person' : 'Dashboard'
             )}
           </CollapsedHeading>

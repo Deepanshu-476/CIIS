@@ -76,7 +76,7 @@ const initialCallHistory = [
 ];
 
 const CallHistory = () => {
-  const [calls, setCalls] = useState(initialCallHistory);
+  const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ const CallHistory = () => {
       setLoading(true);
       try {
         const res = await axiosInstance.get('/crm/admin/calls/history', { _skipErrorNotify: true });
-        if (isMounted && res.data && Array.isArray(res.data.items) && res.data.items.length > 0) {
+        if (isMounted && res.data && Array.isArray(res.data.items)) {
           const mapped = res.data.items.map((log, idx) => ({
             id: log._id || idx + 1,
             leadId: `#LD-${String(log.lead?._id || idx + 1).slice(-3)}`,
@@ -102,7 +102,7 @@ const CallHistory = () => {
           }));
           setCalls(mapped);
         }
-      } catch (err) {} finally {
+      } catch (err) { if (isMounted) setCalls([]); } finally {
         if (isMounted) setLoading(false);
       }
     };

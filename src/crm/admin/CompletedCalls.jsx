@@ -54,7 +54,7 @@ const initialCompletedCalls = [
 ];
 
 const CompletedCalls = () => {
-  const [calls, setCalls] = useState(initialCompletedCalls);
+  const [calls, setCalls] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
 
   useEffect(() => {
@@ -78,18 +78,16 @@ const CompletedCalls = () => {
             outcome: lead.status === 'converted' ? 'Converted' : 'Interested',
             callType: 'Outbound',
             completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
-            attempts: 1,
+            attempts: lead.callHistory?.length || 0,
             assignedTo: lead.assignedTo?.name || 'Unassigned',
-            remarks: lead.remarks || 'Completed call inquiry.'
+            remarks: lead.remarks || '—'
           }));
-          if (items.length > 0) {
-            setCalls(items);
-          }
+          setCalls(items);
         }
         if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
           setTeamUsers(teamRes.value.data.users);
         }
-      } catch (err) {}
+      } catch (err) { if (isMounted) setCalls([]); }
     };
     fetchCompleted();
     return () => { isMounted = false; };

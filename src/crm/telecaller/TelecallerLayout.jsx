@@ -71,16 +71,11 @@ function TelecallerSession({ slug }) {
     })).then(results => {
       if (!active) return;
       const userId = getCurrentUserId();
-      setAccess(results.filter(({ permission }) => {
-        const viewUsers = permission?.viewUsers;
-        const isConfigured = Array.isArray(viewUsers) && viewUsers.length > 0;
-        return !isConfigured || hasPageAccess(permission, userId, 'view');
-      }).map(({ page }) => page.slug));
+      setAccess(results.filter(({ permission }) => hasPageAccess(permission, userId, 'view')).map(({ page }) => page.slug));
       const current = results.find(({ page }) => page.slug === slug);
       const workspace = results.find(({ page }) => page.slug === 'call-workspace');
       const targetPermission = slug === 'lead-detail' ? (workspace?.permission || current?.permission) : current?.permission;
-      const editConfigured = Array.isArray(targetPermission?.editUsers) && targetPermission.editUsers.length > 0;
-      setEditAllowed(Boolean(!editConfigured || hasPageAccess(targetPermission, userId, 'edit')));
+      setEditAllowed(Boolean(hasPageAccess(targetPermission, userId, 'edit')));
     }).catch(() => { if (active) setEditAllowed(false); });
     return () => { active = false; };
   }, [slug]);
@@ -113,6 +108,8 @@ function TelecallerSession({ slug }) {
     const { data } = await api.post(`/crm/telecaller/${call.leadId}/calls`, {
       id: call.id, outcome: call.outcome, callType: call.callType, notes: call.notes,
       followUp: call.followUp ? new Date(call.followUp).toISOString() : null,
+      duration: call.duration,
+      callLogId: call.callLogId,
     });
     if (!data?.item?._id || String(data.item._id) !== String(call.leadId)) {
       throw new Error('Save could not be confirmed. Please retry.');

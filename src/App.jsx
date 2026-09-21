@@ -119,16 +119,7 @@ const PendingCalls = lazy(() => import("./crm/admin/PendingCalls.jsx"));
 const CompletedCalls = lazy(() => import("./crm/admin/CompletedCalls.jsx"));
 const ConvertedCalls = lazy(() => import("./crm/admin/ConvertedCalls.jsx"));
 const TransferredCalls = lazy(() => import("./crm/admin/TransferredCalls.jsx"));
-const CrmUsersList = lazy(() => import("./crm/admin/CrmUsersList.jsx"));
-const CrmAddUser = lazy(() => import("./crm/admin/CrmAddUser.jsx"));
-const TeamOverview = lazy(() => import("./crm/admin/TeamOverview.jsx"));
-const CrmUserTypes = lazy(() => import("./crm/admin/CrmUserTypes.jsx"));
 const FollowUpCenter = lazy(() => import("./crm/admin/FollowUpCenter.jsx"));
-const MarketingOverview = lazy(() => import("./crm/admin/MarketingOverview.jsx"));
-const MarketingFollowUps = lazy(() => import("./crm/admin/MarketingFollowUps.jsx"));
-const VisitManagement = lazy(() => import("./crm/admin/VisitManagement.jsx"));
-const MarketingActivityHistory = lazy(() => import("./crm/admin/MarketingActivityHistory.jsx"));
-const MarketingConvertedLeads = lazy(() => import("./crm/admin/MarketingConvertedLeads.jsx"));
 const AssignmentsOverview = lazy(() => import("./crm/admin/AssignmentsOverview.jsx"));
 const BulkAssignment = lazy(() => import("./crm/admin/BulkAssignment.jsx"));
 const AssignmentHistory = lazy(() => import("./crm/admin/AssignmentHistory.jsx"));
@@ -378,20 +369,6 @@ function App() {
           <Route path="crm/admin/workload" element={<WorkloadDistribution />} />
           <Route path="crm/workload" element={<Navigate to="/ciisUser/crm/admin/workload" replace />} />
           <Route path="crm/calls" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
-          <Route path="crm/admin/team" element={<TeamOverview />} />
-          <Route path="crm/team" element={<Navigate to="/ciisUser/crm/admin/team" replace />} />
-          <Route path="crm/admin/users" element={<CrmUsersList />} />
-          <Route path="crm/users" element={<Navigate to="/ciisUser/crm/admin/users" replace />} />
-          <Route path="crm/admin/add-user" element={<CrmAddUser />} />
-          <Route path="crm/add-user" element={<Navigate to="/ciisUser/crm/admin/add-user" replace />} />
-          <Route path="crm/admin/user-type" element={<CrmUserTypes />} />
-          <Route path="crm/user-type" element={<Navigate to="/ciisUser/crm/admin/user-type" replace />} />
-          <Route path="crm/user-types" element={<Navigate to="/ciisUser/crm/admin/user-type" replace />} />
-          <Route path="crm/marketing/overview" element={<MarketingOverview />} />
-          <Route path="crm/marketing/follow-ups" element={<MarketingFollowUps />} />
-          <Route path="crm/marketing/visits" element={<VisitManagement />} />
-          <Route path="crm/marketing/activities" element={<MarketingActivityHistory />} />
-          <Route path="crm/marketing/converted-leads" element={<MarketingConvertedLeads />} />
 
           <Route path="crm/reports/overview" element={<ReportsOverview />} />
           <Route path="crm/reports/leads" element={<LeadReports />} />

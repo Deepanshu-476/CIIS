@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -16,73 +16,71 @@ import {
 import axiosInstance from '../../utils/axiosConfig';
 import './TransferredCalls.css';
 
-const initialTransferredCalls = [
-  {
-    id: 1,
-    leadId: '#LD-005',
-    name: 'Rohan Sharma',
-    phone: '9123456780',
-    transferredFrom: 'Telecaller 1',
-    transferredTo: 'Telecaller 2',
-    reason: 'Language preference (Hindi required)',
-    dateTime: '24 Aug 2026 02:15 PM',
-    status: 'Transferred',
-    transferredBy: 'Manager - R. Smith',
-    notes: 'Lead requested communication in Hindi for course details.'
-  },
-  {
-    id: 2,
-    leadId: '#LD-014',
-    name: 'Kavita Menon',
-    phone: '9811223344',
-    transferredFrom: 'Telecaller 2',
-    transferredTo: 'Senior Counselor',
-    reason: 'Requested senior course counselor consultation',
-    dateTime: '25 Aug 2026 10:30 AM',
-    status: 'Accepted',
-    transferredBy: 'Telecaller 2',
-    notes: 'Lead has complex scholarship and installment questions.'
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  try {
+    const d = new Date(value);
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '—';
   }
-];
+};
+
+const leadCode = (id) => `#LD-${String(id || '').slice(-4).toUpperCase()}`;
 
 const TransferredCalls = () => {
-  const [calls, setCalls] = useState(initialTransferredCalls);
+  const [calls, setCalls] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchTransferred = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [res, teamRes] = await Promise.allSettled([
+        axiosInstance.get('/crm/admin/calls/transferred', { _skipErrorNotify: true }),
+        axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+      ]);
+
+      if (res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
+        const items = res.value.data.items.map((lead, idx) => ({
+          id: lead._id || idx + 1,
+          leadId: leadCode(lead.leadId || lead._id),
+          name: lead.name || 'Lead',
+          phone: lead.phone || '—',
+          transferredFrom: lead.transferredFrom?.name || 'Unassigned / Direct',
+          transferredTo: lead.assignedTo?.name || 'Unassigned',
+          reason: lead.transferReason || lead.remarks || 'Lead reassigned',
+          dateTime: formatDateTime(lead.assignedAt || lead.createdAt),
+          rawDate: lead.assignedAt || lead.createdAt || null,
+          status: lead.status === 'Accepted' ? 'Accepted' : 'Pending',
+          transferredBy: lead.transferredBy?.name || 'Admin / Manager',
+          notes: lead.remarks || '—'
+        }));
+        setCalls(items);
+      } else {
+        setCalls([]);
+      }
+
+      if (teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
+        setTeamUsers(teamRes.value.data.users);
+      }
+    } catch {
+      setCalls([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchTransferred = async () => {
-      try {
-        const [res, teamRes] = await Promise.allSettled([
-          axiosInstance.get('/crm/admin/calls/transferred', { _skipErrorNotify: true }),
-          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
-        ]);
-        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
-          const items = res.value.data.items.map((lead, idx) => ({
-            id: lead._id || idx + 1,
-            leadId: `#LD-${String(lead._id).slice(-3)}`,
-            name: lead.name || 'Lead',
-            phone: lead.phone || '—',
-            transferredFrom: lead.transferredFrom?.name || 'System Auto-Assign',
-            transferredTo: lead.assignedTo?.name || 'Unassigned',
-            reason: lead.transferReason || lead.remarks || 'Direct lead assignment / consultation',
-            dateTime: lead.assignedAt ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : (lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'),
-            status: 'Transferred',
-            transferredBy: 'Admin / Manager',
-            notes: lead.remarks || 'Assigned to counselor for telecall follow up.'
-          }));
-          if (items.length > 0) {
-            setCalls(items);
-          }
-        }
-        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
-          setTeamUsers(teamRes.value.data.users);
-        }
-      } catch (err) {}
-    };
     fetchTransferred();
-    return () => { isMounted = false; };
-  }, []);
+  }, [fetchTransferred]);
+
   const [filters, setFilters] = useState({
     from: '',
     to: '',
@@ -121,8 +119,16 @@ const TransferredCalls = () => {
     return calls.filter(call => {
       if (appliedFilters.from && call.transferredFrom !== appliedFilters.from) return false;
       if (appliedFilters.to && call.transferredTo !== appliedFilters.to) return false;
-      if (appliedFilters.dateFrom && !call.dateTime.includes(appliedFilters.dateFrom)) return false;
-      if (appliedFilters.dateTo && !call.dateTime.includes(appliedFilters.dateTo)) return false;
+
+      // Accurate date range filtering
+      if (appliedFilters.dateFrom) {
+        const fromTime = new Date(`${appliedFilters.dateFrom}T00:00:00.000`).getTime();
+        if (!call.rawDate || new Date(call.rawDate).getTime() < fromTime) return false;
+      }
+      if (appliedFilters.dateTo) {
+        const toTime = new Date(`${appliedFilters.dateTo}T23:59:59.999`).getTime();
+        if (!call.rawDate || new Date(call.rawDate).getTime() > toTime) return false;
+      }
 
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -147,7 +153,7 @@ const TransferredCalls = () => {
 
   const totalTransferred = calls.length;
   const acceptedCount = calls.filter(c => c.status === 'Accepted').length;
-  const pendingCount = calls.filter(c => c.status === 'Transferred' || c.status === 'Pending').length;
+  const pendingCount = calls.filter(c => c.status === 'Pending' || c.status === 'Transferred').length;
 
   return (
     <div className="trf-root">
@@ -305,7 +311,7 @@ const TransferredCalls = () => {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder=""
+                placeholder="Search transferred calls..."
               />
             </div>
           </div>
@@ -313,7 +319,9 @@ const TransferredCalls = () => {
 
         {/* Table */}
         <div className="trf-table-wrapper">
-          {paginatedCalls.length > 0 ? (
+          {loading ? (
+            <div className="trf-no-data">Loading transfer history...</div>
+          ) : paginatedCalls.length > 0 ? (
             <table className="trf-table">
               <thead>
                 <tr>
@@ -346,7 +354,7 @@ const TransferredCalls = () => {
                         <FiUser size={13} /> {call.transferredTo}
                       </span>
                     </td>
-                    <td className="trf-reason">{call.reason}</td>
+                    <td className="trf-reason" title={call.reason}>{call.reason}</td>
                     <td className="trf-datetime">
                       <FiCalendar size={11} style={{ marginRight: 4 }} />
                       {call.dateTime}
@@ -473,7 +481,7 @@ const TransferredCalls = () => {
                 <strong>Transfer Reason:</strong>
                 <p>{selectedCall.reason}</p>
               </div>
-              {selectedCall.notes && (
+              {selectedCall.notes && selectedCall.notes !== '—' && (
                 <div className="trf-modal-remarks" style={{ marginTop: 8 }}>
                   <strong>Notes:</strong>
                   <p>{selectedCall.notes}</p>

@@ -299,3 +299,22 @@
   color: #ffffff;
   border-color: #6366f1;
 }
+
+.ash-alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.ash-table-empty,
+.ash-table-loading {
+  text-align: center;
+  padding: 32px 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+

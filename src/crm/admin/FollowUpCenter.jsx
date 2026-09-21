@@ -16,72 +16,90 @@ import {
 import axiosInstance from '../../utils/axiosConfig';
 import './FollowUpCenter.css';
 
-const INITIAL_FOLLOWUPS = [
-  {
-    id: 1,
-    department: 'Marketing',
-    type: ['Visit', 'Lead'],
-    leadId: '#LD-476',
-    institute: 'Aman Test 1',
-    phone: '06789067890',
-    assignedTo: 'Marketing Exec3',
-    assignedRole: 'Marketing Exec',
-    dueDate: '26-08-2026 12:00 PM',
-    dueRelative: '6 days ago',
-    status: 'Overdue',
-    priority: 'High'
-  },
-  {
-    id: 2,
-    department: 'Telecaller',
-    type: ['Call'],
-    leadId: '#LD-454',
-    institute: 'Geeta Patel',
-    phone: '7450541566',
-    assignedTo: 'Telecaller 1',
-    assignedRole: 'Telecaller',
-    dueDate: '25-08-2026 10:30 AM',
-    dueRelative: '7 days ago',
-    status: 'Overdue',
-    priority: 'Medium'
-  }
-];
+const IST_TIME_ZONE = 'Asia/Kolkata';
+
+const dateKeyInIst = value => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: IST_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+const formatInIst = value => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '—';
+  return date.toLocaleString('en-GB', {
+    timeZone: IST_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
 
 export default function FollowUpCenter() {
-  const [followups, setFollowups] = useState(INITIAL_FOLLOWUPS);
+  const [followups, setFollowups] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
     const fetchFollowups = async () => {
+      setLoading(true);
+      setLoadError('');
       try {
         const [res, teamRes] = await Promise.allSettled([
           axiosInstance.get('/crm/admin/calls/follow-ups', { _skipErrorNotify: true }),
           axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
         ]);
         if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
-          const items = res.value.data.items.map((item, idx) => ({
-            id: item._id || idx + 1,
-            department: 'Telecaller',
-            type: [item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Call'],
-            leadId: `#LD-${String(item.lead?._id || item._id).slice(-3)}`,
-            institute: item.lead?.name || 'Lead',
-            phone: item.lead?.phone || '—',
-            assignedTo: item.agent?.name || 'Telecaller',
-            assignedRole: 'Telecaller',
-            dueDate: item.date ? new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) + (item.time ? ` ${item.time}` : '') : '—',
-            dueRelative: item.date && new Date(item.date) < new Date() ? 'Overdue' : 'Upcoming',
-            status: item.status === 'completed' ? 'Completed' : (item.date && new Date(item.date) < new Date() ? 'Overdue' : 'Pending'),
-            priority: item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : 'Medium'
-          }));
-          if (items.length > 0) {
-            setFollowups(items);
-          }
+          const today = dateKeyInIst(new Date());
+          const tomorrow = dateKeyInIst(new Date(Date.now() + 86400000));
+          const items = res.value.data.items.map((item, idx) => {
+            const dueKey = dateKeyInIst(item.date);
+            const completed = ['done', 'completed'].includes(String(item.status).toLowerCase());
+            return {
+              id: item._id || idx + 1,
+              department: 'Telecaller',
+              type: [item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Call'],
+              leadId: `#LD-${String(item.lead?._id || item._id).slice(-3)}`,
+              institute: item.lead?.name || 'Lead',
+              phone: item.lead?.phone || '—',
+              assignedTo: item.agent?.name || 'Telecaller',
+              assignedRole: 'Telecaller',
+              dueDate: formatInIst(item.date),
+              dueKey,
+              dueRelative: dueKey === today ? 'Today' : dueKey === tomorrow ? 'Tomorrow' : dueKey < today ? 'Overdue' : 'Upcoming',
+              status: completed ? 'Completed' : (dueKey < today ? 'Overdue' : 'Pending'),
+              priority: item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : 'Medium'
+            };
+          });
+          setFollowups(items);
+        } else if (isMounted) {
+          setFollowups([]);
+          setLoadError(res.status === 'rejected'
+            ? (res.reason?.response?.data?.message || 'Could not load follow-ups. Please retry.')
+            : 'The follow-up service returned an invalid response.');
         }
         if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
           setTeamUsers(teamRes.value.data.users);
         }
-      } catch (err) {}
+      } catch (err) {
+        if (isMounted) {
+          setFollowups([]);
+          setLoadError(err.response?.data?.message || 'Could not load follow-ups. Please retry.');
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     };
     fetchFollowups();
     return () => { isMounted = false; };
@@ -93,7 +111,7 @@ export default function FollowUpCenter() {
   const [assignedFilter, setAssignedFilter] = useState('All Users');
   const [scheduleFilter, setScheduleFilter] = useState('All Pending');
   const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('2026-09-01');
+  const [dateTo, setDateTo] = useState('');
 
   // Search & Pagination States
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,7 +133,7 @@ export default function FollowUpCenter() {
     setAssignedFilter('All Users');
     setScheduleFilter('All Pending');
     setDateFrom('');
-    setDateTo('2026-09-01');
+    setDateTo('');
     setSearchTerm('');
     setCurrentPage(1);
   };
@@ -143,6 +161,12 @@ export default function FollowUpCenter() {
       if (scheduleFilter === 'Today' && item.dueRelative !== 'Today') {
         return false;
       }
+      if (scheduleFilter === 'Tomorrow' && item.dueRelative !== 'Tomorrow') return false;
+      if (scheduleFilter === 'Upcoming' && item.dueRelative !== 'Upcoming') return false;
+      if (scheduleFilter === 'Completed' && item.status !== 'Completed') return false;
+      if (scheduleFilter === 'All Pending' && item.status === 'Completed') return false;
+      if (dateFrom && item.dueKey < dateFrom) return false;
+      if (dateTo && item.dueKey > dateTo) return false;
       // Search
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
@@ -156,7 +180,7 @@ export default function FollowUpCenter() {
       }
       return true;
     });
-  }, [followups, deptFilter, typeFilter, assignedFilter, scheduleFilter, searchTerm]);
+  }, [followups, deptFilter, typeFilter, assignedFilter, scheduleFilter, dateFrom, dateTo, searchTerm]);
 
   // Pagination calculation
   const totalEntries = filteredData.length;
@@ -167,11 +191,12 @@ export default function FollowUpCenter() {
 
   // Stats calculation
   const stats = useMemo(() => {
-    const todayCount = followups.filter(f => f.dueRelative === 'Today').length;
-    const tomorrowCount = followups.filter(f => f.dueRelative === 'Tomorrow').length;
-    const upcomingCount = followups.filter(f => f.status === 'Upcoming').length;
+    const pending = followups.filter(f => f.status !== 'Completed');
+    const todayCount = pending.filter(f => f.dueRelative === 'Today').length;
+    const tomorrowCount = pending.filter(f => f.dueRelative === 'Tomorrow').length;
+    const upcomingCount = pending.filter(f => f.dueRelative === 'Upcoming').length;
     const overdueCount = followups.filter(f => f.status === 'Overdue').length;
-    const totalPendingCount = followups.length;
+    const totalPendingCount = pending.length;
 
     return {
       today: todayCount,
@@ -198,7 +223,7 @@ export default function FollowUpCenter() {
       <div className="fuc-header">
         <div>
           <h1>Follow-Up Center</h1>
-          <p className="fuc-subtitle">Telecaller and Marketing follow-ups in one place</p>
+          <p className="fuc-subtitle">Track telecaller callbacks and scheduled follow-ups</p>
         </div>
         <nav className="fuc-breadcrumb">
           <Link to="/ciisUser/crm/admin/dashboard">Dashboard</Link>
@@ -271,7 +296,6 @@ export default function FollowUpCenter() {
               onChange={(e) => setDeptFilter(e.target.value)}
             >
               <option value="All Departments">All Departments</option>
-              <option value="Marketing">Marketing</option>
               <option value="Telecaller">Telecaller</option>
             </select>
           </div>
@@ -319,6 +343,7 @@ export default function FollowUpCenter() {
               <option value="Tomorrow">Tomorrow</option>
               <option value="Upcoming">Upcoming</option>
               <option value="Overdue">Overdue</option>
+              <option value="Completed">Completed</option>
             </select>
           </div>
 
@@ -359,12 +384,9 @@ export default function FollowUpCenter() {
         <div className="fuc-table-header">
           <div>
             <h2 className="fuc-table-title">Unified Follow-Up List</h2>
-            <span className="fuc-table-subtitle">{filteredData.length} pending records</span>
+            <span className="fuc-table-subtitle">{filteredData.length} records</span>
           </div>
-          <div className="fuc-dept-tags">
-            <span className="fuc-badge-telecaller">Telecaller</span>
-            <span className="fuc-badge-marketing">Marketing</span>
-          </div>
+          <div className="fuc-dept-tags"><span className="fuc-badge-telecaller">Telecaller</span></div>
         </div>
 
         {/* Datatable Controls */}
@@ -487,7 +509,7 @@ export default function FollowUpCenter() {
               ) : (
                 <tr>
                   <td colSpan={11} className="fuc-empty">
-                    No follow-ups found.
+                    {loading ? 'Loading follow-ups...' : loadError || 'No follow-ups found.'}
                   </td>
                 </tr>
               )}

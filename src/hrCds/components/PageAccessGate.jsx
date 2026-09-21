@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, Navigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from "../../crm/telecaller/telecallerPages";
-import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermission, hasConfiguredPageAccess } from "../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermission } from "../../utils/pageAccess";
 import api from '../../utils/axiosConfig';
 
 const PRIVILEGED_ROLES = new Set([
@@ -21,7 +21,6 @@ const normalizeRole = value => String(value || "")
   .replace(/[\s-]+/g, "_");
 
 const hasCrmPlanAccess = (pagePath, isPrivileged = false) => {
-  if (isPrivileged) return true;
   if (!/^\/ciisuser\/crm\/(admin|marketing|reports)\//i.test(pagePath)) return true;
   try {
     const company = JSON.parse(localStorage.getItem('companyDetails') || '{}');
@@ -66,11 +65,9 @@ const PageAccessGate = ({ children }) => {
     const requiresExplicitAccess = requiresPageAccess(pagePath);
 
     const checkAccess = async () => {
-      if (isPrivileged) {
-        if (!isCrmPage(pagePath) || telecallerPage) {
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
-          return;
-        }
+      if (isPrivileged && !isCrmPage(pagePath)) {
+        if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
+        return;
       }
       if (telecallerPage) {
         let company;
@@ -99,15 +96,11 @@ const PageAccessGate = ({ children }) => {
 
         try {
           const page = await loadPagePermission(pagePath);
-          if (!hasConfiguredPageAccess(page)) {
-            if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
-            return;
-          }
           const allowed = hasPageAccess(page, userId, "view");
           if (!cancelled) setState({ path: pagePath, loading: false, allowed });
           return;
         } catch {
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed: false });
           return;
         }
       }
@@ -130,8 +123,8 @@ const PageAccessGate = ({ children }) => {
 
     setState({
       path: pagePath,
-      loading: (requiresExplicitAccess || !isPrivileged) && !(telecallerPage && isPrivileged),
-      allowed: (!requiresExplicitAccess && !telecallerPage) || (telecallerPage && isPrivileged)
+      loading: requiresExplicitAccess || !isPrivileged || Boolean(telecallerPage),
+      allowed: !requiresExplicitAccess && !telecallerPage
     });
     checkAccess();
 

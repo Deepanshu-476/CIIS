@@ -411,10 +411,16 @@
   color: #0369a1;
 }
 
+.trf-badge.status-pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
 .trf-badge.status-accepted {
   background: #dcfce7;
   color: #15803d;
 }
+
 
 .trf-by {
   color: #475569;

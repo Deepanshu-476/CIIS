@@ -73,7 +73,11 @@ const routeLoaders = {
 
 const normalizePath = (path = "") => String(path || "").trim().replace(/\/+$/, "").toLowerCase();
 const normalizedRouteLoaders = new Map(Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader]));
-const crmModules = import.meta.glob('../crm/admin/*.jsx');
+const crmModules = import.meta.glob([
+  '../crm/admin/*.jsx',
+  '!../crm/admin/*Reports.jsx',
+  '!../crm/admin/ReportsOverview.jsx'
+]);
 const crmPageModules = {
   'admin/dashboard': 'AdminCrmDashboard', 'admin/lead-overview': 'LeadOverview',
   'admin/all-leads': 'AllLeads', 'admin/add-lead': 'AddLead',
@@ -85,15 +89,7 @@ const crmPageModules = {
   'admin/transferred-calls': 'TransferredCalls', 'admin/call-history': 'CallHistory',
   'admin/follow-ups': 'FollowUpCenter', 'admin/assignments': 'AssignmentsOverview',
   'admin/assignment-bulk': 'BulkAssignment', 'admin/assignment-history': 'AssignmentHistory',
-  'admin/workload': 'WorkloadDistribution', 'admin/team': 'TeamOverview',
-  'admin/users': 'CrmUsersList', 'admin/add-user': 'CrmAddUser', 'admin/user-type': 'CrmUserTypes',
-  'marketing/overview': 'MarketingOverview', 'marketing/follow-ups': 'MarketingFollowUps',
-  'marketing/visits': 'VisitManagement', 'marketing/activities': 'MarketingActivityHistory',
-  'marketing/converted-leads': 'MarketingConvertedLeads',
-  'reports/overview': 'ReportsOverview', 'reports/leads': 'LeadReports',
-  'reports/calls': 'CallReports', 'reports/visits': 'VisitReports',
-  'reports/follow-ups': 'FollowUpReports', 'reports/team-performance': 'TeamPerformanceReports',
-  'reports/conversion-funnel': 'ConversionFunnelReports', 'reports/user-activity': 'UserActivityReports'
+  'admin/workload': 'WorkloadDistribution',
 };
 for (const [path, moduleName] of Object.entries(crmPageModules)) {
   normalizedRouteLoaders.set(normalizePath(`/ciisUser/crm/${path}`), crmModules[`../crm/admin/${moduleName}.jsx`]);

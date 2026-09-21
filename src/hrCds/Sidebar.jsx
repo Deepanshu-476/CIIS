@@ -361,9 +361,6 @@ const ADMIN_CRM_MENU_GROUPS = [
   { id: 'call-management', name: 'Call Management', icon: 'Call', itemIds: ['admin-crm-call-overview', 'admin-crm-assigned-calls', 'admin-crm-todays-calls', 'admin-crm-pending-calls', 'admin-crm-scheduled-calls', 'admin-crm-completed-calls', 'admin-crm-converted-calls', 'admin-crm-transferred-calls', 'admin-crm-call-history'] },
   { id: 'follow-up-center', name: 'Follow-Up Center', icon: 'EventNote', itemIds: ['admin-crm-follow-ups'], direct: true },
   { id: 'assignments', name: 'Assignments', icon: 'Groups', itemIds: ['admin-crm-assignments', 'admin-crm-assignment-bulk', 'admin-crm-assignment-history', 'admin-crm-workload'] },
-  { id: 'marketing-admin', name: 'Marketing Admin', icon: 'Person', itemIds: ['marketing-overview', 'marketing-follow-ups', 'visit-management', 'marketing-activity-history', 'marketing-converted-leads'] },
-  { id: 'team-access', name: 'Team & Access', icon: 'Groups', itemIds: ['admin-crm-team-overview', 'admin-crm-users', 'admin-crm-add-user', 'admin-crm-user-types'] },
-  { id: 'reports', name: 'Reports', icon: 'ListAlt', itemIds: ['admin-crm-reports-overview', 'admin-crm-reports-leads', 'admin-crm-reports-calls', 'admin-crm-reports-visits', 'admin-crm-reports-follow-ups', 'admin-crm-reports-team-performance', 'admin-crm-reports-conversion-funnel', 'admin-crm-reports-user-activity'] },
 ];
 
 
@@ -998,78 +995,6 @@ const allPagesItems = [
     order: 24.622
   },
   {
-    id: 'admin-crm-team-overview',
-    name: 'Team Overview',
-    icon: 'Groups',
-    path: '/ciisUser/crm/admin/team',
-    category: 'crm',
-    order: 24.623
-  },
-  {
-    id: 'admin-crm-users',
-    name: 'Users',
-    icon: 'Person',
-    path: '/ciisUser/crm/admin/users',
-    category: 'crm',
-    order: 24.624
-  },
-  {
-    id: 'admin-crm-add-user',
-    name: 'Add User',
-    icon: 'Person',
-    path: '/ciisUser/crm/admin/add-user',
-    category: 'crm',
-    order: 24.625
-  },
-  {
-    id: 'admin-crm-user-types',
-    name: 'User Types',
-    icon: 'Groups',
-    path: '/ciisUser/crm/admin/user-type',
-    category: 'crm',
-    order: 24.626
-  },
-  {
-    id: 'marketing-overview',
-    name: 'Overview',
-    icon: 'Dashboard',
-    path: '/ciisUser/crm/marketing/overview',
-    category: 'crm',
-    order: 24.627
-  },
-  {
-    id: 'marketing-follow-ups',
-    name: 'Follow-Ups',
-    icon: 'Event',
-    path: '/ciisUser/crm/marketing/follow-ups',
-    category: 'crm',
-    order: 24.628
-  },
-  {
-    id: 'visit-management',
-    name: 'Visit Management',
-    icon: 'Computer',
-    path: '/ciisUser/crm/marketing/visits',
-    category: 'crm',
-    order: 24.629
-  },
-  {
-    id: 'marketing-activity-history',
-    name: 'Activity History',
-    icon: 'ListAlt',
-    path: '/ciisUser/crm/marketing/activities',
-    category: 'crm',
-    order: 24.630
-  },
-  {
-    id: 'marketing-converted-leads',
-    name: 'Converted Leads',
-    icon: 'Person',
-    path: '/ciisUser/crm/marketing/converted-leads',
-    category: 'crm',
-    order: 24.631
-  },
-  {
     id: 'admin-crm-reports-overview',
     name: 'Reports Overview',
     icon: 'BarChart',
@@ -1268,15 +1193,7 @@ const getPathFromName = (name) => {
     'Follow-Up Reports': '/ciisUser/crm/reports/follow-ups',
     'Team Performance': '/ciisUser/crm/reports/team-performance',
     'Conversion Funnel': '/ciisUser/crm/reports/conversion-funnel',
-    'User Activity': '/ciisUser/crm/reports/user-activity',
-    'Overview': '/ciisUser/crm/marketing/overview',
-    'Marketing Overview': '/ciisUser/crm/marketing/overview',
-    'Follow-Ups': '/ciisUser/crm/marketing/follow-ups',
-    'Marketing Follow-Ups': '/ciisUser/crm/marketing/follow-ups',
-    'Visit Management': '/ciisUser/crm/marketing/visits',
-    'Activity History': '/ciisUser/crm/marketing/activities',
-    'Marketing Activity History': '/ciisUser/crm/marketing/activities',
-    'Converted Leads': '/ciisUser/crm/marketing/converted-leads'
+    'User Activity': '/ciisUser/crm/reports/user-activity'
   };
   
   return pathMap[name] || '/ciisUser/user-dashboard';
@@ -1467,38 +1384,6 @@ const companyAccessFallbackItems = [
     order: 24.617
   },
   {
-    id: 'admin-crm-team-overview',
-    name: 'Team Overview',
-    icon: 'Groups',
-    path: '/ciisUser/crm/admin/team',
-    category: 'crm',
-    order: 24.623
-  },
-  {
-    id: 'admin-crm-users',
-    name: 'Users',
-    icon: 'Person',
-    path: '/ciisUser/crm/admin/users',
-    category: 'crm',
-    order: 24.624
-  },
-  {
-    id: 'admin-crm-add-user',
-    name: 'Add User',
-    icon: 'Person',
-    path: '/ciisUser/crm/admin/add-user',
-    category: 'crm',
-    order: 24.625
-  },
-  {
-    id: 'admin-crm-user-types',
-    name: 'User Types',
-    icon: 'Groups',
-    path: '/ciisUser/crm/admin/user-type',
-    category: 'crm',
-    order: 24.626
-  },
-  {
     id: 'admin-crm-reports-overview',
     name: 'Reports Overview',
     icon: 'BarChart',
@@ -1673,38 +1558,6 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/crm/admin/call-history',
     category: 'crm',
     order: 24.617
-  },
-  {
-    id: 'admin-crm-team-overview',
-    name: 'Team Overview',
-    icon: 'Groups',
-    path: '/ciisUser/crm/admin/team',
-    category: 'crm',
-    order: 24.623
-  },
-  {
-    id: 'admin-crm-users',
-    name: 'Users',
-    icon: 'Person',
-    path: '/ciisUser/crm/admin/users',
-    category: 'crm',
-    order: 24.624
-  },
-  {
-    id: 'admin-crm-add-user',
-    name: 'Add User',
-    icon: 'Person',
-    path: '/ciisUser/crm/admin/add-user',
-    category: 'crm',
-    order: 24.625
-  },
-  {
-    id: 'admin-crm-user-types',
-    name: 'User Types',
-    icon: 'Groups',
-    path: '/ciisUser/crm/admin/user-type',
-    category: 'crm',
-    order: 24.626
   },
   {
     id: 'admin-crm-reports-overview',
@@ -1930,7 +1783,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
   }, [location.pathname]);
   const [openAdminCrmGroups, setOpenAdminCrmGroups] = useState(() => new Set(
-    location.pathname.includes('/crm/marketing') ? ['marketing-admin'] :
     location.pathname.includes('/crm/admin/add-lead') ? ['lead-management'] : ['call-management']
   ));
   const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
@@ -2563,7 +2415,22 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       const id = String(item?.id || "").toLowerCase();
       const name = String(item?.name || "").toLowerCase();
       const path = String(item?.path || "").toLowerCase();
+      const removedCrmIds = new Set([
+        'marketing-overview', 'marketing-follow-ups', 'visit-management', 'marketing-activity-history', 'marketing-converted-leads',
+        'admin-crm-team-overview', 'admin-crm-users', 'admin-crm-add-user', 'admin-crm-user-types'
+      ]);
+      const removedCrmNames = new Set([
+        'marketing admin', 'marketing overview', 'marketing follow-ups', 'visit management', 'marketing activity history',
+        'team & access', 'team overview', 'team users', 'add team user', 'user types'
+      ]);
+      const removedCrmPath = path.startsWith('/ciisuser/crm/marketing/')
+        || path.startsWith('/ciisuser/crm/reports/')
+        || path === '/ciisuser/crm/reports'
+        || ['/ciisuser/crm/admin/team', '/ciisuser/crm/admin/users', '/ciisuser/crm/admin/add-user', '/ciisuser/crm/admin/user-type'].includes(path);
       return id !== "contact-support"
+        && !removedCrmIds.has(id)
+        && !removedCrmNames.has(name)
+        && !removedCrmPath
         && id !== "profile"
         && name !== "support center"
         && name !== "contact support"
@@ -2572,7 +2439,14 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         && path !== "/ciisuser/profile";
     });
 
-    const roleValues = [userData?.companyRole, userData?.jobRole, userData?.role];
+    const roleValues = [
+      userData?.companyRole,
+      userData?.jobRole,
+      userData?.role,
+      userData?.jobRoleName,
+      userData?.roleName,
+      resolvedJobRoleName
+    ];
     const isPageAccessAdmin = roleValues.some(value => PAGE_ACCESS_ROLES.has(
       normalizePermissionRole(getRecordDisplayName(value) || value)
     ));
@@ -2593,6 +2467,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         return Boolean(permission && hasPageAccess(permission, userId, 'view'));
       });
       if (!pagePermissions) {
+        // Fail closed for CRM/payroll pages until the permission catalog is
+        // available. This prevents unauthorized links flashing on refresh.
         return items.filter(item => !isCrmPage(item?.path) && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
       }
       return items.filter(item => {
@@ -2638,7 +2514,10 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           ));
           const processedItem = {
             id: crmPage?.id || item.id || item._id || Math.random().toString(36).substr(2, 9),
-            name: getMenuDisplayName(item.name || 'Unnamed Item'),
+            // CRM entries always use the canonical page label. Older saved
+            // configs sometimes persisted the page id in `name`, which made
+            // raw ids flash in the sidebar after a refresh.
+            name: getMenuDisplayName(crmPage?.name || item.name || 'Unnamed Item'),
             icon: crmPage?.icon || item.icon || 'Dashboard',
             category: crmPage?.category || item.category || 'main',
             order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
@@ -2769,7 +2648,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     void 0;
 
     return placeReleasePayrollAfterProcess(filterItemsByPageAccess(removeHiddenSidebarItems(sortedItems)));
-  }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData, pagePermissions, userId]);
+  }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData, pagePermissions, userId, resolvedJobRoleName]);
 
   const userSubtitle = useMemo(() => {
     if (!userData) return 'Employee';

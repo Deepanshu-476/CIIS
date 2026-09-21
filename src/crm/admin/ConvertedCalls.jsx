@@ -39,7 +39,7 @@ const initialConvertedCalls = [
 ];
 
 const ConvertedCalls = () => {
-  const [calls, setCalls] = useState(initialConvertedCalls);
+  const [calls, setCalls] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
 
   useEffect(() => {
@@ -63,21 +63,19 @@ const ConvertedCalls = () => {
             outcome: 'Converted',
             callType: 'Outbound',
             completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
-            attempts: 1,
+            attempts: lead.callHistory?.length || 0,
             assignedTo: lead.assignedTo?.name || 'Unassigned',
-            conversionValue: lead.expectedValue ? `₹${lead.expectedValue.toLocaleString('en-IN')}` : '₹45,000',
-            enrolledCourse: lead.course || lead.leadType?.name || 'Enrolled Course',
-            paymentStatus: 'Paid (Online)',
-            remarks: lead.remarks || 'Customer converted successfully.'
+            conversionValue: lead.expectedValue ? `₹${lead.expectedValue.toLocaleString('en-IN')}` : '—',
+            enrolledCourse: lead.course || lead.leadType?.name || '—',
+            paymentStatus: lead.paymentStatus || '—',
+            remarks: lead.remarks || '—'
           }));
-          if (items.length > 0) {
-            setCalls(items);
-          }
+          setCalls(items);
         }
         if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
           setTeamUsers(teamRes.value.data.users);
         }
-      } catch (err) {}
+      } catch (err) { if (isMounted) setCalls([]); }
     };
     fetchConverted();
     return () => { isMounted = false; };

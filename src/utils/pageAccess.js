@@ -121,8 +121,9 @@ export const hasConfiguredPageAccess = (page) => [
 export const hasPageAccess = (page, userId, accessType = 'view') => {
   const normalizedUserId = normalizeUserId(userId);
   if (!normalizedUserId) return false;
-  if (isTelecallerPage(page?.path || page?.id || '') && !hasConfiguredPageAccess(page)) {
-    return true;
+  if (String(accessType || 'view').toLowerCase() === 'view') {
+    return ['view', 'edit', 'delete', 'approve', 'generate', 'lock', 'unlock']
+      .some(type => getPageAccessUserIds(page, type).includes(normalizedUserId));
   }
   return getPageAccessUserIds(page, accessType).includes(normalizedUserId);
 };

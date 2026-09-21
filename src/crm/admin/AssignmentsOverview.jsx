@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -13,232 +13,166 @@ import {
   FiUserPlus,
   FiX
 } from 'react-icons/fi';
+import api from '../../utils/axiosConfig';
 import './AssignmentsOverview.css';
 
-const INITIAL_UNASSIGNED = [
-  {
-    id: 1,
-    leadId: '#LD-454',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Geeta Patel',
-    subtitle: 'Website inquiry',
-    gender: 'Female',
-    email: 'geeta.patel96@outlook.com',
-    phone: '7450541566',
-    address: 'Rajkot',
-    created: '18 Aug 2026'
-  },
-  {
-    id: 2,
-    leadId: '#LD-455',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Kiran Singh',
-    subtitle: 'Wants demo class',
-    gender: 'Male',
-    email: 'kiran.singh35@rediffmail.com',
-    phone: '8849825449',
-    address: 'Gwalior',
-    created: '19 Aug 2026'
-  },
-  {
-    id: 3,
-    leadId: '#LD-456',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Siddharth Yadav',
-    subtitle: 'Interested in Medical',
-    gender: 'Male',
-    email: 'siddharth.yadav28@outlook.com',
-    phone: '6080132677',
-    address: 'Hyderabad',
-    created: '20 Aug 2026'
-  },
-  {
-    id: 4,
-    leadId: '#LD-457',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Mahesh Nambiar',
-    subtitle: 'Interested in NEET',
-    gender: 'Male',
-    email: 'mahesh.nambiar18@rediffmail.com',
-    phone: '6919657013',
-    address: 'Trivandrum',
-    created: '20 Aug 2026'
-  },
-  {
-    id: 5,
-    leadId: '#LD-458',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Pooja Nambiar',
-    subtitle: 'Budget conscious',
-    gender: 'Female',
-    email: 'pooja.nambiar32@yahoo.com',
-    phone: '8317139005',
-    address: 'Chandigarh',
-    created: '21 Jul 2026'
-  },
-  {
-    id: 6,
-    leadId: '#LD-459',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Rekha Uppal',
-    subtitle: 'Interested in MBA',
-    gender: 'Female',
-    email: 'rekha.uppal95@hotmail.com',
-    phone: '9431527420',
-    address: 'Ghaziabad',
-    created: '22 Jul 2026'
-  },
-  {
-    id: 7,
-    leadId: '#LD-423',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Rishabh Jha',
-    subtitle: 'Wants demo class',
-    gender: 'Male',
-    email: 'rishabh.jha45@rediffmail.com',
-    phone: '9865086376',
-    address: 'Shimla',
-    created: '25 Jul 2026'
-  },
-  {
-    id: 8,
-    leadId: '#LD-424',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Pallavi Lal',
-    subtitle: 'Needs study material',
-    gender: 'Female',
-    email: 'pallavi.lal92@hotmail.com',
-    phone: '7398680002',
-    address: 'Coimbatore',
-    created: '25 Jul 2026'
-  },
-  {
-    id: 9,
-    leadId: '#LD-425',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Varun Uppal',
-    subtitle: 'Follow up needed',
-    gender: 'Male',
-    email: 'varun.uppal48@outlook.com',
-    phone: '7132370589',
-    address: 'Guwahati',
-    created: '25 Jul 2026'
-  },
-  {
-    id: 10,
-    leadId: '#LD-426',
-    source: 'School Visit',
-    type: 'Counselling',
-    name: 'Eshan Wadhwa',
-    subtitle: 'Needs study material',
-    gender: 'Male',
-    email: 'eshan.wadhwa66@outlook.com',
-    phone: '7258713971',
-    address: 'Hyderabad',
-    created: '27 Jul 2026'
+const formatDate = (value) => {
+  if (!value) return '—';
+  try {
+    const d = new Date(value);
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  } catch {
+    return '—';
   }
-];
+};
 
-const RECENT_ASSIGNMENTS = [
-  {
-    id: 1,
-    leadId: '#LD-476',
-    assignedTo: 'Marketing Exec3',
-    time: '5 days ago',
-    performedBy: 'Marketing Exec3',
-    initials: 'MA'
-  },
-  {
-    id: 2,
-    leadId: '#N/A',
-    assignedTo: 'Marketing Exec3',
-    time: '5 days ago',
-    performedBy: 'Marketing Exec3',
-    initials: 'MA'
-  },
-  {
-    id: 3,
-    leadId: '#N/A',
-    assignedTo: 'Marketing Exec3',
-    time: '5 days ago',
-    performedBy: 'Marketing Exec3',
-    initials: 'MA'
+const formatTimeAgo = (value) => {
+  if (!value) return '';
+  try {
+    const diff = Math.floor((Date.now() - new Date(value).getTime()) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  } catch {
+    return '';
   }
-];
+};
+
+const leadCode = (id) => `#LD-${String(id || '').slice(-4).toUpperCase()}`;
 
 export default function AssignmentsOverview() {
   const navigate = useNavigate();
 
-  const [unassignedLeads, setUnassignedLeads] = useState(INITIAL_UNASSIGNED);
+  const [data, setData] = useState({
+    metrics: { total: 0, assigned: 0, unassigned: 0, activeAgents: 0 },
+    unassigned: [],
+    recent: [],
+    team: [],
+    pagination: { page: 1, limit: 10, total: 0, pages: 1 }
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Quick Assign Modal State
+  // Modal state
   const [assignModalLead, setAssignModalLead] = useState(null);
   const [selectedAgent, setSelectedAgent] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  // Filter leads by search query
-  const filteredData = useMemo(() => {
-    if (!searchTerm.trim()) return unassignedLeads;
-    const query = searchTerm.toLowerCase();
-    return unassignedLeads.filter(
-      item =>
-        item.leadId.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query) ||
-        item.email.toLowerCase().includes(query) ||
-        item.phone.toLowerCase().includes(query) ||
-        item.address.toLowerCase().includes(query)
-    );
-  }, [unassignedLeads, searchTerm]);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/crm/assignments/overview', {
+        params: {
+          page: currentPage,
+          limit: entriesPerPage,
+          search: searchTerm.trim()
+        },
+        _skipErrorNotify: true
+      });
+      setData(res.data || {});
+    } catch (err) {
+      setError(err.response?.data?.message || 'Assignment overview data load nahi ho saka.');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, entriesPerPage, searchTerm]);
 
-  // Pagination calculation
-  const totalEntries = 277; // Matching screenshot total count
-  const totalPages = Math.ceil(totalEntries / entriesPerPage) || 1;
-  const indexOfLast = currentPage * entriesPerPage;
-  const indexOfFirst = indexOfLast - entriesPerPage;
-  const currentEntries = filteredData.slice(0, entriesPerPage);
+  useEffect(() => {
+    const timer = setTimeout(loadData, 250);
+    return () => clearTimeout(timer);
+  }, [loadData]);
 
-  const handleAssignClick = (lead) => {
-    setAssignModalLead(lead);
-    setSelectedAgent('');
+  const rows = data.unassigned || [];
+  const pagination = data.pagination || { page: 1, limit: entriesPerPage, total: rows.length, pages: 1 };
+  const metrics = data.metrics || {};
+  const recentList = data.recent || [];
+  const teamList = data.team || [];
+
+  const handleConfirmAssign = async (e) => {
+    e?.preventDefault();
+    if (!selectedAgent || !assignModalLead) return;
+
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+    try {
+      await api.put(
+        `/crm/leads/${assignModalLead._id}/assign`,
+        { userId: selectedAgent },
+        { _skipErrorNotify: true }
+      );
+      setSuccess(`Lead ${assignModalLead.name || ''} successfully assigned.`);
+      setAssignModalLead(null);
+      setSelectedAgent('');
+      await loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Lead assign karne me error aaya.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleConfirmAssign = () => {
-    if (!selectedAgent) return;
-    setUnassignedLeads(prev => prev.filter(item => item.id !== assignModalLead.id));
-    setAssignModalLead(null);
+  const getInitials = (name) => {
+    if (!name) return 'LD';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
   };
+
+  // Pagination pages helper
+  const totalPages = pagination.pages || 1;
+  const pageNumbers = useMemo(() => {
+    const pages = [];
+    const maxDisplayed = 5;
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + maxDisplayed - 1);
+    if (end - start < maxDisplayed - 1) {
+      start = Math.max(1, end - maxDisplayed + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [currentPage, totalPages]);
+
+  const indexOfFirst = (pagination.page - 1) * (pagination.limit || entriesPerPage);
 
   return (
     <div className="aso-root">
-      {/* Page Header */}
+      {/* Header */}
       <div className="aso-header">
         <div>
-          <h1>Assignment Center</h1>
+          <h1>Assignments Overview</h1>
+          <div className="aso-breadcrumb">
+            <Link to="/ciisUser/crm/admin/dashboard">CRM</Link>
+            <span className="aso-crumb-arrow"><FiChevronRight /></span>
+            <span>Lead Assignment</span>
+            <span className="aso-crumb-arrow"><FiChevronRight /></span>
+            <span>Overview</span>
+          </div>
         </div>
-        <nav className="aso-breadcrumb">
-          <Link to="/ciisUser/crm/admin/dashboard">Dashboard</Link>
-          <FiChevronRight className="aso-crumb-arrow" />
-          <span>Assignments</span>
-        </nav>
       </div>
 
-      {/* Stat Cards Row */}
+      {error && <div className="aso-alert-error">{error}</div>}
+      {success && <div className="aso-alert-success">{success}</div>}
+
+      {/* Stats Cards */}
       <div className="aso-stats-grid">
         <div className="aso-stat-card">
           <div className="aso-stat-info">
             <span className="aso-stat-label">Unassigned Leads</span>
-            <span className="aso-stat-value">277</span>
+            <span className="aso-stat-value">{metrics.unassigned ?? 0}</span>
           </div>
           <div className="aso-stat-icon-wrap aso-bg-red">
             <FiUserX className="aso-icon-red" />
@@ -248,7 +182,7 @@ export default function AssignmentsOverview() {
         <div className="aso-stat-card">
           <div className="aso-stat-info">
             <span className="aso-stat-label">Assigned Leads</span>
-            <span className="aso-stat-value">18</span>
+            <span className="aso-stat-value">{metrics.assigned ?? 0}</span>
           </div>
           <div className="aso-stat-icon-wrap aso-bg-green">
             <FiUserCheck className="aso-icon-green" />
@@ -257,8 +191,8 @@ export default function AssignmentsOverview() {
 
         <div className="aso-stat-card">
           <div className="aso-stat-info">
-            <span className="aso-stat-label">Active Agents</span>
-            <span className="aso-stat-value">6</span>
+            <span className="aso-stat-label">Active Telecallers</span>
+            <span className="aso-stat-value">{metrics.activeAgents ?? 0}</span>
           </div>
           <div className="aso-stat-icon-wrap aso-bg-purple">
             <FiUsers className="aso-icon-purple" />
@@ -267,8 +201,8 @@ export default function AssignmentsOverview() {
 
         <div className="aso-stat-card">
           <div className="aso-stat-info">
-            <span className="aso-stat-label">Avg. Per Agent</span>
-            <span className="aso-stat-value">3</span>
+            <span className="aso-stat-label">Total Inquiries</span>
+            <span className="aso-stat-value">{metrics.total ?? 0}</span>
           </div>
           <div className="aso-stat-icon-wrap aso-bg-blue">
             <FiBarChart2 className="aso-icon-blue" />
@@ -276,13 +210,13 @@ export default function AssignmentsOverview() {
         </div>
       </div>
 
-      {/* Top 2 Columns Section */}
+      {/* 2 Column Section: Quick Actions & Recent Assignments */}
       <div className="aso-top-grid">
         {/* Quick Actions Card */}
         <div className="aso-card aso-quick-card">
           <div className="aso-card-title-wrap">
             <h2>Quick Actions</h2>
-            <span className="aso-card-sub">Assignment operations</span>
+            <span className="aso-card-sub">Bulk assignment, rules & logs</span>
           </div>
 
           <div className="aso-action-list">
@@ -294,8 +228,8 @@ export default function AssignmentsOverview() {
                 <FiUploadCloud />
               </div>
               <div className="aso-action-text">
-                <h3>Bulk Assign</h3>
-                <p>Assign multiple leads at once</p>
+                <h3>Bulk Assign Leads</h3>
+                <p>Assign unassigned leads in batches or round-robin</p>
               </div>
               <FiArrowRight className="aso-action-arrow" />
             </div>
@@ -339,21 +273,31 @@ export default function AssignmentsOverview() {
           </div>
 
           <div className="aso-recent-list">
-            {RECENT_ASSIGNMENTS.map((item) => (
-              <div key={item.id} className="aso-recent-item">
-                <div className="aso-recent-avatar">{item.initials}</div>
-                <div className="aso-recent-details">
-                  <div className="aso-recent-main">
-                    <span>Lead </span>
-                    <span className="aso-lead-tag">{item.leadId}</span>
-                    <span> assigned to </span>
-                    <span className="aso-agent-link">{item.assignedTo}</span>
+            {!recentList.length ? (
+              <div className="aso-table-empty">No recent assignment activity.</div>
+            ) : (
+              recentList.slice(0, 5).map((item) => {
+                const leadName = item.lead?.name || 'Lead';
+                const code = leadCode(item.lead?._id || item._id);
+                const agentName = item.toUser?.name || 'Agent';
+                const performer = item.performedBy?.name || 'System / Admin';
+                return (
+                  <div key={item._id} className="aso-recent-item">
+                    <div className="aso-recent-avatar">{getInitials(leadName)}</div>
+                    <div className="aso-recent-details">
+                      <div className="aso-recent-main">
+                        <span>Lead </span>
+                        <span className="aso-lead-tag">{code}</span>
+                        <span> assigned to </span>
+                        <span className="aso-agent-link">{agentName}</span>
+                      </div>
+                      <div className="aso-recent-sub">Performed by {performer}</div>
+                    </div>
+                    <div className="aso-recent-time">{formatTimeAgo(item.createdAt)}</div>
                   </div>
-                  <div className="aso-recent-sub">Performed by {item.performedBy}</div>
-                </div>
-                <div className="aso-recent-time">{item.time}</div>
-              </div>
-            ))}
+                );
+              })
+            )}
           </div>
         </div>
       </div>
@@ -393,8 +337,12 @@ export default function AssignmentsOverview() {
             <input
               type="text"
               className="aso-input-search"
+              placeholder="Search leads..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </div>
         </div>
@@ -418,59 +366,112 @@ export default function AssignmentsOverview() {
               </tr>
             </thead>
             <tbody>
-              {currentEntries.map((row, index) => (
-                <tr key={row.id}>
-                  <td>{indexOfFirst + index + 1}</td>
-                  <td className="aso-lead-id">{row.leadId}</td>
-                  <td>
-                    <span className="aso-pill-source">{row.source}</span>
-                  </td>
-                  <td>
-                    <span className="aso-pill-type">{row.type}</span>
-                  </td>
-                  <td>
-                    <div>
-                      <div className="aso-name">{row.name}</div>
-                      <div className="aso-sub">{row.subtitle}</div>
-                    </div>
-                  </td>
-                  <td>{row.gender}</td>
-                  <td>{row.email}</td>
-                  <td>{row.phone}</td>
-                  <td>{row.address}</td>
-                  <td>{row.created}</td>
-                  <td>
-                    <button
-                      className="aso-btn-assign"
-                      title="Assign Lead"
-                      onClick={() => handleAssignClick(row)}
-                    >
-                      <FiUserPlus />
-                    </button>
-                  </td>
+              {loading ? (
+                <tr>
+                  <td colSpan="11" className="aso-table-loading">Loading unassigned leads...</td>
                 </tr>
-              ))}
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan="11" className="aso-table-empty">No unassigned leads found.</td>
+                </tr>
+              ) : (
+                rows.map((row, index) => {
+                  const sourceName = row.leadSource?.name || row.source || 'Direct';
+                  const typeName = row.leadType?.name || row.type || 'General';
+                  const code = leadCode(row._id);
+                  const address = row.address || row.city || row.state || '—';
+                  const remarks = row.remarks || row.notes || '—';
+
+                  return (
+                    <tr key={row._id}>
+                      <td>{indexOfFirst + index + 1}</td>
+                      <td className="aso-lead-id">{code}</td>
+                      <td>
+                        <span className="aso-pill-source">{sourceName}</span>
+                      </td>
+                      <td>
+                        <span className="aso-pill-type">{typeName}</span>
+                      </td>
+                      <td>
+                        <div>
+                          <div className="aso-name">{row.name || 'Unnamed'}</div>
+                          {remarks !== '—' && <div className="aso-sub">{remarks}</div>}
+                        </div>
+                      </td>
+                      <td>{row.gender || '—'}</td>
+                      <td>{row.email || '—'}</td>
+                      <td>{row.phone || '—'}</td>
+                      <td>{address}</td>
+                      <td>{formatDate(row.createdAt)}</td>
+                      <td>
+                        <button
+                          className="aso-btn-assign"
+                          title="Assign Lead"
+                          onClick={() => {
+                            setAssignModalLead(row);
+                            setSelectedAgent('');
+                          }}
+                        >
+                          <FiUserPlus />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Footer */}
+        {/* Footer Pagination */}
         <div className="aso-table-footer">
           <div className="aso-showing-info">
-            Showing 1 to {currentEntries.length} of 277 entries
+            Showing {rows.length === 0 ? 0 : indexOfFirst + 1} to {indexOfFirst + rows.length} of {pagination.total || rows.length} entries
           </div>
           <div className="aso-pagination">
-            <button className="aso-page-btn">&laquo;</button>
-            <button className="aso-page-btn">&lt;</button>
-            <button className="aso-page-btn active">1</button>
-            <button className="aso-page-btn">2</button>
-            <button className="aso-page-btn">3</button>
-            <button className="aso-page-btn">4</button>
-            <button className="aso-page-btn">5</button>
-            <span>...</span>
-            <button className="aso-page-btn">28</button>
-            <button className="aso-page-btn">&gt;</button>
-            <button className="aso-page-btn">&raquo;</button>
+            <button
+              className="aso-page-btn"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(1)}
+              title="First Page"
+            >
+              &laquo;
+            </button>
+            <button
+              className="aso-page-btn"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              title="Previous Page"
+            >
+              &lt;
+            </button>
+
+            {pageNumbers.map((p) => (
+              <button
+                key={p}
+                className={`aso-page-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+
+            <button
+              className="aso-page-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              title="Next Page"
+            >
+              &gt;
+            </button>
+            <button
+              className="aso-page-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              title="Last Page"
+            >
+              &raquo;
+            </button>
           </div>
         </div>
       </div>
@@ -480,7 +481,7 @@ export default function AssignmentsOverview() {
         <div className="aso-modal-overlay">
           <div className="aso-modal-card">
             <div className="aso-modal-header">
-              <h3>Assign Lead ({assignModalLead.leadId})</h3>
+              <h3>Assign Lead ({leadCode(assignModalLead._id)})</h3>
               <button
                 className="aso-modal-close"
                 onClick={() => setAssignModalLead(null)}
@@ -490,36 +491,39 @@ export default function AssignmentsOverview() {
             </div>
             <div className="aso-modal-body">
               <p className="aso-modal-lead-name">
-                Assign <strong>{assignModalLead.name}</strong> ({assignModalLead.phone}) to an agent:
+                Assign <strong>{assignModalLead.name}</strong> ({assignModalLead.phone || 'No phone'}) to an agent:
               </p>
               <div className="aso-field">
-                <label>Select Agent</label>
+                <label>Select Telecaller / Agent</label>
                 <select
                   className="aso-select"
                   value={selectedAgent}
                   onChange={(e) => setSelectedAgent(e.target.value)}
                 >
                   <option value="">Choose Agent...</option>
-                  <option value="Marketing Exec3">Marketing Exec3</option>
-                  <option value="Telecaller 1">Telecaller 1</option>
-                  <option value="Telecaller 2">Telecaller 2</option>
-                  <option value="Telecaller 3">Telecaller 3</option>
+                  {teamList.map((agent) => (
+                    <option key={agent._id} value={agent._id}>
+                      {agent.name} — {agent.jobRole || agent.role || 'Telecaller'}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
             <div className="aso-modal-footer">
               <button
+                type="button"
                 className="aso-btn-cancel"
                 onClick={() => setAssignModalLead(null)}
               >
                 Cancel
               </button>
               <button
+                type="button"
                 className="aso-btn-confirm"
-                disabled={!selectedAgent}
+                disabled={!selectedAgent || submitting}
                 onClick={handleConfirmAssign}
               >
-                Confirm Assignment
+                {submitting ? 'Assigning...' : 'Confirm Assignment'}
               </button>
             </div>
           </div>

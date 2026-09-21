@@ -20,23 +20,6 @@ export const CRM_PAGES = [
   { id: "admin-crm-assignment-bulk", path: "crm/admin/assignment-bulk", name: "Bulk Assignment", category: "admin-crm" },
   { id: "admin-crm-assignment-history", path: "crm/admin/assignment-history", name: "Assignment History", category: "admin-crm" },
   { id: "admin-crm-workload", path: "crm/admin/workload", name: "Workload Distribution", category: "admin-crm" },
-  { id: "marketing-overview", path: "crm/marketing/overview", name: "Marketing Overview", category: "admin-crm" },
-  { id: "marketing-follow-ups", path: "crm/marketing/follow-ups", name: "Marketing Follow-Ups", category: "admin-crm" },
-  { id: "visit-management", path: "crm/marketing/visits", name: "Visit Management", category: "admin-crm" },
-  { id: "marketing-activity-history", path: "crm/marketing/activities", name: "Marketing Activity History", category: "admin-crm" },
-  { id: "marketing-converted-leads", path: "crm/marketing/converted-leads", name: "Marketing Converted Leads", category: "admin-crm" },
-  { id: "admin-crm-team-overview", path: "crm/admin/team", name: "Team Overview", category: "admin-crm" },
-  { id: "admin-crm-users", path: "crm/admin/users", name: "Team Users", category: "admin-crm" },
-  { id: "admin-crm-add-user", path: "crm/admin/add-user", name: "Add Team User", category: "admin-crm" },
-  { id: "admin-crm-user-types", path: "crm/admin/user-type", name: "User Types", category: "admin-crm" },
-  { id: "admin-crm-reports-overview", path: "crm/reports/overview", name: "Reports Overview", category: "admin-crm" },
-  { id: "admin-crm-reports-leads", path: "crm/reports/leads", name: "Lead Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-calls", path: "crm/reports/calls", name: "Call Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-visits", path: "crm/reports/visits", name: "Visit Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-follow-ups", path: "crm/reports/follow-ups", name: "Follow-Up Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-team-performance", path: "crm/reports/team-performance", name: "Team Performance Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-conversion-funnel", path: "crm/reports/conversion-funnel", name: "Conversion Funnel Reports", category: "admin-crm" },
-  { id: "admin-crm-reports-user-activity", path: "crm/reports/user-activity", name: "User Activity Reports", category: "admin-crm" },
 ];
 
 // Legacy URLs use the same permission as their canonical page.
@@ -44,7 +27,6 @@ const CRM_PERMISSION_ALIASES = {
   "/ciisuser/crm": "/ciisUser/crm/admin/dashboard",
   "/ciisuser/crm/admin": "/ciisUser/crm/admin/dashboard",
   "/ciisuser/crm/leads": "/ciisUser/crm/admin/all-leads",
-  "/ciisuser/crm/marketing": "/ciisUser/crm/marketing/overview",
   "/ciisuser/crm/followups": "/ciisUser/crm/admin/follow-ups",
   "/ciisuser/crm/leads/all": "/ciisUser/crm/admin/all-leads",
   "/ciisuser/crm/all-leads": "/ciisUser/crm/admin/all-leads",
@@ -80,14 +62,6 @@ const CRM_PERMISSION_ALIASES = {
   "/ciisuser/crm/assignment-history": "/ciisUser/crm/admin/assignment-history",
   "/ciisuser/crm/workload": "/ciisUser/crm/admin/workload",
   "/ciisuser/crm/calls": "/ciisUser/crm/admin/call-overview",
-  "/ciisuser/crm/team": "/ciisUser/crm/admin/team",
-  "/ciisuser/crm/users": "/ciisUser/crm/admin/users",
-  "/ciisuser/crm/add-user": "/ciisUser/crm/admin/add-user",
-  "/ciisuser/crm/user-type": "/ciisUser/crm/admin/user-type",
-  "/ciisuser/crm/user-types": "/ciisUser/crm/admin/user-type",
-  "/ciisuser/crm/reports/team": "/ciisUser/crm/reports/team-performance",
-  "/ciisuser/crm/reports/funnel": "/ciisUser/crm/reports/conversion-funnel",
-  "/ciisuser/crm/reports": "/ciisUser/crm/reports/overview",
   "/ciisuser/telecaller": "/ciisUser/telecaller/dashboard"
 };
 

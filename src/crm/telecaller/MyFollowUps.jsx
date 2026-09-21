@@ -6,7 +6,7 @@ import {
   List,
   AlertTriangle,
 } from "lucide-react";
-import { todayKey } from "./liveData";
+import { localDateTime, todayKey } from "./liveData";
 import { useTelecaller } from "./useTelecaller";
 import api from "../../utils/axiosConfig";
 import {
@@ -76,7 +76,7 @@ export default function MyFollowUps() {
     source: f.lead?.source || "Follow-up",
     type: f.lead?.type || "General",
     status: f.status === "done" ? "Completed" : "Pending",
-    followUp: f.date ? new Date(f.date).toISOString().slice(0, 16) : "",
+    followUp: f.date ? localDateTime(f.date) : "",
     notes: f.note || "",
     priority: "Normal",
   }));
@@ -155,7 +155,7 @@ export default function MyFollowUps() {
               onClick={() => setTab(name)}
               key={name}
             >
-              <Icon size={13} />
+              {React.createElement(Icon, { size: 13 })}
               {name}
               {name === "Reminder Center" && overdue.length > 0 && (
                 <span className="tcl-count">{overdue.length}</span>
@@ -192,8 +192,8 @@ export default function MyFollowUps() {
                 rows={tab === "Reminder Center" ? overdueRows : allRows}
                 kind="follow-ups"
                 title=""
-                emptyTitle="No Follow-Ups"
-                emptySubtitle="No scheduled follow-up calls found."
+                emptyTitle={loading ? "Loading Follow-Ups" : "No Follow-Ups"}
+                emptySubtitle={loading ? "Fetching the latest reminders..." : "No scheduled follow-up calls found."}
                 can={can}
                 onCompleteFollowUp={handleCompleteFollowUp}
               />

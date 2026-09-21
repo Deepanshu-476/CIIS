@@ -27,16 +27,16 @@ import './AdminCrmDashboard.css';
 const initialStatCardsData = [
   {
     title: "Total Leads",
-    value: "295",
-    badge: "9.7 % from last week",
+    value: "0",
+    badge: "Live data",
     badgeType: "purple",
     icon: FiUsers,
     iconBg: "bg-purple-100 text-purple-600"
   },
   {
     title: "Total Calls",
-    value: "2",
-    badge: "100 % from last week",
+    value: "0",
+    badge: "Live data",
     badgeType: "green",
     icon: FiPhoneCall,
     iconBg: "bg-emerald-100 text-emerald-600"
@@ -44,31 +44,31 @@ const initialStatCardsData = [
   {
     title: "Today's Visits",
     value: "0",
-    badge: "0 from yesterday",
+    badge: "Live data",
     badgeType: "yellow",
     icon: FiMapPin,
     iconBg: "bg-amber-100 text-amber-600"
   },
   {
     title: "Conversion Rate",
-    value: "0.3%",
-    badge: "1 converted leads",
+    value: "0%",
+    badge: "Live data",
     badgeType: "cyan",
     icon: FiTrendingUp,
     iconBg: "bg-cyan-100 text-cyan-600"
   },
   {
     title: "Pending Follow-Ups",
-    value: "2",
-    badge: "2 overdue",
+    value: "0",
+    badge: "Live data",
     badgeType: "pink",
     icon: FiClock,
     iconBg: "bg-rose-100 text-rose-600"
   },
   {
     title: "Active Users",
-    value: "7",
-    badge: "277 unassigned leads",
+    value: "0",
+    badge: "Live data",
     badgeType: "blue",
     icon: FiUserCheck,
     iconBg: "bg-blue-100 text-blue-600"
@@ -133,45 +133,31 @@ const initialPipelineData = [
 const quickAccessItems = [
   {
     title: "Lead Overview",
-    sub: "295 total leads",
+    sub: "View the live lead pipeline",
     icon: FiUsers,
     colorClass: "bg-blue-600",
     path: "/ciisUser/crm/admin/lead-overview"
   },
   {
     title: "Call Management",
-    sub: "2 calls tracked",
+    sub: "Manage assigned calls",
     icon: FiPhoneCall,
     colorClass: "bg-emerald-500",
     path: "/ciisUser/crm/admin/call-overview"
   },
   {
-    title: "Field Marketing",
-    sub: "0 visits today",
-    icon: FiMapPin,
-    colorClass: "bg-purple-600",
-    path: "/ciisUser/crm/marketing/overview"
-  },
-  {
     title: "Follow-Up Center",
-    sub: "2 pending follow-ups",
+    sub: "Review scheduled follow-ups",
     icon: FiCalendar,
     colorClass: "bg-orange-500",
     path: "/ciisUser/crm/admin/follow-ups"
   },
   {
     title: "Assignment Center",
-    sub: "277 unassigned leads",
+    sub: "Assign leads to telecallers",
     icon: FiUserPlus,
     colorClass: "bg-indigo-600",
-    path: "/ciisUser/crm/assignments"
-  },
-  {
-    title: "Team Management",
-    sub: "7 active users",
-    icon: FiUserCheck,
-    colorClass: "bg-teal-500",
-    path: "/ciisUser/emp-details"
+    path: "/ciisUser/crm/admin/assignments"
   }
 ];
 
@@ -255,11 +241,11 @@ const initialTeamPerformanceData = [
 
 export default function AdminCrmDashboard() {
   const navigate = useNavigate();
-  const [statCards, setStatCards] = useState(initialStatCardsData);
-  const [trendData, setTrendData] = useState(initialTrendData);
-  const [pipelineData, setPipelineData] = useState(initialPipelineData);
-  const [teamPerformanceData, setTeamPerformanceData] = useState(initialTeamPerformanceData);
-  const [recentActivitiesList, setRecentActivitiesList] = useState(initialRecentActivities);
+  const [statCards, setStatCards] = useState(() => initialStatCardsData.map(card => ({ ...card, value: '0', badge: 'Loading' })));
+  const [trendData, setTrendData] = useState([]);
+  const [pipelineData, setPipelineData] = useState([]);
+  const [teamPerformanceData, setTeamPerformanceData] = useState([]);
+  const [recentActivitiesList, setRecentActivitiesList] = useState([]);
   const [hoverIndex, setHoverIndex] = useState(null);
 
   useEffect(() => {
@@ -278,21 +264,15 @@ export default function AdminCrmDashboard() {
               { title: "Active Users", value: String(res.data.metrics.activeUsers ?? 0), badge: `${res.data.metrics.unassignedLeads ?? 0} unassigned`, badgeType: "blue", icon: FiUserCheck, iconBg: "bg-blue-100 text-blue-600" }
             ]);
           }
-          if (Array.isArray(res.data.trendData) && res.data.trendData.length > 0) {
-            setTrendData(res.data.trendData);
-          }
-          if (Array.isArray(res.data.pipelineData) && res.data.pipelineData.length > 0) {
-            setPipelineData(res.data.pipelineData);
-          }
-          if (Array.isArray(res.data.teamPerformance) && res.data.teamPerformance.length > 0) {
-            setTeamPerformanceData(res.data.teamPerformance);
-          }
-          if (Array.isArray(res.data.recentActivities) && res.data.recentActivities.length > 0) {
-            setRecentActivitiesList(res.data.recentActivities);
-          }
+          setTrendData(Array.isArray(res.data.trendData) ? res.data.trendData : []);
+          setPipelineData(Array.isArray(res.data.pipelineData) ? res.data.pipelineData : []);
+          setTeamPerformanceData(Array.isArray(res.data.teamPerformance) ? res.data.teamPerformance : []);
+          setRecentActivitiesList(Array.isArray(res.data.recentActivities) ? res.data.recentActivities : []);
         }
       } catch (err) {
-        // Fallback gracefully
+        if (isMounted) {
+          setTrendData([]); setPipelineData([]); setTeamPerformanceData([]); setRecentActivitiesList([]);
+        }
       }
     };
     fetchCrmData();

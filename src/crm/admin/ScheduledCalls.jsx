@@ -37,7 +37,9 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
           }));
           setFetchedCalls(items);
         }
-      } catch (err) {}
+      } catch {
+        // Keep the supplied/empty call list when the live request is unavailable.
+      }
     };
     fetchScheduled();
     return () => { isMounted = false; };

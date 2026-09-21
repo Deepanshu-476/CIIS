@@ -408,6 +408,7 @@ export default function AllLeads() {
                 <th>LEAD ID <span className="al-sort">↕</span></th>
                 <th>LEAD</th>
                 <th>PHONE</th>
+                <th>GENDER</th>
                 <th>SOURCE</th>
                 <th>TYPE</th>
                 <th>STATUS</th>
@@ -418,7 +419,7 @@ export default function AllLeads() {
               </tr>
             </thead>
             <tbody>
-              {!visible.length && <tr><td colSpan={11} role="status">{loading ? 'Loading leads...' : error || 'No leads found.'}</td></tr>}
+              {!visible.length && <tr><td colSpan={12} role="status">{loading ? 'Loading leads...' : error || 'No leads found.'}</td></tr>}
               {visible.map((item, index) => (
                 <tr key={item.id}>
                   <td className="al-td-sl">
@@ -431,6 +432,7 @@ export default function AllLeads() {
                     <span className="al-lead-note">{item.note}</span>
                   </td>
                   <td className="al-td-phone">{item.phone}</td>
+                  <td>{item.gender || 'Not Specified'}</td>
                   <td>
                     <span
                       className={`al-badge al-badge-source-${item.source === 'Self' ? 'purple' : 'blue'}`}

@@ -2,6 +2,7 @@ import axios from "./axiosConfig";
 
 const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
+const PAGE_PERMISSION_SESSION_PREFIX = 'ciis-page-permission-catalog:';
 const permissionRequests = new Map();
 const normalizePermissionPath = path => String(path || '').trim().toLowerCase().replace(/\/+$/, '');
 const PERMISSION_RETRY_DELAYS_MS = [400, 800, 1600, 3000];
@@ -30,6 +31,37 @@ const permissionScope = () => {
     localStorage.getItem('companyDetails'), localStorage.getItem('token')]);
 };
 
+const permissionSessionKey = () => {
+  const user = getStoredUser();
+  const userId = String(user?._id || user?.id || '').trim();
+  const company = user?.company || user?.companyId || user?.companyDetails;
+  const companyId = String(
+    (typeof company === 'object' ? company?._id || company?.id : company) || ''
+  ).trim();
+  return userId ? `${PAGE_PERMISSION_SESSION_PREFIX}${userId}:${companyId}` : '';
+};
+
+export const getCachedPagePermissionCatalog = () => {
+  const key = permissionSessionKey();
+  if (!key) return null;
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(key) || 'null');
+    return cached?.value || null;
+  } catch {
+    return null;
+  }
+};
+
+const cachePagePermissionCatalogForSession = value => {
+  const key = permissionSessionKey();
+  if (!key) return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ createdAt: Date.now(), value }));
+  } catch {
+    // Continue with the in-memory cache when storage is unavailable or full.
+  }
+};
+
 const loadPermissionResource = (key, load) => {
   const cached = pagePermissionCache.get(key);
   if (cached && Date.now() - cached.createdAt < PAGE_PERMISSION_TTL_MS) return Promise.resolve(cached.value);
@@ -52,6 +84,7 @@ export const loadPagePermissionCatalog = () => {
     const response = await withPermissionRetry(() => axios.get('/page-permissions/pages', {
       params: { includeAccess: true }, noCache: true, _skipErrorNotify: true
     }));
+    cachePagePermissionCatalogForSession(response.data);
     return response.data;
   });
 };
@@ -182,6 +215,10 @@ export const invalidatePagePermissionCache = (path) => {
   if (!path) {
     pagePermissionCache.clear();
     permissionRequests.clear();
+    const sessionKey = permissionSessionKey();
+    try {
+      if (sessionKey) sessionStorage.removeItem(sessionKey);
+    } catch { /* Storage can be unavailable in restricted browser modes. */ }
     return;
   }
   const suffix = `|${normalizePermissionPath(path)}`;
@@ -190,4 +227,8 @@ export const invalidatePagePermissionCache = (path) => {
       if (key.endsWith(suffix) || key.endsWith('|catalog')) cache.delete(key);
     }
   }
+  const sessionKey = permissionSessionKey();
+  try {
+    if (sessionKey) sessionStorage.removeItem(sessionKey);
+  } catch { /* Storage can be unavailable in restricted browser modes. */ }
 };

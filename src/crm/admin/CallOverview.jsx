@@ -267,7 +267,9 @@ export default function CallOverview() {
             setRecentCalls(res.data.recentCalls);
           }
         }
-      } catch (err) {}
+      } catch {
+        // Keep the dashboard's empty/default state when live metrics are unavailable.
+      }
     };
     fetchOverview();
     return () => { isMounted = false; };

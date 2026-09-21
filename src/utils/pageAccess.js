@@ -5,6 +5,9 @@ import { TELECALLER_PAGES } from "../crm/telecaller/telecallerPages";
 const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
 const pagePermissionCatalogCache = globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ = { createdAt: 0, value: null });
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
+const PAGE_PERMISSION_SESSION_PREFIX = 'ciis-page-permission-catalog:';
+const permissionRequests = new Map();
+const normalizePermissionPath = path => String(path || '').trim().toLowerCase().replace(/\/+$/, '');
 const PERMISSION_RETRY_DELAYS_MS = [400, 800, 1600, 3000];
 
 const isRetryablePermissionError = error => {
@@ -24,6 +27,88 @@ const withPermissionRetry = async load => {
     }
   }
   throw lastError;
+};
+const permissionScope = () => {
+  const user = getStoredUser();
+  return JSON.stringify([user?._id || user?.id, user?.company || user?.companyId,
+    localStorage.getItem('companyDetails'), localStorage.getItem('token')]);
+};
+
+const permissionSessionKey = () => {
+  const user = getStoredUser();
+  const userId = String(user?._id || user?.id || '').trim();
+  const company = user?.company || user?.companyId || user?.companyDetails;
+  const companyId = String(
+    (typeof company === 'object' ? company?._id || company?.id : company) || ''
+  ).trim();
+  return userId ? `${PAGE_PERMISSION_SESSION_PREFIX}${userId}:${companyId}` : '';
+};
+
+export const getCachedPagePermissionCatalog = () => {
+  const key = permissionSessionKey();
+  if (!key) return null;
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(key) || 'null');
+    return cached?.value || null;
+  } catch {
+    return null;
+  }
+};
+
+const cachePagePermissionCatalogForSession = value => {
+  const key = permissionSessionKey();
+  if (!key) return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ createdAt: Date.now(), value }));
+  } catch {
+    // Continue with the in-memory cache when storage is unavailable or full.
+  }
+};
+
+const loadPermissionResource = (key, load) => {
+  const cached = pagePermissionCache.get(key);
+  if (cached && Date.now() - cached.createdAt < PAGE_PERMISSION_TTL_MS) return Promise.resolve(cached.value);
+  if (permissionRequests.has(key)) return permissionRequests.get(key);
+  const request = load().then(value => {
+    if (permissionRequests.get(key) === request) {
+      pagePermissionCache.set(key, { createdAt: Date.now(), value });
+    }
+    return value;
+  }).finally(() => {
+    if (permissionRequests.get(key) === request) permissionRequests.delete(key);
+  });
+  permissionRequests.set(key, request);
+  return request;
+};
+
+export const loadPagePermissionCatalog = () => {
+  const scope = permissionScope();
+  return loadPermissionResource(`${scope}|catalog`, async () => {
+    const response = await withPermissionRetry(() => axios.get('/page-permissions/pages', {
+      params: { includeAccess: true }, noCache: true, _skipErrorNotify: true
+    }));
+    cachePagePermissionCatalogForSession(response.data);
+    return response.data;
+  });
+};
+
+const STRICT_PAGE_PATHS = new Set([
+  '/ciisuser/salary-component',
+  '/ciisuser/salary-structure',
+  '/ciisuser/salary-assignment',
+  '/ciisuser/assign-salary',
+  '/ciisuser/payroll-process',
+  '/ciisuser/release-payroll',
+  '/ciisuser/payslip',
+  '/ciisuser/payroll-reports',
+]);
+
+export const isTelecallerPage = path => /^\/ciisuser\/telecaller(\/|$)/i.test(String(path || '').trim());
+export const isCrmPage = path => /^\/ciisuser\/(crm|telecaller)(\/|$)/i.test(String(path || '').trim());
+
+export const requiresPageAccess = path => {
+  const normalized = String(path || '').trim().toLowerCase().replace(/\/+$/, '');
+  return isCrmPage(normalized) || STRICT_PAGE_PATHS.has(normalized);
 };
 
 export const getStoredUser = () => {
@@ -183,11 +268,23 @@ export const loadPagePermissionCatalog = async (options = {}) => {
 export const invalidatePagePermissionCache = (path) => {
   if (!path) {
     pagePermissionCache.clear();
-    pagePermissionCatalogCache.createdAt = 0;
-    pagePermissionCatalogCache.value = null;
+    permissionRequests.clear();
+    const sessionKey = permissionSessionKey();
+    try {
+      if (sessionKey) sessionStorage.removeItem(sessionKey);
+    } catch { /* Storage can be unavailable in restricted browser modes. */ }
     return;
   }
-  pagePermissionCache.delete(String(resolveCrmPermissionPath(normalizePagePath(path)) || path).trim().toLowerCase());
+  const suffix = `|${normalizePermissionPath(path)}`;
+  for (const cache of [pagePermissionCache, permissionRequests]) {
+    for (const key of cache.keys()) {
+      if (key.endsWith(suffix) || key.endsWith('|catalog')) cache.delete(key);
+    }
+  }
+  const sessionKey = permissionSessionKey();
+  try {
+    if (sessionKey) sessionStorage.removeItem(sessionKey);
+  } catch { /* Storage can be unavailable in restricted browser modes. */ }
 };
 
 export const getUserPageScope = (page, userId, accessType = '') => {

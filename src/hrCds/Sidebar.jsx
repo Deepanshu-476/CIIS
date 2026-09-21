@@ -50,7 +50,7 @@ import {
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
-import { isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
+import { isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
 import { CRM_PAGES } from '../config/crmPages';
 import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
@@ -75,6 +75,46 @@ const normalizePermissionRole = value => String(value || '')
   .trim()
   .toLowerCase()
   .replace(/[\s-]+/g, '_');
+
+const readCachedSidebarConfig = user => {
+  try {
+    const cached = JSON.parse(localStorage.getItem('sidebarConfig') || 'null');
+    if (!cached || typeof cached !== 'object') return null;
+    const userId = String(user?._id || user?.id || '').trim();
+    const storedCompany = JSON.parse(localStorage.getItem('companyDetails') || 'null');
+    const company = user?.company || user?.companyId || user?.companyDetails || storedCompany;
+    const companyId = String(
+      (typeof company === 'object' ? company?._id || company?.id : company) || ''
+    ).trim();
+    const cachedUserId = String(cached?._cacheContext?.userId || '').trim();
+    const cachedCompanyId = String(cached?._cacheContext?.companyId || '').trim();
+    return userId && cachedUserId === userId && cachedCompanyId === companyId ? cached : null;
+  } catch {
+    return null;
+  }
+};
+
+const permissionPagesFromCatalog = catalog => {
+  if (!catalog || typeof catalog !== 'object') return null;
+  const pages = Array.isArray(catalog.pages) ? catalog.pages : [];
+  const accessPages = Array.isArray(catalog.accessPages) ? catalog.accessPages : [];
+  const pagesByPath = new Map(pages.map(page => [
+    String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
+    page
+  ]));
+  [...CRM_PAGES.map(page => ({ ...page, path: `/ciisUser/${page.path}` })), ...TELECALLER_PAGES]
+    .forEach(page => {
+      const key = String(page.path || '').toLowerCase().replace(/\/+$/, '');
+      if (!pagesByPath.has(key)) pagesByPath.set(key, { ...page, pageKey: page.id });
+    });
+  const detailsByPath = new Map(accessPages.map(page => [
+    String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
+    page
+  ]));
+  return [...pagesByPath.values()].map(page => (
+    detailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
+  ));
+};
 
 const getPermissionUserIds = page => [
   page?.viewUsers,
@@ -1767,8 +1807,10 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
   });
   const [resolvedJobRoleName, setResolvedJobRoleName] = useState("");
-  const [sidebarConfig, setSidebarConfig] = useState(null);
-  const [pagePermissions, setPagePermissions] = useState(null);
+  const [sidebarConfig, setSidebarConfig] = useState(() => readCachedSidebarConfig(userData));
+  const [pagePermissions, setPagePermissions] = useState(() => (
+    permissionPagesFromCatalog(getCachedPagePermissionCatalog())
+  ));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [clientCompanies, setClientCompanies] = useState([]);
@@ -2154,13 +2196,20 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
       if (response.data && response.data.success) {
         if (response.data.data) {
-          setSidebarConfig(response.data.data);
+          const nextConfig = {
+            ...response.data.data,
+            _cacheContext: { userId, companyId: sidebarCompanyId }
+          };
+          setSidebarConfig(nextConfig);
+          localStorage.setItem('sidebarConfig', JSON.stringify(nextConfig));
         } else {
           const fallbackConfig = { 
             useFixedDefault: true,
-            message: 'No custom config found, using fixed default items'
+            message: 'No custom config found, using fixed default items',
+            _cacheContext: { userId, companyId: sidebarCompanyId }
           };
           setSidebarConfig(fallbackConfig);
+          localStorage.setItem('sidebarConfig', JSON.stringify(fallbackConfig));
         }
       } else {
         throw new Error(response.data?.message || 'Failed to fetch sidebar config');
@@ -2168,10 +2217,10 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     } catch (error) {
       console.error('Error fetching sidebar config:', error);
       setError(`Failed to load sidebar configuration: ${error.message}`);
-      setSidebarConfig({ 
+      setSidebarConfig(current => current || ({
         useFixedDefault: true,
         message: 'Using fixed default items due to error'
-      });
+      }));
     } finally {
       setLoading(false);
     }
@@ -2222,9 +2271,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
         if (!cancelled) setPagePermissions(permissionPages);
       })
-      .catch(() => {
-        if (!cancelled) setPagePermissions(null);
-      });
+      // Keep the last verified permissions visible during a temporary API
+      // failure. Route-level access checks still protect page navigation.
+      .catch(() => undefined);
 
     return () => {
       cancelled = true;

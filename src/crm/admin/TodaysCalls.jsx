@@ -49,7 +49,9 @@ export default function TodaysCalls() {
         if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
           setTeamUsers(teamRes.value.data.users);
         }
-      } catch (err) {} finally {
+      } catch {
+        // Keep the empty state when either live request is unavailable.
+      } finally {
         if (isMounted) setLoading(false);
       }
     };

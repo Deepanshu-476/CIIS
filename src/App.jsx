@@ -92,6 +92,42 @@ const AssignSalary = lazy(() => import("./payroll/pages/AssignSalary.jsx"));
 const PayrollProcess = lazy(() => import("./payroll/pages/PayrollProcess.jsx"));
 const Payslip = lazy(() => import("./payroll/pages/Payslip.jsx"));
 const PayrollReports = lazy(() => import("./payroll/pages/PayrollReports.jsx"));
+const TelecallerLayout = lazy(() => import("./crm/telecaller/TelecallerLayout.jsx"));
+const TelecallerDashboard = lazy(() => import("./crm/telecaller/Dashboard.jsx"));
+const TelecallerCallDashboard = lazy(() => import("./crm/telecaller/CallDashboard.jsx"));
+const TelecallerAssignedCalls = lazy(() => import("./crm/telecaller/AssignedCalls.jsx"));
+const TelecallerTodaysCalls = lazy(() => import("./crm/telecaller/TodaysCalls.jsx"));
+const TelecallerPendingCalls = lazy(() => import("./crm/telecaller/PendingCalls.jsx"));
+const TelecallerScheduledCalls = lazy(() => import("./crm/telecaller/ScheduledCalls.jsx"));
+const TelecallerCompletedCalls = lazy(() => import("./crm/telecaller/CompletedCalls.jsx"));
+const TelecallerCallHistory = lazy(() => import("./crm/telecaller/CallHistory.jsx"));
+const TelecallerMyFollowUps = lazy(() => import("./crm/telecaller/MyFollowUps.jsx"));
+const TelecallerConvertedLeads = lazy(() => import("./crm/telecaller/ConvertedLeads.jsx"));
+const TelecallerCallWorkspace = lazy(() => import("./crm/telecaller/CallWorkspace.jsx"));
+const TelecallerLeadDetail = lazy(() => import("./crm/telecaller/LeadDetail.jsx"));
+const CallLogs = lazy(() => import("./admin/page/CallLogs.jsx"));
+const AdminCrmDashboard = lazy(() => import("./crm/admin/AdminCrmDashboard.jsx"));
+const AddLead = lazy(() => import("./crm/admin/AddLead.jsx"));
+const LeadSources = lazy(() => import("./crm/admin/LeadSources.jsx"));
+const LeadTypes = lazy(() => import("./crm/admin/LeadTypes.jsx"));
+const ImportExportLeads = lazy(() => import("./crm/admin/ImportExportLeads.jsx"));
+const LeadOverview = lazy(() => import("./crm/admin/LeadOverview.jsx"));
+const AllLeads = lazy(() => import("./crm/admin/AllLeads.jsx"));
+const CallOverview = lazy(() => import("./crm/admin/CallOverview.jsx"));
+const AdminAssignedCalls = lazy(() => import("./crm/admin/AssignedCalls.jsx"));
+const TodaysCalls = lazy(() => import("./crm/admin/TodaysCalls.jsx"));
+const PendingCalls = lazy(() => import("./crm/admin/PendingCalls.jsx"));
+const CompletedCalls = lazy(() => import("./crm/admin/CompletedCalls.jsx"));
+const ConvertedCalls = lazy(() => import("./crm/admin/ConvertedCalls.jsx"));
+const TransferredCalls = lazy(() => import("./crm/admin/TransferredCalls.jsx"));
+const FollowUpCenter = lazy(() => import("./crm/admin/FollowUpCenter.jsx"));
+const AssignmentsOverview = lazy(() => import("./crm/admin/AssignmentsOverview.jsx"));
+const BulkAssignment = lazy(() => import("./crm/admin/BulkAssignment.jsx"));
+const AssignmentHistory = lazy(() => import("./crm/admin/AssignmentHistory.jsx"));
+const WorkloadDistribution = lazy(() => import("./crm/admin/WorkloadDistribution.jsx"));
+const CallHistory = lazy(() => import("./crm/admin/CallHistory.jsx"));
+const ScheduledCalls = lazy(() => import("./crm/admin/ScheduledCalls.jsx"));
+const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 
 function App() {
   return (
@@ -111,6 +147,10 @@ function App() {
         <Route path="/:companyCode/register" element={<SelfRegister />} />
         <Route path="/company/:companyCode/register" element={<SelfRegister />} />
         <Route path="/RegisterCompany" element={<RegisterCompany />} />
+        <Route path="/call-management" element={<Navigate to="/ciisUser/telecaller/call-dashboard" replace />} />
+        <Route path="/lead-management" element={<Navigate to="/ciisUser/telecaller/assigned-calls" replace />} />
+        <Route path="/talicaliler" element={<Navigate to="/ciisUser/telecaller/dashboard" replace />} />
+
         <Route
           path="/Ciis-network/*"
           element={
@@ -251,6 +291,96 @@ function App() {
           <Route path="payroll-process" element={<PayrollProcess />} />
           <Route path="payslip" element={<Payslip />} />
           <Route path="payroll-reports" element={<PayrollReports />} />
+        <Route path="telecaller" element={<TelecallerLayout/>}>
+            <Route index element={<Navigate to="dashboard" replace/>}/>
+            <Route path="dashboard" element={<TelecallerDashboard/>}/>
+            <Route path="call-dashboard" element={<TelecallerCallDashboard/>}/>
+            <Route path="assigned-calls" element={<TelecallerAssignedCalls/>}/>
+            <Route path="todays-calls" element={<TelecallerTodaysCalls/>}/>
+            <Route path="pending-calls" element={<TelecallerPendingCalls/>}/>
+            <Route path="scheduled-calls" element={<TelecallerScheduledCalls/>}/>
+            <Route path="completed-calls" element={<TelecallerCompletedCalls/>}/>
+            <Route path="call-history" element={<TelecallerCallHistory/>}/>
+            <Route path="follow-ups" element={<TelecallerMyFollowUps/>}/>
+            <Route path="converted-leads" element={<TelecallerConvertedLeads/>}/>
+            <Route path="call-workspace/:leadId?" element={<TelecallerCallWorkspace/>}/>
+            <Route path="lead-detail/:leadId?" element={<TelecallerLeadDetail/>}/>
+            <Route path="call-logs" element={<CallLogs/>}/>
+          </Route>
+          <Route path="call-logs" element={<CallLogs/>}/>
+          <Route path="crm" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
+          <Route path="crm/admin" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
+          <Route path="crm/leads" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
+          <Route path="crm/marketing" element={<Navigate to="/ciisUser/crm/marketing/overview" replace />} />
+          <Route path="crm/followups" element={<Navigate to="/ciisUser/crm/admin/follow-ups" replace />} />
+          <Route path="crm/admin/lead-overview" element={<LeadOverview />} />
+          <Route path="crm/admin/all-leads" element={<AllLeads />} />
+          <Route path="crm/leads/all" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
+          <Route path="crm/all-leads" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
+          <Route path="crm/lead-overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
+          <Route path="crm/leads/overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
+          <Route path="crm/admin/add-lead" element={<AddLead />} />
+          <Route path="crm/admin/lead-sources" element={<LeadSources />} />
+          <Route path="crm/admin/lead-types" element={<LeadTypes />} />
+          <Route path="crm/admin/import-export-leads" element={<ImportExportLeads />} />
+          <Route path="crm/leads/import" element={<ImportExportLeads />} />
+          <Route path="crm/import-leads" element={<ImportExportLeads />} />
+          <Route path="crm/leads/export" element={<ImportExportLeads />} />
+          <Route path="crm/leads/sources" element={<LeadSources />} />
+          <Route path="crm/lead-sources" element={<LeadSources />} />
+          <Route path="crm/leads/add" element={<AddLead />} />
+          <Route path="crm/add-lead" element={<AddLead />} />
+          <Route path="crm/admin/call-overview" element={<CallOverview />} />
+          <Route path="crm/call-overview" element={<CallOverview />} />
+          <Route path="crm/calls/overview" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
+          <Route path="crm/admin/assigned-calls" element={<AdminAssignedCalls />} />
+          <Route path="crm/calls/assigned" element={<Navigate to="/ciisUser/crm/admin/assigned-calls" replace />} />
+          <Route path="crm/admin/todays-calls" element={<TodaysCalls />} />
+          <Route path="crm/todays-calls" element={<TodaysCalls />} />
+          <Route path="crm/calls/today" element={<Navigate to="/ciisUser/crm/admin/todays-calls" replace />} />
+          <Route path="todays-calls" element={<Navigate to="/ciisUser/crm/admin/todays-calls" replace />} />
+          <Route path="crm/admin/pending-calls" element={<PendingCalls />} />
+          <Route path="crm/pending-calls" element={<PendingCalls />} />
+          <Route path="crm/calls/pending" element={<Navigate to="/ciisUser/crm/admin/pending-calls" replace />} />
+          <Route path="crm/admin/scheduled-calls" element={<ScheduledCalls />} />
+          <Route path="crm/scheduled-calls" element={<ScheduledCalls />} />
+          <Route path="crm/calls/scheduled" element={<Navigate to="/ciisUser/crm/admin/scheduled-calls" replace />} />
+          <Route path="scheduled-calls" element={<Navigate to="/ciisUser/crm/admin/scheduled-calls" replace />} />
+          <Route path="crm/admin/completed-calls" element={<CompletedCalls />} />
+          <Route path="crm/completed-calls" element={<CompletedCalls />} />
+          <Route path="crm/calls/completed" element={<Navigate to="/ciisUser/crm/admin/completed-calls" replace />} />
+          <Route path="crm/admin/converted-calls" element={<ConvertedCalls />} />
+          <Route path="crm/converted-calls" element={<ConvertedCalls />} />
+          <Route path="crm/calls/converted" element={<Navigate to="/ciisUser/crm/admin/converted-calls" replace />} />
+          <Route path="crm/admin/transferred-calls" element={<TransferredCalls />} />
+          <Route path="crm/transferred-calls" element={<TransferredCalls />} />
+          <Route path="crm/calls/transferred" element={<Navigate to="/ciisUser/crm/admin/transferred-calls" replace />} />
+          <Route path="crm/admin/call-history" element={<CallHistory />} />
+          <Route path="crm/call-history" element={<CallHistory />} />
+          <Route path="crm/calls/history" element={<Navigate to="/ciisUser/crm/admin/call-history" replace />} />
+          <Route path="crm/admin/follow-ups" element={<FollowUpCenter />} />
+          <Route path="crm/follow-ups" element={<Navigate to="/ciisUser/crm/admin/follow-ups" replace />} />
+          <Route path="crm/admin/assignments" element={<AssignmentsOverview />} />
+          <Route path="crm/assignments" element={<Navigate to="/ciisUser/crm/admin/assignments" replace />} />
+          <Route path="crm/admin/assignment-bulk" element={<BulkAssignment />} />
+          <Route path="crm/assignment-bulk" element={<Navigate to="/ciisUser/crm/admin/assignment-bulk" replace />} />
+          <Route path="crm/admin/assignment-history" element={<AssignmentHistory />} />
+          <Route path="crm/assignment-history" element={<Navigate to="/ciisUser/crm/admin/assignment-history" replace />} />
+          <Route path="crm/admin/workload" element={<WorkloadDistribution />} />
+          <Route path="crm/workload" element={<Navigate to="/ciisUser/crm/admin/workload" replace />} />
+          <Route path="crm/calls" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
+
+          <Route path="crm/reports/overview" element={<LiveCrmReport type="overview" title="Reports Overview" />} />
+          <Route path="crm/reports/leads" element={<LiveCrmReport type="leads" title="Lead Reports" />} />
+          <Route path="crm/reports/calls" element={<LiveCrmReport type="calls" title="Call Reports" />} />
+          <Route path="crm/reports/visits" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
+          <Route path="crm/reports/follow-ups" element={<LiveCrmReport type="follow-ups" title="Follow-Up Reports" />} />
+          <Route path="crm/reports/team-performance" element={<LiveCrmReport type="team-performance" title="Team Performance" />} />
+          <Route path="crm/reports/team" element={<Navigate to="/ciisUser/crm/reports/team-performance" replace />} />
+          <Route path="crm/reports/conversion-funnel" element={<LiveCrmReport type="conversion-funnel" title="Conversion Funnel" />} />
+          <Route path="crm/reports/funnel" element={<Navigate to="/ciisUser/crm/reports/conversion-funnel" replace />} />
+          <Route path="crm/reports/user-activity" element={<LiveCrmReport type="user-activity" title="User Activity" />} />
+          <Route path="crm/reports" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
         </Route>
         <Route
           path="/client/*"

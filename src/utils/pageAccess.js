@@ -4,6 +4,26 @@ const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (global
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
 const permissionRequests = new Map();
 const normalizePermissionPath = path => String(path || '').trim().toLowerCase().replace(/\/+$/, '');
+const PERMISSION_RETRY_DELAYS_MS = [400, 800, 1600, 3000];
+
+const isRetryablePermissionError = error => {
+  const status = Number(error?.response?.status || 0);
+  return !error?.response || status >= 500 || status === 408 || status === 429;
+};
+
+const withPermissionRetry = async load => {
+  let lastError;
+  for (let attempt = 0; attempt <= PERMISSION_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await load();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryablePermissionError(error) || attempt === PERMISSION_RETRY_DELAYS_MS.length) throw error;
+      await new Promise(resolve => setTimeout(resolve, PERMISSION_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw lastError;
+};
 const permissionScope = () => {
   const user = getStoredUser();
   return JSON.stringify([user?._id || user?.id, user?.company || user?.companyId,
@@ -29,9 +49,9 @@ const loadPermissionResource = (key, load) => {
 export const loadPagePermissionCatalog = () => {
   const scope = permissionScope();
   return loadPermissionResource(`${scope}|catalog`, async () => {
-    const response = await axios.get('/page-permissions/pages', {
+    const response = await withPermissionRetry(() => axios.get('/page-permissions/pages', {
       params: { includeAccess: true }, noCache: true, _skipErrorNotify: true
-    });
+    }));
     return response.data;
   });
 };
@@ -139,9 +159,9 @@ export const loadPagePermission = async (path) => {
       if (page) return page;
     } catch { /* Fall back to the existing endpoint if the batch is unavailable. */ }
   }
-  const response = await axios.get("/page-permissions/by-path", {
-    params: { path }, noCache: true
-  });
+  const response = await withPermissionRetry(() => axios.get("/page-permissions/by-path", {
+    params: { path }, noCache: true, _skipErrorNotify: true
+  }));
 
   const value = response.data?.page || {
     path,

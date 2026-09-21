@@ -236,21 +236,32 @@ const StyledListItem = styled(ListItem)({
 });
 
 const StyledListItemButton = styled(ListItemButton)(({ theme, selected }) => ({
-  minHeight: 44,
+  minHeight: 42,
+  width: 'calc(100% - 16px)',
+  margin: theme.spacing(0.25, 1),
+  padding: theme.spacing(0.8, 1.5),
   justifyContent: 'initial',
-  padding: theme.spacing(1, 2),
   color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
-  backgroundColor: selected ? `${theme.palette.primary.main}12` : 'transparent',
-  borderLeft: selected ? `4px solid ${theme.palette.primary.main}` : '4px solid transparent',
-  margin: theme.spacing(0.2, 1),
-  borderRadius: '0px 8px 8px 0px',
-  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  backgroundColor: selected ? `${theme.palette.primary.main}10` : 'transparent',
+  borderLeft: selected ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+  borderRadius: '0 8px 8px 0',
+  transition: 'background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease',
   '&:hover': {
-    backgroundColor: selected ? `${theme.palette.primary.main}1a` : theme.palette.action.hover,
-    transform: 'translateX(2px)',
+    backgroundColor: selected ? `${theme.palette.primary.main}16` : theme.palette.action.hover,
   },
   '& .MuiListItemIcon-root': {
+    minWidth: 30,
+    marginRight: theme.spacing(1.25),
     color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
+    transition: 'color 0.18s ease',
+  },
+  '& .MuiListItemText-primary': {
+    fontSize: '0.78rem',
+    lineHeight: 1.25,
+    fontWeight: selected ? 600 : 500,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
 }));
 
@@ -262,14 +273,15 @@ const StyledListItemIcon = styled(ListItemIcon)(({ theme }) => ({
 }));
 
 const SectionHeading = styled(Typography)(({ theme }) => ({
-  padding: theme.spacing(1.5, 2, 1),
-  fontSize: '0.75rem',
+  padding: theme.spacing(1.25, 2, 0.85),
+  margin: theme.spacing(0, 1),
+  fontSize: '0.69rem',
+  lineHeight: 1.2,
   textTransform: 'uppercase',
   color: theme.palette.text.secondary,
-  fontWeight: 600,
-  letterSpacing: '0.5px',
+  fontWeight: 700,
+  letterSpacing: '0.08em',
   borderBottom: `1px solid ${theme.palette.divider}`,
-  margin: theme.spacing(0, 1),
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -2828,7 +2840,15 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
               </Tooltip>
             </StyledListItem>
             <Collapse id={submenuId} in={isSidebarOpen && telecallerWorkspaceOpen} timeout="auto">
-              <List disablePadding sx={{ ml: 1.5, pl: 1, borderLeft: '1px solid', borderColor: 'divider' }}>
+              <List disablePadding sx={{
+  ml: 2.25,
+  mr: 1,
+  my: 0.35,
+  pl: 0.75,
+  borderLeft: '1px solid',
+  borderColor: 'divider',
+  '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
+}}> 
                 {children.map(item => (
                   <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, true)}</StyledListItem>
                 ))}
@@ -2914,7 +2934,15 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
                 )}
               </StyledListItem>
               <Collapse in={isSidebarOpen && isOpen} timeout="auto" unmountOnExit>
-                <List disablePadding sx={{ pl: 2.25 }}>
+                <List disablePadding sx={{
+  ml: 2.25,
+  mr: 1,
+  my: 0.35,
+  pl: 0.75,
+  borderLeft: '1px solid',
+  borderColor: 'divider',
+  '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
+}}> 
                   {children.map(item => (
                     <StyledListItem key={item.id} disablePadding>
                       {renderMenuItem(item, true)}

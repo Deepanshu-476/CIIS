@@ -1,7 +1,13 @@
 const routeLoaders = {
+  "/ciisUser/salary-component": () => import("../payroll/pages/SalaryComponent.jsx"),
+  "/ciisUser/salary-structure": () => import("../payroll/pages/SalaryStructure.jsx"),
+  "/ciisUser/salary-assignment": () => import("../payroll/pages/EmployeeSalaryAssignment.jsx"),
+  "/ciisUser/assign-salary": () => import("../payroll/pages/AssignSalary.jsx"),
+  "/ciisUser/payroll-process": () => import("../payroll/pages/PayrollProcess.jsx"),
+  "/ciisUser/release-payroll": () => import("../payroll/pages/ReleasePayroll.jsx"),
+  "/ciisUser/payslip": () => import("../payroll/pages/Payslip.jsx"),
+  "/ciisUser/payroll-reports": () => import("../payroll/pages/PayrollReports.jsx"),
   "/ciisUser/user-dashboard": () => import("../hrCds/pages/UserDashboard"),
-  "/ciisUser/dashboard": () => import("../hrCds/pages/UserDashboard"),
-  "/ciisUser/dashboard-1": () => import("../hrCds/pages/DashboardOverview"),
   "/ciisUser/attendance": () => import("../hrCds/pages/Attendance"),
   "/ciisUser/my-leaves": () => import("../hrCds/pages/MyLeaves"),
   "/ciisUser/my-assets": () => import("../hrCds/pages/MyAssets"),
@@ -11,10 +17,8 @@ const routeLoaders = {
   "/ciisUser/create-user": () => import("../admin/page/CreateUser"),
   "/ciisUser/register-request": () => import("../hrCds/pages/hr/RegisterRequest.jsx"),
   "/ciisUser/department": () => import("../admin/page/DepartmentManagement"),
-  "/ciisUser/department-all-task": () => import("../hrCds/pages/hr/EmpDepartmentAllTask.jsx"),
   "/ciisUser/jobrolemanagement": () => import("../admin/page/JobRoleManagement.jsx"),
   "/ciisUser/job-role-management": () => import("../admin/page/JobRoleManagement.jsx"),
-  "/ciisUser/SidebarManagement": () => import("../admin/components/SidebarManagement.jsx"),
   "/ciisUser/admin-task-create": () => import("../hrCds/pages/hr/AdminTaskCreate"),
   "/ciisUser/manage-groups": () => import("../hrCds/pages/hr/ManageGroups"),
   "/ciisUser/admin-meeting": () => import("../hrCds/pages/hr/AdminMeetingPage"),
@@ -25,8 +29,6 @@ const routeLoaders = {
   "/ciisUser/emp-details": () => import("../hrCds/pages/hr/EmppDetail"),
   "/ciisUser/emp-leaves": () => import("../hrCds/pages/hr/EmppLeaves"),
   "/ciisUser/emp-assets": () => import("../hrCds/pages/hr/EmppAssets"),
-  "/ciisUser/company-assets": () => import("../page/CompanyAssetManagement.jsx"),
-  "/ciisUser/asset-management": () => import("../page/CompanyAssetManagement.jsx"),
   "/ciisUser/emp-attendance": () => import("../hrCds/pages/hr/EmppAttendence"),
   "/ciisUser/task-management": () => import("../hrCds/pages/TaskManagement"),
   "/ciisUser/project": () => import("../hrCds/pages/EmployeeProject"),
@@ -41,15 +43,10 @@ const routeLoaders = {
   "/client/dashboard": () => import("../hrCds/pages/client/ClientDashboardPage.jsx"),
   "/client/my-services": () => import("../hrCds/pages/client/MyServicesPage.jsx"),
   "/client/tasks-updates": () => import("../hrCds/pages/client/ClientTasksUpdatesPage.jsx"),
-  "/client/task-management": () => import("../hrCds/pages/TaskManagement"),
-  "/client/admin-task-create": () => import("../hrCds/pages/hr/AdminTaskCreate"),
-  "/client/services-tasks": () => import("../hrCds/pages/ClientServicesTasks.jsx"),
-  "/client/account-settings": () => import("../hrCds/pages/client/AccountSettingsPage.jsx"),
   "/client/marketplace": () => import("../hrCds/pages/client/ServiceMarketplacePage.jsx"),
   "/client/support-tickets": () => import("../hrCds/pages/client/SupportTicketsPage.jsx"),
   "/client/documents": () => import("../hrCds/pages/client/DocumentsPage.jsx"),
   "/client/payments": () => import("../hrCds/pages/client/PaymentsInvoicesPage.jsx"),
-  "/client/payment": () => import("../hrCds/pages/client/PaymentsInvoicesPage.jsx"),
   "/Ciis-network/company-details": () => import("../admin/components/CompanyDetails.jsx"),
   "/Ciis-network/department": () => import("../admin/page/DepartmentManagement"),
   "/Ciis-network/branch": () => import("../admin/page/BranchManagement.jsx"),
@@ -75,14 +72,35 @@ const routeLoaders = {
 };
 
 const normalizePath = (path = "") => String(path || "").trim().replace(/\/+$/, "").toLowerCase();
-
-const normalizedRouteLoaders = Object.fromEntries(
-  Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader])
-);
+const normalizedRouteLoaders = new Map(Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader]));
+const crmModules = import.meta.glob([
+  '../crm/admin/*.jsx'
+]);
+const crmPageModules = {
+  'admin/dashboard': 'AdminCrmDashboard', 'admin/lead-overview': 'LeadOverview',
+  'admin/all-leads': 'AllLeads', 'admin/add-lead': 'AddLead',
+  'admin/lead-sources': 'LeadSources', 'admin/lead-types': 'LeadTypes',
+  'admin/import-export-leads': 'ImportExportLeads', 'admin/call-overview': 'CallOverview',
+  'admin/assigned-calls': 'AssignedCalls', 'admin/todays-calls': 'TodaysCalls',
+  'admin/pending-calls': 'PendingCalls', 'admin/scheduled-calls': 'ScheduledCalls',
+  'admin/completed-calls': 'CompletedCalls', 'admin/converted-calls': 'ConvertedCalls',
+  'admin/transferred-calls': 'TransferredCalls', 'admin/call-history': 'CallHistory',
+  'admin/follow-ups': 'FollowUpCenter', 'admin/assignments': 'AssignmentsOverview',
+  'admin/assignment-bulk': 'BulkAssignment', 'admin/assignment-history': 'AssignmentHistory',
+  'admin/workload': 'WorkloadDistribution',
+  'reports/overview': 'LiveCrmReport', 'reports/leads': 'LiveCrmReport',
+  'reports/calls': 'LiveCrmReport',
+  'reports/follow-ups': 'LiveCrmReport', 'reports/team-performance': 'LiveCrmReport',
+  'reports/conversion-funnel': 'LiveCrmReport', 'reports/user-activity': 'LiveCrmReport',
+};
+for (const [path, moduleName] of Object.entries(crmPageModules)) {
+  normalizedRouteLoaders.set(normalizePath(`/ciisUser/crm/${path}`), crmModules[`../crm/admin/${moduleName}.jsx`]);
+}
 
 export const preloadRouteChunk = (path) => {
-  const loader = normalizedRouteLoaders[normalizePath(path)];
-  return loader ? loader() : Promise.resolve();
+  const loader = normalizedRouteLoaders.get(normalizePath(path));
+  // A failed speculative preload must not break navigation; lazy routes can retry.
+  return loader ? loader().catch(() => undefined) : Promise.resolve();
 };
 
 export const preloadRouteByPath = preloadRouteChunk;
@@ -92,4 +110,4 @@ export const preloadRouteChunks = (paths = []) => {
   return Promise.all(uniquePaths.map(path => preloadRouteChunk(path)));
 };
 
-export const routeChunkPaths = Object.keys(normalizedRouteLoaders);
+export const routeChunkPaths = [...normalizedRouteLoaders.keys()];

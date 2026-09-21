@@ -44,8 +44,6 @@ const MainContent = styled('main', {
   ...(!isMobile && {
     marginLeft: `${drawerWidthClosed}px`,
     width: `calc(100% - ${drawerWidthClosed}px)`,
-    
-    
     ...(isSidebarHovered && {
       marginLeft: `${drawerWidthOpen}px`,
       width: `calc(100% - ${drawerWidthOpen}px)`,
@@ -83,8 +81,7 @@ const UserLayout = () => {
       setIsSidebarHovered(false);
     }
   };
-  
-  
+
   const toggleMobileSidebar = () => {
     setMobileSidebarOpen(!mobileSidebarOpen);
   };

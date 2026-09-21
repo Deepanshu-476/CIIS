@@ -11,6 +11,7 @@
     "dev": "vite",
     "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "electron:preview": "npm run build && electron .",
+    "prebuild": "npm run check:undefined",
     "build": "vite build",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
@@ -18,6 +19,7 @@
     "dist:mac": "npm run build && electron-builder --mac dmg zip",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
+    "check:undefined": "node scripts/check-undefined.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

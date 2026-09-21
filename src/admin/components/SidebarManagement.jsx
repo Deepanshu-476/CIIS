@@ -1,3 +1,4 @@
+import { CRM_PAGES } from '../../config/crmPages';
 import React, { useState, useEffect } from 'react';
 import axios from "../../utils/axiosConfig";
 import axiosInstance from "../../utils/axiosConfig";
@@ -5,7 +6,7 @@ import Swal from 'sweetalert2';
 import './SidebarManagement.css';
 import CIISLoader from '../../Loader/CIISLoader';
 import { getCurrentUserId, getStoredUser, getUserIds, loadPagePermission } from "../../utils/pageAccess";
-import { CRM_PAGES } from '../../config/crmPages';
+import { TELECALLER_PAGES } from "../../crm/telecaller/telecallerPages";
 
 
 const APP_ROUTES = [
@@ -59,12 +60,9 @@ const APP_ROUTES = [
   { path: 'support-desk', name: 'Support Desk', icon: 'SupportAgent', category: 'communication' },
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
   { path: 'feedback-questionnaire', name: 'Feedback / Questionnaire', icon: 'Assignment', category: 'administration' },
-  ...CRM_PAGES.map(page => ({
-    path: page.path,
-    name: page.name,
-    icon: 'ListAlt',
-    category: page.category || 'admin-crm'
-  })),
+  ...CRM_PAGES.map((page, index) => ({ ...page, icon: 'Dashboard', order: 24.6 + index / 100 })),
+  ...TELECALLER_PAGES.filter(page => !['call-workspace', 'lead-detail'].includes(page.slug))
+    .map(page => ({ ...page, path: page.path.replace('/ciisUser/', '') })),
 ];
 
 
@@ -1283,6 +1281,8 @@ const SidebarManagement = () => {
       'clients': 'Clients',
       'admin-crm': 'CRM',
       'supperAdmin': 'Super Admin',
+      'admin-crm': 'Admin CRM',
+      'admin-telecaller': 'Admin Telecaller',
     };
     return categoryNames[category] || category;
   };

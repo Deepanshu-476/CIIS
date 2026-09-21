@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FiChevronRight,
-  FiFilter,
   FiRotateCcw,
   FiEye,
   FiCheckCircle,
@@ -43,15 +42,14 @@ export default function BulkAssignment() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
-  const [agentTypeFilter, setAgentTypeFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // Assignment configuration
-  const [assignmentMethod, setAssignmentMethod] = useState('round-robin'); // 'specific' | 'round-robin' | 'load-balanced'
-  const [specificAgent, setSpecificAgent] = useState('');
+  // Equal-distribution configuration
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedAgentIds, setSelectedAgentIds] = useState([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Fetch leads and team
@@ -115,16 +113,23 @@ export default function BulkAssignment() {
     return Array.from(t);
   }, [leads]);
 
-  // Filtered team by agent type
+  const roleFor = useCallback((agent) => {
+    const candidates = [agent.assignmentRole, agent.jobRoleName, agent.jobRole, agent.companyRole, agent.role];
+    const label = candidates.find((value) => (
+      value && !/^[a-f\d]{24}$/i.test(String(value).trim())
+    ));
+    return String(label || 'Other').trim();
+  }, []);
+
+  const availableRoles = useMemo(() => (
+    Array.from(new Set(team.map(roleFor).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+  ), [team, roleFor]);
+
+  // Users become available only after a role is selected.
   const filteredTeam = useMemo(() => {
-    if (agentTypeFilter === 'All') return team;
-    return team.filter((agent) => {
-      const roleStr = `${agent.jobRole || ''} ${agent.companyRole || ''} ${agent.role || ''}`.toLowerCase();
-      if (agentTypeFilter === 'Telecaller') return roleStr.includes('telecaller');
-      if (agentTypeFilter === 'Marketing') return roleStr.includes('marketing');
-      return true;
-    });
-  }, [team, agentTypeFilter]);
+    if (!selectedRole) return [];
+    return team.filter((agent) => roleFor(agent) === selectedRole);
+  }, [team, selectedRole, roleFor]);
 
   // Checkbox handlers
   const handleToggleSelect = (id) => {
@@ -147,6 +152,13 @@ export default function BulkAssignment() {
     setSourceFilter('All');
     setTypeFilter('All');
     setCurrentPage(1);
+    setSelectedIds([]);
+  };
+
+  const handleToggleAgent = (id) => {
+    setSelectedAgentIds((prev) => (
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    ));
   };
 
   // Submit bulk assignment
@@ -155,8 +167,12 @@ export default function BulkAssignment() {
       setError('Kam se kam ek lead select karein.');
       return;
     }
-    if (assignmentMethod === 'specific' && !specificAgent) {
-      setError('Kripya specific agent select karein.');
+    if (!selectedRole) {
+      setError('Kripya pehle role select karein.');
+      return;
+    }
+    if (!selectedAgentIds.length) {
+      setError('Kripya kam se kam ek user select karein.');
       return;
     }
 
@@ -168,8 +184,8 @@ export default function BulkAssignment() {
         '/crm/assignments/bulk',
         {
           leadIds: selectedIds,
-          method: assignmentMethod,
-          agentId: assignmentMethod === 'specific' ? specificAgent : undefined
+          method: 'equal-distribution',
+          agentIds: selectedAgentIds
         },
         { _skipErrorNotify: true }
       );
@@ -188,7 +204,14 @@ export default function BulkAssignment() {
   };
 
   const selectedLeadsCount = selectedIds.length;
-  const specificAgentObj = team.find((t) => t._id === specificAgent);
+  const selectedAgents = selectedAgentIds
+    .map((id) => team.find((agent) => agent._id === id))
+    .filter(Boolean);
+  const distribution = selectedAgents.map((agent, index) => ({
+    ...agent,
+    leadCount: Math.floor(selectedLeadsCount / selectedAgents.length)
+      + (index < selectedLeadsCount % selectedAgents.length ? 1 : 0)
+  }));
 
   return (
     <div className="bka-root">
@@ -249,7 +272,10 @@ export default function BulkAssignment() {
             <select
               className="bka-select"
               value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
+              onChange={(e) => {
+                setSourceFilter(e.target.value);
+                setSelectedIds([]);
+              }}
             >
               <option value="All">All Sources</option>
               {availableSources.map((s) => (
@@ -263,7 +289,10 @@ export default function BulkAssignment() {
             <select
               className="bka-select"
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setSelectedIds([]);
+              }}
             >
               <option value="All">All Types</option>
               {availableTypes.map((t) => (
@@ -282,6 +311,7 @@ export default function BulkAssignment() {
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
+                setSelectedIds([]);
               }}
             />
           </div>
@@ -400,97 +430,104 @@ export default function BulkAssignment() {
             </tbody>
           </table>
         </div>
+        {pagination.pages > 1 && (
+          <div className="bka-pagination">
+            <button
+              className="bka-btn-sec"
+              disabled={currentPage <= 1 || loading}
+              onClick={() => {
+                setCurrentPage((page) => Math.max(1, page - 1));
+                setSelectedIds([]);
+              }}
+            >
+              Previous
+            </button>
+            <span>Page {pagination.page} of {pagination.pages} · {pagination.total} leads</span>
+            <button
+              className="bka-btn-sec"
+              disabled={currentPage >= pagination.pages || loading}
+              onClick={() => {
+                setCurrentPage((page) => Math.min(pagination.pages, page + 1));
+                setSelectedIds([]);
+              }}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* STEP 2: Choose Assignment Method */}
+      {/* STEP 2: Choose role and users */}
       <div className="bka-card">
         <div className="bka-card-header">
           <span className="bka-step-badge">Step 2</span>
-          <h2>Choose Assignment Method</h2>
+          <h2>Choose Role & Users</h2>
         </div>
 
         <div className="bka-step2-body">
           <div className="bka-field bka-agent-type-field">
-            <label>Filter Agent Role</label>
+            <label>Role</label>
             <select
               className="bka-select"
-              value={agentTypeFilter}
-              onChange={(e) => setAgentTypeFilter(e.target.value)}
+              value={selectedRole}
+              onChange={(e) => {
+                setSelectedRole(e.target.value);
+                setSelectedAgentIds([]);
+              }}
             >
-              <option value="All">All Roles ({team.length})</option>
-              <option value="Telecaller">Telecallers Only</option>
-              <option value="Marketing">Marketing Only</option>
+              <option value="">Select role...</option>
+              {availableRoles.map((role) => (
+                <option key={role} value={role}>
+                  {role} ({team.filter((agent) => roleFor(agent) === role).length})
+                </option>
+              ))}
             </select>
           </div>
 
-          <div className="bka-methods-grid">
-            {/* Method 1: Specific Agent */}
-            <div
-              className={`bka-method-card ${assignmentMethod === 'specific' ? 'selected' : ''}`}
-              onClick={() => setAssignmentMethod('specific')}
-            >
-              <div className="bka-method-header">
-                <input
-                  type="radio"
-                  name="assignmentMethod"
-                  checked={assignmentMethod === 'specific'}
-                  onChange={() => setAssignmentMethod('specific')}
-                />
-                <span className="bka-method-title">Assign to Specific Agent</span>
-              </div>
-              <p className="bka-method-sub">All selected leads go to one telecaller</p>
-              {assignmentMethod === 'specific' && (
-                <div className="bka-method-select-wrap" onClick={(e) => e.stopPropagation()}>
-                  <select
-                    className="bka-select"
-                    value={specificAgent}
-                    onChange={(e) => setSpecificAgent(e.target.value)}
+          {!selectedRole ? (
+            <div className="bka-user-empty">Select a role to see its users.</div>
+          ) : filteredTeam.length === 0 ? (
+            <div className="bka-user-empty">No eligible active users found for this role.</div>
+          ) : (
+            <>
+              <div className="bka-user-toolbar">
+                <span><strong>{selectedAgentIds.length}</strong> of {filteredTeam.length} users selected</span>
+                <div className="bka-selection-btn-group">
+                  <button
+                    type="button"
+                    className="bka-btn-sec"
+                    onClick={() => setSelectedAgentIds(filteredTeam.map((agent) => agent._id))}
                   >
-                    <option value="">Select Telecaller...</option>
-                    {filteredTeam.map((agent) => (
-                      <option key={agent._id} value={agent._id}>
-                        {agent.name} — {agent.jobRole || agent.role || 'Telecaller'}
-                      </option>
-                    ))}
-                  </select>
+                    Select All
+                  </button>
+                  <button type="button" className="bka-btn-sec" onClick={() => setSelectedAgentIds([])}>
+                    Clear
+                  </button>
                 </div>
-              )}
-            </div>
-
-            {/* Method 2: Round Robin */}
-            <div
-              className={`bka-method-card ${assignmentMethod === 'round-robin' ? 'selected' : ''}`}
-              onClick={() => setAssignmentMethod('round-robin')}
-            >
-              <div className="bka-method-header">
-                <input
-                  type="radio"
-                  name="assignmentMethod"
-                  checked={assignmentMethod === 'round-robin'}
-                  onChange={() => setAssignmentMethod('round-robin')}
-                />
-                <span className="bka-method-title">Round-Robin Distribution</span>
               </div>
-              <p className="bka-method-sub">Leads distributed evenly in round-robin sequence</p>
-            </div>
-
-            {/* Method 3: Load Balanced */}
-            <div
-              className={`bka-method-card ${assignmentMethod === 'load-balanced' ? 'selected' : ''}`}
-              onClick={() => setAssignmentMethod('load-balanced')}
-            >
-              <div className="bka-method-header">
-                <input
-                  type="radio"
-                  name="assignmentMethod"
-                  checked={assignmentMethod === 'load-balanced'}
-                  onChange={() => setAssignmentMethod('load-balanced')}
-                />
-                <span className="bka-method-title">Load-Balanced Distribution</span>
+              <div className="bka-user-grid">
+                {filteredTeam.map((agent) => {
+                  const checked = selectedAgentIds.includes(agent._id);
+                  return (
+                    <label key={agent._id} className={`bka-user-card ${checked ? 'selected' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleToggleAgent(agent._id)}
+                      />
+                      <span>
+                        <strong>{agent.name || 'Unnamed user'}</strong>
+                        <small>{agent.email || roleFor(agent)}</small>
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
-              <p className="bka-method-sub">Assign to least loaded telecallers first</p>
-            </div>
-          </div>
+            </>
+          )}
+          <p className="bka-equal-note">
+            Selected leads will be distributed equally among the selected users. Any remainder is assigned one-by-one from the top of the list.
+          </p>
         </div>
       </div>
 
@@ -507,11 +544,9 @@ export default function BulkAssignment() {
               {selectedLeadsCount} lead{selectedLeadsCount === 1 ? '' : 's'} will be assigned
             </div>
             <div className="bka-summary-sub">
-              {assignmentMethod === 'specific'
-                ? `Specific Agent: ${specificAgentObj?.name || 'None selected'}`
-                : assignmentMethod === 'round-robin'
-                ? 'Method: Round-Robin Distribution'
-                : 'Method: Load-Balanced Distribution'}
+              {selectedAgentIds.length
+                ? `Equal distribution across ${selectedAgentIds.length} selected user(s) from ${selectedRole}`
+                : 'Select a role and users to continue'}
             </div>
           </div>
 
@@ -519,13 +554,13 @@ export default function BulkAssignment() {
             <button
               className="bka-btn-preview"
               onClick={() => setIsPreviewOpen(true)}
-              disabled={selectedLeadsCount === 0}
+              disabled={selectedLeadsCount === 0 || selectedAgentIds.length === 0}
             >
               <FiEye /> Preview
             </button>
             <button
               className="bka-btn-confirm-all"
-              disabled={saving || selectedLeadsCount === 0}
+              disabled={saving || selectedLeadsCount === 0 || selectedAgentIds.length === 0}
               onClick={handleConfirmAndAssign}
             >
               <FiCheckCircle /> {saving ? 'Assigning...' : 'Confirm & Assign'}
@@ -549,15 +584,18 @@ export default function BulkAssignment() {
             </div>
             <div className="bka-modal-body">
               <p className="bka-preview-intro">
-                You are about to assign <strong>{selectedLeadsCount}</strong> lead(s) using{' '}
-                <strong>
-                  {assignmentMethod === 'specific'
-                    ? `Specific Agent: ${specificAgentObj?.name || 'Unspecified'}`
-                    : assignmentMethod === 'round-robin'
-                    ? 'Round-Robin Distribution'
-                    : 'Load-Balanced Distribution'}
-                </strong>.
+                You are about to distribute <strong>{selectedLeadsCount}</strong> lead(s) equally among{' '}
+                <strong>{selectedAgentIds.length} selected {selectedRole} user(s)</strong>.
               </p>
+              <div className="bka-distribution-preview">
+                {distribution.map((agent) => (
+                  <div key={agent._id}>
+                    <span>{agent.name}</span>
+                    <strong>{agent.leadCount} lead{agent.leadCount === 1 ? '' : 's'}</strong>
+                  </div>
+                ))}
+              </div>
+              <p className="bka-preview-label">Selected leads</p>
               <div className="bka-preview-list">
                 {displayedLeads
                   .filter((l) => selectedIds.includes(l._id))

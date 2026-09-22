@@ -14,7 +14,12 @@ import {
   FiChevronRight,
   FiEye,
   FiCalendar,
-  FiFilter
+  FiFilter,
+  FiTrendingUp,
+  FiPieChart,
+  FiZap,
+  FiPhoneOff,
+  FiBarChart2
 } from 'react-icons/fi';
 import {
   ResponsiveContainer,
@@ -22,6 +27,8 @@ import {
   Area,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -226,6 +233,55 @@ const CustomTrendTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// Helper to format outcome name nicely
+const formatOutcomeName = (name) => {
+  if (!name) return 'Other';
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
+// Helper for outcome icon
+const getOutcomeIcon = (name) => {
+  const n = String(name || '').toLowerCase();
+  if (n.includes('answered') || n.includes('connected') || n.includes('convert')) {
+    return FiCheckCircle;
+  }
+  if (n.includes('missed')) {
+    return FiClock;
+  }
+  if (n.includes('reach') || n.includes('busy')) {
+    return FiPhoneOff;
+  }
+  return FiActivity;
+};
+
+// Custom Floating Tooltip for Call Outcomes DonutChart
+const CustomOutcomeTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const item = payload[0];
+    return (
+      <div className="co-outcome-custom-tooltip">
+        <div className="tooltip-header">
+          <span className="tooltip-dot" style={{ backgroundColor: item.payload?.color || '#6366f1' }} />
+          <span className="tooltip-name">{formatOutcomeName(item.name)}</span>
+        </div>
+        <div className="tooltip-row">
+          <span className="tooltip-label">Calls:</span>
+          <span className="tooltip-val">{item.value}</span>
+        </div>
+        <div className="tooltip-row">
+          <span className="tooltip-label">Share:</span>
+          <span className="tooltip-pct">{item.payload?.percent || '—'}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function CallOverview() {
   const navigate = useNavigate();
   const [statCards, setStatCards] = useState(statCardsData);
@@ -281,6 +337,51 @@ export default function CallOverview() {
   const connectRateInPeriod = totalCallsInPeriod > 0 ? Math.round((totalConnectedInPeriod / totalCallsInPeriod) * 100) : 0;
   const avgDailyCalls = activeTrendData.length > 0 ? (totalCallsInPeriod / activeTrendData.length).toFixed(1) : '0.0';
   const peakDayObj = activeTrendData.reduce((max, curr) => (Number(curr.calls) > (Number(max.calls) || 0) ? curr : max), { calls: 0, day: '—' });
+  const standardOutcomeCategories = [
+    { key: 'answered', name: 'Answered', color: '#10b981' },
+    { key: 'missed', name: 'Missed Calls', color: '#f59e0b' },
+    { key: 'not reachable', name: 'Not Reachable', color: '#06b6d4' },
+    { key: 'rejected', name: 'Rejected / Busy', color: '#ef4444' }
+  ];
+
+  const totalOutcomeCalls = outcomeList.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+
+  const outcomeValueMap = {};
+  (outcomeList || []).forEach(item => {
+    const k = String(item.name || '').toLowerCase().trim();
+    outcomeValueMap[k] = Number(item.value) || 0;
+  });
+
+  const displayOutcomes = standardOutcomeCategories.map(cat => {
+    const val = outcomeValueMap[cat.key] || outcomeValueMap[cat.name.toLowerCase()] || 0;
+    const pct = totalOutcomeCalls > 0 ? ((val / totalOutcomeCalls) * 100).toFixed(1) : '0.0';
+    return {
+      ...cat,
+      value: val,
+      percent: pct
+    };
+  });
+
+  // Include any extra statuses returned from API
+  (outcomeList || []).forEach(item => {
+    const k = String(item.name || '').toLowerCase().trim();
+    const isStandard = standardOutcomeCategories.some(c => c.key === k || c.name.toLowerCase() === k);
+    if (!isStandard && (Number(item.value) || 0) > 0) {
+      const val = Number(item.value) || 0;
+      const pct = totalOutcomeCalls > 0 ? ((val / totalOutcomeCalls) * 100).toFixed(1) : '0.0';
+      displayOutcomes.push({
+        key: k,
+        name: formatOutcomeName(item.name),
+        color: item.color || '#8b5cf6',
+        value: val,
+        percent: pct
+      });
+    }
+  });
+
+  const donutData = totalOutcomeCalls > 0
+    ? displayOutcomes.filter(d => d.value > 0)
+    : [{ name: 'No Calls', value: 1, color: '#e2e8f0', percent: '0' }];
 
   const filteredCalls = recentCalls.filter(c => {
     if (!searchQuery) return true;
@@ -405,6 +506,7 @@ export default function CallOverview() {
       </div>
 
       {/* Row 4: Call Trends & Call Outcomes */}
+      {/* Row 4: Call Trends & Call Outcomes */}
       <div className="co-row-two-col charts-row">
         {/* Call Trends */}
         <div className="co-card chart-card co-trend-card">
@@ -413,84 +515,56 @@ export default function CallOverview() {
               <h2 className="co-card-title">Call Trends & Analytics</h2>
               <p className="co-card-sub">Daily outbound calls vs connected conversations</p>
             </div>
-            <div className="co-trend-header-right">
-              <div className="co-trend-range-selector">
-                <button
-                  type="button"
-                  className={`co-range-btn ${trendRange === '7d' ? 'active' : ''}`}
-                  onClick={() => setTrendRange('7d')}
-                >
-                  7 Days
-                </button>
-                <button
-                  type="button"
-                  className={`co-range-btn ${trendRange === '30d' ? 'active' : ''}`}
-                  onClick={() => setTrendRange('30d')}
-                >
-                  30 Days
-                </button>
-              </div>
+            <div className="co-trend-range-selector">
+              <button
+                type="button"
+                className={`co-range-btn ${trendRange === '7d' ? 'active' : ''}`}
+                onClick={() => setTrendRange('7d')}
+              >
+                7 Days
+              </button>
+              <button
+                type="button"
+                className={`co-range-btn ${trendRange === '30d' ? 'active' : ''}`}
+                onClick={() => setTrendRange('30d')}
+              >
+                30 Days
+              </button>
             </div>
           </div>
-          <div className="co-card-body">
-            {/* KPI Summary Strip */}
-            <div className="co-trend-metrics-strip">
-              <div className="co-trend-metric-item">
-                <div className="co-trend-metric-dot bg-purple" />
-                <div className="co-trend-metric-info">
-                  <span className="co-trend-metric-val">{totalCallsInPeriod}</span>
-                  <span className="co-trend-metric-lbl">Total Calls</span>
-                </div>
+
+          <div className="co-card-body co-normal-chart-body">
+            {/* Clean summary line & legend */}
+            <div className="co-normal-summary-strip">
+              <div className="co-normal-stats">
+                <span className="co-normal-stat-item">
+                  <strong>{totalCallsInPeriod}</strong> Total Calls
+                </span>
+                <span className="co-normal-stat-dot">&bull;</span>
+                <span className="co-normal-stat-item">
+                  <strong>{totalConnectedInPeriod}</strong> Connected
+                </span>
+                <span className="co-normal-stat-dot">&bull;</span>
+                <span className="co-normal-rate-pill">{connectRateInPeriod}% Success</span>
               </div>
-              <div className="co-trend-metric-item">
-                <div className="co-trend-metric-dot bg-teal" />
-                <div className="co-trend-metric-info">
-                  <span className="co-trend-metric-val">{totalConnectedInPeriod}</span>
-                  <span className="co-trend-metric-lbl">Connected</span>
-                </div>
-              </div>
-              <div className="co-trend-metric-item">
-                <div className="co-trend-metric-dot bg-emerald" />
-                <div className="co-trend-metric-info">
-                  <span className="co-trend-metric-val">{connectRateInPeriod}%</span>
-                  <span className="co-trend-metric-lbl">Connect Rate</span>
-                </div>
-              </div>
-              <div className="co-trend-metric-item">
-                <div className="co-trend-metric-dot bg-amber" />
-                <div className="co-trend-metric-info">
-                  <span className="co-trend-metric-val">
-                    {peakDayObj.calls > 0 ? `${peakDayObj.day} (${peakDayObj.calls})` : '—'}
-                  </span>
-                  <span className="co-trend-metric-lbl">Peak Day</span>
-                </div>
+              <div className="co-normal-legend">
+                <span className="co-legend-item">
+                  <span className="co-legend-color bg-indigo" /> Calls Made
+                </span>
+                <span className="co-legend-item">
+                  <span className="co-legend-color bg-emerald" /> Connected
+                </span>
               </div>
             </div>
 
-            {/* Custom Legend Header */}
-            <div className="co-trend-legend-header">
-              <span className="legend-item">
-                <span className="legend-box bg-purple" /> Calls Made
-              </span>
-              <span className="legend-item">
-                <span className="legend-box bg-teal" /> Connected
-              </span>
-            </div>
-
-            {/* Modern AreaChart */}
-            <div className="co-trend-chart-container">
-              <ResponsiveContainer width="100%" height={210}>
-                <AreaChart data={activeTrendData} margin={{ top: 12, right: 12, bottom: 4, left: -22 }}>
-                  <defs>
-                    <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.28} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
-                    </linearGradient>
-                    <linearGradient id="connGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
+            {/* Standard Clean Bar Chart */}
+            <div className="co-trend-chart-wrapper" style={{ width: '100%', height: 230, minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height={230} minWidth={0}>
+                <BarChart
+                  data={activeTrendData}
+                  margin={{ top: 16, right: 12, bottom: 4, left: -22 }}
+                  barGap={6}
+                >
                   <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
                   <XAxis
                     dataKey="day"
@@ -499,88 +573,95 @@ export default function CallOverview() {
                     tick={{ fontSize: 11, fill: '#64748b' }}
                   />
                   <YAxis
-                    domain={[0, dataMax => Math.max(4, Math.ceil(dataMax * 1.25))]}
+                    domain={[0, dataMax => (Number.isFinite(dataMax) && dataMax > 0 ? Math.ceil(dataMax * 1.25) : 5)]}
                     allowDecimals={false}
                     tickLine={false}
                     axisLine={{ stroke: '#e2e8f0' }}
                     tick={{ fontSize: 11, fill: '#64748b' }}
                   />
-                  <Tooltip content={<CustomTrendTooltip />} />
-                  <Area
-                    type="monotone"
+                  <Tooltip content={<CustomTrendTooltip />} cursor={{ fill: 'rgba(99, 102, 241, 0.04)' }} />
+                  <Bar
                     dataKey="calls"
                     name="Calls Made"
-                    stroke="#6366f1"
-                    strokeWidth={2.5}
-                    fill="url(#callsGradient)"
-                    activeDot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#6366f1' }}
+                    fill="#6366f1"
+                    radius={[4, 4, 0, 0]}
+                    barSize={trendRange === '30d' ? 7 : 18}
                   />
-                  <Area
-                    type="monotone"
+                  <Bar
                     dataKey="connected"
                     name="Connected"
-                    stroke="#10b981"
-                    strokeWidth={2.5}
-                    fill="url(#connGradient)"
-                    activeDot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }}
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                    barSize={trendRange === '30d' ? 7 : 18}
                   />
-                </AreaChart>
+                </BarChart>
               </ResponsiveContainer>
             </div>
-
-            {totalCallsInPeriod === 0 && (
-              <div className="co-trend-empty-hint">
-                <FiPhoneCall size={14} className="text-slate-400 flex-shrink-0" />
-                <span className="co-trend-empty-text">
-                  No call activity recorded for this period. Calls made by telecallers will automatically plot here.
-                </span>
-                <button
-                  type="button"
-                  className="co-trend-action-link"
-                  onClick={() => navigate('/ciisUser/crm/admin/assigned-calls')}
-                >
-                  Go to Assigned Calls &rarr;
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Call Outcomes */}
-        <div className="co-card chart-card">
-          <div className="co-card-header">
-            <h2 className="co-card-title">Call Outcomes</h2>
+        <div className="co-card chart-card co-outcomes-card">
+          <div className="co-card-header flex-between">
+            <div>
+              <h2 className="co-card-title">Call Outcomes</h2>
+              <p className="co-card-sub">Distribution by call status</p>
+            </div>
+            <span className="co-header-badge bg-purple-badge">
+              {totalOutcomeCalls} Total Calls
+            </span>
           </div>
-          <div className="co-card-body">
+
+          <div className="co-card-body co-normal-outcomes-body">
             <div className="co-outcome-wrapper">
-              <div className="co-donut-container">
-                <ResponsiveContainer width={150} height={150}>
+              <div className="co-donut-container" style={{ width: 130, height: 130, minWidth: 130 }}>
+                <ResponsiveContainer width={130} height={130} minWidth={0}>
                   <PieChart>
+                    <Tooltip content={<CustomOutcomeTooltip />} />
                     <Pie
-                      data={outcomeList}
+                      data={donutData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={48}
-                      outerRadius={68}
-                      paddingAngle={2}
+                      innerRadius={42}
+                      outerRadius={58}
+                      paddingAngle={totalOutcomeCalls > 0 ? 3 : 0}
                       dataKey="value"
+                      stroke="none"
                     >
-                      {outcomeList.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {donutData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={totalOutcomeCalls === 0 ? '#e2e8f0' : entry.color}
+                        />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
+                <div className="co-donut-center-stat">
+                  <span className="co-donut-center-num">{totalOutcomeCalls}</span>
+                  <span className="co-donut-center-lbl">Total</span>
+                </div>
               </div>
-              <div className="co-outcome-legend-list">
-                {outcomeList.map((item, idx) => (
-                  <div className="co-outcome-legend-item" key={idx}>
-                    <span className="dot" style={{ backgroundColor: item.color }} />
-                    <div className="info">
-                      <span className="name">{item.name}</span>
-                      <span className="sub">{item.percent}</span>
+
+              <div className="co-outcome-breakdown-list">
+                {displayOutcomes.map((item, idx) => (
+                  <div className="co-normal-outcome-item" key={idx}>
+                    <div className="co-normal-outcome-top">
+                      <div className="co-normal-outcome-left">
+                        <span className="co-outcome-dot" style={{ backgroundColor: item.color }} />
+                        <span className="co-outcome-name">{item.name}</span>
+                      </div>
+                      <div className="co-normal-outcome-right">
+                        <span className="co-outcome-val">{item.value}</span>
+                        <span className="co-outcome-pct">({item.percent}%)</span>
+                      </div>
                     </div>
-                    <span className="val">{item.value}</span>
+                    <div className="co-outcome-bar">
+                      <div
+                        className="co-outcome-bar-fill"
+                        style={{ width: `${item.percent}%`, backgroundColor: item.color }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

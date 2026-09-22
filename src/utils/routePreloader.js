@@ -1,4 +1,11 @@
 const routeLoaders = {
+  "/ciisUser/salary-component": () => import("../payroll/pages/SalaryComponent.jsx"),
+  "/ciisUser/salary-structure": () => import("../payroll/pages/SalaryStructure.jsx"),
+  "/ciisUser/salary-assignment": () => import("../payroll/pages/EmployeeSalaryAssignment.jsx"),
+  "/ciisUser/assign-salary": () => import("../payroll/pages/AssignSalary.jsx"),
+  "/ciisUser/payroll-process": () => import("../payroll/pages/PayrollProcess.jsx"),
+  "/ciisUser/payslip": () => import("../payroll/pages/Payslip.jsx"),
+  "/ciisUser/payroll-reports": () => import("../payroll/pages/PayrollReports.jsx"),
   "/ciisUser/user-dashboard": () => import("../hrCds/pages/UserDashboard"),
   "/ciisUser/dashboard": () => import("../hrCds/pages/UserDashboard"),
   "/ciisUser/dashboard-1": () => import("../hrCds/pages/DashboardOverview"),
@@ -76,13 +83,32 @@ const routeLoaders = {
 
 const normalizePath = (path = "") => String(path || "").trim().replace(/\/+$/, "").toLowerCase();
 
-const normalizedRouteLoaders = Object.fromEntries(
-  Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader])
-);
+const normalizedRouteLoaders = new Map(Object.entries(routeLoaders).map(([path, loader]) => [normalizePath(path), loader]));
+const crmModules = import.meta.glob(['../crm/admin/*.jsx']);
+const crmPageModules = {
+  'admin/dashboard': 'AdminCrmDashboard', 'admin/lead-overview': 'LeadOverview',
+  'admin/all-leads': 'AllLeads', 'admin/add-lead': 'AddLead',
+  'admin/lead-sources': 'LeadSources', 'admin/lead-types': 'LeadTypes',
+  'admin/import-export-leads': 'ImportExportLeads', 'admin/call-overview': 'CallOverview',
+  'admin/assigned-calls': 'AssignedCalls', 'admin/todays-calls': 'TodaysCalls',
+  'admin/pending-calls': 'PendingCalls', 'admin/scheduled-calls': 'ScheduledCalls',
+  'admin/completed-calls': 'CompletedCalls', 'admin/converted-calls': 'ConvertedCalls',
+  'admin/transferred-calls': 'TransferredCalls', 'admin/call-history': 'CallHistory',
+  'admin/follow-ups': 'FollowUpCenter', 'admin/assignments': 'AssignmentsOverview',
+  'admin/assignment-bulk': 'BulkAssignment', 'admin/assignment-history': 'AssignmentHistory',
+  'admin/workload': 'WorkloadDistribution',
+  'reports/overview': 'LiveCrmReport', 'reports/leads': 'LiveCrmReport',
+  'reports/calls': 'LiveCrmReport', 'reports/follow-ups': 'LiveCrmReport',
+  'reports/team-performance': 'LiveCrmReport', 'reports/conversion-funnel': 'LiveCrmReport',
+  'reports/user-activity': 'LiveCrmReport',
+};
+for (const [path, moduleName] of Object.entries(crmPageModules)) {
+  normalizedRouteLoaders.set(normalizePath(`/ciisUser/crm/${path}`), crmModules[`../crm/admin/${moduleName}.jsx`]);
+}
 
 export const preloadRouteChunk = (path) => {
-  const loader = normalizedRouteLoaders[normalizePath(path)];
-  return loader ? loader() : Promise.resolve();
+  const loader = normalizedRouteLoaders.get(normalizePath(path));
+  return loader ? loader().catch(() => undefined) : Promise.resolve();
 };
 
 export const preloadRouteByPath = preloadRouteChunk;
@@ -92,4 +118,4 @@ export const preloadRouteChunks = (paths = []) => {
   return Promise.all(uniquePaths.map(path => preloadRouteChunk(path)));
 };
 
-export const routeChunkPaths = Object.keys(normalizedRouteLoaders);
+export const routeChunkPaths = [...normalizedRouteLoaders.keys()];

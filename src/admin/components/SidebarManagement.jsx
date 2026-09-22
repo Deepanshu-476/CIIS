@@ -1279,7 +1279,6 @@ const SidebarManagement = () => {
       'settings': 'Settings',
       'communication': 'Communication',
       'clients': 'Clients',
-      'admin-crm': 'CRM',
       'supperAdmin': 'Super Admin',
       'admin-crm': 'Admin CRM',
       'admin-telecaller': 'Admin Telecaller',

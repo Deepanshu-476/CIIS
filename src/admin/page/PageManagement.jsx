@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../../utils/axiosConfig";
 import { invalidateGetCache } from "../../utils/axiosConfig";
+import { invalidatePagePermissionCache } from "../../utils/pageAccess";
 import CIISLoader from "../../Loader/CIISLoader";
 import {
   AssignmentIndOutlined,
@@ -48,6 +49,7 @@ const FALLBACK_PAGES = [
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
   { pageKey: "emp-client", name: "Client Management", path: "/ciisUser/emp-client", permissionPattern: "viewEdit" },
+  { pageKey: "active-clients", name: "Active Clients", path: "/ciisUser/active-clients", permissionPattern: "viewEdit" },
   { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-component"] },
   { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-structure"] },
   { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-assignment"] },
@@ -74,6 +76,7 @@ const ICON_MAP = {
   "manage-groups": GroupsOutlined,
   "company-all-task": ViewColumnOutlined,
   SidebarManagement: LockOutlined,
+  "active-clients": WorkOutline,
   "salary-component": WorkOutline,
   "salary-structure": WorkOutline,
   "salary-assignment": WorkOutline,
@@ -1076,6 +1079,7 @@ const PageManagement = () => {
 
       const res = await axios.put(`/page-permissions/${workingPage.pageKey}`, payload);
       invalidateGetCache("/page-permissions");
+      invalidatePagePermissionCache(workingPage.path);
       const updatedPage = normalizePage({ ...(res.data?.page || workingPage), _detailsLoaded: true });
 
       setPages((prev) =>

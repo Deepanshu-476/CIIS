@@ -69,17 +69,10 @@ const CRM_PERMISSION_ALIASES = {
   "/ciisuser/crm/assignment-history": "/ciisUser/crm/admin/assignment-history",
   "/ciisuser/crm/workload": "/ciisUser/crm/admin/workload",
   "/ciisuser/crm/calls": "/ciisUser/crm/admin/call-overview",
-  "/ciisuser/crm/reports": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/overview": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/leads": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/calls": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/visits": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/follow-ups": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/team-performance": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/team": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/conversion-funnel": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/funnel": "/ciisUser/crm/admin/dashboard",
-  "/ciisuser/crm/reports/user-activity": "/ciisUser/crm/admin/dashboard",
+  "/ciisuser/crm/reports": "/ciisUser/crm/reports/overview",
+  "/ciisuser/crm/reports/visits": "/ciisUser/crm/reports/overview",
+  "/ciisuser/crm/reports/team": "/ciisUser/crm/reports/team-performance",
+  "/ciisuser/crm/reports/funnel": "/ciisUser/crm/reports/conversion-funnel",
   "/ciisuser/telecaller": "/ciisUser/telecaller/dashboard"
 };
 

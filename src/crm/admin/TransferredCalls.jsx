@@ -38,9 +38,11 @@ const TransferredCalls = () => {
   const [calls, setCalls] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchTransferred = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const [res, teamRes] = await Promise.allSettled([
         axiosInstance.get('/crm/admin/calls/transferred', { _skipErrorNotify: true }),
@@ -58,20 +60,23 @@ const TransferredCalls = () => {
           reason: lead.transferReason || lead.remarks || 'Lead reassigned',
           dateTime: formatDateTime(lead.assignedAt || lead.createdAt),
           rawDate: lead.assignedAt || lead.createdAt || null,
-          status: lead.status === 'Accepted' ? 'Accepted' : 'Pending',
+          status: lead.status || 'Transferred',
           transferredBy: lead.transferredBy?.name || 'Admin / Manager',
+          method: lead.method || 'Manual Reassignment',
           notes: lead.remarks || '—'
         }));
         setCalls(items);
       } else {
         setCalls([]);
+        setError(res.reason?.response?.data?.message || 'Could not load transfer history. Please retry.');
       }
 
       if (teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
         setTeamUsers(teamRes.value.data.users);
       }
-    } catch {
+    } catch (requestError) {
       setCalls([]);
+      setError(requestError.response?.data?.message || 'Could not load transfer history. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -152,8 +157,8 @@ const TransferredCalls = () => {
   const paginatedCalls = filteredCalls.slice(startIndex, startIndex + entriesPerPage);
 
   const totalTransferred = calls.length;
-  const acceptedCount = calls.filter(c => c.status === 'Accepted').length;
-  const pendingCount = calls.filter(c => c.status === 'Pending' || c.status === 'Transferred').length;
+  const handledCount = calls.filter(c => c.status === 'Handled').length;
+  const transferredCount = calls.filter(c => c.status === 'Transferred').length;
 
   return (
     <div className="trf-root">
@@ -187,8 +192,8 @@ const TransferredCalls = () => {
 
         <div className="trf-stat-card">
           <div className="trf-stat-left">
-            <span className="trf-stat-label">Accepted</span>
-            <span className="trf-stat-value">{acceptedCount}</span>
+            <span className="trf-stat-label">Handled After Transfer</span>
+            <span className="trf-stat-value">{handledCount}</span>
             <span className="trf-stat-badge emerald">Handled</span>
           </div>
           <div className="trf-stat-icon emerald">
@@ -198,9 +203,9 @@ const TransferredCalls = () => {
 
         <div className="trf-stat-card">
           <div className="trf-stat-left">
-            <span className="trf-stat-label">Pending Acceptance</span>
-            <span className="trf-stat-value">{pendingCount}</span>
-            <span className="trf-stat-badge amber">In Transit</span>
+            <span className="trf-stat-label">Awaiting First Action</span>
+            <span className="trf-stat-value">{transferredCount}</span>
+            <span className="trf-stat-badge amber">Transferred</span>
           </div>
           <div className="trf-stat-icon amber">
             <FiClock size={20} />
@@ -283,6 +288,12 @@ const TransferredCalls = () => {
         <header className="trf-log-header">
           <h2>Transfer History</h2>
         </header>
+        {error && (
+          <div className="trf-no-data" role="alert">
+            {error}{' '}
+            <button type="button" className="trf-btn-apply" onClick={fetchTransferred}>Retry</button>
+          </div>
+        )}
 
         <div className="trf-toolbar">
           <div className="trf-entries-selector">
@@ -475,6 +486,10 @@ const TransferredCalls = () => {
                 <div>
                   <strong>Transferred By:</strong>
                   <span>{selectedCall.transferredBy}</span>
+                </div>
+                <div>
+                  <strong>Transfer Method:</strong>
+                  <span>{selectedCall.method}</span>
                 </div>
               </div>
               <div className="trf-modal-remarks">

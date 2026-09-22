@@ -51,6 +51,7 @@ export default function AllLeads() {
   // Assignment Modal State
   const [assignModalLead, setAssignModalLead] = useState(null);
   const [assignTargetUserId, setAssignTargetUserId] = useState('');
+  const [transferReason, setTransferReason] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
   const memberOptions = useMemo(() => {
@@ -178,12 +179,20 @@ export default function AllLeads() {
   const handleSaveAssignment = async (e) => {
     e.preventDefault();
     if (!assignModalLead || assignLoading || !assignTargetUserId) return;
+    const isTransfer = Boolean(assignModalLead.assignedUserId)
+      && assignTargetUserId !== 'unassign'
+      && assignTargetUserId !== assignModalLead.assignedUserId;
+    if (isTransfer && !transferReason.trim()) {
+      setAssignError('Enter a transfer reason before reassigning this lead.');
+      return;
+    }
 
     setAssignLoading(true);
     setAssignError('');
     try {
       const payload = {
-        userId: assignTargetUserId === 'unassign' ? null : assignTargetUserId
+        userId: assignTargetUserId === 'unassign' ? null : assignTargetUserId,
+        reason: isTransfer ? transferReason.trim() : ''
       };
       const res = await api.put(`/crm/leads/${assignModalLead.id}/assign`, payload);
       const updatedItem = res.data.item;
@@ -212,6 +221,7 @@ export default function AllLeads() {
       }
 
       setAssignModalLead(null);
+      setTransferReason('');
     } catch (err) {
       setAssignError(err.response?.data?.message || 'Failed to update assignment. Please try again.');
     } finally {
@@ -492,6 +502,7 @@ export default function AllLeads() {
                           setAssignModalLead(item);
                           const currentId = item.assignedUserId || (item.assignedTo && item.assignedTo !== 'Unassigned' ? (teamMembers.find(u => u._id === item.assignedUserId || u.name?.toLowerCase() === item.assignedTo?.toLowerCase())?._id || '') : '');
                           setAssignTargetUserId(currentId);
+                          setTransferReason('');
                           setAssignError('');
                         }}
                         title={item.assignedTo && item.assignedTo !== 'Unassigned' ? "Reassign / Unassign Lead" : "Assign Lead"}
@@ -596,6 +607,7 @@ export default function AllLeads() {
                         setAssignModalLead(selectedLead);
                         const currentId = selectedLead.assignedUserId || (selectedLead.assignedTo && selectedLead.assignedTo !== 'Unassigned' ? (teamMembers.find(u => u._id === selectedLead.assignedUserId || u.name?.toLowerCase() === selectedLead.assignedTo?.toLowerCase())?._id || '') : '');
                         setAssignTargetUserId(currentId);
+                        setTransferReason('');
                         setAssignError('');
                       }}
                     >
@@ -701,7 +713,7 @@ export default function AllLeads() {
 
               <div className="al-field mb-4">
                 <label htmlFor="al-assignment-member">
-                  Select Team Member / Telecaller <span className="req">*</span>
+                  Select Company User <span className="req">*</span>
                 </label>
                 <Select
                   inputId="al-assignment-member"
@@ -752,6 +764,23 @@ export default function AllLeads() {
                 </span>
               </div>
 
+              {assignModalLead.assignedUserId && assignTargetUserId !== 'unassign' && assignTargetUserId !== assignModalLead.assignedUserId && (
+                <div className="al-field mb-4">
+                  <label htmlFor="al-transfer-reason">Transfer Reason <span className="req">*</span></label>
+                  <textarea
+                    id="al-transfer-reason"
+                    value={transferReason}
+                    onChange={event => setTransferReason(event.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    disabled={assignLoading}
+                    placeholder="Why is this lead being transferred?"
+                    required
+                  />
+                  <span className="al-hint-text">This reason will be saved in transfer history.</span>
+                </div>
+              )}
+
               <div className="al-assign-actions">
                 <button
                   type="button"
@@ -764,7 +793,7 @@ export default function AllLeads() {
                 <button
                   type="submit"
                   className="al-btn-save al-btn-save-assign"
-                  disabled={assignLoading || !assignTargetUserId}
+                  disabled={assignLoading || !assignTargetUserId || (Boolean(assignModalLead.assignedUserId) && assignTargetUserId !== 'unassign' && assignTargetUserId !== assignModalLead.assignedUserId && !transferReason.trim())}
                 >
                   <FiCheckCircle size={14} /> {assignLoading ? 'Saving...' : assignTargetUserId === 'unassign' ? 'Confirm Unassign' : 'Confirm Assignment'}
                 </button>

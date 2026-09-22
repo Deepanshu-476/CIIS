@@ -416,7 +416,8 @@
   color: #b45309;
 }
 
-.trf-badge.status-accepted {
+.trf-badge.status-accepted,
+.trf-badge.status-handled {
   background: #dcfce7;
   color: #15803d;
 }

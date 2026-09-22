@@ -50,6 +50,7 @@ export default function BulkAssignment() {
   // Equal-distribution configuration
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedAgentIds, setSelectedAgentIds] = useState([]);
+  const [transferReason, setTransferReason] = useState('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Fetch leads and team
@@ -175,6 +176,10 @@ export default function BulkAssignment() {
       setError('Kripya kam se kam ek user select karein.');
       return;
     }
+    if (filterType === 'assigned' && !transferReason.trim()) {
+      setError('Reassign karne se pehle transfer reason enter karein.');
+      return;
+    }
 
     setSaving(true);
     setError('');
@@ -185,12 +190,14 @@ export default function BulkAssignment() {
         {
           leadIds: selectedIds,
           method: 'equal-distribution',
-          agentIds: selectedAgentIds
+          agentIds: selectedAgentIds,
+          reason: filterType === 'assigned' ? transferReason.trim() : ''
         },
         { _skipErrorNotify: true }
       );
       setSuccess(`${selectedIds.length} lead(s) successfully assigned!`);
       setSelectedIds([]);
+      setTransferReason('');
       setIsPreviewOpen(false);
       await loadLeads();
       setTimeout(() => {
@@ -528,6 +535,19 @@ export default function BulkAssignment() {
           <p className="bka-equal-note">
             Selected leads will be distributed equally among the selected users. Any remainder is assigned one-by-one from the top of the list.
           </p>
+          {filterType === 'assigned' && (
+            <label className="bka-equal-note">
+              Transfer Reason *
+              <textarea
+                value={transferReason}
+                onChange={event => setTransferReason(event.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Why are these leads being transferred?"
+                style={{ display: 'block', width: '100%', marginTop: 8, padding: 10, border: '1px solid #dbe3ef', borderRadius: 8, resize: 'vertical' }}
+              />
+            </label>
+          )}
         </div>
       </div>
 
@@ -560,7 +580,7 @@ export default function BulkAssignment() {
             </button>
             <button
               className="bka-btn-confirm-all"
-              disabled={saving || selectedLeadsCount === 0 || selectedAgentIds.length === 0}
+              disabled={saving || selectedLeadsCount === 0 || selectedAgentIds.length === 0 || (filterType === 'assigned' && !transferReason.trim())}
               onClick={handleConfirmAndAssign}
             >
               <FiCheckCircle /> {saving ? 'Assigning...' : 'Confirm & Assign'}

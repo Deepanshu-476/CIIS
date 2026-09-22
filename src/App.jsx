@@ -291,6 +291,7 @@ function App() {
           <Route path="payroll-process" element={<PayrollProcess />} />
           <Route path="payslip" element={<Payslip />} />
           <Route path="payroll-reports" element={<PayrollReports />} />
+          <Route path="crm/admin/dashboard" element={<AdminCrmDashboard />} />
         <Route path="telecaller" element={<TelecallerLayout/>}>
             <Route index element={<Navigate to="dashboard" replace/>}/>
             <Route path="dashboard" element={<TelecallerDashboard/>}/>

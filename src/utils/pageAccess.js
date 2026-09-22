@@ -3,7 +3,6 @@ import { CRM_PAGES, resolveCrmPermissionPath } from "../config/crmPages";
 import { TELECALLER_PAGES } from "../crm/telecaller/telecallerPages";
 
 const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
-const pagePermissionCatalogCache = globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ = { createdAt: 0, value: null });
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
 const PAGE_PERMISSION_SESSION_PREFIX = 'ciis-page-permission-catalog:';
 const permissionRequests = new Map();
@@ -49,6 +48,10 @@ export const getCachedPagePermissionCatalog = () => {
   if (!key) return null;
   try {
     const cached = JSON.parse(sessionStorage.getItem(key) || 'null');
+    if (!cached?.createdAt || Date.now() - cached.createdAt >= PAGE_PERMISSION_TTL_MS) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
     return cached?.value || null;
   } catch {
     return null;
@@ -81,9 +84,14 @@ const loadPermissionResource = (key, load) => {
   return request;
 };
 
-export const loadPagePermissionCatalog = () => {
+export const loadPagePermissionCatalog = ({ force = false } = {}) => {
   const scope = permissionScope();
-  return loadPermissionResource(`${scope}|catalog`, async () => {
+  const cacheKey = `${scope}|catalog`;
+  if (force) {
+    pagePermissionCache.delete(cacheKey);
+    permissionRequests.delete(cacheKey);
+  }
+  return loadPermissionResource(cacheKey, async () => {
     const response = await withPermissionRetry(() => axios.get('/page-permissions/pages', {
       params: { includeAccess: true }, noCache: true, _skipErrorNotify: true
     }));
@@ -93,6 +101,7 @@ export const loadPagePermissionCatalog = () => {
 };
 
 const STRICT_PAGE_PATHS = new Set([
+  '/ciisuser/active-clients',
   '/ciisuser/salary-component',
   '/ciisuser/salary-structure',
   '/ciisuser/salary-assignment',
@@ -102,14 +111,6 @@ const STRICT_PAGE_PATHS = new Set([
   '/ciisuser/payslip',
   '/ciisuser/payroll-reports',
 ]);
-
-export const isTelecallerPage = path => /^\/ciisuser\/telecaller(\/|$)/i.test(String(path || '').trim());
-export const isCrmPage = path => /^\/ciisuser\/(crm|telecaller)(\/|$)/i.test(String(path || '').trim());
-
-export const requiresPageAccess = path => {
-  const normalized = String(path || '').trim().toLowerCase().replace(/\/+$/, '');
-  return isCrmPage(normalized) || STRICT_PAGE_PATHS.has(normalized);
-};
 
 export const getStoredUser = () => {
   try {
@@ -171,7 +172,7 @@ export const isCrmPage = path => {
 
 export const requiresPageAccess = path => {
   const normalizedPath = normalizeComparablePath(resolveCrmPermissionPath(normalizePagePath(path)));
-  return isCrmPage(normalizedPath) || TELECALLER_PERMISSION_PATHS.has(normalizedPath);
+  return isCrmPage(normalizedPath) || TELECALLER_PERMISSION_PATHS.has(normalizedPath) || STRICT_PAGE_PATHS.has(normalizedPath);
 };
 
 export const getPageAccessUserIds = (page, accessType = 'view') => {
@@ -213,56 +214,33 @@ export const hasPageAccess = (page, userId, accessType = 'view') => {
   return getPageAccessUserIds(page, type).includes(normalizedUserId);
 };
 
-export const loadPagePermission = async (path, options = {}) => {
+export const loadPagePermission = async (path) => {
   const permissionPath = resolveCrmPermissionPath(normalizePagePath(path)) || path;
-  const cacheKey = String(permissionPath || "").trim().toLowerCase();
-  const cached = pagePermissionCache.get(cacheKey);
-  if (!options?.force && cached && (Date.now() - cached.createdAt) < PAGE_PERMISSION_TTL_MS) {
-    return cached.value;
-  }
-  const response = await withPermissionRetry(() => axios.get("/page-permissions/by-path", {
-    params: { path: permissionPath }, noCache: true, _skipErrorNotify: true
-  }));
+  const normalizedPath = normalizePermissionPath(permissionPath);
+  const cacheKey = `${permissionScope()}|${normalizedPath}`;
+  return loadPermissionResource(cacheKey, async () => {
+    if (requiresPageAccess(permissionPath)) {
+      try {
+        const catalog = await loadPagePermissionCatalog();
+        const page = catalog.accessPages?.find(item => normalizePermissionPath(item.path) === normalizedPath);
+        if (page) return page;
+      } catch { /* Fall back to the by-path endpoint when the batch is unavailable. */ }
+    }
+    const response = await withPermissionRetry(() => axios.get("/page-permissions/by-path", {
+      params: { path: permissionPath }, noCache: true, _skipErrorNotify: true
+    }));
 
-  const value = response.data?.page || {
-    path: permissionPath,
-    approvers: [],
-    viewUsers: [],
-    editUsers: [],
-    deleteUsers: [],
-    generateUsers: [],
-    lockUsers: [],
-    unlockUsers: []
-  };
-
-  pagePermissionCache.set(cacheKey, {
-    createdAt: Date.now(),
-    value
+    return response.data?.page || {
+      path: permissionPath,
+      approvers: [],
+      viewUsers: [],
+      editUsers: [],
+      deleteUsers: [],
+      generateUsers: [],
+      lockUsers: [],
+      unlockUsers: []
+    };
   });
-
-  return value;
-};
-
-export const loadPagePermissionCatalog = async (options = {}) => {
-  if (!options?.force && pagePermissionCatalogCache.value && (Date.now() - pagePermissionCatalogCache.createdAt) < PAGE_PERMISSION_TTL_MS) {
-    return pagePermissionCatalogCache.value;
-  }
-
-  const response = await withPermissionRetry(() => axios.get("/page-permissions/pages", {
-    noCache: true,
-    _skipErrorNotify: true
-  }));
-  const pages = Array.isArray(response.data?.pages) ? response.data.pages : [];
-  const accessPages = Array.isArray(response.data?.accessPages) ? response.data.accessPages : undefined;
-  const value = {
-    ...response.data,
-    pages,
-    ...(accessPages ? { accessPages } : {})
-  };
-
-  pagePermissionCatalogCache.createdAt = Date.now();
-  pagePermissionCatalogCache.value = value;
-  return value;
 };
 
 export const invalidatePagePermissionCache = (path) => {

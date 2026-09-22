@@ -437,38 +437,58 @@
   justify-content: space-between;
 }
 
-/* Lead Trends Body & Pill Legend */
+/* Lead Trends */
 .lo-trend-body {
-  padding: 14px 18px 18px;
+  padding: 12px 18px 16px;
   flex: 1;
+}
+
+.lo-trend-controls,
+.lo-trend-ranges {
+  display: flex;
+  align-items: center;
+}
+
+.lo-trend-ranges {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.lo-trend-ranges button {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lo-trend-ranges button.active {
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+  color: #6d28d9;
 }
 
 .lo-trend-legend {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
 }
 
-.lo-legend-pill {
+.lo-trend-legend span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.lo-pill-purple {
-  background: #faf5ff;
-  color: #7c3aed;
-  border: 1px solid #f3e8ff;
-}
-
-.lo-pill-teal {
-  background: #f0fdf4;
-  color: #059669;
-  border: 1px solid #dcfce7;
+  gap: 5px;
 }
 
 .lo-dot-purple {
@@ -488,8 +508,193 @@
 }
 
 .lo-trend-chart {
-  height: 190px;
+  height: 202px;
   width: 100%;
+}
+
+.lo-native-trend {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 9px;
+  height: 184px;
+  padding-top: 7px;
+}
+
+.lo-trend-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 154px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1;
+  text-align: right;
+}
+
+.lo-trend-plot {
+  position: relative;
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  height: 176px;
+  min-width: 0;
+}
+
+.lo-grid-line {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 0;
+  border-top: 1px solid #eef2f7;
+}
+
+.lo-grid-line.top { top: 0; }
+.lo-grid-line.middle { top: 77px; }
+.lo-grid-line.bottom { top: 154px; border-color: #dfe5ec; }
+
+.lo-trend-column {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  height: 176px;
+  border-radius: 5px;
+  outline: none;
+  transition: background-color 0.15s ease;
+}
+
+.lo-trend-column:hover,
+.lo-trend-column:focus-visible {
+  background: #f8fafc;
+}
+
+.lo-trend-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 155px;
+}
+
+.lo-trend-bars > i {
+  width: min(12px, 34%);
+  min-width: 4px;
+  border-radius: 4px 4px 1px 1px;
+  transform-origin: bottom;
+  animation: lo-bar-grow 0.45s ease-out both;
+}
+
+.lo-trend-bars > i.purple { background: #7c3aed; }
+.lo-trend-bars > i.teal { background: #10b981; }
+
+.lo-trend-column > span {
+  margin-top: 6px;
+  overflow: hidden;
+  max-width: 100%;
+  color: #7c8798;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lo-native-trend.is-30d .lo-trend-plot { gap: 2px; }
+.lo-native-trend.is-30d .lo-trend-bars { gap: 1px; }
+.lo-native-trend.is-30d .lo-trend-bars > i {
+  width: min(5px, 42%);
+  min-width: 2px;
+  border-radius: 3px 3px 1px 1px;
+}
+
+.lo-trend-tooltip {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  gap: 5px;
+  min-width: 132px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  color: #475569;
+  font-size: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 5px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.lo-trend-tooltip strong { color: #0f172a; }
+.lo-trend-tooltip span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  overflow: visible;
+  max-width: none;
+  color: #475569;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.lo-trend-tooltip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.lo-trend-tooltip i.purple { background: #7c3aed; }
+.lo-trend-tooltip i.teal { background: #10b981; }
+.lo-trend-column:hover .lo-trend-tooltip,
+.lo-trend-column:focus-visible .lo-trend-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.lo-trend-column:first-of-type .lo-trend-tooltip {
+  left: 0;
+  transform: translate(0, 5px);
+}
+
+.lo-trend-column:last-of-type .lo-trend-tooltip {
+  right: 0;
+  left: auto;
+  transform: translate(0, 5px);
+}
+
+.lo-trend-column:first-of-type:hover .lo-trend-tooltip,
+.lo-trend-column:first-of-type:focus-visible .lo-trend-tooltip,
+.lo-trend-column:last-of-type:hover .lo-trend-tooltip,
+.lo-trend-column:last-of-type:focus-visible .lo-trend-tooltip {
+  transform: translate(0, 0);
+}
+
+.lo-trend-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  padding: 7px 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #64748b;
+  font-size: 10px;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+@keyframes lo-bar-grow {
+  from { opacity: 0.35; transform: scaleY(0); }
+  to { opacity: 1; transform: scaleY(1); }
 }
 
 .lo-loading-placeholder {
@@ -621,20 +826,8 @@
 }
 
 /* --------------------------------------------------------------------------
-   Footer & Responsive
+   Responsive
    -------------------------------------------------------------------------- */
-.lo-footer {
-  text-align: center;
-  color: #94a3b8;
-  font-size: 11.5px;
-  margin-top: 26px;
-  padding-bottom: 12px;
-}
-
-.lo-footer p {
-  margin: 0;
-  font-weight: 400;
-}
 
 @media (max-width: 1100px) {
   .lo-top-grid {
@@ -655,5 +848,23 @@
   .lo-funnel-body {
     flex-direction: column;
     align-items: center;
+  }
+  .lo-panel-header.flex-between {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .lo-trend-body {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+  .lo-native-trend {
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lo-trend-bars > i {
+    animation: none;
   }
 }

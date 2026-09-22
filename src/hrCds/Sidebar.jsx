@@ -2420,13 +2420,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
 
     markSidebarBadgeSeen(badgeKey);
-    navigate(path);
+    const currentPath = location.pathname.replace(/\/+$/, '');
+    const nextPath = String(path || '').replace(/\/+$/, '');
+    if (nextPath && currentPath !== nextPath) {
+      navigate(path);
+    }
     if (isMobile) {
       closeSidebar?.();
     } else {
       setIsHovered(false);
     }
-  }, [closeSidebar, handleLogout, isMobile, navigate, markSidebarBadgeSeen]);
+  }, [closeSidebar, handleLogout, isMobile, location.pathname, navigate, markSidebarBadgeSeen]);
 
   const handleClientCompanySwitch = useCallback((clientCompany) => {
     const nextId = clientCompany?._id || clientCompany?.id;
@@ -2507,23 +2511,34 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       (Array.isArray(pagePermissions) ? pagePermissions : [])
         .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
     );
+    const roleConfiguredPaths = new Set(
+      (Array.isArray(sidebarConfig?.menuItems) ? sidebarConfig.menuItems : [])
+        .map(item => String(item?.path || '').toLowerCase().replace(/\/+$/, ''))
+        .filter(Boolean)
+    );
     const filterItemsByPageAccess = items => {
       items = items.filter(item => {
         if (item.category !== 'admin-telecaller') return true;
         if (!hasTelecallerCompanyAccess(item, companyData)) return false;
+        const itemPath = String(item.path || '').toLowerCase().replace(/\/+$/, '');
+        if (roleConfiguredPaths.has(itemPath)) return true;
         const permission = allPermissionPages.get(String(item.path).toLowerCase());
         return Boolean(permission && hasPageAccess(permission, userId, 'view'));
       });
       if (!pagePermissions) {
         // CRM stays hidden until its current, user-specific permissions have
         // been loaded. This prevents stale report links flashing or persisting.
-        return items.filter(item => !isCrmPage(item?.path)
-          && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
+        return items.filter(item => {
+          const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
+          return roleConfiguredPaths.has(itemPath)
+            || (!isCrmPage(item?.path) && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
+        });
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
-        // CRM visibility is always page-specific. Reusing Dashboard access for
-        // unassigned CRM pages exposed the whole CRM menu to ordinary users.
+        if (roleConfiguredPaths.has(itemPath)) return true;
+        // CRM visibility is page-specific unless the page is explicitly present
+        // in the saved sidebar config for this user's role.
         if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
         if (isPageAccessAdmin) return true;
         if (requiresPageAccess(itemPath)) {

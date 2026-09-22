@@ -200,7 +200,11 @@ const Sidebar = ({ isMobile = false }) => {
   };
 
   const handleNavigate = (path) => {
-    navigate(path);
+    const currentPath = location.pathname.replace(/\/+$/, '');
+    const nextPath = String(path || '').replace(/\/+$/, '');
+    if (nextPath && currentPath !== nextPath) {
+      navigate(path);
+    }
     if (!isMobile) {
       setIsHovered(false);
     }

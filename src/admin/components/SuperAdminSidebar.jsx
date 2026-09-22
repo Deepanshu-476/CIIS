@@ -336,7 +336,11 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   };
 
   const handleClick = (route) => {
-    navigate(route);
+    const currentPath = location.pathname.replace(/\/+$/, '');
+    const nextPath = String(route || '').replace(/\/+$/, '');
+    if (nextPath && currentPath !== nextPath) {
+      navigate(route);
+    }
     if (isMobile) {
       closeSidebar?.();
     }

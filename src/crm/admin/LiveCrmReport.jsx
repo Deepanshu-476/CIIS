@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   FiBarChart2,
@@ -133,6 +133,7 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
   const [filters, setFilters] = useState({ from: '', to: '' });
   const [applied, setApplied] = useState({ from: '', to: '' });
   const [activePreset, setActivePreset] = useState('all');
+  const [activityFilter, setActivityFilter] = useState('all');
 
   // Search & Pagination & Sorting state
   const [searchTerm, setSearchTerm] = useState('');
@@ -147,10 +148,60 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
     rows: [],
     chartData: [],
     funnelStages: [],
+    userStats: [],
+    breakdown: [],
     message: ''
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Reset tab-specific filters on report type change
+  useEffect(() => {
+    setActivityFilter('all');
+    setSearchTerm('');
+    setCurrentPage(1);
+  }, [type]);
+
+  // Activity trend view mode: 'bar' | 'area'
+  const [trendViewMode, setTrendViewMode] = useState('bar');
+
+  // Direct container width measurement for Recharts rendering stability
+  const chartContainerRef = useRef(null);
+  const [chartWidth, setChartWidth] = useState(0);
+
+  useEffect(() => {
+    const updateSize = () => {
+      if (chartContainerRef.current) {
+        const rect = chartContainerRef.current.getBoundingClientRect();
+        const clientW = chartContainerRef.current.clientWidth;
+        const w = clientW || rect.width || 0;
+        if (w > 0) setChartWidth(Math.floor(w));
+      }
+    };
+    updateSize();
+    const frameId = requestAnimationFrame(updateSize);
+    const timerId = setTimeout(updateSize, 120);
+
+    let ro;
+    if (typeof ResizeObserver !== 'undefined' && chartContainerRef.current) {
+      ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const w = entry.contentRect.width;
+          if (w > 0) setChartWidth(Math.floor(w));
+        }
+      });
+      ro.observe(chartContainerRef.current);
+    }
+    window.addEventListener('resize', updateSize);
+    return () => {
+      cancelAnimationFrame(frameId);
+      clearTimeout(timerId);
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, [type, data.chartData]);
+
+  const activeChartWidth = chartWidth > 80 ? chartWidth : 650;
 
   // Fetch report data
   const load = useCallback(async () => {
@@ -169,10 +220,12 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
         rows: Array.isArray(resData.rows) ? resData.rows : [],
         chartData: Array.isArray(resData.chartData) ? resData.chartData : [],
         funnelStages: Array.isArray(resData.funnelStages) ? resData.funnelStages : [],
+        userStats: Array.isArray(resData.userStats) ? resData.userStats : [],
+        breakdown: Array.isArray(resData.breakdown) ? resData.breakdown : [],
         message: resData?.message || ''
       });
     } catch (requestError) {
-      setData({ summary: [], columns: [], rows: [], chartData: [], funnelStages: [], message: '' });
+      setData({ summary: [], columns: [], rows: [], chartData: [], funnelStages: [], userStats: [], breakdown: [], message: '' });
       setError(requestError?.response?.data?.message || 'Report data could not be loaded. Please retry.');
     } finally {
       setLoading(false);
@@ -195,6 +248,17 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
   // Filtered & Sorted Rows
   const processedRows = useMemo(() => {
     let rows = [...(data.rows || [])];
+
+    // Filter by Activity Type (for user-activity)
+    if (type === 'user-activity' && activityFilter !== 'all') {
+      rows = rows.filter((row) => {
+        const act = String(row.Activity || '').toLowerCase();
+        if (activityFilter === 'calls') return act.includes('call');
+        if (activityFilter === 'assignments') return act.includes('assign');
+        if (activityFilter === 'follow-ups') return act.includes('follow');
+        return true;
+      });
+    }
 
     // Filter by Search Term
     if (searchTerm.trim()) {
@@ -222,7 +286,7 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
     }
 
     return rows;
-  }, [data.rows, searchTerm, sortConfig]);
+  }, [data.rows, type, activityFilter, searchTerm, sortConfig]);
 
   // Paginated Rows
   const totalPages = Math.ceil(processedRows.length / pageSize) || 1;
@@ -362,6 +426,22 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
       ];
     }
 
+    if (type === 'user-activity') {
+      const total = processedRows.length;
+      const calls = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('call')).length;
+      const assignments = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('assign')).length;
+      const followups = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('follow')).length;
+      const uniqueUsers = new Set(processedRows.map((r) => r.User).filter((u) => u && u !== '—')).size;
+
+      return [
+        { label: 'Total Activities', value: total, icon: FiActivity, color: 'purple' },
+        { label: 'Calls Logged', value: calls, icon: FiPhoneCall, color: 'blue' },
+        { label: 'Lead Assignments', value: assignments, icon: FiUserCheck, color: 'indigo' },
+        { label: 'Follow-ups Tracked', value: followups, icon: FiClock, color: 'emerald' },
+        { label: 'Active Team Members', value: uniqueUsers, icon: FiUsers, color: 'cyan' }
+      ];
+    }
+
     // Default to API summary if available
     if (data.summary?.length) {
       return data.summary.map((item, idx) => ({
@@ -380,8 +460,33 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
     const str = String(value ?? '');
     const lower = str.toLowerCase();
 
+    // Activity Badge (for User Activity report)
+    if (column.toLowerCase() === 'activity') {
+      let icon = <FiActivity size={13} />;
+      let badgeClass = 'crm-act-pill-default';
+      if (lower.includes('call')) {
+        icon = <FiPhoneCall size={13} />;
+        badgeClass = 'crm-act-pill-call';
+      } else if (lower.includes('reassigned')) {
+        icon = <FiRefreshCw size={13} />;
+        badgeClass = 'crm-act-pill-reassign';
+      } else if (lower.includes('assigned')) {
+        icon = <FiUserCheck size={13} />;
+        badgeClass = 'crm-act-pill-assign';
+      } else if (lower.includes('follow')) {
+        icon = <FiClock size={13} />;
+        badgeClass = 'crm-act-pill-follow';
+      }
+      return (
+        <span className={`crm-activity-cell-badge ${badgeClass}`}>
+          {icon}
+          <span>{str}</span>
+        </span>
+      );
+    }
+
     // Status Badges
-    if (['status', 'outcome', 'activity', 'stage'].some((k) => column.toLowerCase().includes(k))) {
+    if (['status', 'outcome', 'stage'].some((k) => column.toLowerCase().includes(k))) {
       let badgeClass = 'crm-badge-neutral';
       if (['converted', 'answered', 'done', 'completed', 'enrolled'].some((k) => lower.includes(k))) {
         badgeClass = 'crm-badge-success';
@@ -675,6 +780,158 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
             ))}
           </div>
         </div>
+      ) : type === 'user-activity' ? (
+        <div className="crm-user-activity-analytics-grid">
+          {/* Main Visual: Daily Activity Volume & Velocity Trend */}
+          <div className="crm-visual-card crm-activity-trend-card">
+            <div className="crm-card-header">
+              <div>
+                <h3 className="crm-card-title">User Activity Velocity Trend</h3>
+                <p className="crm-card-desc">Daily progression of calls logged, assignments, and follow-ups</p>
+              </div>
+              <div className="crm-header-right-group">
+                <div className="crm-view-mode-toggle">
+                  <button
+                    type="button"
+                    className={`crm-toggle-btn ${trendViewMode === 'bar' ? 'active' : ''}`}
+                    onClick={() => setTrendViewMode('bar')}
+                  >
+                    Bars
+                  </button>
+                  <button
+                    type="button"
+                    className={`crm-toggle-btn ${trendViewMode === 'area' ? 'active' : ''}`}
+                    onClick={() => setTrendViewMode('area')}
+                  >
+                    Area
+                  </button>
+                </div>
+                <span className="crm-activity-total-pill">
+                  {processedRows.length} {processedRows.length === 1 ? 'event' : 'events'}
+                </span>
+              </div>
+            </div>
+
+            {data.chartData && data.chartData.length > 0 ? (
+              <div ref={chartContainerRef} className="crm-chart-canvas-wrap">
+                {trendViewMode === 'bar' ? (
+                  <BarChart
+                    width={activeChartWidth}
+                    height={280}
+                    data={data.chartData}
+                    margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
+                    <Bar dataKey="calls" name="Calls Logged" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="assignments" name="Lead Assignments" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="followups" name="Follow-ups" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                ) : (
+                  <AreaChart
+                    width={activeChartWidth}
+                    height={280}
+                    data={data.chartData}
+                    margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="actCallsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="actAssignGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="actFollowGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
+                    <Area type="monotone" dataKey="calls" name="Calls Logged" stroke="#3b82f6" strokeWidth={2.5} fill="url(#actCallsGrad)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Area type="monotone" dataKey="assignments" name="Lead Assignments" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#actAssignGrad)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Area type="monotone" dataKey="followups" name="Follow-ups" stroke="#10b981" strokeWidth={2.5} fill="url(#actFollowGrad)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  </AreaChart>
+                )}
+              </div>
+            ) : (
+              <div className="crm-chart-empty-state">
+                <FiActivity size={32} color="#94a3b8" />
+                <p>No activity records found for the selected period.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Side Visual: Activity Type Distribution & Telecaller Leaderboard */}
+          <div className="crm-visual-card crm-activity-breakdown-card">
+            <div className="crm-card-header">
+              <div>
+                <h3 className="crm-card-title">Activity Breakdown & Team</h3>
+                <p className="crm-card-desc">Type share & active telecallers</p>
+              </div>
+            </div>
+
+            {/* Distribution Progress Bars */}
+            <div className="crm-activity-share-list">
+              {(data.breakdown?.length ? data.breakdown : [
+                { name: 'Calls Logged', count: processedRows.filter(r => String(r.Activity||'').toLowerCase().includes('call')).length, color: '#3b82f6' },
+                { name: 'Lead Assignments', count: processedRows.filter(r => String(r.Activity||'').toLowerCase().includes('assign')).length, color: '#8b5cf6' },
+                { name: 'Follow-ups Logged', count: processedRows.filter(r => String(r.Activity||'').toLowerCase().includes('follow')).length, color: '#10b981' }
+              ]).map((item) => {
+                const total = processedRows.length || 1;
+                const pct = Math.round((item.count / total) * 100) || 0;
+                return (
+                  <div key={item.name} className="crm-activity-share-row">
+                    <div className="crm-activity-share-header">
+                      <span className="crm-activity-share-name">{item.name}</span>
+                      <span className="crm-activity-share-val">
+                        <strong>{item.count}</strong> ({pct}%)
+                      </span>
+                    </div>
+                    <div className="crm-progress-track">
+                      <div
+                        className="crm-progress-fill"
+                        style={{ width: `${pct}%`, backgroundColor: item.color || '#4f46e5' }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Active Telecallers Ranking */}
+            <div className="crm-telecaller-ranking-box">
+              <h4 className="crm-sub-section-title">Active Team Members</h4>
+              {(data.userStats?.length ? data.userStats : []).slice(0, 5).map((user, idx) => (
+                <div key={user.user || idx} className="crm-telecaller-rank-row">
+                  <div className="crm-rank-left">
+                    <span className="crm-rank-badge">{idx + 1}</span>
+                    <span className="crm-rank-name">{user.user}</span>
+                  </div>
+                  <div className="crm-rank-right">
+                    <span className="crm-rank-count">{user.total} actions</span>
+                    <span className="crm-rank-pill">{user.calls} calls · {user.assignments} assigns · {user.followups} flws</span>
+                  </div>
+                </div>
+              ))}
+              {(!data.userStats || !data.userStats.length) && (
+                <div className="crm-rank-empty">No active user telemetry for this range.</div>
+              )}
+            </div>
+          </div>
+        </div>
       ) : type !== 'overview' && data.chartData?.length ? (
         <div className="crm-visual-card">
           <div className="crm-card-header">
@@ -684,74 +941,72 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
             </div>
           </div>
 
-          <div style={{ width: '100%', height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              {type === 'leads' ? (
-                <BarChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                  <Bar dataKey="leads" name="Total Leads" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="qualified" name="Qualified / Interested" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              ) : type === 'calls' ? (
-                <AreaChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="callsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="connGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="totalCalls" name="Total Calls" stroke="#3b82f6" strokeWidth={2} fill="url(#callsGrad)" />
-                  <Area type="monotone" dataKey="connected" name="Connected Calls" stroke="#10b981" strokeWidth={2} fill="url(#connGrad)" />
-                </AreaChart>
-              ) : type === 'team-performance' ? (
-                <BarChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="agent" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                  <Bar dataKey="calls" name="Calls Made" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="conversions" name="Conversions" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              ) : (
-                <BarChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey={Object.keys(data.chartData[0] || {})[0]} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }} />
-                  <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                  {Object.keys(data.chartData[0] || {})
-                    .filter((k) => k !== Object.keys(data.chartData[0])[0])
-                    .map((k, i) => (
-                      <Bar
-                        key={k}
-                        dataKey={k}
-                        fill={['#6366f1', '#10b981', '#f59e0b', '#06b6d4'][i % 4]}
-                        radius={[4, 4, 0, 0]}
-                      />
-                    ))}
-                </BarChart>
-              )}
-            </ResponsiveContainer>
+          <div ref={type !== 'user-activity' ? chartContainerRef : undefined} className="crm-chart-canvas-wrap" style={{ height: 260 }}>
+            {type === 'leads' ? (
+              <BarChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
+                />
+                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
+                <Bar dataKey="leads" name="Total Leads" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="qualified" name="Qualified / Interested" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            ) : type === 'calls' ? (
+              <AreaChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="callsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="connGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
+                />
+                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
+                <Area type="monotone" dataKey="totalCalls" name="Total Calls" stroke="#3b82f6" strokeWidth={2} fill="url(#callsGrad)" />
+                <Area type="monotone" dataKey="connected" name="Connected Calls" stroke="#10b981" strokeWidth={2} fill="url(#connGrad)" />
+              </AreaChart>
+            ) : type === 'team-performance' ? (
+              <BarChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="agent" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
+                />
+                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
+                <Bar dataKey="calls" name="Calls Made" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="conversions" name="Conversions" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            ) : (
+              <BarChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey={Object.keys(data.chartData[0] || {})[0]} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }} />
+                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
+                {Object.keys(data.chartData[0] || {})
+                  .filter((k) => k !== Object.keys(data.chartData[0])[0])
+                  .map((k, i) => (
+                    <Bar
+                      key={k}
+                      dataKey={k}
+                      fill={['#6366f1', '#10b981', '#f59e0b', '#06b6d4'][i % 4]}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  ))}
+              </BarChart>
+            )}
           </div>
         </div>
       ) : null}
@@ -778,6 +1033,30 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
               </button>
             ))}
           </div>
+
+          {/* Activity Type Filter (Specific to User Activity) */}
+          {type === 'user-activity' && (
+            <div className="crm-toolbar-activity-filters">
+              <span className="crm-toolbar-label">Activity:</span>
+              {[
+                { id: 'all', label: 'All Events' },
+                { id: 'calls', label: 'Calls' },
+                { id: 'assignments', label: 'Assignments' },
+                { id: 'follow-ups', label: 'Follow-ups' }
+              ].map((act) => (
+                <button
+                  key={act.id}
+                  className={`crm-preset-pill ${activityFilter === act.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setActivityFilter(act.id);
+                    setCurrentPage(1);
+                  }}
+                >
+                  {act.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="crm-toolbar-right">
             {/* Date Pickers */}

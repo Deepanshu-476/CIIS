@@ -632,16 +632,14 @@ export default function PendingCalls() {
                 >
                   Close
                 </button>
-                <button
-                  type="button"
+                <a
                   className="pc-modal-btn pc-modal-btn-primary"
-                  onClick={() => {
-                    alert(`Initiating call to ${selectedCall.name} (${selectedCall.phone})...`);
-                    setSelectedCall(null);
-                  }}
+                  href={`tel:${String(selectedCall.phone || '').replace(/[^\d+]/g, '')}`}
+                  aria-label={`Call ${selectedCall.name} at ${selectedCall.phone}`}
+                  onClick={() => setSelectedCall(null)}
                 >
-                  Start Call
-                </button>
+                  Call Number
+                </a>
               </div>
             </div>
           </div>

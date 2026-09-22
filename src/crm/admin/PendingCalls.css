@@ -544,12 +544,16 @@
 }
 
 .pc-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   border: none;
+  text-decoration: none;
 }
 
 .pc-modal-btn-primary {

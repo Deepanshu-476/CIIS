@@ -50,7 +50,7 @@ import {
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
-import { isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
+import { isCrmPage, requiresPageAccess, hasPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
 import { CRM_PAGES } from '../config/crmPages';
 import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
@@ -2239,7 +2239,10 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
 
     let cancelled = false;
-    loadPagePermissionCatalog()
+    // Do not render permissions remembered by an older session while the
+    // authoritative catalog is being refreshed.
+    setPagePermissions(null);
+    loadPagePermissionCatalog({ force: true })
       .then(async catalog => {
         const pages = Array.isArray(catalog?.pages) ? catalog.pages : [];
         // Older servers can omit CRM entries from their page catalog even
@@ -2504,12 +2507,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       (Array.isArray(pagePermissions) ? pagePermissions : [])
         .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
     );
-    const crmDashboardPermission = allPermissionPages.get('/ciisuser/crm/admin/dashboard');
-    const permissionForPath = itemPath => {
-      const directPermission = allPermissionPages.get(itemPath);
-      if (hasConfiguredPageAccess(directPermission) || !isCrmPage(itemPath)) return directPermission;
-      return hasConfiguredPageAccess(crmDashboardPermission) ? crmDashboardPermission : directPermission;
-    };
     const filterItemsByPageAccess = items => {
       items = items.filter(item => {
         if (item.category !== 'admin-telecaller') return true;
@@ -2518,11 +2515,16 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         return Boolean(permission && hasPageAccess(permission, userId, 'view'));
       });
       if (!pagePermissions) {
-        return items.filter(item => isPageAccessAdmin || (!isCrmPage(item?.path) && !requiresPageAccess(item?.path)));
+        // CRM stays hidden until its current, user-specific permissions have
+        // been loaded. This prevents stale report links flashing or persisting.
+        return items.filter(item => !isCrmPage(item?.path)
+          && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
-        if (isCrmPage(itemPath)) return hasPageAccess(permissionForPath(itemPath), userId, 'view');
+        // CRM visibility is always page-specific. Reusing Dashboard access for
+        // unassigned CRM pages exposed the whole CRM menu to ordinary users.
+        if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
         if (isPageAccessAdmin) return true;
         if (requiresPageAccess(itemPath)) {
           return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');

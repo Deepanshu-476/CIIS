@@ -80,6 +80,7 @@ export default function AssignmentsOverview() {
   // Modal state
   const [assignModalLead, setAssignModalLead] = useState(null);
   const [selectedAgent, setSelectedAgent] = useState('');
+  const [transferReason, setTransferReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -117,6 +118,12 @@ export default function AssignmentsOverview() {
   const handleConfirmAssign = async (e) => {
     e?.preventDefault();
     if (!selectedAgent || !assignModalLead) return;
+    const previousAgentId = String(assignModalLead.assignedTo?._id || assignModalLead.assignedTo || '');
+    const isTransfer = Boolean(previousAgentId) && previousAgentId !== selectedAgent;
+    if (isTransfer && !transferReason.trim()) {
+      setError('Enter a transfer reason before reassigning this lead.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -124,12 +131,13 @@ export default function AssignmentsOverview() {
     try {
       await api.put(
         `/crm/leads/${assignModalLead._id}/assign`,
-        { userId: selectedAgent },
+        { userId: selectedAgent, reason: isTransfer ? transferReason.trim() : '' },
         { _skipErrorNotify: true }
       );
       setSuccess(`Lead ${assignModalLead.name || ''} successfully assigned.`);
       setAssignModalLead(null);
       setSelectedAgent('');
+      setTransferReason('');
       await loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to assign lead.');
@@ -591,6 +599,7 @@ export default function AssignmentsOverview() {
                           onClick={() => {
                             setAssignModalLead(row);
                             setSelectedAgent(row.assignedTo?._id || '');
+                            setTransferReason('');
                           }}
                         >
                           <FiUserPlus size={13} />
@@ -710,6 +719,20 @@ export default function AssignmentsOverview() {
                   ))}
                 </select>
               </div>
+              {assignModalLead.assignedTo && String(assignModalLead.assignedTo?._id || assignModalLead.assignedTo) !== selectedAgent && (
+                <div className="aso-modal-form-group">
+                  <label htmlFor="aso-transfer-reason">Transfer Reason *</label>
+                  <textarea
+                    id="aso-transfer-reason"
+                    className="aso-modal-select"
+                    value={transferReason}
+                    onChange={event => setTransferReason(event.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="Why is this lead being transferred?"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="aso-modal-footer">
@@ -723,7 +746,7 @@ export default function AssignmentsOverview() {
               <button
                 type="button"
                 className="aso-btn aso-btn-primary"
-                disabled={!selectedAgent || submitting}
+                disabled={!selectedAgent || submitting || (Boolean(assignModalLead.assignedTo) && String(assignModalLead.assignedTo?._id || assignModalLead.assignedTo) !== selectedAgent && !transferReason.trim())}
                 onClick={handleConfirmAssign}
               >
                 {submitting ? 'Assigning...' : 'Confirm Assignment'}

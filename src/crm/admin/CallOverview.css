@@ -267,6 +267,10 @@
   overflow: hidden;
 }
 
+.co-row-two-col.charts-row .co-card {
+  margin-bottom: 0;
+}
+
 .co-header-badge {
   font-size: 10px;
   font-weight: 600;
@@ -395,9 +399,9 @@
 
 .co-trend-range-selector {
   display: flex;
-  background: #f1f5f9;
-  padding: 2px;
-  border-radius: 7px;
+  background: #f8fafc;
+  padding: 3px;
+  border-radius: 9px;
   border: 1px solid #e2e8f0;
   gap: 2px;
 }
@@ -406,10 +410,10 @@
   border: none;
   background: transparent;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: #64748b;
-  padding: 4px 10px;
-  border-radius: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -421,14 +425,24 @@
 .co-range-btn.active {
   background: #ffffff;
   color: #4f46e5;
-  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.12);
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.16);
   font-weight: 700;
+}
+
+.co-trend-card {
+  border-color: #dfe4ee;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.co-trend-card .co-card-header {
+  padding: 14px 18px;
+  background: #ffffff;
 }
 
 /* Normal & Clean Chart Body */
 .co-normal-chart-body,
 .co-normal-outcomes-body {
-  padding: 16px 20px 18px 20px !important;
+  padding: 14px 18px 16px !important;
 }
 
 /* Clean Normal Summary Strip */
@@ -436,39 +450,60 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 14px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .co-normal-stats {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 12.5px;
-  color: #475569;
+  gap: 8px;
+  min-width: 0;
 }
 
-.co-normal-stat-item strong {
+.co-normal-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid #e7eaf2;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.co-normal-stat-item.connected {
+  background: #f0fdf9;
+  border-color: #ccf4e6;
+}
+
+.co-normal-stat-item.success {
+  background: #f5f3ff;
+  border-color: #e5defe;
+}
+
+.co-normal-stat-value {
   color: #0f172a;
-  font-weight: 700;
-  font-size: 13.5px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
 }
 
-.co-normal-stat-dot {
-  color: #cbd5e1;
-  font-size: 12px;
+.co-normal-stat-item.connected .co-normal-stat-value {
+  color: #047857;
 }
 
-.co-normal-rate-pill {
-  background: #dcfce7;
-  color: #15803d;
+.co-normal-stat-item.success .co-normal-stat-value {
+  color: #6d28d9;
+}
+
+.co-normal-stat-label {
+  color: #64748b;
+  font-size: 10px;
   font-weight: 600;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 12px;
+  white-space: nowrap;
 }
 
 .co-normal-legend {
@@ -506,8 +541,202 @@
 .co-trend-chart-container.compact-chart {
   position: relative;
   width: 100%;
-  height: 215px;
+  height: 205px;
   min-width: 0;
+}
+
+.co-trend-chart-wrapper {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px 8px 0 0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.co-trend-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 164px;
+  padding-bottom: 1px;
+  color: #9aa5b5;
+  font-size: 9.5px;
+  font-weight: 500;
+  line-height: 1;
+  text-align: right;
+}
+
+.co-trend-plot {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 10px;
+  min-width: 0;
+  height: 182px;
+}
+
+.co-trend-grid-line {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 0;
+  border-top: 1px solid #eef1f5;
+}
+
+.co-trend-grid-line.top { top: 0; }
+.co-trend-grid-line.middle { top: 82px; }
+.co-trend-grid-line.bottom { top: 164px; border-top-style: solid; }
+
+.co-trend-day {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  height: 182px;
+  border-radius: 6px;
+  outline: none;
+  transition: background-color 0.16s ease;
+}
+
+.co-trend-day:hover,
+.co-trend-day:focus-visible {
+  background: #f8fafc;
+}
+
+.co-trend-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 165px;
+}
+
+.co-trend-bar {
+  width: min(11px, 32%);
+  min-width: 4px;
+  border-radius: 4px 4px 1px 1px;
+  transform-origin: bottom;
+  animation: co-trend-grow 0.45s ease-out both;
+  transition: filter 0.16s ease, opacity 0.16s ease;
+}
+
+.co-trend-bar.calls {
+  background: #6366f1;
+}
+
+.co-trend-bar.connected {
+  background: #10b981;
+}
+
+.co-trend-day:hover .co-trend-bar,
+.co-trend-day:focus-visible .co-trend-bar {
+  filter: saturate(1.08);
+}
+
+.co-trend-hover-card {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 6;
+  display: grid;
+  gap: 5px;
+  min-width: 128px;
+  padding: 9px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  color: #475569;
+  font-size: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 5px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.co-trend-hover-card strong {
+  color: #0f172a;
+  font-size: 10.5px;
+}
+
+.co-trend-hover-card span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.co-trend-hover-card i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.co-trend-hover-card i.calls { background: #6366f1; }
+.co-trend-hover-card i.connected { background: #10b981; }
+
+.co-trend-day:hover .co-trend-hover-card,
+.co-trend-day:focus-visible .co-trend-hover-card {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.co-trend-day:first-of-type .co-trend-hover-card {
+  right: auto;
+  left: 0;
+  transform: translate(0, 5px);
+}
+
+.co-trend-day:first-of-type:hover .co-trend-hover-card,
+.co-trend-day:first-of-type:focus-visible .co-trend-hover-card,
+.co-trend-day:last-of-type:hover .co-trend-hover-card,
+.co-trend-day:last-of-type:focus-visible .co-trend-hover-card {
+  transform: translate(0, 0);
+}
+
+.co-trend-day:last-of-type .co-trend-hover-card {
+  right: 0;
+  left: auto;
+  transform: translate(0, 5px);
+}
+
+.co-trend-day-label {
+  margin-top: 7px;
+  color: #7c8798;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.co-trend-chart-wrapper.is-30-days .co-trend-plot {
+  gap: 2px;
+}
+
+.co-trend-chart-wrapper.is-30-days .co-trend-bars {
+  gap: 1px;
+}
+
+.co-trend-chart-wrapper.is-30-days .co-trend-bar {
+  width: min(5px, 42%);
+  min-width: 2px;
+  border-radius: 3px 3px 1px 1px;
+}
+
+@keyframes co-trend-grow {
+  from { transform: scaleY(0); opacity: 0.35; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .co-trend-bar {
+    animation: none;
+  }
 }
 
 /* Custom Floating Dark Tooltip */
@@ -1047,6 +1276,150 @@
   margin-top: 10px;
 }
 
+/* Recent call details */
+.co-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.co-detail-modal {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.co-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.co-detail-eyebrow {
+  color: #6366f1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.co-detail-header h2 {
+  margin: 4px 0 2px;
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.co-detail-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.co-detail-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.co-detail-close:hover {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.co-detail-body {
+  padding: 18px 22px;
+}
+
+.co-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.co-detail-grid > div {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #eef2f7;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.co-detail-grid span,
+.co-detail-remarks > span {
+  display: block;
+  margin-bottom: 4px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.co-detail-grid strong {
+  display: block;
+  overflow: hidden;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.co-detail-remarks {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+}
+
+.co-detail-remarks p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.co-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 22px 16px;
+  border-top: 1px solid #eef2f7;
+}
+
+.co-detail-footer button {
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* Responsive & Full Mobile Adaptation */
 @media (max-width: 1200px) {
   .co-stats-grid {
@@ -1115,6 +1488,25 @@
   .co-outcome-breakdown-list {
     width: 100%;
   }
+  .co-trend-card .co-card-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .co-normal-summary-strip {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .co-normal-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+  .co-normal-stat-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
   .co-table-controls {
     flex-direction: column;
     align-items: flex-start;
@@ -1147,6 +1539,26 @@
 }
 
 @media (max-width: 540px) {
+  .co-detail-overlay {
+    align-items: end;
+    padding: 10px;
+  }
+  .co-detail-modal {
+    max-height: calc(100vh - 20px);
+    border-radius: 14px 14px 10px 10px;
+  }
+  .co-detail-header,
+  .co-detail-body {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+  .co-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .co-detail-footer {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
   .co-stats-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
@@ -1173,6 +1585,22 @@
   }
   .co-card-body {
     padding: 10px 12px;
+  }
+  .co-trend-card .co-card-header,
+  .co-normal-chart-body {
+    padding: 12px !important;
+  }
+  .co-normal-stat-item {
+    padding: 7px;
+  }
+  .co-normal-stat-value {
+    font-size: 13px;
+  }
+  .co-normal-stat-label {
+    font-size: 9px;
+  }
+  .co-trend-chart-wrapper {
+    height: 175px;
   }
   .co-quick-grid {
     grid-template-columns: repeat(2, 1fr) !important;

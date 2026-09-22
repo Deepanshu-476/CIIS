@@ -17,11 +17,6 @@ import {
 } from 'react-icons/fi';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   PieChart,
   Pie,
@@ -66,6 +61,7 @@ export default function LeadOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
+  const [trendRange, setTrendRange] = useState('6M');
 
   useEffect(() => {
     let active = true;
@@ -95,7 +91,6 @@ export default function LeadOverview() {
 
   const newPct = total > 0 ? ((newLeads / total) * 100).toFixed(1) : '0.0';
   const assignedPct = total > 0 ? ((assigned / total) * 100).toFixed(1) : '0.0';
-  const unassignedPct = total > 0 ? ((unassigned / total) * 100).toFixed(1) : '0.0';
 
   const metrics = [
     {
@@ -167,7 +162,12 @@ export default function LeadOverview() {
   }));
   const totalLeadsFunnel = funnel.reduce((sum, entry) => sum + entry.value, 0);
 
-  const trends = data?.trends || [];
+  const trends = (data?.trendsByRange?.[trendRange] || data?.trends || []).map(item => ({
+    ...item,
+    label: item.label || item.month || ''
+  }));
+  const trendMax = Math.max(1, ...trends.flatMap(item => [Number(item.leads) || 0, Number(item.converted) || 0]));
+  const hasTrendActivity = trends.some(item => (Number(item.leads) || 0) > 0 || (Number(item.converted) || 0) > 0);
 
   return (
     <div className="lo-root">
@@ -208,7 +208,7 @@ export default function LeadOverview() {
             <article className="lo-stat" key={label}>
               <div className="lo-stat-main">
                 <span className={`lo-stat-icon lo-tone-${tone}`}>
-                  <Icon size={18} />
+                  {React.createElement(Icon, { size: 18 })}
                 </span>
                 <div className="lo-stat-info">
                   <strong>{value}</strong>
@@ -238,7 +238,7 @@ export default function LeadOverview() {
             {ACTIONS.map(({ title, description, icon: Icon, color, path }) => (
               <Link className="lo-action" key={title} to={path}>
                 <span className="lo-action-icon" style={{ backgroundColor: color }}>
-                  <Icon size={16} />
+                  {React.createElement(Icon, { size: 16 })}
                 </span>
                 <span className="lo-action-copy">
                   <strong>{title}</strong>
@@ -259,16 +259,27 @@ export default function LeadOverview() {
             <div className="lo-header-left">
               <h2>Lead Trends</h2>
             </div>
-            <div className="lo-trend-legend">
-              <span className="lo-legend-pill lo-pill-purple">
-                <i className="lo-dot-purple" /> New Leads
-              </span>
-              <span className="lo-legend-pill lo-pill-teal">
-                <i className="lo-dot-teal" /> Converted
-              </span>
+            <div className="lo-trend-controls">
+              <div className="lo-trend-ranges" aria-label="Lead trend period">
+                {['7D', '30D', '6M'].map(range => (
+                  <button
+                    type="button"
+                    key={range}
+                    className={trendRange === range ? 'active' : ''}
+                    aria-pressed={trendRange === range}
+                    onClick={() => setTrendRange(range)}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
             </div>
           </header>
           <div className="lo-trend-body">
+            <div className="lo-trend-legend">
+              <span><i className="lo-dot-purple" /> New Leads</span>
+              <span><i className="lo-dot-teal" /> Converted</span>
+            </div>
             <div className="lo-trend-chart">
               {loading && !data ? (
                 <div className="lo-loading-placeholder">
@@ -276,66 +287,45 @@ export default function LeadOverview() {
                   <span>Loading trends...</span>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={190}>
-                  <AreaChart data={trends} margin={{ top: 14, right: 14, bottom: 0, left: -16 }}>
-                    <defs>
-                      <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.18} />
-                        <stop offset="95%" stopColor="#7c3aed" stopOpacity={0.0} />
-                      </linearGradient>
-                      <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.16} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="month"
-                      tickLine={false}
-                      axisLine={{ stroke: '#e2e8f0' }}
-                      tick={{ fontSize: 11, fill: '#64748b', fontWeight: 400 }}
-                    />
-                    <YAxis
-                      domain={[0, max => Math.max(4, Math.ceil(max * 1.2))]}
-                      tickLine={false}
-                      axisLine={{ stroke: '#e2e8f0' }}
-                      tick={{ fontSize: 11, fill: '#64748b', fontWeight: 400 }}
-                      allowDecimals={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: '8px',
-                        color: '#0f172a',
-                        border: '1px solid #e2e8f0',
-                        boxShadow: '0 8px 20px -3px rgba(0, 0, 0, 0.08)',
-                        fontSize: '12px',
-                        padding: '8px 12px'
-                      }}
-                      itemStyle={{ color: '#0f172a', fontWeight: 500 }}
-                      formatter={(val, name) => [`${val} leads`, name]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="leads"
-                      name="New Leads"
-                      stroke="#7c3aed"
-                      fill="url(#purpleGrad)"
-                      strokeWidth={2}
-                      dot={{ r: 3, strokeWidth: 1.5, fill: '#ffffff', stroke: '#7c3aed' }}
-                      activeDot={{ r: 4.5 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="converted"
-                      name="Converted"
-                      stroke="#10b981"
-                      fill="url(#tealGrad)"
-                      strokeWidth={1.8}
-                      dot={{ r: 2.5, strokeWidth: 1.5, fill: '#ffffff', stroke: '#10b981' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className={`lo-native-trend ${trendRange === '30D' ? 'is-30d' : ''}`}>
+                  <div className="lo-trend-y-axis" aria-hidden="true">
+                    <span>{trendMax}</span>
+                    <span>{Math.round(trendMax / 2)}</span>
+                    <span>0</span>
+                  </div>
+                  <div className="lo-trend-plot">
+                    <i className="lo-grid-line top" aria-hidden="true" />
+                    <i className="lo-grid-line middle" aria-hidden="true" />
+                    <i className="lo-grid-line bottom" aria-hidden="true" />
+                    {trends.map((item, index) => {
+                      const leads = Number(item.leads) || 0;
+                      const converted = Number(item.converted) || 0;
+                      const showLabel = trendRange !== '30D' || index % 5 === 0 || index === trends.length - 1;
+                      return (
+                        <div
+                          className="lo-trend-column"
+                          key={`${item.label}-${index}`}
+                          tabIndex={0}
+                          aria-label={`${item.label}: ${leads} new leads, ${converted} converted`}
+                        >
+                          <div className="lo-trend-tooltip" aria-hidden="true">
+                            <strong>{item.label}</strong>
+                            <span><i className="purple" />{leads} New Leads</span>
+                            <span><i className="teal" />{converted} Converted</span>
+                          </div>
+                          <div className="lo-trend-bars">
+                            <i className="purple" style={{ height: leads ? `${Math.max(5, leads / trendMax * 100)}%` : 2 }} />
+                            <i className="teal" style={{ height: converted ? `${Math.max(5, converted / trendMax * 100)}%` : 2 }} />
+                          </div>
+                          <span>{showLabel ? item.label : ''}</span>
+                        </div>
+                      );
+                    })}
+                    {!hasTrendActivity && (
+                      <div className="lo-trend-empty">No lead activity in this period</div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -416,10 +406,6 @@ export default function LeadOverview() {
         </section>
       </div>
 
-      {/* Footer */}
-      <footer className="lo-footer">
-        <p>© 2026 HAPS Task Management System By Duke Infosys</p>
-      </footer>
     </div>
   );
 }

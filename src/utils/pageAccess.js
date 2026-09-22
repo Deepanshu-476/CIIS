@@ -3,6 +3,7 @@ import { CRM_PAGES, resolveCrmPermissionPath } from "../config/crmPages";
 import { TELECALLER_PAGES } from "../crm/telecaller/telecallerPages";
 
 const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
+const pagePermissionCatalogCache = globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ = { createdAt: 0, value: null });
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
 const PAGE_PERMISSION_SESSION_PREFIX = 'ciis-page-permission-catalog:';
 const permissionRequests = new Map();

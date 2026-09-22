@@ -7,31 +7,16 @@ import {
   FiClock,
   FiAward,
   FiUserCheck,
-  FiActivity,
   FiRepeat,
   FiCheckCircle,
   FiRotateCcw,
   FiChevronRight,
   FiEye,
   FiCalendar,
-  FiFilter,
-  FiTrendingUp,
-  FiPieChart,
-  FiZap,
-  FiPhoneOff,
-  FiBarChart2
+  FiFilter
 } from 'react-icons/fi';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   PieChart,
@@ -192,47 +177,6 @@ const recentCallsData = [
   }
 ];
 
-// Custom Floating Tooltip for Call Trends AreaChart
-const CustomTrendTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    const callsVal = payload.find(p => p.dataKey === 'calls')?.value ?? 0;
-    const connVal = payload.find(p => p.dataKey === 'connected')?.value ?? 0;
-    const rate = callsVal > 0 ? Math.round((connVal / callsVal) * 100) : 0;
-    const fullDate = payload[0]?.payload?.date || label;
-
-    return (
-      <div className="co-trend-custom-tooltip">
-        <div className="tooltip-header">
-          <span className="tooltip-day">{label}</span>
-          {fullDate && fullDate !== label && (
-            <span className="tooltip-date">({fullDate})</span>
-          )}
-        </div>
-        <div className="tooltip-row">
-          <div className="tooltip-label-group">
-            <span className="tooltip-dot bg-purple" />
-            <span className="tooltip-label">Calls Made:</span>
-          </div>
-          <span className="tooltip-value">{callsVal}</span>
-        </div>
-        <div className="tooltip-row">
-          <div className="tooltip-label-group">
-            <span className="tooltip-dot bg-teal" />
-            <span className="tooltip-label">Connected:</span>
-          </div>
-          <span className="tooltip-value">{connVal}</span>
-        </div>
-        <div className="tooltip-divider" />
-        <div className="tooltip-row">
-          <span className="tooltip-sub">Connection Rate:</span>
-          <span className="tooltip-rate font-semibold text-emerald-400">{rate}%</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
-};
-
 // Helper to format outcome name nicely
 const formatOutcomeName = (name) => {
   if (!name) return 'Other';
@@ -241,21 +185,6 @@ const formatOutcomeName = (name) => {
     .split(' ')
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
-};
-
-// Helper for outcome icon
-const getOutcomeIcon = (name) => {
-  const n = String(name || '').toLowerCase();
-  if (n.includes('answered') || n.includes('connected') || n.includes('convert')) {
-    return FiCheckCircle;
-  }
-  if (n.includes('missed')) {
-    return FiClock;
-  }
-  if (n.includes('reach') || n.includes('busy')) {
-    return FiPhoneOff;
-  }
-  return FiActivity;
 };
 
 // Custom Floating Tooltip for Call Outcomes DonutChart
@@ -290,7 +219,7 @@ export default function CallOverview() {
   const [trendList30d, setTrendList30d] = useState([]);
   const [outcomeList, setOutcomeList] = useState(outcomeData);
   const [recentCalls, setRecentCalls] = useState(recentCallsData);
-  const [quickCounts, setQuickCounts] = useState(null);
+  const [selectedCall, setSelectedCall] = useState(null);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -306,9 +235,6 @@ export default function CallOverview() {
               icon: statCardsData[i]?.icon || FiPhoneCall,
               iconBg: statCardsData[i]?.iconBg || 'bg-purple-100 text-purple-600'
             })));
-          }
-          if (res.data.quickAccessCounts) {
-            setQuickCounts(res.data.quickAccessCounts);
           }
           if (Array.isArray(res.data.trendData) && res.data.trendData.length > 0) {
             setTrendList7d(res.data.trendData);
@@ -331,12 +257,20 @@ export default function CallOverview() {
     return () => { isMounted = false; };
   }, []);
 
+  useEffect(() => {
+    if (!selectedCall) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setSelectedCall(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedCall]);
+
   const activeTrendData = trendRange === '30d' && trendList30d.length > 0 ? trendList30d : trendList7d;
   const totalCallsInPeriod = activeTrendData.reduce((acc, curr) => acc + (Number(curr.calls) || 0), 0);
   const totalConnectedInPeriod = activeTrendData.reduce((acc, curr) => acc + (Number(curr.connected) || 0), 0);
   const connectRateInPeriod = totalCallsInPeriod > 0 ? Math.round((totalConnectedInPeriod / totalCallsInPeriod) * 100) : 0;
-  const avgDailyCalls = activeTrendData.length > 0 ? (totalCallsInPeriod / activeTrendData.length).toFixed(1) : '0.0';
-  const peakDayObj = activeTrendData.reduce((max, curr) => (Number(curr.calls) > (Number(max.calls) || 0) ? curr : max), { calls: 0, day: '—' });
+  const trendMax = Math.max(1, ...activeTrendData.flatMap(item => [Number(item.calls) || 0, Number(item.connected) || 0]));
   const standardOutcomeCategories = [
     { key: 'answered', name: 'Answered', color: '#10b981' },
     { key: 'missed', name: 'Missed Calls', color: '#f59e0b' },
@@ -519,6 +453,7 @@ export default function CallOverview() {
               <button
                 type="button"
                 className={`co-range-btn ${trendRange === '7d' ? 'active' : ''}`}
+                aria-pressed={trendRange === '7d'}
                 onClick={() => setTrendRange('7d')}
               >
                 7 Days
@@ -526,6 +461,7 @@ export default function CallOverview() {
               <button
                 type="button"
                 className={`co-range-btn ${trendRange === '30d' ? 'active' : ''}`}
+                aria-pressed={trendRange === '30d'}
                 onClick={() => setTrendRange('30d')}
               >
                 30 Days
@@ -534,18 +470,21 @@ export default function CallOverview() {
           </div>
 
           <div className="co-card-body co-normal-chart-body">
-            {/* Clean summary line & legend */}
+            {/* Compact summary metrics & legend */}
             <div className="co-normal-summary-strip">
               <div className="co-normal-stats">
-                <span className="co-normal-stat-item">
-                  <strong>{totalCallsInPeriod}</strong> Total Calls
-                </span>
-                <span className="co-normal-stat-dot">&bull;</span>
-                <span className="co-normal-stat-item">
-                  <strong>{totalConnectedInPeriod}</strong> Connected
-                </span>
-                <span className="co-normal-stat-dot">&bull;</span>
-                <span className="co-normal-rate-pill">{connectRateInPeriod}% Success</span>
+                <div className="co-normal-stat-item calls">
+                  <span className="co-normal-stat-value">{totalCallsInPeriod}</span>
+                  <span className="co-normal-stat-label">Total Calls</span>
+                </div>
+                <div className="co-normal-stat-item connected">
+                  <span className="co-normal-stat-value">{totalConnectedInPeriod}</span>
+                  <span className="co-normal-stat-label">Connected</span>
+                </div>
+                <div className="co-normal-stat-item success">
+                  <span className="co-normal-stat-value">{connectRateInPeriod}%</span>
+                  <span className="co-normal-stat-label">Success Rate</span>
+                </div>
               </div>
               <div className="co-normal-legend">
                 <span className="co-legend-item">
@@ -557,45 +496,54 @@ export default function CallOverview() {
               </div>
             </div>
 
-            {/* Standard Clean Bar Chart */}
-            <div className="co-trend-chart-wrapper" style={{ width: '100%', height: 230, minWidth: 0 }}>
-              <ResponsiveContainer width="100%" height={230} minWidth={0}>
-                <BarChart
-                  data={activeTrendData}
-                  margin={{ top: 16, right: 12, bottom: 4, left: -22 }}
-                  barGap={6}
-                >
-                  <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="day"
-                    tickLine={false}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                  />
-                  <YAxis
-                    domain={[0, dataMax => (Number.isFinite(dataMax) && dataMax > 0 ? Math.ceil(dataMax * 1.25) : 5)]}
-                    allowDecimals={false}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                  />
-                  <Tooltip content={<CustomTrendTooltip />} cursor={{ fill: 'rgba(99, 102, 241, 0.04)' }} />
-                  <Bar
-                    dataKey="calls"
-                    name="Calls Made"
-                    fill="#6366f1"
-                    radius={[4, 4, 0, 0]}
-                    barSize={trendRange === '30d' ? 7 : 18}
-                  />
-                  <Bar
-                    dataKey="connected"
-                    name="Connected"
-                    fill="#10b981"
-                    radius={[4, 4, 0, 0]}
-                    barSize={trendRange === '30d' ? 7 : 18}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+            {/* Native daily bar graph stays visible without SVG sizing dependencies. */}
+            <div
+              className={`co-trend-chart-wrapper ${trendRange === '30d' ? 'is-30-days' : ''}`}
+              role="img"
+              aria-label={`${trendRange === '30d' ? '30' : '7'} day calls and connected conversations graph`}
+            >
+              <div className="co-trend-y-axis" aria-hidden="true">
+                <span>{trendMax}</span>
+                <span>{Math.round(trendMax / 2)}</span>
+                <span>0</span>
+              </div>
+              <div className="co-trend-plot">
+                <span className="co-trend-grid-line top" aria-hidden="true" />
+                <span className="co-trend-grid-line middle" aria-hidden="true" />
+                <span className="co-trend-grid-line bottom" aria-hidden="true" />
+                {activeTrendData.map((item, index) => {
+                  const calls = Number(item.calls) || 0;
+                  const connected = Number(item.connected) || 0;
+                  const showLabel = trendRange === '7d' || index % 5 === 0 || index === activeTrendData.length - 1;
+                  return (
+                    <div
+                      className="co-trend-day"
+                      key={`${item.date || item.day}-${index}`}
+                      aria-label={`${item.date || item.day}: ${calls} calls, ${connected} connected`}
+                      tabIndex={0}
+                    >
+                      <div className="co-trend-hover-card" aria-hidden="true">
+                        <strong>{item.date || item.day}</strong>
+                        <span><i className="calls" />{calls} Calls</span>
+                        <span><i className="connected" />{connected} Connected</span>
+                      </div>
+                      <div className="co-trend-bars">
+                        <span
+                          className="co-trend-bar calls"
+                          style={{ height: calls ? `${Math.max(5, (calls / trendMax) * 100)}%` : 2 }}
+                        />
+                        <span
+                          className="co-trend-bar connected"
+                          style={{ height: connected ? `${Math.max(5, (connected / trendMax) * 100)}%` : 2 }}
+                        />
+                      </div>
+                      <span className={`co-trend-day-label ${showLabel ? '' : 'visually-hidden-label'}`}>
+                        {showLabel ? item.day : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -674,7 +622,11 @@ export default function CallOverview() {
       <div className="co-card co-recent-calls-card">
         <div className="co-card-header flex-between">
           <h2 className="co-card-title">Recent Calls</h2>
-          <button className="co-view-all-btn">
+          <button
+            type="button"
+            className="co-view-all-btn"
+            onClick={() => navigate('/ciisUser/crm/admin/call-history')}
+          >
             <FiClock size={12} style={{ marginRight: 4 }} /> View All
           </button>
         </div>
@@ -757,7 +709,13 @@ export default function CallOverview() {
                       </div>
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button type="button" className="co-action-btn" title="View Call Details">
+                      <button
+                        type="button"
+                        className="co-action-btn"
+                        title="View Call Details"
+                        aria-label={`View call details for ${item.name}`}
+                        onClick={() => setSelectedCall(item)}
+                      >
                         <FiEye size={14} />
                       </button>
                     </td>
@@ -789,6 +747,60 @@ export default function CallOverview() {
           </div>
         </div>
       </div>
+
+      {selectedCall && (
+        <div
+          className="co-detail-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedCall(null);
+          }}
+        >
+          <section
+            className="co-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="co-detail-title"
+          >
+            <header className="co-detail-header">
+              <div>
+                <span className="co-detail-eyebrow">Call record</span>
+                <h2 id="co-detail-title">{selectedCall.name}</h2>
+                <p>{selectedCall.lead}</p>
+              </div>
+              <button
+                type="button"
+                className="co-detail-close"
+                aria-label="Close call details"
+                onClick={() => setSelectedCall(null)}
+              >
+                &times;
+              </button>
+            </header>
+
+            <div className="co-detail-body">
+              <div className="co-detail-grid">
+                <div><span>Phone</span><strong>{selectedCall.phone || '—'}</strong></div>
+                <div><span>Call type</span><strong>{selectedCall.callType || '—'}</strong></div>
+                <div><span>Outcome</span><strong>{selectedCall.outcome || '—'}</strong></div>
+                <div><span>Call time</span><strong>{selectedCall.callTime || '—'}</strong></div>
+                <div><span>Source</span><strong>{selectedCall.source || '—'}</strong></div>
+                <div><span>Lead type</span><strong>{selectedCall.leadType || '—'}</strong></div>
+                <div><span>Caller</span><strong>{selectedCall.caller || '—'}</strong></div>
+                <div><span>Duration</span><strong>{selectedCall.duration || '—'}</strong></div>
+              </div>
+              <div className="co-detail-remarks">
+                <span>Remarks</span>
+                <p>{selectedCall.remarks || 'No remarks added.'}</p>
+              </div>
+            </div>
+
+            <footer className="co-detail-footer">
+              <button type="button" onClick={() => setSelectedCall(null)}>Close</button>
+            </footer>
+          </section>
+        </div>
+      )}
 
     </div>
   );

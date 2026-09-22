@@ -229,18 +229,9 @@ export const loadPagePermission = async (path, options = {}) => {
 };
 
 export const loadPagePermissionCatalog = async (options = {}) => {
-  if (!options?.force && pagePermissionCatalogCache.value && (Date.now() - pagePermissionCatalogCache.createdAt) < PAGE_PERMISSION_TTL_MS) {
-    return pagePermissionCatalogCache.value;
-  }
-
   const scope = permissionScope();
-  const key = `${scope}|catalog`;
-  if (options?.force) {
-    pagePermissionCache.delete(key);
-    permissionRequests.delete(key);
-  }
-
-  return loadPermissionResource(key, async () => {
+  const cacheKey = `${scope}|catalog`;
+  const loadCatalog = async () => {
     const response = await withPermissionRetry(() => axios.get("/page-permissions/pages", {
       params: { includeAccess: true },
       noCache: true,
@@ -258,7 +249,19 @@ export const loadPagePermissionCatalog = async (options = {}) => {
     pagePermissionCatalogCache.value = value;
     cachePagePermissionCatalogForSession(value);
     return value;
-  });
+  };
+
+  if (options?.force) {
+    const value = await loadCatalog();
+    pagePermissionCache.set(cacheKey, { createdAt: Date.now(), value });
+    return value;
+  }
+
+  if (pagePermissionCatalogCache.value && (Date.now() - pagePermissionCatalogCache.createdAt) < PAGE_PERMISSION_TTL_MS) {
+    return pagePermissionCatalogCache.value;
+  }
+
+  return loadPermissionResource(cacheKey, loadCatalog);
 };
 
 export const invalidatePagePermissionCache = (path) => {

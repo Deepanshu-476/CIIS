@@ -293,9 +293,7 @@ const SuperAdminLogin = () => {
         setResetStep('otp');
         startResendTimer();
       }
-      toast.success(response.data.devOtp
-        ? `Development OTP: ${response.data.devOtp}`
-        : response.data.message);
+      toast.success(response.data.message || 'Reset OTP sent successfully');
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to send reset OTP';
       setErrors({ general: message });

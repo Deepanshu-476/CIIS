@@ -33,6 +33,10 @@ const PAYROLL_PERMISSION_ACTIONS = {
   payslip: { view: "View", edit: "Email / Download", delete: "Delete" },
   "payroll-reports": { view: "View Reports", edit: "Export / Download", delete: "Delete" },
   "admin-task-create": { view: "View", edit: "Create Task", delete: "Delete" },
+  JobRoleManagement: { view: "View", edit: "Create / Edit", delete: "Delete" },
+  "job-role-management": { view: "View", edit: "Create / Edit", delete: "Delete" },
+  "company-assets": { view: "View", edit: "Create / Edit", delete: "Delete" },
+  companyAssets: { view: "View", edit: "Create / Edit", delete: "Delete" },
 };
 
 const FALLBACK_PAGES = [
@@ -40,10 +44,10 @@ const FALLBACK_PAGES = [
   { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
   { pageKey: "leave-policy", name: "Leave - Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
   { pageKey: "emp-assets", name: "Emp - Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
-  { pageKey: "company-assets", name: "Asset Management", path: "/ciisUser/company-assets", permissionPattern: "viewEdit" },
+  { pageKey: "company-assets", name: "Asset Management", path: "/ciisUser/company-assets", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Create / Edit", delete: "Delete" } },
   { pageKey: "emp-attendance", name: "Emp - Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
   { pageKey: "department", name: "Department Management", path: "/ciisUser/department", permissionPattern: "viewEdit" },
-  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit" },
+  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Create / Edit", delete: "Delete" } },
   { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
   { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },

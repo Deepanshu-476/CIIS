@@ -203,10 +203,11 @@ const JobRoleManagement = () => {
         ];
         const hasConfig = configuredIds.length > 0;
         const role = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();
-        const isPrivileged = ["owner", "company_owner", "companyowner", "admin", "super_admin", "superadmin"].includes(role);
+        const isMaster = ["owner", "company_owner", "companyowner", "super_admin", "superadmin"].includes(role) || Boolean(currentUser?.isSuperAdmin || currentUser?.superAdmin);
+        const isFallbackAdmin = ["admin", "company_admin"].includes(role);
 
-        const canEdit = isPrivileged || editUserIds.includes(currentUserId) || (!hasConfig && isPrivileged);
-        const canDelete = isPrivileged || deleteUserIds.includes(currentUserId) || (!hasConfig && isPrivileged);
+        const canEdit = isMaster || editUserIds.includes(currentUserId) || (!hasConfig && (isMaster || isFallbackAdmin));
+        const canDelete = isMaster || deleteUserIds.includes(currentUserId) || (!hasConfig && (isMaster || isFallbackAdmin));
 
         setCanEditJobRole(canEdit);
         setCanDeleteJobRole(canDelete);
@@ -489,7 +490,7 @@ const JobRoleManagement = () => {
 
   const handleSubmit = async () => {
     if (!canEditJobRole) {
-      toast.error('You do not have permission to modify job roles');
+      toast.error('You do not have permission to create or edit job roles. Configure access in Page Management.');
       return;
     }
 
@@ -593,7 +594,7 @@ const JobRoleManagement = () => {
 
   const handleDelete = async (id) => {
     if (!canDeleteJobRole) {
-      toast.error('You do not have permission to delete job roles');
+      toast.error('You do not have permission to delete job roles. Configure access in Page Management.');
       return;
     }
     const jobRole = jobRoles.find(j => j._id === id);
@@ -623,7 +624,7 @@ const JobRoleManagement = () => {
 
   const handleEdit = (jobRole) => {
     if (!canEditJobRole) {
-      toast.error('You do not have permission to edit job roles');
+      toast.error('You do not have permission to edit job roles. Configure access in Page Management.');
       return;
     }
     setEditingJobRole(jobRole);
@@ -801,12 +802,24 @@ const JobRoleManagement = () => {
           </div>
           
           <div className="JobRoleManagement-mobile-card-actions">
-            <button 
-              className="JobRoleManagement-action-btn JobRoleManagement-action-edit"
-              onClick={() => handleEdit(jobRole)}
-            >
-              <span className="JobRoleManagement-action-icon">✏️</span>
-            </button>
+            {canEditJobRole && (
+              <button 
+                className="JobRoleManagement-action-btn JobRoleManagement-action-edit"
+                onClick={() => handleEdit(jobRole)}
+                title="Edit Job Role"
+              >
+                <span className="JobRoleManagement-action-icon">✏️</span>
+              </button>
+            )}
+            {canDeleteJobRole && (
+              <button 
+                className="JobRoleManagement-action-btn JobRoleManagement-action-delete"
+                onClick={() => handleDelete(jobRole._id)}
+                title="Delete Job Role"
+              >
+                <span className="JobRoleManagement-action-icon">🗑️</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1112,13 +1125,24 @@ const JobRoleManagement = () => {
                         </td>
                         <td>
                           <div className="JobRoleManagement-action-buttons">
-                            <button 
-                              className="JobRoleManagement-icon-btn JobRoleManagement-icon-edit"
-                              onClick={() => handleEdit(jobRole)}
-                              title="Edit Job Role"
-                            >
-                              <span className="JobRoleManagement-icon">✏️</span>
-                            </button>
+                            {canEditJobRole && (
+                              <button 
+                                className="JobRoleManagement-icon-btn JobRoleManagement-icon-edit"
+                                onClick={() => handleEdit(jobRole)}
+                                title="Edit Job Role"
+                              >
+                                <span className="JobRoleManagement-icon">✏️</span>
+                              </button>
+                            )}
+                            {canDeleteJobRole && (
+                              <button 
+                                className="JobRoleManagement-icon-btn JobRoleManagement-icon-delete"
+                                onClick={() => handleDelete(jobRole._id)}
+                                title="Delete Job Role"
+                              >
+                                <span className="JobRoleManagement-icon">🗑️</span>
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1195,19 +1219,33 @@ const JobRoleManagement = () => {
         )}
 
         
-        {anchorEl && canEditJobRole && (
+        {anchorEl && (canEditJobRole || canDeleteJobRole) && (
           <div className="JobRoleManagement-menu-overlay" onClick={handleMenuClose}>
             <div className="JobRoleManagement-menu" style={{top: anchorEl.getBoundingClientRect().bottom, left: anchorEl.getBoundingClientRect().left}}>
-              <button className="JobRoleManagement-menu-item" onClick={() => {
-                handleEdit(selectedJobRoleMenu);
-                handleMenuClose();
-              }}>
-                <span className="JobRoleManagement-menu-icon">✏️</span>
-                <div className="JobRoleManagement-menu-text">
-                  <div className="JobRoleManagement-menu-title">Edit Job Role</div>
-                  <div className="JobRoleManagement-menu-subtitle">Modify role details</div>
-                </div>
-              </button>
+              {canEditJobRole && (
+                <button className="JobRoleManagement-menu-item" onClick={() => {
+                  handleEdit(selectedJobRoleMenu);
+                  handleMenuClose();
+                }}>
+                  <span className="JobRoleManagement-menu-icon">✏️</span>
+                  <div className="JobRoleManagement-menu-text">
+                    <div className="JobRoleManagement-menu-title">Edit Job Role</div>
+                    <div className="JobRoleManagement-menu-subtitle">Modify role details</div>
+                  </div>
+                </button>
+              )}
+              {canDeleteJobRole && (
+                <button className="JobRoleManagement-menu-item" onClick={() => {
+                  handleDelete(selectedJobRoleMenu?._id);
+                  handleMenuClose();
+                }}>
+                  <span className="JobRoleManagement-menu-icon">🗑️</span>
+                  <div className="JobRoleManagement-menu-text">
+                    <div className="JobRoleManagement-menu-title">Delete Job Role</div>
+                    <div className="JobRoleManagement-menu-subtitle">Remove role</div>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         )}

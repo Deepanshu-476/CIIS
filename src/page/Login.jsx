@@ -458,9 +458,7 @@ const Login = () => {
       }, { _skipErrorNotify: true });
 
       if (response.data.success) {
-        toast.success(response.data.devOtp
-          ? `OTP generated: ${response.data.devOtp}`
-          : 'OTP sent to your email!');
+        toast.success(response.data.message || 'OTP sent to your email!');
         setForgotPasswordStep('reset');
       }
 
@@ -491,9 +489,20 @@ const Login = () => {
 
     try {
       const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
-      await axios.post('/auth/reset-password', {
+      const verifyResponse = await axios.post('/auth/verify-reset-otp', {
         email: forgotPasswordEmail,
         otp: otpCode,
+        ...resetContext
+      }, { _skipErrorNotify: true });
+
+      const nextResetToken = verifyResponse.data?.resetToken;
+      if (!nextResetToken) {
+        throw new Error('OTP verified, but reset token was not received.');
+      }
+
+      await axios.post('/auth/reset-password', {
+        email: forgotPasswordEmail,
+        resetToken: nextResetToken,
         newPassword: newPassword,
         ...resetContext
       }, { _skipErrorNotify: true });
@@ -502,9 +511,13 @@ const Login = () => {
 
       setShowForgotPassword(false);
       setForgotPasswordStep('email');
+      setForgotPasswordEmail('');
+      setOtpCode('');
+      setNewPassword('');
+      setConfirmPassword('');
 
     } catch (error) {
-      toast.error(error.response?.data?.message || "Invalid OTP");
+      toast.error(error.response?.data?.message || error.message || "Invalid OTP");
     } finally {
       setLoading(false);
     }

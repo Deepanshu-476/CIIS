@@ -4,6 +4,15 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FiAlertTriangle, FiExternalLink, FiFile, FiImage, FiLoader, FiMessageSquare, FiTrash2, FiX } from 'react-icons/fi';
 import axios from '../utils/axiosConfig';
+import {
+  getCurrentUserId,
+  getStoredUser,
+  getPageAccessUserIds,
+  hasConfiguredPageAccess,
+  hasPageAccess,
+  getUserPageScope,
+  loadPagePermission
+} from '../utils/pageAccess';
 import './CompanyAssetManagement.css';
 
 const CompanyAssetManagement = () => {
@@ -33,6 +42,11 @@ const CompanyAssetManagement = () => {
   const [commentText, setCommentText] = useState('');
   const [previewCommentImage, setPreviewCommentImage] = useState(null);
   const [animateIn, setAnimateIn] = useState(false);
+  const [pagePermLoading, setPagePermLoading] = useState(true);
+  const [canViewAssets, setCanViewAssets] = useState(true);
+  const [canEditAssets, setCanEditAssets] = useState(true);
+  const [canDeleteAssets, setCanDeleteAssets] = useState(true);
+  const [allowedBranchIds, setAllowedBranchIds] = useState(null);
   const deleteModalRef = useRef(null);
   const deleteCancelButtonRef = useRef(null);
   const deleteTriggerRef = useRef(null);
@@ -40,19 +54,76 @@ const CompanyAssetManagement = () => {
   const isModalOpen = Boolean(showForm || showDetailsModal || showDeleteConfirm || editingCommentReq);
 
   useEffect(() => {
+    let active = true;
+    const loadPermissions = async () => {
+      try {
+        const pagePerm = await loadPagePermission('/ciisUser/company-assets');
+        if (!active) return;
+        const currentUser = getStoredUser();
+        const currentUserId = getCurrentUserId();
+        const role = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();
+        const isMaster = ["owner", "company_owner", "companyowner", "super_admin", "superadmin"].includes(role) || Boolean(currentUser?.isSuperAdmin || currentUser?.superAdmin);
+        const isFallbackAdmin = ["admin", "company_admin"].includes(role);
+
+        const hasConfig = hasConfiguredPageAccess(pagePerm);
+        const canView = isMaster || hasPageAccess(pagePerm, currentUserId, 'view') || (!hasConfig && (isMaster || isFallbackAdmin));
+        const canEdit = isMaster || hasPageAccess(pagePerm, currentUserId, 'edit') || (!hasConfig && (isMaster || isFallbackAdmin));
+        const canDelete = isMaster || hasPageAccess(pagePerm, currentUserId, 'delete') || (!hasConfig && (isMaster || isFallbackAdmin));
+
+        setCanViewAssets(canView);
+        setCanEditAssets(canEdit);
+        setCanDeleteAssets(canDelete);
+
+        let branchScope = null;
+        if (!isMaster) {
+          const scope = getUserPageScope(pagePerm, currentUserId);
+          if (scope && Array.isArray(scope.branchIds) && scope.branchIds.length > 0 && !scope.branchIds.includes('all')) {
+            branchScope = scope.branchIds;
+          }
+        }
+        setAllowedBranchIds(branchScope);
+
+        if (branchScope && branchScope.length > 0) {
+          if (!selectedBranchId || !branchScope.includes(String(selectedBranchId))) {
+            setSelectedBranchId(branchScope[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load company-assets page permissions:', err);
+      } finally {
+        if (active) setPagePermLoading(false);
+      }
+    };
+
+    loadPermissions();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pagePermLoading || !canViewAssets) return;
     const user = getUser();
     const companyId = resolveCompanyId(user);
     const companyCode = resolveCompanyCode(user);
     fetchAssets();
     fetchRequests();
     getCompanyInfo(user);
-    fetchBranches(companyId, companyCode, user);
+    fetchBranches(companyId, companyCode, user, allowedBranchIds);
     setAnimateIn(true);
-  }, [selectedBranchId]);
+  }, [selectedBranchId, pagePermLoading, canViewAssets, allowedBranchIds]);
 
   useEffect(() => {
-    setSelectedBranchId(requestedBranchId);
-  }, [requestedBranchId]);
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      if (requestedBranchId && allowedBranchIds.includes(String(requestedBranchId))) {
+        setSelectedBranchId(requestedBranchId);
+      } else {
+        setSelectedBranchId(allowedBranchIds[0]);
+      }
+    } else {
+      setSelectedBranchId(requestedBranchId);
+    }
+  }, [requestedBranchId, allowedBranchIds]);
 
   useEffect(() => {
     if (!isModalOpen) return undefined;
@@ -275,7 +346,9 @@ const CompanyAssetManagement = () => {
     return branch.branchCode ? `${branch.name} (${branch.branchCode})` : branch.name;
   };
 
-  const selectedBranchLabel = selectedBranchId ? getBranchLabel(selectedBranchId) : 'All Branches';
+  const selectedBranchLabel = selectedBranchId
+    ? getBranchLabel(selectedBranchId)
+    : (allowedBranchIds && allowedBranchIds.length > 0 ? 'Permitted Branches' : 'All Branches');
 
   
   const getUser = () => {
@@ -308,9 +381,13 @@ const CompanyAssetManagement = () => {
     }
   };
 
-  const fetchBranches = async (companyId, companyCode = '', currentUser = null) => {
+  const fetchBranches = async (companyId, companyCode = '', currentUser = null, branchScope = allowedBranchIds) => {
     if (!companyId && !companyCode) {
-      setBranches(getFallbackBranches(currentUser || getUser()));
+      const fallback = getFallbackBranches(currentUser || getUser());
+      const filtered = branchScope && branchScope.length > 0
+        ? fallback.filter(b => branchScope.includes(String(getRecordId(b))))
+        : fallback;
+      setBranches(filtered);
       return;
     }
 
@@ -340,9 +417,13 @@ const CompanyAssetManagement = () => {
         }
       }
 
-      const resolvedBranches = Array.isArray(branchData) && branchData.length > 0
+      let resolvedBranches = Array.isArray(branchData) && branchData.length > 0
         ? branchData
         : getFallbackBranches(currentUser || getUser());
+
+      if (branchScope && branchScope.length > 0) {
+        resolvedBranches = resolvedBranches.filter(b => branchScope.includes(String(getRecordId(b))));
+      }
 
       setBranches(resolvedBranches);
 
@@ -355,7 +436,11 @@ const CompanyAssetManagement = () => {
       }
     } catch (err) {
       console.error('Error fetching branches:', err);
-      setBranches(getFallbackBranches(currentUser || getUser()));
+      const fallback = getFallbackBranches(currentUser || getUser());
+      const filtered = branchScope && branchScope.length > 0
+        ? fallback.filter(b => branchScope.includes(String(getRecordId(b))))
+        : fallback;
+      setBranches(filtered);
     } finally {
       setLoadingBranches(false);
     }
@@ -401,6 +486,10 @@ const CompanyAssetManagement = () => {
   };
 
   const handleCommentUpdate = async () => {
+    if (!canEditAssets) {
+      toast.error('You do not have permission to add comments');
+      return;
+    }
     try {
       await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, {
         adminComment: commentText,
@@ -419,6 +508,11 @@ const CompanyAssetManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!canEditAssets) {
+      toast.error('You do not have permission to create company assets');
+      return;
+    }
+
     if (!name.trim()) {
       toast.error('Asset name is required');
       return;
@@ -457,6 +551,10 @@ const CompanyAssetManagement = () => {
 
   
   const handleStatusChange = async (id, newStatus) => {
+    if (!canEditAssets) {
+      toast.error('You do not have permission to update asset status');
+      return;
+    }
     try {
       setUpdatingStatus(id);
       const response = await axios.put(`/company-assets/${id}/status`, { 
@@ -485,6 +583,11 @@ const CompanyAssetManagement = () => {
   
   const handleDelete = async (id) => {
     if (deletingAsset || !id) return;
+
+    if (!canDeleteAssets) {
+      toast.error('You do not have permission to delete company assets');
+      return;
+    }
 
     try {
       setDeletingAsset(true);
@@ -608,6 +711,60 @@ const CompanyAssetManagement = () => {
     );
   }
 
+  if (pagePermLoading) {
+    return (
+      <div className="ca-container-enhanced" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: '#6b7280' }}>
+          <FiLoader size={36} style={{ animation: 'spin 1s linear infinite' }} />
+          <p style={{ marginTop: '12px', fontSize: '14px' }}>Loading permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canViewAssets) {
+    return (
+      <div className="ca-container-enhanced" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
+        <div style={{
+          maxWidth: '500px',
+          width: '100%',
+          backgroundColor: '#fff',
+          borderRadius: '16px',
+          padding: '40px 32px',
+          textAlign: 'center',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #fee2e2'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: '#fee2e2',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px'
+          }}>
+            <FiAlertTriangle size={32} color="#dc2626" />
+          </div>
+          <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
+            Access Denied
+          </h3>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 24px 0', lineHeight: 1.5 }}>
+            You do not have permission to view <strong>Company Assets</strong>. Please contact your company administrator to grant access in Page Management.
+          </p>
+          <button
+            className="ca-btn-enhanced ca-btn-primary-enhanced"
+            onClick={() => window.history.back()}
+            style={{ padding: '8px 20px', display: 'inline-flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`ca-container-enhanced ${animateIn ? 'fade-in' : ''}`}>
       
@@ -721,15 +878,17 @@ const CompanyAssetManagement = () => {
       
       <div className="ca-action-bar-enhanced">
         <div className="ca-action-left-enhanced">
-          <button 
-            className={`ca-btn-enhanced ca-btn-primary-enhanced ${!showForm ? 'pulse-animation' : ''}`}
-            onClick={() => setShowForm(!showForm)}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            <span>{showForm ? 'Cancel' : 'Add New Asset'}</span>
-          </button>
+          {canEditAssets && (
+            <button 
+              className={`ca-btn-enhanced ca-btn-primary-enhanced ${!showForm ? 'pulse-animation' : ''}`}
+              onClick={() => setShowForm(!showForm)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              <span>{showForm ? 'Cancel' : 'Add New Asset'}</span>
+            </button>
+          )}
           
           <div className="ca-view-toggle-enhanced">
             <button 
@@ -783,13 +942,17 @@ const CompanyAssetManagement = () => {
             onChange={(e) => handleBranchFilterChange(e.target.value)}
             disabled={loadingBranches || branches.length === 0}
           >
-            <option value="">
-              {loadingBranches
-                ? 'Loading branches...'
-                : branches.length === 0
-                  ? 'No branches'
-                  : 'All Branches'}
-            </option>
+            {(!allowedBranchIds || allowedBranchIds.length === 0) ? (
+              <option value="">
+                {loadingBranches
+                  ? 'Loading branches...'
+                  : branches.length === 0
+                    ? 'No branches'
+                    : 'All Branches'}
+              </option>
+            ) : branches.length > 1 ? (
+              <option value="">All Permitted Branches</option>
+            ) : null}
             {branches.map(branch => (
               <option key={branch._id || branch.id} value={branch._id || branch.id}>
                 {branch.name} ({branch.branchCode})
@@ -1033,13 +1196,15 @@ const CompanyAssetManagement = () => {
                             >
                               👁️
                             </button>
-                            <button
-                              className="ca-action-btn-enhanced ca-delete-btn-sm-enhanced"
-                              onClick={() => setShowDeleteConfirm(asset)}
-                              title="Delete Asset"
-                            >
-                              🗑️
-                            </button>
+                            {canDeleteAssets && (
+                              <button
+                                className="ca-action-btn-enhanced ca-delete-btn-sm-enhanced"
+                                onClick={() => setShowDeleteConfirm(asset)}
+                                title="Delete Asset"
+                              >
+                                🗑️
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1097,15 +1262,17 @@ const CompanyAssetManagement = () => {
                         </div>
                       </td>
                       <td>
-                        <button
-                          className="comment-btn"
-                          onClick={() => handleCommentEditOpen(req)}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                          </svg>
-                          Add
-                        </button>
+                        {canEditAssets && (
+                          <button
+                            className="comment-btn"
+                            onClick={() => handleCommentEditOpen(req)}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                            Add
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

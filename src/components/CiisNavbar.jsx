@@ -121,7 +121,7 @@ const CiisNavbar = ({ onBookDemo }) => {
       const response = await axios.post('/auth/forgot-password', { email, companyCode }, { _skipErrorNotify: true });
       setResetForm((current) => ({ ...current, email }));
       setLoginMode('verify-reset-otp');
-      toast.success(response.data?.devOtp ? `OTP generated: ${response.data.devOtp}` : 'Password reset OTP sent to your email.');
+      toast.success(response.data?.message || 'Password reset OTP sent to your email.');
     } catch (error) {
       setLoginErrors({ general: error.response?.data?.message || 'Failed to send password reset OTP.' });
     } finally {

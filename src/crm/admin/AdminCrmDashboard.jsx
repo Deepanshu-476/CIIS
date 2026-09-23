@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiUsers,
   FiPhoneCall,
-  FiMapPin,
   FiTrendingUp,
   FiClock,
   FiUserCheck,
@@ -27,7 +26,7 @@ import './AdminCrmDashboard.css';
 const initialStatCardsData = [
   {
     title: "Total Leads",
-    value: "0",
+    value: "—",
     badge: "Live data",
     badgeType: "purple",
     icon: FiUsers,
@@ -35,23 +34,23 @@ const initialStatCardsData = [
   },
   {
     title: "Total Calls",
-    value: "0",
+    value: "—",
     badge: "Live data",
     badgeType: "green",
     icon: FiPhoneCall,
     iconBg: "bg-emerald-100 text-emerald-600"
   },
   {
-    title: "Today's Visits",
-    value: "0",
+    title: "Today's Follow-Ups",
+    value: "—",
     badge: "Live data",
     badgeType: "yellow",
-    icon: FiMapPin,
+    icon: FiCalendar,
     iconBg: "bg-amber-100 text-amber-600"
   },
   {
     title: "Conversion Rate",
-    value: "0%",
+    value: "—",
     badge: "Live data",
     badgeType: "cyan",
     icon: FiTrendingUp,
@@ -59,7 +58,7 @@ const initialStatCardsData = [
   },
   {
     title: "Pending Follow-Ups",
-    value: "0",
+    value: "—",
     badge: "Live data",
     badgeType: "pink",
     icon: FiClock,
@@ -67,7 +66,7 @@ const initialStatCardsData = [
   },
   {
     title: "Active Users",
-    value: "0",
+    value: "—",
     badge: "Live data",
     badgeType: "blue",
     icon: FiUserCheck,
@@ -75,37 +74,11 @@ const initialStatCardsData = [
   }
 ];
 
-// Rich 30-Day Trend Chart Data with visible trend curves across all 30 days
-const generateTrendData = () => {
-  const dates = [];
-  const days = 30;
-  
-  // Smooth realistic curves so all 3 lines (New Leads, Calls Made, Visits) are rich & visible
-  const leadsCurve =  [15, 12, 22, 18, 35, 24, 15, 42, 60, 32, 48, 36, 75, 52, 28, 92, 70, 80, 115, 295, 150, 95, 62, 78, 38, 48, 30, 42, 32, 25];
-  const callsCurve =  [10,  8, 16, 12, 26, 18, 12, 30, 42, 24, 35, 28, 55, 38, 20, 68, 52, 58,  82, 180, 110, 70, 45, 55, 28, 34, 22, 30, 24, 18];
-  const visitsCurve = [ 5,  4, 10,  8, 15, 10,  6, 18, 25, 14, 20, 16, 32, 22, 12, 40, 30, 34,  48,  95,  65, 40, 26, 32, 16, 20, 12, 18, 14, 10];
-
-  for (let i = 0; i < days; i++) {
-    const dayNum = i + 3;
-    let dayStr = dayNum <= 31 ? `${String(dayNum).padStart(2, '0')} Aug` : `${String(dayNum - 31).padStart(2, '0')} Sep`;
-
-    dates.push({
-      date: dayStr,
-      leads: leadsCurve[i],
-      calls: callsCurve[i],
-      visits: visitsCurve[i]
-    });
-  }
-  return dates;
-};
-
-const initialTrendData = generateTrendData();
-
 // SVG Curve Generator
-const generateSvgPath = (data, key) => {
+const generateSvgPath = (data, key, chartMax) => {
   const points = data.map((d, i) => {
-    const x = 45 + (i / (data.length - 1)) * 685;
-    const y = 175 - (d[key] / 300) * 150;
+    const x = 45 + (i / Math.max(data.length - 1, 1)) * 685;
+    const y = 175 - ((Number(d[key]) || 0) / chartMax) * 150;
     return { x, y };
   });
 
@@ -120,14 +93,15 @@ const generateSvgPath = (data, key) => {
   }, '');
 };
 
-// Pipeline Donut Data
-const initialPipelineData = [
-  { name: 'New', value: 93.9, color: '#06b6d4' },
-  { name: 'Assigned', value: 5.1, color: '#3b82f6' },
-  { name: 'Interested', value: 0.3, color: '#10b981' },
-  { name: 'Converted', value: 0.3, color: '#8b5cf6' },
-  { name: 'In Progress', value: 0.3, color: '#f59e0b' }
-];
+const getChartScale = data => {
+  const highest = Math.max(0, ...data.flatMap(item => [item.leads, item.calls, item.followUps].map(Number)));
+  if (highest <= 0) return { max: 6, ticks: [6, 5, 4, 3, 2, 1, 0] };
+  const targetStep = highest / 6;
+  const magnitude = 10 ** Math.floor(Math.log10(targetStep));
+  const step = [1, 2, 5, 10].map(value => value * magnitude).find(value => value >= targetStep) || magnitude * 10;
+  const max = step * 6;
+  return { max, ticks: Array.from({ length: 7 }, (_, index) => max - (index * step)) };
+};
 
 // Quick Access Links
 const quickAccessItems = [
@@ -161,91 +135,14 @@ const quickAccessItems = [
   }
 ];
 
-// Recent Activity List
-const initialRecentActivities = [
-  {
-    id: 1,
-    title: "Marketing: Parth Gupta",
-    role: "Marketing Exec3",
-    roleType: "exec",
-    action: "Visit Scheduled",
-    time: "5 days ago",
-    type: "visit"
-  },
-  {
-    id: 2,
-    title: "Marketing: Aman Test 1",
-    role: "Marketing Exec3",
-    roleType: "exec",
-    action: "Interested",
-    time: "5 days ago",
-    type: "visit"
-  },
-  {
-    id: 3,
-    title: "Marketing: Aman Test 1",
-    role: "Marketing Exec3",
-    roleType: "exec",
-    action: "Visit Scheduled",
-    time: "5 days ago",
-    type: "visit"
-  },
-  {
-    id: 4,
-    title: "Assignment: Aman Test 1",
-    role: "Marketing Exec3",
-    roleType: "assign",
-    action: "Assigned: Self-created by agent",
-    time: "5 days ago",
-    type: "assign"
-  },
-  {
-    id: 5,
-    title: "Assignment: Deleted lead",
-    role: "Marketing Exec3",
-    roleType: "assign",
-    action: "Assigned: Self-created by agent",
-    time: "5 days ago",
-    type: "assign"
-  },
-  {
-    id: 6,
-    title: "Assignment: Deleted lead",
-    role: "Marketing Exec3",
-    roleType: "assign",
-    action: "Assigned: Self-created by agent",
-    time: "5 days ago",
-    type: "assign"
-  },
-  {
-    id: 7,
-    title: "Assignment: Deleted lead",
-    role: "Marketing Exec3",
-    roleType: "assign",
-    action: "Assigned: Self-created by agent",
-    time: "6 days ago",
-    type: "assign"
-  }
-];
-
-// Team Performance Table Data
-const initialTeamPerformanceData = [
-  { member: "Telecaller 1", role: "Telecaller", roleBadge: "blue", calls: 2, visits: 0, leads: 3, conversion: "33.3%", conversionHigh: true },
-  { member: "Marketing Exec3", role: "Marketing Exec", roleBadge: "purple", calls: 0, visits: 2, leads: 6, conversion: "0%", conversionHigh: false },
-  { member: "Admin", role: "Admin", roleBadge: "blue", calls: 0, visits: 0, leads: 0, conversion: "0%", conversionHigh: false },
-  { member: "Telecaller 2", role: "Telecaller", roleBadge: "blue", calls: 0, visits: 0, leads: 9, conversion: "0%", conversionHigh: false },
-  { member: "Telecaller 3", role: "Telecaller", roleBadge: "blue", calls: 0, visits: 0, leads: 0, conversion: "0%", conversionHigh: false },
-  { member: "Marketing Exec1", role: "Marketing Exec", roleBadge: "purple", calls: 0, visits: 0, leads: 0, conversion: "0%", conversionHigh: false },
-  { member: "Marketing Exec2", role: "Marketing Exec", roleBadge: "purple", calls: 0, visits: 0, leads: 0, conversion: "0%", conversionHigh: false },
-];
-
 export default function AdminCrmDashboard() {
   const navigate = useNavigate();
-  const [statCards, setStatCards] = useState(() => initialStatCardsData.map(card => ({ ...card, value: '0', badge: 'Loading' })));
+  const [statCards, setStatCards] = useState(() => initialStatCardsData.map(card => ({ ...card, badge: 'Loading…' })));
   const [trendData, setTrendData] = useState([]);
   const [pipelineData, setPipelineData] = useState([]);
   const [teamPerformanceData, setTeamPerformanceData] = useState([]);
   const [recentActivitiesList, setRecentActivitiesList] = useState([]);
+  const [todaysSchedule, setTodaysSchedule] = useState([]);
   const [hoverIndex, setHoverIndex] = useState(null);
 
   useEffect(() => {
@@ -258,7 +155,7 @@ export default function AdminCrmDashboard() {
             setStatCards([
               { title: "Total Leads", value: String(res.data.metrics.totalLeads ?? 0), badge: "Active Leads", badgeType: "purple", icon: FiUsers, iconBg: "bg-purple-100 text-purple-600" },
               { title: "Total Calls", value: String(res.data.metrics.totalCalls ?? 0), badge: `${res.data.metrics.todaysCalls ?? 0} today`, badgeType: "green", icon: FiPhoneCall, iconBg: "bg-emerald-100 text-emerald-600" },
-              { title: "Today's Visits", value: String(res.data.metrics.todaysVisits ?? 0), badge: "Scheduled", badgeType: "yellow", icon: FiMapPin, iconBg: "bg-amber-100 text-amber-600" },
+              { title: "Today's Follow-Ups", value: String(res.data.metrics.todaysFollowUps ?? 0), badge: "Due Today", badgeType: "yellow", icon: FiCalendar, iconBg: "bg-amber-100 text-amber-600" },
               { title: "Conversion Rate", value: res.data.metrics.conversionRate || "0%", badge: "Overall", badgeType: "cyan", icon: FiTrendingUp, iconBg: "bg-cyan-100 text-cyan-600" },
               { title: "Pending Follow-Ups", value: String(res.data.metrics.pendingFollowUps ?? 0), badge: "Needs Attention", badgeType: "pink", icon: FiClock, iconBg: "bg-rose-100 text-rose-600" },
               { title: "Active Users", value: String(res.data.metrics.activeUsers ?? 0), badge: `${res.data.metrics.unassignedLeads ?? 0} unassigned`, badgeType: "blue", icon: FiUserCheck, iconBg: "bg-blue-100 text-blue-600" }
@@ -268,10 +165,11 @@ export default function AdminCrmDashboard() {
           setPipelineData(Array.isArray(res.data.pipelineData) ? res.data.pipelineData : []);
           setTeamPerformanceData(Array.isArray(res.data.teamPerformance) ? res.data.teamPerformance : []);
           setRecentActivitiesList(Array.isArray(res.data.recentActivities) ? res.data.recentActivities : []);
+          setTodaysSchedule(Array.isArray(res.data.todaysSchedule) ? res.data.todaysSchedule : []);
         }
-      } catch (err) {
+      } catch {
         if (isMounted) {
-          setTrendData([]); setPipelineData([]); setTeamPerformanceData([]); setRecentActivitiesList([]);
+          setTrendData([]); setPipelineData([]); setTeamPerformanceData([]); setRecentActivitiesList([]); setTodaysSchedule([]);
         }
       }
     };
@@ -279,7 +177,9 @@ export default function AdminCrmDashboard() {
     return () => { isMounted = false; };
   }, []);
 
-  const yTicks = [300, 250, 200, 150, 100, 50, 0];
+  const chartScale = useMemo(() => getChartScale(trendData), [trendData]);
+  const yTicks = chartScale.ticks;
+  const maxLeadValue = useMemo(() => Math.max(0, ...trendData.map(item => Number(item.leads) || 0)), [trendData]);
   const activePoint = hoverIndex !== null ? trendData[hoverIndex] : null;
 
   return (
@@ -312,12 +212,12 @@ export default function AdminCrmDashboard() {
 
       {/* Row 2: Trend Chart & Lead Pipeline */}
       <div className="crm-dashboard-row row-charts">
-        {/* Left: 30-Day Lead, Call & Visit Trends */}
+        {/* Left: live 30-Day Lead, Call & Follow-Up Trends */}
         <div className="crm-card chart-card flex-grow-1">
           <div className="crm-card-header">
             <div className="crm-card-title">
               <FiTrendingUp className="header-icon text-indigo" />
-              <span>30-Day Lead, Call & Visit Trends</span>
+              <span>30-Day Lead, Call & Follow-Up Trends</span>
             </div>
           </div>
           <div className="crm-card-body">
@@ -330,7 +230,7 @@ export default function AdminCrmDashboard() {
                 <span className="legend-box bg-teal" /> Calls Made
               </span>
               <span className="legend-item">
-                <span className="legend-box bg-yellow" /> Visits
+                <span className="legend-box bg-yellow" /> Follow-Ups
               </span>
             </div>
 
@@ -352,7 +252,7 @@ export default function AdminCrmDashboard() {
 
                 {/* X-Axis Dates Labels */}
                 {trendData.map((d, idx) => {
-                  const x = 45 + (idx / (trendData.length - 1)) * 685;
+                  const x = 45 + (idx / Math.max(trendData.length - 1, 1)) * 685;
                   if (idx % 3 !== 0 && idx !== trendData.length - 1) return null;
                   return (
                     <text
@@ -369,9 +269,9 @@ export default function AdminCrmDashboard() {
                   );
                 })}
 
-                {/* Yellow Line: Visits */}
+                {/* Yellow Line: Follow-Ups */}
                 <path
-                  d={generateSvgPath(trendData, 'visits')}
+                  d={generateSvgPath(trendData, 'followUps', chartScale.max)}
                   fill="none"
                   stroke="#f59e0b"
                   strokeWidth="2.2"
@@ -380,7 +280,7 @@ export default function AdminCrmDashboard() {
 
                 {/* Teal Line: Calls Made */}
                 <path
-                  d={generateSvgPath(trendData, 'calls')}
+                  d={generateSvgPath(trendData, 'calls', chartScale.max)}
                   fill="none"
                   stroke="#10b981"
                   strokeWidth="2.2"
@@ -389,7 +289,7 @@ export default function AdminCrmDashboard() {
 
                 {/* Purple Line: New Leads */}
                 <path
-                  d={generateSvgPath(trendData, 'leads')}
+                  d={generateSvgPath(trendData, 'leads', chartScale.max)}
                   fill="none"
                   stroke="#6366f1"
                   strokeWidth="2.8"
@@ -398,9 +298,9 @@ export default function AdminCrmDashboard() {
 
                 {/* Interactive Points & Peak Markers */}
                 {trendData.map((d, i) => {
-                  const x = 45 + (i / (trendData.length - 1)) * 685;
-                  const yLeads = 175 - (d.leads / 300) * 150;
-                  const isPeak = d.leads === 295;
+                  const x = 45 + (i / Math.max(trendData.length - 1, 1)) * 685;
+                  const yLeads = 175 - ((Number(d.leads) || 0) / chartScale.max) * 150;
+                  const isPeak = maxLeadValue > 0 && Number(d.leads) === maxLeadValue;
                   return (
                     <g key={i} onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)}>
                       <circle
@@ -431,7 +331,7 @@ export default function AdminCrmDashboard() {
                   <strong>{activePoint.date}</strong>
                   <div><span className="dot bg-purple" /> Leads: {activePoint.leads}</div>
                   <div><span className="dot bg-teal" /> Calls: {activePoint.calls}</div>
-                  <div><span className="dot bg-yellow" /> Visits: {activePoint.visits}</div>
+                  <div><span className="dot bg-yellow" /> Follow-Ups: {activePoint.followUps}</div>
                 </div>
               )}
             </div>
@@ -470,7 +370,7 @@ export default function AdminCrmDashboard() {
               {pipelineData.map((item, idx) => (
                 <div className="pipeline-legend-row" key={idx}>
                   <span className="pipeline-name">{item.name}</span>
-                  <span className="pipeline-val">{item.value}%</span>
+                  <span className="pipeline-val">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -520,7 +420,7 @@ export default function AdminCrmDashboard() {
               <FiActivity className="header-icon text-blue" />
               <span>Recent Activity</span>
             </div>
-            <button className="crm-header-btn-subtle">
+            <button className="crm-header-btn-subtle" onClick={() => navigate('/ciisUser/crm/reports/user-activity')}>
               <FiClock size={12} style={{ marginRight: 4 }} /> Recent
             </button>
           </div>
@@ -528,13 +428,13 @@ export default function AdminCrmDashboard() {
             <div className="activity-timeline">
               {recentActivitiesList.map((act) => (
                 <div className="activity-item" key={act.id}>
-                  <div className={`activity-icon-badge ${act.type === 'visit' ? 'badge-green' : 'badge-amber'}`}>
-                    {act.type === 'visit' ? <FiMapPin size={12} /> : <FiUsers size={12} />}
+                  <div className={`activity-icon-badge ${act.type === 'call' ? 'badge-green' : 'badge-amber'}`}>
+                    {act.type === 'call' ? <FiPhoneCall size={12} /> : <FiUsers size={12} />}
                   </div>
                   <div className="activity-content">
                     <div className="activity-top-line">
                       <span className="activity-title">{act.title}</span>
-                      <span className={`role-tag ${act.roleType === 'exec' ? 'tag-teal' : 'tag-amber'}`}>
+                      <span className={`role-tag ${act.roleType === 'telecaller' ? 'tag-teal' : 'tag-amber'}`}>
                         {act.role}
                       </span>
                     </div>
@@ -545,6 +445,9 @@ export default function AdminCrmDashboard() {
                   </div>
                 </div>
               ))}
+              {recentActivitiesList.length === 0 && (
+                <div className="crm-data-empty">No recent CRM activity found.</div>
+              )}
             </div>
           </div>
         </div>
@@ -559,7 +462,7 @@ export default function AdminCrmDashboard() {
               <FiAward className="header-icon text-purple" />
               <span>Team Performance</span>
             </div>
-            <button className="crm-header-btn-outlined">View All</button>
+            <button className="crm-header-btn-outlined" onClick={() => navigate('/ciisUser/crm/reports/team-performance')}>View All</button>
           </div>
           <div className="crm-card-body p-0">
             <div className="table-responsive">
@@ -569,7 +472,7 @@ export default function AdminCrmDashboard() {
                     <th>Team Member</th>
                     <th>Role</th>
                     <th>Calls</th>
-                    <th>Visits</th>
+                    <th>Follow-Ups</th>
                     <th>Leads</th>
                     <th>Conversion</th>
                   </tr>
@@ -584,13 +487,16 @@ export default function AdminCrmDashboard() {
                         </span>
                       </td>
                       <td>{row.calls}</td>
-                      <td>{row.visits}</td>
+                      <td>{row.followUps}</td>
                       <td>{row.leads}</td>
                       <td className={row.conversionHigh ? "text-emerald-600 font-bold" : "text-emerald-500 font-semibold"}>
                         {row.conversion}
                       </td>
                     </tr>
                   ))}
+                  {teamPerformanceData.length === 0 && (
+                    <tr><td colSpan="6" className="crm-table-empty">No team performance data found.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -604,19 +510,37 @@ export default function AdminCrmDashboard() {
               <FiCalendar className="header-icon text-amber" />
               <span>Today's Schedule</span>
             </div>
+            <button className="crm-header-btn-outlined" onClick={() => navigate('/ciisUser/crm/admin/follow-ups')}>View All</button>
           </div>
-          <div className="crm-card-body schedule-empty-body">
-            <div className="schedule-empty-content">
-              <div className="schedule-empty-icon">
-                <FiCalendar size={28} />
+          <div className={`crm-card-body ${todaysSchedule.length ? 'schedule-list-body' : 'schedule-empty-body'}`}>
+            {todaysSchedule.length ? (
+              <div className="schedule-list">
+                {todaysSchedule.map(item => (
+                  <button
+                    type="button"
+                    className="schedule-item"
+                    key={item.id}
+                    onClick={() => navigate('/ciisUser/crm/admin/follow-ups')}
+                  >
+                    <div className="schedule-time">{item.time}</div>
+                    <div className="schedule-details">
+                      <strong>{item.lead}</strong>
+                      <span>{item.agent}{item.phone ? ` · ${item.phone}` : ''}</span>
+                      {item.note && <span className="schedule-note">{item.note}</span>}
+                    </div>
+                    <span className={`schedule-priority priority-${item.priority}`}>{item.priority}</span>
+                  </button>
+                ))}
               </div>
-              <p className="schedule-empty-title">
-                No visits or follow-ups today.
-              </p>
-              <p className="schedule-empty-sub">
-                Your upcoming schedule will appear here.
-              </p>
-            </div>
+            ) : (
+              <div className="schedule-empty-content">
+                <div className="schedule-empty-icon">
+                  <FiCalendar size={28} />
+                </div>
+                <p className="schedule-empty-title">No follow-ups due today.</p>
+                <p className="schedule-empty-sub">New scheduled follow-ups will appear here automatically.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

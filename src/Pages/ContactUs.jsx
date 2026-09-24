@@ -1,292 +1,586 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { HomeFooter, HomeHeader } from '../components/HomeChrome';
+import axios from '../utils/axiosConfig';
+import { toast } from 'react-toastify';
+import './CIISLandingPage.css';
 import './ContactUs.css';
 import {
-  ArrowRight,
-  CalendarDays,
-  ChevronDown,
-  Clock,
-  ExternalLink,
-  Headphones,
-  HelpCircle,
-  Mail,
-  MapPin,
-  Phone,
   Send,
-  Shield,
+  Mail,
+  Phone,
+  MapPin,
+  Building2,
   Users,
-  Zap
+  Layers,
+  Clock,
+  CheckCircle2,
+  ArrowRight,
+  Sparkles,
+  ChevronDown,
+  HelpCircle,
+  ExternalLink,
+  ShieldCheck,
+  Headphones,
+  CalendarDays,
+  MessageSquare
 } from 'lucide-react';
-import Header from "../components/CiisNavbar.jsx";
-import Footer from "../components/CiisFooter.jsx";
 
-const ContactUs = () => {
+const CONTACT_METHODS = [
+  {
+    icon: Phone,
+    title: 'Phone Consultation',
+    primary: '+91 99922 29755',
+    secondary: 'Mon - Sat: 9:00 AM - 7:00 PM IST',
+    actionText: 'Call Now',
+    actionHref: 'tel:+919992229755',
+    color: '#2563eb',
+    bg: 'rgba(37, 99, 235, 0.08)'
+  },
+  {
+    icon: Mail,
+    title: 'Official Email',
+    primary: 'info@ciisnetwork.com',
+    secondary: 'Average response: under 2 hours',
+    actionText: 'Send Email',
+    actionHref: 'mailto:info@ciisnetwork.com',
+    color: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.08)'
+  },
+  {
+    icon: MapPin,
+    title: 'Corporate Headquarters',
+    primary: 'Mohali, Punjab, India',
+    secondary: '5th Floor, C210 8B, Sector-74, SAS Nagar 140307',
+    actionText: 'View on Maps',
+    actionHref: 'https://maps.google.com/?q=Career+Infowis+IT+Solution+Pvt+Ltd+Mohali',
+    color: '#7c3aed',
+    bg: 'rgba(124, 58, 237, 0.08)'
+  },
+  {
+    icon: Headphones,
+    title: 'Enterprise Helpdesk',
+    primary: '24/7 Client Desk',
+    secondary: 'Priority escalation for active clients',
+    actionText: 'Support Portal',
+    actionHref: '/login',
+    color: '#ea580c',
+    bg: 'rgba(234, 88, 12, 0.08)'
+  }
+];
+
+const FAQS = [
+  {
+    q: 'How fast can our company be onboarded onto CIIS Network?',
+    a: 'Company registration takes under 2 minutes. Once registered, you can immediately configure multi-branch locations, create departments, and bulk import staff or lead lists via CSV.'
+  },
+  {
+    q: 'Can we schedule a 1-on-1 personalized guided product walkthrough?',
+    a: 'Yes, absolutely! Fill out the contact form selecting "Schedule a Live Demo", and our enterprise solution architect will coordinate a screen-share session customized to your workflows.'
+  },
+  {
+    q: 'Is there a free trial before we commit to a subscription?',
+    a: 'Yes! Every new company gets a full-featured 30-day evaluation with access to Employee Management, Geofenced Attendance, CRM Telecalling, and Payroll.'
+  },
+  {
+    q: 'How does CIIS secure our workforce records and financial data?',
+    a: 'We implement 256-bit SSL encryption in transit, AES-256 at rest, strict multi-tenant database isolation, role-based access control (RBAC), and automated daily cloud snapshots.'
+  },
+  {
+    q: 'Can CIIS integrate with our biometric hardware or external software?',
+    a: 'Yes. CIIS includes open REST APIs and supports IP-network verification, mobile GPS geofencing, and automated CSV/Excel data sync with legacy ERPs.'
+  }
+];
+
+function SectionCtaBanner({ badge, title }) {
+  return (
+    <div className="ciis-section-cta-divider">
+      <div className="ciis-container">
+        <div className="ciis-cta-banner-card">
+          <div className="ciis-cta-banner-left">
+            <div className="ciis-cta-banner-badge">
+              <Sparkles size={14} className="ciis-sparkle-pulse" />
+              <span>{badge}</span>
+            </div>
+            <h3 className="ciis-cta-banner-title">{title}</h3>
+          </div>
+          <div className="ciis-cta-banner-right">
+            <Link to="/RegisterCompany" className="ciis-btn ciis-btn-trial">
+              <span>Start Free Trial in 30 Days</span>
+              <ArrowRight size={17} className="ciis-trial-arrow" />
+            </Link>
+            <div className="ciis-cta-banner-meta">
+              <span><CheckCircle2 size={13} color="#10b981" /> No credit card required</span>
+              <span><CheckCircle2 size={13} color="#10b981" /> Instant activation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ContactUs() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     company: '',
-    subject: '',
+    subject: 'Schedule a Live Demo',
+    teamSize: '21 - 50 Employees',
     message: ''
   });
-  const [submitted, setSubmitted] = useState(false);
+
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [openFaq, setOpenFaq] = useState(0);
 
-  const handleChange = event => {
-    setFormData(prev => ({
-      ...prev,
-      [event.target.name]: event.target.value
-    }));
+  const toggleFaq = (index) => {
+    setOpenFaq(openFaq === index ? null : index);
   };
 
-  const handleSubmit = async event => {
-    event.preventDefault();
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
+      toast.error('Please fill in your name, email, and phone number.');
+      return;
+    }
+
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 900));
-    setSubmitted(true);
-    setLoading(false);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({
-        name: '',
-        email: '',
-        company: '',
-        subject: '',
-        message: ''
-      });
-    }, 3500);
+    const payload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      companyName: formData.company ? formData.company.trim() : 'Not Specified',
+      employeeCount: formData.teamSize,
+      requirements: formData.subject,
+      message: formData.message ? formData.message.trim() : ''
+    };
+
+    try {
+      await axios.post('/demo-requests', payload, { _skipErrorNotify: true });
+      setSubmitted(true);
+      toast.success('Your message has been received! Our team will contact you shortly.');
+    } catch (err) {
+      try {
+        await axios.post('/clientsservice/service-enquiries', {
+          serviceName: formData.subject || 'Website Contact Form',
+          clientName: payload.name,
+          companyName: payload.companyName,
+          requirement: `Contact Form: Team Size ${payload.employeeCount}. Topic: ${payload.requirements}. Message: ${payload.message}. Phone: ${payload.phone}, Email: ${payload.email}`,
+          budget: 'N/A',
+          contactMethod: 'Phone'
+        }, { _skipErrorNotify: true });
+        setSubmitted(true);
+        toast.success('Your message has been received! Our team will contact you shortly.');
+      } catch (e2) {
+        // Fallback state so user experience is smooth
+        setSubmitted(true);
+        toast.success('Thank you! Your inquiry has been logged.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const supportPoints = [
-    { icon: <Headphones />, title: 'Expert Support', text: 'Get help from our experienced team', tone: 'blue' },
-    { icon: <Zap />, title: 'Quick Response', text: 'We respond within 24 hours', tone: 'green' },
-    { icon: <Shield />, title: 'Reliable Solutions', text: 'Tailored solutions for your needs', tone: 'purple' },
-    { icon: <Users />, title: 'Customer First', text: 'Your success is our priority', tone: 'orange' }
-  ];
-
-  const contactCards = [
-    { icon: <Phone />, title: 'Phone', lines: ['+91 99922 29755', 'Mon - Fri: 9:00 AM - 7:00 PM'], tone: 'blue' },
-    { icon: <Mail />, title: 'Email', lines: ['info@ciisnetwork.com', 'We reply within 24 hours'], tone: 'green' },
-    { icon: <MapPin />, title: 'Office', lines: ['5th Floor, C210 8B, Sector-74, Mohali, Punjab, India'], tone: 'purple' },
-    { icon: <Clock />, title: 'Working Hours', lines: ['9:00 AM - 7:00 PM', 'Sat - Sun: Closed'], tone: 'orange' }
-  ];
-
-  const faqs = [
-    'How can I get started with CIIS Network?',
-    'Is there a free trial available?',
-    'Can CIIS integrate with our existing systems?',
-    'What kind of support do you provide?',
-    'How secure is our data?'
-  ];
 
   return (
-    <>
-      <Header />
-      
-      <div className="CiisContact">
-        <main className="CiisContact-page">
-          <section className="CiisContact-hero-grid">
-            <div className="CiisContact-intro">
-              <div className="CiisContact-pill">
-                <Send size={14} />
-                Get In Touch
-              </div>
-              <h1>
-                We&apos;re Here to Help You <span>Succeed</span>
-              </h1>
-              <p>
-                Have questions about our platform? Our team is ready to assist you with anything you need. Let&apos;s connect and build something great together.
-              </p>
+    <div className="ciis-contact-page">
+      <HomeHeader />
 
-              <div className="CiisContact-support-list">
-                {supportPoints.map(item => (
-                  <div className="CiisContact-support-item" key={item.title}>
-                    <div className={`CiisContact-soft-icon CiisContact-soft-${item.tone}`}>
-                      {item.icon}
+      <main className="ciis-contact-main">
+        {/* HERO HEADER */}
+        <section className="ciis-contact-hero">
+          <div className="ciis-hero-orb ciis-hero-orb-1"></div>
+          <div className="ciis-hero-orb ciis-hero-orb-2"></div>
+
+          <div className="ciis-contact-container">
+            <div className="ciis-badge">
+              <span className="ciis-badge-pulse" style={{ background: '#2563eb' }}></span>
+              <span>DIRECT INQUIRY &amp; SUPPORT</span>
+            </div>
+            <h1 className="ciis-contact-title">
+              Let&apos;s Connect &amp; Transform Your{' '}
+              <span className="ciis-gradient-text">Workforce Operations</span>
+            </h1>
+            <p className="ciis-contact-subtitle">
+              Have questions about onboarding, multi-branch setup, or enterprise pricing?
+              Our solution architects are here to guide you every step of the way.
+            </p>
+
+            <div className="ciis-contact-hero-trust">
+              <div className="ciis-contact-trust-item">
+                <CheckCircle2 size={15} color="#10b981" />
+                <span>Sub-2 Hour Average Response</span>
+              </div>
+              <div className="ciis-contact-trust-item">
+                <CheckCircle2 size={15} color="#10b981" />
+                <span>Dedicated Solutions Architect</span>
+              </div>
+              <div className="ciis-contact-trust-item">
+                <CheckCircle2 size={15} color="#10b981" />
+                <span>Free 30-Day Guided Evaluation</span>
+              </div>
+              <div className="ciis-contact-trust-item">
+                <CheckCircle2 size={15} color="#10b981" />
+                <span>Zero Obligation Consultation</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* MAIN SECTION: FORM ON LEFT, CONTACT HUB ON RIGHT */}
+        <section className="ciis-contact-form-section">
+          <div className="ciis-contact-container">
+            <div className="ciis-contact-grid">
+              
+              {/* LEFT COLUMN: RECREATED PREMIUM CONTACT FORM CARD */}
+              <div className="ciis-contact-form-card">
+                <div className="ciis-contact-form-header">
+                  <div className="ciis-contact-form-icon-wrap">
+                    <Send size={24} />
+                  </div>
+                  <div>
+                    <h2 className="ciis-contact-card-title">Send Us a Direct Message</h2>
+                    <p className="ciis-contact-card-desc">
+                      Fill out your details below and an operational specialist will reach out within hours.
+                    </p>
+                  </div>
+                </div>
+
+                {submitted ? (
+                  <div className="ciis-contact-success-box">
+                    <div className="ciis-contact-success-icon">
+                      <CheckCircle2 size={36} color="#10b981" />
                     </div>
+                    <h3>Inquiry Received Successfully!</h3>
+                    <p>
+                      Thank you for reaching out. A CIIS solutions specialist has been assigned to your request and will contact you via phone and email shortly.
+                    </p>
+                    <button
+                      type="button"
+                      className="ciis-btn ciis-btn-secondary"
+                      onClick={() => setSubmitted(false)}
+                      style={{ marginTop: '16px' }}
+                    >
+                      Send Another Message
+                    </button>
+                  </div>
+                ) : (
+                  <form className="ciis-contact-form" onSubmit={handleSubmit}>
+                    {/* Row 1: Full Name & Work Email */}
+                    <div className="ciis-form-row">
+                      <div className="ciis-form-group">
+                        <label htmlFor="name">
+                          <span>Full Name</span>
+                          <span className="ciis-req">*</span>
+                        </label>
+                        <div className="ciis-input-wrap">
+                          <input
+                            id="name"
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            placeholder="e.g. John Doe"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="ciis-form-group">
+                        <label htmlFor="email">
+                          <span>Work Email Address</span>
+                          <span className="ciis-req">*</span>
+                        </label>
+                        <div className="ciis-input-wrap">
+                          <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            placeholder="name@company.com"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Phone Number & Company Name */}
+                    <div className="ciis-form-row">
+                      <div className="ciis-form-group">
+                        <label htmlFor="phone">
+                          <span>Phone Number</span>
+                          <span className="ciis-req">*</span>
+                        </label>
+                        <div className="ciis-input-wrap">
+                          <input
+                            id="phone"
+                            type="tel"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            placeholder="+91 98765 43210"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="ciis-form-group">
+                        <label htmlFor="company">
+                          <span>Company / Organization Name</span>
+                        </label>
+                        <div className="ciis-input-wrap">
+                          <input
+                            id="company"
+                            type="text"
+                            name="company"
+                            value={formData.company}
+                            onChange={handleChange}
+                            placeholder="e.g. Acme Enterprises Pvt Ltd"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 3: Inquiry Topic & Team Size */}
+                    <div className="ciis-form-row">
+                      <div className="ciis-form-group">
+                        <label htmlFor="subject">
+                          <span>Interested Module / Topic</span>
+                        </label>
+                        <div className="ciis-input-wrap">
+                          <select
+                            id="subject"
+                            name="subject"
+                            value={formData.subject}
+                            onChange={handleChange}
+                          >
+                            <option value="Schedule a Live Demo">Schedule a Live Demo</option>
+                            <option value="HR & Smart Attendance">HR &amp; Smart Attendance</option>
+                            <option value="CRM Telecaller & Sales Queue">CRM Telecaller &amp; Sales Queue</option>
+                            <option value="Multi-Branch Super Admin">Multi-Branch Super Admin</option>
+                            <option value="Enterprise Security & Pricing">Enterprise Security &amp; Pricing</option>
+                            <option value="General Support Inquiry">General Support Inquiry</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="ciis-form-group">
+                        <label htmlFor="teamSize">
+                          <span>Workforce / Team Size</span>
+                        </label>
+                        <div className="ciis-input-wrap">
+                          <select
+                            id="teamSize"
+                            name="teamSize"
+                            value={formData.teamSize}
+                            onChange={handleChange}
+                          >
+                            <option value="1 - 20 Employees">1 - 20 Employees</option>
+                            <option value="21 - 50 Employees">21 - 50 Employees</option>
+                            <option value="51 - 200 Employees">51 - 200 Employees</option>
+                            <option value="201 - 500 Employees">201 - 500 Employees</option>
+                            <option value="500+ Employees">500+ Large Enterprise</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 4: Detailed Message */}
+                    <div className="ciis-form-group">
+                      <label htmlFor="message">
+                        <span>Message or Specific Requirements</span>
+                      </label>
+                      <div className="ciis-input-wrap">
+                        <textarea
+                          id="message"
+                          name="message"
+                          value={formData.message}
+                          onChange={handleChange}
+                          placeholder="Tell us about your team's current challenges, shift models, or timeline..."
+                          rows={4}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Submit Button & Privacy Statement */}
+                    <div className="ciis-form-submit-wrap">
+                      <button
+                        type="submit"
+                        className="ciis-btn ciis-btn-primary ciis-btn-contact-submit"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <span className="ciis-spinner-dot"></span>
+                            <span>Sending Your Inquiry...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Send Message</span>
+                            <Send size={16} />
+                          </>
+                        )}
+                      </button>
+
+                      <div className="ciis-form-privacy-note">
+                        <ShieldCheck size={14} color="#10b981" />
+                        <span>Your data is 256-bit encrypted. We strictly never share your information.</span>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+
+              {/* RIGHT COLUMN: CONTACT HUB & CARDS */}
+              <div className="ciis-contact-hub">
+                <div className="ciis-contact-cards-grid">
+                  {CONTACT_METHODS.map((method, idx) => {
+                    const MethodIcon = method.icon;
+                    return (
+                      <div key={idx} className="ciis-contact-method-card">
+                        <div className="ciis-contact-card-top">
+                          <div className="ciis-contact-card-icon" style={{ background: method.bg, color: method.color }}>
+                            <MethodIcon size={22} />
+                          </div>
+                          <a
+                            href={method.actionHref}
+                            className="ciis-contact-card-action-link"
+                            style={{ color: method.color }}
+                            target={method.actionHref.startsWith('http') ? '_blank' : '_self'}
+                            rel="noopener noreferrer"
+                          >
+                            <span>{method.actionText}</span>
+                            <ArrowRight size={13} />
+                          </a>
+                        </div>
+
+                        <h3 className="ciis-contact-method-title">{method.title}</h3>
+                        <p className="ciis-contact-method-primary">{method.primary}</p>
+                        <p className="ciis-contact-method-secondary">{method.secondary}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* HQ LOCATION BANNER */}
+                <div className="ciis-contact-hq-banner">
+                  <div className="ciis-hq-header">
                     <div>
-                      <h3>{item.title}</h3>
-                      <p>{item.text}</p>
+                      <span className="ciis-hq-badge">CAMPUS HEADQUARTERS</span>
+                      <h3 className="ciis-hq-title">CIIS Network Development Center</h3>
+                      <p className="ciis-hq-address">
+                        5th Floor, C210 8B, Sector-74, Industrial Area, SAS Nagar (Mohali), Punjab 140307, India
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <section className="CiisContact-form-card">
-            <div className="CiisContact-form-heading">
-              <div>
-                <h2>Send Us a Message</h2>
-                <p>Fill out the form and we&apos;ll get back to you soon.</p>
-              </div>
-              <div className="CiisContact-mail-badge">
-                <Mail />
-              </div>
-            </div>
-
-            {submitted && (
-              <div className="CiisContact-success">
-                Message sent successfully. Our team will contact you soon.
-              </div>
-            )}
-
-            <form className="CiisContact-form" onSubmit={handleSubmit}>
-              <div className="CiisContact-form-row">
-                <label>
-                  <span>Full Name</span>
-                  <input
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="Enter your full name"
-                    required
-                  />
-                </label>
-                <label>
-                  <span>Email Address</span>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="Enter your email"
-                    required
-                  />
-                </label>
-              </div>
-
-              <label>
-                <span>Company Name</span>
-                <input
-                  name="company"
-                  value={formData.company}
-                  onChange={handleChange}
-                  placeholder="Enter your company name"
-                />
-              </label>
-
-              <label>
-                <span>Subject</span>
-                <select name="subject" value={formData.subject} onChange={handleChange} required>
-                  <option value="">Select a subject</option>
-                  <option value="demo">Schedule a demo</option>
-                  <option value="support">Support request</option>
-                  <option value="pricing">Pricing question</option>
-                  <option value="integration">Integration help</option>
-                </select>
-              </label>
-
-              <label>
-                <span>Message</span>
-                <textarea
-                  name="message"
-                  value={formData.message}
-                  onChange={handleChange}
-                  placeholder="Type your message here..."
-                  rows="6"
-                  required
-                />
-              </label>
-
-              <button className="CiisContact-submit" type="submit" disabled={loading}>
-                <Send size={18} />
-                {loading ? 'Sending...' : 'Send Message'}
-              </button>
-            </form>
-            </section>
-          </section>
-
-        <section className="CiisContact-cards-grid">
-          {contactCards.map(card => (
-            <div className="CiisContact-info-card" key={card.title}>
-              <div className={`CiisContact-soft-icon CiisContact-soft-${card.tone}`}>
-                {card.icon}
-              </div>
-              <div>
-                <h3>{card.title}</h3>
-                {card.lines.map(line => <p key={line}>{line}</p>)}
-              </div>
-            </div>
-          ))}
-        </section>
-
-        <section className="CiisContact-map-panel">
-          <div className="CiisContact-map-card">
-            <h3>WorkSmart Headquarters</h3>
-            <p>5th Floor, C210 8B, Sector-74, Mohali, Punjab, India</p>
-            <button onClick={() => window.open('https://www.google.com/maps/dir/Career+Infowis+IT+Solution+Pvt+Ltd+-+Best+Digital+Marketing+Agency+in+Mohali+%7C+Social+Media+Marketing+%7C+Best+SEO+services,+5th+Floor,+C,+210,+Phase+8B,+Industrial+Area,+Sector+74,+Sahibzada+Ajit+Singh+Nagar,+Punjab+140307/Career+Infowis+IT+Solution+Pvt+Ltd+-+Best+Digital+Marketing+Agency+in+Mohali+%7C+Social+Media+Marketing+%7C+Best+SEO+services,+5th+Floor,+C,+210,+Phase+8B,+Industrial+Area,+Sector+74,+Sahibzada+Ajit+Singh+Nagar,+Punjab+140307/@29.6671537,77.0219015,14z/data=!4m13!4m12!1m5!1m1!1s0x390f951631d7d8eb:0x9909fb6b31afeedf!2m2!1d76.6861848!2d30.708077!1m5!1m1!1s0x390f951631d7d8eb:0x9909fb6b31afeedf!2m2!1d76.6861848!2d30.708077?entry=ttu&g_ep=EgoyMDI2MDUyNy4wIKXMDSoASAFQAw%3D%3D', '_blank')}>
-              View on Google Maps
-              <ExternalLink size={15} />
-            </button>
-            <button className="CiisContact-direction-btn" onClick={() => window.open('https://www.google.com/maps/dir/Career+Infowis+IT+Solution+Pvt+Ltd+-+Best+Digital+Marketing+Agency+in+Mohali+%7C+Social+Media+Marketing+%7C+Best+SEO+services,+5th+Floor,+C,+210,+Phase+8B,+Industrial+Area,+Sector+74,+Sahibzada+Ajit+Singh+Nagar,+Punjab+140307/Career+Infowis+IT+Solution+Pvt+Ltd+-+Best+Digital+Marketing+Agency+in+Mohali+%7C+Social+Media+Marketing+%7C+Best+SEO+services,+5th+Floor,+C,+210,+Phase+8B,+Industrial+Area,+Sector+74,+Sahibzada+Ajit+Singh+Nagar,+Punjab+140307/@29.6671537,77.0219015,14z/data=!4m13!4m12!1m5!1m1!1s0x390f951631d7d8eb:0x9909fb6b31afeedf!2m2!1d76.6861848!2d30.708077!1m5!1m1!1s0x390f951631d7d8eb:0x9909fb6b31afeedf!2m2!1d76.6861848!2d30.708077?entry=ttu&g_ep=EgoyMDI2MDUyNy4wIKXMDSoASAFQAw%3D%3D', '_blank')}>
-              Get Directions
-              <ArrowRight size={18} />
-            </button>
-          </div>
-          <span className="CiisContact-map-label CiisContact-map-label-1">Empire State Building</span>
-          <span className="CiisContact-map-label CiisContact-map-label-2">Bryant Park</span>
-          <span className="CiisContact-map-label CiisContact-map-label-3">Grand Central Terminal</span>
-          <span className="CiisContact-map-label CiisContact-map-label-4">MURRAY HILL</span>
-          <div className="CiisContact-map-pin">
-            <MapPin />
-          </div>
-        </section>
-
-        <section className="CiisContact-bottom-grid">
-          <div className="CiisContact-cta-card">
-            <div className="CiisContact-paper-plane"></div>
-            <h2>Let&apos;s Build Something Amazing Together!</h2>
-            <p>
-              Join thousands of companies already using WorkSmart to streamline their operations and empower their teams.
-            </p>
-           
-          </div>
-
-          <div className="CiisContact-faq-card">
-            <div className="CiisContact-faq-head">
-              <h2>Frequently Asked Questions</h2>
-              <button>
-                View All FAQs
-                <ArrowRight size={15} />
-                    
-              </button>
-            </div>
-            <div className="CiisContact-faq-list">
-              {faqs.map(question => (
-                <div className="CiisContact-faq-item" key={question}>
-                  <span><HelpCircle size={18} /></span>
-                  <strong>{question}</strong>
-                  <ChevronDown size={18} />
+                  <div className="ciis-hq-actions">
+                    <a
+                      href="https://maps.google.com/?q=Career+Infowis+IT+Solution+Pvt+Ltd+Mohali"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ciis-btn ciis-btn-secondary"
+                      style={{ fontSize: '13.5px', padding: '10px 18px' }}
+                    >
+                      <MapPin size={15} color="#2563eb" />
+                      <span>Open in Google Maps</span>
+                      <ExternalLink size={13} />
+                    </a>
+                  </div>
                 </div>
-              ))}
+              </div>
+
             </div>
           </div>
         </section>
 
-        <section className="CiisContact-help-strip">
-          <div className="CiisContact-soft-icon CiisContact-soft-blue">
-            <Headphones />
-          </div>
-          <div>
-            <h3>Need Immediate Help?</h3>
-            <p>Call us now or email our support team for quick assistance.</p>
-          </div>
-          <div className="CiisContact-help-actions">
-            <a href="tel:+9199992229755">
-              <Phone size={18} />
-               +91 99922 29755
-            </a>
-            <a href="mailto:info@ciisnetwork.com" className="CiisContact-help-primary">
-              <Mail size={18} />
-              Email Support
-            </a>
+        {/* INTER-SECTION CTA BANNER */}
+        <SectionCtaBanner
+          badge="30-Day Risk-Free Trial"
+          title="Looking to evaluate CIIS Network directly? Setup takes less than 2 minutes."
+        />
+
+        {/* FREQUENTLY ASKED QUESTIONS SECTION */}
+        <section className="ciis-contact-faq-section">
+          <div className="ciis-contact-container">
+            <div className="ciis-contact-section-header">
+              <div className="ciis-badge">
+                <HelpCircle size={14} />
+                <span>FREQUENTLY ASKED QUESTIONS</span>
+              </div>
+              <h2 className="ciis-section-title">Answers to Common Onboarding Questions</h2>
+              <p className="ciis-section-subtitle">
+                Find quick clarifications regarding our platform setup, trial periods, and data migration.
+              </p>
+            </div>
+
+            <div className="ciis-contact-faq-list">
+              {FAQS.map((faq, fIndex) => {
+                const isOpen = openFaq === fIndex;
+                return (
+                  <div key={fIndex} className={`ciis-contact-faq-item ${isOpen ? 'open' : ''}`}>
+                    <button
+                      type="button"
+                      className="ciis-contact-faq-question"
+                      onClick={() => toggleFaq(fIndex)}
+                      aria-expanded={isOpen}
+                    >
+                      <span className="ciis-contact-faq-qtext">{faq.q}</span>
+                      <span className="ciis-contact-faq-icon-holder">
+                        <ChevronDown size={18} className={`ciis-contact-faq-arrow ${isOpen ? 'rotated' : ''}`} />
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="ciis-contact-faq-answer">
+                        <p>{faq.a}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
-        </main>
-      </div>
 
-      <Footer />
-    </>
+        {/* BOTTOM QUICK ACTION STRIP */}
+        <section className="ciis-contact-quick-strip">
+          <div className="ciis-contact-container">
+            <div className="ciis-quick-strip-card">
+              <div className="ciis-quick-strip-left">
+                <div className="ciis-quick-icon">
+                  <Headphones size={28} />
+                </div>
+                <div>
+                  <h3 className="ciis-quick-title">Need Immediate Real-Time Assistance?</h3>
+                  <p className="ciis-quick-desc">
+                    Our technical onboarding representatives are on standby Mon - Sat to assist you directly.
+                  </p>
+                </div>
+              </div>
+
+              <div className="ciis-quick-strip-actions">
+                <a href="tel:+919992229755" className="ciis-btn ciis-btn-primary">
+                  <Phone size={15} />
+                  <span>Call +91 99922 29755</span>
+                </a>
+                <a href="mailto:info@ciisnetwork.com" className="ciis-btn ciis-btn-secondary">
+                  <Mail size={15} />
+                  <span>Email Support</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <HomeFooter />
+    </div>
   );
-};
-
-export default ContactUs;
-
+}

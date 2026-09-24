@@ -1,4 +1,6 @@
-  .privacy-page,
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+.privacy-page,
 .privacy-page * {
   box-sizing: border-box;
 }
@@ -7,7 +9,11 @@
   min-height: 100vh;
   color: #08183f;
   background: #ffffff;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-family: var(--ciis-font-sans) !important;
+}
+
+.privacy-page * {
+  font-family: var(--ciis-font-sans);
 }
 
 .privacy-shell {

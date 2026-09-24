@@ -15,25 +15,25 @@
 
 /* Main Paper */
 .login-paper {
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 24px 48px -14px rgba(0, 0, 0, 0.35);
   background: white;
-  max-width: 1000px;
+  max-width: 809px;
   width: 100%;
-  min-height: 600px;
+  min-height: 420px;
   display: flex;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Left Section */
 .login-left-section {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #243f9a 0%, #30309a 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 28px 26px;
   position: relative;
   overflow: hidden;
   flex: 0 0 45%;
@@ -46,8 +46,8 @@
   right: 0;
   bottom: 0;
   background-image: radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.3;
+  background-size: 34px 34px;
+  opacity: 0.22;
 }
 
 .left-content {
@@ -60,25 +60,25 @@
 
 /* Logo */
 .logo-container {
-  width: 320px;
-  height: 120px;
-  border-radius: 16px;
+  width: 258px;
+  height: 98px;
+  border-radius: 12px;
   background-color: white;
   backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 32px;
+  margin: 0 auto 20px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   overflow: hidden;
-  padding: 12px;
+  padding: 8px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .logo-container:hover {
-  background-color: rgba(255, 255, 255, 0.12);
+  background-color: white;
   border-color: rgba(255, 255, 255, 0.25);
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
@@ -101,57 +101,63 @@
 /* Company Name */
 .company-name {
   font-family: 'Oswald', sans-serif;
-  font-size: 2.125rem;
-  font-weight: 600;
-  margin-bottom: 8px;
+  font-size: 1.65rem;
+  font-weight: 800;
+  margin-bottom: 10px;
   letter-spacing: -0.5px;
   text-shadow: 0 2px 4px rgba(0,0,0,0.1);
   color: white;
 }
 
 .company-subtitle {
-  opacity: 0.9;
+  opacity: 0.92;
   letter-spacing: 0.5px;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   color: white;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 /* Features Card (optional) */
 .features-card {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 12px;
-  padding: 16px;
+  padding: 18px 16px;
   width: 100%;
   text-align: left;
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .features-title {
   color: white;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin: 0 0 16px;
 }
 
 .feature-item {
   display: flex;
   align-items: center;
-  padding: 4px 0;
+  gap: 8px;
+  padding: 5px 0;
 }
 
 .feature-icon {
-  width: 36px;
+  width: 24px;
+  flex: 0 0 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .feature-text {
   color: white;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
+  font-weight: 400;
 }
 
 .feature-item:hover .feature-text {
@@ -165,11 +171,11 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 40px 48px;
+  padding: 28px 34px;
 }
 
 .form-container {
-  max-width: 400px;
+  max-width: 370px;
   margin: 0 auto;
   width: 100%;
 }
@@ -182,21 +188,21 @@
 /* Form Header */
 .form-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .form-title {
-  font-size: 2.125rem;
+  font-size: 1.55rem;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: #333;
   letter-spacing: -0.5px;
 }
 
 .form-subtitle {
   color: #666;
-  margin-bottom: 24px;
-  font-size: 1rem;
+  margin-bottom: 16px;
+  font-size: 0.88rem;
 }
 
 /* Error Alert */
@@ -225,15 +231,15 @@
 
 /* Input Group */
 .input-group {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .input-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   color: #333;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 0.78rem;
 }
 
 .input-container {
@@ -244,11 +250,11 @@
 
 .login-input {
   width: 100%;
-  min-height: 54px;
-  padding: 14px 48px 14px 52px;
+  min-height: 44px;
+  padding: 10px 42px 10px 44px;
   border: 1px solid #ddd;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.88rem;
   transition: all 0.3s ease;
   outline: none;
   box-sizing: border-box;
@@ -270,7 +276,7 @@
 
 .input-icon {
   position: absolute;
-  left: 16px;
+  left: 14px;
   color: #777;
   display: flex;
   align-items: center;
@@ -281,7 +287,7 @@
 
 .input-adornment {
   position: absolute;
-  right: 16px;
+  right: 14px;
   cursor: pointer;
   color: #777;
   display: flex;
@@ -308,7 +314,7 @@
 }
 
 .forgot-password-link span {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: #667eea;
   cursor: pointer;
   font-weight: 500;
@@ -325,9 +331,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin: 18px 0 -4px;
+  margin: 14px 0 -6px;
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .self-register-entry button,
@@ -348,16 +354,17 @@
 /* Buttons */
 .login-button {
   width: 100%;
-  padding: 14px;
+  min-height: 46px;
+  padding: 10px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-top: 24px;
+  margin-top: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -793,10 +800,10 @@
 
 /* Terms & Privacy */
 .terms-privacy {
-  margin-top: 32px;
+  margin-top: 22px;
   text-align: center;
   color: #999;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   line-height: 1.5;
 }
 

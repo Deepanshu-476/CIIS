@@ -1,0 +1,470 @@
+/* ==========================================================================
+   Operations & Platform Dedicated Pages Styles (OperationsPages.css)
+   Used by: Security, Employee Management, CRM & Telecaller, 
+            Team Communication, Business Automation
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+.ciis-op-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  font-family: var(--ciis-font-sans) !important;
+  color: #1e293b;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.ciis-op-page * {
+  font-family: var(--ciis-font-sans);
+}
+
+.ciis-op-main {
+  flex: 1;
+}
+
+.ciis-op-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 48px);
+}
+
+/* ==================== HERO SECTION ==================== */
+.ciis-op-hero {
+  position: relative;
+  padding: clamp(140px, 12vw, 175px) 0 clamp(60px, 6vw, 85px) 0;
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  text-align: center;
+  overflow: hidden;
+}
+
+.ciis-op-hero.theme-security {
+  background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.09) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ciis-op-hero.theme-employee {
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.09) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ciis-op-hero.theme-crm {
+  background: radial-gradient(circle at 50% 0%, rgba(234, 88, 12, 0.09) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ciis-op-hero.theme-communication {
+  background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.09) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ciis-op-hero.theme-automation {
+  background: radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.09) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ciis-op-hero .ciis-hero-orb-1 {
+  width: 480px;
+  height: 480px;
+  top: -100px;
+  left: 8%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.16) 0%, rgba(124, 58, 237, 0.05) 70%, transparent 100%);
+}
+
+.ciis-op-hero .ciis-hero-orb-2 {
+  width: 520px;
+  height: 520px;
+  top: 60px;
+  right: -60px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(37, 99, 235, 0.05) 70%, transparent 100%);
+}
+
+.ciis-op-title {
+  font-family: var(--ciis-font-sans);
+  font-size: clamp(34px, 5.2vw, 56px);
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  max-width: 880px;
+  margin: 18px auto 20px auto;
+}
+
+.ciis-gradient-text {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.ciis-gradient-emerald {
+  background: linear-gradient(135deg, #059669 0%, #10b981 50%, #0284c7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.ciis-gradient-orange {
+  background: linear-gradient(135deg, #c2410c 0%, #ea580c 50%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.ciis-gradient-cyan {
+  background: linear-gradient(135deg, #0284c7 0%, #06b6d4 50%, #10b981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.ciis-gradient-purple {
+  background: linear-gradient(135deg, #6d28d9 0%, #8b5cf6 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.ciis-op-subtitle {
+  font-size: clamp(16px, 2vw, 18.5px);
+  line-height: 1.65;
+  color: #475569;
+  max-width: 760px;
+  margin: 0 auto 34px auto;
+}
+
+.ciis-op-hero-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ciis-op-hero-trust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 38px;
+  flex-wrap: wrap;
+}
+
+.ciis-op-trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
+}
+
+/* ==================== COMMON SECTION HEADERS ==================== */
+.ciis-op-section-header {
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto 48px auto;
+}
+
+.ciis-op-section-header .ciis-badge {
+  margin-bottom: 14px;
+}
+
+/* ==================== FEATURE CARDS GRID ==================== */
+.ciis-op-features-section {
+  padding: 90px 0;
+}
+
+.ciis-op-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.ciis-op-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.ciis-op-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px;
+}
+
+.ciis-op-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 32px 26px;
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.04);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.ciis-op-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 18px 40px -12px rgba(15, 23, 42, 0.1);
+}
+
+.ciis-op-card-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+  transition: transform 0.25s ease;
+}
+
+.ciis-op-card:hover .ciis-op-card-icon-wrap {
+  transform: scale(1.08) rotate(3deg);
+}
+
+.ciis-op-card-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.ciis-op-card-title {
+  font-family: var(--ciis-font-sans);
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.ciis-op-card-desc {
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 18px 0;
+}
+
+.ciis-op-card-bullets {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ciis-op-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+/* ==================== WORKFLOW / ARCHITECTURE SECTION ==================== */
+.ciis-op-deep-section {
+  padding: 90px 0;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ciis-op-deep-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: clamp(32px, 5vw, 56px);
+  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.05);
+}
+
+.ciis-op-steps-flow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.ciis-op-step-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 28px 24px;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.ciis-op-step-item:hover {
+  transform: translateY(-3px);
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 12px 30px -10px rgba(15, 23, 42, 0.08);
+}
+
+.ciis-op-step-num {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-bottom: 14px;
+}
+
+.ciis-op-step-title {
+  font-family: var(--ciis-font-sans);
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+}
+
+.ciis-op-step-desc {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ==================== VALUE STATS BANNER ==================== */
+.ciis-op-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin: 50px 0 20px 0;
+}
+
+.ciis-op-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 6px 20px -8px rgba(15, 23, 42, 0.04);
+}
+
+.ciis-op-stat-value {
+  font-size: 32px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.ciis-op-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* ==================== BOTTOM CTA SECTION ==================== */
+.ciis-op-cta-section {
+  padding: 90px 0;
+}
+
+.ciis-op-cta-box {
+  background: radial-gradient(circle at 10% 20%, #1e1b4b 0%, #0f172a 100%);
+  border-radius: 26px;
+  padding: clamp(48px, 6vw, 72px) 36px;
+  text-align: center;
+  color: #ffffff;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ciis-op-cta-box h2 {
+  font-family: var(--ciis-font-sans);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+  margin-bottom: 16px;
+  line-height: 1.25;
+  color: #ffffff;
+}
+
+.ciis-op-cta-box p {
+  font-size: 16.5px;
+  color: #cbd5e1;
+  max-width: 660px;
+  margin: 0 auto 36px auto;
+  line-height: 1.65;
+}
+
+.ciis-op-cta-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 1024px) {
+  .ciis-op-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ciis-op-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ciis-op-steps-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .ciis-op-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .ciis-op-hero {
+    padding: 135px 0 55px 0;
+  }
+
+  .ciis-op-grid-4,
+  .ciis-op-grid-3,
+  .ciis-op-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .ciis-op-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ciis-op-hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ciis-op-hero-actions .ciis-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ciis-op-hero-trust {
+    gap: 10px;
+    margin-top: 26px;
+  }
+
+  .ciis-op-trust-item {
+    width: 100%;
+    justify-content: center;
+    font-size: 12.5px;
+  }
+}
+

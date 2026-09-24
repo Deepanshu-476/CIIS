@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 
 :root {
   --about-blue: #245cf6;
@@ -24,12 +24,12 @@
   overflow-x: hidden;
   color: var(--about-text);
   background: #fff;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-family: var(--ciis-font-sans) !important;
 }
 
 .about-page *,
 .about-page button {
-  font-family: inherit;
+  font-family: var(--ciis-font-sans);
 }
 
 .about-main {

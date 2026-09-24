@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../utils/axiosConfig';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { toast } from 'react-toastify';
 import './Login.css'; 
@@ -32,6 +32,7 @@ const getCompanyAuthPath = (companyIdentifier, action) => {
 
 const Login = () => {
   const [form, setForm] = useState({
+    companyCode: '',
     email: '',
     password: ''
   });
@@ -161,6 +162,10 @@ const Login = () => {
   const validateForm = () => {
     const newErrors = {};
 
+    if (!companyIdentifier && !form.companyCode.trim()) {
+      newErrors.companyCode = 'Company code is required';
+    }
+
     if (!form.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
@@ -188,13 +193,14 @@ const Login = () => {
       const loginData = {
         email: form.email.trim(),
         password: form.password,
-        companyCode: companyIdentifier || null
+        companyCode: (companyIdentifier || form.companyCode).trim()
       };
 
       void 0;
 
-      const loginEndpoint = companyIdentifier
-        ? getCompanyAuthPath(companyIdentifier, 'login')
+      const activeCompanyIdentifier = (companyIdentifier || form.companyCode).trim();
+      const loginEndpoint = activeCompanyIdentifier
+        ? getCompanyAuthPath(activeCompanyIdentifier, 'login')
         : '/auth/login';
       const res = await axios.post(loginEndpoint, loginData, { _skipErrorNotify: true });
 
@@ -233,9 +239,9 @@ const Login = () => {
         localStorage.removeItem('client');
       }
 
-      if (companyIdentifier) {
-        localStorage.setItem('companyIdentifier', companyIdentifier);
-        localStorage.setItem('companyCode', companyIdentifier);
+      if (activeCompanyIdentifier) {
+        localStorage.setItem('companyIdentifier', activeCompanyIdentifier);
+        localStorage.setItem('companyCode', activeCompanyIdentifier);
       }
 
       if (companyDetails) {
@@ -334,6 +340,8 @@ const Login = () => {
     try {
       const verifyEndpoint = companyIdentifier
         ? getCompanyAuthPath(companyIdentifier, 'verifyOtp')
+        : form.companyCode.trim()
+          ? getCompanyAuthPath(form.companyCode.trim(), 'verifyOtp')
         : '/auth/verify-login-otp';
       const response = await axios.post(verifyEndpoint, {
         email: otpEmail,
@@ -363,9 +371,10 @@ const Login = () => {
         }
 
         
-        if (companyIdentifier) {
-          localStorage.setItem('companyIdentifier', companyIdentifier);
-          localStorage.setItem('companyCode', companyIdentifier);
+        const activeCompanyIdentifier = (companyIdentifier || form.companyCode).trim();
+        if (activeCompanyIdentifier) {
+          localStorage.setItem('companyIdentifier', activeCompanyIdentifier);
+          localStorage.setItem('companyCode', activeCompanyIdentifier);
         }
 
         if (response.data.companyDetails) {
@@ -410,6 +419,8 @@ const Login = () => {
     try {
       const resendEndpoint = companyIdentifier
         ? getCompanyAuthPath(companyIdentifier, 'resendOtp')
+        : form.companyCode.trim()
+          ? getCompanyAuthPath(form.companyCode.trim(), 'resendOtp')
         : '/auth/resend-login-otp';
       const response = await axios.post(resendEndpoint, {
         email: otpEmail
@@ -451,7 +462,8 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
+      const activeCompanyIdentifier = (companyIdentifier || form.companyCode).trim();
+      const resetContext = activeCompanyIdentifier ? { companyCode: activeCompanyIdentifier } : {};
       const response = await axios.post('/auth/forgot-password', {
         email: forgotPasswordEmail,
         ...resetContext
@@ -490,7 +502,8 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const resetContext = companyIdentifier ? { companyCode: companyIdentifier } : {};
+      const activeCompanyIdentifier = (companyIdentifier || form.companyCode).trim();
+      const resetContext = activeCompanyIdentifier ? { companyCode: activeCompanyIdentifier } : {};
       await axios.post('/auth/reset-password', {
         email: forgotPasswordEmail,
         otp: otpCode,
@@ -555,6 +568,12 @@ const Login = () => {
   const BusinessIcon = () => (
     <svg className="login-icon business-icon" width="48" height="48" viewBox="0 0 24 24" fill="white">
       <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+    </svg>
+  );
+
+  const CompanyCodeIcon = () => (
+    <svg className="login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 21V3h10v4h8v14H3zm2-2h2v-2H5v2zm0-4h2v-2H5v2zm0-4h2V9H5v2zm0-4h2V5H5v2zm4 12h2v-2H9v2zm0-4h2v-2H9v2zm0-4h2V9H9v2zm0-4h2V5H9v2zm4 12h6V9h-6v2h2v2h-2v2h2v2h-2v2zm4-8h-2V9h2v2zm0 4h-2v-2h2v2z" />
     </svg>
   );
 
@@ -812,7 +831,7 @@ const Login = () => {
           
           <div className="left-content">
             
-            <div className="logo-container" onClick={() => navigate('/dashboard')} title="Go to Dashboard">
+            <div className="logo-container" onClick={() => navigate('/')} title="Go to Home">
               {companyLoading ? (
                 <div className="loading-spinner-container">
                   <div className="spinner"></div>
@@ -824,18 +843,41 @@ const Login = () => {
                   className="company-logo"
                 />
               ) : (
-                <BusinessIcon />
+                <img
+                  src="/logoo.png"
+                  alt="CIIS Network"
+                  className="company-logo"
+                />
               )}
             </div>
-
-            
-            <h1 className="company-name">
-              {companyLoading ? 'Loading...' : (companyDetails?.companyName || 'CIIS NETWORK')}
-            </h1>
 
             <p className="company-subtitle">
               Secure Enterprise Portal
             </p>
+
+            <div className="features-card">
+              <h2 className="features-title">Employee Login</h2>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Access your daily dashboard</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Check attendance and leave updates</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">View assigned tasks and meetings</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Manage profile and requests</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Secure access to company workspace</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -857,9 +899,11 @@ const Login = () => {
                     className="mobile-logo-img"
                   />
                 ) : (
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="#4f46e5">
-                    <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
-                  </svg>
+                  <img
+                    src="/logoo.png"
+                    alt="CIIS Network"
+                    className="mobile-logo-img"
+                  />
                 )}
               </div>
               
@@ -904,7 +948,28 @@ const Login = () => {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
+                  <form onSubmit={handleSubmit}>
+                  {!companyIdentifier && (
+                    <div className="input-group">
+                      <label className="input-label">Company Code</label>
+                      <div className="input-container">
+                        <div className="input-icon">
+                          <CompanyCodeIcon />
+                        </div>
+                        <input
+                          type="text"
+                          name="companyCode"
+                          value={form.companyCode}
+                          onChange={handleChange}
+                          disabled={loading}
+                          autoComplete="organization"
+                          className={`login-input ${errors.companyCode ? 'input-error' : ''}`}
+                          placeholder="Enter company code"
+                        />
+                      </div>
+                      {errors.companyCode && <span className="error-text">{errors.companyCode}</span>}
+                    </div>
+                  )}
                   
                   <div className="input-group">
                     <label className="input-label">Email Address</label>

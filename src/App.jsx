@@ -70,6 +70,11 @@ const EmployeeManagement = lazy(() => import("./Pages/EmployeeManagement"));
 const CrmTelecaller = lazy(() => import("./Pages/CrmTelecaller"));
 const TeamCommunication = lazy(() => import("./Pages/TeamCommunication"));
 const BusinessAutomation = lazy(() => import("./Pages/BusinessAutomation"));
+const SmartAttendancePage = lazy(() => import("./Pages/SmartAttendancePage"));
+const LeaveManagementPage = lazy(() => import("./Pages/LeaveManagementPage"));
+const PayrollManagementPage = lazy(() => import("./Pages/PayrollManagementPage"));
+const AssetManagementPage = lazy(() => import("./Pages/AssetManagementPage"));
+const MobileAppPage = lazy(() => import("./Pages/MobileAppPage"));
 const RegisterCompany = lazy(() => import("./admin/components/CompanyRegister.jsx"));
 const SuperAdminLogin = lazy(() => import("./page/SuperAdminLogin"));
 const CompanyManagement = lazy(() => import("./page/CompanyManagement.jsx"));
@@ -156,6 +161,16 @@ function App() {
         <Route path="/crm-telecaller" element={<CrmTelecaller />} />
         <Route path="/crm" element={<Navigate to="/crm-telecaller" replace />} />
         <Route path="/telecaller" element={<Navigate to="/crm-telecaller" replace />} />
+        <Route path="/payroll-management" element={<PayrollManagementPage />} />
+        <Route path="/payroll" element={<Navigate to="/payroll-management" replace />} />
+        <Route path="/smart-attendance" element={<SmartAttendancePage />} />
+        <Route path="/attendance" element={<Navigate to="/smart-attendance" replace />} />
+        <Route path="/leave-management" element={<LeaveManagementPage />} />
+        <Route path="/leave-policy" element={<Navigate to="/leave-management" replace />} />
+        <Route path="/asset-management" element={<AssetManagementPage />} />
+        <Route path="/assets-management" element={<Navigate to="/asset-management" replace />} />
+        <Route path="/mobile-app" element={<MobileAppPage />} />
+        <Route path="/mobile" element={<Navigate to="/mobile-app" replace />} />
         <Route path="/team-communication" element={<TeamCommunication />} />
         <Route path="/communication" element={<Navigate to="/team-communication" replace />} />
         <Route path="/business-automation" element={<BusinessAutomation />} />

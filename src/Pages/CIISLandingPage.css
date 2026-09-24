@@ -394,10 +394,13 @@ body::-webkit-scrollbar {
 
 .ciis-nav-inner > .ciis-logo {
   min-height: 90px;
+  display: flex;
+  align-items: center;
 }
 
 .ciis-nav-inner > .ciis-logo .ciis-brand-logo {
-  transform: translateY(0px);
+  transform: none !important;
+  margin: 0 !important;
 }
 
 .ciis-brand-logo-sm {

@@ -11,6 +11,8 @@ import {
   WorkspacePremium as PlanIcon,
 } from "@mui/icons-material";
 import axiosInstance from "../../utils/axiosConfig";
+import { CRM_PAGES } from "../../config/crmPages";
+import { TELECALLER_PAGES } from "../../crm/telecaller/telecallerPages";
 import "./JobRoleManagement.css";
 import "./PlanManagement.css";
 
@@ -42,6 +44,7 @@ const APP_ROUTES = [
   { id: "client-meeting", path: "client-meeting", name: "Client Meeting", category: "meetings" },
   { id: "admin-meeting", path: "admin-meeting", name: "Create Employee Meeting", category: "meetings" },
   { id: "emp-client", path: "emp-client", name: "Client Management", category: "clients" },
+  { id: "client-plans", path: "client-plans", name: "Client Plans", category: "clients" },
   { id: "active-clients", path: "active-clients", name: "Active Clients", category: "clients" },
   { id: "client-dashboard", path: "client-dashboard", name: "Client Dashboard", category: "clients" },
   { id: "client-my-services", path: "client-my-services", name: "My Services", category: "clients" },
@@ -63,6 +66,11 @@ const APP_ROUTES = [
   { id: "payroll-process", path: "payroll-process", name: "Payroll Process", category: "payroll" },
   { id: "payslip", path: "payslip", name: "Payslip", category: "payroll" },
   { id: "payroll-reports", path: "payroll-reports", name: "Payroll Reports", category: "payroll" },
+  ...CRM_PAGES,
+  ...TELECALLER_PAGES.map(page => ({
+    ...page,
+    path: page.path.replace(/^\/ciisUser\//, ""),
+  })),
 ];
 
 const SUPER_ADMIN_ROUTES = [
@@ -96,6 +104,8 @@ const categoryNames = {
   clients: "Clients",
   communication: "Communication",
   payroll: "Payroll",
+  "admin-crm": "Admin CRM",
+  "admin-telecaller": "Telecaller CRM",
   management: "Super Admin Management",
   owner: "Owner Only",
 };
@@ -261,11 +271,6 @@ export default function PlanManagement() {
       setNotice({ severity: "warning", message: "Select at least one page for this plan." });
       return;
     }
-    if (!form.allowedSuperAdminPages.length) {
-      setNotice({ severity: "warning", message: "Select at least one super admin page for this plan." });
-      return;
-    }
-
     setSaving(true);
     try {
       const payload = {
@@ -477,7 +482,7 @@ export default function PlanManagement() {
             <AppsIcon className="JobRoleManagement-info-icon" />
             <div style={{ width: "100%" }}>
               <div className="JobRoleManagement-info-title">
-                {form.allowedSuperAdminPages.length} super admin pages selected. Company super admin sidebar will follow this list.
+                {form.allowedSuperAdminPages.length} optional super admin pages selected. Module-only plans can leave this empty.
               </div>
               <LinearProgress variant="determinate" value={selectedSuperAdminPercent} sx={{ height: 7, mt: 1, borderRadius: 99, bgcolor: "#d7e9fb" }} />
             </div>

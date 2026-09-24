@@ -18,40 +18,15 @@ import {
 import axiosInstance from '../../utils/axiosConfig';
 import './CompletedCalls.css';
 
-const initialCompletedCalls = [
-  {
-    id: 1,
-    leadId: '#LD-008',
-    name: 'Ashok Pillai',
-    note: 'Interested in NEET repeaters batch',
-    phone: '8016315999',
-    source: 'Facebook',
-    leadType: 'NEET',
-    leadStatus: 'Assigned',
-    outcome: 'Interested',
-    callType: 'Outbound',
-    completedAt: '22 Aug 2026 04:30 PM',
-    attempts: 2,
-    assignedTo: 'Telecaller 1',
-    remarks: 'Student showed strong interest in repeaters offline batch. Demo class scheduled.'
-  },
-  {
-    id: 2,
-    leadId: '#LD-007',
-    name: 'Zara Nair',
-    note: 'Enrolled in 1-Year JEE Intensive Program',
-    phone: '9876543210',
-    source: 'Instagram',
-    leadType: 'JEE',
-    leadStatus: 'Converted',
-    outcome: 'Converted',
-    callType: 'Outbound',
-    completedAt: '23 Aug 2026 11:15 AM',
-    attempts: 1,
-    assignedTo: 'Telecaller 2',
-    remarks: 'Payment received via Online Portal. Welcome kit dispatched.'
-  }
-];
+const getLocalDateString = (d) => {
+  if (!d) return '';
+  const dateObj = new Date(d);
+  if (Number.isNaN(dateObj.getTime())) return '';
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const CompletedCalls = () => {
   const [calls, setCalls] = useState([]);
@@ -78,6 +53,7 @@ const CompletedCalls = () => {
             outcome: lead.status === 'converted' ? 'Converted' : 'Interested',
             callType: 'Outbound',
             completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
+            rawCompletedDate: lead.updatedAt ? getLocalDateString(lead.updatedAt) : '',
             attempts: lead.callHistory?.length || 0,
             assignedTo: lead.assignedTo?.name || 'Unassigned',
             remarks: lead.remarks || '—'
@@ -137,7 +113,7 @@ const CompletedCalls = () => {
       if (appliedFilters.callType && call.callType !== appliedFilters.callType) return false;
       if (appliedFilters.source && call.source !== appliedFilters.source) return false;
       if (appliedFilters.leadType && call.leadType !== appliedFilters.leadType) return false;
-      if (appliedFilters.completedDate && !call.completedAt.includes(appliedFilters.completedDate)) return false;
+      if (appliedFilters.completedDate && call.rawCompletedDate !== appliedFilters.completedDate) return false;
 
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -162,7 +138,8 @@ const CompletedCalls = () => {
 
   const totalCompletedCount = calls.length;
   const interestedCount = calls.filter(c => c.outcome === 'Interested').length;
-  const todayCompletedCount = 0;
+  const todayStr = getLocalDateString(new Date());
+  const todayCompletedCount = calls.filter(c => c.rawCompletedDate === todayStr).length;
   const convertedCount = calls.filter(c => c.outcome === 'Converted').length;
 
   return (

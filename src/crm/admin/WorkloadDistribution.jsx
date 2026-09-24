@@ -27,10 +27,11 @@ const AVATAR_PALETTES = [
   { bg: 'linear-gradient(135deg, #fae8ff, #f5d0fe)', color: '#86198f', border: '#f0abfc' }  // Fuchsia
 ];
 
-const getAvatarStyle = (name = '') => {
+const getAvatarStyle = (name) => {
+  const safeName = typeof name === 'string' ? name : (name ? String(name) : 'User');
   let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < safeName.length; i++) {
+    hash = safeName.charCodeAt(i) + ((hash << 5) - hash);
   }
   const index = Math.abs(hash) % AVATAR_PALETTES.length;
   return AVATAR_PALETTES[index];
@@ -578,7 +579,7 @@ export default function WorkloadDistribution() {
                 className="wld-btn-drawer-close"
                 onClick={() => setSelectedAgent(null)}
               >
-                Close Drawer
+                Close
               </button>
             </div>
           </div>

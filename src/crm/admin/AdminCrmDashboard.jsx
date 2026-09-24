@@ -169,6 +169,7 @@ export default function AdminCrmDashboard() {
         }
       } catch {
         if (isMounted) {
+          setStatCards(initialStatCardsData.map(card => ({ ...card, badge: 'No data', value: '0' })));
           setTrendData([]); setPipelineData([]); setTeamPerformanceData([]); setRecentActivitiesList([]); setTodaysSchedule([]);
         }
       }
@@ -324,7 +325,7 @@ export default function AdminCrmDashboard() {
                 <div
                   className="svg-chart-tooltip"
                   style={{
-                    left: `${45 + (hoverIndex / (trendData.length - 1)) * 88}%`,
+                    left: `${45 + (hoverIndex / Math.max(trendData.length - 1, 1)) * 88}%`,
                     top: '30px'
                   }}
                 >

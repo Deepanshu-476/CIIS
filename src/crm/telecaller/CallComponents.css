@@ -488,3 +488,197 @@
   }
 }
 
+/* Call Log Details Modal */
+.haps-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: hapsFadeIn 0.15s ease-out;
+}
+
+@keyframes hapsFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.haps-modal-container {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  animation: hapsScaleUp 0.15s ease-out;
+}
+
+@keyframes hapsScaleUp {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.haps-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.haps-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.haps-modal-badge {
+  font-family: monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #dbeafe;
+}
+
+.haps-modal-title-group h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.haps-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.haps-modal-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.haps-modal-body {
+  padding: 22px;
+  overflow-y: auto;
+}
+
+.haps-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 20px;
+}
+
+.haps-modal-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.haps-modal-cell.full-width {
+  grid-column: span 2;
+}
+
+.haps-modal-cell-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.haps-modal-cell-val {
+  font-size: 13.5px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.haps-modal-cell-val.font-semibold {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.haps-modal-remarks-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.haps-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  border-radius: 0 0 12px 12px;
+}
+
+.haps-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.haps-modal-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.haps-modal-btn.primary {
+  background: #6366f1;
+  color: #ffffff;
+  border-color: #6366f1;
+}
+
+.haps-modal-btn.primary:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+@media (max-width: 540px) {
+  .haps-modal-grid {
+    grid-template-columns: 1fr;
+  }
+  .haps-modal-cell.full-width {
+    grid-column: span 1;
+  }
+}
+

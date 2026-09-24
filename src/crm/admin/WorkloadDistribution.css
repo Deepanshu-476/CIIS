@@ -674,16 +674,18 @@
   cursor: not-allowed;
 }
 
-/* Modern Slide-Over Drawer (Right side) */
+/* Modern Centered Modal */
 .wld-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
-  z-index: 1000;
+  z-index: 99999;
   display: flex;
-  justify-content: flex-end;
-  animation: wldFadeIn 0.2s ease;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: wldFadeIn 0.15s ease-out;
 }
 
 @keyframes wldFadeIn {
@@ -694,17 +696,19 @@
 .wld-drawer-panel {
   background: #ffffff;
   width: 100%;
-  max-width: 420px;
-  height: 100%;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
+  max-width: 520px;
+  max-height: calc(100vh - 60px);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
-  animation: wldSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  animation: wldModalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes wldSlideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+@keyframes wldModalPop {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .wld-drawer-header {

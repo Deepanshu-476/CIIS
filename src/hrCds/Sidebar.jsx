@@ -1815,16 +1815,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const [error, setError] = useState(null);
   const [clientCompanies, setClientCompanies] = useState([]);
   const [selectedClientCompanyId, setSelectedClientCompanyId] = useState("");
-  const [clientCompanyDropdownOpen, setClientCompanyDropdownOpen] = useState(true);
-  const [telecallerWorkspaceOpen, setTelecallerWorkspaceOpen] = useState(true);
-  useEffect(() => {
-    if (/\/telecaller\/(call-dashboard|assigned-calls|todays-calls|pending-calls|scheduled-calls|completed-calls|call-history|call-workspace|lead-detail)(\/|$)/i.test(location.pathname)) {
-      setTelecallerWorkspaceOpen(true);
-    }
-  }, [location.pathname]);
-  const [openAdminCrmGroups, setOpenAdminCrmGroups] = useState(() => new Set(
-    location.pathname.includes('/crm/admin/add-lead') ? ['lead-management'] : ['call-management']
-  ));
+  const [clientCompanyDropdownOpen, setClientCompanyDropdownOpen] = useState(false);
+  const [telecallerWorkspaceOpen, setTelecallerWorkspaceOpen] = useState(false);
+  const [openAdminCrmGroups, setOpenAdminCrmGroups] = useState(() => new Set());
   const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
   const [seenBadgeCounts, setSeenBadgeCounts] = useState({});
   const sidebarRef = useRef(null);
@@ -1905,7 +1898,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         if (!cancelled) {
           setClientCompanies(companies);
           setSelectedClientCompanyId(String(selectedId));
-          setClientCompanyDropdownOpen(companies.length > 0);
+          // keep clientCompanyDropdown closed by default
         }
       } catch (clientCompanyError) {
         console.warn("Could not load client companies for sidebar:", clientCompanyError.message);
@@ -2531,12 +2524,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         return items.filter(item => {
           const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
           return roleConfiguredPaths.has(itemPath)
+            || (isPageAccessAdmin && isCrmPage(itemPath))
             || (!isCrmPage(item?.path) && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
         });
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
         if (roleConfiguredPaths.has(itemPath)) return true;
+        // Keep privileged-role sidebar behavior aligned with PageAccessGate,
+        // which already grants these roles access to CRM routes. Company-plan
+        // filtering runs before this check and still controls CRM availability.
+        if (isPageAccessAdmin && isCrmPage(itemPath)) return true;
         // CRM visibility is page-specific unless the page is explicitly present
         // in the saved sidebar config for this user's role.
         if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
@@ -2551,7 +2549,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     };
 
     if (isClientUser) {
-      return removeHiddenSidebarItems([...clientMenuItems]);
+      return removeHiddenSidebarItems(filterItemsByCompanyAccess(clientMenuItems, companyData));
     }
 
     if (isSuperAdminWithManagement) {

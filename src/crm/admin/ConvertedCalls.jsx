@@ -16,27 +16,15 @@ import {
 import axiosInstance from '../../utils/axiosConfig';
 import './ConvertedCalls.css';
 
-const initialConvertedCalls = [
-  {
-    id: 1,
-    leadId: '#LD-007',
-    name: 'Zara Nair',
-    note: 'Enrolled in 1-Year JEE Intensive Program',
-    phone: '9876543210',
-    source: 'Instagram',
-    leadType: 'JEE',
-    leadStatus: 'Converted',
-    outcome: 'Converted',
-    callType: 'Outbound',
-    completedAt: '23 Aug 2026 11:15 AM',
-    attempts: 1,
-    assignedTo: 'Telecaller 2',
-    conversionValue: '₹45,000',
-    enrolledCourse: 'JEE Mains & Advanced 2027',
-    paymentStatus: 'Paid (Online)',
-    remarks: 'Customer completed online payment after phone counseling session.'
-  }
-];
+const getLocalDateString = (d) => {
+  if (!d) return '';
+  const dateObj = new Date(d);
+  if (Number.isNaN(dateObj.getTime())) return '';
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const ConvertedCalls = () => {
   const [calls, setCalls] = useState([]);
@@ -63,6 +51,7 @@ const ConvertedCalls = () => {
             outcome: 'Converted',
             callType: 'Outbound',
             completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
+            rawCompletedDate: lead.updatedAt ? getLocalDateString(lead.updatedAt) : '',
             attempts: lead.callHistory?.length || 0,
             assignedTo: lead.assignedTo?.name || 'Unassigned',
             conversionValue: lead.expectedValue ? `₹${lead.expectedValue.toLocaleString('en-IN')}` : '—',
@@ -122,7 +111,7 @@ const ConvertedCalls = () => {
       if (appliedFilters.callType && call.callType !== appliedFilters.callType) return false;
       if (appliedFilters.source && call.source !== appliedFilters.source) return false;
       if (appliedFilters.leadType && call.leadType !== appliedFilters.leadType) return false;
-      if (appliedFilters.completedDate && !call.completedAt.includes(appliedFilters.completedDate)) return false;
+      if (appliedFilters.completedDate && call.rawCompletedDate !== appliedFilters.completedDate) return false;
 
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -146,7 +135,8 @@ const ConvertedCalls = () => {
 
   const totalConverted = calls.length;
   const inboundCount = calls.filter(c => c.callType === 'Inbound').length;
-  const convertedToday = 0;
+  const todayStr = getLocalDateString(new Date());
+  const convertedToday = calls.filter(c => c.rawCompletedDate === todayStr).length;
   const outboundCount = calls.filter(c => c.callType === 'Outbound').length;
 
   return (

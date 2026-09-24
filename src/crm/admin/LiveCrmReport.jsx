@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   FiBarChart2,
@@ -21,7 +21,8 @@ import {
   FiUserCheck,
   FiPieChart,
   FiArrowRight,
-  FiLayers
+  FiLayers,
+  FiCalendar
 } from 'react-icons/fi';
 import {
   ResponsiveContainer,
@@ -37,6 +38,134 @@ import {
 } from 'recharts';
 import api from '../../utils/axiosConfig';
 import './LiveCrmReport.css';
+
+const CHART_COLOR_MAP = {
+  calls: '#3b82f6',
+  totalCalls: '#3b82f6',
+  assignments: '#8b5cf6',
+  followups: '#10b981',
+  completed: '#10b981',
+  pending: '#f59e0b',
+  connected: '#10b981',
+  leads: '#6366f1',
+  qualified: '#10b981',
+  conversions: '#10b981',
+};
+
+// Sleek Floating Modern Tooltip for Report Charts
+function ModernChartTooltip({ active, payload, label }) {
+  if (!active || !payload || !payload.length) return null;
+  const numValues = payload
+    .map((p) => (typeof p.value === 'number' ? p.value : null))
+    .filter((v) => v !== null);
+  const total = numValues.reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="crm-modern-chart-tooltip">
+      {label && (
+        <div className="crm-tooltip-header">
+          <FiCalendar size={12} className="crm-tooltip-header-icon" />
+          <span className="crm-tooltip-title">{label}</span>
+          {payload.length > 1 && total > 0 && (
+            <span className="crm-tooltip-total-tag">{total.toLocaleString()} total</span>
+          )}
+        </div>
+      )}
+      <div className="crm-tooltip-body">
+        {payload.map((entry, idx) => {
+          const rawColor =
+            entry.color && !entry.color.startsWith('url')
+              ? entry.color
+              : entry.stroke && !entry.stroke.startsWith('url')
+              ? entry.stroke
+              : CHART_COLOR_MAP[entry.dataKey] || '#6366f1';
+          const val = typeof entry.value === 'number' ? entry.value : Number(entry.value) || 0;
+          const pct = total > 0 && payload.length > 1 ? Math.round((val / total) * 100) : null;
+          return (
+            <div key={idx} className="crm-tooltip-row">
+              <span
+                className="crm-tooltip-dot"
+                style={{ backgroundColor: rawColor, boxShadow: `0 0 6px ${rawColor}80` }}
+              />
+              <span className="crm-tooltip-label">{entry.name || entry.dataKey}:</span>
+              <span className="crm-tooltip-value">
+                {val.toLocaleString()}
+                {pct !== null && <span className="crm-tooltip-pct-badge">({pct}%)</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Resilient Auto-Sizing Chart Container that guarantees non-zero rendering & responsiveness
+function ChartAutoContainer({ height = 310, children }) {
+  const containerRef = useRef(null);
+  const [chartWidth, setChartWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return Math.max(320, window.innerWidth - 300);
+    }
+    return 700;
+  });
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const clientW = el.clientWidth;
+      const rectW = el.getBoundingClientRect().width;
+      const w = Math.floor(clientW || rectW || 0);
+      if (w > 20) {
+        setChartWidth(w);
+      }
+    };
+
+    measure();
+    const rafId = requestAnimationFrame(measure);
+    const tId = setTimeout(measure, 50);
+
+    let ro;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const w = Math.floor(entry.contentRect?.width || el.clientWidth || 0);
+          if (w > 20) {
+            setChartWidth(w);
+          }
+        }
+      });
+      ro.observe(el);
+    }
+
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(tId);
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="crm-chart-canvas-wrap"
+      style={{ width: '100%', minWidth: 0, height, position: 'relative' }}
+    >
+      {React.Children.map(children, (child) => {
+        if (!React.isValidElement(child)) return child;
+        return React.cloneElement(child, {
+          key: child.key || `${chartWidth}-${height}`,
+          width: chartWidth,
+          height: height
+        });
+      })}
+    </div>
+  );
+}
 
 // 7 Active High-Value Report Types
 const REPORT_TABS = [
@@ -162,46 +291,19 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
     setCurrentPage(1);
   }, [type]);
 
-  // Activity trend view mode: 'bar' | 'area'
-  const [trendViewMode, setTrendViewMode] = useState('bar');
+  // Chart view modes per tab: 'bar' | 'area'
+  const [chartViewModes, setChartViewModes] = useState({
+    'user-activity': 'bar',
+    'calls': 'area',
+    'leads': 'bar',
+    'follow-ups': 'bar',
+    'team-performance': 'bar'
+  });
 
-  // Direct container width measurement for Recharts rendering stability
-  const chartContainerRef = useRef(null);
-  const [chartWidth, setChartWidth] = useState(0);
-
-  useEffect(() => {
-    const updateSize = () => {
-      if (chartContainerRef.current) {
-        const rect = chartContainerRef.current.getBoundingClientRect();
-        const clientW = chartContainerRef.current.clientWidth;
-        const w = clientW || rect.width || 0;
-        if (w > 0) setChartWidth(Math.floor(w));
-      }
-    };
-    updateSize();
-    const frameId = requestAnimationFrame(updateSize);
-    const timerId = setTimeout(updateSize, 120);
-
-    let ro;
-    if (typeof ResizeObserver !== 'undefined' && chartContainerRef.current) {
-      ro = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const w = entry.contentRect.width;
-          if (w > 0) setChartWidth(Math.floor(w));
-        }
-      });
-      ro.observe(chartContainerRef.current);
-    }
-    window.addEventListener('resize', updateSize);
-    return () => {
-      cancelAnimationFrame(frameId);
-      clearTimeout(timerId);
-      if (ro) ro.disconnect();
-      window.removeEventListener('resize', updateSize);
-    };
-  }, [type, data.chartData]);
-
-  const activeChartWidth = chartWidth > 80 ? chartWidth : 650;
+  const currentViewMode = chartViewModes[type] || (type === 'calls' ? 'area' : 'bar');
+  const setTabChartMode = (mode) => {
+    setChartViewModes((prev) => ({ ...prev, [type]: mode }));
+  };
 
   // Fetch report data
   const load = useCallback(async () => {
@@ -214,11 +316,32 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
       });
 
       const resData = response.data || {};
+      const rawChart = Array.isArray(resData.chartData) ? resData.chartData : [];
+      const normalizedChart = rawChart.map((item) => {
+        const dateVal = item.day || item.date || item.name || '';
+        return {
+          ...item,
+          day: dateVal,
+          date: dateVal,
+          name: item.name || dateVal,
+          totalCalls: Number(item.totalCalls) || 0,
+          connected: Number(item.connected) || 0,
+          calls: Number(item.calls != null ? item.calls : item.totalCalls) || 0,
+          assignments: Number(item.assignments) || 0,
+          followups: Number(item.followups) || 0,
+          completed: Number(item.completed) || 0,
+          pending: Number(item.pending) || 0,
+          leads: Number(item.leads) || 0,
+          qualified: Number(item.qualified) || 0,
+          conversions: Number(item.conversions) || 0,
+        };
+      });
+
       setData({
         summary: Array.isArray(resData.summary) ? resData.summary : [],
         columns: Array.isArray(resData.columns) ? resData.columns : [],
         rows: Array.isArray(resData.rows) ? resData.rows : [],
-        chartData: Array.isArray(resData.chartData) ? resData.chartData : [],
+        chartData: normalizedChart,
         funnelStages: Array.isArray(resData.funnelStages) ? resData.funnelStages : [],
         userStats: Array.isArray(resData.userStats) ? resData.userStats : [],
         breakdown: Array.isArray(resData.breakdown) ? resData.breakdown : [],
@@ -454,6 +577,89 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
 
     return [];
   }, [type, overviewMetrics, processedRows, data.summary]);
+
+  // Chart-specific summary metrics for instant in-card telemetry insight
+  const chartHighlights = useMemo(() => {
+    const chartList = data.chartData || [];
+
+    if (type === 'user-activity') {
+      const total = processedRows.length;
+      const calls = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('call')).length;
+      const assigns = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('assign')).length;
+      const followups = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('follow')).length;
+      const uniqueUsers = new Set(processedRows.map((r) => r.User).filter((u) => u && u !== '—')).size;
+      return [
+        { label: 'Total Events', value: total, color: 'purple', icon: FiActivity },
+        { label: 'Calls Logged', value: calls, color: 'blue', icon: FiPhoneCall },
+        { label: 'Assignments', value: assigns, color: 'indigo', icon: FiUserCheck },
+        { label: 'Follow-ups', value: followups, color: 'emerald', icon: FiClock },
+        { label: 'Active Users', value: uniqueUsers, color: 'cyan', icon: FiUsers },
+      ];
+    }
+
+    if (type === 'calls') {
+      const totalCalls = chartList.reduce((sum, r) => sum + (Number(r.totalCalls) || 0), 0) || processedRows.length;
+      const connected = chartList.reduce((sum, r) => sum + (Number(r.connected) || 0), 0) || processedRows.filter((r) => String(r.Outcome || '').toLowerCase().includes('answered')).length;
+      const missed = Math.max(0, totalCalls - connected);
+      const rate = totalCalls > 0 ? `${Math.round((connected / totalCalls) * 100)}%` : '0%';
+      return [
+        { label: 'Total Calls Logged', value: totalCalls, color: 'blue', icon: FiPhoneCall },
+        { label: 'Answered / Connected', value: connected, color: 'emerald', icon: FiCheckCircle },
+        { label: 'Missed / Rejected', value: missed, color: 'rose', icon: FiAlertCircle },
+        { label: 'Connectivity Rate', value: rate, color: 'cyan', icon: FiTrendingUp },
+      ];
+    }
+
+    if (type === 'leads') {
+      const totalLeads = chartList.reduce((sum, r) => sum + (Number(r.leads) || 0), 0) || processedRows.length;
+      const qualified = chartList.reduce((sum, r) => sum + (Number(r.qualified) || 0), 0) || processedRows.filter((r) => ['qualified', 'interested', 'converted'].some((k) => String(r.Status || '').toLowerCase().includes(k))).length;
+      const rate = totalLeads > 0 ? `${Math.round((qualified / totalLeads) * 100)}%` : '0%';
+      let topSource = '—';
+      if (chartList.length > 0) {
+        const sorted = [...chartList].sort((a, b) => (Number(b.leads) || 0) - (Number(a.leads) || 0));
+        if (sorted[0]?.name) topSource = `${sorted[0].name} (${sorted[0].leads})`;
+      }
+      return [
+        { label: 'Total Leads in Scope', value: totalLeads, color: 'indigo', icon: FiUsers },
+        { label: 'Qualified / Interested', value: qualified, color: 'emerald', icon: FiCheckCircle },
+        { label: 'Qualification Rate', value: rate, color: 'cyan', icon: FiTrendingUp },
+        { label: 'Top Acquisition Channel', value: topSource, color: 'purple', icon: FiLayers },
+      ];
+    }
+
+    if (type === 'follow-ups') {
+      const total = chartList.reduce((sum, r) => sum + ((Number(r.completed) || 0) + (Number(r.pending) || 0)), 0) || processedRows.length;
+      const completed = chartList.reduce((sum, r) => sum + (Number(r.completed) || 0), 0) || processedRows.filter((r) => ['done', 'completed'].some((k) => String(r.Status || '').toLowerCase().includes(k))).length;
+      const pending = chartList.reduce((sum, r) => sum + (Number(r.pending) || 0), 0) || processedRows.filter((r) => String(r.Status || '').toLowerCase().includes('pending')).length;
+      const rate = total > 0 ? `${Math.round((completed / total) * 100)}%` : '0%';
+      return [
+        { label: 'Total Follow-ups', value: total, color: 'purple', icon: FiClock },
+        { label: 'Completed Action', value: completed, color: 'emerald', icon: FiCheckCircle },
+        { label: 'Pending Action', value: pending, color: 'amber', icon: FiAlertCircle },
+        { label: 'Completion Rate', value: rate, color: 'cyan', icon: FiTrendingUp },
+      ];
+    }
+
+    if (type === 'team-performance') {
+      const agents = chartList.length || processedRows.length;
+      const calls = chartList.reduce((sum, r) => sum + (Number(r.calls) || 0), 0) || processedRows.reduce((s, r) => s + (Number(r.Calls) || 0), 0);
+      const conversions = chartList.reduce((sum, r) => sum + (Number(r.conversions) || 0), 0) || processedRows.reduce((s, r) => s + (Number(r.Converted) || 0), 0);
+      const rate = calls > 0 ? `${((conversions / calls) * 100).toFixed(1)}%` : '0%';
+      let topAgent = '—';
+      if (chartList.length > 0) {
+        const sorted = [...chartList].sort((a, b) => (Number(b.conversions) || 0) - (Number(a.conversions) || 0));
+        if (sorted[0]?.agent) topAgent = `${sorted[0].agent} (${sorted[0].conversions})`;
+      }
+      return [
+        { label: 'Active Telecallers', value: agents, color: 'purple', icon: FiUsers },
+        { label: 'Team Calls Made', value: calls, color: 'blue', icon: FiPhoneCall },
+        { label: 'Total Conversions', value: conversions, color: 'emerald', icon: FiAward },
+        { label: 'Top Closer', value: topAgent, color: 'cyan', icon: FiTrendingUp },
+      ];
+    }
+
+    return [];
+  }, [type, data.chartData, processedRows]);
 
   // Clean cell badge renderer
   const renderCellContent = (column, value) => {
@@ -793,15 +999,15 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
                 <div className="crm-view-mode-toggle">
                   <button
                     type="button"
-                    className={`crm-toggle-btn ${trendViewMode === 'bar' ? 'active' : ''}`}
-                    onClick={() => setTrendViewMode('bar')}
+                    className={`crm-toggle-btn ${currentViewMode === 'bar' ? 'active' : ''}`}
+                    onClick={() => setTabChartMode('bar')}
                   >
                     Bars
                   </button>
                   <button
                     type="button"
-                    className={`crm-toggle-btn ${trendViewMode === 'area' ? 'active' : ''}`}
-                    onClick={() => setTrendViewMode('area')}
+                    className={`crm-toggle-btn ${currentViewMode === 'area' ? 'active' : ''}`}
+                    onClick={() => setTabChartMode('area')}
                   >
                     Area
                   </button>
@@ -812,64 +1018,93 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
               </div>
             </div>
 
+            {/* In-Card Quick KPI Summary Strip */}
+            {chartHighlights.length > 0 && (
+              <div className="crm-chart-stat-strip">
+                {chartHighlights.map((stat, i) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div key={i} className={`crm-chart-stat-pill ${stat.color}`}>
+                      <div className="crm-chart-stat-icon">
+                        <Icon size={14} />
+                      </div>
+                      <div className="crm-chart-stat-info">
+                        <span className="crm-chart-stat-val">
+                          {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+                        </span>
+                        <span className="crm-chart-stat-lbl">{stat.label}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {data.chartData && data.chartData.length > 0 ? (
-              <div ref={chartContainerRef} className="crm-chart-canvas-wrap">
-                {trendViewMode === 'bar' ? (
+              <ChartAutoContainer height={310}>
+                {currentViewMode === 'bar' ? (
                   <BarChart
-                    width={activeChartWidth}
-                    height={280}
                     data={data.chartData}
-                    margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                    />
-                    <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
-                    <Bar dataKey="calls" name="Calls Logged" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="assignments" name="Lead Assignments" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="followups" name="Follow-ups" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                ) : (
-                  <AreaChart
-                    width={activeChartWidth}
-                    height={280}
-                    data={data.chartData}
-                    margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
+                    margin={{ top: 12, right: 16, left: 0, bottom: 4 }}
+                    barGap={4}
                   >
                     <defs>
-                      <linearGradient id="actCallsGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      <linearGradient id="barCallsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8} />
                       </linearGradient>
-                      <linearGradient id="actAssignGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      <linearGradient id="barAssignGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#a855f7" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.8} />
                       </linearGradient>
-                      <linearGradient id="actFollowGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      <linearGradient id="barFollowGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#047857" stopOpacity={0.8} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                    />
-                    <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
-                    <Area type="monotone" dataKey="calls" name="Calls Logged" stroke="#3b82f6" strokeWidth={2.5} fill="url(#actCallsGrad)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                    <Area type="monotone" dataKey="assignments" name="Lead Assignments" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#actAssignGrad)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                    <Area type="monotone" dataKey="followups" name="Follow-ups" stroke="#10b981" strokeWidth={2.5} fill="url(#actFollowGrad)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <XAxis dataKey="date" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Bar dataKey="calls" name="Calls Logged" fill="url(#barCallsGrad)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                    <Bar dataKey="assignments" name="Lead Assignments" fill="url(#barAssignGrad)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                    <Bar dataKey="followups" name="Follow-ups" fill="url(#barFollowGrad)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                  </BarChart>
+                ) : (
+                  <AreaChart
+                    data={data.chartData}
+                    margin={{ top: 12, right: 16, left: 0, bottom: 4 }}
+                  >
+                    <defs>
+                      <linearGradient id="actCallsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="actAssignGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="actFollowGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Area type="monotone" dataKey="calls" name="Calls Logged" stroke="#3b82f6" strokeWidth={2.8} fill="url(#actCallsGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#3b82f6' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                    <Area type="monotone" dataKey="assignments" name="Lead Assignments" stroke="#8b5cf6" strokeWidth={2.8} fill="url(#actAssignGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#8b5cf6' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                    <Area type="monotone" dataKey="followups" name="Follow-ups" stroke="#10b981" strokeWidth={2.8} fill="url(#actFollowGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
                   </AreaChart>
                 )}
-              </div>
+              </ChartAutoContainer>
             ) : (
               <div className="crm-chart-empty-state">
                 <FiActivity size={32} color="#94a3b8" />
-                <p>No activity records found for the selected period.</p>
+                <p>No activity records found for the selected observation window.</p>
               </div>
             )}
           </div>
@@ -883,13 +1118,47 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
               </div>
             </div>
 
+            {/* Multi-Segment Proportion Bar */}
+            {(() => {
+              const total = processedRows.length || 1;
+              const callsCount = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('call')).length;
+              const assignsCount = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('assign')).length;
+              const followCount = processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('follow')).length;
+              const callsPct = Math.round((callsCount / total) * 100);
+              const assignsPct = Math.round((assignsCount / total) * 100);
+              const followPct = Math.max(0, 100 - callsPct - assignsPct);
+
+              return (
+                <div className="crm-multi-progress-track">
+                  <div className="crm-multi-bar calls" style={{ width: `${callsPct}%` }} title={`Calls: ${callsPct}%`} />
+                  <div className="crm-multi-bar assigns" style={{ width: `${assignsPct}%` }} title={`Assignments: ${assignsPct}%`} />
+                  <div className="crm-multi-bar followups" style={{ width: `${followPct}%` }} title={`Follow-ups: ${followPct}%`} />
+                </div>
+              );
+            })()}
+
             {/* Distribution Progress Bars */}
             <div className="crm-activity-share-list">
-              {(data.breakdown?.length ? data.breakdown : [
-                { name: 'Calls Logged', count: processedRows.filter(r => String(r.Activity||'').toLowerCase().includes('call')).length, color: '#3b82f6' },
-                { name: 'Lead Assignments', count: processedRows.filter(r => String(r.Activity||'').toLowerCase().includes('assign')).length, color: '#8b5cf6' },
-                { name: 'Follow-ups Logged', count: processedRows.filter(r => String(r.Activity||'').toLowerCase().includes('follow')).length, color: '#10b981' }
-              ]).map((item) => {
+              {(data.breakdown?.length
+                ? data.breakdown
+                : [
+                    {
+                      name: 'Calls Logged',
+                      count: processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('call')).length,
+                      color: '#3b82f6'
+                    },
+                    {
+                      name: 'Lead Assignments',
+                      count: processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('assign')).length,
+                      color: '#8b5cf6'
+                    },
+                    {
+                      name: 'Follow-ups Logged',
+                      count: processedRows.filter((r) => String(r.Activity || '').toLowerCase().includes('follow')).length,
+                      color: '#10b981'
+                    }
+                  ]
+              ).map((item) => {
                 const total = processedRows.length || 1;
                 const pct = Math.round((item.count / total) * 100) || 0;
                 return (
@@ -914,100 +1183,306 @@ export default function LiveCrmReport({ type = 'overview', title = 'Reports Over
             {/* Active Telecallers Ranking */}
             <div className="crm-telecaller-ranking-box">
               <h4 className="crm-sub-section-title">Active Team Members</h4>
-              {(data.userStats?.length ? data.userStats : []).slice(0, 5).map((user, idx) => (
-                <div key={user.user || idx} className="crm-telecaller-rank-row">
-                  <div className="crm-rank-left">
-                    <span className="crm-rank-badge">{idx + 1}</span>
-                    <span className="crm-rank-name">{user.user}</span>
+              {(data.userStats?.length ? data.userStats : []).slice(0, 5).map((user, idx) => {
+                const medalClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
+                const initials = (user.user || 'U')
+                  .split(' ')
+                  .map((w) => w[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase();
+
+                return (
+                  <div key={user.user || idx} className="crm-telecaller-rank-row">
+                    <div className="crm-rank-left">
+                      <span className={`crm-rank-badge ${medalClass}`}>{idx + 1}</span>
+                      <span className="crm-rank-avatar">{initials}</span>
+                      <span className="crm-rank-name">{user.user}</span>
+                    </div>
+                    <div className="crm-rank-right">
+                      <span className="crm-rank-count">{user.total} actions</span>
+                      <span className="crm-rank-pill">{user.calls} calls · {user.assignments} assigns · {user.followups} flws</span>
+                    </div>
                   </div>
-                  <div className="crm-rank-right">
-                    <span className="crm-rank-count">{user.total} actions</span>
-                    <span className="crm-rank-pill">{user.calls} calls · {user.assignments} assigns · {user.followups} flws</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {(!data.userStats || !data.userStats.length) && (
                 <div className="crm-rank-empty">No active user telemetry for this range.</div>
               )}
             </div>
           </div>
         </div>
-      ) : type !== 'overview' && data.chartData?.length ? (
+      ) : type !== 'overview' ? (
         <div className="crm-visual-card">
           <div className="crm-card-header">
             <div>
-              <h3 className="crm-card-title">{title} Analytics Trend</h3>
-              <p className="crm-card-desc">Telemetry metrics over observation period</p>
+              <h3 className="crm-card-title">
+                {type === 'calls'
+                  ? 'Call Reports Analytics Trend'
+                  : type === 'leads'
+                  ? 'Lead Reports Analytics Trend'
+                  : type === 'follow-ups'
+                  ? 'Follow-Up Reports Analytics Trend'
+                  : type === 'team-performance'
+                  ? 'Team Performance Analytics Trend'
+                  : `${title} Analytics Trend`}
+              </h3>
+              <p className="crm-card-desc">
+                {type === 'calls'
+                  ? 'Telemetry metrics and connectivity over observation period'
+                  : type === 'leads'
+                  ? 'Channel-wise acquisition volume and qualification conversion'
+                  : type === 'follow-ups'
+                  ? 'Completion velocity vs pending tasks over observation period'
+                  : type === 'team-performance'
+                  ? 'Telecaller call volume, conversions, and quota achievement'
+                  : 'Telemetry metrics over observation period'}
+              </p>
+            </div>
+            <div className="crm-header-right-group">
+              <div className="crm-view-mode-toggle">
+                <button
+                  type="button"
+                  className={`crm-toggle-btn ${currentViewMode === 'bar' ? 'active' : ''}`}
+                  onClick={() => setTabChartMode('bar')}
+                >
+                  Bars
+                </button>
+                <button
+                  type="button"
+                  className={`crm-toggle-btn ${currentViewMode === 'area' ? 'active' : ''}`}
+                  onClick={() => setTabChartMode('area')}
+                >
+                  Area
+                </button>
+              </div>
+              <span className="crm-activity-total-pill">
+                {data.chartData?.length || 0}{' '}
+                {type === 'team-performance' ? 'members' : type === 'leads' ? 'sources' : 'intervals'}
+              </span>
             </div>
           </div>
 
-          <div ref={type !== 'user-activity' ? chartContainerRef : undefined} className="crm-chart-canvas-wrap" style={{ height: 260 }}>
-            {type === 'leads' ? (
-              <BarChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                />
-                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                <Bar dataKey="leads" name="Total Leads" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="qualified" name="Qualified / Interested" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            ) : type === 'calls' ? (
-              <AreaChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="callsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="connGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                />
-                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                <Area type="monotone" dataKey="totalCalls" name="Total Calls" stroke="#3b82f6" strokeWidth={2} fill="url(#callsGrad)" />
-                <Area type="monotone" dataKey="connected" name="Connected Calls" stroke="#10b981" strokeWidth={2} fill="url(#connGrad)" />
-              </AreaChart>
-            ) : type === 'team-performance' ? (
-              <BarChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="agent" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }}
-                />
-                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                <Bar dataKey="calls" name="Calls Made" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="conversions" name="Conversions" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            ) : (
-              <BarChart width={activeChartWidth} height={260} data={data.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey={Object.keys(data.chartData[0] || {})[0]} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderRadius: 8, border: 'none', color: '#fff' }} />
-                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                {Object.keys(data.chartData[0] || {})
-                  .filter((k) => k !== Object.keys(data.chartData[0])[0])
-                  .map((k, i) => (
-                    <Bar
-                      key={k}
-                      dataKey={k}
-                      fill={['#6366f1', '#10b981', '#f59e0b', '#06b6d4'][i % 4]}
-                      radius={[4, 4, 0, 0]}
-                    />
-                  ))}
-              </BarChart>
-            )}
-          </div>
+          {/* In-Card Quick KPI Summary Strip */}
+          {chartHighlights.length > 0 && (
+            <div className="crm-chart-stat-strip">
+              {chartHighlights.map((stat, i) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={i} className={`crm-chart-stat-pill ${stat.color}`}>
+                    <div className="crm-chart-stat-icon">
+                      <Icon size={14} />
+                    </div>
+                    <div className="crm-chart-stat-info">
+                      <span className="crm-chart-stat-val">
+                        {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+                      </span>
+                      <span className="crm-chart-stat-lbl">{stat.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {data.chartData && data.chartData.length > 0 ? (
+            <ChartAutoContainer height={310}>
+              {type === 'calls' ? (
+                currentViewMode === 'bar' ? (
+                  <BarChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }} barGap={4}>
+                    <defs>
+                      <linearGradient id="callsConnBarGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#047857" stopOpacity={0.8} />
+                      </linearGradient>
+                      <linearGradient id="callsTotalBarGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="day" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Bar dataKey="totalCalls" name="Total Calls" fill="url(#callsTotalBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="connected" name="Connected Calls" fill="url(#callsConnBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                  </BarChart>
+                ) : (
+                  <AreaChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                    <defs>
+                      <linearGradient id="callsTotalAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="callsConnAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="day" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Area type="monotone" dataKey="totalCalls" name="Total Calls" stroke="#3b82f6" strokeWidth={2.8} fill="url(#callsTotalAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#3b82f6' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                    <Area type="monotone" dataKey="connected" name="Connected Calls" stroke="#10b981" strokeWidth={2.8} fill="url(#callsConnAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                  </AreaChart>
+                )
+              ) : type === 'leads' ? (
+                currentViewMode === 'bar' ? (
+                  <BarChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }} barGap={4}>
+                    <defs>
+                      <linearGradient id="leadTotalGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#4338ca" stopOpacity={0.8} />
+                      </linearGradient>
+                      <linearGradient id="leadQualGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#047857" stopOpacity={0.8} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Bar dataKey="leads" name="Total Inquiries" fill="url(#leadTotalGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="qualified" name="Qualified / Interested" fill="url(#leadQualGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                  </BarChart>
+                ) : (
+                  <AreaChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                    <defs>
+                      <linearGradient id="leadTotalAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="leadQualAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Area type="monotone" dataKey="leads" name="Total Inquiries" stroke="#6366f1" strokeWidth={2.8} fill="url(#leadTotalAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#6366f1' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                    <Area type="monotone" dataKey="qualified" name="Qualified / Interested" stroke="#10b981" strokeWidth={2.8} fill="url(#leadQualAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                  </AreaChart>
+                )
+              ) : type === 'follow-ups' ? (
+                currentViewMode === 'bar' ? (
+                  <BarChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }} barGap={4}>
+                    <defs>
+                      <linearGradient id="followDoneBarGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#047857" stopOpacity={0.8} />
+                      </linearGradient>
+                      <linearGradient id="followPendingBarGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.8} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="day" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Bar dataKey="completed" name="Completed Follow-ups" fill="url(#followDoneBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="pending" name="Pending Follow-ups" fill="url(#followPendingBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                  </BarChart>
+                ) : (
+                  <AreaChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                    <defs>
+                      <linearGradient id="followDoneAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="followPendingAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="day" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Area type="monotone" dataKey="completed" name="Completed Follow-ups" stroke="#10b981" strokeWidth={2.8} fill="url(#followDoneAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                    <Area type="monotone" dataKey="pending" name="Pending Follow-ups" stroke="#f59e0b" strokeWidth={2.8} fill="url(#followPendingAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#f59e0b' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                  </AreaChart>
+                )
+              ) : type === 'team-performance' ? (
+                currentViewMode === 'bar' ? (
+                  <BarChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }} barGap={4}>
+                    <defs>
+                      <linearGradient id="teamCallsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#4338ca" stopOpacity={0.8} />
+                      </linearGradient>
+                      <linearGradient id="teamConvGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#047857" stopOpacity={0.8} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="agent" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Bar dataKey="calls" name="Calls Made" fill="url(#teamCallsGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="conversions" name="Conversions" fill="url(#teamConvGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                  </BarChart>
+                ) : (
+                  <AreaChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                    <defs>
+                      <linearGradient id="teamCallsAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="teamConvAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="agent" tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                    <Tooltip content={<ModernChartTooltip />} />
+                    <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                    <Area type="monotone" dataKey="calls" name="Calls Made" stroke="#6366f1" strokeWidth={2.8} fill="url(#teamCallsAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#6366f1' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                    <Area type="monotone" dataKey="conversions" name="Conversions" stroke="#10b981" strokeWidth={2.8} fill="url(#teamConvAreaGrad)" dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#10b981' }} activeDot={{ r: 7, stroke: '#ffffff', strokeWidth: 2.5 }} />
+                  </AreaChart>
+                )
+              ) : (
+                <BarChart data={data.chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey={Object.keys(data.chartData[0] || {})[0]} tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 500 }} axisLine={{ stroke: '#e2e8f0' }} />
+                  <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} allowDecimals={false} />
+                  <Tooltip content={<ModernChartTooltip />} />
+                  <Legend verticalAlign="bottom" align="center" wrapperStyle={{ paddingTop: 14, fontSize: 12, fontWeight: 500 }} iconType="circle" />
+                  {Object.keys(data.chartData[0] || {})
+                    .filter((k) => k !== Object.keys(data.chartData[0])[0])
+                    .map((k, i) => (
+                      <Bar
+                        key={k}
+                        dataKey={k}
+                        fill={['#6366f1', '#10b981', '#f59e0b', '#06b6d4'][i % 4]}
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={32}
+                      />
+                    ))}
+                </BarChart>
+              )}
+            </ChartAutoContainer>
+          ) : (
+            <div className="crm-chart-empty-state">
+              <FiBarChart2 size={32} color="#94a3b8" />
+              <p>No telemetry data found for the selected observation window.</p>
+            </div>
+          )}
         </div>
       ) : null}
 

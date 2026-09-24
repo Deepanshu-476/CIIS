@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Phone, Clock, Hourglass } from "lucide-react";
+import { Phone, Clock, Hourglass, PhoneCall, ArrowRight } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -113,8 +113,8 @@ export default function Dashboard() {
       value: enriched.length,
       Icon: Phone,
       tone: "purple",
-      changeText: "Recorded calls",
-      changeTone: "green"
+      changeText: enriched.length > 0 ? "Recorded calls" : "No calls recorded",
+      changeTone: enriched.length > 0 ? "green" : "gray"
     },
     {
       label: "In Queue",
@@ -129,16 +129,16 @@ export default function Dashboard() {
       value: today.length,
       Icon: Phone,
       tone: "teal",
-      changeText: "Recorded today",
-      changeTone: "green"
+      changeText: today.length > 0 ? "Recorded today" : "No calls today",
+      changeTone: today.length > 0 ? "green" : "gray"
     },
     {
       label: "Pending",
       value: pending.length,
       Icon: Hourglass,
       tone: "pink",
-      changeText: "Awaiting first call",
-      changeTone: "pink"
+      changeText: pending.length > 0 ? "Awaiting first call" : "Queue clear",
+      changeTone: pending.length > 0 ? "pink" : "green"
     }
   ], [enriched, assigned, today, pending]);
 
@@ -225,101 +225,124 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="haps-chart-legend-center">
-              <span
-                className={`haps-legend-item ${!activeSeries.calls ? "dimmed" : ""}`}
-                onClick={() => toggleSeries("calls")}
-                title="Click to toggle Calls Made"
-              >
-                <span className="haps-legend-box calls-made" />
-                <span className="haps-legend-text">Calls Made</span>
-              </span>
-              <span
-                className={`haps-legend-item ${!activeSeries.connected ? "dimmed" : ""}`}
-                onClick={() => toggleSeries("connected")}
-                title="Click to toggle Connected"
-              >
-                <span className="haps-legend-box connected" />
-                <span className="haps-legend-text">Connected</span>
-              </span>
-            </div>
-
-            {periodStats.totalCalls === 0 && (
-              <div className="tc-trend-empty-hint">
-                <span>No call activity recorded in this {timeframe === "7d" ? "7-day" : "30-day"} timeframe</span>
+            {periodStats.totalCalls > 0 && (
+              <div className="haps-chart-legend-center">
+                <span
+                  className={`haps-legend-item ${!activeSeries.calls ? "dimmed" : ""}`}
+                  onClick={() => toggleSeries("calls")}
+                  title="Click to toggle Calls Made"
+                >
+                  <span className="haps-legend-box calls-made" />
+                  <span className="haps-legend-text">Calls Made</span>
+                </span>
+                <span
+                  className={`haps-legend-item ${!activeSeries.connected ? "dimmed" : ""}`}
+                  onClick={() => toggleSeries("connected")}
+                  title="Click to toggle Connected"
+                >
+                  <span className="haps-legend-box connected" />
+                  <span className="haps-legend-text">Connected</span>
+                </span>
               </div>
             )}
 
-            <div className="haps-chart-wrapper">
-              <ResponsiveContainer
-                width="100%"
-                height={235}
-                minWidth={0}
-                initialDimension={{ width: 600, height: 235 }}
-              >
-                <AreaChart
-                  data={trendChartData}
-                  margin={{ top: 12, right: 20, left: -15, bottom: 5 }}
+            {periodStats.totalCalls === 0 ? (
+              <div className="tc-trend-empty-state">
+                <div className="tc-trend-empty-icon-wrap">
+                  <PhoneCall size={26} className="tc-trend-empty-icon" />
+                </div>
+                <h4 className="tc-trend-empty-title">No Call Activity Recorded</h4>
+                <p className="tc-trend-empty-desc">
+                  No outbound or connected calls were logged in this {timeframe === "7d" ? "7-day" : "30-day"} timeframe. Call volume and connection trends will appear here as soon as calls are made.
+                </p>
+                <div className="tc-trend-empty-actions">
+                  {timeframe === "7d" && (
+                    <button
+                      type="button"
+                      className="tc-trend-empty-btn outline"
+                      onClick={() => setTimeframe("30d")}
+                    >
+                      Check 30 Days
+                    </button>
+                  )}
+                  <Link to={`${BASE}/assigned-calls`} className="tc-trend-empty-btn primary">
+                    Start Calling Leads
+                    <ArrowRight size={13} style={{ marginLeft: 6 }} />
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="haps-chart-wrapper">
+                <ResponsiveContainer
+                  width="100%"
+                  height={235}
+                  minWidth={0}
+                  initialDimension={{ width: 600, height: 235 }}
                 >
-                  <defs>
-                    <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6c5ffc" stopOpacity={0.28} />
-                      <stop offset="95%" stopColor="#6c5ffc" stopOpacity={0.0} />
-                    </linearGradient>
-                    <linearGradient id="connGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#05c3fb" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#05c3fb" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#eaedf1" vertical={false} horizontal={true} />
-                  <XAxis
-                    dataKey="day"
-                    stroke="#8c98a9"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: "#eaedf1" }}
-                    dy={6}
-                    interval={daysCount > 7 ? 4 : 0}
-                  />
-                  <YAxis
-                    stroke="#8c98a9"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    domain={[0, (dataMax) => Math.max(4, Math.ceil(dataMax * 1.25))]}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    content={<CustomChartTooltip />}
-                    cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
-                  />
-                  {activeSeries.calls && (
-                    <Area
-                      type="monotone"
-                      dataKey="calls"
-                      name="Calls Made"
-                      stroke="#6c5ffc"
-                      strokeWidth={2.5}
-                      fill="url(#callsGradient)"
-                      dot={{ r: 3.5, fill: "#ffffff", stroke: "#6c5ffc", strokeWidth: 2 }}
-                      activeDot={{ r: 5.5, fill: "#6c5ffc", stroke: "#ffffff", strokeWidth: 2.5 }}
+                  <AreaChart
+                    data={trendChartData}
+                    margin={{ top: 12, right: 20, left: -15, bottom: 5 }}
+                  >
+                    <defs>
+                      <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6c5ffc" stopOpacity={0.28} />
+                        <stop offset="95%" stopColor="#6c5ffc" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="connGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#05c3fb" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#05c3fb" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eaedf1" vertical={false} horizontal={true} />
+                    <XAxis
+                      dataKey="day"
+                      stroke="#8c98a9"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={{ stroke: "#eaedf1" }}
+                      dy={6}
+                      interval={daysCount > 7 ? 4 : 0}
                     />
-                  )}
-                  {activeSeries.connected && (
-                    <Area
-                      type="monotone"
-                      dataKey="connected"
-                      name="Connected"
-                      stroke="#05c3fb"
-                      strokeWidth={2.5}
-                      fill="url(#connGradient)"
-                      dot={{ r: 3.5, fill: "#ffffff", stroke: "#05c3fb", strokeWidth: 2 }}
-                      activeDot={{ r: 5.5, fill: "#05c3fb", stroke: "#ffffff", strokeWidth: 2.5 }}
+                    <YAxis
+                      stroke="#8c98a9"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={[0, (dataMax) => Math.max(4, Math.ceil(dataMax * 1.25))]}
+                      allowDecimals={false}
                     />
-                  )}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+                    <Tooltip
+                      content={<CustomChartTooltip />}
+                      cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
+                    />
+                    {activeSeries.calls && (
+                      <Area
+                        type="monotone"
+                        dataKey="calls"
+                        name="Calls Made"
+                        stroke="#6c5ffc"
+                        strokeWidth={2.5}
+                        fill="url(#callsGradient)"
+                        dot={{ r: 3.5, fill: "#ffffff", stroke: "#6c5ffc", strokeWidth: 2 }}
+                        activeDot={{ r: 5.5, fill: "#6c5ffc", stroke: "#ffffff", strokeWidth: 2.5 }}
+                      />
+                    )}
+                    {activeSeries.connected && (
+                      <Area
+                        type="monotone"
+                        dataKey="connected"
+                        name="Connected"
+                        stroke="#05c3fb"
+                        strokeWidth={2.5}
+                        fill="url(#connGradient)"
+                        dot={{ r: 3.5, fill: "#ffffff", stroke: "#05c3fb", strokeWidth: 2 }}
+                        activeDot={{ r: 5.5, fill: "#05c3fb", stroke: "#ffffff", strokeWidth: 2.5 }}
+                      />
+                    )}
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </Panel>
 

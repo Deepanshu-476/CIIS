@@ -397,7 +397,7 @@ body::-webkit-scrollbar {
 }
 
 .ciis-nav-inner > .ciis-logo .ciis-brand-logo {
-  transform: translateY(12px);
+  transform: translateY(0px);
 }
 
 .ciis-brand-logo-sm {

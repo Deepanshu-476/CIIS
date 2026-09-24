@@ -60,10 +60,20 @@ const Footer = () => {
           
           <h3 className="get-app-title">GET THE APP</h3>
           <div className="app-buttons">
-            <a href="#" className="app-button">
+            <a 
+              href="https://apps.apple.com/in/app/ciis-network/id6780872642" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="app-button"
+            >
               <FaApple className="app-icon" /> App Store
             </a>
-            <a href="#" className="app-button">
+            <a 
+              href="https://play.google.com/store/apps/details?id=ciisnetwork.in" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="app-button"
+            >
               <FaGooglePlay className="app-icon" /> Google Play
             </a>
           </div>

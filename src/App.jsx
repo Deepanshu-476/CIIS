@@ -58,10 +58,18 @@ const ActiveClientsOverview = lazy(() => import("./hrCds/pages/ActiveClientsOver
 const CreateAlerts = lazy(() => import("./hrCds/pages/CreateAlerts.jsx"));
 const UserProfile = lazy(() => import("./page/UserProfile.jsx"));
 const Home = lazy(() => import("./Pages/Home"));
+const Features = lazy(() => import("./Pages/Features"));
+const Solutions = lazy(() => import("./Pages/Solutions"));
+const HowItWorks = lazy(() => import("./Pages/HowItWorks"));
 const AboutUs = lazy(() => import("./Pages/AboutUs"));
 const ContactUs = lazy(() => import("./Pages/ContactUs"));
 const PrivacyPolicy = lazy(() => import("./Pages/PrivacyPolicy"));
 const LegalPage = lazy(() => import("./Pages/LegalPage"));
+const SecurityPage = lazy(() => import("./Pages/SecurityPage"));
+const EmployeeManagement = lazy(() => import("./Pages/EmployeeManagement"));
+const CrmTelecaller = lazy(() => import("./Pages/CrmTelecaller"));
+const TeamCommunication = lazy(() => import("./Pages/TeamCommunication"));
+const BusinessAutomation = lazy(() => import("./Pages/BusinessAutomation"));
 const RegisterCompany = lazy(() => import("./admin/components/CompanyRegister.jsx"));
 const SuperAdminLogin = lazy(() => import("./page/SuperAdminLogin"));
 const CompanyManagement = lazy(() => import("./page/CompanyManagement.jsx"));
@@ -132,16 +140,41 @@ const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 function App() {
   return (
     <>
-      <Suspense fallback={<RouteBoundaryLoader fullscreen label="Loading app..." />}>
+      <Suspense fallback={null}>
         <Routes>
 
         <Route path="/" element={<Home />} />
-        <Route path="/about" element={<AboutUs />} />
+        <Route path="/features" element={<Features />} />
+        <Route path="/feature" element={<Navigate to="/features" replace />} />
+        <Route path="/solutions" element={<Solutions />} />
+        <Route path="/solution" element={<Navigate to="/solutions" replace />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/howitworks" element={<Navigate to="/how-it-works" replace />} />
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/employee-management" element={<EmployeeManagement />} />
+        <Route path="/employee" element={<Navigate to="/employee-management" replace />} />
+        <Route path="/crm-telecaller" element={<CrmTelecaller />} />
+        <Route path="/crm" element={<Navigate to="/crm-telecaller" replace />} />
+        <Route path="/telecaller" element={<Navigate to="/crm-telecaller" replace />} />
+        <Route path="/team-communication" element={<TeamCommunication />} />
+        <Route path="/communication" element={<Navigate to="/team-communication" replace />} />
+        <Route path="/business-automation" element={<BusinessAutomation />} />
+        <Route path="/automation" element={<Navigate to="/business-automation" replace />} />
+        <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/contact-us" element={<Navigate to="/contact" replace />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
         <Route path="/terms" element={<LegalPage type="terms" />} />
         <Route path="/cookies" element={<LegalPage type="cookies" />} />
+        <Route path="/usage" element={<LegalPage type="terms" />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
+        <Route path="/superadminlogin" element={<Navigate to="/SuperAdminLogin" replace />} />
+        <Route path="/superadmin-login" element={<Navigate to="/SuperAdminLogin" replace />} />
+        <Route path="/super-admin-login" element={<Navigate to="/SuperAdminLogin" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/Login" element={<Navigate to="/login" replace />} />
+        <Route path="/company/:companyCode/login" element={<Login />} />
         <Route path="company/:companyCode/login" element={<Login />} />
         <Route path="/self-register" element={<SelfRegister />} />
         <Route path="/:companyCode/register" element={<SelfRegister />} />

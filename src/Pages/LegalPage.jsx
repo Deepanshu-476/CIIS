@@ -1,7 +1,6 @@
 import React from "react";
 import { CheckCircle, Cookie, FileText, ShieldCheck } from "lucide-react";
-import Header from "../components/CiisNavbar";
-import Footer from "../components/CiisFooter";
+import { HomeHeader as Header, HomeFooter as Footer } from "../components/HomeChrome";
 import "./PrivacyPolicy.css";
 
 const pageContent = {

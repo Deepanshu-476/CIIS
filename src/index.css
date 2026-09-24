@@ -1,7 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
   @import "tailwindcss";
 
-
 :root {
+  --ciis-font-sans: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-family: var(--ciis-font-sans);
   --gradient-primary: linear-gradient(135deg, #667eea, #764ba2);
   --gradient-primary-hover: linear-gradient(135deg, #5a67d8, #6b46c1);
   --color-primary: #667eea;

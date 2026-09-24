@@ -1,922 +1,652 @@
-.CiisContact {
+/* ==========================================================================
+   Contact Us Page Styles (ContactUs.css)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+.ciis-contact-page {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  background: #f8fbff;
-  color: #080d2b;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #f8fafc;
+  font-family: var(--ciis-font-sans) !important;
+  color: #1e293b;
+  position: relative;
   overflow-x: hidden;
 }
 
-.CiisContact-page {
-    width: 90%;
-    max-width: 1500px;
-    margin: 0 auto;
-    padding: 96px 0 34px;
+.ciis-contact-page * {
+  font-family: var(--ciis-font-sans);
 }
 
-.CiisContact-hero-grid {
-  display: grid;
-  grid-template-columns: 0.86fr 1.14fr;
-  gap: 58px;
-  align-items: start;
-  margin-bottom: 34px;
+.ciis-contact-main {
+  flex: 1;
 }
 
-.CiisContact-intro {
+.ciis-contact-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 48px);
+}
+
+/* ==================== HERO HEADER ==================== */
+.ciis-contact-hero {
   position: relative;
-  min-height: 620px;
-  padding: 26px 0 0 26px;
+  padding: clamp(140px, 12vw, 175px) 0 clamp(50px, 5vw, 75px) 0;
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  text-align: center;
+  overflow: hidden;
 }
 
-.CiisContact-intro::after {
-  content: "";
-  position: absolute;
+.ciis-contact-hero .ciis-hero-orb-1 {
+  width: 480px;
+  height: 480px;
+  top: -100px;
+  left: 8%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.16) 0%, rgba(124, 58, 237, 0.05) 70%, transparent 100%);
+}
+
+.ciis-contact-hero .ciis-hero-orb-2 {
+  width: 520px;
+  height: 520px;
+  top: 60px;
   right: -60px;
-  bottom: 20px;
-  width: 290px;
-  height: 290px;
-  border-radius: 999px 0 0 0;
-  background: linear-gradient(145deg, rgba(37, 99, 235, 0.08), transparent 66%);
-  z-index: 0;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(37, 99, 235, 0.05) 70%, transparent 100%);
 }
 
-.CiisContact-pill {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: #efe7ff;
-  color: #5c32dd;
-  font-size: 0.88rem;
+.ciis-contact-title {
+  font-family: var(--ciis-font-sans);
+  font-size: clamp(34px, 5vw, 54px);
   font-weight: 800;
-  margin-bottom: 32px;
-}
-
-.CiisContact-intro h1 {
-  position: relative;
-  z-index: 1;
-  max-width: 500px;
-  margin: 0 0 28px;
-  font-size: clamp(2.4rem, 5vw, 4rem);
-  line-height: 1.12;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
-.CiisContact-intro h1 span {
-  color: #155dfc;
-}
-
-.CiisContact-intro > p {
-  position: relative;
-  z-index: 1;
-  max-width: 455px;
-  margin: 0 0 34px;
-  color: #334064;
-  font-size: 1.08rem;
-  line-height: 1.75;
-  font-weight: 500;
-}
-
-.CiisContact-support-list {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 22px;
-}
-
-.CiisContact-support-item,
-.CiisContact-info-card {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.CiisContact-support-item h3,
-.CiisContact-info-card h3 {
-  margin: 0 0 6px;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.CiisContact-support-item p,
-.CiisContact-info-card p {
-  margin: 0;
-  color: #334064;
-  font-size: 0.94rem;
-  font-weight: 500;
-}
-
-.CiisContact-soft-icon {
-  width: 66px;
-  height: 66px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-}
-
-.CiisContact-soft-icon svg {
-  width: 30px;
-  height: 30px;
-}
-
-.CiisContact-soft-blue {
-  background: #e7f0ff;
-  color: #155dfc;
-}
-
-.CiisContact-soft-green {
-  background: #e6f8ed;
-  color: #18a957;
-}
-
-.CiisContact-soft-purple {
-  background: #f0e7ff;
-  color: #7c3aed;
-}
-
-.CiisContact-soft-orange {
-  background: #fff0df;
-  color: #f58711;
-}
-
-.CiisContact-form-card,
-.CiisContact-info-card,
-.CiisContact-map-panel,
-.CiisContact-cta-card,
-.CiisContact-faq-card,
-.CiisContact-help-strip {
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid #e4ebf6;
-  border-radius: 18px;
-  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
-}
-
-.CiisContact-form-card {
-  padding: 48px 38px 34px;
-  min-height: 680px;
-}
-
-.CiisContact-form-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 34px;
-}
-
-.CiisContact-form-heading h2,
-.CiisContact-faq-card h2 {
-  margin: 0 0 10px;
-  color: #080d2b;
-  font-size: 1.7rem;
-  font-weight: 900;
-}
-
-.CiisContact-form-heading p {
-  margin: 0;
-  color: #334064;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.CiisContact-mail-badge {
-  width: 76px;
-  height: 76px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #e7f0ff;
-  color: #155dfc;
-}
-
-.CiisContact-mail-badge svg {
-  width: 36px;
-  height: 36px;
-}
-
-.CiisContact-success {
-  margin-bottom: 18px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: #e6f8ed;
-  color: #087b3b;
-  font-weight: 800;
-}
-
-.CiisContact-form {
-  display: grid;
-  gap: 24px;
-}
-
-.CiisContact-form-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-}
-
-.CiisContact-form label {
-  display: grid;
-  gap: 9px;
-  color: #080d2b;
-  font-weight: 900;
-  font-size: 0.92rem;
-}
-
-.CiisContact-form input,
-.CiisContact-form select,
-.CiisContact-form textarea {
-  width: 100%;
-  min-height: 54px;
-  border: 1px solid #dce5f2;
-  border-radius: 9px;
-  background: #fff;
-  color: #17213f;
-  font: inherit;
-  font-weight: 600;
-  padding: 0 16px;
-  outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.CiisContact-form textarea {
-  min-height: 128px;
-  resize: vertical;
-  padding: 16px;
-}
-
-.CiisContact-form input:focus,
-.CiisContact-form select:focus,
-.CiisContact-form textarea:focus {
-  border-color: #155dfc;
-  box-shadow: 0 0 0 4px rgba(21, 93, 252, 0.09);
-}
-
-.CiisContact-form input::placeholder,
-.CiisContact-form textarea::placeholder {
-  color: #6b789a;
-}
-
-.CiisContact-submit {
-  height: 56px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  border: 0;
-  border-radius: 9px;
-  background: linear-gradient(100deg, #075bff 0%, #8b35e8 100%);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 900;
-  cursor: pointer;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
-}
-
-.CiisContact-submit:disabled {
-  opacity: 0.72;
-  cursor: wait;
-}
-
-.CiisContact-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
-  margin-bottom: 32px;
-}
-
-.CiisContact-info-card {
-  min-height: 146px;
-  padding: 25px;
-}
-
-.CiisContact-map-panel {
-  position: relative;
-  min-height: 325px;
-  padding: 26px;
-  margin-bottom: 26px;
-  overflow: hidden;
-  background:
-    linear-gradient(rgba(229, 239, 255, 0.34), rgba(229, 239, 255, 0.34)),
-    url("https://tile.openstreetmap.org/13/2411/3080.png");
-  background-size: cover;
-  background-position: center;
-}
-
-.CiisContact-map-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    repeating-linear-gradient(35deg, rgba(21, 93, 252, 0.15) 0 1px, transparent 1px 54px),
-    repeating-linear-gradient(125deg, rgba(21, 93, 252, 0.12) 0 1px, transparent 1px 62px);
-  opacity: 0.45;
-}
-
-.CiisContact-map-panel::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(34deg, transparent 0 43%, rgba(255, 255, 255, 0.55) 43% 45%, transparent 45% 100%),
-    linear-gradient(120deg, transparent 0 52%, rgba(255, 255, 255, 0.5) 52% 54%, transparent 54% 100%);
-  pointer-events: none;
-}
-
-.CiisContact-map-card {
-  position: relative;
-  z-index: 1;
-  width: 300px;
-  padding: 34px 30px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
-}
-
-.CiisContact-map-card h3 {
-  margin: 0 0 16px;
-  font-size: 1.18rem;
-  font-weight: 900;
-}
-
-.CiisContact-map-card p {
-  margin: 0 0 8px;
-  color: #253152;
-  font-weight: 600;
-}
-
-.CiisContact-map-card button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 18px;
-  border: 0;
-  background: transparent;
-  color: #075bff;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.CiisContact-direction-btn {
-  width: 100%;
-  justify-content: center;
-  height: 54px;
-  margin-top: 28px !important;
-  border: 1px solid #dce5f2 !important;
-  border-radius: 9px !important;
-  background: #f7faff !important;
-}
-
-.CiisContact-map-pin {
-  position: absolute;
-  z-index: 1;
-  left: 53%;
-  top: 38%;
-  display: grid;
-  width: 58px;
-  height: 58px;
-  place-items: center;
-  border-radius: 999px;
-  background: #075bff;
-  color: #fff;
-  box-shadow: 0 14px 30px rgba(7, 91, 255, 0.32);
-}
-
-.CiisContact-map-label {
-  position: absolute;
-  z-index: 1;
-  color: #0073dc;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-shadow: 0 1px 0 #fff;
-}
-
-.CiisContact-map-label-1 {
-  left: 37%;
-  top: 42%;
-}
-
-.CiisContact-map-label-2 {
-  left: 63%;
-  top: 35%;
-  color: #218a60;
-}
-
-.CiisContact-map-label-3 {
-  right: 11%;
-  top: 40%;
-}
-
-.CiisContact-map-label-4 {
-  left: 57%;
-  bottom: 25%;
-  color: #64748b;
-  letter-spacing: 0.16em;
-}
-
-.CiisContact-bottom-grid {
-  display: grid;
-  grid-template-columns: 0.82fr 1fr;
-  gap: 26px;
-  margin-bottom: 26px;
-}
-
-.CiisContact-cta-card {
-  position: relative;
-  min-height: 390px;
-  padding: 96px 45px 40px;
-  overflow: hidden;
-  color: #fff;
-  background: linear-gradient(135deg, #075bff 0%, #7c3aed 100%);
-}
-
-.CiisContact-cta-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px);
-  background-size: 20px 20px;
-  opacity: 0.35;
-}
-
-.CiisContact-paper-plane {
-  position: absolute;
-  left: 44%;
-  top: 52px;
-  width: 116px;
-  height: 70px;
-  transform: rotate(-13deg);
-  border: 2px solid rgba(255, 255, 255, 0.68);
-  clip-path: polygon(0 25%, 100% 0, 64% 100%, 46% 58%, 0 25%);
-}
-
-.CiisContact-cta-card h2,
-.CiisContact-cta-card p,
-.CiisContact-cta-card button {
-  position: relative;
-  z-index: 1;
-}
-
-.CiisContact-cta-card h2 {
-  max-width: 410px;
-  margin: 0 0 18px;
-  font-size: 2rem;
   line-height: 1.18;
-  font-weight: 900;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  max-width: 880px;
+  margin: 18px auto 20px auto;
 }
 
-.CiisContact-cta-card p {
-  max-width: 420px;
-  margin: 0 0 28px;
-  color: rgba(255, 255, 255, 0.88);
-  font-weight: 600;
+.ciis-gradient-text {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.ciis-contact-subtitle {
+  font-size: clamp(16px, 2vw, 18.5px);
   line-height: 1.65;
+  color: #475569;
+  max-width: 760px;
+  margin: 0 auto 34px auto;
 }
 
-.CiisContact-cta-card button {
-  height: 56px;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 26px;
-  border: 0;
-  border-radius: 9px;
-  background: #fff;
-  color: #075bff;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.CiisContact-faq-card {
-  padding: 35px 30px;
-}
-
-.CiisContact-faq-head {
+.ciis-contact-hero-trust {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 36px;
+  flex-wrap: wrap;
 }
 
-.CiisContact-faq-head button {
+.ciis-contact-trust-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 0;
-  background: transparent;
-  color: #075bff;
-  font-weight: 900;
-  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
 }
 
-.CiisContact-faq-list {
+/* ==================== FORM & HUB SECTION ==================== */
+.ciis-contact-form-section {
+  padding: 80px 0;
+}
+
+.ciis-contact-grid {
   display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 36px;
+  align-items: start;
+}
+
+/* LEFT COLUMN: CONTACT FORM CARD */
+.ciis-contact-form-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: clamp(28px, 4vw, 44px);
+  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.06);
+  position: relative;
+}
+
+.ciis-contact-form-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ciis-contact-form-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ciis-contact-card-title {
+  font-family: var(--ciis-font-sans);
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.ciis-contact-card-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Success Box */
+.ciis-contact-success-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 36px 28px;
+  text-align: center;
+}
+
+.ciis-contact-success-icon {
+  margin-bottom: 14px;
+}
+
+.ciis-contact-success-box h3 {
+  font-family: var(--ciis-font-sans);
+  font-size: 20px;
+  font-weight: 800;
+  color: #166534;
+  margin: 0 0 8px 0;
+}
+
+.ciis-contact-success-box p {
+  font-size: 14px;
+  color: #15803d;
+  line-height: 1.6;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Form Layout */
+.ciis-contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ciis-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+
+.ciis-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ciis-form-group label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ciis-req {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.ciis-input-wrap input,
+.ciis-input-wrap select,
+.ciis-input-wrap textarea {
+  width: 100%;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 14.5px;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.ciis-input-wrap input,
+.ciis-input-wrap select {
+  height: 48px;
+  padding: 0 16px;
+}
+
+.ciis-input-wrap textarea {
+  min-height: 110px;
+  padding: 14px 16px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.ciis-input-wrap input:focus,
+.ciis-input-wrap select:focus,
+.ciis-input-wrap textarea:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.ciis-input-wrap input::placeholder,
+.ciis-input-wrap textarea::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.ciis-form-submit-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.ciis-btn-contact-submit {
+  width: 100%;
+  height: 52px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+.ciis-btn-contact-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ciis-spinner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: inline-block;
+  animation: ciis-pulse 1.2s infinite;
+}
+
+.ciis-form-privacy-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* RIGHT COLUMN: CONTACT HUB */
+.ciis-contact-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ciis-contact-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.ciis-contact-method-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 22px 20px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.ciis-contact-method-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.08);
+}
+
+.ciis-contact-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.ciis-contact-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ciis-contact-card-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+
+.ciis-contact-card-action-link:hover {
+  transform: translateX(2px);
+}
+
+.ciis-contact-method-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px 0;
+}
+
+.ciis-contact-method-primary {
+  font-family: var(--ciis-font-sans);
+  font-size: 16.5px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  line-height: 1.35;
+}
+
+.ciis-contact-method-secondary {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* HQ LOCATION BANNER */
+.ciis-contact-hq-banner {
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(245, 243, 255, 0.95) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  border-radius: 20px;
+  padding: 24px 26px;
+  box-shadow: 0 8px 24px -5px rgba(37, 99, 235, 0.08);
+}
+
+.ciis-hq-badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  background: rgba(37, 99, 235, 0.1);
+  padding: 3px 10px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.ciis-hq-title {
+  font-family: var(--ciis-font-sans);
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.ciis-hq-address {
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.55;
+  margin: 0 0 16px 0;
+}
+
+.ciis-hq-actions {
+  display: flex;
   gap: 12px;
 }
 
-.CiisContact-faq-item {
-  min-height: 50px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+/* ==================== FAQ SECTION ==================== */
+.ciis-contact-faq-section {
+  padding: 80px 0;
+}
+
+.ciis-contact-section-header {
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto 44px auto;
+}
+
+.ciis-contact-section-header .ciis-badge {
+  margin-bottom: 14px;
+}
+
+.ciis-contact-faq-list {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ciis-contact-faq-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.ciis-contact-faq-item.open {
+  border-color: #2563eb;
+  box-shadow: 0 8px 24px -6px rgba(37, 99, 235, 0.12);
+}
+
+.ciis-contact-faq-question {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  gap: 16px;
+  transition: background-color 0.2s ease;
+}
+
+.ciis-contact-faq-question:hover {
+  background-color: #f8fafc;
+}
+
+.ciis-contact-faq-qtext {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.ciis-contact-faq-icon-holder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ciis-contact-faq-item.open .ciis-contact-faq-icon-holder {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.ciis-contact-faq-arrow {
+  color: #64748b;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+}
+
+.ciis-contact-faq-arrow.rotated {
+  transform: rotate(180deg);
+  color: #2563eb;
+}
+
+.ciis-contact-faq-answer {
+  padding: 0 24px 20px 24px;
+  font-size: 14.5px;
+  color: #475569;
+  line-height: 1.68;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 14px;
+}
+
+.ciis-contact-faq-answer p {
+  margin: 0;
+}
+
+/* ==================== BOTTOM QUICK ACTION STRIP ==================== */
+.ciis-contact-quick-strip {
+  padding: 0 0 80px 0;
+}
+
+.ciis-quick-strip-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 30px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.05);
+}
+
+.ciis-quick-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ciis-quick-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ciis-quick-title {
+  font-family: var(--ciis-font-sans);
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.ciis-quick-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.ciis-quick-strip-actions {
+  display: flex;
   align-items: center;
   gap: 14px;
-  padding: 0 15px;
-  border: 1px solid #dce5f2;
-  border-radius: 9px;
-  color: #080d2b;
-  font-size: 0.95rem;
+  flex-shrink: 0;
 }
 
-.CiisContact-faq-item span {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #e7f0ff;
-  color: #155dfc;
-}
-
-.CiisContact-help-strip {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 22px;
-  padding: 28px 36px;
-  background: #eef4ff;
-}
-
-.CiisContact-help-strip h3 {
-  margin: 0 0 4px;
-  font-size: 1.35rem;
-  font-weight: 900;
-}
-
-.CiisContact-help-strip p {
-  margin: 0;
-  color: #334064;
-  font-weight: 600;
-}
-
-.CiisContact-help-actions {
-  display: flex;
-  gap: 18px;
-}
-
-.CiisContact-help-actions a {
-  min-width: 220px;
-  height: 52px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border-radius: 9px;
-  border: 1px solid #d3dfef;
-  background: #fff;
-  color: #075bff;
-  text-decoration: none;
-  font-weight: 900;
-}
-
-.CiisContact-help-actions .CiisContact-help-primary {
-  background: #075bff;
-  color: #fff;
-  border-color: #075bff;
-}
-
+/* ==================== RESPONSIVE ==================== */
 @media (max-width: 1024px) {
-  .CiisContact-page {
-    width: 90%;
-    max-width: 760px;
-  }
-
-  .CiisContact-hero-grid,
-  .CiisContact-bottom-grid {
+  .ciis-contact-grid {
     grid-template-columns: 1fr;
+    gap: 32px;
   }
 
-  .CiisContact-intro {
-    min-height: auto;
-    padding-left: 0;
+  .ciis-quick-strip-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .CiisContact-cards-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .CiisContact-help-strip {
-    grid-template-columns: auto 1fr;
-  }
-
-  .CiisContact-help-actions {
-    grid-column: 1 / -1;
+  .ciis-quick-strip-actions {
     width: 100%;
+    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 640px) {
-  .CiisContact-page {
-    width: 90%;
-    max-width: 520px;
-    padding-top: 76px;
+  .ciis-contact-hero {
+    padding: 135px 0 50px 0;
   }
 
-  .CiisContact-form-card,
-  .CiisContact-faq-card,
-  .CiisContact-cta-card {
-    padding: 24px;
+  .ciis-contact-form-card {
+    padding: 24px 18px;
   }
 
-  .CiisContact-form-row,
-  .CiisContact-cards-grid {
+  .ciis-form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .ciis-contact-cards-grid {
     grid-template-columns: 1fr;
   }
 
-  .CiisContact-form-heading,
-  .CiisContact-faq-head,
-  .CiisContact-help-strip,
-  .CiisContact-help-actions {
-    flex-direction: column;
-    display: flex;
-    align-items: stretch;
+  .ciis-contact-hero-trust {
+    gap: 8px;
+    margin-top: 24px;
   }
 
-  .CiisContact-map-card {
+  .ciis-contact-trust-item {
     width: 100%;
-  }
-
-  .CiisContact-map-pin {
-    display: none;
-  }
-
-  .CiisContact-help-actions a {
-    min-width: 0;
-    width: 100%;
-  }
-}
-
-@media (max-width: 768px) {
-  .CiisContact-page {
-    width: 90%;
-    max-width: 560px;
-    padding: 88px 0 28px;
-  }
-
-  .CiisContact-hero-grid {
-    gap: 28px;
-    margin-bottom: 24px;
-  }
-
-  .CiisContact-intro {
-    min-height: auto;
-    padding: 0;
-  }
-
-  .CiisContact-intro::after {
-    display: none;
-  }
-
-  .CiisContact-pill {
-    margin-bottom: 18px;
-    padding: 7px 13px;
+    justify-content: center;
     font-size: 12px;
   }
 
-  .CiisContact-intro h1 {
-    max-width: 100%;
-    margin-bottom: 18px;
-    font-size: clamp(32px, 9vw, 42px);
-    line-height: 1.14;
-  }
-
-  .CiisContact-intro > p {
-    max-width: 100%;
-    margin-bottom: 24px;
-    font-size: 15px;
-    line-height: 1.7;
-  }
-
-  .CiisContact-support-list {
-    gap: 16px;
-  }
-
-  .CiisContact-support-item,
-  .CiisContact-info-card {
-    gap: 14px;
-  }
-
-  .CiisContact-soft-icon {
-    width: 52px;
-    height: 52px;
-  }
-
-  .CiisContact-soft-icon svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  .CiisContact-form-card {
-    min-height: auto;
-    padding: 26px;
-  }
-
-  .CiisContact-form-heading {
-    align-items: flex-start;
-    margin-bottom: 24px;
-  }
-
-  .CiisContact-form-heading h2,
-  .CiisContact-faq-card h2 {
-    font-size: 24px;
-  }
-
-  .CiisContact-mail-badge {
-    width: 58px;
-    height: 58px;
-  }
-
-  .CiisContact-mail-badge svg {
-    width: 28px;
-    height: 28px;
-  }
-
-  .CiisContact-form {
-    gap: 18px;
-  }
-
-  .CiisContact-form input,
-  .CiisContact-form select {
-    height: 54px;
-  }
-
-  .CiisContact-form textarea {
-    min-height: 142px;
-  }
-
-  .CiisContact-cards-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    margin-bottom: 22px;
-  }
-
-  .CiisContact-info-card {
-    min-height: auto;
-    padding: 18px;
-  }
-
-  .CiisContact-map-panel {
-    min-height: 320px;
-    margin-bottom: 22px;
-    padding: 16px;
-    border-radius: 16px;
-  }
-
-  .CiisContact-map-card {
-    position: relative;
-    left: auto;
-    top: auto;
-    width: 100%;
-    max-width: 300px;
-    padding: 20px;
-  }
-
-  .CiisContact-map-label {
-    display: none;
-  }
-
-  .CiisContact-bottom-grid {
-    gap: 22px;
-  }
-
-  .CiisContact-cta-card,
-  .CiisContact-faq-card {
-    padding: 26px;
-  }
-
-  .CiisContact-cta-card {
-    min-height: auto;
-    padding-top: 74px;
-  }
-
-  .CiisContact-paper-plane {
-    left: 28px;
-    top: 26px;
-    width: 86px;
-    height: 54px;
-  }
-
-  .CiisContact-cta-card h2 {
-    font-size: 26px;
-  }
-
-  .CiisContact-faq-item {
-    min-height: auto;
-    padding: 12px;
-    align-items: start;
-    font-size: 14px;
-  }
-
-  .CiisContact-help-strip {
-    gap: 16px;
-    padding: 24px;
-    border-radius: 16px;
-  }
-}
-
-@media (max-width: 480px) {
-  .CiisContact-page {
-    width: 90%;
-    padding-top: 82px;
-  }
-
-  .CiisContact-form-card,
-  .CiisContact-cta-card,
-  .CiisContact-faq-card {
-    padding: 22px;
-  }
-
-  .CiisContact-form-heading {
-    gap: 16px;
-  }
-
-  .CiisContact-form-heading p,
-  .CiisContact-intro > p,
-  .CiisContact-support-item p,
-  .CiisContact-info-card p {
-    font-size: 14px;
-  }
-
-  .CiisContact-submit,
-  .CiisContact-map-card button,
-  .CiisContact-cta-card button,
-  .CiisContact-help-actions a {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .CiisContact-map-panel {
-    min-height: 290px;
-  }
-
-  .CiisContact-cta-card {
-    padding-top: 70px;
-  }
-
-  .CiisContact-cta-card h2 {
-    font-size: 24px;
-  }
-
-  .CiisContact-help-strip {
-    padding: 20px;
-  }
-}
-
-@media (max-width: 768px) {
-  .CiisContact-cards-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-
-  .CiisContact-info-card {
-    min-height: auto;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 14px;
-  }
-
-  .CiisContact-info-card .CiisContact-soft-icon {
-    width: 38px;
-    height: 38px;
-  }
-
-  .CiisContact-info-card .CiisContact-soft-icon svg {
-    width: 19px;
-    height: 19px;
-  }
-
-  .CiisContact-info-card h3 {
-    margin-bottom: 4px;
-    font-size: 14px;
-  }
-
-  .CiisContact-info-card p {
-    font-size: 11px;
-    line-height: 1.45;
-  }
-}
-
-@media (max-width: 480px) {
-  .CiisContact-cards-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .CiisContact-info-card {
+  .ciis-quick-strip-left {
     flex-direction: column;
-    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .ciis-quick-strip-actions {
+    flex-direction: column;
+  }
+
+  .ciis-quick-strip-actions .ciis-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

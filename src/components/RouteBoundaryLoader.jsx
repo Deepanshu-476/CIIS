@@ -1,5 +1,3 @@
-import CIISLoader from "../Loader/CIISLoader";
-
-const RouteBoundaryLoader = () => <CIISLoader />;
+const RouteBoundaryLoader = () => null;
 
 export default RouteBoundaryLoader;

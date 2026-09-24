@@ -1,7 +1,6 @@
 import React from "react";
 import "./AboutUs.css";
-import Header from "../components/CiisNavbar";
-import Footer from "../components/CiisFooter";
+import { HomeHeader as Header, HomeFooter as Footer } from "../components/HomeChrome";
 import {
   BarChart3,
   Briefcase,

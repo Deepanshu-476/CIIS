@@ -1,392 +1,337 @@
-  /* CiisFooter.css */
+/* ==========================================================================
+   CiisFooter Component Styles (Exact match with Home.jsx Footer)
+   ========================================================================== */
 
-.ciis-footer * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --ciis-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ciis-primary: #2563eb;
+  --ciis-text-main: #0f172a;
+  --ciis-text-muted: #64748b;
+  --ciis-text-subtle: #94a3b8;
+  --ciis-border-light: #e2e8f0;
 }
 
 .ciis-footer {
-  --ciis-primary: #3a86ff;    
-  --ciis-secondary: #8338ec; 
-  --ciis-dark: #0f172a;
-  --ciis-darker: #020617;
-  --ciis-light: #f8fafc;
-  --ciis-gray: #64748b; 
-  --ciis-gray-light: #e2e8f0;
-  --ciis-white: #ffffff;   
-  
-
-
-  
-  background: var(--ciis-dark);
-  color: var(--ciis-light);
-  padding: 4rem 0 0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  background: #0f172a;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 64px 0 34px 0;
   width: 100%;
-  position: relative;
-  margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--ciis-font-sans);
+  color: var(--ciis-text-main);
+  color: #f1f5f9;
+  box-sizing: border-box;
 }
 
-.ciis-footer-wave {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--ciis-primary), var(--ciis-secondary));
-  opacity: 0.7;
-}
-
+.ciis-footer .ciis-footer-container,
 .ciis-footer-container {
-  max-width: 1200px;
-  width: 100%;
+  max-width: 100% !important;
+  width: 100% !important;
+  padding-left: clamp(24px, 4vw, 64px) !important;
+  padding-right: clamp(24px, 4vw, 64px) !important;
   margin: 0 auto;
-  padding: 0 2rem;
-  position: relative;
+  box-sizing: border-box;
 }
 
-/* Main Content */
-.ciis-footer-content {
+.ciis-footer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 3rem;
-  padding-bottom: 3rem;
+  grid-template-columns: minmax(280px, 1.8fr) repeat(3, minmax(160px, 1fr));
+  gap: clamp(24px, 3.5vw, 48px);
+  align-items: start;
+  padding-bottom: 42px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
 }
 
-/* Brand Section */
-.ciis-footer .ciis-footer-brand {
+.ciis-footer-brand {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.ciis-footer .ciis-footer-logo {
+.ciis-footer .ciis-logo {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.ciis-footer .ciis-logo-image {
-  height: 28px;
-  width: auto;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-  transition: transform 0.3s ease;
-}
-
-.ciis-footer .ciis-footer-logo:hover .ciis-logo-image {
-  transform: scale(1.05);
-}
-
-.ciis-footer .ciis-footer-tagline {
-  color: var(--ciis-primary);
-  font-weight: 600;
-  font-size: 1.1rem;
-  margin: 0.5rem 0;
-  line-height: 1.4;
-}
-
-.ciis-footer .ciis-footer-description {
-  color: #94a3b8;
-  line-height: 1.6;
-  font-size: 0.95rem;
-  max-width: 320px;
-}
-
-/* Section Titles */
-.ciis-footer .ciis-footer-title {
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  color: var(--ciis-white);
-  font-size: 1.1rem;
-  position: relative;
-  padding-bottom: 0.75rem;
-  line-height: 1.4;
-}
-
-.ciis-footer .ciis-footer-title::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 40px;
-  height: 2px;
-  background: linear-gradient(90deg, var(--ciis-primary), transparent);
-  border-radius: 2px;
-}
-
-/* Lists */
-.ciis-footer .ciis-footer-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.ciis-footer .ciis-footer-link {
-  color: #cbd5e1;
   text-decoration: none;
-  transition: all 0.3s ease;
-  font-size: 0.95rem;
-  display: inline-block;
-  padding: 0.25rem 0;
-  line-height: 1.5;
 }
 
-.ciis-footer .ciis-footer-link:hover {
-  color: var(--ciis-primary);
-  transform: translateX(5px);
+.ciis-footer .ciis-brand-logo {
+  width: 176px;
+  height: 46px;
+  display: block;
+  object-fit: contain;
+  background: #ffffff;
+  padding: 6px 14px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
-/* Contact Section */
-.ciis-footer .ciis-footer-contact-list {
-  list-style: none;
+.ciis-footer-tagline {
+  max-width: 390px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ciis-text-muted);
+  color: #94a3b8;
+  margin: 0;
+}
+
+.ciis-footer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.ciis-live-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
+.ciis-footer-col {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-.ciis-footer .ciis-contact-item {
-  display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  color: #cbd5e1;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  gap: 12px;
 }
 
-.ciis-footer .ciis-contact-icon {
+.ciis-footer-col h3 {
+  margin: 0 0 6px 0;
+  color: var(--ciis-text-main);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ciis-footer-col a {
+  text-decoration: none;
+  color: var(--ciis-text-muted);
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.ciis-footer-col a:hover {
   color: var(--ciis-primary);
-  font-size: 0.9rem;
-  margin-top: 0.2rem;
-  flex-shrink: 0;
-  min-width: 16px;
+  color: #38bdf8;
+  transform: translateX(3px);
 }
 
-/* Bottom Bar */
-.ciis-footer .ciis-footer-bottom {
-  padding: 1.5rem 0;
+.ciis-footer-actions-col p {
+  margin: 0;
+  color: var(--ciis-text-muted);
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-.ciis-footer .ciis-bottom-content {
+.ciis-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.ciis-footer .ciis-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--ciis-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.ciis-footer .ciis-btn-primary {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  border: none;
+}
+
+.ciis-footer .ciis-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
+}
+
+/* ==================== Footer Connect Row (App & Socials) ==================== */
+.ciis-footer-connect-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 34px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 32px;
   flex-wrap: wrap;
-  gap: 1.5rem;
 }
 
-.ciis-footer .ciis-copyright {
-  color: #94a3b8;
-  font-size: 0.9rem;
-  line-height: 1.5;
+.ciis-footer-app-block,
+.ciis-footer-social-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.ciis-footer .ciis-legal-links {
+.ciis-footer-block-heading {
+  margin: 0;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+/* Store Badges */
+.ciis-footer-store-btns {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
-.ciis-footer .ciis-legal-link {
-  color: #94a3b8;
+.ciis-store-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  background: #000000;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  padding: 7px 16px;
+  height: 48px;
+  box-sizing: border-box;
   text-decoration: none;
-  font-size: 0.9rem;
-  transition: color 0.3s ease;
-  line-height: 1.5;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  user-select: none;
 }
 
-.ciis-footer .ciis-legal-link:hover {
-  color: var(--ciis-primary);
+.ciis-store-badge-btn:hover {
+  border-color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 14px rgba(255, 255, 255, 0.15);
 }
 
-.ciis-footer .ciis-link-separator {
-  color: #64748b;
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-/* Social Links */
-.ciis-footer .ciis-social-links {
+.ciis-store-badge-text {
   display: flex;
-  gap: 0.75rem;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: left;
 }
 
-.ciis-footer .ciis-social-link {
-  color: #94a3b8;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.ciis-store-label {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.ciis-store-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+/* Social Icon Buttons */
+.ciis-footer-social-icons {
   display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ciis-social-circle-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  font-size: 0.95rem;
   text-decoration: none;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
 }
 
-.ciis-footer .ciis-social-link:hover {
-  background: rgba(255, 255, 255, 0.12);
-  transform: translateY(-3px);
-  color: var(--ciis-white);
+.ciis-social-circle-btn svg {
+  transition: transform 0.22s ease;
 }
 
-/* Specific hover colors */
-.ciis-footer .ciis-social-link:nth-child(1):hover { background: rgba(0, 119, 181, 0.25); }
-.ciis-footer .ciis-social-link:nth-child(2):hover { background: rgba(29, 161, 242, 0.25); }
-.ciis-footer .ciis-social-link:nth-child(3):hover { background: rgba(66, 103, 178, 0.25); }
-.ciis-footer .ciis-social-link:nth-child(4):hover { background: rgba(225, 48, 108, 0.25); }
+.ciis-social-circle-btn:hover {
+  transform: translateY(-3px) scale(1.06);
+  background: #ffffff;
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+}
 
-/* Responsive Design */
+.ciis-social-circle-btn:hover svg {
+  transform: scale(1.12);
+}
+
+.ciis-footer-bottom {
+  padding-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ciis-text-subtle);
+  color: #64748b;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .ciis-footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+}
+
 @media (max-width: 768px) {
-  .ciis-footer {
-    padding: 3rem 0 0;
-  }
-  
-  .ciis-footer .ciis-footer-content {
-    grid-template-columns: 1fr;
-    gap: 2.5rem;
-    text-align: center;
-  }
-  
-  .ciis-footer .ciis-footer-section {
-    align-items: center;
-  }
-  
-  .ciis-footer .ciis-footer-description {
-    max-width: 100%;
-  }
-  
-  .ciis-footer .ciis-footer-title::after {
-    left: 50%;
-    transform: translateX(-50%);
-  }
-  
-  .ciis-footer .ciis-contact-item {
-    justify-content: center;
-    text-align: center;
-  }
-  
-  .ciis-footer .ciis-bottom-content {
+  .ciis-footer-connect-row {
     flex-direction: column;
-    text-align: center;
-    gap: 1rem;
-  }
-  
-  .ciis-footer .ciis-legal-links {
-    order: 2;
-  }
-  
-  .ciis-footer .ciis-social-links {
-    order: 3;
-  }
-}
-
-/* Tablet */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .ciis-footer .ciis-footer-content {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* Small mobile */
-@media (max-width: 480px) {
-  .ciis-footer .ciis-footer-container {
-    padding: 0 1rem;
-  }
-  
-  .ciis-footer .ciis-logo-image {
-    height: 24px;
-  }
-  
-  .ciis-footer .ciis-social-link {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .ciis-footer .ciis-footer-title {
-    font-size: 1rem;
-  }
-  
-  .ciis-footer .ciis-footer-link,
-  .ciis-footer .ciis-contact-item,
-  .ciis-footer .ciis-legal-link,
-  .ciis-footer .ciis-copyright {
-    font-size: 0.85rem;
-  }
-}
-
-/* Compact mobile footer */
-@media (max-width: 600px) {
-  .ciis-footer {
-    padding-top: 2.25rem;
-    overflow-x: hidden;
-  }
-
-  .ciis-footer .ciis-footer-container {
-    width: 100%;
-    padding-inline: 16px;
-  }
-
-  .ciis-footer .ciis-footer-content {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 28px 18px;
-    padding-bottom: 2rem;
-    text-align: left;
-  }
-
-  .ciis-footer .ciis-footer-section:first-child,
-  .ciis-footer .ciis-footer-section:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .ciis-footer .ciis-footer-section:first-child,
-  .ciis-footer .ciis-footer-section:last-child,
-  .ciis-footer .ciis-footer-brand {
-    align-items: center;
-    text-align: center;
-  }
-
-  .ciis-footer .ciis-footer-section:not(:first-child):not(:last-child) {
     align-items: flex-start;
+    gap: 28px;
+    padding: 28px 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .ciis-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
   }
 
-  .ciis-footer .ciis-footer-title::after {
-    left: 0;
-    transform: none;
-  }
-
-  .ciis-footer .ciis-footer-section:last-child .ciis-footer-title::after {
-    left: 50%;
-    transform: translateX(-50%);
-  }
-
-  .ciis-footer .ciis-contact-item {
-    max-width: 100%;
-    justify-content: center;
-    text-align: left;
-    overflow-wrap: anywhere;
-  }
-
-  .ciis-footer .ciis-bottom-content,
-  .ciis-footer .ciis-legal-links {
-    width: 100%;
-  }
-
-  .ciis-footer .ciis-legal-links {
-    justify-content: center;
-    flex-wrap: wrap;
-    row-gap: 8px;
-  }
-
-  .ciis-footer .ciis-social-links {
-    justify-content: center;
-    flex-wrap: wrap;
+  .ciis-footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }

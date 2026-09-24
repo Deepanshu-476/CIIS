@@ -1,0 +1,505 @@
+/* ==========================================================================
+   How It Works Page Styles (HowItWorks.css)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+.ciis-hiw-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  font-family: var(--ciis-font-sans) !important;
+  color: #1e293b;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.ciis-hiw-page * {
+  font-family: var(--ciis-font-sans);
+}
+
+.ciis-hiw-main {
+  flex: 1;
+}
+
+.ciis-hiw-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 48px);
+}
+
+/* ==================== HERO SECTION ==================== */
+.ciis-hiw-hero {
+  position: relative;
+  padding: clamp(140px, 12vw, 175px) 0 clamp(60px, 6vw, 85px) 0;
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08) 0%, rgba(248, 250, 252, 0) 70%),
+              linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  text-align: center;
+  overflow: hidden;
+}
+
+.ciis-hiw-hero .ciis-hero-orb-1 {
+  width: 480px;
+  height: 480px;
+  top: -100px;
+  left: 8%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.18) 0%, rgba(124, 58, 237, 0.06) 70%, transparent 100%);
+}
+
+.ciis-hiw-hero .ciis-hero-orb-2 {
+  width: 520px;
+  height: 520px;
+  top: 60px;
+  right: -60px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.16) 0%, rgba(37, 99, 235, 0.06) 70%, transparent 100%);
+}
+
+.ciis-hiw-title {
+  font-family: var(--ciis-font-sans);
+  font-size: clamp(34px, 5.2vw, 56px);
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  max-width: 880px;
+  margin: 18px auto 20px auto;
+}
+
+.ciis-gradient-text {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.ciis-hiw-subtitle {
+  font-size: clamp(16px, 2vw, 18.5px);
+  line-height: 1.65;
+  color: #475569;
+  max-width: 760px;
+  margin: 0 auto 34px auto;
+}
+
+.ciis-hiw-hero-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ciis-hiw-hero-trust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 38px;
+  flex-wrap: wrap;
+}
+
+.ciis-hiw-trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
+}
+
+/* ==================== COMMON SECTION HEADERS ==================== */
+.ciis-hiw-section-header {
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto 48px auto;
+}
+
+.ciis-hiw-section-header .ciis-badge {
+  margin-bottom: 14px;
+}
+
+.ciis-section-title {
+  font-family: var(--ciis-font-sans);
+  font-size: clamp(28px, 3.8vw, 42px);
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px 0;
+}
+
+.ciis-section-subtitle {
+  font-size: 16px;
+  color: #64748b;
+  max-width: 680px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ==================== 4-STAGE JOURNEY TIMELINE ==================== */
+.ciis-hiw-journey-section {
+  padding: 90px 0;
+}
+
+.ciis-hiw-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.ciis-hiw-step-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+  padding: clamp(24px, 3.5vw, 36px);
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.05);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ciis-hiw-step-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--card-accent, #2563eb);
+}
+
+.ciis-hiw-step-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 20px 45px -12px rgba(15, 23, 42, 0.1);
+}
+
+.ciis-hiw-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ciis-hiw-step-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ciis-hiw-step-badge {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 14px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ciis-hiw-step-num-pill {
+  font-size: 13px;
+  font-weight: 800;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.ciis-hiw-step-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: transform 0.25s ease;
+}
+
+.ciis-hiw-step-card:hover .ciis-hiw-step-icon {
+  transform: scale(1.08) rotate(4deg);
+}
+
+.ciis-hiw-step-title {
+  font-family: var(--ciis-font-sans);
+  font-size: clamp(20px, 2.4vw, 25px);
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.015em;
+}
+
+.ciis-hiw-step-subtitle {
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 0 0 14px 0;
+}
+
+.ciis-hiw-step-desc {
+  font-size: 15px;
+  color: #475569;
+  line-height: 1.65;
+  margin: 0 0 22px 0;
+}
+
+.ciis-hiw-step-points {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  background: #f8fafc;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid #f1f5f9;
+}
+
+.ciis-hiw-step-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  color: #334155;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.ciis-hiw-check {
+  color: #10b981;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ==================== ARCHITECTURE GRID ==================== */
+.ciis-hiw-arch-section {
+  padding: 90px 0;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ciis-hiw-arch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.ciis-hiw-arch-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ciis-hiw-arch-card:hover {
+  transform: translateY(-5px);
+  background: #ffffff;
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 16px 36px -10px rgba(15, 23, 42, 0.08);
+}
+
+.ciis-hiw-arch-icon-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  transition: transform 0.25s ease;
+}
+
+.ciis-hiw-arch-card:hover .ciis-hiw-arch-icon-wrap {
+  transform: scale(1.08);
+}
+
+.ciis-hiw-arch-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.ciis-hiw-arch-card h4 {
+  font-family: var(--ciis-font-sans);
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.ciis-hiw-arch-card p {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ==================== FAQS ==================== */
+.ciis-hiw-faq-section {
+  padding: 90px 0;
+}
+
+.ciis-hiw-faq-list {
+  max-width: 840px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ciis-hiw-faq-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.ciis-hiw-faq-item.open {
+  border-color: #2563eb;
+  box-shadow: 0 8px 24px -6px rgba(37, 99, 235, 0.12);
+}
+
+.ciis-hiw-faq-question {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 26px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  gap: 16px;
+  transition: background-color 0.2s ease;
+}
+
+.ciis-hiw-faq-question:hover {
+  background-color: #f8fafc;
+}
+
+.ciis-hiw-faq-qtext {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.ciis-hiw-faq-icon-holder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.ciis-hiw-faq-item.open .ciis-hiw-faq-icon-holder {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.ciis-hiw-faq-arrow {
+  color: #64748b;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+}
+
+.ciis-hiw-faq-arrow.rotated {
+  transform: rotate(180deg);
+  color: #2563eb;
+}
+
+.ciis-hiw-faq-answer {
+  padding: 0 26px 22px 26px;
+  font-size: 15px;
+  color: #475569;
+  line-height: 1.68;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 16px;
+}
+
+.ciis-hiw-faq-answer p {
+  margin: 0;
+}
+
+/* ==================== VIDEO TOUR SECTION ==================== */
+.ciis-video-tour-section {
+  padding: 90px 0;
+  background: #ffffff;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  position: relative;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 1024px) {
+  .ciis-hiw-arch-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .ciis-hiw-hero {
+    padding: 135px 0 55px 0;
+  }
+
+  .ciis-hiw-step-card {
+    padding: 24px 20px;
+  }
+
+  .ciis-hiw-step-points {
+    grid-template-columns: 1fr;
+  }
+
+  .ciis-hiw-arch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ciis-hiw-hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ciis-hiw-hero-actions .ciis-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ciis-hiw-hero-trust {
+    gap: 10px;
+    margin-top: 26px;
+  }
+
+  .ciis-hiw-trust-item {
+    width: 100%;
+    justify-content: center;
+    font-size: 12.5px;
+  }
+
+  .ciis-hiw-faq-question {
+    padding: 18px 20px;
+  }
+
+  .ciis-hiw-faq-answer {
+    padding: 0 20px 18px 20px;
+  }
+}

@@ -227,6 +227,33 @@ const CompanyRegister = () => {
   const returnTo = location.state?.returnTo || (isCiisNetworkRegisterRoute ? "/Ciis-network/all-company" : "/");
 
   useEffect(() => {
+    let storedDraft = null;
+    try {
+      storedDraft = JSON.parse(sessionStorage.getItem("ciisCompanyRegistrationDraft") || "null");
+    } catch (draftError) {
+      console.warn("Unable to read company registration draft", draftError);
+    }
+
+    const draft = location.state?.registrationDraft || storedDraft;
+    if (!draft) return;
+
+    setForm((prev) => ({
+      ...prev,
+      companyName: draft.companyName || prev.companyName,
+      companyEmail: draft.companyEmail || prev.companyEmail,
+      companyPhone: String(draft.companyPhone || prev.companyPhone || "").replace(/\D/g, "").slice(0, 10),
+      ownerName: draft.ownerName || prev.ownerName,
+      ownerEmail: draft.ownerEmail || prev.ownerEmail,
+    }));
+
+    try {
+      sessionStorage.removeItem("ciisCompanyRegistrationDraft");
+    } catch (draftError) {
+      console.warn("Unable to clear company registration draft", draftError);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     const loadPlans = async () => {
       try {
         const response = await axios.get(`${API_URL}/plans`);

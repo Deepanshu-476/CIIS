@@ -144,7 +144,8 @@ export const createGroupConversation = async (
 };
 
 export const getMessages = async (
-    conversationId
+    conversationId,
+    params = {}
 ) => {
 
     return axios.get(
@@ -152,7 +153,8 @@ export const getMessages = async (
         {
             headers: {
                 Authorization: `Bearer ${getToken()}`
-            }
+            },
+            params
         }
     );
 };

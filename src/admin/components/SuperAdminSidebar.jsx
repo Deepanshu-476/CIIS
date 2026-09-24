@@ -33,6 +33,7 @@ import {
   RateReview as FeedbackIcon,
 } from '@mui/icons-material';
 import { preloadRouteChunk } from '../../utils/routePreloader';
+import { useAuth } from '../../context/AuthContext';
 
 
 const SidebarContainer = styled(Box)(({ theme }) => ({
@@ -129,6 +130,7 @@ const ContentWrapper = styled(Box)({
 const Sidebar = ({ isOpen, closeSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -336,7 +338,11 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   };
 
   const handleClick = (route) => {
-    navigate(route);
+    const currentPath = location.pathname.replace(/\/+$/, '');
+    const nextPath = String(route || '').replace(/\/+$/, '');
+    if (nextPath && currentPath !== nextPath) {
+      navigate(route);
+    }
     if (isMobile) {
       closeSidebar?.();
     }
@@ -344,11 +350,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
 
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('superAdmin');
-      localStorage.removeItem('company');
-      localStorage.removeItem('user');
-      window.dispatchEvent(new Event('ciis-auth-changed'));
+      logout?.();
       navigate('/');
       
       if (isMobile) {

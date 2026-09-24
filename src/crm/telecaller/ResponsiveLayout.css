@@ -1,0 +1,33 @@
+.haps-page-wrapper .tcd-dashboard,
+.haps-page-wrapper .tcl-views,
+.haps-page-wrapper .haps-card,
+.haps-page-wrapper .haps-kpi-card,
+.haps-page-wrapper .haps-charts-grid > *,
+.haps-page-wrapper .haps-schedule-grid > *,
+.haps-page-wrapper .cw-grid > *,
+.haps-page-wrapper .ld-grid > * { min-width: 0; }
+.haps-page-wrapper .haps-quick-info { min-width: 0; overflow-wrap: anywhere; }
+.haps-page-wrapper .haps-quick-arrow { flex-shrink: 0; }
+.haps-page-wrapper .haps-card-header,
+.haps-page-wrapper .cw-top-nav,
+.haps-page-wrapper .ld-top-nav { flex-wrap: wrap; gap: 12px; }
+.haps-page-wrapper .haps-table-wrap,
+.haps-page-wrapper .cw-table-wrap,
+.haps-page-wrapper .ld-calls-table-wrap { width: 100%; overflow-x: auto; }
+.haps-page-wrapper .haps-kpi-top { gap: 12px; }
+.haps-page-wrapper .haps-kpi-info { min-width: 0; }
+.haps-page-wrapper .haps-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.haps-page-wrapper .tcl-tabs { flex-wrap: wrap; }
+@media (max-width: 1100px) {
+  .haps-page-wrapper .haps-schedule-grid,
+  .haps-page-wrapper .haps-charts-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 650px) {
+  .haps-page-wrapper .haps-quick-grid { grid-template-columns: minmax(0, 1fr); }
+  .haps-page-wrapper .haps-card-header,
+  .haps-page-wrapper .haps-card-body { padding: 14px; }
+  .haps-page-wrapper .haps-search-box { width: 100%; }
+  .haps-page-wrapper .haps-search-box input { flex: 1; min-width: 0; }
+  .haps-page-wrapper .cw-nav-actions,
+  .haps-page-wrapper .ld-nav-actions { flex-wrap: wrap; }
+}

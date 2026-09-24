@@ -28,7 +28,23 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#ffffff;font-family:'Inter',system-ui,-apple-system,sans-serif;z-index:99999;">
+        <div style="display:flex;align-items:center;justify-content:center;margin-bottom:22px;">
+          <img src="/logoo.png" alt="CIIS Network" style="width:210px;max-width:80vw;height:auto;object-fit:contain;" />
+        </div>
+        <div style="width:clamp(180px, 60vw, 240px);height:5px;background:#e2e8f0;border-radius:999px;overflow:hidden;position:relative;">
+          <div style="height:100%;background:#1845b8;border-radius:999px;animation:ciisPreload 1.8s ease-in-out infinite;"></div>
+        </div>
+      </div>
+      <style>
+        @keyframes ciisPreload {
+          0% { width: 5%; margin-left: 0; }
+          50% { width: 70%; margin-left: 20%; }
+          100% { width: 100%; margin-left: 0; }
+        }
+      </style>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

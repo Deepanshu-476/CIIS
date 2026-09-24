@@ -1,250 +1,137 @@
-/* CIISLoader.css - Premium Light Theme Redesign */
+/* CIISLoader.css - Mobile-Matching Clean Light Theme with Animated Progress Line */
 
-/* Base wrapper with sleek fixed full-screen positioning */
 .ciis-wrapper {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  min-width: 0;
+  width: 100vw;
   height: 100vh;
   height: 100dvh;
-  padding: clamp(16px, 4vw, 32px);
   display: flex;
   justify-content: center;
   align-items: center;
-  background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #ffffff;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   z-index: 99999;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
-/* Glassmorphism Card Element */
+.ciis-wrapper.ciis-compact {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 140px;
+  padding: 20px 0;
+  background-color: transparent;
+  z-index: 10;
+}
+
+.ciis-wrapper.ciis-overlay {
+  position: fixed;
+  background-color: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 .ciis-card {
-  text-align: center;
-  max-width: 420px;
-  width: min(420px, 100%);
-  min-width: 0;
-  padding: clamp(32px, 6vw, 48px) clamp(22px, 5vw, 40px);
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 32px;
-  box-shadow: 
-    0 25px 50px -12px rgba(15, 23, 42, 0.08), 
-    0 0 80px -10px rgba(99, 102, 241, 0.05),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
 }
 
-/* Premium Breathing Logo Styling */
+.ciis-logo-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
 .ciis-logo {
-  width: clamp(170px, 48vw, 240px);
-  max-width: 100%;
+  width: 210px;
+  max-width: 80vw;
   height: auto;
-  margin-bottom: clamp(24px, 5vw, 36px);
-  animation: logo-breathe 3s ease-in-out infinite;
+  object-fit: contain;
+  animation: ciis-logo-breathe 2.4s ease-in-out infinite;
   pointer-events: none;
+  user-select: none;
 }
 
-/* Logo breathing animation with soft purple-indigo drop shadow suitable for light mode */
-@keyframes logo-breathe {
+@keyframes ciis-logo-breathe {
   0% {
-    transform: scale(1);
-    filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.1));
+    transform: scale(0.97);
   }
   50% {
     transform: scale(1.03);
-    filter: drop-shadow(0 12px 28px rgba(99, 102, 241, 0.22));
   }
   100% {
-    transform: scale(1);
-    filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.1));
+    transform: scale(0.97);
   }
 }
 
-/* Spinner Container */
-.premium-spinner-container {
-  position: relative;
-  width: clamp(64px, 15vw, 84px);
-  height: clamp(64px, 15vw, 84px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: clamp(18px, 4vw, 24px);
-}
-
-/* Outer Ring (Violet gradient feel) */
-.outer-ring {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 3.5px solid rgba(99, 102, 241, 0.08);
-  border-top-color: #6366f1;
-  border-bottom-color: #818cf8;
-  animation: spin-clockwise 1.6s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
-}
-
-/* Inner Ring (Cyan gradient feel, rotates backward) */
-.inner-ring {
-  position: absolute;
-  width: 74%;
-  height: 74%;
-  border-radius: 50%;
-  border: 3.5px solid rgba(6, 182, 212, 0.08);
-  border-left-color: #06b6d4;
-  border-right-color: #22d3ee;
-  animation: spin-counter-clockwise 1.2s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
-}
-
-/* Spinner Keyframes */
-@keyframes spin-clockwise {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@keyframes spin-counter-clockwise {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(-360deg); }
-}
-
-/* Smooth fading loading text styles */
-.loading-text {
-  font-family: inherit;
-  max-width: 100%;
-  font-size: clamp(11px, 3vw, 14px);
-  font-weight: 600;
-  color: #475569;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin: 12px 0 0 0;
-  min-height: 24px;
-  overflow-wrap: anywhere;
-  transition: opacity 0.35s ease-in-out, transform 0.35s ease-in-out;
-}
-
-.fade-in {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.fade-out {
-  opacity: 0;
-  transform: translateY(4px);
-}
-
-/* Progress bar container */
-.progress-bar-container {
-  width: min(160px, 62vw);
+/* 100% Progress Bar Container */
+.ciis-progress-bar-container {
+  width: clamp(180px, 60vw, 240px);
   height: 5px;
-  background: #e2e8f0;
-  border-radius: 100px;
-  margin-top: 24px;
+  background-color: #e2e8f0;
+  border-radius: 999px;
   overflow: hidden;
   position: relative;
 }
 
-/* Progress bar shimmer indicator */
-.progress-bar-fill {
+/* Animated Progress Fill */
+.ciis-progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6366f1 0%, #06b6d4 100%);
-  border-radius: 100px;
-  position: absolute;
-  animation: shimmer-progress 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+  background-color: #1845b8;
+  border-radius: 999px;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px rgba(24, 69, 184, 0.3);
 }
 
-/* Infinite fluid loading shimmer animation */
-@keyframes shimmer-progress {
-  0% {
-    left: -45%;
-    width: 40%;
-  }
-  50% {
-    width: 60%;
-  }
-  100% {
-    left: 105%;
-    width: 40%;
-  }
+/* Info Row: Percentage + Optional Label */
+.ciis-info-row {
+  width: clamp(180px, 60vw, 240px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.ciis-percentage-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1845b8;
+  letter-spacing: 0.5px;
+}
+
+.ciis-loading-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
 }
 
 @media (max-width: 480px) {
-  .ciis-wrapper {
-    align-items: center;
-    padding: 14px;
-  }
-
-  .ciis-card {
-    border-radius: 22px;
-    padding: 30px 20px;
-  }
-
-  .outer-ring,
-  .inner-ring {
-    border-width: 3px;
-  }
-
-  .loading-text {
-    letter-spacing: 0.7px;
-    line-height: 1.45;
-  }
-}
-
-@media (max-width: 360px) {
-  .ciis-card {
-    padding: 26px 16px;
-    border-radius: 18px;
-  }
-
   .ciis-logo {
-    width: 155px;
-  }
-
-  .premium-spinner-container {
-    width: 58px;
-    height: 58px;
-  }
-
-  .loading-text {
-    font-size: 10px;
-    letter-spacing: 0.5px;
-  }
-
-  .progress-bar-container {
-    width: 130px;
-  }
-}
-
-@media (max-height: 520px) {
-  .ciis-card {
-    padding-top: 22px;
-    padding-bottom: 22px;
-  }
-
-  .ciis-logo {
-    width: 150px;
+    width: 180px;
     margin-bottom: 18px;
   }
 
-  .premium-spinner-container {
-    width: 54px;
-    height: 54px;
-    margin-bottom: 14px;
+  .ciis-progress-bar-container,
+  .ciis-info-row {
+    width: clamp(160px, 70vw, 210px);
   }
 
-  .loading-text {
-    margin-top: 6px;
-    min-height: 18px;
-  }
-
-  .progress-bar-container {
-    margin-top: 14px;
+  .ciis-percentage-text,
+  .ciis-loading-text {
+    font-size: 11px;
   }
 }

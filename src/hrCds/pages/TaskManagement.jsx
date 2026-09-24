@@ -647,27 +647,82 @@ const formatShiftTimeLabel = (shiftTimeValue, fallbackLabel = 'your shift') => {
 
 let taskManagementMemoryCache = null;
 const TASK_MANAGEMENT_SESSION_CACHE_KEY = 'ciis-task-management-cache-v1';
+const getTaskManagementLocalCacheKey = userId => `ciis-task-management-cache:${userId || 'anonymous'}`;
 
 const getTaskManagementSessionCache = () => {
   try {
-    return JSON.parse(sessionStorage.getItem(TASK_MANAGEMENT_SESSION_CACHE_KEY) || 'null');
+    return JSON.parse(
+      sessionStorage.getItem(TASK_MANAGEMENT_SESSION_CACHE_KEY) ||
+      localStorage.getItem(TASK_MANAGEMENT_SESSION_CACHE_KEY) ||
+      'null'
+    );
   } catch {
     return null;
   }
 };
 
-const persistTaskManagementCache = (cache) => {
+const getTaskManagementPersistentCache = (userId) => {
+  try {
+    return JSON.parse(localStorage.getItem(getTaskManagementLocalCacheKey(userId)) || 'null');
+  } catch {
+    return null;
+  }
+};
+
+const persistTaskManagementCache = (cache, userId = cache?.userId) => {
   try {
     sessionStorage.setItem(TASK_MANAGEMENT_SESSION_CACHE_KEY, JSON.stringify(cache));
+    localStorage.setItem(TASK_MANAGEMENT_SESSION_CACHE_KEY, JSON.stringify(cache));
+    if (userId) {
+      localStorage.setItem(getTaskManagementLocalCacheKey(userId), JSON.stringify(cache));
+    }
   } catch {
     // Large task attachments can exceed browser storage; memory cache still works.
   }
 };
 
+const AnimatedStatValue = ({ value }) => {
+  const numericValue = Number(value);
+  const [displayValue, setDisplayValue] = useState(Number.isFinite(numericValue) ? numericValue : value);
+  const previousValueRef = useRef(Number.isFinite(numericValue) ? numericValue : null);
+
+  useEffect(() => {
+    if (!Number.isFinite(numericValue)) {
+      setDisplayValue(value);
+      previousValueRef.current = null;
+      return undefined;
+    }
+
+    const startValue = Number.isFinite(previousValueRef.current) ? previousValueRef.current : numericValue;
+    const startedAt = performance.now();
+    const duration = 450;
+    let frameId;
+
+    const animate = (now) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(Math.round(startValue + (numericValue - startValue) * eased));
+      if (progress < 1) {
+        frameId = requestAnimationFrame(animate);
+      }
+    };
+
+    frameId = requestAnimationFrame(animate);
+    previousValueRef.current = numericValue;
+
+    return () => cancelAnimationFrame(frameId);
+  }, [numericValue, value]);
+
+  return <>{displayValue}</>;
+};
+
 const UserCreateTask = () => {
   const storedTaskUser = useMemo(() => getStoredTaskUser(), []);
   const cachedTaskData = useMemo(() => {
-    const availableCache = taskManagementMemoryCache || getTaskManagementSessionCache();
+    const availableCache =
+      taskManagementMemoryCache ||
+      getTaskManagementSessionCache() ||
+      getTaskManagementPersistentCache(storedTaskUser?.id);
     if (!availableCache || availableCache.userId !== storedTaskUser?.id) {
       return null;
     }
@@ -2124,9 +2179,9 @@ const UserCreateTask = () => {
     ));
   }, [userId]);
 
-  const buildTaskQueryParams = useCallback(({ includeAll = true } = {}) => {
+  const buildTaskQueryParams = useCallback(({ includeAll = true, page = 1 } = {}) => {
     const params = new URLSearchParams();
-    params.append('page', '1');
+    params.append('page', String(page));
     params.append('limit', String(TASK_PAGE_LIMIT));
     if (includeAll) params.append('all', 'true');
     return params.toString();
@@ -2712,17 +2767,18 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
-  const fetchAllTasks = useCallback(async ({ refreshStats = false } = {}) => {
+  const fetchAllTasks = useCallback(async (targetPage = 1) => {
     if (authError || !userId) return;
 
     const requestStartedAt = Date.now();
     const shouldShowLoader = !allTasksLoadedRef.current;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
-      // Time/status/search filters are applied locally in this screen. Always load
-      // the complete set so "All Tasks" + "All Time" cannot silently omit tasks
-      // that happened to be on a different API page.
-      const query = buildTaskQueryParams({ includeAll: true });
+      const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage }));
+      if (statusFilter) params.set('status', statusFilter);
+      if (debouncedSearchTerm.trim()) params.set('search', debouncedSearchTerm.trim());
+      if (timeFilter && timeFilter !== 'all') params.set('period', timeFilter);
+      const query = params.toString();
       const res = await axios.get(`/tasks/all?${query}`);
       let responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
       const tasksArray = responseTasks.map(task => ({
@@ -2751,13 +2807,14 @@ const UserCreateTask = () => {
       calculateClientStatsFromTasks(clientGrouped);
       calculateProjectStatsFromTasks(projectGrouped);
       allTasksStatsLoadedRef.current = true;
+      const pagination = res.data?.pagination || {};
       const nextPagination = {
-        page: 1,
-        limit: Math.max(tasksArray.length, 1),
-        total: res.data?.total ?? tasksArray.length,
-        pages: 1,
-        hasNext: false,
-        hasPrev: false
+        page: Number(pagination.page || targetPage),
+        limit: Number(pagination.limit || TASK_PAGE_LIMIT),
+        total: Number(pagination.total ?? res.data?.total ?? tasksArray.length),
+        pages: Number(pagination.pages || 1),
+        hasNext: Boolean(pagination.hasNext),
+        hasPrev: Boolean(pagination.hasPrev)
       };
       setAllTasksPagination(nextPagination);
       taskManagementMemoryCache = {
@@ -2794,7 +2851,7 @@ const UserCreateTask = () => {
       allTasksLoadedRef.current = true;
       setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
     }
-  }, [authError, userId, buildTaskQueryParams, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
+  }, [authError, userId, buildTaskQueryParams, statusFilter, debouncedSearchTerm, timeFilter, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 
   const scheduleAllTasksRefresh = useCallback((delay = 350) => {
     if (allTasksRefreshTimerRef.current) {
@@ -2803,9 +2860,9 @@ const UserCreateTask = () => {
 
     allTasksRefreshTimerRef.current = setTimeout(() => {
       allTasksRefreshTimerRef.current = null;
-      void fetchAllTasks();
+      void fetchAllTasks(allTasksPagination.page || 1);
     }, delay);
-  }, [fetchAllTasks]);
+  }, [allTasksPagination.page, fetchAllTasks]);
 
   const handleCreateProjectTask = useCallback(async () => {
     if (!selectedProject) {
@@ -2868,7 +2925,7 @@ const UserCreateTask = () => {
 
       await Promise.allSettled([
         fetchProjectTasks(),
-        fetchAllTasks()
+        fetchAllTasks(allTasksPagination.page || 1)
       ]);
 
       showSnackbar(`Project task created in ${selectedProject.projectName || 'project'}`, 'success');
@@ -2878,7 +2935,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingProjectTask(false);
     }
-  }, [fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar]);
+  }, [allTasksPagination.page, fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar]);
 
   
   const fetchMyTasks = useCallback(async () => {
@@ -3834,7 +3891,7 @@ const UserCreateTask = () => {
 
   const refreshCurrentTaskView = async (source = taskViewMode) => {
     if (taskViewMode === 'all') {
-      await fetchAllTasks();
+      await fetchAllTasks(allTasksPagination.page || 1);
     }
     if (source === 'self' || taskViewMode === 'self') {
       await fetchMyTasks();
@@ -4367,8 +4424,23 @@ const UserCreateTask = () => {
   const handleLogout = () => {
     taskManagementMemoryCache = null;
     sessionStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    localStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
+    localStorage.removeItem(getTaskManagementLocalCacheKey(userId));
+    [
+      'user',
+      'token',
+      'superAdmin',
+      'company',
+      'companyDetails',
+      'companyCode',
+      'companyIdentifier',
+      'client',
+      'clientPortalSelectedClientId',
+      'unreadCount'
+    ].forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
     window.dispatchEvent(new Event('ciis-auth-changed'));
     navigate('/login');
   };
@@ -4439,10 +4511,10 @@ const UserCreateTask = () => {
   }, [openDialog, storedTaskUser]);
 
   useEffect(() => {
-    if (userId && !authError) {
-      fetchAllTasks();
-    }
-  }, [userId, authError, fetchAllTasks]);
+    if (taskViewMode !== 'all' || !userId || authError) return;
+    setAllTasksPagination(prev => ({ ...prev, page: 1 }));
+    fetchAllTasks(1);
+  }, [taskViewMode, statusFilter, debouncedSearchTerm, timeFilter, userId, authError, fetchAllTasks]);
 
   useEffect(() => {
     if (taskViewMode === 'client' && clients.length === 0 && !loadingClients && !clientsLoadAttemptedRef.current) {
@@ -4913,7 +4985,7 @@ const UserCreateTask = () => {
                       <div className="user-create-task-stat-card-content">
                         <div className="user-create-task-stat-card-header">
                           <div>
-                            <div className="user-create-task-stat-card-value">{stat.value}</div>
+                            <div className="user-create-task-stat-card-value"><AnimatedStatValue value={stat.value} /></div>
                             <div className="user-create-task-stat-card-title">{stat.title}</div>
                           </div>
                           <div 
@@ -5848,7 +5920,7 @@ const UserCreateTask = () => {
                   className="user-create-task-action-button"
                   onClick={() => {
                     if (taskViewMode === 'all') {
-                      fetchAllTasks();
+                      fetchAllTasks(allTasksPagination.page || 1);
                     } else if (taskViewMode === 'self') {
                       fetchMyTasks();
                     } else if (taskViewMode === 'client') {
@@ -6504,7 +6576,7 @@ const UserCreateTask = () => {
               <button
                 className="user-create-task-button user-create-task-button-outlined"
                 disabled={!allTasksPagination.hasPrev}
-                onClick={() => setAllTasksPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                onClick={() => fetchAllTasks(Math.max(1, allTasksPagination.page - 1))}
               >
                 Previous
               </button>
@@ -6514,7 +6586,7 @@ const UserCreateTask = () => {
               <button
                 className="user-create-task-button user-create-task-button-outlined"
                 disabled={!allTasksPagination.hasNext}
-                onClick={() => setAllTasksPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                onClick={() => fetchAllTasks(allTasksPagination.page + 1)}
               >
                 Next
               </button>

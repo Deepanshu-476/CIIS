@@ -192,6 +192,11 @@ const ChatBox = ({
 
     const [messages, setMessages] =
         useState([]);
+    const [messagePagination, setMessagePagination] = useState({
+        hasMore: false,
+        nextBefore: null,
+    });
+    const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
 
     const [text, setText] =
         useState("");
@@ -426,6 +431,7 @@ const ChatBox = ({
 
         setConversation(null);
         setMessages([]);
+        setMessagePagination({ hasMore: false, nextBefore: null });
         setReplyingTo(null);
         setPendingRecording(null);
         setShowCaptureMenu(false);
@@ -802,17 +808,57 @@ useEffect(() => {
 
             const res =
                 await getMessages(
-                    conversationId
+                    conversationId,
+                    { limit: 50 }
                 );
 
             setMessages(
-                res.data.messages
+                Array.isArray(res.data.messages) ? res.data.messages : []
             );
+            setMessagePagination({
+                hasMore: Boolean(res.data.pagination?.hasMore),
+                nextBefore: res.data.pagination?.nextBefore || null,
+            });
             onConversationChange?.();
 
         } catch (error) {
 
             void 0;
+        }
+    };
+
+    const loadOlderMessages = async () => {
+        if (!conversation?._id || isLoadingOlderMessages || !messagePagination.hasMore || !messagePagination.nextBefore) return;
+
+        const container = chatMessagesRef.current;
+        const previousScrollHeight = container?.scrollHeight || 0;
+        const previousScrollTop = container?.scrollTop || 0;
+
+        try {
+            setIsLoadingOlderMessages(true);
+            const res = await getMessages(conversation._id, {
+                limit: 50,
+                before: messagePagination.nextBefore,
+            });
+            const olderMessages = Array.isArray(res.data.messages) ? res.data.messages : [];
+            setMessages(prev => {
+                const existingIds = new Set(prev.map(message => String(message._id || "")));
+                const uniqueOlder = olderMessages.filter(message => !existingIds.has(String(message._id || "")));
+                return [...uniqueOlder, ...prev];
+            });
+            setMessagePagination({
+                hasMore: Boolean(res.data.pagination?.hasMore),
+                nextBefore: res.data.pagination?.nextBefore || null,
+            });
+            setTimeout(() => {
+                const nextContainer = chatMessagesRef.current;
+                if (!nextContainer) return;
+                nextContainer.scrollTop = nextContainer.scrollHeight - previousScrollHeight + previousScrollTop;
+            }, 0);
+        } catch (error) {
+            void 0;
+        } finally {
+            setIsLoadingOlderMessages(false);
         }
     };
 
@@ -2052,6 +2098,19 @@ useEffect(() => {
                 {showActiveChatDate && activeChatDateLabel && (
                     <div className="chat-active-date">
                         <span>{activeChatDateLabel}</span>
+                    </div>
+                )}
+
+                {messagePagination.hasMore && !normalizedSearchTerm && (
+                    <div className="chat-load-older-wrap">
+                        <button
+                            type="button"
+                            className="chat-load-older-btn"
+                            onClick={loadOlderMessages}
+                            disabled={isLoadingOlderMessages}
+                        >
+                            {isLoadingOlderMessages ? "Loading..." : "Load older messages"}
+                        </button>
                     </div>
                 )}
 

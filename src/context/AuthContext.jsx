@@ -4,6 +4,39 @@ import { clearAllCaches } from '../utils/axiosConfig';
 
 export const AuthContext = createContext(null);
 const AUTH_SYNC_EVENT = 'ciis-auth-changed';
+const AUTH_STORAGE_KEYS = [
+  'token',
+  'user',
+  'superAdmin',
+  'company',
+  'companyDetails',
+  'companyCode',
+  'companyIdentifier',
+  'client',
+  'clientPortalSelectedClientId',
+  'unreadCount',
+  'ciis-task-management-cache-v1',
+];
+const APP_CACHE_PREFIXES = [
+  'ciis-task-management-cache:',
+  'ciis-api-cache:',
+  'ciis-sidebar-badges-cache:',
+  'ciis-sidebar-badges-seen:',
+  'ciis_user_avatar:',
+  'ciis-call-history-',
+  'unread-count-cache:',
+];
+
+const clearStorageKeys = storage => {
+  if (!storage) return;
+
+  AUTH_STORAGE_KEYS.forEach(key => storage.removeItem(key));
+  Object.keys(storage).forEach(key => {
+    if (APP_CACHE_PREFIXES.some(prefix => key.startsWith(prefix))) {
+      storage.removeItem(key);
+    }
+  });
+};
 
 const readStoredAuth = () => {
   const storedToken = localStorage.getItem('token');
@@ -65,8 +98,8 @@ export const AuthProvider = ({ children }) => {
   }, [syncAuthState]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearStorageKeys(localStorage);
+    clearStorageKeys(sessionStorage);
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);

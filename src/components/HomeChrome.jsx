@@ -12,6 +12,7 @@ import {
   Zap
 } from 'lucide-react';
 import '../Pages/CIISLandingPage.css';
+import FeatureMegaMenu from './landing/FeatureMegaMenu';
 
 export function HomeHeader() {
   const [scrolled, setScrolled] = useState(false);
@@ -35,7 +36,7 @@ export function HomeHeader() {
           <nav>
             <ul className="ciis-nav-links">
               <li><a href="/" className="ciis-nav-link">Home</a></li>
-              <li><a href="/features" className="ciis-nav-link">Features</a></li>
+              <FeatureMegaMenu />
               <li><a href="/solutions" className="ciis-nav-link">Solutions</a></li>
               <li><a href="/how-it-works" className="ciis-nav-link">How It Works</a></li>
               <li><a href="/contact" className="ciis-nav-link">Contact</a></li>

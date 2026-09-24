@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './CIISLandingPage.css';
 import BookDemoModal from '../components/landing/BookDemoModal';
+import FeatureMegaMenu from '../components/landing/FeatureMegaMenu';
 import {
   Users,
   Clock,
@@ -717,11 +718,7 @@ export default function CIISLandingPage() {
                     Home
                   </a>
                 </li>
-                <li>
-                  <a href="/features" className="ciis-nav-link">
-                    Features
-                  </a>
-                </li>
+                <FeatureMegaMenu />
                 <li>
                   <a href="/solutions" className="ciis-nav-link">
                     Solutions

@@ -28,6 +28,7 @@ const APP_ROUTES = [
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListAlt', category: 'tasks' },
   
   { path: 'emp-client', name: 'Client Management', icon: 'ClientIcon', category: 'clients' },
+  { path: 'client-plans', name: 'Client Plans', icon: 'Folder', category: 'clients' },
   { path: 'active-clients', name: 'Active Clients', icon: 'Folder', category: 'clients' },
   { path: 'salary-component', name: 'Salary Component', icon: 'Work', category: 'payroll' },
   { path: 'salary-structure', name: 'Salary Structure', icon: 'Work', category: 'payroll' },

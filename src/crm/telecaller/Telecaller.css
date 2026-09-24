@@ -182,22 +182,44 @@
 }
 
 .haps-kpi-bottom {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10.5px;
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px dashed #f1f3f7;
-  font-weight: 500;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  width: 100% !important;
+  height: auto !important;
+  margin-top: 14px !important;
+  padding-top: 10px !important;
+  border-top: 1px dashed #f1f3f7 !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .haps-kpi-bottom.tone-green {
-  color: #10b981;
+  color: #10b981 !important;
+  background: transparent !important;
 }
 
 .haps-kpi-bottom.tone-pink {
-  color: #f43f5e;
+  color: #f43f5e !important;
+  background: transparent !important;
+}
+
+.haps-kpi-bottom.tone-gray {
+  color: #94a3b8 !important;
+  background: transparent !important;
+}
+
+.haps-kpi-dot-neutral {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  display: inline-block;
+  flex-shrink: 0;
+  margin-right: 2px;
 }
 
 /* KPI Pill Badges */
@@ -512,18 +534,95 @@
   font-weight: 500;
 }
 
-.tc-trend-empty-hint {
+.tc-trend-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 240px;
+  padding: 28px 20px;
+  margin: 6px 14px 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.tc-trend-empty-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #6366f1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 12px;
-  margin: 0 14px 8px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 6px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e0e7ff;
+}
+
+.tc-trend-empty-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+}
+
+.tc-trend-empty-desc {
+  font-size: 12px;
   color: #64748b;
-  font-size: 11.5px;
+  max-width: 380px;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.tc-trend-empty-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tc-trend-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 7px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.tc-trend-empty-btn.primary {
+  background: #6366f1;
+  color: #ffffff;
+  border: 1px solid #6366f1;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.22);
+}
+
+.tc-trend-empty-btn.primary:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+}
+
+.tc-trend-empty-btn.outline {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.tc-trend-empty-btn.outline:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #94a3b8;
 }
 
 /* Modern Chart Tooltip */

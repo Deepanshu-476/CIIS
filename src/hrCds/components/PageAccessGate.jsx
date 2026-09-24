@@ -20,17 +20,44 @@ const normalizeRole = value => String(value || "")
   .toLowerCase()
   .replace(/[\s-]+/g, "_");
 
-const hasCrmPlanAccess = (pagePath, isPrivileged = false) => {
-  if (!/^\/ciisuser\/crm\/(admin|marketing|reports)\//i.test(pagePath)) return true;
+const normalizePlanKey = value => String(value || "")
+  .trim()
+  .toLowerCase()
+  .replace(/^\/+/, "")
+  .replace(/^ciisuser\//, "");
+
+const PLAN_FREE_PATHS = new Set([
+  "client/account-settings",
+  "client/change-password",
+]);
+
+const hasCompanyPlanAccess = pagePath => {
   try {
     const company = JSON.parse(localStorage.getItem('companyDetails') || '{}');
     const allowed = company?.allowedPages || [];
-    if (!allowed.length || isPrivileged) return true;
-    const normalize = value => String(value).trim().toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '');
-    const keys = new Set(allowed.map(normalize));
-    if (keys.has('crm') || keys.has('admin-crm')) return true;
-    const page = CRM_PAGES.find(item => (`/ciisUser/${item.path}`).toLowerCase() === pagePath.toLowerCase());
-    return Boolean(!page || [page.id, page.path].some(key => keys.has(normalize(key))));
+    if (!allowed.length) return true;
+
+    const normalizedPath = normalizePlanKey(pagePath);
+    if (PLAN_FREE_PATHS.has(normalizedPath)) return true;
+
+    const keys = new Set(allowed.map(normalizePlanKey));
+    if (/^crm\/(admin|marketing|reports)\//i.test(normalizedPath)) {
+      if (keys.has('crm') || keys.has('admin-crm')) return true;
+      const page = CRM_PAGES.find(item => normalizePlanKey(item.path) === normalizedPath);
+      return Boolean(page && [page.id, page.path].some(key => keys.has(normalizePlanKey(key))));
+    }
+
+    if (normalizedPath.startsWith("client/")) {
+      const clientPage = normalizedPath.substring("client/".length).split("/")[0];
+      if (clientPage === "services-tasks") return keys.has("client-my-services");
+      return keys.has(`client-${clientPage}`);
+    }
+
+    const routeKey = normalizedPath.split("/")[0];
+    if (routeKey === "emp-task-details") {
+      return ["task-management", "admin-task-create", "company-all-task"].some(key => keys.has(key));
+    }
+    return keys.has(routeKey) || keys.has(normalizedPath);
   } catch { return true; }
 };
 
@@ -64,10 +91,6 @@ const PageAccessGate = ({ children }) => {
     const requiresExplicitAccess = requiresPageAccess(pagePath);
 
     const checkAccess = async () => {
-      if (isPrivileged) {
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
-        return;
-      }
       if (telecallerPage) {
         let company;
         try { company = JSON.parse(localStorage.getItem('companyDetails') || '{}'); } catch { company = {}; }
@@ -98,8 +121,12 @@ const PageAccessGate = ({ children }) => {
         }
         return;
       }
-      if (!hasCrmPlanAccess(pagePath, isPrivileged)) {
+      if (!hasCompanyPlanAccess(pagePath)) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false });
+        return;
+      }
+      if (isPrivileged) {
+        if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
         return;
       }
       if (!pagePath || !requiresExplicitAccess) {
@@ -113,7 +140,7 @@ const PageAccessGate = ({ children }) => {
         // access to an unassigned CRM page.
         const allowed = isCrmPage(pagePath) || requiresExplicitAccess
           ? hasPageAccess(page, userId, "view")
-          : hasPageAccess(page, userId, "view") || (!hasConfiguredPageAccess(page) && hasCrmPlanAccess(pagePath));
+          : hasPageAccess(page, userId, "view") || (!hasConfiguredPageAccess(page) && hasCompanyPlanAccess(pagePath));
         if (!cancelled) setState({ path: pagePath, loading: false, allowed });
       } catch {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false });

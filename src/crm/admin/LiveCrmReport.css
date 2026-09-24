@@ -1096,9 +1096,130 @@
 .crm-chart-canvas-wrap {
   width: 100%;
   min-width: 0;
-  height: 280px;
+  height: 320px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  display: block;
+}
+
+.crm-chart-canvas-wrap .recharts-wrapper {
+  margin: 0 auto;
+}
+
+.crm-chart-canvas-wrap .recharts-legend-wrapper {
+  width: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+.crm-chart-canvas-wrap .recharts-default-legend {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.crm-chart-canvas-wrap .recharts-legend-item {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-right: 16px !important;
+  white-space: nowrap !important;
+}
+
+/* Modern Floating Chart Tooltip */
+.crm-modern-chart-tooltip {
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #ffffff;
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.35), 0 4px 10px -2px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  pointer-events: none;
+  min-width: 150px;
+  z-index: 100;
+}
+
+.crm-tooltip-header {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.crm-tooltip-header-icon {
+  color: #cbd5e1;
+}
+
+.crm-tooltip-title {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.crm-tooltip-total-tag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 1px 7px;
+  border-radius: 9999px;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+}
+
+.crm-tooltip-pct-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-left: 5px;
+}
+
+.crm-tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.crm-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.crm-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.crm-tooltip-label {
+  color: #cbd5e1;
+  font-weight: 500;
+  flex: 1;
+}
+
+.crm-tooltip-value {
+  color: #ffffff;
+  font-weight: 700;
+  font-family: inherit;
+  margin-left: 8px;
 }
 
 .crm-header-right-group {
@@ -1155,6 +1276,140 @@
   color: #94a3b8;
   gap: 8px;
   font-size: 13px;
+  padding: 24px;
+  text-align: center;
+}
+
+/* In-Card Quick KPI Summary Strip */
+.crm-chart-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.crm-chart-stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #f8fafc;
+  transition: all 0.18s ease;
+}
+
+.crm-chart-stat-pill:hover {
+  transform: translateY(-1px);
+}
+
+.crm-chart-stat-pill.blue {
+  background: #eff6ff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.crm-chart-stat-pill.emerald {
+  background: #ecfdf5;
+  border-color: #d1fae5;
+  color: #047857;
+}
+
+.crm-chart-stat-pill.purple {
+  background: #f5f3ff;
+  border-color: #ede9fe;
+  color: #6d28d9;
+}
+
+.crm-chart-stat-pill.indigo {
+  background: #eef2ff;
+  border-color: #e0e7ff;
+  color: #4338ca;
+}
+
+.crm-chart-stat-pill.amber {
+  background: #fffbeb;
+  border-color: #fef3c7;
+  color: #b45309;
+}
+
+.crm-chart-stat-pill.rose {
+  background: #fff1f2;
+  border-color: #ffe4e6;
+  color: #be123c;
+}
+
+.crm-chart-stat-pill.cyan {
+  background: #ecfeff;
+  border-color: #cffafe;
+  color: #0e7490;
+}
+
+.crm-chart-stat-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.crm-chart-stat-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.crm-chart-stat-val {
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crm-chart-stat-lbl {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Multi-Segment Proportion Bar for Activity Breakdown */
+.crm-multi-progress-track {
+  width: 100%;
+  height: 9px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  display: flex;
+  margin: 8px 0 16px 0;
+}
+
+.crm-multi-bar {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.crm-multi-bar.calls {
+  background: #3b82f6;
+}
+
+.crm-multi-bar.assigns {
+  background: #8b5cf6;
+}
+
+.crm-multi-bar.followups {
+  background: #10b981;
 }
 
 .crm-activity-share-list {
@@ -1230,6 +1485,37 @@
   color: #4338ca;
   font-weight: 700;
   font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crm-rank-badge.gold {
+  background: #fef08a;
+  color: #854d0e;
+  border: 1px solid #fde047;
+}
+
+.crm-rank-badge.silver {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.crm-rank-badge.bronze {
+  background: #fed7aa;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.crm-rank-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 9.5px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;

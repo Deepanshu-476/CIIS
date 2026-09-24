@@ -29,7 +29,7 @@ import './CallOverview.css';
 const statCardsData = [
   {
     title: "Assigned Leads",
-    value: "11",
+    value: "0",
     badge: "Active Leads",
     badgeType: "purple",
     icon: FiUsers,
@@ -53,7 +53,7 @@ const statCardsData = [
   },
   {
     title: "Converted Calls",
-    value: "1",
+    value: "0",
     badge: "Successful Conversions",
     badgeType: "emerald",
     icon: FiAward,
@@ -121,61 +121,14 @@ const quickAccessItems = [
   }
 ];
 
-  // Call Trends Data with rich, visible curves
-  const trendData = [
-    { day: 'Wed', calls: 12, connected: 8 },
-  { day: 'Thu', calls: 18, connected: 14 },
-  { day: 'Fri', calls: 28, connected: 22 },
-  { day: 'Sat', calls: 16, connected: 11 },
-  { day: 'Sun', calls: 6,  connected: 4 },
-  { day: 'Mon', calls: 35, connected: 26 },
-  { day: 'Tue', calls: 24, connected: 18 }
-];
+// Default Call Trends Data
+const trendData = [];
 
 // Call Outcomes Donut Data
-const outcomeData = [
-  { name: 'Converted', value: 1, percent: '100.0% of calls', color: '#10b981' },
-  { name: 'Connected', value: 0, percent: '0.0% of calls', color: '#6366f1' },
-  { name: 'Interested', value: 0, percent: '0.0% of calls', color: '#f59e0b' },
-  { name: 'Not Interested', value: 0, percent: '0.0% of calls', color: '#94a3b8' },
-  { name: 'Need Callback', value: 0, percent: '0.0% of calls', color: '#06b6d4' }
-];
+const outcomeData = [];
 
 // Recent Calls List
-const recentCallsData = [
-  {
-    sl: 1,
-    lead: '#LD-008',
-    name: 'Ashok Pillai',
-    phone: '8016315999',
-    source: 'Facebook',
-    sourceType: 'facebook',
-    leadType: 'NEET',
-    leadTypeClass: 'neet',
-    callType: 'Outbound',
-    outcome: 'Follow-up',
-    outcomeClass: 'followup',
-    remarks: 'required next followup for this',
-    callTime: '24 Aug 2026 02:45 PM',
-    ago: '1 week ago'
-  },
-  {
-    sl: 2,
-    lead: '#LD-007',
-    name: 'Zara Nair',
-    phone: '8879968460',
-    source: 'Facebook',
-    sourceType: 'facebook',
-    leadType: 'NEET',
-    leadTypeClass: 'neet',
-    callType: 'Outbound',
-    outcome: 'Converted',
-    outcomeClass: 'converted',
-    remarks: 'converted in first call the lead id = Ld..',
-    callTime: '24 Aug 2026 02:28 PM',
-    ago: '1 week ago'
-  }
-];
+const recentCallsData = [];
 
 // Helper to format outcome name nicely
 const formatOutcomeName = (name) => {
@@ -203,7 +156,7 @@ const CustomOutcomeTooltip = ({ active, payload }) => {
         </div>
         <div className="tooltip-row">
           <span className="tooltip-label">Share:</span>
-          <span className="tooltip-pct">{item.payload?.percent || '—'}</span>
+          <span className="tooltip-pct">{item.payload?.percent || 'â€”'}</span>
         </div>
       </div>
     );
@@ -236,13 +189,13 @@ export default function CallOverview() {
               iconBg: statCardsData[i]?.iconBg || 'bg-purple-100 text-purple-600'
             })));
           }
-          if (Array.isArray(res.data.trendData) && res.data.trendData.length > 0) {
+          if (Array.isArray(res.data.trendData)) {
             setTrendList7d(res.data.trendData);
           }
-          if (Array.isArray(res.data.trendData30d) && res.data.trendData30d.length > 0) {
+          if (Array.isArray(res.data.trendData30d)) {
             setTrendList30d(res.data.trendData30d);
           }
-          if (Array.isArray(res.data.outcomeData) && res.data.outcomeData.length > 0) {
+          if (Array.isArray(res.data.outcomeData)) {
             setOutcomeList(res.data.outcomeData);
           }
           if (Array.isArray(res.data.recentCalls)) {
@@ -496,55 +449,85 @@ export default function CallOverview() {
               </div>
             </div>
 
-            {/* Native daily bar graph stays visible without SVG sizing dependencies. */}
-            <div
-              className={`co-trend-chart-wrapper ${trendRange === '30d' ? 'is-30-days' : ''}`}
-              role="img"
-              aria-label={`${trendRange === '30d' ? '30' : '7'} day calls and connected conversations graph`}
-            >
-              <div className="co-trend-y-axis" aria-hidden="true">
-                <span>{trendMax}</span>
-                <span>{Math.round(trendMax / 2)}</span>
-                <span>0</span>
-              </div>
-              <div className="co-trend-plot">
-                <span className="co-trend-grid-line top" aria-hidden="true" />
-                <span className="co-trend-grid-line middle" aria-hidden="true" />
-                <span className="co-trend-grid-line bottom" aria-hidden="true" />
-                {activeTrendData.map((item, index) => {
-                  const calls = Number(item.calls) || 0;
-                  const connected = Number(item.connected) || 0;
-                  const showLabel = trendRange === '7d' || index % 5 === 0 || index === activeTrendData.length - 1;
-                  return (
-                    <div
-                      className="co-trend-day"
-                      key={`${item.date || item.day}-${index}`}
-                      aria-label={`${item.date || item.day}: ${calls} calls, ${connected} connected`}
-                      tabIndex={0}
+            {totalCallsInPeriod === 0 ? (
+              <div className="co-trend-empty-state">
+                <div className="co-trend-empty-icon-wrap">
+                  <FiPhoneCall size={26} className="co-trend-empty-icon" />
+                </div>
+                <h4 className="co-trend-empty-title">No Call Trends Available</h4>
+                <p className="co-trend-empty-desc">
+                  No call activity has been logged in this {trendRange === '30d' ? '30-day' : '7-day'} range. Outbound calls and connected discussions will be graphed here once initiated.
+                </p>
+                <div className="co-trend-empty-actions">
+                  {trendRange === '7d' && (
+                    <button
+                      type="button"
+                      className="co-trend-empty-btn outline"
+                      onClick={() => setTrendRange('30d')}
                     >
-                      <div className="co-trend-hover-card" aria-hidden="true">
-                        <strong>{item.date || item.day}</strong>
-                        <span><i className="calls" />{calls} Calls</span>
-                        <span><i className="connected" />{connected} Connected</span>
-                      </div>
-                      <div className="co-trend-bars">
-                        <span
-                          className="co-trend-bar calls"
-                          style={{ height: calls ? `${Math.max(5, (calls / trendMax) * 100)}%` : 2 }}
-                        />
-                        <span
-                          className="co-trend-bar connected"
-                          style={{ height: connected ? `${Math.max(5, (connected / trendMax) * 100)}%` : 2 }}
-                        />
-                      </div>
-                      <span className={`co-trend-day-label ${showLabel ? '' : 'visually-hidden-label'}`}>
-                        {showLabel ? item.day : ''}
-                      </span>
-                    </div>
-                  );
-                })}
+                      Check 30 Days
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="co-trend-empty-btn primary"
+                    onClick={() => navigate('/ciisUser/crm/admin/assigned-calls')}
+                  >
+                    View Assigned Calls
+                    <FiChevronRight size={13} style={{ marginLeft: 4 }} />
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div
+                className={`co-trend-chart-wrapper ${trendRange === '30d' ? 'is-30-days' : ''}`}
+                role="img"
+                aria-label={`${trendRange === '30d' ? '30' : '7'} day calls and connected conversations graph`}
+              >
+                <div className="co-trend-y-axis" aria-hidden="true">
+                  <span>{trendMax}</span>
+                  <span>{Math.round(trendMax / 2)}</span>
+                  <span>0</span>
+                </div>
+                <div className="co-trend-plot">
+                  <span className="co-trend-grid-line top" aria-hidden="true" />
+                  <span className="co-trend-grid-line middle" aria-hidden="true" />
+                  <span className="co-trend-grid-line bottom" aria-hidden="true" />
+                  {activeTrendData.map((item, index) => {
+                    const calls = Number(item.calls) || 0;
+                    const connected = Number(item.connected) || 0;
+                    const showLabel = trendRange === '7d' || index % 5 === 0 || index === activeTrendData.length - 1;
+                    return (
+                      <div
+                        className="co-trend-day"
+                        key={`${item.date || item.day}-${index}`}
+                        aria-label={`${item.date || item.day}: ${calls} calls, ${connected} connected`}
+                        tabIndex={0}
+                      >
+                        <div className="co-trend-hover-card" aria-hidden="true">
+                          <strong>{item.date || item.day}</strong>
+                          <span><i className="calls" />{calls} Calls</span>
+                          <span><i className="connected" />{connected} Connected</span>
+                        </div>
+                        <div className="co-trend-bars">
+                          <span
+                            className="co-trend-bar calls"
+                            style={{ height: calls ? `${Math.max(5, (calls / trendMax) * 100)}%` : 2 }}
+                          />
+                          <span
+                            className="co-trend-bar connected"
+                            style={{ height: connected ? `${Math.max(5, (connected / trendMax) * 100)}%` : 2 }}
+                          />
+                        </div>
+                        <span className={`co-trend-day-label ${showLabel ? '' : 'visually-hidden-label'}`}>
+                          {showLabel ? item.day : ''}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -780,14 +763,14 @@ export default function CallOverview() {
 
             <div className="co-detail-body">
               <div className="co-detail-grid">
-                <div><span>Phone</span><strong>{selectedCall.phone || '—'}</strong></div>
-                <div><span>Call type</span><strong>{selectedCall.callType || '—'}</strong></div>
-                <div><span>Outcome</span><strong>{selectedCall.outcome || '—'}</strong></div>
-                <div><span>Call time</span><strong>{selectedCall.callTime || '—'}</strong></div>
-                <div><span>Source</span><strong>{selectedCall.source || '—'}</strong></div>
-                <div><span>Lead type</span><strong>{selectedCall.leadType || '—'}</strong></div>
-                <div><span>Caller</span><strong>{selectedCall.caller || '—'}</strong></div>
-                <div><span>Duration</span><strong>{selectedCall.duration || '—'}</strong></div>
+                <div><span>Phone</span><strong>{selectedCall.phone || 'â€”'}</strong></div>
+                <div><span>Call type</span><strong>{selectedCall.callType || 'â€”'}</strong></div>
+                <div><span>Outcome</span><strong>{selectedCall.outcome || 'â€”'}</strong></div>
+                <div><span>Call time</span><strong>{selectedCall.callTime || 'â€”'}</strong></div>
+                <div><span>Source</span><strong>{selectedCall.source || 'â€”'}</strong></div>
+                <div><span>Lead type</span><strong>{selectedCall.leadType || 'â€”'}</strong></div>
+                <div><span>Caller</span><strong>{selectedCall.caller || 'â€”'}</strong></div>
+                <div><span>Duration</span><strong>{selectedCall.duration || 'â€”'}</strong></div>
               </div>
               <div className="co-detail-remarks">
                 <span>Remarks</span>

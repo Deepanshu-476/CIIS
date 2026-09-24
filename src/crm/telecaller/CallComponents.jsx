@@ -12,7 +12,9 @@ import {
   ArrowUp,
   Calendar,
   Check,
-  CheckCircle
+  CheckCircle,
+  X,
+  ExternalLink
 } from "lucide-react";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import { todayKey, outcomes, formatDate } from "./liveData";
@@ -189,6 +191,7 @@ export function DataTable({
   const [size, setSize] = useState(10);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState({ key: "", asc: true });
+  const [selectedCallRecord, setSelectedCallRecord] = useState(null);
 
   const columns = useMemo(() => {
     if (kind === "assigned") {
@@ -474,9 +477,21 @@ export function DataTable({
                         <Eye size={12} /> View
                       </Link>
                     )
+                  ) : kind === "history" ? (
+                    <div className="haps-actions-group">
+                      <button
+                        type="button"
+                        className="haps-icon-btn haps-view-btn"
+                        title={`View Call Log for ${row.name}`}
+                        onClick={() => setSelectedCallRecord(row)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <Eye size={13} />
+                      </button>
+                    </div>
                   ) : (
                     <div className="haps-actions-group">
-                      {kind !== "converted" && kind !== "completed" && kind !== "history" && can("call-workspace") && (
+                      {kind !== "converted" && kind !== "completed" && can("call-workspace") && (
                         <Link
                           className="haps-icon-btn haps-call-btn"
                           title={`Call ${row.name}`}
@@ -598,6 +613,141 @@ export function DataTable({
             </button>
           </div>
         </footer>
+      )}
+
+      {selectedCallRecord && (
+        <div className="haps-modal-overlay" onClick={() => setSelectedCallRecord(null)}>
+          <div className="haps-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="haps-modal-header">
+              <div className="haps-modal-title-group">
+                <span className="haps-modal-badge">
+                  #{String(selectedCallRecord.id).length > 10 ? String(selectedCallRecord.id).slice(-6) : selectedCallRecord.id}
+                </span>
+                <h3>Call Log Details</h3>
+              </div>
+              <button
+                type="button"
+                className="haps-modal-close-btn"
+                onClick={() => setSelectedCallRecord(null)}
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="haps-modal-body">
+              <div className="haps-modal-grid">
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Contact / Lead</span>
+                  <span className="haps-modal-cell-val font-semibold">{selectedCallRecord.name || "—"}</span>
+                </div>
+
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Phone Number</span>
+                  <span className="haps-modal-cell-val">
+                    {selectedCallRecord.phone ? (
+                      <a href={`tel:${selectedCallRecord.phone}`} style={{ color: "#6366f1", textDecoration: "none", fontWeight: 600 }}>
+                        {selectedCallRecord.phone}
+                      </a>
+                    ) : "—"}
+                  </span>
+                </div>
+
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Call Type</span>
+                  <span className="haps-modal-cell-val">
+                    <span className={getBadgeClass("callType", selectedCallRecord.callType || "Outbound")}>
+                      {selectedCallRecord.callType || "Outbound"}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Call Outcome</span>
+                  <span className="haps-modal-cell-val">
+                    <span className={getBadgeClass("outcome", selectedCallRecord.outcome || "Answered")}>
+                      {selectedCallRecord.outcome || "—"}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Call Date & Time</span>
+                  <span className="haps-modal-cell-val">
+                    {formatDate(selectedCallRecord.date)}
+                  </span>
+                </div>
+
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Call Duration</span>
+                  <span className="haps-modal-cell-val">
+                    {selectedCallRecord.duration ? `${selectedCallRecord.duration}s` : "—"}
+                  </span>
+                </div>
+
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Lead Source</span>
+                  <span className="haps-modal-cell-val">
+                    <span className={getBadgeClass("source", selectedCallRecord.source)}>
+                      {selectedCallRecord.source || "—"}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="haps-modal-cell">
+                  <span className="haps-modal-cell-label">Lead Type</span>
+                  <span className="haps-modal-cell-val">
+                    <span className={getBadgeClass("type", selectedCallRecord.type)}>
+                      {selectedCallRecord.type || "—"}
+                    </span>
+                  </span>
+                </div>
+
+                {selectedCallRecord.followUp && (
+                  <div className="haps-modal-cell full-width">
+                    <span className="haps-modal-cell-label">Scheduled Follow-up</span>
+                    <span className="haps-modal-cell-val">
+                      {formatDate(selectedCallRecord.followUp)}
+                    </span>
+                  </div>
+                )}
+
+                <div className="haps-modal-cell full-width">
+                  <span className="haps-modal-cell-label">Remarks & Notes</span>
+                  <div className="haps-modal-remarks-box">
+                    {selectedCallRecord.notes || selectedCallRecord.remarks || "No remarks or notes recorded for this call."}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="haps-modal-footer">
+              <button
+                type="button"
+                className="haps-modal-btn"
+                onClick={() => setSelectedCallRecord(null)}
+              >
+                Close
+              </button>
+              {can("call-workspace") && (
+                <Link
+                  to={`${BASE}/call-workspace/${selectedCallRecord.id}`}
+                  className="haps-modal-btn"
+                >
+                  <Phone size={13} /> Call Workspace
+                </Link>
+              )}
+              {can("lead-detail") && (
+                <Link
+                  to={`${BASE}/lead-detail/${selectedCallRecord.id}`}
+                  className="haps-modal-btn primary"
+                >
+                  Full Profile <ExternalLink size={13} />
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

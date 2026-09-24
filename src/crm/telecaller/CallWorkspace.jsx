@@ -338,53 +338,84 @@ function CallQueueDirectory({ assigned, can, notFoundId, error }) {
           </div>
 
           {/* Grid of Leads */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 16 }}>
-            {filteredLeads.map((row) => (
-              <div
-                key={row.id}
-                style={{
-                  background: "white",
-                  border: "1px solid var(--cw-border)",
-                  borderRadius: 12,
-                  padding: "16px 18px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                <div className="cw-avatar" style={{ width: 46, height: 46, fontSize: 16 }}>
-                  {row.name.charAt(0)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                    <strong style={{ fontSize: "13.5px", color: "var(--cw-text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {row.name}
-                    </strong>
-                    <span className="cw-id-tag">#{row.id}</span>
+          {filteredLeads.length > 0 ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 16 }}>
+              {filteredLeads.map((row) => (
+                <div
+                  key={row.id}
+                  style={{
+                    background: "white",
+                    border: "1px solid var(--cw-border)",
+                    borderRadius: 12,
+                    padding: "16px 18px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <div className="cw-avatar" style={{ width: 46, height: 46, fontSize: 16 }}>
+                    {(row.name || "U").charAt(0).toUpperCase()}
                   </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                      <strong style={{ fontSize: "13.5px", color: "var(--cw-text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {row.name || "Unnamed"}
+                      </strong>
+                      <span className="cw-id-tag">#{row.id}</span>
+                    </div>
 
-                  <div style={{ fontSize: "12px", color: "var(--cw-text-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>{row.phone}</span>
-                    <span>•</span>
-                    <span>{row.city || "—"}</span>
-                  </div>
+                    <div style={{ fontSize: "12px", color: "var(--cw-text-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span>{row.phone || "—"}</span>
+                      <span>•</span>
+                      <span>{row.city || "—"}</span>
+                    </div>
 
-                  <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", justifyContent: "space-between" }}>
-                    <span className="cw-badge cw-badge-cyan">{row.type || "—"}</span>
-                    <Link
-                      to={`${BASE}/call-workspace/${row.id}`}
-                      className="cw-btn cw-btn-call"
-                      style={{ padding: "5px 12px", fontSize: "11.5px" }}
-                    >
-                      <PhoneCall size={12} /> Start Call
-                    </Link>
+                    <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", justifyContent: "space-between" }}>
+                      <span className="cw-badge cw-badge-cyan">{row.type || "—"}</span>
+                      <Link
+                        to={`${BASE}/call-workspace/${row.id}`}
+                        className="cw-btn cw-btn-call"
+                        style={{ padding: "5px 12px", fontSize: "11.5px" }}
+                      >
+                        <PhoneCall size={12} /> Start Call
+                      </Link>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{
+              background: "white",
+              border: "1px solid var(--cw-border)",
+              borderRadius: 12,
+              padding: "48px 24px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12
+            }}>
+              <div style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                background: "var(--cw-bg-subtle)",
+                color: "var(--cw-text-subtle)",
+                display: "grid",
+                placeItems: "center"
+              }}>
+                <PhoneCall size={22} />
               </div>
-            ))}
-          </div>
+              <strong style={{ fontSize: "14px", color: "var(--cw-text-main)" }}>No Leads in Calling Queue</strong>
+              <p style={{ fontSize: "12px", color: "var(--cw-text-muted)", margin: 0, maxWidth: 360 }}>
+                {search ? "No leads matched your search query. Try clearing the filter." : "There are currently no active leads in your calling queue."}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -662,11 +693,13 @@ function CallWorkspaceContent({
           <div className="cw-profile-info">
             <div className="cw-avatar-wrap">
               <div className="cw-avatar">
-                {lead.name
-                  .split(" ")
+                {(lead.name || "U")
+                  .trim()
+                  .split(/\s+/)
                   .map((n) => n[0])
                   .slice(0, 2)
-                  .join("")}
+                  .join("")
+                  .toUpperCase()}
               </div>
             </div>
 

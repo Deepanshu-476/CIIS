@@ -414,11 +414,13 @@ function LeadDetailContent({
           <div className="ld-profile-info">
             <div className="ld-avatar-wrap">
               <div className="ld-avatar">
-                {lead.name
-                  .split(" ")
+                {(lead.name || "U")
+                  .trim()
+                  .split(/\s+/)
                   .map((n) => n[0])
                   .slice(0, 2)
-                  .join("")}
+                  .join("")
+                  .toUpperCase()}
               </div>
               <div
                 className="ld-avatar-status"

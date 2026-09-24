@@ -70,7 +70,11 @@ export function Metrics({ items }) {
                 <span className={`haps-kpi-pill-badge tone-${t}`}>{text}</span>
               ) : (
                 <>
-                  <ArrowUp size={12} />
+                  {t === "gray" ? (
+                    <span className="haps-kpi-dot-neutral" aria-hidden="true" />
+                  ) : (
+                    <ArrowUp size={12} />
+                  )}
                   <span>{text}</span>
                 </>
               )}
@@ -82,7 +86,7 @@ export function Metrics({ items }) {
   );
 }
 
-export function Schedule({ rows, upcoming, can }) {
+export function Schedule({ rows = [], upcoming, can }) {
   return (
     <table className="haps-data-table" style={{ margin: 0 }}>
       <thead>

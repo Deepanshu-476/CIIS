@@ -36,6 +36,15 @@ const getInitials = (name = '') => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+const uniqueSorted = (values = []) => {
+  const unique = new Map();
+  values.forEach(value => {
+    const label = String(value || '').trim();
+    if (label) unique.set(label.toLocaleLowerCase(), label);
+  });
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b));
+};
+
 const calculateAge = (dateStr) => {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -52,7 +61,6 @@ const AssignedCalls = () => {
   const [callsList, setCallsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [teamUsers, setTeamUsers] = useState([]);
   const [filters, setFilters] = useState({ assignedTo: '', source: '', type: '', from: '', to: '' });
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const [search, setSearch] = useState('');
@@ -65,13 +73,9 @@ const AssignedCalls = () => {
     setLoading(true);
     setError('');
     try {
-      const [res, teamRes] = await Promise.allSettled([
-        axiosInstance.get('/crm/admin/calls/assigned', { _skipErrorNotify: true }),
-        axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
-      ]);
-
-      if (res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
-        const items = res.value.data.items.map((lead, idx) => ({
+      const res = await axiosInstance.get('/crm/admin/calls/assigned', { _skipErrorNotify: true });
+      if (Array.isArray(res.data?.items)) {
+        const items = res.data.items.map((lead, idx) => ({
           id: lead._id || idx + 1,
           rawId: lead._id,
           leadId: lead._id ? `#LD-${String(lead._id).slice(-4).toUpperCase()}` : `#LD-00${idx + 1}`,
@@ -79,8 +83,8 @@ const AssignedCalls = () => {
           email: lead.email || '',
           note: lead.remarks || lead.customField1 || '—',
           phone: lead.phone || '—',
-          source: lead.leadSource?.name || lead.source || 'Direct',
-          type: lead.leadType?.name || 'General',
+          source: lead.leadSource?.name || lead.source || '',
+          type: lead.leadType?.name || '',
           status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Assigned',
           assignedTo: lead.assignedTo?.name || 'Unassigned',
           assignedRole: lead.assignedTo?.jobRole || lead.assignedTo?.role || 'Telecaller',
@@ -92,15 +96,13 @@ const AssignedCalls = () => {
           age: lead.createdAt ? calculateAge(lead.createdAt) : '—'
         }));
         setCallsList(items);
-      } else if (res.status === 'rejected') {
-        setError(res.reason?.response?.data?.message || 'Unable to load assigned calls.');
-      }
-
-      if (teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
-        setTeamUsers(teamRes.value.data.users);
+      } else {
+        setCallsList([]);
+        setError('The assigned calls service returned an invalid response.');
       }
     } catch (err) {
-      setError('An error occurred while loading calls.');
+      setCallsList([]);
+      setError(err.response?.data?.message || 'An error occurred while loading calls.');
     } finally {
       setLoading(false);
     }
@@ -136,18 +138,13 @@ const AssignedCalls = () => {
     };
   }, [callsList]);
 
-  // Dynamic filter options derived from actual data
-  const availableSources = useMemo(() => {
-    const set = new Set(callsList.map(c => c.source).filter(Boolean));
-    ['Facebook', 'Instagram', 'Referral', 'Website', 'Google Ads', 'Walk-in'].forEach(s => set.add(s));
-    return Array.from(set);
-  }, [callsList]);
-
-  const availableTypes = useMemo(() => {
-    const set = new Set(callsList.map(c => c.type).filter(Boolean));
-    ['NEET', 'JEE', 'CAT', 'Crash Course', 'General'].forEach(t => set.add(t));
-    return Array.from(set);
-  }, [callsList]);
+  // Filter options come only from values present in the live assigned-leads result.
+  const availableAssignees = useMemo(
+    () => uniqueSorted(callsList.map(call => call.assignedTo).filter(value => value && value !== 'Unassigned')),
+    [callsList]
+  );
+  const availableSources = useMemo(() => uniqueSorted(callsList.map(call => call.source)), [callsList]);
+  const availableTypes = useMemo(() => uniqueSorted(callsList.map(call => call.type)), [callsList]);
 
   // Filtered Leads
   const filteredCalls = useMemo(() => {
@@ -282,8 +279,8 @@ const AssignedCalls = () => {
               onChange={event => updateFilter('assignedTo', event.target.value)}
             >
               <option value="">All Telecallers</option>
-              {teamUsers.map(u => (
-                <option key={u._id} value={u.name}>{formatName(u.name)}</option>
+              {availableAssignees.map(name => (
+                <option key={name} value={name}>{formatName(name)}</option>
               ))}
             </select>
           </div>
@@ -469,10 +466,10 @@ const AssignedCalls = () => {
                       </div>
                     </td>
                     <td>
-                      <span className="assigned-pill source">{call.source}</span>
+                      <span className="assigned-pill source">{call.source || '—'}</span>
                     </td>
                     <td>
-                      <span className="assigned-pill type">{call.type}</span>
+                      <span className="assigned-pill type">{call.type || '—'}</span>
                     </td>
                     <td>
                       <span className={`assigned-pill status ${call.status?.toLowerCase().includes('follow') ? 'followup' : ''}`}>
@@ -715,14 +712,14 @@ const AssignedCalls = () => {
                 <div className="assigned-modal-field">
                   <span className="assigned-modal-label">Lead Source</span>
                   <span className="assigned-modal-val">
-                    <span className="assigned-pill source">{selectedLead.source}</span>
+                    <span className="assigned-pill source">{selectedLead.source || '—'}</span>
                   </span>
                 </div>
 
                 <div className="assigned-modal-field">
                   <span className="assigned-modal-label">Lead Type</span>
                   <span className="assigned-modal-val">
-                    <span className="assigned-pill type">{selectedLead.type}</span>
+                    <span className="assigned-pill type">{selectedLead.type || '—'}</span>
                   </span>
                 </div>
 

@@ -58,23 +58,7 @@ const ActiveClientsOverview = lazy(() => import("./hrCds/pages/ActiveClientsOver
 const CreateAlerts = lazy(() => import("./hrCds/pages/CreateAlerts.jsx"));
 const UserProfile = lazy(() => import("./page/UserProfile.jsx"));
 const Home = lazy(() => import("./Pages/Home"));
-const Features = lazy(() => import("./Pages/Features"));
-const Solutions = lazy(() => import("./Pages/Solutions"));
-const HowItWorks = lazy(() => import("./Pages/HowItWorks"));
-const AboutUs = lazy(() => import("./Pages/AboutUs"));
-const ContactUs = lazy(() => import("./Pages/ContactUs"));
-const PrivacyPolicy = lazy(() => import("./Pages/PrivacyPolicy"));
-const LegalPage = lazy(() => import("./Pages/LegalPage"));
-const SecurityPage = lazy(() => import("./Pages/SecurityPage"));
-const EmployeeManagement = lazy(() => import("./Pages/EmployeeManagement"));
-const CrmTelecaller = lazy(() => import("./Pages/CrmTelecaller"));
-const TeamCommunication = lazy(() => import("./Pages/TeamCommunication"));
-const BusinessAutomation = lazy(() => import("./Pages/BusinessAutomation"));
-const SmartAttendancePage = lazy(() => import("./Pages/SmartAttendancePage"));
-const LeaveManagementPage = lazy(() => import("./Pages/LeaveManagementPage"));
-const PayrollManagementPage = lazy(() => import("./Pages/PayrollManagementPage"));
-const AssetManagementPage = lazy(() => import("./Pages/AssetManagementPage"));
-const MobileAppPage = lazy(() => import("./Pages/MobileAppPage"));
+const PremiumMarketingPage = lazy(() => import("./Pages/PremiumMarketingPage.jsx"));
 const RegisterCompany = lazy(() => import("./admin/components/CompanyRegister.jsx"));
 const SuperAdminLogin = lazy(() => import("./page/SuperAdminLogin"));
 const CompanyManagement = lazy(() => import("./page/CompanyManagement.jsx"));
@@ -142,6 +126,8 @@ const CallHistory = lazy(() => import("./crm/admin/CallHistory.jsx"));
 const ScheduledCalls = lazy(() => import("./crm/admin/ScheduledCalls.jsx"));
 const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 
+const MarketingPage = ({ pageKey }) => <PremiumMarketingPage pageKey={pageKey} />;
+
 function App() {
   return (
     <>
@@ -149,40 +135,62 @@ function App() {
         <Routes>
 
         <Route path="/" element={<Home />} />
-        <Route path="/features" element={<Features />} />
+        <Route path="/features" element={<MarketingPage pageKey="product-overview" />} />
         <Route path="/feature" element={<Navigate to="/features" replace />} />
-        <Route path="/solutions" element={<Solutions />} />
+        <Route path="/solutions" element={<MarketingPage pageKey="product-overview" />} />
         <Route path="/solution" element={<Navigate to="/solutions" replace />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/how-it-works" element={<MarketingPage pageKey="product-overview" />} />
         <Route path="/howitworks" element={<Navigate to="/how-it-works" replace />} />
-        <Route path="/security" element={<SecurityPage />} />
-        <Route path="/employee-management" element={<EmployeeManagement />} />
+        <Route path="/security" element={<MarketingPage pageKey="privacy-policy" />} />
+        <Route path="/employee-management" element={<MarketingPage pageKey="employee-management" />} />
         <Route path="/employee" element={<Navigate to="/employee-management" replace />} />
-        <Route path="/crm-telecaller" element={<CrmTelecaller />} />
+        <Route path="/crm-telecaller" element={<MarketingPage pageKey="client-management" />} />
         <Route path="/crm" element={<Navigate to="/crm-telecaller" replace />} />
         <Route path="/telecaller" element={<Navigate to="/crm-telecaller" replace />} />
-        <Route path="/payroll-management" element={<PayrollManagementPage />} />
-        <Route path="/payroll" element={<Navigate to="/payroll-management" replace />} />
-        <Route path="/smart-attendance" element={<SmartAttendancePage />} />
-        <Route path="/attendance" element={<Navigate to="/smart-attendance" replace />} />
-        <Route path="/leave-management" element={<LeaveManagementPage />} />
+        <Route path="/payroll-management" element={<MarketingPage pageKey="payroll" />} />
+        <Route path="/payroll" element={<MarketingPage pageKey="payroll" />} />
+        <Route path="/smart-attendance" element={<MarketingPage pageKey="attendance" />} />
+        <Route path="/attendance" element={<MarketingPage pageKey="attendance" />} />
+        <Route path="/shift-management" element={<MarketingPage pageKey="shift-management" />} />
+        <Route path="/leave-management" element={<MarketingPage pageKey="leave-management" />} />
         <Route path="/leave-policy" element={<Navigate to="/leave-management" replace />} />
-        <Route path="/asset-management" element={<AssetManagementPage />} />
+        <Route path="/asset-management" element={<MarketingPage pageKey="asset-management" />} />
         <Route path="/assets-management" element={<Navigate to="/asset-management" replace />} />
-        <Route path="/mobile-app" element={<MobileAppPage />} />
+        <Route path="/mobile-app" element={<MarketingPage pageKey="homepage-mobile" />} />
         <Route path="/mobile" element={<Navigate to="/mobile-app" replace />} />
-        <Route path="/team-communication" element={<TeamCommunication />} />
+        <Route path="/team-communication" element={<MarketingPage pageKey="chat" />} />
         <Route path="/communication" element={<Navigate to="/team-communication" replace />} />
-        <Route path="/business-automation" element={<BusinessAutomation />} />
+        <Route path="/business-automation" element={<MarketingPage pageKey="work" />} />
         <Route path="/automation" element={<Navigate to="/business-automation" replace />} />
-        <Route path="/about" element={<Navigate to="/" replace />} />
-        <Route path="/contact" element={<ContactUs />} />
+        <Route path="/product-overview" element={<MarketingPage pageKey="product-overview" />} />
+        <Route path="/people" element={<MarketingPage pageKey="people" />} />
+        <Route path="/work" element={<MarketingPage pageKey="work" />} />
+        <Route path="/clients" element={<MarketingPage pageKey="clients" />} />
+        <Route path="/insights" element={<MarketingPage pageKey="insights" />} />
+        <Route path="/task-management" element={<MarketingPage pageKey="task-management" />} />
+        <Route path="/project-management" element={<MarketingPage pageKey="project-management" />} />
+        <Route path="/meetings" element={<MarketingPage pageKey="meetings" />} />
+        <Route path="/chat" element={<MarketingPage pageKey="chat" />} />
+        <Route path="/alerts" element={<MarketingPage pageKey="alerts" />} />
+        <Route path="/client-management" element={<MarketingPage pageKey="client-management" />} />
+        <Route path="/pricing" element={<MarketingPage pageKey="pricing" />} />
+        <Route path="/compare" element={<MarketingPage pageKey="compare" />} />
+        <Route path="/support" element={<MarketingPage pageKey="support" />} />
+        <Route path="/book-a-demo" element={<MarketingPage pageKey="book-a-demo" />} />
+        <Route path="/start-trial" element={<MarketingPage pageKey="start-trial" />} />
+        <Route path="/about" element={<MarketingPage pageKey="product-overview" />} />
+        <Route path="/contact" element={<MarketingPage pageKey="contact" />} />
         <Route path="/contact-us" element={<Navigate to="/contact" replace />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/privacy-policy" element={<MarketingPage pageKey="privacy-policy" />} />
         <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
-        <Route path="/terms" element={<LegalPage type="terms" />} />
-        <Route path="/cookies" element={<LegalPage type="cookies" />} />
-        <Route path="/usage" element={<LegalPage type="terms" />} />
+        <Route path="/terms" element={<MarketingPage pageKey="terms" />} />
+        <Route path="/cookies" element={<MarketingPage pageKey="terms" />} />
+        <Route path="/usage" element={<MarketingPage pageKey="terms" />} />
+        <Route path="/design-system" element={<MarketingPage pageKey="design-system" />} />
+        <Route path="/project-report" element={<MarketingPage pageKey="project-report" />} />
+        <Route path="/homepage-mobile" element={<MarketingPage pageKey="homepage-mobile" />} />
+        <Route path="/pages-mobile" element={<MarketingPage pageKey="pages-mobile" />} />
+        <Route path="/leadform" element={<MarketingPage pageKey="leadform" />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="/superadminlogin" element={<Navigate to="/SuperAdminLogin" replace />} />
         <Route path="/superadmin-login" element={<Navigate to="/SuperAdminLogin" replace />} />

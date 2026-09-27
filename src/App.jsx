@@ -20,6 +20,7 @@ import "react-toastify/dist/ReactToastify.css";
 import RouteBoundaryLoader from "./components/RouteBoundaryLoader.jsx";
 import PageErrorBoundary from "./components/PageErrorBoundary.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
+import { renderMarketingRoutes } from "./marketing";
 
 import ProtectedRoute from "./admin/components/ProtectedRoute";
 import ProtectedSuperAdminRoute from "./utils/ProtectedSuperAdminRoute.jsx";
@@ -75,7 +76,6 @@ const SupportOperations = lazy(() => import("./admin/page/SupportOperations.jsx"
 const ActiveClientsOverview = lazy(() => import("./hrCds/pages/ActiveClientsOverview.jsx"));
 const CreateAlerts = lazy(() => import("./hrCds/pages/CreateAlerts.jsx"));
 const UserProfile = lazy(() => import("./page/UserProfile.jsx"));
-const Home = lazy(() => import("./Pages/Home"));
 const AboutUs = lazy(() => import("./Pages/AboutUs"));
 const ContactUs = lazy(() => import("./Pages/ContactUs"));
 const PrivacyPolicy = lazy(() => import("./Pages/PrivacyPolicy"));
@@ -154,11 +154,8 @@ function App() {
     <Suspense fallback={<RouteBoundaryLoader fullscreen label="Loading app..." />}>
       <Routes>
 
-        <Route path="/" element={<Home />} />
+        {renderMarketingRoutes()}
         <Route path="/about" element={<AboutUs />} />
-        <Route path="/contact" element={<ContactUs />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<LegalPage type="terms" />} />
         <Route path="/cookies" element={<LegalPage type="cookies" />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="company/:companyCode/login" element={<Login />} />

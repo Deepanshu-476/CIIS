@@ -612,7 +612,7 @@ const BranchManagement = () => {
             <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth size="small">
-                  <InputLabel id="branch-user-select-label">Company User</InputLabel>
+                  <InputLabel id="branch-user-select-label" shrink>Company User</InputLabel>
                   <Select
                     labelId="branch-user-select-label"
                     value={selectedUserId}
@@ -627,7 +627,7 @@ const BranchManagement = () => {
                       const user = companyUsers.find((item) => getRecordId(item) === selected);
                       return user ? `${user.name || "Unnamed User"}` : "Select";
                     }}
-                    input={<OutlinedInput label="Company User" />}
+                    input={<OutlinedInput label="Company User" notched />}
                   >
                     <MenuItem value="">
                       <em>Select</em>

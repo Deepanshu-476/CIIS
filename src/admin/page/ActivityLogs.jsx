@@ -50,7 +50,7 @@ const generateLogData = (type) => {
     action: `${actions[Math.floor(Math.random() * actions.length)]} ${entities[Math.floor(Math.random() * entities.length)]}`,
     details: `${type} action performed`,
     status: Math.random() > 0.3 ? 'success' : 'failed'
-  }));
+  }));  
 };
 
 const months = ['May - 2025', 'June - 2025', 'July - 2025'];
@@ -87,6 +87,7 @@ const ActivityLogs = () => {
     }, 1000);
     return () => clearTimeout(timer);
   }, [activeTab, selectedMonth, selectedEvents]);
+  
 
   const handleEventClick = (event) => {
     setEventAnchorEl(event.currentTarget);

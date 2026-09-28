@@ -468,7 +468,8 @@
 
 .ClientManagement-search-input svg {
   position: absolute;
-  left: 30px;
+  left: 12px;
+  pointer-events: none;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);

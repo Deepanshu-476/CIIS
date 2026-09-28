@@ -311,6 +311,10 @@
 
 .holiday-table-search {
     margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
 .holiday-table-search input {
@@ -391,22 +395,16 @@
     border: 1px solid #d7e2f0;
     border-radius: 8px;
     background: #ffffff;
-    font-size: 0;
+    font-size: 0.86rem;
+    padding: 0 12px;
     cursor: pointer;
 }
 
-.holiday-icon-action::before {
-    font-size: 0.86rem;
-    font-weight: 900;
-}
-
-.holiday-icon-action.edit::before {
-    content: "Edit";
+.holiday-icon-action.edit {
     color: #155dfc;
 }
 
-.holiday-icon-action.delete::before {
-    content: "Del";
+.holiday-icon-action.delete {
     color: #ef4444;
 }
 

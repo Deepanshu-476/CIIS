@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
   FiBox,
@@ -123,7 +123,10 @@ const blobToBase64 = blob => new Promise((resolve, reject) => {
 });
 
 const DocumentsPage = () => {
-  const { client, tasks, user, loading, error, refetch } = useClientPortalData();
+  const { client, loading, error, refetch } = useClientPortalData();
+  const [downloadCount, setDownloadCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const documentRequest = useRef(0);
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [trashedDocuments, setTrashedDocuments] = useState([]);
   const [documentLoading, setDocumentLoading] = useState(false);
@@ -147,9 +150,14 @@ const DocumentsPage = () => {
       return `${doc.name} ${doc.category} ${doc.type} ${doc.by}`.toLowerCase().includes(query);
     })
   ), [currentTabDocuments, search]);
-  const visibleDocuments = filteredDocuments.slice(0, 8);
+  const pageCount = Math.max(1, Math.ceil(filteredDocuments.length / 8));
+  const currentPage = Math.min(page, pageCount);
+  const visibleDocuments = filteredDocuments.slice((currentPage - 1) * 8, currentPage * 8);
   const clientName = getClientDisplayName(client);
-  const recentCount = documents.filter(doc => doc.date !== 'N/A').length;
+  const recentCount = documents.filter(doc => {
+    const created = new Date(doc.createdAt).getTime();
+    return created >= Date.now() - 30 * 24 * 60 * 60 * 1000 && created <= Date.now();
+  }).length;
   const storageUsedBytes = useMemo(
     () => sumDocumentSizes([...uploadedDocuments, ...trashedDocuments]),
     [uploadedDocuments, trashedDocuments]
@@ -159,6 +167,7 @@ const DocumentsPage = () => {
   const isStorageFull = storageUsedBytes >= STORAGE_LIMIT_BYTES;
 
   const loadUploadedDocuments = async () => {
+    const requestId = ++documentRequest.current;
     if (!client?._id) return;
 
     try {
@@ -170,19 +179,31 @@ const DocumentsPage = () => {
       const trashResponse = await clientDocumentsApi.get("/", {
         params: { clientId: client._id, trash: true },
       });
+      if (requestId !== documentRequest.current) return;
       setUploadedDocuments(response.data?.data || []);
       setTrashedDocuments(trashResponse.data?.data || []);
+      setDownloadCount(response.data?.downloadsLast30Days || 0);
     } catch (err) {
+      if (requestId !== documentRequest.current) return;
       console.error("Failed to load client documents", err);
+      setUploadedDocuments([]);
+      setTrashedDocuments([]);
+      setDownloadCount(0);
       setDocumentError(err.response?.data?.message || "Failed to load uploaded documents");
     } finally {
-      setDocumentLoading(false);
+      if (requestId === documentRequest.current) setDocumentLoading(false);
     }
   };
 
   useEffect(() => {
+    setUploadedDocuments([]);
+    setTrashedDocuments([]);
+    setDownloadCount(0);
     loadUploadedDocuments();
+    return () => { documentRequest.current += 1; };
   }, [client?._id]);
+
+  useEffect(() => { setPage(1); }, [search, activeTab, client?._id]);
 
   const handleUploadDocument = async event => {
     const file = event.target.files?.[0];
@@ -268,6 +289,7 @@ const DocumentsPage = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      setDownloadCount(count => count + 1);
     } catch (err) {
       console.error("Document download failed", err);
       setDocumentError(err.response?.data?.message || "Document download failed");
@@ -378,7 +400,7 @@ const DocumentsPage = () => {
       </article>
       <article className="DocumentsPage-stat">
         <span className="DocumentsPage-statIcon DocumentsPage-purple"><FiDownload /></span>
-        <div><p>Downloads</p><strong>{Math.max(0, tasks.filter(task => task.completed).length)}</strong></div>
+        <div><p>Downloads</p><strong>{downloadCount}</strong></div>
         <small>In the last 30 days</small>
       </article>
       <article className="DocumentsPage-storageStat">
@@ -528,14 +550,11 @@ const DocumentsPage = () => {
         </div>
 
         <footer className="DocumentsPage-pagination">
-          <span>Showing 1 to {visibleDocuments.length} of {filteredDocuments.length} documents for {clientName}</span>
+          <span>Showing {filteredDocuments.length ? (currentPage - 1) * 8 + 1 : 0} to {Math.min(currentPage * 8, filteredDocuments.length)} of {filteredDocuments.length} documents for {clientName}</span>
           <div>
-            <button type="button"><FiChevronLeft /></button>
-            <button type="button" className="active">1</button>
-            <button type="button">2</button>
-            <button type="button">3</button>
-            <button type="button">4</button>
-            <button type="button"><FiChevronRight /></button>
+            <button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><FiChevronLeft /></button>
+            <button type="button" className="active" aria-current="page">{currentPage}</button>
+            <button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}><FiChevronRight /></button>
           </div>
         </footer>
       </main>

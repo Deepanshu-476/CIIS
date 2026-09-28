@@ -27,9 +27,17 @@ const BookDemoPage = lazy(() => import("./pages/BookDemoPage.jsx"));
 const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
 const TermsPage = lazy(() => import("./pages/TermsPage.jsx"));
+const SolutionsPage = lazy(() => import("./pages/SolutionsPage.jsx"));
+const ModulesPage = lazy(() => import("./pages/ModulesPage.jsx"));
+const ResourcesPage = lazy(() => import("./pages/ResourcesPage.jsx"));
 
 export const MARKETING_PAGES = [
   { path: "/", title: "", Component: HomePage },
+  { path: "/solutions", title: "Solutions & Use Cases", Component: SolutionsPage },
+  { path: "/usecases", title: "Solutions & Use Cases", Component: SolutionsPage },
+  { path: "/modules", title: "Module Explorer", Component: ModulesPage },
+  { path: "/resources", title: "Resources & FAQ", Component: ResourcesPage },
+  { path: "/faq", title: "Frequently Asked Questions", Component: ResourcesPage },
   { path: "/product", title: "Product Overview", Component: ProductOverviewPage },
   { path: "/people", title: "People", Component: PeoplePage },
   { path: "/work", title: "Work", Component: WorkPage },

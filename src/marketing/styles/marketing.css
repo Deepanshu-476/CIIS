@@ -1,0 +1,45 @@
+/* CIIS Network marketing site — global styles, scoped to .ciis-mk so the authenticated app is unaffected. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block");
+
+.ciis-mk {
+  min-height: 100vh;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: Inter, system-ui, sans-serif;
+  line-height: normal;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+.ciis-mk *,
+.ciis-mk *::before,
+.ciis-mk *::after { box-sizing: border-box; }
+.ciis-mk a { color: #2563eb; text-decoration: none; }
+.ciis-mk a:hover { color: #1d4ed8; }
+.ciis-mk button { font-family: inherit; }
+.ciis-mk summary::-webkit-details-marker { display: none; }
+.ciis-mk :focus-visible { outline: 3px solid #60a5fa; outline-offset: 2px; }
+
+/* The app loads Tailwind preflight globally; the approved design was built on browser defaults.
+   These zero-specificity reverts restore those defaults inside the marketing site only (inline styles still win). */
+:where(.ciis-mk) :where(h1, h2, h3, h4, h5, h6) { font-size: revert; font-weight: revert; }
+:where(.ciis-mk) :where(h1, h2, h3, h4, h5, h6, p, blockquote, figure, dl, dd, ul, ol) { margin: revert; }
+:where(.ciis-mk) :where(ul, ol) { list-style: revert; padding: revert; }
+:where(.ciis-mk) :where(img, svg, video, canvas) { display: revert; vertical-align: revert; }
+:where(.ciis-mk) :where(button, input, select, textarea) {
+  color: revert; border: revert; background-color: revert; padding: revert; border-radius: revert;
+  font-size: revert; font-weight: revert; line-height: revert; letter-spacing: revert;
+}
+:where(.ciis-mk) :where(table) { border-collapse: revert; }
+:where(.ciis-mk) :where(button) { cursor: pointer; }
+
+@keyframes ciisDash { to { stroke-dashoffset: -20; } }
+@keyframes ciisPulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  100% { box-shadow: 0 0 0 9px rgba(16, 185, 129, 0); }
+}
+@keyframes ciisSpin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ciis-mk * { animation: none !important; transition: none !important; }
+}

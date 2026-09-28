@@ -326,7 +326,7 @@ const Profile = () => {
     if (!userId) return;
     setDocumentsLoading(true);
     try {
-      const response = await axios.get(`/users/${userId}/documents`);
+      const response = await axios.get(`/users/${userId}/documents`, { cache: false });
       setDocuments(response.data?.documents || []);
     } catch (error) {
       setMessage({ type: "error", text: error.response?.data?.message || "Documents could not be loaded." });
@@ -622,14 +622,22 @@ const Profile = () => {
   };
 
   const openDocument = async (item, download = false) => {
+    setMessage(null);
+    if (/^https?:\/\//i.test(item.externalUrl || "")) {
+      window.open(item.externalUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     try {
-      const response = await axios.get(download ? item.downloadUrl : item.viewUrl, { responseType: "blob" });
+      const response = await axios.get(`/users/${userId}/documents/${item._id}/${download ? "download" : "view"}`, { responseType: "blob", cache: false });
       const blobUrl = URL.createObjectURL(response.data);
       if (download) {
         const link = window.document.createElement("a");
         link.href = blobUrl;
-        link.download = item.name || "document";
+        const encodedName = response.headers["content-disposition"]?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+        link.download = encodedName ? decodeURIComponent(encodedName) : item.name || "document";
+        window.document.body.appendChild(link);
         link.click();
+        link.remove();
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       } else {
         setDocumentPreview({
@@ -639,7 +647,11 @@ const Profile = () => {
         });
       }
     } catch (error) {
-      setMessage({ type: "error", text: error.response?.data?.message || "Document could not be opened." });
+      let details = error.response?.data;
+      if (details instanceof Blob) {
+        try { details = JSON.parse(await details.text()); } catch { details = null; }
+      }
+      setMessage({ type: "error", text: details?.message || "Document could not be opened." });
     }
   };
 

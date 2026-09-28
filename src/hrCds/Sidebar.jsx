@@ -905,14 +905,6 @@ const allPagesItems = [
     order: 24.3
   },
   {
-    id: 'release-payroll',
-    name: 'Release Payroll',
-    icon: 'Work',
-    path: '/ciisUser/release-payroll',
-    category: 'payroll',
-    order: 24.35
-  },
-  {
     id: 'payslip',
     name: 'Payslip',
     icon: 'Work',
@@ -1237,7 +1229,6 @@ const getPathFromName = (name) => {
     'Employee Salary': '/ciisUser/salary-assignment',
     'Assign Salary': '/ciisUser/assign-salary',
     'Payroll Process': '/ciisUser/payroll-process',
-    'Release Payroll': '/ciisUser/release-payroll',
     'Payslip': '/ciisUser/payslip',
     'Payroll Reports': '/ciisUser/payroll-reports',
     'Payment': '/client/payments',
@@ -1319,14 +1310,6 @@ const getMenuAccessKeys = item => {
     keys.add(cleanPath.replace(/^ciisUser\//i, ''));
     keys.add(`/ciisUser/${cleanPath}`);
     keys.add(`ciisUser/${cleanPath}`);
-  }
-
-  // Release Payroll belongs to the Payroll Process company module. This keeps
-  // new child pages available to existing payroll-enabled companies.
-  if (id === 'release-payroll') {
-    keys.add('payroll-process');
-    keys.add('/ciisUser/payroll-process');
-    keys.add('ciisUser/payroll-process');
   }
 
   const clientKey = id.startsWith('client-')
@@ -1574,14 +1557,6 @@ const companyAccessFallbackItems = [
     order: 24.3
   },
   {
-    id: 'release-payroll',
-    name: 'Release Payroll',
-    icon: 'Work',
-    path: '/ciisUser/release-payroll',
-    category: 'payroll',
-    order: 24.35
-  },
-  {
     id: 'payslip',
     name: 'Payslip',
     icon: 'Work',
@@ -1742,14 +1717,6 @@ const companyAccessFallbackItems = [
     order: 24.3
   },
   {
-    id: 'release-payroll',
-    name: 'Release Payroll',
-    icon: 'Work',
-    path: '/ciisUser/release-payroll',
-    category: 'payroll',
-    order: 24.35
-  },
-  {
     id: 'payslip',
     name: 'Payslip',
     icon: 'Work',
@@ -1790,7 +1757,6 @@ const addCompanyAccessFallbackItems = (items, companyData, isPageAccessAdmin = f
   const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
   // Duplicate detection must use the item's own identity only. Access aliases
-  // (for example Release Payroll inheriting Payroll Process company access)
   // are eligibility keys, not proof that the child menu item already exists.
   const existingKeys = new Set(items.flatMap(item => [
     item?.id,
@@ -1811,22 +1777,6 @@ const addCompanyAccessFallbackItems = (items, companyData, isPageAccessAdmin = f
   return fallbackItems.length ? [...items, ...fallbackItems] : items;
 };
 
-const placeReleasePayrollAfterProcess = items => {
-  const ordered = [...items];
-  const releaseIndex = ordered.findIndex(item => (
-    String(item?.id || '').toLowerCase() === 'release-payroll' ||
-    String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/release-payroll'
-  ));
-  if (releaseIndex < 0) return ordered;
-
-  const [releaseItem] = ordered.splice(releaseIndex, 1);
-  const processIndex = ordered.findIndex(item => (
-    String(item?.id || '').toLowerCase() === 'payroll-process' ||
-    String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/payroll-process'
-  ));
-  ordered.splice(processIndex >= 0 ? processIndex + 1 : ordered.length, 0, releaseItem);
-  return ordered;
-};
 
 const Sidebar = ({ isMobile = false, closeSidebar }) => {
   const location = useLocation();
@@ -2518,9 +2468,13 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     if (loading) return [];
 
     const removeHiddenSidebarItems = items => items.filter(item => {
-      const id = String(item?.id || "").toLowerCase();
-      const name = String(item?.name || "").toLowerCase();
-      const path = String(item?.path || "").toLowerCase();
+      const id = String(item?.id || "").trim().toLowerCase();
+      const name = String(item?.name || "").trim().replace(/\s+/g, " ").toLowerCase();
+      const path = String(item?.path || "").trim().toLowerCase().split(/[?#]/)[0].replace(/\/+$/, "");
+      // Saved configs can use camelCase, spaces, or underscores for retired pages.
+      const isReleasePayroll = [id, name, path.split('/').pop()].some(value => (
+        value.replace(/[^a-z0-9]/g, '') === 'releasepayroll'
+      ));
       const removedCrmIds = new Set([
         'marketing-overview', 'marketing-follow-ups', 'visit-management', 'marketing-activity-history', 'marketing-converted-leads',
         'admin-crm-team-overview', 'admin-crm-users', 'admin-crm-add-user', 'admin-crm-user-types'
@@ -2532,6 +2486,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       const removedCrmPath = path.startsWith('/ciisuser/crm/marketing/')
         || ['/ciisuser/crm/admin/team', '/ciisuser/crm/admin/users', '/ciisuser/crm/admin/add-user', '/ciisuser/crm/admin/user-type'].includes(path);
       return id !== "contact-support"
+        && !isReleasePayroll
         && !removedCrmIds.has(id)
         && !removedCrmNames.has(name)
         && !removedCrmPath
@@ -2607,7 +2562,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     }
 
     if (isSuperAdminWithManagement) {
-      return placeReleasePayrollAfterProcess(filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData))));
+      return filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData)));
     }
 
     let items = [];
@@ -2658,28 +2613,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       addCompanyAccessFallbackItems(items, companyData, isPageAccessAdmin),
       companyData
     );
-
-    // Strict payroll permissions are the source of truth. Older role sidebar
-    // configs may not contain newly introduced pages, so inject an assigned
-    // Release Payroll item before the final access filter and ordering pass.
-    const releasePermission = allPermissionPages.get('/ciisuser/release-payroll');
-    const canViewReleasePayroll = Boolean(
-      releasePermission && hasPageAccess(releasePermission, userId, 'view')
-    );
-    const hasReleasePayrollItem = accessFilteredItems.some(item => (
-      String(item?.id || '').toLowerCase() === 'release-payroll' ||
-      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/release-payroll'
-    ));
-    if (canViewReleasePayroll && !hasReleasePayrollItem) {
-      accessFilteredItems = [...accessFilteredItems, {
-        id: 'release-payroll',
-        name: 'Release Payroll',
-        icon: 'Work',
-        path: '/ciisUser/release-payroll',
-        category: 'payroll',
-        order: 24.35
-      }];
-    }
 
     // Keep the register approval page available to the same privileged roles
     // that are allowed by the backend controller, including companies with a
@@ -2752,9 +2685,8 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       })
       .map(({ item }) => item);
 
-    void 0;
-
-    return placeReleasePayrollAfterProcess(filterItemsByPageAccess(removeHiddenSidebarItems(sortedItems)));
+    const visibleItems = removeHiddenSidebarItems(sortedItems);
+    return filterItemsByPageAccess(visibleItems);
   }, [sidebarConfig, loading, isSuperAdminWithManagement, isClientUser, userData, companyData, pagePermissions, userId, resolvedJobRoleName]);
 
   const userSubtitle = useMemo(() => {
@@ -3169,9 +3101,6 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
         return (a.order ?? 99) - (b.order ?? 99);
       });
-
-      const payrollOrderedItems = placeReleasePayrollAfterProcess(items);
-      items.splice(0, items.length, ...payrollOrderedItems);
     });
     
     if (hasCustomRanges) {

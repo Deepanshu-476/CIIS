@@ -1,64 +1,49 @@
 import React from 'react';
 import {
   ArrowRight,
-  BarChart3,
-  Bot,
-  BriefcaseBusiness,
-  Globe,
+  CalendarCheck,
   Headphones,
-  PhoneCall,
-  Settings,
+  IndianRupee,
+  PackageCheck,
   Smartphone,
   Users
 } from 'lucide-react';
 
 const featureServices = [
   {
-    title: 'Workforce Suite',
-    desc: 'Employees, attendance, leaves and HR workflows in one connected portal.',
+    title: 'Employee Management',
+    desc: 'Employee records, roles, departments and HR workflows in one connected portal.',
     href: '/employee-management',
     icon: Users
   },
   {
-    title: 'Sales CRM',
-    desc: 'Lead capture, telecalling, follow-ups and pipeline tracking for sales teams.',
-    href: '/crm-telecaller',
-    icon: BarChart3
+    title: 'Smart Attendance',
+    desc: 'Geo-fenced punches, shift tracking, live presence and attendance automation.',
+    href: '/smart-attendance',
+    icon: CalendarCheck
   },
   {
-    title: 'Dialers & Calling',
-    desc: 'Auto dialer, telecaller app and cloud calling tools for daily outreach.',
-    href: '/call-management',
-    icon: PhoneCall
-  },
-  {
-    title: 'Call Center Operations',
-    desc: 'Monitor calling teams, assign work and manage customer conversations.',
-    href: '/features#call-center',
+    title: 'Leave Management',
+    desc: 'Leave requests, approvals, holiday policies and balance tracking for teams.',
+    href: '/leave-management',
     icon: Headphones
   },
   {
-    title: 'Tracking & Recording',
-    desc: 'Call tracking, recordings, transcriptions and AI summaries for quality review.',
-    href: '/features#call-tracking',
-    icon: Settings
+    title: 'Payroll Management',
+    desc: 'Salary processing, payslips, deductions and payroll reports linked with attendance.',
+    href: '/payroll-management',
+    icon: IndianRupee
   },
   {
-    title: 'Business Automation',
-    desc: 'Automate tasks, projects, approvals and repeatable business workflows.',
-    href: '/business-automation',
-    icon: Bot
-  },
-  {
-    title: 'Team Communication',
-    desc: 'Company chat, groups, updates and employee collaboration channels.',
-    href: '/team-communication',
-    icon: Globe
+    title: 'Asset Management',
+    desc: 'Track devices, allocations, returns, handovers and branch-level asset inventory.',
+    href: '/asset-management',
+    icon: PackageCheck
   },
   {
     title: 'Mobile Employee App',
-    desc: 'Mobile-first attendance, tasks, alerts and employee self-service access.',
-    href: '/features#mobile-app',
+    desc: 'Mobile attendance, tasks, alerts, leaves and employee self-service access.',
+    href: '/mobile-app',
     icon: Smartphone
   }
 ];

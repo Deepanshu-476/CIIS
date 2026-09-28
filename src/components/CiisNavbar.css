@@ -68,8 +68,15 @@
   object-position: center;
 }
 
+.ciis-nav-inner > .ciis-logo {
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+}
+
 .ciis-nav-inner > .ciis-logo .ciis-brand-logo {
-  transform: translateY(2px);
+  transform: none !important;
+  margin: 0 !important;
 }
 
 .ciis-nav-links {

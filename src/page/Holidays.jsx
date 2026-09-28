@@ -33,6 +33,11 @@ const Holidays = () => {
     const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
     const [selectedType, setSelectedType] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
+    const pageCount = Math.max(1, Math.ceil(filteredHolidays.length / pageSize));
+    const currentPage = Math.min(page, pageCount);
+    const visibleHolidays = filteredHolidays.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     
     
     const months = [
@@ -198,9 +203,6 @@ const Holidays = () => {
             
             
             let url = `${API_URL}/holidays`; 
-            if (selectedMonth) {
-                url += `?month=${selectedMonth}`;
-            }
             
             const response = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -222,7 +224,7 @@ const Holidays = () => {
     
     useEffect(() => {
         fetchHolidays();
-    }, [selectedMonth]); 
+    }, []);
 
     
     useEffect(() => {
@@ -236,10 +238,13 @@ const Holidays = () => {
                 holiday.description?.toLowerCase().includes(cleanSearch);
             const matchesYear = !selectedYear || holidayYear === selectedYear;
             const matchesType = !selectedType || holidayType === selectedType;
-            return matchesSearch && matchesYear && matchesType;
+            const matchesMonth = !selectedMonth || months[holidayDate.getMonth()] === selectedMonth;
+            return matchesSearch && matchesYear && matchesType && matchesMonth;
         });
         setFilteredHolidays(filtered);
-    }, [searchTerm, holidays, selectedYear, selectedType]);
+    }, [searchTerm, holidays, selectedYear, selectedType, selectedMonth]);
+
+    useEffect(() => { setPage(1); }, [searchTerm, selectedYear, selectedType, selectedMonth]);
 
     
     const handleInputChange = (e) => {
@@ -576,8 +581,14 @@ const Holidays = () => {
                 </div>
 
                 <div className="holiday-table-search">
+                    <label htmlFor="holiday-month-filter">Filter by Month:</label>
+                    <select id="holiday-month-filter" className="holiday-control" value={selectedMonth} onChange={event => setSelectedMonth(event.target.value)}>
+                        <option value="">All Months</option>
+                        {months.map(month => <option key={month} value={month}>{month}</option>)}
+                    </select>
                     <input
                         type="text"
+                        aria-label="Search holidays"
                         placeholder="Search holidays..."
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
@@ -610,12 +621,12 @@ const Holidays = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredHolidays.map((holiday, index) => {
+                                    {visibleHolidays.map((holiday, index) => {
                                         const holidayType = getHolidayType(holiday);
                                         const date = new Date(holiday.date);
                                         return (
                                             <tr key={holiday._id}>
-                                                <td>{index + 1}</td>
+                                                <td>{(currentPage - 1) * pageSize + index + 1}</td>
                                                 <td className="holiday-name-cell">{holiday.title}</td>
                                                 <td>{formatTableDate(holiday.date)}</td>
                                                 <td>{date.toLocaleDateString('en-IN', { weekday: 'long' })}</td>
@@ -639,45 +650,16 @@ const Holidays = () => {
                             </table>
                         </div>
                         <div className="holiday-table-footer">
-                            <span>Showing 1 to {filteredHolidays.length} of {holidays.length} entries</span>
+                            <span>Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredHolidays.length)} of {filteredHolidays.length} entries</span>
                             <div className="holiday-pagination">
-                                <button disabled>&lt;</button>
-                                <button className="active">1</button>
-                                <button>2</button>
-                                <button>3</button>
-                                <button>&gt;</button>
+                                <button aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>&lt;</button>
+                                <button className="active" aria-current="page">{currentPage}</button>
+                                <button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>&gt;</button>
                             </div>
                         </div>
                     </>
                 )}
             </section>
-
-            
-            <div className="filters-section">
-                <div className="filter-group">
-                    <label>Filter by Month:</label>
-                    <select 
-                        value={selectedMonth} 
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="month-filter"
-                    >
-                        <option value="">All Months</option>
-                        {months.map(month => (
-                            <option key={month} value={month}>{month}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="search-group">
-                    <input
-                        type="text"
-                        placeholder="🔍 Search holidays..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="search-input"
-                    />
-                </div>
-            </div>
 
             
             <div className="holidays-list">

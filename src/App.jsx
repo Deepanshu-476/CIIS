@@ -4,6 +4,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import RouteBoundaryLoader from "./components/RouteBoundaryLoader.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
+import { renderMarketingRoutes } from "./marketing";
 
 import ProtectedRoute from "./admin/components/ProtectedRoute";
 import ProtectedSuperAdminRoute from "./utils/ProtectedSuperAdminRoute.jsx";
@@ -57,19 +58,6 @@ const SupportOperations = lazy(() => import("./admin/page/SupportOperations.jsx"
 const ActiveClientsOverview = lazy(() => import("./hrCds/pages/ActiveClientsOverview.jsx"));
 const CreateAlerts = lazy(() => import("./hrCds/pages/CreateAlerts.jsx"));
 const UserProfile = lazy(() => import("./page/UserProfile.jsx"));
-const Home = lazy(() => import("./Pages/Home"));
-const Features = lazy(() => import("./Pages/Features"));
-const Solutions = lazy(() => import("./Pages/Solutions"));
-const HowItWorks = lazy(() => import("./Pages/HowItWorks"));
-const AboutUs = lazy(() => import("./Pages/AboutUs"));
-const ContactUs = lazy(() => import("./Pages/ContactUs"));
-const PrivacyPolicy = lazy(() => import("./Pages/PrivacyPolicy"));
-const LegalPage = lazy(() => import("./Pages/LegalPage"));
-const SecurityPage = lazy(() => import("./Pages/SecurityPage"));
-const EmployeeManagement = lazy(() => import("./Pages/EmployeeManagement"));
-const CrmTelecaller = lazy(() => import("./Pages/CrmTelecaller"));
-const TeamCommunication = lazy(() => import("./Pages/TeamCommunication"));
-const BusinessAutomation = lazy(() => import("./Pages/BusinessAutomation"));
 const RegisterCompany = lazy(() => import("./admin/components/CompanyRegister.jsx"));
 const SuperAdminLogin = lazy(() => import("./page/SuperAdminLogin"));
 const CompanyManagement = lazy(() => import("./page/CompanyManagement.jsx"));
@@ -143,31 +131,46 @@ function App() {
       <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
         <Routes>
 
-        <Route path="/" element={<Home />} />
-        <Route path="/features" element={<Features />} />
+        {renderMarketingRoutes()}
+        <Route path="/about" element={<Navigate to="/product" replace />} />
+        <Route path="/cookies" element={<Navigate to="/terms" replace />} />
+        <Route path="/features" element={<Navigate to="/product" replace />} />
         <Route path="/feature" element={<Navigate to="/features" replace />} />
-        <Route path="/solutions" element={<Solutions />} />
+        <Route path="/solutions" element={<Navigate to="/product" replace />} />
         <Route path="/solution" element={<Navigate to="/solutions" replace />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/how-it-works" element={<Navigate to="/product" replace />} />
         <Route path="/howitworks" element={<Navigate to="/how-it-works" replace />} />
-        <Route path="/security" element={<SecurityPage />} />
-        <Route path="/employee-management" element={<EmployeeManagement />} />
+        <Route path="/security" element={<Navigate to="/privacy-policy" replace />} />
+        <Route path="/employee-management" element={<Navigate to="/people/employees" replace />} />
         <Route path="/employee" element={<Navigate to="/employee-management" replace />} />
-        <Route path="/crm-telecaller" element={<CrmTelecaller />} />
+        <Route path="/crm-telecaller" element={<Navigate to="/clients/client-management" replace />} />
         <Route path="/crm" element={<Navigate to="/crm-telecaller" replace />} />
         <Route path="/telecaller" element={<Navigate to="/crm-telecaller" replace />} />
-        <Route path="/team-communication" element={<TeamCommunication />} />
+        <Route path="/payroll-management" element={<Navigate to="/people/payroll" replace />} />
+        <Route path="/payroll" element={<Navigate to="/people/payroll" replace />} />
+        <Route path="/smart-attendance" element={<Navigate to="/people/attendance" replace />} />
+        <Route path="/attendance" element={<Navigate to="/people/attendance" replace />} />
+        <Route path="/shift-management" element={<Navigate to="/people/shifts" replace />} />
+        <Route path="/leave-management" element={<Navigate to="/people/leave" replace />} />
+        <Route path="/leave-policy" element={<Navigate to="/leave-management" replace />} />
+        <Route path="/asset-management" element={<Navigate to="/people/assets" replace />} />
+        <Route path="/assets-management" element={<Navigate to="/asset-management" replace />} />
+        <Route path="/mobile-app" element={<Navigate to="/" replace />} />
+        <Route path="/mobile" element={<Navigate to="/mobile-app" replace />} />
+        <Route path="/team-communication" element={<Navigate to="/work/chat" replace />} />
         <Route path="/communication" element={<Navigate to="/team-communication" replace />} />
-        <Route path="/business-automation" element={<BusinessAutomation />} />
+        <Route path="/business-automation" element={<Navigate to="/work" replace />} />
         <Route path="/automation" element={<Navigate to="/business-automation" replace />} />
-        <Route path="/about" element={<Navigate to="/" replace />} />
-        <Route path="/contact" element={<ContactUs />} />
-        <Route path="/contact-us" element={<Navigate to="/contact" replace />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
-        <Route path="/terms" element={<LegalPage type="terms" />} />
-        <Route path="/cookies" element={<LegalPage type="cookies" />} />
-        <Route path="/usage" element={<LegalPage type="terms" />} />
+        <Route path="/product-overview" element={<Navigate to="/product" replace />} />
+        <Route path="/task-management" element={<Navigate to="/work/tasks" replace />} />
+        <Route path="/project-management" element={<Navigate to="/work/projects" replace />} />
+        <Route path="/meetings" element={<Navigate to="/work/meetings" replace />} />
+        <Route path="/chat" element={<Navigate to="/work/chat" replace />} />
+        <Route path="/alerts" element={<Navigate to="/work/alerts" replace />} />
+        <Route path="/client-management" element={<Navigate to="/clients/client-management" replace />} />
+        <Route path="/support" element={<Navigate to="/clients/support" replace />} />
+        <Route path="/book-a-demo" element={<Navigate to="/book-demo" replace />} />
+        <Route path="/leadform" element={<Navigate to="/contact" replace />} />
         <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
         <Route path="/superadminlogin" element={<Navigate to="/SuperAdminLogin" replace />} />
         <Route path="/superadmin-login" element={<Navigate to="/SuperAdminLogin" replace />} />

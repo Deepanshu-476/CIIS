@@ -128,7 +128,7 @@ const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 function App() {
   return (
     <>
-      <Suspense fallback={null}>
+      <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
         <Routes>
 
         {renderMarketingRoutes()}

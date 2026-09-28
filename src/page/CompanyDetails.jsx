@@ -370,7 +370,7 @@ const CompanyDetails = () => {
           createdAt: companyInfo.createdAt || "2026-02-03T12:11:00.000Z",
           updatedAt: companyInfo.updatedAt || "2026-02-03T12:11:00.000Z",
           subscriptionExpiry: companyInfo.subscriptionExpiry || "2026-03-05T12:11:00.000Z",
-          logo: companyInfo.logo || "https://cds.ciisnetwork.in/logoo.png"
+          logo: companyInfo.logo || "/logoo.png"
         };
         
         setCompany(fullCompanyData);
@@ -392,7 +392,7 @@ const CompanyDetails = () => {
             _id: "dummy_company_id",
             companyName: "Test Company",
             companyCode: "TEST001",
-            logo: "https://cds.ciisnetwork.in/logoo.png",
+            logo: "/logoo.png",
             isActive: true,
             companyEmail: "test@company.com",
             companyPhone: "9876543210",

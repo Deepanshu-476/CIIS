@@ -82,16 +82,18 @@ const ApprovedLeaveAttendanceModal = ({ dialog, onClose }) => {
     else if (status === 'late' || status === 'half day' || status === 'half-day') counts.partial += 1;
     return counts;
   }, { present: 0, absent: 0, partial: 0 });
+  const isApproved = String(leave?.status || '').toLowerCase() === 'approved';
   const calendarCells = [
     ...Array.from({ length: firstDay.getDay() }, (_, index) => ({ empty: true, key: `empty-${index}` })),
     ...Array.from({ length: daysInMonth }, (_, index) => {
       const date = new Date(year, month, index + 1);
       const key = toIndiaDateKey(date);
+      const isDateInRange = key >= leaveStartKey && key <= leaveEndKey;
       return {
         key,
         day: index + 1,
         record: attendanceByDate.get(key),
-        isLeave: key >= leaveStartKey && key <= leaveEndKey
+        isLeave: isApproved && isDateInRange,
       };
     })
   ];
@@ -155,7 +157,12 @@ const ApprovedLeaveAttendanceModal = ({ dialog, onClose }) => {
                 <div className="EmppLeaves-attendance-calendar">
                   {calendarCells.map(cell => {
                     if (cell.empty) return <div key={cell.key} className="EmppLeaves-attendance-day empty" />;
-                    const status = String(cell.record?.status || '').toUpperCase();
+                    const rawStatus = String(cell.record?.status || '').toUpperCase();
+                    const isDateInLeaveRange = cell.key >= leaveStartKey && cell.key <= leaveEndKey;
+                    const todayKey = toIndiaDateKey(new Date());
+                    const status = (!isApproved && isDateInLeaveRange && rawStatus === 'LEAVE')
+                      ? (cell.key > todayKey ? 'UPCOMING' : 'NO RECORD')
+                      : rawStatus;
                     return (
                       <div
                         key={cell.key}
@@ -172,7 +179,8 @@ const ApprovedLeaveAttendanceModal = ({ dialog, onClose }) => {
                 <div className="EmppLeaves-attendance-legend">
                   <span className="present">Present</span><span className="absent">Absent</span>
                   <span className="late">Late/Half Day</span><span className="weekend">Weekend</span>
-                  <span className="no-record">No Record</span><span className="leave">{leave.status} Leave</span>
+                  <span className="no-record">No Record</span>
+                  <span className="leave">Approved Leave</span>
                 </div>
               </div>
             </>

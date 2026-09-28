@@ -773,8 +773,14 @@ const MyLeaves = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    if (name === "reason" && value.trim().length >= 20) {
-      setReasonError("");
+    if (name === "reason") {
+      if (value.trim().length >= 20) {
+        setReasonError("");
+      } else if (value.trim().length > 0) {
+        setReasonError(`Minimum 20 characters required (${20 - value.trim().length} more needed)`);
+      } else {
+        setReasonError("");
+      }
     }
   };
 
@@ -844,19 +850,39 @@ const MyLeaves = () => {
   const applyLeave = async () => {
     const trimmedReason = form.reason.trim();
 
+    if (!form.type) {
+      showToast("Please select an applicable leave type", "error");
+      setNotification({ message: "Please select an applicable leave type", severity: "error" });
+      return;
+    }
     if (!form.startDate || !form.endDate) {
       showToast("Please fill all required leave fields", "error");
       setNotification({ message: "Please fill all fields", severity: "error" });
       return;
     }
-    if (trimmedReason.length < 20) {
-      setReasonError("Please enter at least 20 characters.");
-      showToast(
-        `Reason for leave needs at least 20 characters (${20 - trimmedReason.length} more required)`,
-        "error"
-      );
+    if (new Date(form.startDate) > new Date(form.endDate)) {
       setNotification({
-        message: "Reason for leave must be at least 20 characters",
+        message: "End date cannot be before start date",
+        severity: "error",
+      });
+      showToast("End date cannot be before start date", "error");
+      return;
+    }
+    if (policyValidationMessage) {
+      showToast(policyValidationMessage, "error");
+      setNotification({
+        message: policyValidationMessage,
+        severity: "error",
+      });
+      return;
+    }
+    if (trimmedReason.length < 20) {
+      const remaining = 20 - trimmedReason.length;
+      const errorMsg = `Reason for leave needs at least 20 characters (${remaining} more required)`;
+      setReasonError(`Please enter at least 20 characters (${remaining} more required).`);
+      showToast(errorMsg, "error");
+      setNotification({
+        message: errorMsg,
         severity: "error",
       });
       return;
@@ -2048,7 +2074,7 @@ const MyLeaves = () => {
                     type="button"
                     className="MyLeaves-form-submit"
                     onClick={applyLeave}
-                    disabled={!canSubmitLeave}
+                    disabled={loading || leaveTypesLoading}
                   >
                     {loading ? (
                       "Applying..."

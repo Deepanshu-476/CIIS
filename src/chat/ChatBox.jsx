@@ -9,7 +9,7 @@ import { ArrowLeft, Bell, Camera, ChevronRight, Download, ExternalLink, FileText
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
-import { API_URL_IMG } from "../config";
+import { API_URL_IMG } from "../config";  
 import { resolveAvatarUrl } from "./messageUtils";
 import { useCall } from "../context/CallContext";
 import { useNotification } from "../context/NotificationContext";

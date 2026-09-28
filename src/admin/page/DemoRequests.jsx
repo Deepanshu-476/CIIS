@@ -109,10 +109,13 @@ const DemoRequests = () => {
         phone: String(item.phone || 'N/A'),
         companyName: String(item.companyName || 'N/A'),
         employeeCount: String(item.employeeCount || 'N/A'),
+        preferredDemoDateTime: String(item.preferredDemoDateTime || ''),
+        modules: Array.isArray(item.modules) ? item.modules.map(String) : [],
         requirements: Array.isArray(item.requirements)
           ? item.requirements.join(', ')
           : String(item.requirements || ''),
         message: String(item.message || ''),
+        source: String(item.source || ''),
         status: String(item.status || 'New'),
         notes: String(item.notes || '')
       }));
@@ -148,6 +151,11 @@ const DemoRequests = () => {
         (i.email && i.email.toLowerCase().includes(q)) ||
         (i.phone && i.phone.toLowerCase().includes(q)) ||
         (i.companyName && i.companyName.toLowerCase().includes(q)) ||
+        (i.employeeCount && i.employeeCount.toLowerCase().includes(q)) ||
+        (i.preferredDemoDateTime && i.preferredDemoDateTime.toLowerCase().includes(q)) ||
+        (i.modules && i.modules.join(', ').toLowerCase().includes(q)) ||
+        (i.requirements && i.requirements.toLowerCase().includes(q)) ||
+        (i.source && i.source.toLowerCase().includes(q)) ||
         (i.message && i.message.toLowerCase().includes(q))
       );
     }
@@ -168,6 +176,19 @@ const DemoRequests = () => {
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to delete demo request');
     }
+  };
+
+  const formatPreferredDemoTime = (value) => {
+    if (!value) return 'N/A';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value).replace('T', ' ');
+    return date.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const handleOpenDetails = (req) => {
@@ -505,6 +526,22 @@ const DemoRequests = () => {
                     </div>
                   </div>
 
+                  <div className="pro-info-box">
+                    <Clock className="box-icon" />
+                    <div className="box-content">
+                      <span>PREFERRED DEMO TIME</span>
+                      <strong>{formatPreferredDemoTime(selectedRequest.preferredDemoDateTime)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="pro-info-box">
+                    <FileText className="box-icon" />
+                    <div className="box-content">
+                      <span>LEAD SOURCE</span>
+                      <strong>{selectedRequest.source || 'N/A'}</strong>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
@@ -514,6 +551,14 @@ const DemoRequests = () => {
                 <div className="pro-details-stack">
                   
                   {/* Specific Requirements */}
+                  <div className="pro-detail-card">
+                    <FileText className="card-icon" />
+                    <div className="card-content">
+                      <span>INTERESTED MODULES</span>
+                      <p>{selectedRequest.modules?.length ? selectedRequest.modules.join(', ') : (selectedRequest.requirements || 'N/A')}</p>
+                    </div>
+                  </div>
+
                   <div className="pro-detail-card">
                     <FileText className="card-icon" />
                     <div className="card-content">

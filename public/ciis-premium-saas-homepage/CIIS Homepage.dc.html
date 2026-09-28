@@ -44,7 +44,7 @@ button{font-family:inherit}
     <div style="display:flex;align-items:center;gap:8px">
       <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
         <a href="/login" target="_top" style="display:{{ fullNavDisp }};color:#0f172a;font-size:14.5px;font-weight:600;padding:9px 10px;white-space:nowrap">Login</a>
-        <a href="/start-trial" target="_top" style="color:#0f172a;font-size:14.5px;font-weight:600;padding:10px 18px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;white-space:nowrap" style-hover="border-color:#94a3b8;color:#0f172a">Start Free</a>
+        <a href="/RegisterCompany" target="_top" style="color:#0f172a;font-size:14.5px;font-weight:600;padding:10px 18px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;white-space:nowrap" style-hover="border-color:#94a3b8;color:#0f172a">Start Free</a>
       </sc-if>
       <a href="/book-a-demo" target="_top" style="color:#fff;font-size:14.5px;font-weight:600;padding:{{ navCtaPad }};border-radius:999px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);box-shadow:0 4px 16px rgba(37,99,235,.35);white-space:nowrap" style-hover="color:#fff;transform:translateY(-1px);box-shadow:0 8px 24px rgba(37,99,235,.45)">Book a Demo</a>
       <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
@@ -112,7 +112,7 @@ button{font-family:inherit}
       <a href="#faq" onClick="{{ closeMobileNav }}" style="padding:14px 12px;font-size:16px;font-weight:600;color:#0f172a;border-radius:12px">Resources</a>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 4px 4px">
         <a href="/login" target="_top" style="text-align:center;padding:14px;border-radius:999px;border:1px solid #cbd5e1;font-weight:600;font-size:15px;color:#0f172a">Login</a>
-        <a href="/start-trial" target="_top" onClick="{{ closeMobileNav }}" style="text-align:center;padding:14px;border-radius:999px;background:#0b1437;font-weight:600;font-size:15px;color:#fff">Start 90 Days Free</a>
+        <a href="/RegisterCompany" target="_top" onClick="{{ closeMobileNav }}" style="text-align:center;padding:14px;border-radius:999px;background:#0b1437;font-weight:600;font-size:15px;color:#fff">Start 90 Days Free</a>
       </div>
     </div>
   </sc-if>
@@ -129,7 +129,7 @@ button{font-family:inherit}
     <p style="margin:0;font-size:clamp(17px,1.6vw,20px);line-height:1.6;color:#cbd5e1;max-width:700px;text-wrap:pretty">More than HR or attendance software. CIIS Network connects your <strong style="color:#fff;font-weight:600">people, work, clients and insights</strong> — one login, on web and mobile.</p>
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px;margin-top:6px">
       <a href="#demo" style="display:inline-flex;white-space:nowrap;align-items:center;gap:8px;color:#fff;font-size:16px;font-weight:600;padding:15px 28px;border-radius:999px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);border:1px solid rgba(255,255,255,.18);box-shadow:0 10px 30px rgba(37,99,235,.5)" style-hover="color:#fff;transform:translateY(-2px);box-shadow:0 14px 36px rgba(37,99,235,.6)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">play_circle</span>Book a Live Demo</a>
-      <a href="#trial" style="display:inline-flex;white-space:nowrap;align-items:center;gap:8px;color:#fff;font-size:16px;font-weight:600;padding:15px 26px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.28)" style-hover="color:#fff;background:rgba(255,255,255,.14);transform:translateY(-2px)">Start 90 Days Free</a>
+      <a href="/RegisterCompany" style="display:inline-flex;white-space:nowrap;align-items:center;gap:8px;color:#fff;font-size:16px;font-weight:600;padding:15px 26px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.28)" style-hover="color:#fff;background:rgba(255,255,255,.14);transform:translateY(-2px)">Start 90 Days Free</a>
       <a href="#ecosystem" style="display:inline-flex;white-space:nowrap;align-items:center;gap:6px;color:#dbeafe;font-size:15px;font-weight:600;padding:15px 14px" style-hover="color:#fff">Explore the Platform<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_downward</span></a>
     </div>
     <span style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;font-size:13px;color:#94a3b8"><span style="display:inline-flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">language</span>Web</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">android</span>Android</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">phone_iphone</span>iOS</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1">event_available</span>90-day launch trial</span></span>
@@ -504,7 +504,7 @@ button{font-family:inherit}
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;margin-top:32px">
       <a href="#demo" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;color:#fff;font-size:15.5px;font-weight:600;padding:14px 26px;border-radius:999px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);border:1px solid rgba(255,255,255,.18);box-shadow:0 10px 28px rgba(37,99,235,.4)" style-hover="color:#fff;transform:translateY(-2px)"><span style="font-family:'Material Symbols Rounded';font-size:19px;line-height:1">play_circle</span>See Insights in a Live Demo</a>
-      <a href="#trial" style="display:inline-flex;align-items:center;white-space:nowrap;color:#fff;font-size:15.5px;font-weight:600;padding:14px 24px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.06)" style-hover="color:#fff;background:rgba(255,255,255,.12)">Start 90 Days Free</a>
+      <a href="/RegisterCompany" style="display:inline-flex;align-items:center;white-space:nowrap;color:#fff;font-size:15.5px;font-weight:600;padding:14px 24px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.06)" style-hover="color:#fff;background:rgba(255,255,255,.12)">Start 90 Days Free</a>
     </div>
   </div>
 </section>
@@ -704,7 +704,7 @@ button{font-family:inherit}
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:auto">
           <a href="#demo" style="display:inline-flex;white-space:nowrap;align-items:center;gap:8px;padding:14px 24px;border-radius:999px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);border:1px solid rgba(255,255,255,.2);color:#fff;font-weight:600;font-size:15.5px;box-shadow:0 10px 28px rgba(37,99,235,.45)" style-hover="color:#fff;transform:translateY(-1px)"><span style="font-family:'Material Symbols Rounded';font-size:19px;line-height:1">play_circle</span>Book a Live Demo</a>
-          <a href="#trial" style="display:inline-flex;white-space:nowrap;align-items:center;padding:14px 22px;border-radius:999px;border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:600;font-size:15px" style-hover="color:#fff;background:rgba(255,255,255,.08)">Start 90 Days Free</a>
+          <a href="/RegisterCompany" style="display:inline-flex;white-space:nowrap;align-items:center;padding:14px 22px;border-radius:999px;border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:600;font-size:15px" style-hover="color:#fff;background:rgba(255,255,255,.08)">Start 90 Days Free</a>
         </div>
         <div style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.3);font-size:12px;line-height:1.5;color:#dbeafe"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1.2">info</span>See full plans, add-on rates and Build My Plan on the <a href="CIIS%20Pricing.dc.html" style="color:#bfdbfe;text-decoration:underline">Pricing page</a>.</div>
       </div>
@@ -757,7 +757,7 @@ button{font-family:inherit}
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;margin-top:32px">
       <a href="#demo" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;color:#fff;font-size:15.5px;font-weight:600;padding:14px 26px;border-radius:999px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);border:1px solid rgba(255,255,255,.18);box-shadow:0 10px 28px rgba(37,99,235,.4)" style-hover="color:#fff;transform:translateY(-2px)"><span style="font-family:'Material Symbols Rounded';font-size:19px;line-height:1">play_circle</span>Book a Live Demo</a>
-      <a href="#trial" style="display:inline-flex;align-items:center;white-space:nowrap;color:#0f172a;font-size:15.5px;font-weight:600;padding:14px 24px;border-radius:999px;border:1px solid #cbd5e1;background:#fff" style-hover="color:#0f172a;border-color:#94a3b8">Start 90 Days Free</a>
+      <a href="/RegisterCompany" style="display:inline-flex;align-items:center;white-space:nowrap;color:#0f172a;font-size:15.5px;font-weight:600;padding:14px 24px;border-radius:999px;border:1px solid #cbd5e1;background:#fff" style-hover="color:#0f172a;border-color:#94a3b8">Start 90 Days Free</a>
       <a href="#pricing" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:#1d4ed8;font-size:15.5px;font-weight:600;padding:14px 12px" style-hover="color:#1e40af">Build My Plan<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_forward</span></a>
     </div>
   </div>
@@ -860,7 +860,7 @@ button{font-family:inherit}
     <p style="margin:0;font-size:clamp(16px,1.6vw,20px);line-height:1.6;color:#cbd5e1;max-width:600px">See your own company running on CIIS Network — on web and mobile.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px">
       <a href="CIIS%20Book%20a%20Demo.dc.html" style="display:inline-flex;white-space:nowrap;align-items:center;gap:8px;color:#fff;font-size:16px;font-weight:600;padding:16px 30px;border-radius:999px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 30px rgba(37,99,235,.55)" style-hover="color:#fff;transform:translateY(-2px)"><span style="font-family:'Material Symbols Rounded';font-size:20px;line-height:1">play_circle</span>Book a Live Demo</a>
-      <a href="#trial" style="display:inline-flex;white-space:nowrap;align-items:center;color:#0b1437;font-size:16px;font-weight:600;padding:16px 28px;border-radius:999px;background:#fff" style-hover="color:#1d4ed8;transform:translateY(-2px)">Start 90 Days Free</a>
+      <a href="/RegisterCompany" style="display:inline-flex;white-space:nowrap;align-items:center;color:#0b1437;font-size:16px;font-weight:600;padding:16px 28px;border-radius:999px;background:#fff" style-hover="color:#1d4ed8;transform:translateY(-2px)">Start 90 Days Free</a>
     </div>
     <a href="#pricing" style="display:inline-flex;white-space:nowrap;align-items:center;gap:6px;color:#bfdbfe;font-size:15px;font-weight:600;padding:12px 8px" style-hover="color:#fff">Build My Plan<span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">arrow_forward</span></a>
   </div>
@@ -874,7 +874,7 @@ button{font-family:inherit}
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><span style="font-weight:700;color:#0f172a">Product</span><a href="CIIS%20Product%20Overview.dc.html" style="color:#64748b">Overview</a><a href="CIIS%20People.dc.html" style="color:#64748b">People</a><a href="CIIS%20Work.dc.html" style="color:#64748b">Work</a><a href="CIIS%20Clients.dc.html" style="color:#64748b">Clients</a><a href="CIIS%20Insights.dc.html" style="color:#64748b">Insights</a></div>
     <div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><span style="font-weight:700;color:#0f172a">Company</span><a href="#usecases" style="color:#64748b">Solutions</a><a href="#pricing" style="color:#64748b">Pricing</a><a href="#compare" style="color:#64748b">Compare</a><a href="#security" style="color:#64748b">Security</a></div>
-    <div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><span style="font-weight:700;color:#0f172a">Get started</span><a href="#demo" style="color:#64748b">Book a Live Demo</a><a href="#trial" style="color:#64748b">Start 90 Days Free</a><a href="/login" style="color:#64748b">Login</a></div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><span style="font-weight:700;color:#0f172a">Get started</span><a href="#demo" style="color:#64748b">Book a Live Demo</a><a href="/RegisterCompany" style="color:#64748b">Start 90 Days Free</a><a href="/login" style="color:#64748b">Login</a></div>
   </div>
   <div style="max-width:1200px;margin:32px auto 0;padding-top:20px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:12.5px;color:#94a3b8"><span>© 2026 CIIS Network</span><span>Privacy · Terms</span></div>
 </footer>
@@ -882,13 +882,13 @@ button{font-family:inherit}
 <sc-if value="{{ showMobileBar }}" hint-placeholder-val="{{ false }}">
   <div style="position:fixed;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));z-index:90;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:8px;padding:8px;border-radius:22px;background:rgba(11,20,55,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);box-shadow:0 20px 44px -12px rgba(2,6,23,.6)">
     <a href="/book-a-demo" target="_top" style="display:flex;align-items:center;justify-content:center;gap:6px;min-height:48px;border-radius:16px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);color:#fff;font-size:15px;font-weight:700;white-space:nowrap" style-hover="color:#fff">Book a Live Demo</a>
-    <a href="/start-trial" target="_top" style="display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:16px;background:#fff;color:#0b1437;font-size:15px;font-weight:700;white-space:nowrap" style-hover="color:#1d4ed8">Start Free</a>
+    <a href="/RegisterCompany" target="_top" style="display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:16px;background:#fff;color:#0b1437;font-size:15px;font-weight:700;white-space:nowrap" style-hover="color:#1d4ed8">Start Free</a>
   </div>
 </sc-if>
 <sc-if value="{{ showDeskBar }}" hint-placeholder-val="{{ false }}">
   <div style="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:6px;padding:7px 7px 7px 20px;border-radius:999px;background:rgba(11,20,55,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.14);box-shadow:0 20px 50px -16px rgba(2,6,23,.6);white-space:nowrap">
     <span style="font-size:14px;font-weight:600;color:#e2e8f0;margin-right:8px">See CIIS running your company</span>
-    <a href="/start-trial" target="_top" style="font-size:14px;font-weight:600;color:#fff;padding:10px 14px;border-radius:999px" style-hover="color:#fff;background:rgba(255,255,255,.08)">Start 90 Days Free</a>
+    <a href="/RegisterCompany" target="_top" style="font-size:14px;font-weight:600;color:#fff;padding:10px 14px;border-radius:999px" style-hover="color:#fff;background:rgba(255,255,255,.08)">Start 90 Days Free</a>
     <a href="/book-a-demo" target="_top" style="font-size:14px;font-weight:600;color:#fff;padding:11px 20px;border-radius:999px;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#4f46e5 100%);box-shadow:0 6px 18px rgba(37,99,235,.45)" style-hover="color:#fff">Book a Live Demo</a>
     <button onClick="{{ dismissBar }}" aria-label="Dismiss" style="width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">close</span></button>
   </div>

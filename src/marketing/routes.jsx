@@ -24,7 +24,6 @@ const SupportPage = lazy(() => import("./pages/SupportPage.jsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.jsx"));
 const ComparePage = lazy(() => import("./pages/ComparePage.jsx"));
 const BookDemoPage = lazy(() => import("./pages/BookDemoPage.jsx"));
-const StartTrialPage = lazy(() => import("./pages/StartTrialPage.jsx"));
 const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
 const TermsPage = lazy(() => import("./pages/TermsPage.jsx"));
@@ -52,7 +51,6 @@ export const MARKETING_PAGES = [
   { path: "/pricing", title: "Pricing", Component: PricingPage },
   { path: "/compare", title: "Compare", Component: ComparePage },
   { path: "/book-demo", title: "Book a Demo", Component: BookDemoPage },
-  { path: "/start-trial", title: "Start 90-Day Trial", Component: StartTrialPage },
   { path: "/contact", title: "Contact", Component: ContactPage },
   { path: "/privacy-policy", title: "Privacy Policy", Component: PrivacyPolicyPage },
   { path: "/terms", title: "Terms of Service", Component: TermsPage },
@@ -65,7 +63,8 @@ export const MARKETING_REDIRECTS = [
   ["/privacy", "/privacy-policy"],
   ["/usage", "/terms"],
   ["/demo", "/book-demo"],
-  ["/trial", "/start-trial"],
+  ["/start-trial", "/RegisterCompany"],
+  ["/trial", "/RegisterCompany"],
 ];
 
 // Usage inside <Routes> in App.jsx:  {renderMarketingRoutes()}

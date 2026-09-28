@@ -144,6 +144,9 @@ const AllCompany = () => {
   const [subscriptionNotes, setSubscriptionNotes] = useState("");
   const [subscriptionActivateCompany, setSubscriptionActivateCompany] = useState(true);
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
+  const [registrationRequests, setRegistrationRequests] = useState([]);
+  const [requestsModalOpen, setRequestsModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const getAuthHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -245,9 +248,22 @@ const AllCompany = () => {
     }
   };
 
+  const fetchRegistrationRequests = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const response = await axios.get(`${API_URL}/company-registration-requests`, { headers });
+      const requests = response.data?.data || response.data?.requests || [];
+      setRegistrationRequests(Array.isArray(requests) ? requests : []);
+    } catch (error) {
+      console.error("Failed to load registration requests:", error);
+      setRegistrationRequests([]);
+    }
+  };
+
   useEffect(() => {
     fetchCompanies();
     fetchPlans();
+    fetchRegistrationRequests();
   }, []);
 
   useEffect(() => {
@@ -264,8 +280,10 @@ const AllCompany = () => {
       return daysLeft !== null && daysLeft > 0 && daysLeft <= 30;
     }).length;
 
-    return { total, active, inactive, expiringSoon };
-  }, [companies]);
+    const profileRequests = registrationRequests.filter(request => request.status !== "Converted").length;
+
+    return { total, active, inactive, expiringSoon, profileRequests };
+  }, [companies, registrationRequests]);
 
   const filteredCompanies = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -605,6 +623,37 @@ const AllCompany = () => {
               <Sparkline tone="warning" />
               <span className="AllCompany-stat-trend">+ 15%</span>
               <small>vs last month</small>
+            </div>
+          </article>
+
+          <article
+            className="AllCompany-stat-card AllCompany-card AllCompany-stat-card-clickable"
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setSelectedRequest(registrationRequests[0] || null);
+              setRequestsModalOpen(true);
+            }}
+            onKeyDown={event => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSelectedRequest(registrationRequests[0] || null);
+                setRequestsModalOpen(true);
+              }
+            }}
+          >
+            <div className="AllCompany-stat-icon AllCompany-stat-icon-teal">
+              <span className="material-icons">assignment_ind</span>
+            </div>
+            <div className="AllCompany-stat-copy">
+              <span className="AllCompany-stat-label">Registration Requests</span>
+              <strong className="AllCompany-stat-value">{stats.profileRequests}</strong>
+              <span className="AllCompany-stat-meta">Company profile steps completed</span>
+            </div>
+            <div className="AllCompany-stat-spark">
+              <span className="material-icons">open_in_new</span>
+              <span className="AllCompany-stat-trend">View</span>
+              <small>click details</small>
             </div>
           </article>
         </section>
@@ -1054,6 +1103,104 @@ const AllCompany = () => {
                   disabled={subscriptionSaving}
                 >
                   {subscriptionSaving ? "Saving..." : "Save Subscription"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {requestsModalOpen && (
+          <div className="AllCompany-modal-overlay" onClick={() => setRequestsModalOpen(false)}>
+            <div className="AllCompany-modal-content AllCompany-registration-modal" onClick={event => event.stopPropagation()}>
+              <div className="AllCompany-modal-header">
+                <div>
+                  <p className="AllCompany-modal-eyebrow">Registration Requests</p>
+                  <h3 className="AllCompany-modal-title">Company Profile Requests</h3>
+                  <p className="AllCompany-modal-subtitle">
+                    Users who completed the first Register Company step.
+                  </p>
+                </div>
+                <button type="button" className="AllCompany-icon-button" onClick={() => setRequestsModalOpen(false)} aria-label="Close requests modal">
+                  <span className="material-icons">close</span>
+                </button>
+              </div>
+
+              <div className="AllCompany-modal-body AllCompany-registration-body">
+                <div className="AllCompany-registration-list">
+                  {registrationRequests.length > 0 ? (
+                    registrationRequests.map(request => (
+                      <button
+                        type="button"
+                        key={request._id}
+                        className={`AllCompany-registration-item ${selectedRequest?._id === request._id ? "active" : ""}`}
+                        onClick={() => setSelectedRequest(request)}
+                      >
+                        <span>{getAvatarLabel(request.companyName)}</span>
+                        <strong>{request.companyName || "Company"}</strong>
+                        <small>{request.companyEmail || "N/A"}</small>
+                        <em>{request.status || "Profile Completed"}</em>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="AllCompany-registration-empty">
+                      <span className="material-icons">assignment_late</span>
+                      <strong>No registration requests yet</strong>
+                      <p>When a user completes Company Profile and clicks Next, it will appear here.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="AllCompany-registration-detail">
+                  {selectedRequest ? (
+                    <>
+                      <div className="AllCompany-registration-detail-head">
+                        <span>{getAvatarLabel(selectedRequest.companyName)}</span>
+                        <div>
+                          <h4>{selectedRequest.companyName || "Company"}</h4>
+                          <p>{selectedRequest.status || "Profile Completed"} • {formatDate(selectedRequest.createdAt)}</p>
+                        </div>
+                      </div>
+
+                      <div className="AllCompany-registration-grid">
+                        <div>
+                          <small>Company Email</small>
+                          <strong>{selectedRequest.companyEmail || "N/A"}</strong>
+                        </div>
+                        <div>
+                          <small>Company Phone</small>
+                          <strong>{selectedRequest.companyPhone || "N/A"}</strong>
+                        </div>
+                        <div>
+                          <small>Department</small>
+                          <strong>{selectedRequest.department || "Management"}</strong>
+                        </div>
+                        <div>
+                          <small>Source</small>
+                          <strong>{selectedRequest.source || "/RegisterCompany"}</strong>
+                        </div>
+                        <div className="AllCompany-registration-address">
+                          <small>Company Address</small>
+                          <strong>{selectedRequest.companyAddress || "N/A"}</strong>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="AllCompany-registration-empty detail">
+                      <span className="material-icons">touch_app</span>
+                      <strong>Select a request</strong>
+                      <p>Click a request on the left to view profile data.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="AllCompany-modal-footer">
+                <button type="button" className="AllCompany-btn AllCompany-btn-ghost" onClick={fetchRegistrationRequests}>
+                  <span className="material-icons">refresh</span>
+                  Refresh
+                </button>
+                <button type="button" className="AllCompany-btn AllCompany-btn-primary" onClick={() => setRequestsModalOpen(false)}>
+                  Close
                 </button>
               </div>
             </div>

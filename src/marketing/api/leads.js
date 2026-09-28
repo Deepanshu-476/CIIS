@@ -32,17 +32,17 @@ function serverMessage(err) {
 
 // Verified endpoint: POST /api/demo-requests (same contract as src/components/landing/BookDemoModal.jsx).
 async function submitDemo(data) {
-  const extra = [];
-  if (clean(data.message)) extra.push(clean(data.message));
-  if (clean(data.datetime)) extra.push(`Preferred demo date & time: ${clean(data.datetime).replace("T", " ")}`);
   const payload = {
     name: clean(data.name),
     email: clean(data.email),
     phone: toIndianMobile(data.phone),
     companyName: clean(data.company),
     employeeCount: clean(data.employees),
+    preferredDemoDateTime: clean(data.datetime),
+    modules: data.modules || [],
     requirements: (data.modules || []).join(", "),
-    message: extra.join("\n\n"),
+    message: clean(data.message),
+    source: data.source || "",
   };
   try {
     const res = await api.post("/demo-requests", payload, { _skipErrorNotify: true });

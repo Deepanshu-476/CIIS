@@ -305,7 +305,7 @@ export const premiumPageRoutes = [
   ['compare', '/compare'],
   ['contact', '/contact'],
   ['book-a-demo', '/book-a-demo'],
-  ['start-trial', '/start-trial'],
+  ['start-trial', '/RegisterCompany'],
   ['privacy-policy', '/privacy-policy'],
   ['terms', '/terms'],
   ['design-system', '/design-system'],
@@ -341,7 +341,7 @@ export default function PremiumMarketingPage({ pageKey = 'product-overview' }) {
               <p>{page.description}</p>
               <div className="pm-actions">
                 <a className="pm-btn pm-btn-primary" href="/book-a-demo">Book a Demo <ArrowRight size={17} /></a>
-                <a className="pm-btn pm-btn-secondary" href="/start-trial">Start Trial</a>
+                <a className="pm-btn pm-btn-secondary" href="/RegisterCompany">Start Trial</a>
               </div>
             </div>
             <div className="pm-visual" style={{ '--pm-accent': page.color }}>

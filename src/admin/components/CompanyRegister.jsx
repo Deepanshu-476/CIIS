@@ -112,6 +112,8 @@ export default function CompanyRegister() {
   const [registeredCompany, setRegisteredCompany] = useState(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [profileRequestId, setProfileRequestId] = useState('');
+  const [profileDraftSaving, setProfileDraftSaving] = useState(false);
 
   // Load registration draft if passed from another screen
   useEffect(() => {
@@ -301,9 +303,37 @@ export default function CompanyRegister() {
     return true;
   };
 
-  const handleNextStep = (event) => {
+  const saveCompanyProfileRequest = async () => {
+    setProfileDraftSaving(true);
+    try {
+      const payload = {
+        companyName: form.companyName.trim(),
+        companyEmail: form.companyEmail.trim().toLowerCase(),
+        companyPhone: form.companyPhone.replace(/\D/g, ''),
+        companyAddress: form.companyAddress.trim(),
+        department: form.department?.trim() || 'Management',
+        source: location.pathname || '/RegisterCompany'
+      };
+
+      const response = await axios.post(`${API_URL}/company-registration-requests`, payload, {
+        _skipErrorNotify: true
+      });
+      const savedRequest = response.data?.data;
+      if (savedRequest?._id) setProfileRequestId(savedRequest._id);
+    } catch (err) {
+      console.error('Failed to save company profile request:', err);
+      toast.warn('Company profile step is complete, but request preview could not be saved for admin.');
+    } finally {
+      setProfileDraftSaving(false);
+    }
+  };
+
+  const handleNextStep = async (event) => {
     event?.preventDefault();
     if (!validateStep(activeStep, true)) return;
+    if (activeStep === 0) {
+      await saveCompanyProfileRequest();
+    }
     setActiveStep((curr) => Math.min(curr + 1, steps.length - 1));
   };
 
@@ -378,6 +408,18 @@ export default function CompanyRegister() {
 
       const finalCompanyCode = createdCompany.companyCode || createdCompany.code || '';
       const loginUrl = `${window.location.origin}/company/${encodeURIComponent(finalCompanyCode)}/login`;
+
+      if (profileRequestId) {
+        axios.patch(`${API_URL}/company-registration-requests/${profileRequestId}`, {
+          status: 'Converted',
+          convertedCompany: createdCompany._id || createdCompany.id || null
+        }, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+          _skipErrorNotify: true
+        }).catch((requestErr) => {
+          console.warn('Unable to mark registration request as converted:', requestErr);
+        });
+      }
 
       setRegisteredCompany({
         ...createdCompany,
@@ -1010,6 +1052,7 @@ export default function CompanyRegister() {
                     setRegistrationSuccess(false);
                     setRegisteredCompany(null);
                     setForm(initialForm);
+                    setProfileRequestId('');
                     setActiveStep(0);
                     removeLogo();
                   }}
@@ -1079,7 +1122,7 @@ export default function CompanyRegister() {
                     onClick={handleNextStep}
                     disabled={submitting}
                   >
-                    Next Step
+                    {profileDraftSaving ? 'Saving Profile...' : 'Next Step'}
                     <ArrowRight size={18} />
                   </button>
                 )}

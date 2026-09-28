@@ -127,7 +127,7 @@ export default function AddLead() {
           <span className="separator">&gt;</span>
           <span>Leads</span>
           <span className="separator">&gt;</span>
-          <span className="active">Add Lead</span>
+          <span className="active">Add Lead</span >
         </div>
       </div>
 

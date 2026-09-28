@@ -92,7 +92,6 @@ const STRICT_PAGE_PATHS = new Set([
   '/ciisuser/salary-assignment',
   '/ciisuser/assign-salary',
   '/ciisuser/payroll-process',
-  '/ciisuser/release-payroll',
   '/ciisuser/payslip',
   '/ciisuser/payroll-reports',
 ]);

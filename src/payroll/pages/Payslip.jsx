@@ -144,7 +144,7 @@ export default function Payslip() {
   const deductions = useMemo(() => (payroll?.components || []).filter(item => item.type === "deduction"), [payroll]);
   const attendance = payroll?.attendance || {};
   const isTillDatePayslip = Number(attendance.futureDays || 0) > 0 || Boolean(payroll?.earnedTillDateGross && payroll?.earnedTillDateGross !== payroll?.monthlyGross);
-  const earningAmount = (item) => item.amount ?? item.payrollAmount ?? 0;
+  const earningAmount = (item) => item.payrollAmount ?? item.amount ?? 0;
   const deductionAmount = (item) => item.payrollAmount ?? item.amount ?? 0;
   const totalSalaryDeductions = Number(payroll?.totalDeductions || 0) + Number(payroll?.adjustmentDeductions || 0);
   const displayedAttendanceDeduction = Number(payroll?.attendanceDeduction || 0);
@@ -472,16 +472,25 @@ export default function Payslip() {
                   <div className="ps-monthly-gross-container">
                     <div className="ps-monthly-gross-line">
                       <span className="ps-gross-title">Monthly Gross Salary</span>
-                      <span className="ps-gross-amount">{money(payroll.monthlyGross ?? payroll.assignedGross)}</span>
+                      <span className="ps-gross-amount">{money(payroll.assignedGross ?? payroll.monthlyGross)}</span>
                     </div>
+                    {displayedAttendanceDeduction > 0 && (
+                      <div className="ps-component-item">
+                        <div className="ps-component-meta">
+                          <span className="ps-comp-name">Attendance Reduction</span>
+                          <span className="ps-comp-code">Already reflected in earned gross</span>
+                        </div>
+                        <span className="ps-comp-amount">{money(displayedAttendanceDeduction)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="ps-panel-highlight-box ps-earnings-highlight">
                   <div className="ps-hl-meta">
-                    <span className="ps-hl-main-text">{isTillDatePayslip ? "Gross Salary Earned to Date" : "Gross Salary Earned to Date"}</span>
+                    <span className="ps-hl-main-text">{isTillDatePayslip ? "Gross Salary Earned to Date" : "Gross Salary Earned"}</span>
                     <span className="ps-hl-sub-text">
-                      {isTillDatePayslip ? `As of ${asOfDate(attendance.calculationCutoff || payDate)}` : `As of ${asOfDate(payDate)}`}
+                      {`Calculated through ${asOfDate(attendance.calculationCutoff || payDate)}`}
                     </span>
                   </div>
                   <span className="ps-hl-val">{money(displayedEarnings)}</span>
@@ -499,15 +508,6 @@ export default function Payslip() {
                 </div>
                 <div className="ps-panel-content">
                   <div className="ps-components-list">
-                    {displayedAttendanceDeduction > 0 && (
-                      <div className="ps-component-item">
-                        <div className="ps-component-meta">
-                          <span className="ps-comp-name">ATTENDANCE DEDUCTION</span>
-                          <span className="ps-comp-code">{`${attendance.lopDays || 0} absent, ${attendance.halfDayDays || 0} half day`}</span>
-                        </div>
-                        <span className="ps-comp-amount">{money(displayedAttendanceDeduction)}</span>
-                      </div>
-                    )}
                     {deductions.map(item => (
                       <div className="ps-component-item" key={`${item.component?._id || item.component}-${item.code}`}>
                         <div className="ps-component-meta">
@@ -526,7 +526,7 @@ export default function Payslip() {
                         <span className="ps-comp-amount">{money(item.amount)}</span>
                       </div>
                     ))}
-                    {!displayedAttendanceDeduction && !deductions.length && !(payroll.adjustments || []).length && (
+                    {!deductions.length && !(payroll.adjustments || []).length && (
                       <div className="ps-no-deductions-msg">No deductions for this period</div>
                     )}
                   </div>

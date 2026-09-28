@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 import API_URL from '../../../config';
 import './client-management.css';
 
@@ -2392,6 +2393,9 @@ const AddClientModal = ({
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [dateError, setDateError] = useState('');
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState('');
+  const logoInputRef = useRef(null);
 
   const filteredServices = companyCode 
     ? services.filter(service => service.companyCode === companyCode)
@@ -2487,6 +2491,75 @@ const AddClientModal = ({
     }
   };
 
+  const handlePhoneChange = (e) => {
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setFieldErrors(prev => ({ ...prev, phone: '' }));
+    setNewClient(prev => ({ ...prev, phone: numericValue }));
+  };
+
+  const handleLogoFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLogoError('');
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      const err = 'Only image files (JPEG, PNG, WEBP, GIF, SVG) are allowed.';
+      setLogoError(err);
+      toast.error(err);
+      return;
+    }
+
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) {
+      const err = 'Logo file size is too large. Maximum size is 2MB.';
+      setLogoError(err);
+      toast.error(err);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    setLogoUploading(true);
+    try {
+      const token = getAuthToken();
+      const res = await axios.post(`${API_URL}/company/upload-logo`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        timeout: 30000
+      });
+
+      if (res.data?.success && res.data?.logoUrl) {
+        setNewClient(prev => ({ ...prev, companyLogo: res.data.logoUrl }));
+        toast.success('Company logo uploaded successfully!');
+      } else {
+        throw new Error(res.data?.message || 'Logo upload failed');
+      }
+    } catch (err) {
+      console.error('Logo upload error:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to upload logo';
+      setLogoError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) {
+        logoInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setNewClient(prev => ({ ...prev, companyLogo: '' }));
+    setLogoError('');
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -2504,6 +2577,9 @@ const AddClientModal = ({
     if (selectedPlan && !newClient.subscriptionStartDate) nextFieldErrors.subscriptionStartDate = 'Select subscription start date';
     if (newClient.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newClient.email.trim())) {
       nextFieldErrors.email = 'Enter a valid email address';
+    }
+    if (newClient.phone && newClient.phone.length !== 10) {
+      nextFieldErrors.phone = 'Phone number must be exactly 10 digits';
     }
 
     let subscriptionArray = [];
@@ -2946,25 +3022,169 @@ const AddClientModal = ({
               </div>
 
               <div className="ClientManagement-form-group">
-                <label className="ClientManagement-form-label">Phone</label>
+                <label className="ClientManagement-form-label">
+                  Phone {newClient.phone ? <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>({newClient.phone.length}/10 digits)</span> : null}
+                </label>
                 <input
-                  type="text"
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   className="ClientManagement-form-input"
+                  placeholder="Enter 10-digit phone number"
                   value={newClient.phone}
-                  onChange={(e) => setNewClient(prev => ({...prev, phone: e.target.value}))}
+                  onChange={handlePhoneChange}
+                  onKeyDown={(e) => {
+                    if (
+                      !/[0-9]/.test(e.key) &&
+                      !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'].includes(e.key) &&
+                      !e.ctrlKey && !e.metaKey
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
                   disabled={loading}
                 />
+                {fieldErrors.phone && <small className="ClientManagement-text-danger">{fieldErrors.phone}</small>}
               </div>
 
               <div className="ClientManagement-form-group">
-                <label className="ClientManagement-form-label">Company Logo URL</label>
+                <label className="ClientManagement-form-label">Company Logo</label>
                 <input
-                  type="text"
-                  className="ClientManagement-form-input"
-                  value={newClient.companyLogo}
-                  onChange={(e) => setNewClient(prev => ({...prev, companyLogo: e.target.value}))}
-                  disabled={loading}
+                  type="file"
+                  ref={logoInputRef}
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                  style={{ display: 'none' }}
+                  onChange={handleLogoFileChange}
+                  disabled={loading || logoUploading}
                 />
+
+                <div
+                  className="ClientManagement-form-input"
+                  onClick={() => {
+                    if (!newClient.companyLogo && !logoUploading && !loading) {
+                      logoInputRef.current?.click();
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '4px 8px',
+                    height: '36px',
+                    background: '#fff',
+                    cursor: newClient.companyLogo ? 'default' : (logoUploading || loading ? 'not-allowed' : 'pointer'),
+                    overflow: 'hidden'
+                  }}
+                >
+                  {newClient.companyLogo ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                        <img
+                          src={newClient.companyLogo}
+                          alt="Logo"
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            objectFit: 'contain',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0',
+                            background: '#f8fafc',
+                            flexShrink: 0
+                          }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          Logo Uploaded
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            logoInputRef.current?.click();
+                          }}
+                          disabled={loading || logoUploading}
+                          style={{
+                            padding: '2px 8px',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            color: '#2563eb',
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            lineHeight: '18px'
+                          }}
+                        >
+                          {logoUploading ? 'Uploading...' : 'Change'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveLogo();
+                          }}
+                          disabled={loading || logoUploading}
+                          title="Remove logo"
+                          style={{
+                            padding: '2px 6px',
+                            fontSize: '11px',
+                            color: '#dc2626',
+                            background: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            lineHeight: '18px'
+                          }}
+                        >
+                          <FiTrash2 size={12} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, color: '#64748b' }}>
+                        <FiUpload size={15} style={{ flexShrink: 0, color: '#64748b' }} />
+                        <span style={{ fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {logoUploading ? 'Uploading logo...' : 'Choose company logo...'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          logoInputRef.current?.click();
+                        }}
+                        disabled={loading || logoUploading}
+                        style={{
+                          padding: '2px 10px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          background: '#f1f5f9',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          lineHeight: '18px'
+                        }}
+                      >
+                        {logoUploading ? '...' : 'Browse'}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {logoError && (
+                  <small className="ClientManagement-text-danger" style={{ display: 'block', marginTop: '4px' }}>
+                    {logoError}
+                  </small>
+                )}
               </div>
 
               <div className="ClientManagement-form-group">

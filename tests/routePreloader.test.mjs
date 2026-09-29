@@ -11,7 +11,7 @@ test('hover preload resolves mixed-case payroll and every canonical CRM route', 
   const source = fs.readFileSync(new URL('../src/utils/routePreloader.js', import.meta.url), 'utf8')
     .replace(/import\.meta\.glob\(\s*\[[\s\S]*?\]\s*\)/g, 'modules')
     .replace(/import\(("[^"]+")\)/g, 'load($1)')
-    .replace(/export const /g, 'const ');
+    .replace(/export const /g, 'const ');  
   const context = vm.createContext({ modules, load: async path => { loaded.push(path); } });
   vm.runInContext(`${source}\nglobalThis.preload = preloadRouteByPath; globalThis.paths = routeChunkPaths; globalThis.crmModuleCount = Object.keys(crmPageModules).length;`, context);
   await context.preload('/ciisUser/Payroll-Process/');

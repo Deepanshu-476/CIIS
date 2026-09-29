@@ -18,6 +18,7 @@ import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup
 
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 70;
+const SIDEBAR_TRANSITION = '0.28s cubic-bezier(0.4, 0, 0.2, 1)';
 
 const LayoutContainer = styled(Box)({
   display: 'flex',
@@ -35,27 +36,17 @@ const MainContent = styled('main', {
   width: '100%',
   overflow: 'auto',
   backgroundColor: '#f8faff',
-  transition: theme.transitions.create(['margin', 'width'], {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
-  }),
-  
+  transition: `margin ${SIDEBAR_TRANSITION}, width ${SIDEBAR_TRANSITION}`,
   
   ...(!isMobile && {
     marginLeft: `${drawerWidthClosed}px`,
     width: `calc(100% - ${drawerWidthClosed}px)`,
     
-    
     ...(isSidebarHovered && {
       marginLeft: `${drawerWidthOpen}px`,
       width: `calc(100% - ${drawerWidthOpen}px)`,
-      transition: theme.transitions.create(['margin', 'width'], {
-        easing: theme.transitions.easing.easeOut,
-        duration: theme.transitions.duration.enteringScreen,
-      }),
     }),
   }),
-  
   
   ...(isMobile && {
     marginLeft: 0,
@@ -72,30 +63,46 @@ const UserLayout = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  const leaveTimerRef = React.useRef(null);
+
   const handleSidebarMouseEnter = () => {
     if (!isMobile) {
+      if (leaveTimerRef.current) {
+        clearTimeout(leaveTimerRef.current);
+        leaveTimerRef.current = null;
+      }
       setIsSidebarHovered(true);
     }
   };
 
   const handleSidebarMouseLeave = () => {
     if (!isMobile) {
-      setIsSidebarHovered(false);
+      if (leaveTimerRef.current) {
+        clearTimeout(leaveTimerRef.current);
+      }
+      leaveTimerRef.current = setTimeout(() => {
+        setIsSidebarHovered(false);
+      }, 120);
     }
   };
-  
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current) {
+        clearTimeout(leaveTimerRef.current);
+      }
+    };
+  }, []);
   
   const toggleMobileSidebar = () => {
     setMobileSidebarOpen(!mobileSidebarOpen);
   };
-  
   
   const handleCloseMobileSidebar = () => {
     if (isMobile) {
       setMobileSidebarOpen(false);
     }
   };
-  
   
   useEffect(() => {
     if (!isMobile) {
@@ -119,7 +126,6 @@ const UserLayout = () => {
         isDashboard={isDashboard}
       />
 
-      
       {!isMobile && (
         <Box
           onMouseEnter={handleSidebarMouseEnter}
@@ -128,6 +134,9 @@ const UserLayout = () => {
             position: 'fixed',
             left: 0,
             top: 64,
+            height: 'calc(100vh - 64px)',
+            width: isSidebarHovered ? drawerWidthOpen : drawerWidthClosed,
+            transition: `width ${SIDEBAR_TRANSITION}`,
             zIndex: theme.zIndex.drawer,
           }}
         >
@@ -139,7 +148,6 @@ const UserLayout = () => {
         </Box>
       )}
 
-      
       {isMobile && (
         <Drawer
           variant="temporary"
@@ -176,10 +184,6 @@ const UserLayout = () => {
           overflow: 'auto',
           padding: 0,
           mt: isMobile ? 7 : 8,
-          transition: theme.transitions.create(['margin', 'width'], {
-            easing: theme.transitions.easing.easeOut,
-            duration: theme.transitions.duration.standard,
-          }),
         }}
       >
         <CallProvider>

@@ -15,22 +15,27 @@ import {
   Divider
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  Business as CompanyIcon,
-  CorporateFare as DepartmentIcon,
-  WorkOutline as JobRoleIcon,
+  Apartment as CompanyDetailsIcon,
+  Public as AllCompanyIcon,
+  VpnKey as CompanyAccessIcon,
+  AccountTree as DepartmentIcon,
+  Place as BranchIcon,
+  Badge as JobRoleIcon,
   PersonAdd as CreateUserIcon,
-  AssignmentTurnedIn as RegisterRequestIcon,
-  ExitToApp as LogoutIcon,
-  Inventory as AssetsIcon,
-  ManageAccounts as ManageAccountsIcon,
-  SupportAgent as SupportAgentIcon,
-  Web as WebIcon,
-  Settings as SettingsIcon,
+  HowToReg as RegisterRequestIcon,
+  Devices as AssetsIcon,
+  ViewSidebar as SidebarManagementIcon,
+  Layers as PageManagementIcon,
+  CardMembership as PlansIcon,
   Email as EmailIcon,
-  VideoCall as DemoIcon,
   SystemUpdateAlt as AppUpdateIcon,
+  SupportAgent as SupportAgentIcon,
   RateReview as FeedbackIcon,
+  CalendarMonth as LeavePolicyIcon,
+  VideoCall as DemoIcon,
+  Celebration as HolidayIcon,
+  Settings as SettingsIcon,
+  ExitToApp as LogoutIcon,
 } from '@mui/icons-material';
 import { preloadRouteChunk } from '../../utils/routePreloader';
 import { useAuth } from '../../context/AuthContext';
@@ -56,18 +61,14 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.enteringScreen,
   }),
-  overflowY: 'auto',
-  scrollbarWidth: 'none',
+  overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  '&::-webkit-scrollbar': {
-    display: 'none',
-  },
 }));
 
 const CollapsedSidebar = styled(SidebarContainer)(({ theme }) => ({
   width: 72,
-  overflowX: 'hidden',
+  overflow: 'hidden',
 }));
 
 const SectionHeading = styled(Typography)(({ theme }) => ({
@@ -81,42 +82,111 @@ const SectionHeading = styled(Typography)(({ theme }) => ({
 
 const StyledListItem = styled(ListItem)({
   padding: 0,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  width: '100%',
 });
 
-const StyledListItemButton = styled(ListItemButton)(({ theme, selected }) => ({
-  minHeight: 48,
-  justifyContent: 'initial',
-  padding: theme.spacing(1, 2),
-  margin: theme.spacing(0.5, 1),
-  borderRadius: theme.spacing(1),
-  color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
-  backgroundColor: selected ? theme.palette.action.selected : 'transparent',
+const StyledListItemButton = styled(ListItemButton, {
+  shouldForwardProp: (prop) => prop !== 'isCollapsed'
+})(({ theme, selected, isCollapsed }) => ({
+  minHeight: isCollapsed ? 44 : 42,
+  height: isCollapsed ? 44 : 'auto',
+  width: isCollapsed ? 44 : 'calc(100% - 16px)',
+  margin: isCollapsed ? '3px auto' : theme.spacing(0.35, 1),
+  padding: isCollapsed ? 0 : theme.spacing(0.8, 1.5),
+  justifyContent: isCollapsed ? 'center' : 'flex-start',
+  alignItems: 'center',
+  borderRadius: isCollapsed ? 10 : theme.spacing(1),
+  color: selected ? '#1d4ed8' : '#475569',
+  backgroundColor: selected 
+    ? (isCollapsed ? 'rgba(37, 99, 235, 0.12)' : 'rgba(37, 99, 235, 0.08)')
+    : 'transparent',
+  border: isCollapsed 
+    ? (selected ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid transparent')
+    : (selected ? '1px solid rgba(37, 99, 235, 0.18)' : '1px solid transparent'),
+  boxShadow: isCollapsed && selected ? '0 2px 8px rgba(37, 99, 235, 0.15)' : 'none',
+  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+  boxSizing: 'border-box',
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: selected 
+      ? (isCollapsed ? 'rgba(37, 99, 235, 0.18)' : 'rgba(37, 99, 235, 0.12)')
+      : 'rgba(241, 245, 249, 0.9)',
+    color: '#1d4ed8',
+    transform: isCollapsed ? 'scale(1.06)' : 'none',
+    boxShadow: isCollapsed ? '0 4px 12px rgba(15, 23, 42, 0.08)' : 'none',
   },
   '& .MuiListItemIcon-root': {
-    color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
+    minWidth: isCollapsed ? 0 : 32,
+    marginRight: isCollapsed ? 0 : theme.spacing(1.25),
+    margin: isCollapsed ? 0 : undefined,
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: selected ? '#2563eb' : '#64748b',
+    transition: 'color 0.18s ease, transform 0.18s ease',
+  },
+  '&:hover .MuiListItemIcon-root': {
+    color: '#2563eb',
+  },
+  '& .MuiSvgIcon-root': {
+    fontSize: isCollapsed ? 22 : 21,
+    width: isCollapsed ? 22 : 21,
+    height: isCollapsed ? 22 : 21,
+    display: 'block',
+  },
+  '& .MuiListItemText-primary': {
+    fontSize: '0.82rem',
+    fontWeight: selected ? 600 : 500,
+    color: selected ? '#1d4ed8' : '#334155',
   },
 }));
 
-const StyledListItemIcon = styled(ListItemIcon)(({ theme }) => ({
+const StyledListItemIcon = styled(ListItemIcon)({
   minWidth: 0,
-  marginRight: theme.spacing(2),
+  display: 'inline-flex',
+  justifyContent: 'center',
+  alignItems: 'center',
   color: 'inherit',
-}));
+});
 
-const LogoutListItemButton = styled(ListItemButton)(({ theme }) => ({
-  minHeight: 48,
-  justifyContent: 'initial',
-  padding: theme.spacing(1, 2),
-  margin: theme.spacing(0.5, 1),
-  borderRadius: theme.spacing(1),
+const LogoutListItemButton = styled(ListItemButton, {
+  shouldForwardProp: (prop) => prop !== 'isCollapsed'
+})(({ theme, isCollapsed }) => ({
+  minHeight: isCollapsed ? 44 : 42,
+  height: isCollapsed ? 44 : 'auto',
+  width: isCollapsed ? 44 : 'calc(100% - 16px)',
+  margin: isCollapsed ? '3px auto' : theme.spacing(0.35, 1),
+  padding: isCollapsed ? 0 : theme.spacing(0.8, 1.5),
+  justifyContent: isCollapsed ? 'center' : 'flex-start',
+  alignItems: 'center',
+  borderRadius: isCollapsed ? 10 : theme.spacing(1),
   color: theme.palette.error.main,
+  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
   '&:hover': {
     backgroundColor: theme.palette.error.light + '20',
+    color: theme.palette.error.dark,
+    transform: isCollapsed ? 'scale(1.06)' : 'none',
   },
   '& .MuiListItemIcon-root': {
+    minWidth: isCollapsed ? 0 : 32,
+    marginRight: isCollapsed ? 0 : theme.spacing(1.25),
+    margin: isCollapsed ? 0 : undefined,
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     color: theme.palette.error.main,
+  },
+  '& .MuiSvgIcon-root': {
+    fontSize: isCollapsed ? 22 : 21,
+    width: isCollapsed ? 22 : 21,
+    height: isCollapsed ? 22 : 21,
+    display: 'block',
+  },
+  '& .MuiListItemText-primary': {
+    fontSize: '0.82rem',
+    fontWeight: 500,
   },
 }));
 
@@ -125,6 +195,14 @@ const ContentWrapper = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   overflowY: 'auto',
+  overflowX: 'hidden',
+  scrollbarWidth: 'none', // Firefox
+  msOverflowStyle: 'none', // IE and Edge
+  '&::-webkit-scrollbar': {
+    display: 'none', // Chrome, Safari, Opera
+    width: 0,
+    height: 0,
+  },
 });
 
 const Sidebar = ({ isOpen, closeSidebar }) => {
@@ -165,19 +243,19 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const ciisUserMenuItems = [
     { heading: 'MPA Management' },
     { 
-      icon: <CompanyIcon />, 
+      icon: <CompanyDetailsIcon />, 
       name: 'Company Details', 
       route: '/Ciis-network/company-details',
       showForAll: true
     },
     { 
-      icon: <CompanyIcon />, 
+      icon: <AllCompanyIcon />, 
       name: 'All Company', 
       route: '/Ciis-network/all-company',
       showForOwnerSuperAdmin: true
     },
     { 
-      icon: <CompanyIcon />, 
+      icon: <CompanyAccessIcon />, 
       name: 'Company Access', 
       route: '/Ciis-network/CompanyAccessManagement',
       showForOwnerSuperAdmin: true
@@ -189,7 +267,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       showForAll: true
     },
     { 
-      icon: <CompanyIcon />, 
+      icon: <BranchIcon />, 
       name: 'Manage Branches', 
       route: '/Ciis-network/branch',
       showForAll: true
@@ -213,67 +291,67 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       showForAll: true
     },
     { 
-      icon: <AssetsIcon />,
+      icon: <AssetsIcon />, 
       name: 'Assets Management', 
       route: '/Ciis-network/company-assets',
       showForAll: true
     },
     { 
-      icon: <DepartmentIcon />, 
+      icon: <SidebarManagementIcon />, 
       name: 'Sidebar Management', 
       route: '/Ciis-network/SidebarManagement',
       showForAll: true
     },
     {
-      icon: <WebIcon />,
+      icon: <PageManagementIcon />, 
       name: 'Page Management',
       route: '/Ciis-network/page-management',
       showForAll: true
     },
     {
-      icon: <ManageAccountsIcon />,
+      icon: <PlansIcon />, 
       name: 'Plans',
       route: '/Ciis-network/plans',
       showForOwnerSuperAdmin: true
     },
     {
-      icon: <EmailIcon />,
+      icon: <EmailIcon />, 
       name: 'Email Settings',
       route: '/Ciis-network/email-settings',
       showForOwnerSuperAdmin: true
     },
     {
-      icon: <AppUpdateIcon />,
+      icon: <AppUpdateIcon />, 
       name: 'App Version',
       route: '/Ciis-network/app-version-control',
       showForOwnerSuperAdmin: true
     },
     {
-      icon: <SupportAgentIcon />,
+      icon: <SupportAgentIcon />, 
       name: 'Support Operations',
       route: '/Ciis-network/support-operations',
       showForAll: true
     },
     {
-      icon: <FeedbackIcon />,
+      icon: <FeedbackIcon />, 
       name: 'Feedback / Questionnaire',
       route: '/Ciis-network/feedback-questionnaire',
       showForAll: true
     },
     {
-      icon: <CompanyIcon />,
+      icon: <LeavePolicyIcon />, 
       name: 'Leave Policy',
       route: '/Ciis-network/leave-policy',
       showForAll: true
     },
     {
-      icon: <DemoIcon />,
+      icon: <DemoIcon />, 
       name: 'Demo Requests',
       route: '/Ciis-network/demo-requests',
       showForSuperAdmin: true
     },
-     { 
-      icon: <CompanyIcon />, 
+    { 
+      icon: <HolidayIcon />, 
       name: 'Holiday', 
       route: '/Ciis-network/holiday',
       showForAll: true
@@ -384,6 +462,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                     onClick={() => handleClick(item.route)}
                     onMouseEnter={() => preloadRouteChunk(item.route)}
                     onFocus={() => preloadRouteChunk(item.route)}
+                    isCollapsed={false}
                   >
                     <StyledListItemIcon>{item.icon}</StyledListItemIcon>
                     <ListItemText
@@ -401,9 +480,9 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                       onClick={() => handleClick(item.route)}
                       onMouseEnter={() => preloadRouteChunk(item.route)}
                       onFocus={() => preloadRouteChunk(item.route)}
-                      sx={{ justifyContent: 'center' }}
+                      isCollapsed={true}
                     >
-                      <StyledListItemIcon sx={{ marginRight: 0 }}>
+                      <StyledListItemIcon>
                         {item.icon}
                       </StyledListItemIcon>
                     </StyledListItemButton>
@@ -420,7 +499,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
         <List sx={{ pb: 2 }}>
           <StyledListItem disablePadding>
             {isOpen ? (
-              <LogoutListItemButton onClick={handleLogout}>
+              <LogoutListItemButton onClick={handleLogout} isCollapsed={false}>
                 <StyledListItemIcon>
                   <LogoutIcon />
                 </StyledListItemIcon>
@@ -436,9 +515,9 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
               <Tooltip title="Logout" placement="right">
                 <LogoutListItemButton
                   onClick={handleLogout}
-                  sx={{ justifyContent: 'center' }}
+                  isCollapsed={true}
                 >
-                  <StyledListItemIcon sx={{ marginRight: 0 }}>
+                  <StyledListItemIcon>
                     <LogoutIcon />
                   </StyledListItemIcon>
                 </LogoutListItemButton>

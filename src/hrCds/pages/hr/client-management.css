@@ -468,17 +468,20 @@
 
 .ClientManagement-search-input svg {
   position: absolute;
-  left: 12px;
+  left: 14px;
   pointer-events: none;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+  z-index: 1;
 }
 
 .ClientManagement-search-input input {
   width: 100%;
-  padding: 8px 12px 8px 32px;
+  padding: 8px 12px 8px 42px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 12px;
@@ -517,6 +520,82 @@ select.ClientManagement-form-input {
   background-repeat: no-repeat;
   background-position: right 8px center;
   background-size: 14px;
+}
+
+.ClientManagement-filter-select {
+  position: relative;
+  width: 100%;
+}
+
+.ClientManagement-filter-select-button {
+  width: 100%;
+  height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ClientManagement-filter-select-button:hover,
+.ClientManagement-filter-select-button:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.ClientManagement-filter-select-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ClientManagement-filter-select-button svg {
+  flex: 0 0 auto;
+  color: #64748b;
+}
+
+.ClientManagement-filter-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 45;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+}
+
+.ClientManagement-filter-select-option {
+  width: 100%;
+  min-height: 32px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ClientManagement-filter-select-option:hover,
+.ClientManagement-filter-select-option--active {
+  background: #eef2ff;
+  color: #4f46e5;
 }
 
 textarea.ClientManagement-form-input {
@@ -1739,7 +1818,7 @@ textarea.ClientManagement-form-input {
 /* ===== MODAL STYLES - COMPACT ===== */
 .ClientManagement-modal-overlay {
   position: fixed;
-  top: 0;
+  top: 88px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -1748,10 +1827,11 @@ textarea.ClientManagement-form-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 16px;
   animation: ClientManagement-fadeIn 0.3s ease;
-  height: 100vh;
+  height: auto;
+  overflow: hidden;
 }
 
 @keyframes ClientManagement-fadeIn {
@@ -1764,8 +1844,10 @@ textarea.ClientManagement-form-input {
   border-radius: 12px;
   max-width: 700px;
   width: 100%;
-  max-height: calc(100vh - 18vh);
-  overflow-y: auto;
+  max-height: calc(100dvh - 120px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3);
   animation: ClientManagement-slideUp 0.4s ease;
   border: 1px solid rgba(255, 255, 255, 0.5);
@@ -1808,7 +1890,8 @@ textarea.ClientManagement-form-input {
 .ClientManagement-modal__content {
   padding: 16px;
   overflow-y: auto;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   color: #020f28;
 }
 
@@ -1821,6 +1904,7 @@ textarea.ClientManagement-form-input {
   background: #f8fafc;
   position: sticky;
   bottom: 0;
+  flex: 0 0 auto;
 }
 
 /* Task details is opened from inside the scrolling client modal. It is portalled
@@ -1915,7 +1999,11 @@ textarea.ClientManagement-form-input {
 
 /* ===== VIEW MODAL STYLES ===== */
 .ClientDetailsPage-container {
-  max-width: 1180px;
+  width: min(1240px, 100%);
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 18px 20px 32px;
+  box-sizing: border-box;
 }
 
 .ClientDetailsPage-topbar {
@@ -3430,6 +3518,7 @@ textarea.ClientManagement-form-input {
   .ClientManagement-modal {
     margin: 10px;
     width: 95%;
+    max-height: calc(100dvh - 104px);
   }
   
   .ClientManagement-modal__header,
@@ -4571,13 +4660,14 @@ textarea.ClientManagement-form-input {
 
 .ClientManagement-company-drawer {
   width: min(980px, calc(100vw - 32px));
-  max-height: 88vh;
+  max-height: calc(100dvh - 120px);
   overflow: hidden;
 }
 
 .ClientManagement-company-drawer .ClientManagement-modal__content {
-  max-height: calc(88vh - 92px);
+  max-height: none;
   overflow-y: auto;
+  padding-bottom: 18px;
 }
 
 .ClientManagement-company-drawer-actions {
@@ -4597,6 +4687,7 @@ textarea.ClientManagement-form-input {
   border-radius: 8px;
   padding: 16px;
   background: #ffffff;
+  min-height: 100%;
 }
 
 .ClientManagement-company-card-header {
@@ -4663,4 +4754,5 @@ textarea.ClientManagement-form-input {
 
 .ClientManagement-company-card-actions .ClientManagement-btn {
   padding: 8px 10px;
+  min-height: 34px;
 }

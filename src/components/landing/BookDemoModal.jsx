@@ -15,6 +15,7 @@ import {
 } from 'react-icons/hi2';
 import axios from '../../utils/axiosConfig';
 import { toast } from 'react-toastify';
+import { lockBackgroundScroll, unlockBackgroundScroll } from '../../utils/scrollLock';
 import './BookDemoModal.css';
 
 const BookDemoModal = ({ open, onClose }) => {
@@ -34,10 +35,9 @@ const BookDemoModal = ({ open, onClose }) => {
   // Prevent background page scrolling when modal is open
   useEffect(() => {
     if (open) {
-      const originalStyle = window.getComputedStyle(document.body).overflow;
-      document.body.style.overflow = 'hidden';
+      lockBackgroundScroll();
       return () => {
-        document.body.style.overflow = originalStyle;
+        unlockBackgroundScroll();
       };
     }
   }, [open]);

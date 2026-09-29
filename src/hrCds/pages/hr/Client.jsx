@@ -3365,6 +3365,7 @@ const ClientManagement = () => {
     projectManager: '',
     service: ''
   });
+  const [openFilterDropdown, setOpenFilterDropdown] = useState('');
 
   const [tasksStats, setTasksStats] = useState({
     pendingTasks: 0,
@@ -4222,6 +4223,69 @@ const ClientManagement = () => {
 
   const filteredClients = clients;
   const clientPortfolioGroups = getClientPortfolioGroups(filteredClients);
+  const managerFilterOptions = safeMapProjectManagers((manager) => ({
+    value: manager.name,
+    label: manager.name,
+    key: manager._id || manager.id || manager.name
+  })).filter(option => option.value);
+  const serviceFilterOptions = Array.isArray(services)
+    ? services
+      .map(service => ({
+        value: service.servicename,
+        label: service.servicename,
+        key: service._id || service.servicename
+      }))
+      .filter(option => option.value)
+    : [];
+
+  const renderFilterDropdown = (id, label, selectedValue, options) => (
+    <div
+      className="ClientManagement-filter-select"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setOpenFilterDropdown('');
+        }
+      }}
+    >
+      <button
+        type="button"
+        className={`ClientManagement-filter-select-button ${selectedValue ? 'ClientManagement-filter-select-button--selected' : ''}`}
+        onClick={() => setOpenFilterDropdown(openFilterDropdown === id ? '' : id)}
+        aria-haspopup="listbox"
+        aria-expanded={openFilterDropdown === id}
+      >
+        <span>{selectedValue || label}</span>
+        <FiChevronDown />
+      </button>
+      {openFilterDropdown === id && (
+        <div className="ClientManagement-filter-select-menu" role="listbox" aria-label={label}>
+          <button
+            type="button"
+            className={`ClientManagement-filter-select-option ${!selectedValue ? 'ClientManagement-filter-select-option--active' : ''}`}
+            onClick={() => {
+              handleFilterChange(id, '');
+              setOpenFilterDropdown('');
+            }}
+          >
+            {label}
+          </button>
+          {options.map(option => (
+            <button
+              type="button"
+              key={option.key}
+              className={`ClientManagement-filter-select-option ${selectedValue === option.value ? 'ClientManagement-filter-select-option--active' : ''}`}
+              onClick={() => {
+                handleFilterChange(id, option.value);
+                setOpenFilterDropdown('');
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   const getProjectManagersDetails = (client) => {
     if (!client) return [];
@@ -4437,33 +4501,11 @@ const ClientManagement = () => {
             </div>
             
             <div>
-              <select
-                className="ClientManagement-form-input"
-                value={filters.projectManager}
-                onChange={(e) => handleFilterChange('projectManager', e.target.value)}
-              >
-                <option value="">All Managers</option>
-                {safeMapProjectManagers((manager) => (
-                  <option key={manager._id || manager.id} value={manager.name}>
-                    {manager.name}
-                  </option>
-                ))}
-              </select>
+              {renderFilterDropdown('projectManager', 'All Managers', filters.projectManager, managerFilterOptions)}
             </div>
             
             <div>
-              <select
-                className="ClientManagement-form-input"
-                value={filters.service}
-                onChange={(e) => handleFilterChange('service', e.target.value)}
-              >
-                <option value="">All Services</option>
-                {services.map((service) => (
-                  <option key={service._id} value={service.servicename}>
-                    {service.servicename}
-                  </option>
-                ))}
-              </select>
+              {renderFilterDropdown('service', 'All Services', filters.service, serviceFilterOptions)}
             </div>
             
             <div>

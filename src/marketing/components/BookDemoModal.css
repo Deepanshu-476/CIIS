@@ -1,0 +1,530 @@
+/* CIIS Network — Professional Enterprise Book a Demo Modal */
+
+/* Backdrop overlay */
+.ciis-demo-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(11, 20, 55, 0.68);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: ciisDemoFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ciis-demo-modal-overlay::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@keyframes ciisDemoFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Card */
+.ciis-demo-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  background: #ffffff;
+  border-radius: 26px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 
+    0 30px 70px -15px rgba(11, 20, 55, 0.45),
+    0 0 0 1px rgba(15, 23, 42, 0.04),
+    0 12px 24px -6px rgba(37, 99, 235, 0.12);
+  padding: 34px 34px 28px;
+  color: #0f172a;
+  font-family: inherit;
+  animation: ciisDemoScaleUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+
+.ciis-demo-modal-card::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
+}
+
+@keyframes ciisDemoScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Close Button */
+.ciis-demo-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+  padding: 0;
+}
+
+.ciis-demo-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  transform: rotate(90deg);
+}
+
+/* Header Section */
+.ciis-demo-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.ciis-demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.ciis-demo-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.ciis-demo-title span {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ciis-demo-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.45;
+  max-width: 440px;
+}
+
+/* Alert Message */
+.ciis-demo-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 16px;
+  animation: ciisDemoAlertIn 0.2s ease;
+}
+
+@keyframes ciisDemoAlertIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ciis-demo-alert-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: #dc2626;
+}
+
+/* Form Layout */
+.ciis-demo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ciis-demo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.ciis-demo-grid-full {
+  grid-column: 1 / -1;
+}
+
+.ciis-demo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.ciis-demo-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ciis-demo-req {
+  color: #dc2626;
+}
+
+/* Input Container with icon */
+.ciis-demo-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.ciis-demo-input-wrap:focus-within {
+  background: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.ciis-demo-input-wrap.has-error {
+  border-color: #ef4444;
+  background: #fffafa;
+}
+
+.ciis-demo-input-wrap.has-error:focus-within {
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+}
+
+.ciis-demo-field-icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  font-size: 18px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ciis-demo-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 38px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14.5px;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.ciis-demo-select {
+  width: 100%;
+  height: 44px;
+  padding: 0 32px 0 38px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14.5px;
+  color: #0f172a;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.ciis-demo-select-caret {
+  position: absolute;
+  right: 12px;
+  color: #94a3b8;
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.ciis-demo-textarea {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #0f172a;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 64px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ciis-demo-textarea::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.ciis-demo-input::placeholder,
+.ciis-demo-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.ciis-demo-field-error {
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* Module Selector Pills */
+.ciis-demo-modules-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.ciis-demo-modules-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.ciis-demo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.ciis-demo-pill:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.ciis-demo-pill.selected {
+  background: #0b1437;
+  border-color: #0b1437;
+  color: #ffffff;
+  box-shadow: 0 4px 10px -2px rgba(11, 20, 55, 0.35);
+}
+
+.ciis-demo-pill.selected .ciis-demo-pill-icon {
+  color: #60a5fa;
+}
+
+.ciis-demo-pill-icon {
+  font-size: 15px;
+}
+
+/* Submit Button */
+.ciis-demo-submit-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 50px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #4f46e5 100%);
+  color: #ffffff;
+  font-size: 15.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.5);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.ciis-demo-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+  box-shadow: 0 12px 30px -4px rgba(37, 99, 235, 0.65);
+}
+
+.ciis-demo-submit-btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.ciis-demo-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Footer / Assurance note */
+.ciis-demo-footer-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+  flex-wrap: wrap;
+}
+
+.ciis-demo-footer-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Success View */
+.ciis-demo-success-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 8px 8px;
+  animation: ciisDemoFadeIn 0.3s ease;
+}
+
+.ciis-demo-success-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #dcfce7;
+  border: 2px solid #86efac;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 25px -5px rgba(22, 163, 74, 0.3);
+}
+
+.ciis-demo-success-icon span {
+  font-size: 36px;
+}
+
+.ciis-demo-success-title {
+  margin: 0 0 8px;
+  font-size: 23px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ciis-demo-success-desc {
+  margin: 0 0 20px;
+  font-size: 14.5px;
+  color: #475569;
+  line-height: 1.55;
+  max-width: 440px;
+}
+
+.ciis-demo-success-box {
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.ciis-demo-success-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: #334155;
+}
+
+.ciis-demo-success-row strong {
+  color: #0f172a;
+}
+
+/* Spinner */
+.ciis-demo-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: ciisDemoSpin 0.7s linear infinite;
+}
+
+@keyframes ciisDemoSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 580px) {
+  .ciis-demo-modal-card {
+    padding: 26px 20px 22px;
+    border-radius: 20px;
+  }
+  .ciis-demo-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .ciis-demo-title {
+    font-size: 21px;
+  }
+}

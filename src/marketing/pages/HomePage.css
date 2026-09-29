@@ -86,3 +86,11 @@
   padding: 0 !important;
   border: 0 !important;
 }
+
+@media (max-width: 640px) {
+  .mk-hero-br {
+    display: none;
+  }
+}
+
+

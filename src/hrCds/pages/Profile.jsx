@@ -1103,7 +1103,7 @@ const Profile = () => {
                 </span>
                 <div>
                   <h2 id="profile-crop-title">Crop Profile Picture</h2>
-                  <p>Image ko drag karo, zoom adjust karo, phir save dabao.</p>
+                  <p>Drag the image, adjust the zoom, then save your changes.</p>
                 </div>
               </div>
               <button type="button" className="UserDetails-icon-btn" onClick={closeProfileCrop} disabled={uploadingProfileImage} aria-label="Close crop dialog">
@@ -1147,7 +1147,7 @@ const Profile = () => {
                     disabled={uploadingProfileImage}
                   />
                 </label>
-                <p className="UserDetails-avatar-crop-hint">Bas image ko crop box ke andar set karo. Save karte hi cropped photo apply ho jayegi.</p>
+                <p className="UserDetails-avatar-crop-hint">Position the image inside the crop box. The cropped photo will be applied after you save.</p>
               </div>
             </div>
 

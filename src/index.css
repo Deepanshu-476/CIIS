@@ -1718,5 +1718,10 @@ body {
   }
 }
 
-
-
+/* Universal Background Page Scroll Lock */
+html.ciis-modal-open,
+body.ciis-modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none;
+}

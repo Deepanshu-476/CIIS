@@ -34,7 +34,8 @@
   color: var(--cp-text-main);
   box-sizing: border-box;
   width: 100%;
-  max-width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
   overflow-x: hidden;
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
@@ -45,6 +46,8 @@ body:has(.cp-page-container),
 main:has(.cp-page-container),
 .cp-page-container,
 .cp-page-container *,
+.cp-wrapper,
+.cp-wrapper *,
 .cp-modal-backdrop,
 .cp-modal-backdrop * {
   scrollbar-width: none !important; /* Firefox */
@@ -55,6 +58,8 @@ body:has(.cp-page-container)::-webkit-scrollbar,
 main:has(.cp-page-container)::-webkit-scrollbar,
 .cp-page-container::-webkit-scrollbar,
 .cp-page-container *::-webkit-scrollbar,
+.cp-wrapper::-webkit-scrollbar,
+.cp-wrapper *::-webkit-scrollbar,
 .cp-modal-backdrop::-webkit-scrollbar,
 .cp-modal-backdrop *::-webkit-scrollbar {
   display: none !important;

@@ -726,35 +726,37 @@ const ActiveClientsOverview = () => {
               <strong>Active Clients ({apiInfo.totalItems || activeClients.length})</strong>
             </div>
 
-            {filteredClients.length === 0 ? (
-              <div className="ActiveClientsOverview-empty ActiveClientsOverview-listEmpty">
-                <FiBriefcase />
-                <h2>No active clients found</h2>
-                <p>Active clients will appear here once they are added in client management.</p>
-              </div>
-            ) : filteredClients.map(({ client }) => {
-              const name = getClientDisplayName(client);
-              return (
-                <button
-                  key={client._id}
-                  type="button"
-                  className={`ActiveClientsOverview-clientRow ${selectedClient?.client._id === client._id ? 'is-selected' : ''}`}
-                  onClick={() => {
-                    setSelectedClientId(client._id);
-                    setTaskFilter('all');
-                    setActiveTab('tasks');
-                  }}
-                >
-                  <span className="ActiveClientsOverview-avatar">{getInitials(name)}</span>
-                  <span className="ActiveClientsOverview-clientText">
-                    <strong>{name}</strong>
-                    <small>{client.clientCode || client.code || client.companyCode || 'CLIENT'}</small>
-                  </span>
-                  <em>Active</em>
-                  <FiChevronRight />
-                </button>
-              );
-            })}
+            <div className="ActiveClientsOverview-clientRows">
+              {filteredClients.length === 0 ? (
+                <div className="ActiveClientsOverview-empty ActiveClientsOverview-listEmpty">
+                  <FiBriefcase />
+                  <h2>No active clients found</h2>
+                  <p>Active clients will appear here once they are added in client management.</p>
+                </div>
+              ) : filteredClients.map(({ client }) => {
+                const name = getClientDisplayName(client);
+                return (
+                  <button
+                    key={client._id}
+                    type="button"
+                    className={`ActiveClientsOverview-clientRow ${selectedClient?.client._id === client._id ? 'is-selected' : ''}`}
+                    onClick={() => {
+                      setSelectedClientId(client._id);
+                      setTaskFilter('all');
+                      setActiveTab('tasks');
+                    }}
+                  >
+                    <span className="ActiveClientsOverview-avatar">{getInitials(name)}</span>
+                    <span className="ActiveClientsOverview-clientText">
+                      <strong>{name}</strong>
+                      <small>{client.clientCode || client.code || client.companyCode || 'CLIENT'}</small>
+                    </span>
+                    <em>Active</em>
+                    <FiChevronRight />
+                  </button>
+                );
+              })}
+            </div>
 
             <button type="button" className="ActiveClientsOverview-viewAll" onClick={() => setSearch('')}>
               View All Clients <FiChevronRight />

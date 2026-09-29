@@ -1,0 +1,465 @@
+/* CIIS Network — Professional Enterprise Super Admin Login Modal */
+
+/* Backdrop overlay */
+.ciis-sa-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(11, 20, 55, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: ciisSaFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ciis-sa-modal-overlay::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@keyframes ciisSaFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Card */
+.ciis-sa-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: #ffffff;
+  border-radius: 26px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 
+    0 30px 70px -15px rgba(11, 20, 55, 0.45),
+    0 0 0 1px rgba(15, 23, 42, 0.04),
+    0 12px 24px -6px rgba(79, 70, 229, 0.12);
+  padding: 34px 34px 28px;
+  color: #0f172a;
+  font-family: inherit;
+  animation: ciisSaScaleUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+
+.ciis-sa-modal-card::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
+}
+
+@keyframes ciisSaScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Close Button */
+.ciis-sa-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+  padding: 0;
+}
+
+.ciis-sa-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  transform: rotate(90deg);
+}
+
+/* Header Section */
+.ciis-sa-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.ciis-sa-logo-wrap {
+  position: relative;
+  width: 140px;
+  height: 36px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.ciis-sa-logo-img {
+  position: absolute;
+  left: -8px;
+  top: -24px;
+  width: 160px;
+  height: auto;
+  display: block;
+}
+
+.ciis-sa-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(11, 20, 55, 0.06), rgba(79, 70, 229, 0.12));
+  border: 1px solid rgba(79, 70, 229, 0.22);
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.ciis-sa-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0b1437;
+  margin: 0 0 6px;
+}
+
+.ciis-sa-subtitle {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 380px;
+}
+
+/* Form Layout */
+.ciis-sa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ciis-sa-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ciis-sa-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ciis-sa-forgot-link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #4f46e5;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.ciis-sa-forgot-link:hover {
+  color: #3730a3;
+  text-decoration: underline;
+}
+
+/* Input Wrappers */
+.ciis-sa-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.ciis-sa-input-wrap:focus-within {
+  border-color: #4f46e5;
+  background: #ffffff;
+  box-shadow: 0 0 0 3.5px rgba(79, 70, 229, 0.16);
+}
+
+.ciis-sa-input-wrap.has-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.ciis-sa-input-wrap.has-error:focus-within {
+  box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.15);
+}
+
+.ciis-sa-field-icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  font-size: 19px;
+  line-height: 1;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ciis-sa-input-wrap:focus-within .ciis-sa-field-icon {
+  color: #4f46e5;
+}
+
+.ciis-sa-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 38px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14.5px;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.ciis-sa-input::placeholder {
+  color: #94a3b8;
+}
+
+.ciis-sa-toggle-pwd {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.ciis-sa-toggle-pwd:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.ciis-sa-field-error {
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+/* Alert Banner */
+.ciis-sa-alert {
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ciis-sa-alert.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.ciis-sa-alert.success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+/* OTP Specific Styling */
+.ciis-sa-otp-display-email {
+  font-size: 13.5px;
+  color: #475569;
+  text-align: center;
+  margin: -10px 0 10px;
+  line-height: 1.5;
+}
+
+.ciis-sa-otp-input {
+  letter-spacing: 0.35em;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  padding-left: 14px !important;
+  color: #1e1b4b;
+}
+
+.ciis-sa-otp-timer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  margin-top: -4px;
+}
+
+.ciis-sa-resend-btn {
+  background: none;
+  border: none;
+  color: #4f46e5;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+}
+
+.ciis-sa-resend-btn:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Submit Button */
+.ciis-sa-submit-btn {
+  margin-top: 6px;
+  height: 48px;
+  width: 100%;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #0b1437 0%, #1e1b4b 45%, #4338ca 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -4px rgba(79, 70, 229, 0.45);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ciis-sa-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+  box-shadow: 0 14px 28px -4px rgba(79, 70, 229, 0.55);
+  background: linear-gradient(135deg, #070d24 0%, #1e1b4b 35%, #4f46e5 100%);
+}
+
+.ciis-sa-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ciis-sa-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Back Link Row */
+.ciis-sa-back-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.ciis-sa-back-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.ciis-sa-back-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+/* Loading Spinner */
+.ciis-sa-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: ciisSaSpin 0.7s linear infinite;
+}
+
+@keyframes ciisSaSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Footer Note */
+.ciis-sa-footer-note {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+  .ciis-sa-modal-card {
+    padding: 26px 20px 22px;
+    border-radius: 22px;
+  }
+
+  .ciis-sa-title {
+    font-size: 21px;
+  }
+
+  .ciis-sa-close-btn {
+    top: 14px;
+    right: 14px;
+    width: 32px;
+    height: 32px;
+  }
+}

@@ -344,30 +344,6 @@ const Holidays = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    
-    const handleDelete = async (id, title) => {
-        if (!window.confirm(`Do you want to delete "${title}"?`)) {
-            return;
-        }
-        
-        try {
-            const token = localStorage.getItem('token');
-            const response = await axios.delete(`${API_URL}/holidays/${id}`, { 
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            if (response.data.success) {
-               setSuccess('Holiday deleted successfully!');
-                fetchHolidays();
-                
-                
-                setTimeout(() => setSuccess(''), 3000);
-            }
-        } catch (err) {
-            console.error('Delete error:', err);
-            setError(err.response?.data?.message || 'Error deleting holiday');
-        }
-    };
 
     
     const formatDate = (dateString) => {
@@ -551,6 +527,17 @@ const Holidays = () => {
                             ))}
                         </select>
                         <select
+                            value={selectedMonth}
+                            onChange={(event) => setSelectedMonth(event.target.value)}
+                            className="holiday-control"
+                            aria-label="Filter by Month"
+                        >
+                            <option value="">All Months</option>
+                            {months.map(month => (
+                                <option key={month} value={month}>{month}</option>
+                            ))}
+                        </select>
+                        <select
                             value={selectedType}
                             onChange={(event) => setSelectedType(event.target.value)}
                             className="holiday-control"
@@ -581,11 +568,6 @@ const Holidays = () => {
                 </div>
 
                 <div className="holiday-table-search">
-                    <label htmlFor="holiday-month-filter">Filter by Month:</label>
-                    <select id="holiday-month-filter" className="holiday-control" value={selectedMonth} onChange={event => setSelectedMonth(event.target.value)}>
-                        <option value="">All Months</option>
-                        {months.map(month => <option key={month} value={month}>{month}</option>)}
-                    </select>
                     <input
                         type="text"
                         aria-label="Search holidays"
@@ -640,7 +622,6 @@ const Holidays = () => {
                                                 <td>
                                                     <div className="holiday-action-buttons">
                                                         <button className="holiday-icon-action edit" onClick={() => handleEdit(holiday)}>Edit</button>
-                                                        <button className="holiday-icon-action delete" onClick={() => handleDelete(holiday._id, holiday.title)}>Delete</button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -732,13 +713,6 @@ const Holidays = () => {
                 >
                     <span className="btn-icon">✏️</span>
                     <span className="btn-text">Edit</span>
-                </button>
-                <button 
-                    className="delete-btn"
-                    onClick={() => handleDelete(holiday._id, holiday.title)}
-                >
-                    <span className="btn-icon">🗑️</span>
-                    <span className="btn-text">Delete</span>
                 </button>
             </div>
             

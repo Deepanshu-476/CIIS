@@ -578,7 +578,6 @@ const ServicesTasks = () => {
         <article className="ClientServicesTasks-widget ClientServicesTasks-team">
           <div className="ClientServicesTasks-cardHead">
             <h3>Assigned Team & Manager</h3>
-            <button type="button">View Profile</button>
           </div>
           <span>Account Manager</span>
           <div className="ClientServicesTasks-manager">

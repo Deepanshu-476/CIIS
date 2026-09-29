@@ -128,7 +128,7 @@ const PageAccessGate = ({ children }) => {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false });
         return;
       }
-      if (isPrivileged) {
+      if (isPrivileged && !isCrmPage(pagePath)) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
         return;
       }

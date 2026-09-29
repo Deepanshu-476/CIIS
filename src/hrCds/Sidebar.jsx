@@ -47,6 +47,14 @@ import {
   Verified as ConvertedCallsIcon,
   SwapHoriz as TransferredCallsIcon,
   History as CallHistoryIcon,
+  AccountBalanceWalletOutlined as SalaryComponentIcon,
+  LayersOutlined as SalaryStructureIcon,
+  ManageAccountsOutlined as EmployeeSalaryIcon,
+  AssignmentIndOutlined as AssignSalaryIcon,
+  CreditScoreOutlined as PayrollProcessIcon,
+  ReceiptLongOutlined as PayslipIcon,
+  AnalyticsOutlined as PayrollReportsIcon,
+  AccountBalanceOutlined as PayrollHeaderIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
@@ -266,23 +274,10 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
   top: 64,
   left: 0,
   zIndex: theme.zIndex.drawer,
-  overflowY: 'auto',
-  overflowX: 'hidden',
-  transition: 'width 0.3s ease, transform 0.3s ease',
-  '&::-webkit-scrollbar': { 
-    width: 6,
-    display: 'none'
-  },
-  '&:hover::-webkit-scrollbar': {
-    display: 'block'
-  },
-  '&::-webkit-scrollbar-track': {
-    background: theme.palette.background.default,
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.action.hover,
-    borderRadius: 3,
-  },
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+  transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease',
 }));
 
 const MobileSidebarContainer = styled(Box)(({ theme }) => ({
@@ -294,52 +289,69 @@ const MobileSidebarContainer = styled(Box)(({ theme }) => ({
   borderRight: `1px solid ${theme.palette.divider}`,
   height: '100%',
   minHeight: 0,
-  overflowY: 'auto',
-  overflowX: 'hidden',
-  '&::-webkit-scrollbar': { 
-    width: 6,
-    display: 'none'
-  },
-  '&:hover::-webkit-scrollbar': {
-    display: 'block'
-  },
-  '&::-webkit-scrollbar-track': {
-    background: theme.palette.background.default,
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.action.hover,
-    borderRadius: 3,
-  },
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
 }));
 
 const StyledListItem = styled(ListItem)({
   padding: 0,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  width: '100%',
 });
 
-const StyledListItemButton = styled(ListItemButton)(({ theme, selected }) => ({
-  minHeight: 42,
-  width: 'calc(100% - 16px)',
-  margin: theme.spacing(0.25, 1),
-  padding: theme.spacing(0.8, 1.5),
-  justifyContent: 'initial',
-  color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
-  backgroundColor: selected ? `${theme.palette.primary.main}10` : 'transparent',
-  borderLeft: selected ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
-  borderRadius: '0 8px 8px 0',
-  transition: 'background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease',
+const StyledListItemButton = styled(ListItemButton, {
+  shouldForwardProp: (prop) => prop !== 'isCollapsed'
+})(({ theme, selected, isCollapsed }) => ({
+  minHeight: isCollapsed ? 44 : 42,
+  height: isCollapsed ? 44 : 'auto',
+  width: isCollapsed ? 44 : 'calc(100% - 16px)',
+  margin: isCollapsed ? '3px auto' : theme.spacing(0.25, 1),
+  padding: isCollapsed ? 0 : theme.spacing(0.8, 1.5),
+  justifyContent: isCollapsed ? 'center' : 'flex-start',
+  alignItems: 'center',
+  color: selected ? '#1d4ed8' : '#475569',
+  backgroundColor: selected 
+    ? (isCollapsed ? 'rgba(37, 99, 235, 0.10)' : 'rgba(37, 99, 235, 0.08)')
+    : 'transparent',
+  border: isCollapsed 
+    ? (selected ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid transparent')
+    : 'none',
+  borderLeft: isCollapsed 
+    ? (selected ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid transparent')
+    : (selected ? '3px solid #2563eb' : '3px solid transparent'),
+  borderRadius: isCollapsed ? '10px' : '0 10px 10px 0',
+  boxShadow: selected && isCollapsed ? '0 2px 8px rgba(37, 99, 235, 0.12)' : 'none',
+  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+  boxSizing: 'border-box',
   '&:hover': {
-    backgroundColor: selected ? `${theme.palette.primary.main}16` : theme.palette.action.hover,
+    backgroundColor: selected 
+      ? (isCollapsed ? 'rgba(37, 99, 235, 0.16)' : 'rgba(37, 99, 235, 0.12)')
+      : 'rgba(241, 245, 249, 0.9)',
+    color: '#1d4ed8',
+    transform: isCollapsed ? 'scale(1.05)' : 'none',
+    boxShadow: isCollapsed ? '0 4px 12px rgba(15, 23, 42, 0.06)' : 'none',
   },
   '& .MuiListItemIcon-root': {
-    minWidth: 30,
-    marginRight: theme.spacing(1.25),
-    color: selected ? theme.palette.primary.main : theme.palette.text.secondary,
-    transition: 'color 0.18s ease',
+    minWidth: isCollapsed ? 0 : 30,
+    marginRight: isCollapsed ? 0 : theme.spacing(1.25),
+    margin: isCollapsed ? 0 : undefined,
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: selected ? '#2563eb' : '#64748b',
+    transition: 'color 0.18s ease, transform 0.18s ease',
+  },
+  '&:hover .MuiListItemIcon-root': {
+    color: '#2563eb',
   },
   '& .MuiListItemText-primary': {
     fontSize: '0.78rem',
     lineHeight: 1.25,
     fontWeight: selected ? 600 : 500,
+    letterSpacing: '-0.01em',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -348,9 +360,12 @@ const StyledListItemButton = styled(ListItemButton)(({ theme, selected }) => ({
 
 const StyledListItemIcon = styled(ListItemIcon)(({ theme }) => ({
   minWidth: 0,
-  marginRight: theme.spacing(2),
+  marginRight: 0,
+  display: 'inline-flex',
+  justifyContent: 'center',
+  alignItems: 'center',
   color: 'inherit',
-  fontSize: '1.1rem',
+  fontSize: '1.2rem',
 }));
 
 const SectionHeading = styled(Typography)(({ theme }) => ({
@@ -369,11 +384,21 @@ const SectionHeading = styled(Typography)(({ theme }) => ({
 }));
 
 const CollapsedHeading = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(1),
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  margin: theme.spacing(0, 1),
+  height: 36,
+  width: 44,
+  margin: '6px auto 2px',
+  padding: 0,
   display: 'flex',
+  alignItems: 'center',
   justifyContent: 'center',
+  color: theme.palette.text.secondary,
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  boxSizing: 'border-box',
+  '& > svg': {
+    fontSize: '1.2rem',
+    width: 22,
+    height: 22,
+  },
 }));
 
 
@@ -445,6 +470,53 @@ const iconMap = {
   'supportagent': SupportAgentIcon,
   'Call': PhoneInTalkIcon,
   'call': PhoneInTalkIcon,
+  'SalaryComponent': SalaryComponentIcon,
+  'salarycomponent': SalaryComponentIcon,
+  'SalaryStructure': SalaryStructureIcon,
+  'salarystructure': SalaryStructureIcon,
+  'EmployeeSalary': EmployeeSalaryIcon,
+  'employeesalary': EmployeeSalaryIcon,
+  'AssignSalary': AssignSalaryIcon,
+  'assignsalary': AssignSalaryIcon,
+  'PayrollProcess': PayrollProcessIcon,
+  'payrollprocess': PayrollProcessIcon,
+  'Payslip': PayslipIcon,
+  'payslip': PayslipIcon,
+  'PayrollReports': PayrollReportsIcon,
+  'payrollreports': PayrollReportsIcon,
+  'PayrollHeader': PayrollHeaderIcon,
+  'payrollheader': PayrollHeaderIcon,
+  'AccountBalanceOutlined': PayrollHeaderIcon,
+};
+
+const getMenuItemIcon = (item) => {
+  const id = String(item?.id || '').toLowerCase();
+  const path = String(item?.path || '').toLowerCase();
+  const name = String(item?.name || '').toLowerCase();
+
+  if (id === 'salary-component' || path.includes('/salary-component') || name === 'salary component') {
+    return 'SalaryComponent';
+  }
+  if (id === 'salary-structure' || path.includes('/salary-structure') || name === 'salary structure') {
+    return 'SalaryStructure';
+  }
+  if (id === 'salary-assignment' || path.includes('/salary-assignment') || name === 'employee salary') {
+    return 'EmployeeSalary';
+  }
+  if (id === 'assign-salary' || path.includes('/assign-salary') || name === 'assign salary') {
+    return 'AssignSalary';
+  }
+  if (id === 'payroll-process' || path.includes('/payroll-process') || name === 'payroll process') {
+    return 'PayrollProcess';
+  }
+  if (id === 'payslip' || path.includes('/payslip') || name === 'payslip') {
+    return 'Payslip';
+  }
+  if (id === 'payroll-reports' || path.includes('/payroll-reports') || name === 'payroll reports') {
+    return 'PayrollReports';
+  }
+
+  return item?.icon || 'Dashboard';
 };
 
 // Admin CRM sidebar scaffold. Add new page ids to a group's itemIds when its
@@ -867,7 +939,7 @@ const allPagesItems = [
   {
     id: 'salary-component',
     name: 'Salary Component',
-    icon: 'Work',
+    icon: 'SalaryComponent',
     path: '/ciisUser/salary-component',
     category: 'payroll',
     order: 24
@@ -875,7 +947,7 @@ const allPagesItems = [
   {
     id: 'salary-structure',
     name: 'Salary Structure',
-    icon: 'Work',
+    icon: 'SalaryStructure',
     path: '/ciisUser/salary-structure',
     category: 'payroll',
     order: 24.1
@@ -883,7 +955,7 @@ const allPagesItems = [
   {
     id: 'salary-assignment',
     name: 'Employee Salary',
-    icon: 'Work',
+    icon: 'EmployeeSalary',
     path: '/ciisUser/salary-assignment',
     category: 'payroll',
     order: 24.2
@@ -891,7 +963,7 @@ const allPagesItems = [
   {
     id: 'assign-salary',
     name: 'Assign Salary',
-    icon: 'Work',
+    icon: 'AssignSalary',
     path: '/ciisUser/assign-salary',
     category: 'payroll',
     order: 24.25
@@ -899,7 +971,7 @@ const allPagesItems = [
   {
     id: 'payroll-process',
     name: 'Payroll Process',
-    icon: 'Work',
+    icon: 'PayrollProcess',
     path: '/ciisUser/payroll-process',
     category: 'payroll',
     order: 24.3
@@ -907,7 +979,7 @@ const allPagesItems = [
   {
     id: 'payslip',
     name: 'Payslip',
-    icon: 'Work',
+    icon: 'Payslip',
     path: '/ciisUser/payslip',
     category: 'payroll',
     order: 24.4
@@ -915,7 +987,7 @@ const allPagesItems = [
   {
     id: 'payroll-reports',
     name: 'Payroll Reports',
-    icon: 'Work',
+    icon: 'PayrollReports',
     path: '/ciisUser/payroll-reports',
     category: 'payroll',
     order: 24.5
@@ -1519,7 +1591,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-component',
     name: 'Salary Component',
-    icon: 'Work',
+    icon: 'SalaryComponent',
     path: '/ciisUser/salary-component',
     category: 'payroll',
     order: 24.0
@@ -1527,7 +1599,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-structure',
     name: 'Salary Structure',
-    icon: 'Work',
+    icon: 'SalaryStructure',
     path: '/ciisUser/salary-structure',
     category: 'payroll',
     order: 24.1
@@ -1535,7 +1607,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-assignment',
     name: 'Employee Salary',
-    icon: 'Work',
+    icon: 'EmployeeSalary',
     path: '/ciisUser/salary-assignment',
     category: 'payroll',
     order: 24.2
@@ -1543,7 +1615,7 @@ const companyAccessFallbackItems = [
   {
     id: 'assign-salary',
     name: 'Assign Salary',
-    icon: 'Work',
+    icon: 'AssignSalary',
     path: '/ciisUser/assign-salary',
     category: 'payroll',
     order: 24.25
@@ -1551,7 +1623,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payroll-process',
     name: 'Payroll Process',
-    icon: 'Work',
+    icon: 'PayrollProcess',
     path: '/ciisUser/payroll-process',
     category: 'payroll',
     order: 24.3
@@ -1559,7 +1631,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payslip',
     name: 'Payslip',
-    icon: 'Work',
+    icon: 'Payslip',
     path: '/ciisUser/payslip',
     category: 'payroll',
     order: 24.4
@@ -1567,7 +1639,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payroll-reports',
     name: 'Payroll Reports',
-    icon: 'Work',
+    icon: 'PayrollReports',
     path: '/ciisUser/payroll-reports',
     category: 'payroll',
     order: 24.5
@@ -1679,7 +1751,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-component',
     name: 'Salary Component',
-    icon: 'Work',
+    icon: 'SalaryComponent',
     path: '/ciisUser/salary-component',
     category: 'payroll',
     order: 24.0
@@ -1687,7 +1759,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-structure',
     name: 'Salary Structure',
-    icon: 'Work',
+    icon: 'SalaryStructure',
     path: '/ciisUser/salary-structure',
     category: 'payroll',
     order: 24.1
@@ -1695,7 +1767,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-assignment',
     name: 'Employee Salary',
-    icon: 'Work',
+    icon: 'EmployeeSalary',
     path: '/ciisUser/salary-assignment',
     category: 'payroll',
     order: 24.2
@@ -1703,7 +1775,7 @@ const companyAccessFallbackItems = [
   {
     id: 'assign-salary',
     name: 'Assign Salary',
-    icon: 'Work',
+    icon: 'AssignSalary',
     path: '/ciisUser/assign-salary',
     category: 'payroll',
     order: 24.25
@@ -1711,7 +1783,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payroll-process',
     name: 'Payroll Process',
-    icon: 'Work',
+    icon: 'PayrollProcess',
     path: '/ciisUser/payroll-process',
     category: 'payroll',
     order: 24.3
@@ -1719,7 +1791,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payslip',
     name: 'Payslip',
-    icon: 'Work',
+    icon: 'Payslip',
     path: '/ciisUser/payslip',
     category: 'payroll',
     order: 24.4
@@ -1727,7 +1799,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payroll-reports',
     name: 'Payroll Reports',
-    icon: 'Work',
+    icon: 'PayrollReports',
     path: '/ciisUser/payroll-reports',
     category: 'payroll',
     order: 24.5
@@ -1778,7 +1850,13 @@ const addCompanyAccessFallbackItems = (items, companyData, isPageAccessAdmin = f
 };
 
 
-const Sidebar = ({ isMobile = false, closeSidebar }) => {
+const Sidebar = ({ 
+  isMobile = false, 
+  closeSidebar,
+  isOpen: propIsOpen,
+  drawerWidthOpen: propDrawerWidthOpen,
+  drawerWidthClosed: propDrawerWidthClosed,
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -1840,7 +1918,9 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
   ).trim();
 
   
-  const isSidebarOpen = isMobile || isHovered;
+  const drawerWidthOpen = propDrawerWidthOpen || 224;
+  const drawerWidthClosed = propDrawerWidthClosed || 70;
+  const isSidebarOpen = isMobile || (propIsOpen !== undefined ? propIsOpen : isHovered);
 
   
   const isClientUser = useMemo(() => {
@@ -2537,16 +2617,15 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         // been loaded. This prevents stale report links flashing or persisting.
         return items.filter(item => {
           const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
-          return roleConfiguredPaths.has(itemPath)
-            || (!isCrmPage(item?.path) && (isPageAccessAdmin || !requiresPageAccess(item?.path)));
+          return !isCrmPage(itemPath) && (roleConfiguredPaths.has(itemPath)
+            || isPageAccessAdmin || !requiresPageAccess(itemPath));
         });
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
-        if (roleConfiguredPaths.has(itemPath)) return true;
-        // CRM visibility is page-specific unless the page is explicitly present
-        // in the saved sidebar config for this user's role.
+        // A saved role menu controls placement, not individual CRM access.
         if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+        if (roleConfiguredPaths.has(itemPath)) return true;
         if (isPageAccessAdmin) return true;
         if (requiresPageAccess(itemPath)) {
           return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
@@ -2769,7 +2848,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           }
         }}
       >
-        {getIconComponent(item.icon)}
+        {getIconComponent(getMenuItemIcon(item))}
         {hasBadge && (
           <Box
             component="span"
@@ -2805,21 +2884,22 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         <Tooltip title={item.name} placement="right" enterDelay={700}>
           <StyledListItemButton
             selected={selected}
+            isCollapsed={false}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{
-              minHeight: 48,
+              minHeight: 44,
               height: 'auto',
               alignItems: 'center',
-              mx: 0.5,
-              px: 1,
+              mx: 1,
+              px: 1.5,
               opacity: item.disabled ? 0.5 : 1,
               cursor: item.disabled ? 'not-allowed' : 'pointer'
             }}
           >
-            <StyledListItemIcon sx={{ mr: 1 }}>
+            <StyledListItemIcon sx={{ mr: 1.25, minWidth: 28, justifyContent: 'center' }}>
               {icon}
             </StyledListItemIcon>
             <ListItemText
@@ -2828,7 +2908,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
               primaryTypographyProps={{
                 variant: 'body2',
                 fontWeight: selected ? 600 : 500,
-                fontSize: '0.72rem',
+                fontSize: '0.75rem',
                 lineHeight: 1.2,
                 whiteSpace: 'nowrap',
                 overflow: 'visible',
@@ -2843,17 +2923,18 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         <Tooltip title={item.name} placement="right">
           <StyledListItemButton
             selected={selected}
+            isCollapsed={true}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{ 
-              justifyContent: 'center',
               opacity: item.disabled ? 0.5 : 1,
-              cursor: item.disabled ? 'not-allowed' : 'pointer'
+              cursor: item.disabled ? 'not-allowed' : 'pointer',
+              p: 0,
             }}
           >
-            <StyledListItemIcon sx={{ marginRight: 0, fontSize: '1.2rem' }}>
+            <StyledListItemIcon sx={{ margin: 0, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
               {icon}
             </StyledListItemIcon>
           </StyledListItemButton>
@@ -2883,16 +2964,28 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
                   component="button"
                   type="button"
                   selected={selected}
+                  isCollapsed={!isSidebarOpen}
                   aria-label="Call Workspace"
                   aria-expanded={isSidebarOpen && telecallerWorkspaceOpen}
                   aria-controls={submenuId}
                   onClick={() => setTelecallerWorkspaceOpen(open => !open)}
-                  sx={{ minHeight: 48, width: '100%', mx: isSidebarOpen ? 0.5 : 0, px: isSidebarOpen ? 1 : 0, justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}
+                  sx={{
+                    justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+                    alignItems: 'center',
+                    p: isSidebarOpen ? '8px 12px' : 0,
+                  }}
                 >
-                  <StyledListItemIcon sx={{ mr: isSidebarOpen ? 1 : 0 }}><SupportAgentIcon /></StyledListItemIcon>
+                  <StyledListItemIcon sx={{ 
+                    mr: isSidebarOpen ? 1.25 : 0, 
+                    minWidth: isSidebarOpen ? 28 : 0, 
+                    justifyContent: 'center',
+                    alignItems: 'center' 
+                  }}>
+                    <SupportAgentIcon />
+                  </StyledListItemIcon>
                   {isSidebarOpen && (
                     <>
-                      <ListItemText primary="Call Workspace" primaryTypographyProps={{ fontSize: '0.72rem', fontWeight: selected ? 600 : 500 }} />
+                      <ListItemText primary="Call Workspace" primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: selected ? 600 : 500 }} />
                       {telecallerWorkspaceOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
                     </>
                   )}
@@ -2958,15 +3051,20 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
           const groupButton = (
             <StyledListItemButton
               selected={hasSelectedChild}
+              isCollapsed={!isSidebarOpen}
               onClick={() => toggleGroup(group.id)}
               sx={{
-                minHeight: 48,
-                mx: isSidebarOpen ? 0.5 : 0,
-                px: isSidebarOpen ? 1 : 0,
-                justifyContent: isSidebarOpen ? 'flex-start' : 'center'
+                justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+                alignItems: 'center',
+                p: isSidebarOpen ? '8px 12px' : 0,
               }}
             >
-              <StyledListItemIcon sx={{ mr: isSidebarOpen ? 1 : 0 }}>
+              <StyledListItemIcon sx={{ 
+                mr: isSidebarOpen ? 1.25 : 0, 
+                minWidth: isSidebarOpen ? 28 : 0, 
+                justifyContent: 'center',
+                alignItems: 'center' 
+              }}>
                 {getIconComponent(group.icon)}
               </StyledListItemIcon>
               {isSidebarOpen && (
@@ -2976,7 +3074,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
                     primaryTypographyProps={{
                       variant: 'body2',
                       fontWeight: hasSelectedChild ? 600 : 500,
-                      fontSize: '0.72rem',
+                      fontSize: '0.75rem',
                       whiteSpace: 'nowrap'
                     }}
                   />
@@ -3054,6 +3152,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     if (id === 'profile' || name === 'profile' || name === 'my profile') return 'settings';
     if (id === 'change-password' || name === 'change password') return 'settings';
     if (id === 'logout' || name === 'logout') return 'settings';
+
+    // Payroll
+    if (
+      id.includes('salary') || 
+      id.includes('payroll') || 
+      id === 'payslip' ||
+      name.includes('salary') || 
+      name.includes('payroll') || 
+      name.includes('payslip') ||
+      item.category === 'payroll'
+    ) return 'payroll';
     
     // Keep original database category if not matching the targeted 15 items!
     return item.category || 'main';
@@ -3061,7 +3170,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
 
   const groupedItems = useMemo(() => {
     const groups = {};
-    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients'];
+    const categoryOrder = ['main', 'work', 'payroll', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients'];
     // Keep CRM sections below ordinary and custom sidebar sections.
     const crmSectionOrder = category => category === 'crm' ? 1 : category === 'admin-telecaller' ? 2 : 0;
     const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
@@ -3266,7 +3375,29 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       )}
 
         
-        <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 2 }}>
+        <Box sx={{ 
+          flex: 1, 
+          minHeight: 0,
+          overflowY: 'auto', 
+          overflowX: 'hidden', 
+          mt: 2,
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          '&::-webkit-scrollbar': { 
+            width: 5,
+            display: 'none'
+          },
+          '&:hover::-webkit-scrollbar': {
+            display: 'block'
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: theme.palette.action.hover,
+            borderRadius: 3,
+          },
+        }}>
           <List sx={{ py: 0 }}>
             {menuItems.map((item) => (
               <StyledListItem key={item.id} disablePadding>
@@ -3277,10 +3408,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
         </Box>
 
         
-        <Box sx={{ px: 2, py: 2 }}>
+        <Box sx={{ 
+          p: isSidebarOpen ? 2 : '10px 0', 
+          display: 'flex', 
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderTop: `1px solid ${theme.palette.divider}` 
+        }}>
           {isSidebarOpen ? (
             <StyledListItemButton
               onClick={handleLogout}
+              isCollapsed={false}
               sx={{
                 color: 'error.main',
                 '&:hover': { 
@@ -3289,7 +3427,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
                 }
               }}
             >
-              <StyledListItemIcon>
+              <StyledListItemIcon sx={{ color: 'inherit', mr: 1.25, minWidth: 28, justifyContent: 'center' }}>
                 <LogoutOutlined />
               </StyledListItemIcon>
               <ListItemText
@@ -3305,11 +3443,13 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
               <IconButton
                 onClick={handleLogout}
                 sx={{
-                  width: '100%',
+                  width: 44,
+                  height: 44,
+                  display: 'flex',
                   justifyContent: 'center',
+                  alignItems: 'center',
                   color: 'error.main',
-                  padding: '8px',
-                  borderRadius: 2,
+                  borderRadius: '10px',
                   '&:hover': { 
                     color: 'error.dark',
                     backgroundColor: 'error.light'
@@ -3355,6 +3495,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
     const categoryLabels = {
       'main': 'Main',
       'work': 'Work',
+      'payroll': 'Payroll',
       'communication': 'Communication',
       'admin': 'Admin',
       'settings': 'Settings',
@@ -3382,6 +3523,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
             {getIconComponent(
               category === 'main' ? 'Dashboard' : 
               category === 'work' ? 'Task' :
+              category === 'payroll' ? 'PayrollHeader' :
               category === 'communication' ? 'Notifications' :
               category === 'admin' ? 'Person' :
               category === 'settings' ? 'Settings' : 
@@ -3619,10 +3761,17 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
       </Box>
 
       
-      <Box sx={{ px: 2, py: 2 }}>
+      <Box sx={{ 
+        p: isSidebarOpen ? 2 : '10px 0', 
+        display: 'flex', 
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderTop: `1px solid ${theme.palette.divider}` 
+      }}>
         {isSidebarOpen ? (
           <StyledListItemButton
             onClick={handleLogout}
+            isCollapsed={false}
             sx={{
               color: 'error.main',
               '&:hover': { 
@@ -3631,7 +3780,7 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
               }
             }}
           >
-            <StyledListItemIcon>
+            <StyledListItemIcon sx={{ color: 'inherit', mr: 1.25, minWidth: 28, justifyContent: 'center' }}>
               <LogoutOutlined />
             </StyledListItemIcon>
             <ListItemText
@@ -3647,11 +3796,13 @@ const Sidebar = ({ isMobile = false, closeSidebar }) => {
             <IconButton
               onClick={handleLogout}
               sx={{
-                width: '100%',
+                width: 44,
+                height: 44,
+                display: 'flex',
                 justifyContent: 'center',
+                alignItems: 'center',
                 color: 'error.main',
-                padding: '8px',
-                borderRadius: 2,
+                borderRadius: '10px',
                 '&:hover': { 
                   color: 'error.dark',
                   backgroundColor: 'error.light'

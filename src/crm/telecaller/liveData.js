@@ -31,6 +31,7 @@ export function normalizeLead(item) {
   return {
     id: String(item._id), name: item.name || 'Unnamed lead', phone: item.phone || '', email: item.email || '', city: item.address || '',
     source: item.leadSource?.name || item.source || '', type: item.leadType?.name || '',
+    isAssigned: Boolean(item.assignedTo && (typeof item.assignedTo === 'string' ? item.assignedTo.trim() : item.assignedTo._id || item.assignedTo.id)),
     assigned: localDateTime(item.assignedAt || item.createdAt), createdAt: localDateTime(item.createdAt), assignedTo: item.assignedTo?.name || '',
     status: ({ new: 'Assigned', interested: 'Interested', 'not interested': 'Not Interested', 'follow-up': 'Follow-up', converted: 'Converted', closed: 'Closed' })[item.status] || item.status,
     date: last?.date || '', outcome: last?.outcome || '', notes: last?.notes || item.remarks || '',

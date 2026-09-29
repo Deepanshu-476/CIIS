@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import { Phone, Clock, Hourglass, PhoneCall, ArrowRight } from "lucide-react";
 import {
@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import { Panel, Metrics } from "./DashboardComponents";
-import { DataTable } from "./CallComponents";
+import RecentCallsDesk from "./RecentCallsDesk";
 import { useTelecaller } from "./useTelecaller";
 import { localDateTime, isTerminal, countCallOutcomes } from './liveData';
 
@@ -50,7 +50,7 @@ function CustomChartTooltip({ active, payload, label }) {
 }
 
 export default function Dashboard() {
-  const { calls, enriched, assigned, today, pending, can } = useTelecaller();
+  const { calls, enriched, assigned, today, pending, followups, can, refresh } = useTelecaller();
   const [timeframe, setTimeframe] = useState("7d");
   const daysCount = timeframe === "30d" ? 30 : 7;
 
@@ -91,6 +91,34 @@ export default function Dashboard() {
       connectRate,
       peakDay: peak.calls > 0 ? `${peak.day} (${peak.calls})` : '—',
     };
+  }, [trendChartData]);
+
+  const chartWrapperRef = useRef(null);
+  const [chartWidth, setChartWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = chartWrapperRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      const w = el.getBoundingClientRect().width || el.clientWidth;
+      if (w > 0) setChartWidth(Math.floor(w));
+    };
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    ro.observe(el);
+    window.addEventListener("resize", updateWidth);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateWidth);
+    };
+  }, []);
+
+  const yMax = useMemo(() => {
+    const maxVal = Math.max(
+      ...trendChartData.map((d) => Math.max(Number(d.calls) || 0, Number(d.connected) || 0)),
+      4
+    );
+    return Math.max(4, Math.ceil(maxVal * 1.25));
   }, [trendChartData]);
 
   const [activeSeries, setActiveSeries] = useState({ calls: true, connected: true });
@@ -272,75 +300,70 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <div className="haps-chart-wrapper">
-                <ResponsiveContainer
-                  width="100%"
+              <div className="haps-chart-wrapper" ref={chartWrapperRef}>
+                <AreaChart
+                  width={chartWidth || 560}
                   height={235}
-                  minWidth={0}
-                  initialDimension={{ width: 600, height: 235 }}
+                  data={trendChartData}
+                  margin={{ top: 12, right: 20, left: -15, bottom: 5 }}
                 >
-                  <AreaChart
-                    data={trendChartData}
-                    margin={{ top: 12, right: 20, left: -15, bottom: 5 }}
-                  >
-                    <defs>
-                      <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6c5ffc" stopOpacity={0.28} />
-                        <stop offset="95%" stopColor="#6c5ffc" stopOpacity={0.0} />
-                      </linearGradient>
-                      <linearGradient id="connGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#05c3fb" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#05c3fb" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eaedf1" vertical={false} horizontal={true} />
-                    <XAxis
-                      dataKey="day"
-                      stroke="#8c98a9"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={{ stroke: "#eaedf1" }}
-                      dy={6}
-                      interval={daysCount > 7 ? 4 : 0}
+                  <defs>
+                    <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6c5ffc" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#6c5ffc" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="connGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#05c3fb" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#05c3fb" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eaedf1" vertical={false} horizontal={true} />
+                  <XAxis
+                    dataKey="day"
+                    stroke="#8c98a9"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "#eaedf1" }}
+                    dy={6}
+                    interval={daysCount > 7 ? 4 : 0}
+                  />
+                  <YAxis
+                    stroke="#8c98a9"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, yMax]}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    content={<CustomChartTooltip />}
+                    cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
+                  />
+                  {activeSeries.calls && (
+                    <Area
+                      type="monotone"
+                      dataKey="calls"
+                      name="Calls Made"
+                      stroke="#6c5ffc"
+                      strokeWidth={2.5}
+                      fill="url(#callsGradient)"
+                      dot={{ r: 3.5, fill: "#ffffff", stroke: "#6c5ffc", strokeWidth: 2 }}
+                      activeDot={{ r: 5.5, fill: "#6c5ffc", stroke: "#ffffff", strokeWidth: 2.5 }}
                     />
-                    <YAxis
-                      stroke="#8c98a9"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={[0, (dataMax) => Math.max(4, Math.ceil(dataMax * 1.25))]}
-                      allowDecimals={false}
+                  )}
+                  {activeSeries.connected && (
+                    <Area
+                      type="monotone"
+                      dataKey="connected"
+                      name="Connected"
+                      stroke="#05c3fb"
+                      strokeWidth={2.5}
+                      fill="url(#connGradient)"
+                      dot={{ r: 3.5, fill: "#ffffff", stroke: "#05c3fb", strokeWidth: 2 }}
+                      activeDot={{ r: 5.5, fill: "#05c3fb", stroke: "#ffffff", strokeWidth: 2.5 }}
                     />
-                    <Tooltip
-                      content={<CustomChartTooltip />}
-                      cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
-                    />
-                    {activeSeries.calls && (
-                      <Area
-                        type="monotone"
-                        dataKey="calls"
-                        name="Calls Made"
-                        stroke="#6c5ffc"
-                        strokeWidth={2.5}
-                        fill="url(#callsGradient)"
-                        dot={{ r: 3.5, fill: "#ffffff", stroke: "#6c5ffc", strokeWidth: 2 }}
-                        activeDot={{ r: 5.5, fill: "#6c5ffc", stroke: "#ffffff", strokeWidth: 2.5 }}
-                      />
-                    )}
-                    {activeSeries.connected && (
-                      <Area
-                        type="monotone"
-                        dataKey="connected"
-                        name="Connected"
-                        stroke="#05c3fb"
-                        strokeWidth={2.5}
-                        fill="url(#connGradient)"
-                        dot={{ r: 3.5, fill: "#ffffff", stroke: "#05c3fb", strokeWidth: 2 }}
-                        activeDot={{ r: 5.5, fill: "#05c3fb", stroke: "#ffffff", strokeWidth: 2.5 }}
-                      />
-                    )}
-                  </AreaChart>
-                </ResponsiveContainer>
+                  )}
+                </AreaChart>
               </div>
             )}
           </div>
@@ -413,11 +436,14 @@ export default function Dashboard() {
         </Panel>
       </div>
 
-      <DataTable
-        rows={enriched}
-        title="Recent Calls"
+      <RecentCallsDesk
+        enriched={enriched}
+        assigned={assigned}
+        pending={pending}
+        today={today}
+        followups={followups}
         can={can}
-        showViewAll={true}
+        refresh={refresh}
       />
     </div>
   );

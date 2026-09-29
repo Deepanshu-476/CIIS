@@ -8,7 +8,7 @@ import {
   loadPagePermission,
   hasPageAccess,
 } from "../../utils/pageAccess";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import TelecallerSkeleton from "./TelecallerSkeleton";
 import "./Telecaller.css";
 import "./DashboardComponents.css";
@@ -162,7 +162,7 @@ function TelecallerSession({ slug }) {
       <main className="haps-page-wrapper">
         <div className="haps-top-header">
           <h1 className="haps-page-title">{pageTitle}</h1>
-          <button type="button" className="cw-btn-nav" disabled={loading} onClick={() => setVersion(v => v + 1)}>Refresh leads</button>
+          <div className="tc-header-right">
           <div className="haps-breadcrumbs">
             {slug === "converted-leads" ? (
               <>
@@ -191,6 +191,18 @@ function TelecallerSession({ slug }) {
                 <span className="haps-crumb-current">Call Management</span>
               </>
             )}
+          </div>
+            {slug !== "lead-detail" && <button
+              type="button"
+              className="tc-refresh-leads"
+              disabled={loading}
+              aria-busy={loading}
+              aria-label={loading ? "Refreshing leads" : "Refresh leads"}
+              title={loading ? "Refreshing leads" : "Refresh leads"}
+              onClick={() => setVersion(v => v + 1)}
+            >
+              <RefreshCw size={16} strokeWidth={1.8} aria-hidden="true" />
+            </button>}
           </div>
         </div>
 

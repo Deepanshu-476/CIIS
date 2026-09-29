@@ -25,6 +25,71 @@
   margin-bottom: 20px;
 }
 
+.haps-top-header .tc-header-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.tc-header-right .haps-breadcrumbs {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.haps-top-header .tc-refresh-leads {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.haps-top-header .tc-refresh-leads:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #4f46e5;
+}
+
+.haps-top-header .tc-refresh-leads:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 3px;
+}
+
+.haps-top-header .tc-refresh-leads:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.tc-refresh-leads[aria-busy="true"] svg {
+  animation: tc-refresh-spin 1s linear infinite;
+}
+
+@keyframes tc-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-refresh-leads[aria-busy="true"] svg { animation: none; }
+}
+
 .haps-page-title {
   font-size: 20px;
   font-weight: 700;
@@ -483,6 +548,7 @@
   width: 100%;
   min-width: 0;
   height: 235px;
+  overflow: hidden;
 }
 
 /* Call Trends KPI Strip */
@@ -954,7 +1020,23 @@
 
 .haps-lead-code {
   font-weight: 600;
-  color: #334155;
+  color: #4f46e5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  background: #f8fafc;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  display: inline-block;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  transition: all 0.15s ease;
+}
+
+.haps-lead-code:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
 }
 
 .haps-lead-info-cell {

@@ -387,11 +387,11 @@ export function DataTable({
                           title={`Lead ID: #${row.id} (Click to view)`}
                           style={{ textDecoration: 'none' }}
                         >
-                          #{String(row.id).length > 10 ? `...${String(row.id).slice(-6)}` : row.id}
+                          #{row.id}
                         </Link>
                       ) : (
                         <span className="haps-lead-code" title={`Lead ID: #${row.id}`}>
-                          #{String(row.id).length > 10 ? `...${String(row.id).slice(-6)}` : row.id}
+                          #{row.id}
                         </span>
                       )
                     ) : key === "name" ? (
@@ -621,7 +621,7 @@ export function DataTable({
             <div className="haps-modal-header">
               <div className="haps-modal-title-group">
                 <span className="haps-modal-badge">
-                  #{String(selectedCallRecord.id).length > 10 ? String(selectedCallRecord.id).slice(-6) : selectedCallRecord.id}
+                  #{selectedCallRecord.id}
                 </span>
                 <h3>Call Log Details</h3>
               </div>

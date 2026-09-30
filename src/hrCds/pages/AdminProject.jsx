@@ -163,6 +163,36 @@ const toProjectStatusValue = (value = "Active") => {
   return "Active";
 };
 
+const toNumber = (...values) => {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return 0;
+};
+
+const normalizeTaskStatus = (status = "") => String(status).trim().toLowerCase().replace(/[-_\s]+/g, " ");
+
+const getProjectTaskCount = (project = {}) => (
+  Array.isArray(project.tasks)
+    ? project.tasks.length
+    : toNumber(project.taskCount, project.tasksCount, project.totalTasks, project.taskSummary?.total)
+);
+
+const getCompletedTaskCount = (project = {}) => {
+  if (Array.isArray(project.tasks)) {
+    return project.tasks.filter(task => normalizeTaskStatus(task?.status) === "completed").length;
+  }
+
+  return toNumber(
+    project.completedTaskCount,
+    project.completedTasks,
+    project.taskCompletedCount,
+    project.taskSummary?.completed,
+    project.taskStats?.completed
+  );
+};
+
 export const AdminProject = () => {
   
   const [projectId, setProjectId] = useState(null);
@@ -790,10 +820,16 @@ export const AdminProject = () => {
     }
   };
 
-  const getTaskProgress = (tasks) => {
-    if (!tasks || tasks.length === 0) return 0;
-    const completed = tasks.filter(t => t.status === "completed").length;
-    return Math.round((completed / tasks.length) * 100);
+  const getTaskProgress = (projectOrTasks) => {
+    const project = Array.isArray(projectOrTasks) ? { tasks: projectOrTasks } : (projectOrTasks || {});
+    const total = getProjectTaskCount(project);
+    if (!total) return 0;
+
+    const percent = toNumber(project.taskProgress, project.progressPercentage, project.progress);
+    if (percent > 0) return Math.max(0, Math.min(100, Math.round(percent)));
+
+    const completed = getCompletedTaskCount(project);
+    return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
   };
 
   const StatCard = ({ icon, value, label, color, trend, subtext }) => (
@@ -1023,16 +1059,16 @@ export const AdminProject = () => {
                       <div className="ap-progress-block">
                         <div className="ap-progress-header">
                           <span>Task Completion</span>
-                          <span className="ap-progress-percentage">{getTaskProgress(selectedProject.tasks)}%</span>
+                          <span className="ap-progress-percentage">{getTaskProgress(selectedProject)}%</span>
                         </div>
                         <div className="ap-progress-bar">
-                          <div className="ap-progress-fill" style={{ width: `${getTaskProgress(selectedProject.tasks)}%` }} />
+                          <div className="ap-progress-fill" style={{ width: `${getTaskProgress(selectedProject)}%` }} />
                         </div>
                       </div>
                       <div className="ap-task-stats">
                         <div className="ap-task-stat">
                           <span>Total Tasks</span>
-                          <span className="ap-task-stat-value">{selectedProject.tasks?.length || 0}</span>
+                          <span className="ap-task-stat-value">{getProjectTaskCount(selectedProject)}</span>
                         </div>
                         <div className="ap-task-stat">
                           <span>Completed</span>
@@ -1525,6 +1561,7 @@ export const AdminProject = () => {
             <div className="ap-project-grid">
               {filteredProjects.map((p, index) => {
                 const projectId = getProjectId(p);
+                const taskProgress = getTaskProgress(p);
                 return (
                   <div key={`${projectId || 'project'}-${index}`} className="ap-project-card">
                     <div className="ap-project-top-bar" style={{
@@ -1553,10 +1590,10 @@ export const AdminProject = () => {
                       <div className="ap-project-progress">
                         <div className="ap-progress-header">
                           <span className="ap-progress-label">Task Progress</span>
-                          <span className="ap-progress-value">{getTaskProgress(p.tasks)}%</span>
+                          <span className="ap-progress-value">{taskProgress}%</span>
                         </div>
                         <div className="ap-progress-bar">
-                          <div className="ap-progress-fill" style={{ width: `${getTaskProgress(p.tasks)}%` }} />
+                          <div className="ap-progress-fill" style={{ width: `${taskProgress}%` }} />
                         </div>
                       </div>
                       
@@ -1567,7 +1604,7 @@ export const AdminProject = () => {
                         </div>
                         <div className="ap-meta-group">
                           <span className="ap-meta-badge"><Icons.Group /> {p.users?.length || 0}</span>
-                          <span className="ap-meta-badge"><Icons.Task /> {p.tasks?.length || 0}</span>
+                          <span className="ap-meta-badge"><Icons.Task /> {getProjectTaskCount(p)}</span>
                         </div>
                       </div>
                       

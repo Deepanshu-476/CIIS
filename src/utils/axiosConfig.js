@@ -314,7 +314,10 @@ if (typeof window !== "undefined") {
 
 const cachedGet = async (requester, url, config = {}) => {
   pruneExpiredGetCacheEntries();
-  const useCache = config.cache !== false && config.noCache !== true && config._skipRequestCache !== true;
+  // Task statuses can change outside this browser (cron jobs or backend updates).
+  // Always fetch them fresh instead of displaying persisted status snapshots.
+  const isTaskRequest = /\/(?:tasks|task)(?:\/|\?|$)/i.test(normalizeGetUrl(url));
+  const useCache = !isTaskRequest && config.cache !== false && config.noCache !== true && config._skipRequestCache !== true;
   const cacheKey = useCache ? makeGetCacheKey(url, config) : null;
   const usePersistentCache = useCache && shouldUsePersistentCache(url, config);
 

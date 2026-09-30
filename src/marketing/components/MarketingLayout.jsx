@@ -2,6 +2,9 @@ import React, { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import "../styles/marketing.css";
 import "../styles/marketing-interactions.css";
+import LoginModal from "./LoginModal.jsx";
+import BookDemoModal from "./BookDemoModal.jsx";
+import SuperAdminModal from "./SuperAdminModal.jsx";
 
 function scrollToHash(hash) {
   const id = decodeURIComponent(hash.replace(/^#/, ""));
@@ -52,6 +55,9 @@ export default function MarketingLayout() {
     <div className="ciis-mk">
       <ScrollManager />
       <Outlet />
+      <LoginModal />
+      <BookDemoModal />
+      <SuperAdminModal />
     </div>
   );
 }

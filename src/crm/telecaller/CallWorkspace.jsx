@@ -38,6 +38,7 @@ import {
   Languages,
   MailWarning,
   CheckCircle,
+  MapPin,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import api from "../../utils/axiosConfig";
@@ -339,49 +340,55 @@ function CallQueueDirectory({ assigned, can, notFoundId, error }) {
 
           {/* Grid of Leads */}
           {filteredLeads.length > 0 ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 16 }}>
+            <div className="cw-queue-grid">
               {filteredLeads.map((row) => (
                 <div
                   key={row.id}
-                  style={{
-                    background: "white",
-                    border: "1px solid var(--cw-border)",
-                    borderRadius: 12,
-                    padding: "16px 18px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                    transition: "all 0.2s ease",
-                  }}
+                  className={`cw-queue-card${row.isAssigned ? '' : ' cw-queue-card-unassigned'}`}
                 >
-                  <div className="cw-avatar" style={{ width: 46, height: 46, fontSize: 16 }}>
-                    {(row.name || "U").charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                      <strong style={{ fontSize: "13.5px", color: "var(--cw-text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div className="cw-queue-card-top">
+                    <div className="cw-avatar cw-queue-avatar">
+                      {(row.name || "U").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="cw-queue-header-info">
+                      <strong className="cw-queue-name" title={row.name || "Unnamed"}>
                         {row.name || "Unnamed"}
                       </strong>
-                      <span className="cw-id-tag">#{row.id}</span>
+                      <span className="cw-id-tag" title={`Lead ID: ${row.id}`}>
+                        #{row.id}
+                      </span>
+                      {!row.isAssigned && <span className="cw-queue-assignment">Unassigned</span>}
                     </div>
+                  </div>
 
-                    <div style={{ fontSize: "12px", color: "var(--cw-text-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className="cw-queue-details">
+                    <div className="cw-queue-detail-item" title={row.phone || "—"}>
+                      <Phone size={12} className="cw-queue-detail-icon" />
                       <span>{row.phone || "—"}</span>
-                      <span>•</span>
-                      <span>{row.city || "—"}</span>
                     </div>
+                    {row.city && (
+                      <div className="cw-queue-detail-item" title={row.city}>
+                        <MapPin size={12} className="cw-queue-detail-icon" />
+                        <span className="cw-queue-city-text">{row.city}</span>
+                      </div>
+                    )}
+                  </div>
 
-                    <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", justifyContent: "space-between" }}>
-                      <span className="cw-badge cw-badge-cyan">{row.type || "—"}</span>
-                      <Link
-                        to={`${BASE}/call-workspace/${row.id}`}
-                        className="cw-btn cw-btn-call"
-                        style={{ padding: "5px 12px", fontSize: "11.5px" }}
-                      >
-                        <PhoneCall size={12} /> Start Call
-                      </Link>
-                    </div>
+                  <div className="cw-queue-footer">
+                    <span
+                      className="cw-badge cw-badge-cyan cw-queue-course-badge"
+                      title={row.type || "—"}
+                    >
+                      {row.type || "—"}
+                    </span>
+                    <Link
+                      to={`${BASE}/call-workspace/${row.id}`}
+                      className="cw-btn cw-btn-call cw-queue-call"
+                      aria-label={`Start call with ${row.name || "unnamed lead"}`}
+                    >
+                      <PhoneCall size={13} aria-hidden="true" />
+                      <span>Start Call</span>
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -412,7 +419,7 @@ function CallQueueDirectory({ assigned, can, notFoundId, error }) {
               </div>
               <strong style={{ fontSize: "14px", color: "var(--cw-text-main)" }}>No Leads in Calling Queue</strong>
               <p style={{ fontSize: "12px", color: "var(--cw-text-muted)", margin: 0, maxWidth: 360 }}>
-                {search ? "No leads matched your search query. Try clearing the filter." : "There are currently no active leads in your calling queue."}
+                {searchTerm ? "No leads matched your search query. Try clearing the filter." : "There are currently no active leads in your calling queue."}
               </p>
             </div>
           )}

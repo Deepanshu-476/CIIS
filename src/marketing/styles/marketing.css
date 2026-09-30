@@ -43,3 +43,12 @@
 @media (prefers-reduced-motion: reduce) {
   .ciis-mk * { animation: none !important; transition: none !important; }
 }
+
+/* Background scroll lock when any modal is open */
+html.ciis-modal-open,
+body.ciis-modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none;
+}
+

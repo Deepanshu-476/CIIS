@@ -54,6 +54,9 @@ const hasCompanyPlanAccess = pagePath => {
     }
 
     const routeKey = normalizedPath.split("/")[0];
+    if (routeKey === "client-plans") {
+      return ["client-plans", "emp-client", "client-management"].some(key => keys.has(key));
+    }
     if (routeKey === "emp-task-details") {
       return ["task-management", "admin-task-create", "company-all-task"].some(key => keys.has(key));
     }
@@ -125,7 +128,7 @@ const PageAccessGate = ({ children }) => {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false });
         return;
       }
-      if (isPrivileged) {
+      if (isPrivileged && !isCrmPage(pagePath)) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: true });
         return;
       }

@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Search,
   Filter,
+  RefreshCw,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import api from "../../utils/axiosConfig";
@@ -38,7 +39,7 @@ import "./LeadDetail.css";
 
 export default function LeadDetail() {
   const { leadId } = useParams();
-  const { assigned, calls, can, editAllowed, saveCall } = useTelecaller();
+  const { assigned, calls, can, editAllowed, saveCall, refresh } = useTelecaller();
   const [directLead, setDirectLead] = useState(null);
   const [fetchingDirect, setFetchingDirect] = useState(false);
   const [directError, setDirectError] = useState(null);
@@ -205,6 +206,15 @@ export default function LeadDetail() {
                   {item.label}
                 </button>
               ))}
+              <button
+                type="button"
+                className="ld-refresh-leads"
+                onClick={refresh}
+                aria-label="Refresh leads"
+                title="Refresh leads"
+              >
+                <RefreshCw size={16} aria-hidden="true" />
+              </button>
             </div>
           </div>
 
@@ -219,29 +229,29 @@ export default function LeadDetail() {
                 <div className="ld-avatar" style={{ width: 46, height: 46, fontSize: 16 }}>
                   {row.name.charAt(0)}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                    <strong style={{ fontSize: "13.5px", color: "var(--ld-text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div className="ld-picker-content">
+                  <div className="ld-picker-heading">
+                    <strong className="ld-picker-name">
                       {row.name}
                     </strong>
                     <span className="ld-id-tag">#{row.id}</span>
                   </div>
 
-                  <div style={{ fontSize: "12px", color: "var(--ld-text-muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className="ld-picker-contact">
                     <span>{row.phone}</span>
                     <span>•</span>
                     <span>{row.city || "—"}</span>
                   </div>
 
-                  <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", gap: 6 }}>
+                  <div className="ld-picker-footer">
+                    <div className="ld-picker-badges">
                       <span className="ld-badge ld-badge-cyan">{row.type || "—"}</span>
                       <span className={`ld-badge ${row.status === "Converted" ? "ld-badge-success" : "ld-badge-primary"}`}>
                         {row.status || "Assigned"}
                       </span>
                     </div>
-                    <span style={{ fontSize: "11px", color: "var(--ld-primary)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 2 }}>
-                      View <ArrowRight size={12} />
+                    <span className="ld-picker-view">
+                      View <ArrowRight size={14} aria-hidden="true" />
                     </span>
                   </div>
                 </div>

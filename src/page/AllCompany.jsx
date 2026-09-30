@@ -125,9 +125,7 @@ const AllCompany = () => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [selectedIds, setSelectedIds] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [rowMenuOpenId, setRowMenuOpenId] = useState(null);
   const [rowMenuPosition, setRowMenuPosition] = useState(null);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
@@ -328,22 +326,6 @@ const AllCompany = () => {
   const paginatedCompanies = filteredCompanies.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const startItem = filteredCompanies.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(filteredCompanies.length, currentPage * pageSize);
-  const visibleIds = paginatedCompanies.map(company => getId(company));
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
-  const selectedCompanies = companies.filter(company => selectedIds.includes(getId(company)));
-
-  const handleToggleVisibleSelection = () => {
-    if (!visibleIds.length) return;
-    if (allVisibleSelected) {
-      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
-      return;
-    }
-    setSelectedIds(prev => Array.from(new Set([...prev, ...visibleIds])));
-  };
-
-  const toggleSelectedId = id => {
-    setSelectedIds(prev => (prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]));
-  };
 
   const handleExport = (rows = filteredCompanies) => {
     if (!rows.length) {
@@ -383,7 +365,6 @@ const AllCompany = () => {
     try {
       await Promise.all(ids.map(id => axios.delete(`${API_URL}/company/${id}`, { headers: getAuthHeaders() })));
       toast.success("Company deleted successfully");
-      setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
       await fetchCompanies();
     } catch (error) {
       console.error("Failed to delete company:", error);
@@ -709,7 +690,7 @@ const AllCompany = () => {
                 </button>
 
                 {filtersOpen && (
-                  <div className="AllCompany-mini-menu">
+                  <div className="AllCompany-mini-menu AllCompany-mini-menu-right">
                     <button type="button" onClick={() => setStatusFilter("all")}>All Companies</button>
                     <button type="button" onClick={() => setStatusFilter("active")}>Active</button>
                     <button type="button" onClick={() => setStatusFilter("inactive")}>Inactive</button>
@@ -724,27 +705,6 @@ const AllCompany = () => {
                   </div>
                 )}
               </div>
-
-              <div className="AllCompany-popover-wrap">
-                <button type="button" className="AllCompany-btn AllCompany-btn-outline" onClick={() => setBulkMenuOpen(prev => !prev)}>
-                  <span className="material-icons">inventory_2</span>
-                  <span>Bulk Actions</span>
-                </button>
-
-                {bulkMenuOpen && (
-                  <div className="AllCompany-mini-menu AllCompany-mini-menu-right">
-                    <button type="button" onClick={() => handleExport(selectedIds.length ? selectedCompanies : filteredCompanies)}>
-                      Export {selectedIds.length ? "Selected" : "Filtered"}
-                    </button>
-                    <button type="button" disabled={!selectedIds.length} onClick={() => handleDeleteCompanies(selectedIds)}>
-                      Delete Selected
-                    </button>
-                    <button type="button" disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>
-                      Clear Selection
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </section>
@@ -754,14 +714,6 @@ const AllCompany = () => {
             <table className="AllCompany-table">
               <thead>
                 <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      onChange={handleToggleVisibleSelection}
-                      aria-label="Select visible companies"
-                    />
-                  </th>
                   <th>Company</th>
                   <th>Company ID</th>
                   <th>Users</th>
@@ -783,14 +735,6 @@ const AllCompany = () => {
 
                     return (
                       <tr key={companyId}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(companyId)}
-                            onChange={() => toggleSelectedId(companyId)}
-                            aria-label={`Select ${company.companyName}`}
-                          />
-                        </td>
                         <td>
                           <div className="AllCompany-company-cell">
                             <div className={`AllCompany-avatar AllCompany-avatar-${tone}`}>
@@ -887,7 +831,7 @@ const AllCompany = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={6}>
                       <div className="AllCompany-empty-state">
                         <span className="material-icons">domain_disabled</span>
                         <strong>No companies found</strong>

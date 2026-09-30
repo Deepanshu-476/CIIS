@@ -53,6 +53,7 @@ export const websiteAppScreenMap = [
       {webUrl: '/ciisUser/company-all-task/tasks/:userId', webPage: 'User Task List', appScreen: 'Company All Task', status: 'partial'},
       {webUrl: '/ciisUser/company-all-task/:userId/tasks', webPage: 'User Task List', appScreen: 'Company All Task', status: 'partial'},
       {webUrl: '/ciisUser/emp-client', webPage: 'Client Management', appScreen: 'Client', status: 'available'},
+      {webUrl: '/ciisUser/client-plans', webPage: 'Client Plans', appScreen: 'Client Plans', status: 'available'},
       {webUrl: '/ciisUser/alert', webPage: 'Alerts', appScreen: 'Alerts', status: 'available'},
       {webUrl: '/ciisUser/create-alert', webPage: 'Create Alert', appScreen: 'Create Alert', status: 'available'},
       {webUrl: '/ciisUser/attendance', webPage: 'Attendance', appScreen: 'Attendance', status: 'available'},

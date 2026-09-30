@@ -330,7 +330,7 @@ const MyServicesPage = () => {
           </section>
 
           <section className="myServices-panel myServices-manager">
-            <div className="myServices-panelTitle"><h3><FiUsers /> Your Account Manager</h3><button type="button">View Profile</button></div>
+            <div className="myServices-panelTitle"><h3><FiUsers /> Your Account Manager</h3></div>
             <div className="myServices-managerBody"><span className="myServices-managerPhoto"><FiUser /></span><div><strong>Rahul Sharma</strong><small>Account Manager</small><a href="mailto:rahul.sharma@ciisnetwork.com">rahul.sharma@ciisnetwork.com</a><a href="tel:+919876787645">+91 98767 87645</a></div></div>
             <button className="myServices-messageButton" type="button"><FiMessageSquare /> Message Rahul</button>
           </section>

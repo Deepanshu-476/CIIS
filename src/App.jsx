@@ -136,7 +136,6 @@ function App() {
         <Route path="/cookies" element={<Navigate to="/terms" replace />} />
         <Route path="/features" element={<Navigate to="/product" replace />} />
         <Route path="/feature" element={<Navigate to="/features" replace />} />
-        <Route path="/solutions" element={<Navigate to="/product" replace />} />
         <Route path="/solution" element={<Navigate to="/solutions" replace />} />
         <Route path="/how-it-works" element={<Navigate to="/product" replace />} />
         <Route path="/howitworks" element={<Navigate to="/how-it-works" replace />} />

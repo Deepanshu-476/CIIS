@@ -55,6 +55,32 @@ import {
   ReceiptLongOutlined as PayslipIcon,
   AnalyticsOutlined as PayrollReportsIcon,
   AccountBalanceOutlined as PayrollHeaderIcon,
+  ContactPage as ContactPageIcon,
+  ContactPhone as ContactPhoneIcon,
+  Leaderboard as LeaderboardIcon,
+  PersonAdd as PersonAddIcon,
+  AltRoute as AltRouteIcon,
+  Category as CategoryIcon,
+  ImportExport as ImportExportIcon,
+  EventRepeat as EventRepeatIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
+  Assignment as AssignmentIcon,
+  PlaylistAddCheck as PlaylistAddCheckIcon,
+  WorkHistory as WorkHistoryIcon,
+  Balance as BalanceIcon,
+  Assessment as AssessmentIcon,
+  Analytics as AnalyticsIcon,
+  TrendingUp as TrendingUpIcon,
+  PhoneCallback as PhoneCallbackIcon,
+  DateRange as DateRangeIcon,
+  WorkspacePremium as WorkspacePremiumIcon,
+  FilterList as FilterListIcon,
+  Timeline as TimelineIcon,
+  DesignServices as DesignServicesIcon,
+  Storefront as StorefrontIcon,
+  Description as DescriptionIcon,
+  ReceiptLong as ReceiptLongIcon,
+  Subscriptions as SubscriptionsIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import axiosInstance from '../utils/axiosConfig';
@@ -268,7 +294,7 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
   backgroundColor: theme.palette.background.paper,
-  borderRight: `1px solid ${theme.palette.divider}`,
+  borderRight: '1px solid rgba(226, 232, 240, 0.8)',
   height: 'calc(100vh - 64px)',
   position: 'fixed',
   top: 64,
@@ -277,7 +303,7 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
-  transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease',
+  transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
 const MobileSidebarContainer = styled(Box)(({ theme }) => ({
@@ -286,7 +312,7 @@ const MobileSidebarContainer = styled(Box)(({ theme }) => ({
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
   backgroundColor: theme.palette.background.paper,
-  borderRight: `1px solid ${theme.palette.divider}`,
+  borderRight: '1px solid rgba(226, 232, 240, 0.8)',
   height: '100%',
   minHeight: 0,
   display: 'flex',
@@ -316,16 +342,15 @@ const StyledListItemButton = styled(ListItemButton, {
   backgroundColor: selected 
     ? (isCollapsed ? 'rgba(37, 99, 235, 0.10)' : 'rgba(37, 99, 235, 0.08)')
     : 'transparent',
-  border: isCollapsed 
-    ? (selected ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid transparent')
-    : 'none',
+  border: '1px solid transparent',
   borderLeft: isCollapsed 
     ? (selected ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid transparent')
     : (selected ? '3px solid #2563eb' : '3px solid transparent'),
   borderRadius: isCollapsed ? '10px' : '0 10px 10px 0',
   boxShadow: selected && isCollapsed ? '0 2px 8px rgba(37, 99, 235, 0.12)' : 'none',
-  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   boxSizing: 'border-box',
+  overflow: 'hidden',
   '&:hover': {
     backgroundColor: selected 
       ? (isCollapsed ? 'rgba(37, 99, 235, 0.16)' : 'rgba(37, 99, 235, 0.12)')
@@ -342,7 +367,7 @@ const StyledListItemButton = styled(ListItemButton, {
     justifyContent: 'center',
     alignItems: 'center',
     color: selected ? '#2563eb' : '#64748b',
-    transition: 'color 0.18s ease, transform 0.18s ease',
+    transition: 'color 0.18s ease, transform 0.18s ease, margin 0.2s ease, min-width 0.2s ease',
   },
   '&:hover .MuiListItemIcon-root': {
     color: '#2563eb',
@@ -377,7 +402,7 @@ const SectionHeading = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary,
   fontWeight: 700,
   letterSpacing: '0.08em',
-  borderBottom: `1px solid ${theme.palette.divider}`,
+  borderBottom: 'none',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -392,7 +417,7 @@ const CollapsedHeading = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   color: theme.palette.text.secondary,
-  borderBottom: `1px solid ${theme.palette.divider}`,
+  borderBottom: 'none',
   boxSizing: 'border-box',
   '& > svg': {
     fontSize: '1.2rem',
@@ -487,12 +512,133 @@ const iconMap = {
   'PayrollHeader': PayrollHeaderIcon,
   'payrollheader': PayrollHeaderIcon,
   'AccountBalanceOutlined': PayrollHeaderIcon,
+  'ContactPage': ContactPageIcon,
+  'contactpage': ContactPageIcon,
+  'ContactPhone': ContactPhoneIcon,
+  'contactphone': ContactPhoneIcon,
+  'Leaderboard': LeaderboardIcon,
+  'leaderboard': LeaderboardIcon,
+  'PersonAdd': PersonAddIcon,
+  'personadd': PersonAddIcon,
+  'AltRoute': AltRouteIcon,
+  'altroute': AltRouteIcon,
+  'Category': CategoryIcon,
+  'category': CategoryIcon,
+  'ImportExport': ImportExportIcon,
+  'importexport': ImportExportIcon,
+  'EventRepeat': EventRepeatIcon,
+  'eventrepeat': EventRepeatIcon,
+  'AssignmentTurnedIn': AssignmentTurnedInIcon,
+  'assignmentturnedin': AssignmentTurnedInIcon,
+  'Assignment': AssignmentIcon,
+  'assignment': AssignmentIcon,
+  'PlaylistAddCheck': PlaylistAddCheckIcon,
+  'playlistaddcheck': PlaylistAddCheckIcon,
+  'WorkHistory': WorkHistoryIcon,
+  'workhistory': WorkHistoryIcon,
+  'Balance': BalanceIcon,
+  'balance': BalanceIcon,
+  'Assessment': AssessmentIcon,
+  'assessment': AssessmentIcon,
+  'Analytics': AnalyticsIcon,
+  'analytics': AnalyticsIcon,
+  'TrendingUp': TrendingUpIcon,
+  'trendingup': TrendingUpIcon,
+  'PhoneCallback': PhoneCallbackIcon,
+  'phonecallback': PhoneCallbackIcon,
+  'DateRange': DateRangeIcon,
+  'daterange': DateRangeIcon,
+  'WorkspacePremium': WorkspacePremiumIcon,
+  'workspacepremium': WorkspacePremiumIcon,
+  'FilterList': FilterListIcon,
+  'filterlist': FilterListIcon,
+  'Timeline': TimelineIcon,
+  'timeline': TimelineIcon,
+  'DesignServices': DesignServicesIcon,
+  'designservices': DesignServicesIcon,
+  'MyServices': DesignServicesIcon,
+  'myservices': DesignServicesIcon,
+  'Storefront': StorefrontIcon,
+  'storefront': StorefrontIcon,
+  'Marketplace': StorefrontIcon,
+  'marketplace': StorefrontIcon,
+  'Description': DescriptionIcon,
+  'description': DescriptionIcon,
+  'Documents': DescriptionIcon,
+  'documents': DescriptionIcon,
+  'ReceiptLong': ReceiptLongIcon,
+  'receiptlong': ReceiptLongIcon,
+  'Subscriptions': SubscriptionsIcon,
+  'subscriptions': SubscriptionsIcon,
 };
 
 const getMenuItemIcon = (item) => {
   const id = String(item?.id || '').toLowerCase();
   const path = String(item?.path || '').toLowerCase();
   const name = String(item?.name || '').toLowerCase();
+
+  const crmIconMap = {
+    'admin-crm-dashboard': 'Dashboard',
+    'admin-crm-lead-overview': 'Leaderboard',
+    'admin-crm-all-leads': 'Groups',
+    'admin-crm-add-lead': 'PersonAdd',
+    'admin-crm-lead-sources': 'AltRoute',
+    'admin-crm-lead-types': 'Category',
+    'admin-crm-import-export-leads': 'ImportExport',
+    'admin-crm-call-overview': 'CallOverview',
+    'admin-crm-assigned-calls': 'AssignedCalls',
+    'admin-crm-todays-calls': 'TodaysCalls',
+    'admin-crm-pending-calls': 'PendingCalls',
+    'admin-crm-scheduled-calls': 'ScheduledCalls',
+    'admin-crm-completed-calls': 'CompletedCalls',
+    'admin-crm-converted-calls': 'ConvertedCalls',
+    'admin-crm-transferred-calls': 'TransferredCalls',
+    'admin-crm-call-history': 'CallHistory',
+    'admin-crm-follow-ups': 'EventRepeat',
+    'admin-crm-assignments': 'Assignment',
+    'admin-crm-assignment-bulk': 'PlaylistAddCheck',
+    'admin-crm-assignment-history': 'WorkHistory',
+    'admin-crm-workload': 'Balance',
+    'admin-crm-reports-overview': 'Analytics',
+    'admin-crm-reports-leads': 'TrendingUp',
+    'admin-crm-reports-calls': 'PhoneCallback',
+    'admin-crm-reports-follow-ups': 'DateRange',
+    'admin-crm-reports-team-performance': 'WorkspacePremium',
+    'admin-crm-reports-conversion-funnel': 'FilterList',
+    'admin-crm-reports-user-activity': 'Timeline',
+  };
+
+  if (crmIconMap[id]) {
+    return crmIconMap[id];
+  }
+  if (path.includes('/crm/admin/dashboard')) return 'Dashboard';
+  if (path.includes('/crm/admin/lead-overview')) return 'Leaderboard';
+  if (path.includes('/crm/admin/all-leads')) return 'Groups';
+  if (path.includes('/crm/admin/add-lead')) return 'PersonAdd';
+  if (path.includes('/crm/admin/lead-sources')) return 'AltRoute';
+  if (path.includes('/crm/admin/lead-types')) return 'Category';
+  if (path.includes('/crm/admin/import-export-leads')) return 'ImportExport';
+  if (path.includes('/crm/admin/call-overview')) return 'CallOverview';
+  if (path.includes('/crm/admin/assigned-calls')) return 'AssignedCalls';
+  if (path.includes('/crm/admin/todays-calls')) return 'TodaysCalls';
+  if (path.includes('/crm/admin/pending-calls')) return 'PendingCalls';
+  if (path.includes('/crm/admin/scheduled-calls')) return 'ScheduledCalls';
+  if (path.includes('/crm/admin/completed-calls')) return 'CompletedCalls';
+  if (path.includes('/crm/admin/converted-calls')) return 'ConvertedCalls';
+  if (path.includes('/crm/admin/transferred-calls')) return 'TransferredCalls';
+  if (path.includes('/crm/admin/call-history')) return 'CallHistory';
+  if (path.includes('/crm/admin/follow-ups')) return 'EventRepeat';
+  if (path.includes('/crm/admin/assignments')) return 'Assignment';
+  if (path.includes('/crm/admin/assignment-bulk')) return 'PlaylistAddCheck';
+  if (path.includes('/crm/admin/assignment-history')) return 'WorkHistory';
+  if (path.includes('/crm/admin/workload')) return 'Balance';
+  if (path.includes('/crm/reports/overview')) return 'Analytics';
+  if (path.includes('/crm/reports/leads')) return 'TrendingUp';
+  if (path.includes('/crm/reports/calls')) return 'PhoneCallback';
+  if (path.includes('/crm/reports/follow-ups')) return 'DateRange';
+  if (path.includes('/crm/reports/team-performance')) return 'WorkspacePremium';
+  if (path.includes('/crm/reports/conversion-funnel')) return 'FilterList';
+  if (path.includes('/crm/reports/user-activity')) return 'Timeline';
 
   if (id === 'salary-component' || path.includes('/salary-component') || name === 'salary component') {
     return 'SalaryComponent';
@@ -516,17 +662,46 @@ const getMenuItemIcon = (item) => {
     return 'PayrollReports';
   }
 
+  // Client Portal pages
+  if (id === 'client-dashboard' || path === '/client/dashboard' || path === '/client' || name === 'dashboard') {
+    return 'Dashboard';
+  }
+  if (id === 'client-my-services' || path.includes('/client/my-services') || name === 'my services') {
+    return 'DesignServices';
+  }
+  if (id === 'client-tasks-updates' || path.includes('/client/tasks-updates') || name.includes('tasks & updates')) {
+    return 'Task';
+  }
+  if (id === 'client-marketplace' || path.includes('/client/marketplace') || name.includes('explore services') || name.includes('marketplace')) {
+    return 'Storefront';
+  }
+  if (id === 'client-support-tickets' || path.includes('/client/support-tickets')) {
+    return (name === 'meetings' || item?.name === 'Meetings') ? 'VideoCall' : 'SupportAgent';
+  }
+  if (id === 'client-documents' || path.includes('/client/documents') || name === 'documents') {
+    return 'Description';
+  }
+  if (id === 'client-payments' || path.includes('/client/payments') || path.includes('/client/payment') || name === 'payments') {
+    return 'CreditCard';
+  }
+  if (id === 'client-plans' || path.includes('/client-plans')) {
+    return 'Subscriptions';
+  }
+  if (id === 'active-clients' || path.includes('/active-clients')) {
+    return 'Groups';
+  }
+
   return item?.icon || 'Dashboard';
 };
 
 // Admin CRM sidebar scaffold. Add new page ids to a group's itemIds when its
 // route is added to the normal sidebar configuration.
 const ADMIN_CRM_MENU_GROUPS = [
-  { id: 'lead-management', name: 'Lead Management', icon: 'Person', itemIds: ['admin-crm-lead-overview', 'admin-crm-all-leads', 'admin-crm-add-lead', 'admin-crm-lead-sources', 'admin-crm-lead-types', 'admin-crm-import-export-leads'] },
+  { id: 'lead-management', name: 'Lead Management', icon: 'ContactPage', itemIds: ['admin-crm-lead-overview', 'admin-crm-all-leads', 'admin-crm-add-lead', 'admin-crm-lead-sources', 'admin-crm-lead-types', 'admin-crm-import-export-leads'] },
   { id: 'call-management', name: 'Call Management', icon: 'Call', itemIds: ['admin-crm-call-overview', 'admin-crm-assigned-calls', 'admin-crm-todays-calls', 'admin-crm-pending-calls', 'admin-crm-scheduled-calls', 'admin-crm-completed-calls', 'admin-crm-converted-calls', 'admin-crm-transferred-calls', 'admin-crm-call-history'] },
-  { id: 'follow-up-center', name: 'Follow-Up Center', icon: 'EventNote', itemIds: ['admin-crm-follow-ups'], direct: true },
-  { id: 'assignments', name: 'Assignments', icon: 'Groups', itemIds: ['admin-crm-assignments', 'admin-crm-assignment-bulk', 'admin-crm-assignment-history', 'admin-crm-workload'] },
-  { id: 'reports', name: 'Reports', icon: 'ListAlt', itemIds: ['admin-crm-reports-overview', 'admin-crm-reports-leads', 'admin-crm-reports-calls', 'admin-crm-reports-follow-ups', 'admin-crm-reports-team-performance', 'admin-crm-reports-conversion-funnel', 'admin-crm-reports-user-activity'] },
+  { id: 'follow-up-center', name: 'Follow-Up Center', icon: 'EventRepeat', itemIds: ['admin-crm-follow-ups'], direct: true },
+  { id: 'assignments', name: 'Assignments', icon: 'AssignmentTurnedIn', itemIds: ['admin-crm-assignments', 'admin-crm-assignment-bulk', 'admin-crm-assignment-history', 'admin-crm-workload'] },
+  { id: 'reports', name: 'Reports', icon: 'Assessment', itemIds: ['admin-crm-reports-overview', 'admin-crm-reports-leads', 'admin-crm-reports-calls', 'admin-crm-reports-follow-ups', 'admin-crm-reports-team-performance', 'admin-crm-reports-conversion-funnel', 'admin-crm-reports-user-activity'] },
 ];
 
 
@@ -569,6 +744,14 @@ const getIconComponent = (iconName) => {
       IconComponent = SettingsIcon;
     } else if (iconName.toLowerCase().includes('credit') || iconName.toLowerCase().includes('payment')) {
       IconComponent = CreditCardIcon;
+    } else if (iconName.toLowerCase().includes('document') || iconName.toLowerCase().includes('file')) {
+      IconComponent = DescriptionIcon;
+    } else if (iconName.toLowerCase().includes('store') || iconName.toLowerCase().includes('market')) {
+      IconComponent = StorefrontIcon;
+    } else if (iconName.toLowerCase().includes('design') || iconName.toLowerCase().includes('myservice')) {
+      IconComponent = DesignServicesIcon;
+    } else if (iconName.toLowerCase().includes('subscription')) {
+      IconComponent = SubscriptionsIcon;
     } else if (iconName.toLowerCase().includes('folder') || iconName.toLowerCase().includes('service')) {
       IconComponent = FolderIcon;
     } else if (iconName.toLowerCase().includes('support')) {
@@ -652,7 +835,7 @@ const fixedDefaultItems = [
 const crmSidebarItems = CRM_PAGES.map((page, index) => ({
   id: page.id,
   name: page.name,
-  icon: 'ListAlt',
+  icon: page.icon || 'Dashboard',
   path: `/ciisUser/${page.path}`,
   category: page.category || 'admin-crm',
   order: 31 + index / 100
@@ -670,7 +853,7 @@ const clientMenuItems = [
   {
     id: 'client-my-services',
     name: 'My Services',
-    icon: 'Folder',
+    icon: 'DesignServices',
     path: '/client/my-services',
     category: 'main',
     order: 2
@@ -686,7 +869,7 @@ const clientMenuItems = [
   {
     id: 'client-marketplace',
     name: 'Explore Services',
-    icon: 'Folder',
+    icon: 'Storefront',
     path: '/client/marketplace',
     category: 'main',
     order: 4
@@ -702,7 +885,7 @@ const clientMenuItems = [
   {
     id: 'client-documents',
     name: 'Documents',
-    icon: 'Folder',
+    icon: 'Description',
     path: '/client/documents',
     category: 'main',
     order: 6
@@ -1924,8 +2107,8 @@ const Sidebar = ({
 
   
   const isClientUser = useMemo(() => {
-    return userData?.companyRole === "client";
-  }, [userData]);
+    return userData?.companyRole === "client" || location.pathname.startsWith('/client');
+  }, [userData, location.pathname]);
 
   useEffect(() => {
     if (!isClientUser || !userData) {
@@ -2994,16 +3177,15 @@ const Sidebar = ({
             </StyledListItem>
             <Collapse id={submenuId} in={isSidebarOpen && telecallerWorkspaceOpen} timeout="auto">
               <List disablePadding sx={{
-  ml: 2.25,
-  mr: 1,
-  my: 0.35,
-  pl: 0.75,
-  borderLeft: '1px solid',
-  borderColor: 'divider',
-  '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
-}}> 
+                ml: 2.25,
+                mr: 1,
+                my: 0.35,
+                pl: 0.75,
+                borderLeft: '1px solid rgba(226, 232, 240, 0.8)',
+                '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
+              }}> 
                 {children.map(item => (
-                  <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, true)}</StyledListItem>
+                  <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, isSidebarOpen)}</StyledListItem>
                 ))}
               </List>
             </Collapse>
@@ -3093,17 +3275,16 @@ const Sidebar = ({
               </StyledListItem>
               <Collapse in={isSidebarOpen && isOpen} timeout="auto" unmountOnExit>
                 <List disablePadding sx={{
-  ml: 2.25,
-  mr: 1,
-  my: 0.35,
-  pl: 0.75,
-  borderLeft: '1px solid',
-  borderColor: 'divider',
-  '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
-}}> 
+                  ml: 2.25,
+                  mr: 1,
+                  my: 0.35,
+                  pl: 0.75,
+                  borderLeft: '1px solid rgba(226, 232, 240, 0.8)',
+                  '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
+                }}> 
                   {children.map(item => (
                     <StyledListItem key={item.id} disablePadding>
-                      {renderMenuItem(item, true)}
+                      {renderMenuItem(item, isSidebarOpen)}
                     </StyledListItem>
                   ))}
                 </List>
@@ -3170,7 +3351,7 @@ const Sidebar = ({
 
   const groupedItems = useMemo(() => {
     const groups = {};
-    const categoryOrder = ['main', 'work', 'payroll', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients'];
+    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients', 'payroll'];
     // Keep CRM sections below ordinary and custom sidebar sections.
     const crmSectionOrder = category => category === 'crm' ? 1 : category === 'admin-telecaller' ? 2 : 0;
     const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
@@ -3308,96 +3489,84 @@ const Sidebar = ({
           width: isSidebarOpen ? drawerWidthOpen : drawerWidthClosed,
         } : undefined}
       >
-        
-      {isSidebarOpen && (
-        <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle2" fontWeight={600} noWrap>
-                {userData?.name || 'Client User'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                Client Portal
-              </Typography>
-              {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
-                <Typography 
-                  variant="caption" 
-                  display="block" 
-                  color="text.secondary" 
-                  sx={{ 
-                    fontSize: '0.7rem', 
-                    fontWeight: 500,
-                    mt: 0.5,
-                    opacity: 0.8,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    whiteSpace: 'normal',
-                  }}
-                >
-                  {companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName}
-                </Typography>
-              )}
-            </Box>
-            <Tooltip title="My Profile">
-              <Button
-                size="small"
-                onClick={() => handleNavigate('/client/account-settings')}
-                startIcon={<PersonIcon fontSize="small" />}
-                sx={{
-                  flex: '0 0 auto',
-                  minWidth: 86,
-                  height: 32,
-                  px: 1,
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  color: 'primary.main',
-                  backgroundColor: 'action.hover',
-                  border: `1px solid ${theme.palette.divider}`,
-                  '& .MuiButton-startIcon': {
-                    mr: 0.5,
-                  },
-                  '&:hover': {
-                    backgroundColor: 'primary.light',
-                    color: 'primary.contrastText',
-                  },
-                }}
-              >
-                Profile
-              </Button>
-            </Tooltip>
-          </Box>
-        </Box>
-      )}
-
-        
+        {/* Scrollable Container */}
         <Box sx={{ 
           flex: 1, 
           minHeight: 0,
           overflowY: 'auto', 
           overflowX: 'hidden', 
-          mt: 2,
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           '&::-webkit-scrollbar': { 
-            width: 5,
-            display: 'none'
-          },
-          '&:hover::-webkit-scrollbar': {
-            display: 'block'
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'transparent',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: theme.palette.action.hover,
-            borderRadius: 3,
+            display: 'none',
+            width: 0,
+            height: 0,
           },
         }}>
+          <Collapse in={isSidebarOpen} timeout={250}>
+            <Box sx={{ p: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="subtitle2" fontWeight={600} noWrap>
+                    {userData?.name || 'Client User'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    Client Portal
+                  </Typography>
+                  {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
+                    <Typography 
+                      variant="caption" 
+                      display="block" 
+                      color="text.secondary" 
+                      sx={{ 
+                        fontSize: '0.7rem', 
+                        fontWeight: 500,
+                        mt: 0.5,
+                        opacity: 0.8,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        whiteSpace: 'normal',
+                      }}
+                    >
+                      {companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName}
+                    </Typography>
+                  )}
+                </Box>
+                <Tooltip title="My Profile">
+                  <Button
+                    size="small"
+                    onClick={() => handleNavigate('/client/account-settings')}
+                    startIcon={<PersonIcon fontSize="small" />}
+                    sx={{
+                      flex: '0 0 auto',
+                      minWidth: 86,
+                      height: 32,
+                      px: 1,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: 'primary.main',
+                      backgroundColor: 'action.hover',
+                      border: '1px solid rgba(226, 232, 240, 0.8)',
+                      '& .MuiButton-startIcon': {
+                        mr: 0.5,
+                      },
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        color: 'primary.contrastText',
+                      },
+                    }}
+                  >
+                    Profile
+                  </Button>
+                </Tooltip>
+              </Box>
+            </Box>
+          </Collapse>
           <List sx={{ py: 0 }}>
             {menuItems.map((item) => (
               <StyledListItem key={item.id} disablePadding>
@@ -3407,59 +3576,70 @@ const Sidebar = ({
           </List>
         </Box>
 
-        
         <Box sx={{ 
-          p: isSidebarOpen ? 2 : '10px 0', 
+          width: '100%',
+          p: isSidebarOpen ? '12px 14px' : '10px 0', 
           display: 'flex', 
           justifyContent: 'center',
           alignItems: 'center',
-          borderTop: `1px solid ${theme.palette.divider}` 
+          borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+          transition: 'padding 0.2s ease',
+          boxSizing: 'border-box'
         }}>
-          {isSidebarOpen ? (
+          <Tooltip title={!isSidebarOpen ? "Logout" : ""} placement="right" disableHoverListener={isSidebarOpen}>
             <StyledListItemButton
               onClick={handleLogout}
-              isCollapsed={false}
+              isCollapsed={!isSidebarOpen}
               sx={{
                 color: 'error.main',
+                justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+                alignItems: 'center',
+                width: isSidebarOpen ? '100%' : 44,
+                height: 44,
+                minHeight: 44,
+                p: isSidebarOpen ? '8px 12px' : 0,
+                m: isSidebarOpen ? 0 : '0 auto',
+                borderRadius: '10px',
+                borderLeft: '1px solid transparent',
                 '&:hover': { 
-                  backgroundColor: 'error.light',
-                  color: 'error.dark'
+                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                  color: 'error.dark',
+                  borderLeft: '1px solid transparent'
                 }
               }}
             >
-              <StyledListItemIcon sx={{ color: 'inherit', mr: 1.25, minWidth: 28, justifyContent: 'center' }}>
-                <LogoutOutlined />
+              <StyledListItemIcon sx={{ 
+                color: 'inherit', 
+                m: 0,
+                mr: isSidebarOpen ? 1.25 : 0, 
+                minWidth: isSidebarOpen ? 28 : 0, 
+                width: isSidebarOpen ? 28 : 44,
+                height: 44,
+                display: 'inline-flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                transition: 'all 0.2s ease'
+              }}>
+                <LogoutOutlined sx={{ fontSize: 22 }} />
               </StyledListItemIcon>
-              <ListItemText
-                primary="Logout"
-                primaryTypographyProps={{ 
-                  variant: 'body2', 
-                  fontWeight: 600 
-                }}
-              />
+              {isSidebarOpen && (
+                <ListItemText
+                  primary="Logout"
+                  sx={{
+                    minWidth: 0,
+                    my: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  primaryTypographyProps={{ 
+                    variant: 'body2', 
+                    fontWeight: 600 
+                  }}
+                />
+              )}
             </StyledListItemButton>
-          ) : (
-            <Tooltip title="Logout" placement="right">
-              <IconButton
-                onClick={handleLogout}
-                sx={{
-                  width: 44,
-                  height: 44,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  color: 'error.main',
-                  borderRadius: '10px',
-                  '&:hover': { 
-                    color: 'error.dark',
-                    backgroundColor: 'error.light'
-                  }
-                }}
-              >
-                <LogoutOutlined />
-              </IconButton>
-            </Tooltip>
-          )}
+          </Tooltip>
         </Box>
       </Container>
     );
@@ -3531,7 +3711,8 @@ const Sidebar = ({
               category === 'tasks' ? 'Task' :
               category === 'projects' ? 'Groups' :
               category === 'meetings' ? 'VideoCall' :
-              category === 'admin-crm' ? 'ListAlt' :
+              category === 'crm' || category === 'admin-crm' ? 'ContactPhone' :
+              category === 'admin-telecaller' ? 'PhoneInTalk' :
               category === 'clients' ? 'Person' : 'Dashboard'
             )}
           </CollapsedHeading>
@@ -3653,99 +3834,111 @@ const Sidebar = ({
       } : undefined}
     >
       
-      {isSidebarOpen && (
-        <Box sx={{ px: 2, py: 2.25, borderBottom: `1px solid ${theme.palette.divider}` }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1.35 }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ fontSize: '0.875rem', lineHeight: 1.4, color: 'text.primary' }}>
-                {userData?.name || 'User'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.35, textTransform: 'capitalize' }}>
-                {userSubtitle}
-              </Typography>
-              {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
-                <Typography 
-                  variant="caption" 
-                  display="block" 
-                  color="text.secondary" 
-                  sx={{ 
-                    fontSize: '0.7rem', 
-                    fontWeight: 500,
-                    mt: 0.5,
-                    opacity: 0.8,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    whiteSpace: 'normal',
+      {/* Main Navigation with Scroll */}
+      <Box 
+        sx={{ 
+          flex: 1, 
+          minHeight: 0, 
+          overflowY: 'auto', 
+          overflowX: 'hidden',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          '&::-webkit-scrollbar': {
+            display: 'none',
+            width: 0,
+            height: 0,
+          },
+        }}
+      >
+        <Collapse in={isSidebarOpen} timeout={250}>
+          <Box sx={{ px: 2, py: 2.25, borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1.35 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ fontSize: '0.875rem', lineHeight: 1.4, color: 'text.primary' }}>
+                  {userData?.name || 'User'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.35, textTransform: 'capitalize' }}>
+                  {userSubtitle}
+                </Typography>
+                {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
+                  <Typography 
+                    variant="caption" 
+                    display="block" 
+                    color="text.secondary" 
+                    sx={{ 
+                      fontSize: '0.7rem', 
+                      fontWeight: 500,
+                      mt: 0.5,
+                      opacity: 0.8,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      whiteSpace: 'normal',
+                    }}
+                  >
+                    {companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName}
+                  </Typography>
+                )}
+              </Box>
+              <Tooltip title="My Profile">
+                <Button
+                  onClick={() => handleNavigate('/ciisUser/profile')}
+                  sx={{
+                    flex: '0 0 auto',
+                    width: '100%',
+                    minWidth: 0,
+                    height: 50,
+                    px: 1.5,
+                    borderRadius: 2.25,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    color: 'primary.main',
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%)',
+                    border: '1px solid #cfe0ff',
+                    boxShadow: '0 5px 14px rgba(37, 99, 235, 0.14)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%)',
+                      boxShadow: '0 7px 18px rgba(37, 99, 235, 0.2)',
+                    },
                   }}
                 >
-                  {companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName}
-                </Typography>
-              )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.78rem', lineHeight: 1 }}>
+                      <PersonIcon sx={{ fontSize: 20 }} />
+                      <span>Profile</span>
+                    </Box>
+                    <Divider orientation="vertical" flexItem sx={{ mx: 0.55 }} />
+                    <Box sx={{ position: 'relative', width: 34, height: 34, flex: '0 0 34px', display: 'grid', placeItems: 'center' }}>
+                      <CircularProgress
+                        variant="determinate"
+                        value={100}
+                        size={34}
+                        thickness={4}
+                        sx={{ position: 'absolute', color: '#dbe7f8' }}
+                      />
+                      <CircularProgress
+                        variant="determinate"
+                        value={profileCompletion}
+                        size={34}
+                        thickness={4}
+                        sx={{ position: 'absolute', color: '#2878db', '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }}
+                      />
+                      <Typography component="span" sx={{ color: '#172033', fontSize: '0.62rem', fontWeight: 700 }}>
+                        {profileCompletion}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Button>
+              </Tooltip>
             </Box>
-            <Tooltip title="My Profile">
-              <Button
-                onClick={() => handleNavigate('/ciisUser/profile')}
-                sx={{
-                  flex: '0 0 auto',
-                  width: '100%',
-                  minWidth: 0,
-                  height: 50,
-                  px: 1.5,
-                  borderRadius: 2.25,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  color: 'primary.main',
-                  background: 'linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%)',
-                  border: '1px solid #cfe0ff',
-                  boxShadow: '0 5px 14px rgba(37, 99, 235, 0.14)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%)',
-                    boxShadow: '0 7px 18px rgba(37, 99, 235, 0.2)',
-                  },
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.78rem', lineHeight: 1 }}>
-                    <PersonIcon sx={{ fontSize: 20 }} />
-                    <span>Profile</span>
-                  </Box>
-                  <Divider orientation="vertical" flexItem sx={{ mx: 0.55 }} />
-                  <Box sx={{ position: 'relative', width: 34, height: 34, flex: '0 0 34px', display: 'grid', placeItems: 'center' }}>
-                    <CircularProgress
-                      variant="determinate"
-                      value={100}
-                      size={34}
-                      thickness={4}
-                      sx={{ position: 'absolute', color: '#dbe7f8' }}
-                    />
-                    <CircularProgress
-                      variant="determinate"
-                      value={profileCompletion}
-                      size={34}
-                      thickness={4}
-                      sx={{ position: 'absolute', color: '#2878db', '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }}
-                    />
-                    <Typography component="span" sx={{ color: '#172033', fontSize: '0.62rem', fontWeight: 700 }}>
-                      {profileCompletion}%
-                    </Typography>
-                  </Box>
-                </Box>
-              </Button>
-            </Tooltip>
           </Box>
-        </Box>
-      )}
-
-      
-      <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        </Collapse>
         {renderClientCompanySwitcher()}
         {Object.keys(groupedItems).map(category => (
           <Box key={category}>
             {renderCategoryHeading(category)}
-            
             
             {category === 'crm' ? renderAdminCrmMenu(groupedItems[category]) : category === 'admin-telecaller' ? renderTelecallerMenu(groupedItems[category]) : (
               <List sx={{ py: 0 }}>
@@ -3760,59 +3953,70 @@ const Sidebar = ({
         ))}
       </Box>
 
-      
       <Box sx={{ 
-        p: isSidebarOpen ? 2 : '10px 0', 
+        width: '100%',
+        p: isSidebarOpen ? '12px 14px' : '10px 0', 
         display: 'flex', 
         justifyContent: 'center',
         alignItems: 'center',
-        borderTop: `1px solid ${theme.palette.divider}` 
+        borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+        transition: 'padding 0.2s ease',
+        boxSizing: 'border-box'
       }}>
-        {isSidebarOpen ? (
+        <Tooltip title={!isSidebarOpen ? "Logout" : ""} placement="right" disableHoverListener={isSidebarOpen}>
           <StyledListItemButton
             onClick={handleLogout}
-            isCollapsed={false}
+            isCollapsed={!isSidebarOpen}
             sx={{
               color: 'error.main',
+              justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+              alignItems: 'center',
+              width: isSidebarOpen ? '100%' : 44,
+              height: 44,
+              minHeight: 44,
+              p: isSidebarOpen ? '8px 12px' : 0,
+              m: isSidebarOpen ? 0 : '0 auto',
+              borderRadius: '10px',
+              borderLeft: '1px solid transparent',
               '&:hover': { 
-                backgroundColor: 'error.light',
-                color: 'error.dark'
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                color: 'error.dark',
+                borderLeft: '1px solid transparent'
               }
             }}
           >
-            <StyledListItemIcon sx={{ color: 'inherit', mr: 1.25, minWidth: 28, justifyContent: 'center' }}>
-              <LogoutOutlined />
+            <StyledListItemIcon sx={{ 
+              color: 'inherit', 
+              m: 0,
+              mr: isSidebarOpen ? 1.25 : 0, 
+              minWidth: isSidebarOpen ? 28 : 0, 
+              width: isSidebarOpen ? 28 : 44,
+              height: 44,
+              display: 'inline-flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              transition: 'all 0.2s ease'
+            }}>
+              <LogoutOutlined sx={{ fontSize: 22 }} />
             </StyledListItemIcon>
-            <ListItemText
-              primary="Logout"
-              primaryTypographyProps={{ 
-                variant: 'body2', 
-                fontWeight: 600 
-              }}
-            />
+            {isSidebarOpen && (
+              <ListItemText
+                primary="Logout"
+                sx={{
+                  minWidth: 0,
+                  my: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                primaryTypographyProps={{ 
+                  variant: 'body2', 
+                  fontWeight: 600 
+                }}
+              />
+            )}
           </StyledListItemButton>
-        ) : (
-          <Tooltip title="Logout" placement="right">
-            <IconButton
-              onClick={handleLogout}
-              sx={{
-                width: 44,
-                height: 44,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                color: 'error.main',
-                borderRadius: '10px',
-                '&:hover': { 
-                  color: 'error.dark',
-                  backgroundColor: 'error.light'
-                }
-              }}
-            >
-              <LogoutOutlined />
-            </IconButton>
-          </Tooltip>
-        )}
+        </Tooltip>
       </Box>
     </Container>
   );

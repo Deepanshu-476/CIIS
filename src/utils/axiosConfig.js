@@ -2,7 +2,7 @@ import axios from "axios";
 import API_URL from "../config";
 
 const resolvedApiUrl = import.meta.env.VITE_API_URL || API_URL;
-const productionApiUrl = import.meta.env.VITE_FALLBACK_API_URL || "https://backendcds.ciisnetwork.in/api";
+const productionApiUrl = import.meta.env.VITE_FALLBACK_API_URL || "https://backendciisnetwork.com/api";
 const isLocalApiUrl = /^https?:\/\/(127\.0\.0\.1|localhost):3000\/api/i.test(resolvedApiUrl);
 const defaultRequestCacheTtlMs = 3000;
 const highTrafficRequestCacheTtlMs = 300000;

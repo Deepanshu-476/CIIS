@@ -131,6 +131,30 @@ const getUserInitials = (user) => {
   return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 };
 
+const getUserRoleText = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") {
+    return String(value.name || value.roleName || value.title || value.jobRoleName || value.companyRole || "").trim();
+  }
+  return String(value).trim();
+};
+
+const isCompanyEmployeeUser = (user) => {
+  if (!user) return false;
+  const roleValues = [
+    user.companyRole,
+    user.role,
+    user.jobRole,
+    user.jobRoleName,
+    user.userType,
+    user.accountType,
+    user.department,
+  ].map(getUserRoleText);
+
+  const hasClientRole = roleValues.some((value) => normalizeRoleToken(value) === "client");
+  return !hasClientRole && !user.clientId && !user.client;
+};
+
 const getPagePermissionMetric = (page) => ({
   view: Number.isFinite(Number(page?.viewCount)) ? Number(page.viewCount) : normalizeUserIds(page?.viewUsers).length,
   edit: Number.isFinite(Number(page?.editCount)) ? Number(page.editCount) : normalizeUserIds(page?.editUsers).length,
@@ -634,7 +658,7 @@ const PageManagement = () => {
         : Array.isArray(jobRolesRes.data)
           ? jobRolesRes.data
           : [];
-    setUsers(Array.isArray(loadedContext.users) ? loadedContext.users : []);
+    setUsers(Array.isArray(loadedContext.users) ? loadedContext.users.filter(isCompanyEmployeeUser) : []);
     setJobRoles(loadedJobRoles);
     setSidebarConfigs(Array.isArray(sidebarConfigsRes.data?.data) ? sidebarConfigsRes.data.data : []);
     setBranches(Array.isArray(loadedContext.branches) ? loadedContext.branches : []);
@@ -772,6 +796,8 @@ const PageManagement = () => {
 
   const isRoleScopedPage = selectedPageRoleTokenSet.size > 0;
   const isUserVisibleForSelectedPage = (user) => {
+    if (!isCompanyEmployeeUser(user)) return false;
+
     // Always show Super Admin / Owner regardless of page role scoping
     if (
       user?.companyRole === "Super Admin" ||
@@ -808,9 +834,7 @@ const PageManagement = () => {
   const activeUserIdSet = useMemo(() => new Set(activeIds), [activeIds]);
   const modalUsers = useMemo(() => {
     const query = candidateSearch.trim().toLowerCase();
-    
-    // When searching, search all users. Otherwise, only show role-matched users.
-    const sourceUsers = query ? users : visibleUsers;
+    const sourceUsers = visibleUsers;
     
     const filtered = !query
       ? sourceUsers
@@ -828,7 +852,7 @@ const PageManagement = () => {
       if (leftSelected === rightSelected) return 0;
       return leftSelected ? -1 : 1;
     });
-  }, [candidateSearch, candidateSelection, visibleUsers, users]);
+  }, [candidateSearch, candidateSelection, visibleUsers]);
 
   const stats = useMemo(() => {
     const totalPages = pages.length;
@@ -1121,7 +1145,7 @@ const PageManagement = () => {
         const scopeKey = summaryModal.accessType === "approve" ? "approve" : summaryModal.accessType;
         const scope = normalizeScopeValue(summaryUserScopeMap[scopeKey]?.[userId] || DEFAULT_SCOPE);
         return { id: userId, user, scope };
-      }),
+      }).filter(({ user }) => isCompanyEmployeeUser(user)),
     [summaryAccessTypeIds, summaryModal.accessType, summaryUserScopeMap, usersById]
   );
 
@@ -1575,8 +1599,7 @@ const PageManagement = () => {
                 <h3>
                   {summaryPage.name} - {summaryAccessTypeLabel}
                 </h3>
-                <p>Yahan woh users dikh rahe hain jinko is page par ye access diya gaya hai.</p>
-                <p>Showing users who have been granted this access permission for this page.</p>
+                <p>Showing company employees who have been granted this access permission for this page.</p>
               </div>
               <button type="button" className="pm-icon-btn" onClick={closePermissionSummaryDialog} aria-label="Close">
                 <Close />

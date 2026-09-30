@@ -4136,6 +4136,7 @@ const TaskDetails = () => {
     );
   };
 
+  
   // ==================== MAIN RENDER ====================
 
   if (isTaskPageMode) {
@@ -4152,214 +4153,281 @@ const TaskDetails = () => {
   }
 
   return (
-    <div className="TaskDetails-section">
+    <div className="TaskDetails-section new-ui">
       {renderSnackbar()}
       {renderError()}
 
-      <div className="TaskDetails-header">
-        <div className="TaskDetails-header-content">
-          <div className="TaskDetails-header-top">
-            <div className="TaskDetails-header-title">
-              <h1>📊 Company Employee Task Management</h1>
-              <p className="TaskDetails-header-subtitle">
-                Comprehensive dashboard with advanced filtering and analytics
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-                  Logged in as: {currentUser?.name}
-                  <span style={{
-                    marginLeft: '0.5rem',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '0.25rem',
-                    backgroundColor: isOwner() ? '#e3f2fd' : '#fff3e0',
-                    color: isOwner() ? '#1976d2' : '#f57c00',
-                    fontSize: '0.8rem',
-                    fontWeight: 600
-                  }}>
-                    {isOwner() ? '👑 Owner' : '👤 Employee'}
-                  </span>
-                </p>
-                {!isOwner() && currentUser?.department && (
-                  <p style={{ fontSize: '0.9rem', color: '#6b7280', display: 'flex', gap: '3px' }}>
-                    <FiUsers size={14} /> Department: {getDepartmentName(currentUser.department)}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="TaskDetails-header-stats">
-              <div className="TaskDetails-stats-icon">
-                <FiUsers />
-              </div>
-              <div className="TaskDetails-stats-text">
-                <h2>{filteredUsers.length}</h2>
-                <p>
-                  COMPANY EMPLOYEES
-                </p>
-              </div>
-            </div>
+      {/* Top Header */}
+      <div className="new-header">
+        <div className="new-header-left">
+          <div className="new-header-icon"><FiClipboard size={24} /></div>
+          <div>
+            <h1>Company Employee Task Management</h1>
+            <p>Manage team workload, tasks, and performance efficiently.</p>
           </div>
-
-          {renderOverallStats()}
-
-
+        </div>
+        <div className="new-header-right">
+          <button className="btn-primary"><FiPlus /> Create Task</button>
+          <button className="btn-outline"><FiUsers /> Bulk Assign</button>
+          <button className="btn-outline"><FiDownload /> Export</button>
         </div>
       </div>
 
-      <div className="TaskDetails-card">
-        <div className="TaskDetails-card-content">
-          <div className="TaskDetails-card-header">
-            <div className="TaskDetails-card-title-section">
-              <div className="TaskDetails-card-icon">
-                <FiUsers />
-              </div>
-              <div>
-                <h3 className="TaskDetails-card-title">
-                  Company Employee Directory
-                </h3>
-                <p className="TaskDetails-card-subtitle">
-                  <FiInfo size={14} />
-                  Viewing all employees across the company, grouped by department
-                </p>
-              </div>
+      {/* Stats Grid */}
+      <div className="new-stats-grid">
+        <div className="new-stat-card">
+          <div className="new-stat-top">
+            <div className="new-stat-icon blue"><FiUsers size={20}/></div>
+            <div className="new-stat-val">
+              <h3>{systemStats.totalEmployees || 0}</h3>
+              <span>Employees</span>
             </div>
-
-            <div className="TaskDetails-filter-section">
-              <input
-                type="text"
-                className="TaskDetails-search-input"
-                placeholder="Search company employees by name, email or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <button
-                className="TaskDetails-reset-filter-button"
-                onClick={resetFilters}
-                disabled={!searchQuery && !clockedInTodayOnly && activeStatusFilters.length === 1 && activeStatusFilters[0] === 'all'}
-              >
-                <FiRefreshCw size={16} />
-                Reset
-              </button>
-              <button
-                type="button"
-                className={`TaskDetails-login-filter-button ${clockedInTodayOnly ? 'active' : ''}`}
-                onClick={handleTodayClockInToggle}
-                disabled={todayClockedInLoading}
-                title="Show only employees who clocked in today"
-              >
-                <FiLogIn size={16} />
-                {todayClockedInLoading
-                  ? 'Checking...'
-                  : clockedInTodayOnly
-                    ? `Clocked In (${todayClockedInUserIds.size})`
-                    : 'Today Clock In'}
-              </button>
-            </div>
+            
           </div>
-
-          <div className="TaskDetails-stats-grid">
-            <div className="TaskDetails-stat-item">
-              <div className="TaskDetails-stat-content">
-                <div className="TaskDetails-stat-icon-box">
-                  <FiUsers />
-                </div>
-                <div className="TaskDetails-stat-text">
-                  <h4>{systemStats.totalEmployees}</h4>
-                  <p>Total Employees</p>
-                </div>
-              </div>
-            </div>
-            <div className="TaskDetails-stat-item">
-              <div className="TaskDetails-stat-content">
-                <div className="TaskDetails-stat-icon-box" style={{ background: 'rgba(14, 165, 233, 0.1)' }}>
-                  <FiList style={{ color: '#0ea5e9' }} />
-                </div>
-                <div className="TaskDetails-stat-text">
-                  <h4>{systemStats.totalTasks}</h4>
-                  <p>Total Tasks</p>
-                </div>
-              </div>
-            </div>
-            <div className="TaskDetails-stat-item">
-              <div className="TaskDetails-stat-content">
-                <div className="TaskDetails-stat-icon-box" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-                  <FiCheckCircle style={{ color: '#10b981' }} />
-                </div>
-                <div className="TaskDetails-stat-text">
-                  <h4>{systemStats.avgCompletion}%</h4>
-                  <p>Avg Completion</p>
-                </div>
-              </div>
-            </div>
-            <div className="TaskDetails-stat-item">
-              <div className="TaskDetails-stat-content">
-                <div className="TaskDetails-stat-icon-box" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
-                  <FiUsers style={{ color: '#8b5cf6' }} />
-                </div>
-                <div className="TaskDetails-stat-text">
-                  <h4>{systemStats.activeEmployees}</h4>
-                  <p>Active Employees</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {!usersLoading && departmentUserGroups.length > 0 && (
-            <div className="TaskDetails-department-summary">
-              {departmentUserGroups.map(group => (
-                <div className="TaskDetails-department-summary-item" key={group.key}>
-                  <span className="TaskDetails-department-summary-name">{group.name}</span>
-                  <span className="TaskDetails-department-summary-count">{group.users.length}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {usersLoading ? (
-            <div className="TaskDetails-loading-container">
-              <div className="TaskDetails-loading-spinner"></div>
-              <div className="TaskDetails-loading-text">
-                <h4>Loading Employee Data...</h4>
-                <p>Please wait while we fetch the latest information</p>
-              </div>
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="TaskDetails-empty-state">
-              <div className="TaskDetails-empty-icon">
-                <FiUsers />
-              </div>
-              <h3>No Employees Found</h3>
-              <p>
-                {clockedInTodayOnly
-                  ? 'No employees have clocked in today'
-                  : 'No employees found in your company'}
-              </p>
-              <button
-                className="TaskDetails-reset-button"
-                onClick={resetFilters}
-              >
-                <FiRefreshCw size={16} />
-                Reset Search
-              </button>
-            </div>
-          ) : (
-            <div className="TaskDetails-department-groups">
-              {departmentUserGroups.map(group => (
-                <section className="TaskDetails-department-group" key={group.key}>
-                  <div className="TaskDetails-department-group-header">
-                    <div>
-                      <h4>{group.name}</h4>
-                      <p>{group.users.length} users</p>
-                    </div>
-                    <span>{group.users.length}</span>
-                  </div>
-                  <div className="TaskDetails-users-grid">
-                    {group.users.map((user) => renderEnhancedUserCard(user))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
+          <p>Total team members</p>
         </div>
+        <div className="new-stat-card">
+          <div className="new-stat-top">
+            <div className="new-stat-icon purple"><FiClipboard size={20}/></div>
+            <div className="new-stat-val">
+              <h3>{systemStats.totalTasks || 0}</h3>
+              <span>Tasks Today</span>
+            </div>
+            
+          </div>
+          <p>Tasks assigned today</p>
+        </div>
+        <div className="new-stat-card">
+          <div className="new-stat-top">
+            <div className="new-stat-icon orange"><FiClock size={20}/></div>
+            <div className="new-stat-val">
+              <h3>{overallStats.pending || 0}</h3>
+              <span>Pending</span>
+            </div>
+            <div className="new-stat-trend red"></div>
+          </div>
+          <p>Awaiting completion</p>
+        </div>
+        <div className="new-stat-card">
+          <div className="new-stat-top">
+            <div className="new-stat-icon cyan"><FiRefreshCw size={20}/></div>
+            <div className="new-stat-val">
+              <h3>{overallStats['in-progress'] || 0}</h3>
+              <span>In Progress</span>
+            </div>
+            <div className="new-stat-trend cyan"></div>
+          </div>
+          <p>Currently in progress</p>
+        </div>
+        <div className="new-stat-card">
+          <div className="new-stat-top">
+            <div className="new-stat-icon green"><FiCheckCircle size={20}/></div>
+            <div className="new-stat-val">
+              <h3>{overallStats.completed || 0}</h3>
+              <span>Completed</span>
+            </div>
+            <div className="new-stat-trend green"></div>
+          </div>
+          <p>Successfully completed</p>
+        </div>
+        <div className="new-stat-card">
+          <div className="new-stat-top">
+            <div className="new-stat-icon red"><FiPause size={20}/></div>
+            <div className="new-stat-val">
+              <h3>{overallStats.onhold || 0}</h3>
+              <span>On Hold</span>
+            </div>
+            <div className="new-stat-trend red">↓ 50%</div>
+          </div>
+          <p>Temporarily on hold</p>
+        </div>
+      </div>
+
+      {/* Team Insights */}
+      <div className="new-insights">
+        <div className="new-insights-left">
+          <div className="new-insights-title"><FiBarChart2 size={20}/> <span>Team Insights</span></div>
+          <p>Key insights to help you manage your team better.</p>
+        </div>
+        <div className="new-insights-cards">
+          <div className="new-insight-card red">
+            <div className="icon"><FiAlertCircle /></div>
+            <div className="text"><strong>{overallStats.overdue || 0}</strong> overdue tasks need attention</div>
+            <FiChevronRight className="arrow" />
+          </div>
+          <div className="new-insight-card green">
+            <div className="icon"><FiAward /></div>
+            <div className="text"><strong>{(filteredUsers.reduce((top, user) => {
+              const rate = getUserTaskStats(user).completionRate || 0;
+              if (rate > top.rate) return { name: user.name, rate };
+              return top;
+            }, { name: 'No one', rate: -1 })).name}</strong> is top performer at <strong>{Math.max(0, filteredUsers.reduce((top, user) => Math.max(top, getUserTaskStats(user).completionRate || 0), 0))}%</strong> completion rate</div>
+            <FiChevronRight className="arrow" />
+          </div>
+          <div className="new-insight-card orange">
+            <div className="icon"><FiUsers /></div>
+            <div className="text"><strong>{filteredUsers.filter(u => (u.taskStats?.total || 0) === 0).length}</strong> employees have no assigned tasks</div>
+            <FiChevronRight className="arrow" />
+          </div>
+          <div className="new-insight-card blue">
+            <div className="icon"><FiCheckCircle /></div>
+            <div className="text"><strong>{filteredUsers.filter(u => {
+              const stats = getUserTaskStats(u);
+              return stats.total > 0 && stats.total === stats.completed;
+            }).length}</strong> employees completed all assigned tasks</div>
+            <FiChevronRight className="arrow" />
+          </div>
+        </div>
+      </div>
+
+      {/* Filters Bar */}
+      <div className="new-filters-bar">
+        <div className="new-search-box">
+          <FiSearch />
+          <input
+            type="text"
+            placeholder="Search employee by name, email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        
+        <div className="new-filter-group">
+          <div className="new-filter-item">
+            <label>Department</label>
+            <select><option>All Departments</option></select>
+          </div>
+          <div className="new-filter-item">
+            <label>Role</label>
+            <select><option>All Roles</option></select>
+          </div>
+          <div className="new-filter-item">
+            <label>Task Status</label>
+            <select><option>All Status</option></select>
+          </div>
+          <div className="new-filter-item">
+            <label>Performance</label>
+            <select><option>All Performance</option></select>
+          </div>
+          <div className="new-filter-item">
+            <label>Sort By</label>
+            <select><option>Name (A-Z)</option></select>
+          </div>
+        </div>
+
+        <div className="new-filter-actions">
+          <button className="new-reset-btn" onClick={resetFilters}><FiRefreshCw /> Reset</button>
+          <button className={`new-clockin-btn ${clockedInTodayOnly ? 'active' : ''}`} onClick={handleTodayClockInToggle}>
+            <FiTime /> Today Clock In
+          </button>
+          <div className="new-view-toggle">
+            <button className="active"><FiGrid /> Grid</button>
+            <button><FiList /> Table</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Department Pills */}
+      <div className="new-dept-pills">
+        <button className="new-pill active">All <span className="badge">{systemStats.totalEmployees || 0}</span></button>
+        {departmentUserGroups.map(group => (
+          <button key={group.key} className="new-pill">{group.name} <span className="badge">{group.users.length}</span></button>
+        ))}
+      </div>
+
+      {/* Main Content: Department Groups */}
+      {usersLoading ? (
+        <div className="TaskDetails-loading-container"><div className="TaskDetails-loading-spinner"></div><h4>Loading Employee Data...</h4></div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="TaskDetails-empty-state"><h3>No Employees Found</h3></div>
+      ) : (
+        <div className="new-dept-sections">
+          {departmentUserGroups.map((group, i) => (
+            <div className="new-dept-section" key={group.key}>
+              <div className="new-dept-header">
+                <div className="new-dept-header-left">
+                  <div className="icon">{i === 0 ? '🖥️' : i === 1 ? '👤' : i === 2 ? '🏢' : '📊'}</div>
+                  <h3>{group.name}</h3>
+                  <span className="emp-count">{group.users.length} employee{group.users.length !== 1 ? 's' : ''}</span>
+                  <span className="dept-desc">{group.name} operations and tasks</span>
+                </div>
+                <div className="new-dept-header-right">
+                  <div className="count-badge">{group.users.length}</div>
+                  <FiChevronUp />
+                </div>
+              </div>
+              
+              <div className="new-users-grid">
+                {group.users.map(user => {
+                  const userStats = getUserTaskStats(user);
+                  const completionRate = userStats.completionRate || 0;
+                  const getProgressColor = (rate) => {
+                     if(rate >= 80) return '#10b981';
+                     if(rate >= 50) return '#f59e0b';
+                     if(rate > 0) return '#3b82f6';
+                     return '#ef4444';
+                  };
+                  const progressColor = getProgressColor(completionRate);
+                  
+                  return (
+                    <div className="new-user-card" key={user._id || user.id} onClick={() => openUserTasksPage(user._id || user.id)} style={{cursor: 'pointer'}}>
+                      <div className="new-user-card-top">
+                        <div className="new-user-avatar" style={{backgroundColor: '#4f46e5'}}>{getInitials(user.name)}</div>
+                        <div className="new-user-info">
+                          <h4>{user.name || "Unknown"}</h4>
+                          <span className="role"><FiUser size={12}/> {getUserDisplayRole(user, jobRoleMap)}</span>
+                          <span className="email"><FiMail size={12}/> {user.email || "No Email"}</span>
+                        </div>
+                        <button className="more-btn"><FiMoreVertical/></button>
+                      </div>
+                      
+                      <div className="new-user-stats">
+                        <div className="stat">
+                          <h5>{userStats.total || 0}</h5>
+                          <span>Assigned</span>
+                        </div>
+                        <div className="stat">
+                          <h5>{userStats.completed || 0}</h5>
+                          <span>Completed</span>
+                        </div>
+                        <div className="stat">
+                          <h5>{(userStats.total || 0) - (userStats.completed || 0)}</h5>
+                          <span>Pending</span>
+                        </div>
+                        <div className="stat">
+                          <h5>{completionRate}%</h5>
+                          <span>Completion</span>
+                        </div>
+                      </div>
+                      
+                      <div className="new-user-progress">
+                         <div className="progress-track">
+                            <div className="progress-fill" style={{width: `${completionRate}%`, backgroundColor: progressColor}}></div>
+                         </div>
+                      </div>
+                      
+                      <div className="new-user-actions">
+                         <button className="btn-view" onClick={() => openUserTasksPage(user._id || user.id)}>View Tasks</button>
+                         <button className="btn-assign"><FiPlus/> Assign</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination Footer */}
+      <div className="new-pagination">
+         <div className="page-info">Showing 1-{filteredUsers.length} of {filteredUsers.length} employees</div>
+         <div className="page-controls">
+            <button className="page-btn"><FiChevronLeft/> Previous</button>
+            <button className="page-num active">1</button>
+            <button className="page-num">2</button>
+            <button className="page-btn">Next <FiChevronRight/></button>
+         </div>
       </div>
 
       {renderEnhancedDialog()}

@@ -81,6 +81,7 @@ import {
   Description as DescriptionIcon,
   ReceiptLong as ReceiptLongIcon,
   Subscriptions as SubscriptionsIcon,
+  DragIndicator as DragIndicatorIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
 import { handleAppLogout } from '../utils/logoutModal';
@@ -3247,21 +3248,14 @@ const Sidebar = ({
                 color: isTelecallerActive ? 'primary.main' : '#1e293b'
               }}
             />
-            {items.length > 0 && (
-              <Box sx={{
-                fontSize: '0.64rem',
-                fontWeight: 700,
-                color: adminTelecallerDropdownOpen ? 'primary.main' : '#64748b',
-                bgcolor: adminTelecallerDropdownOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
-                px: 0.6,
-                py: 0.1,
-                borderRadius: '6px',
-                mr: 0.75,
-                lineHeight: 1.2
-              }}>
-                {items.length}
-              </Box>
-            )}
+            <DragIndicatorIcon sx={{ 
+              fontSize: 14, 
+              color: '#94a3b8', 
+              opacity: 0, 
+              mr: 0.5,
+              transition: 'opacity 0.15s ease',
+              '.MuiListItemButton-root:hover &': { opacity: 0.7 } 
+            }} />
             <ExpandMore sx={{ 
               fontSize: 18, 
               color: adminTelecallerDropdownOpen ? 'primary.main' : '#64748b',
@@ -3432,21 +3426,14 @@ const Sidebar = ({
                 color: isCrmActive ? 'primary.main' : '#1e293b'
               }}
             />
-            {items.length > 0 && (
-              <Box sx={{
-                fontSize: '0.64rem',
-                fontWeight: 700,
-                color: adminCrmDropdownOpen ? 'primary.main' : '#64748b',
-                bgcolor: adminCrmDropdownOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
-                px: 0.6,
-                py: 0.1,
-                borderRadius: '6px',
-                mr: 0.75,
-                lineHeight: 1.2
-              }}>
-                {items.length}
-              </Box>
-            )}
+            <DragIndicatorIcon sx={{ 
+              fontSize: 14, 
+              color: '#94a3b8', 
+              opacity: 0, 
+              mr: 0.5,
+              transition: 'opacity 0.15s ease',
+              '.MuiListItemButton-root:hover &': { opacity: 0.7 } 
+            }} />
             <ExpandMore sx={{ 
               fontSize: 18, 
               color: adminCrmDropdownOpen ? 'primary.main' : '#64748b',
@@ -3638,21 +3625,14 @@ const Sidebar = ({
                 color: isPayrollActive ? 'primary.main' : '#1e293b'
               }}
             />
-            {items.length > 0 && (
-              <Box sx={{
-                fontSize: '0.64rem',
-                fontWeight: 700,
-                color: payrollDropdownOpen ? 'primary.main' : '#64748b',
-                bgcolor: payrollDropdownOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
-                px: 0.6,
-                py: 0.1,
-                borderRadius: '6px',
-                mr: 0.75,
-                lineHeight: 1.2
-              }}>
-                {items.length}
-              </Box>
-            )}
+            <DragIndicatorIcon sx={{ 
+              fontSize: 14, 
+              color: '#94a3b8', 
+              opacity: 0, 
+              mr: 0.5,
+              transition: 'opacity 0.15s ease',
+              '.MuiListItemButton-root:hover &': { opacity: 0.7 } 
+            }} />
             <ExpandMore sx={{ 
               fontSize: 18, 
               color: payrollDropdownOpen ? 'primary.main' : '#64748b',
@@ -3802,21 +3782,14 @@ const Sidebar = ({
                 color: isActive ? 'primary.main' : '#1e293b'
               }}
             />
-            {items.length > 0 && (
-              <Box sx={{
-                fontSize: '0.64rem',
-                fontWeight: 700,
-                color: isOpen ? 'primary.main' : '#64748b',
-                bgcolor: isOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
-                px: 0.6,
-                py: 0.1,
-                borderRadius: '6px',
-                mr: 0.75,
-                lineHeight: 1.2
-              }}>
-                {items.length}
-              </Box>
-            )}
+            <DragIndicatorIcon sx={{ 
+              fontSize: 14, 
+              color: '#94a3b8', 
+              opacity: 0, 
+              mr: 0.5,
+              transition: 'opacity 0.15s ease',
+              '.MuiListItemButton-root:hover &': { opacity: 0.7 } 
+            }} />
             <ExpandMore sx={{ 
               fontSize: 18, 
               color: isOpen ? 'primary.main' : '#64748b',
@@ -3976,6 +3949,105 @@ const Sidebar = ({
       })
     );
   }, [menuItems, sidebarConfig]);
+
+  const [customSectionOrder, setCustomSectionOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`ciis_custom_section_order_${userId || 'default'}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [draggedCategory, setDraggedCategory] = useState(null);
+  const [dragOverCategory, setDragOverCategory] = useState(null);
+  const [dropPosition, setDropPosition] = useState('after');
+
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const saved = localStorage.getItem(`ciis_custom_section_order_${userId}`);
+      if (saved) {
+        setCustomSectionOrder(JSON.parse(saved));
+      }
+    } catch {
+      // ignore
+    }
+  }, [userId]);
+
+  const orderedCategories = useMemo(() => {
+    const available = Object.keys(groupedItems);
+    if (!customSectionOrder || !Array.isArray(customSectionOrder) || customSectionOrder.length === 0) {
+      return available;
+    }
+    const orderMap = new Map(customSectionOrder.map((cat, idx) => [cat, idx]));
+    return [...available].sort((a, b) => {
+      const posA = orderMap.has(a) ? orderMap.get(a) : 999;
+      const posB = orderMap.has(b) ? orderMap.get(b) : 999;
+      if (posA !== posB) return posA - posB;
+      return available.indexOf(a) - available.indexOf(b);
+    });
+  }, [groupedItems, customSectionOrder]);
+
+  const handleDragStart = (e, category) => {
+    if (!isSidebarOpen) return;
+    setDraggedCategory(category);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', category);
+  };
+
+  const handleDragOver = (e, category) => {
+    if (!draggedCategory || draggedCategory === category) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const isAbove = e.clientY < midY;
+
+    setDragOverCategory(category);
+    setDropPosition(isAbove ? 'before' : 'after');
+  };
+
+  const handleDragLeave = (e, category) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    if (dragOverCategory === category) {
+      setDragOverCategory(null);
+    }
+  };
+
+  const handleDrop = (e, targetCategory) => {
+    e.preventDefault();
+    if (!draggedCategory || draggedCategory === targetCategory) {
+      setDraggedCategory(null);
+      setDragOverCategory(null);
+      return;
+    }
+
+    const currentOrder = [...orderedCategories];
+    const fromIndex = currentOrder.indexOf(draggedCategory);
+    if (fromIndex === -1) return;
+
+    currentOrder.splice(fromIndex, 1);
+    const toIndex = currentOrder.indexOf(targetCategory);
+    const insertIndex = dropPosition === 'before' ? toIndex : toIndex + 1;
+    currentOrder.splice(insertIndex, 0, draggedCategory);
+
+    setCustomSectionOrder(currentOrder);
+    try {
+      localStorage.setItem(`ciis_custom_section_order_${userId || 'default'}`, JSON.stringify(currentOrder));
+    } catch (err) {
+      console.warn('Could not save custom sidebar section order:', err);
+    }
+
+    setDraggedCategory(null);
+    setDragOverCategory(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedCategory(null);
+    setDragOverCategory(null);
+  };
 
   useEffect(() => {
     Object.entries(groupedItems).forEach(([cat, items]) => {
@@ -4490,8 +4562,52 @@ const Sidebar = ({
           </Box>
         </Collapse>
         {renderClientCompanySwitcher()}
-        {Object.keys(groupedItems).map(category => (
-          <Box key={category}>
+        {orderedCategories.map(category => (
+          <Box 
+            key={category}
+            draggable={isSidebarOpen}
+            onDragStart={(e) => handleDragStart(e, category)}
+            onDragOver={(e) => handleDragOver(e, category)}
+            onDragLeave={(e) => handleDragLeave(e, category)}
+            onDrop={(e) => handleDrop(e, category)}
+            onDragEnd={handleDragEnd}
+            sx={{
+              position: 'relative',
+              opacity: draggedCategory === category ? 0.35 : 1,
+              transform: draggedCategory === category ? 'scale(0.98)' : 'none',
+              transition: 'opacity 0.18s ease, transform 0.18s ease',
+              cursor: isSidebarOpen ? 'grab' : 'default',
+              '&:active': {
+                cursor: isSidebarOpen ? 'grabbing' : 'default',
+              },
+              ...(dragOverCategory === category && {
+                '&::before': dropPosition === 'before' ? {
+                  content: '""',
+                  position: 'absolute',
+                  top: -2,
+                  left: 8,
+                  right: 8,
+                  height: 3,
+                  borderRadius: 2,
+                  backgroundColor: '#2563eb',
+                  zIndex: 10,
+                  boxShadow: '0 0 8px rgba(37, 99, 235, 0.6)'
+                } : undefined,
+                '&::after': dropPosition === 'after' ? {
+                  content: '""',
+                  position: 'absolute',
+                  bottom: -2,
+                  left: 8,
+                  right: 8,
+                  height: 3,
+                  borderRadius: 2,
+                  backgroundColor: '#2563eb',
+                  zIndex: 10,
+                  boxShadow: '0 0 8px rgba(37, 99, 235, 0.6)'
+                } : undefined,
+              })
+            }}
+          >
             {renderCategoryHeading(category)}
             
             {category === 'crm' ? (

@@ -173,7 +173,7 @@ const isTaskOverdue = (task) => {
   return Boolean(dueDate && dueDate < new Date());
 };
 
-const LIVE_UPLOAD_BASE = "https://backendcds.ciisnetwork.in/api/uploads";
+const LIVE_UPLOAD_BASE = "https://backendciisnetwork.com/api/uploads";
 
 const EmployeeProject = () => {
   const [projects, setProjects] = useState([]);

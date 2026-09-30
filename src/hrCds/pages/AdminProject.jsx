@@ -51,7 +51,7 @@ const Icons = {
 const getUserId = (user) => user?._id || user?.id;
 const getProjectId = (p) => p?._id || p?.id;
 const isImageFile = (value = "") => /\.(avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(String(value));
-const LIVE_API_URL = "https://backendcds.ciisnetwork.in/api";
+const LIVE_API_URL = "https://backendciisnetwork.com/api";
 
 const getProjectFileUrl = (filePath, apiBase = axios.defaults.baseURL) => {
   const rawPath = String(filePath || "").replace(/\\/g, "/").trim();

@@ -8,8 +8,8 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const appScheme = 'app';
 const backendRequestFilter = {
   urls: [
-    'https://backendcds.ciisnetwork.in/*',
-    'wss://backendcds.ciisnetwork.in/*',
+    'https://backendciisnetwork.com/*',
+    'wss://backendciisnetwork.com/*',
   ],
 };
 const remoteDebugPort = process.env.CIIS_REMOTE_DEBUG_PORT;

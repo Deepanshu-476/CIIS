@@ -224,7 +224,7 @@ const FeedbackQuestionnairePopup = () => {
                     placeholder={question.placeholder || 'Type your answer'}
                     value={answers[question._id] || ''}
                     onChange={event => updateAnswer(question._id, question.type === 'number' ? event.target.value : event.target.value)}
-                  />
+                  />  
                 )}
 
                 {question.type === 'textarea' && (

@@ -380,9 +380,9 @@ const StyledListItem = styled(ListItem)({
 const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isCollapsed'
 })(({ theme, selected, isCollapsed }) => ({
-  minHeight: isCollapsed ? 40 : 34,
-  height: 'auto',
-  width: isCollapsed ? 40 : 'calc(100% - 10px)',
+  minHeight: 34,
+  height: 34,
+  width: isCollapsed ? 36 : 'calc(100% - 10px)',
   margin: isCollapsed ? '2px auto' : '1px 5px',
   padding: isCollapsed ? 0 : '3px 8px',
   justifyContent: isCollapsed ? 'center' : 'flex-start',
@@ -405,18 +405,20 @@ const StyledListItemButton = styled(ListItemButton, {
       ? (isCollapsed ? 'rgba(37, 99, 235, 0.16)' : 'rgba(37, 99, 235, 0.12)')
       : 'rgba(241, 245, 249, 0.9)',
     color: '#1d4ed8',
-    transform: isCollapsed ? 'scale(1.05)' : 'none',
-    boxShadow: isCollapsed ? '0 4px 12px rgba(15, 23, 42, 0.06)' : 'none',
+    transform: 'none',
+    boxShadow: isCollapsed ? '0 2px 6px rgba(15, 23, 42, 0.06)' : 'none',
   },
   '& .MuiListItemIcon-root': {
-    minWidth: isCollapsed ? 0 : 24,
+    minWidth: 28,
+    width: 28,
+    height: 24,
     marginRight: isCollapsed ? 0 : theme.spacing(0.9),
-    margin: isCollapsed ? 0 : undefined,
+    margin: isCollapsed ? '0 auto' : undefined,
     display: 'inline-flex',
     justifyContent: 'center',
     alignItems: 'center',
     color: selected ? '#2563eb' : '#64748b',
-    transition: 'color 0.18s ease, transform 0.18s ease, margin 0.2s ease, min-width 0.2s ease',
+    transition: 'color 0.18s ease',
   },
   '&:hover .MuiListItemIcon-root': {
     color: '#2563eb',
@@ -434,13 +436,21 @@ const StyledListItemButton = styled(ListItemButton, {
 }));
 
 const StyledListItemIcon = styled(ListItemIcon)(({ theme }) => ({
-  minWidth: 0,
+  minWidth: 28,
+  width: 28,
+  height: 24,
   marginRight: 0,
   display: 'inline-flex',
   justifyContent: 'center',
   alignItems: 'center',
   color: 'inherit',
-  fontSize: '1.2rem',
+  flexShrink: 0,
+  '& svg': {
+    width: 22,
+    height: 22,
+    fontSize: '22px !important',
+    flexShrink: 0,
+  },
 }));
 
 const SectionHeading = styled(Typography)(({ theme }) => ({
@@ -2141,23 +2151,8 @@ const Sidebar = ({
     }
   }, [location.pathname]);
   const [payrollDropdownOpen, setPayrollDropdownOpen] = useState(() => isPayrollPath(location.pathname));
-  useEffect(() => {
-    if (isPayrollPath(location.pathname)) {
-      setPayrollDropdownOpen(true);
-    }
-  }, [location.pathname]);
   const [adminCrmDropdownOpen, setAdminCrmDropdownOpen] = useState(() => isCrmPath(location.pathname));
-  useEffect(() => {
-    if (isCrmPath(location.pathname)) {
-      setAdminCrmDropdownOpen(true);
-    }
-  }, [location.pathname]);
   const [adminTelecallerDropdownOpen, setAdminTelecallerDropdownOpen] = useState(() => isTelecallerPath(location.pathname));
-  useEffect(() => {
-    if (isTelecallerPath(location.pathname)) {
-      setAdminTelecallerDropdownOpen(true);
-    }
-  }, [location.pathname]);
   const [openSections, setOpenSections] = useState(() => new Set());
   const [openAdminCrmGroups, setOpenAdminCrmGroups] = useState(() => new Set(
     location.pathname.includes('/crm/admin/add-lead') ? ['lead-management'] : ['call-management']
@@ -3075,9 +3070,9 @@ const Sidebar = ({
           height: 24,
           flexShrink: 0,
           '& > svg': {
-            width: isSuperAdminWithManagement ? 24 : 22,
-            height: isSuperAdminWithManagement ? 24 : 22,
-            fontSize: isSuperAdminWithManagement ? 24 : 22,
+            width: 22,
+            height: 22,
+            fontSize: 22,
             flexShrink: 0
           }
         }}
@@ -3124,8 +3119,8 @@ const Sidebar = ({
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{
-              minHeight: 32,
-              height: 'auto',
+              minHeight: 34,
+              height: 34,
               alignItems: 'center',
               mx: '4px',
               px: 1,
@@ -3134,7 +3129,7 @@ const Sidebar = ({
               cursor: item.disabled ? 'not-allowed' : 'pointer'
             }}
           >
-            <StyledListItemIcon sx={{ mr: 1.25, minWidth: 28, justifyContent: 'center' }}>
+            <StyledListItemIcon sx={{ mr: 1.25, minWidth: 28, width: 28, height: 24, justifyContent: 'center', alignItems: 'center' }}>
               {icon}
             </StyledListItemIcon>
             <ListItemText
@@ -3165,12 +3160,18 @@ const Sidebar = ({
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{ 
+              minHeight: 34,
+              height: 34,
+              width: 36,
+              m: '2px auto',
+              p: 0,
               opacity: item.disabled ? 0.5 : 1,
               cursor: item.disabled ? 'not-allowed' : 'pointer',
-              p: 0,
+              justifyContent: 'center',
+              alignItems: 'center',
             }}
           >
-            <StyledListItemIcon sx={{ margin: 0, minWidth: 0, justifyContent: 'center', alignItems: 'center' }}>
+            <StyledListItemIcon sx={{ m: '0 auto', minWidth: 28, width: 28, height: 24, justifyContent: 'center', alignItems: 'center' }}>
               {icon}
             </StyledListItemIcon>
           </StyledListItemButton>
@@ -3195,8 +3196,11 @@ const Sidebar = ({
 
     const toggleTelecaller = (e) => {
       const willOpen = !adminTelecallerDropdownOpen;
-      setAdminTelecallerDropdownOpen(open => !open);
+      setAdminTelecallerDropdownOpen(willOpen);
       if (willOpen) {
+        setOpenSections(new Set());
+        setAdminCrmDropdownOpen(false);
+        setPayrollDropdownOpen(false);
         const target = e?.currentTarget;
         setTimeout(() => {
           target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3213,8 +3217,11 @@ const Sidebar = ({
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
           alignItems: 'center',
           p: isSidebarOpen ? '5px 8px' : 0,
-          minHeight: isSidebarOpen ? 34 : 40,
-          borderRadius: isSidebarOpen ? '7px' : '9px',
+          minHeight: 34,
+          height: 34,
+          width: isSidebarOpen ? 'calc(100% - 10px)' : 36,
+          m: isSidebarOpen ? '1px 5px' : '2px auto',
+          borderRadius: isSidebarOpen ? '7px' : '8px',
           border: isSidebarOpen ? (isTelecallerActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
           backgroundColor: isSidebarOpen 
             ? (isTelecallerActive ? 'rgba(37, 99, 235, 0.08)' : (adminTelecallerDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
@@ -3229,7 +3236,10 @@ const Sidebar = ({
       >
         <StyledListItemIcon sx={{ 
           mr: isSidebarOpen ? 1.25 : 0, 
-          minWidth: isSidebarOpen ? 28 : 0, 
+          m: isSidebarOpen ? undefined : '0 auto',
+          minWidth: 28, 
+          width: 28,
+          height: 24,
           justifyContent: 'center',
           alignItems: 'center',
           color: isTelecallerActive ? 'primary.main' : '#475569'
@@ -3364,8 +3374,11 @@ const Sidebar = ({
 
     const toggleCrm = (e) => {
       const willOpen = !adminCrmDropdownOpen;
-      setAdminCrmDropdownOpen(open => !open);
+      setAdminCrmDropdownOpen(willOpen);
       if (willOpen) {
+        setOpenSections(new Set());
+        setAdminTelecallerDropdownOpen(false);
+        setPayrollDropdownOpen(false);
         const target = e?.currentTarget;
         setTimeout(() => {
           target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3375,9 +3388,10 @@ const Sidebar = ({
 
     const toggleGroup = (groupId) => {
       setOpenAdminCrmGroups(current => {
-        const next = new Set(current);
-        if (next.has(groupId)) next.delete(groupId);
-        else next.add(groupId);
+        const next = new Set();
+        if (!current.has(groupId)) {
+          next.add(groupId);
+        }
         return next;
       });
     };
@@ -3391,8 +3405,11 @@ const Sidebar = ({
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
           alignItems: 'center',
           p: isSidebarOpen ? '5px 8px' : 0,
-          minHeight: isSidebarOpen ? 34 : 40,
-          borderRadius: isSidebarOpen ? '7px' : '9px',
+          minHeight: 34,
+          height: 34,
+          width: isSidebarOpen ? 'calc(100% - 10px)' : 36,
+          m: isSidebarOpen ? '1px 5px' : '2px auto',
+          borderRadius: isSidebarOpen ? '7px' : '8px',
           border: isSidebarOpen ? (isCrmActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
           backgroundColor: isSidebarOpen 
             ? (isCrmActive ? 'rgba(37, 99, 235, 0.08)' : (adminCrmDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
@@ -3407,7 +3424,10 @@ const Sidebar = ({
       >
         <StyledListItemIcon sx={{ 
           mr: isSidebarOpen ? 1.25 : 0, 
-          minWidth: isSidebarOpen ? 28 : 0, 
+          m: isSidebarOpen ? undefined : '0 auto',
+          minWidth: 28, 
+          width: 28,
+          height: 24,
           justifyContent: 'center',
           alignItems: 'center',
           color: isCrmActive ? 'primary.main' : '#475569'
@@ -3572,8 +3592,11 @@ const Sidebar = ({
 
     const togglePayroll = (e) => {
       const willOpen = !payrollDropdownOpen;
-      setPayrollDropdownOpen(prev => !prev);
+      setPayrollDropdownOpen(willOpen);
       if (willOpen) {
+        setOpenSections(new Set());
+        setAdminCrmDropdownOpen(false);
+        setAdminTelecallerDropdownOpen(false);
         const target = e?.currentTarget;
         setTimeout(() => {
           target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3590,8 +3613,11 @@ const Sidebar = ({
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
           alignItems: 'center',
           p: isSidebarOpen ? '5px 8px' : 0,
-          minHeight: isSidebarOpen ? 34 : 40,
-          borderRadius: isSidebarOpen ? '7px' : '9px',
+          minHeight: 34,
+          height: 34,
+          width: isSidebarOpen ? 'calc(100% - 10px)' : 36,
+          m: isSidebarOpen ? '1px 5px' : '2px auto',
+          borderRadius: isSidebarOpen ? '7px' : '8px',
           border: isSidebarOpen ? (isPayrollActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
           backgroundColor: isSidebarOpen 
             ? (isPayrollActive ? 'rgba(37, 99, 235, 0.08)' : (payrollDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
@@ -3606,7 +3632,10 @@ const Sidebar = ({
       >
         <StyledListItemIcon sx={{ 
           mr: isSidebarOpen ? 1.25 : 0, 
-          minWidth: isSidebarOpen ? 28 : 0, 
+          m: isSidebarOpen ? undefined : '0 auto',
+          minWidth: 28, 
+          width: 28,
+          height: 24,
           justifyContent: 'center',
           alignItems: 'center',
           color: isPayrollActive ? 'primary.main' : '#475569'
@@ -3679,39 +3708,93 @@ const Sidebar = ({
   };
 
   const getCategoryIcon = (category) => {
-    switch (category) {
+    const key = String(category || '').trim().toLowerCase();
+    switch (key) {
+      case 'main':
+      case 'dashboard':
+      case 'home':
+        return <DashboardIcon />;
       case 'tasks':
+      case 'task':
         return <TaskIcon />;
       case 'projects':
+      case 'project':
         return <GroupsIcon />;
       case 'meetings':
+      case 'meeting':
         return <VideoCallIcon />;
+      case 'communication':
+      case 'chat':
+      case 'messages':
+        return <ChatIcon />;
+      case 'work':
+      case 'workplace':
+        return <CalendarIcon />;
+      case 'attendance':
+        return <CalendarIcon />;
+      case 'leaves':
+      case 'my-leaves':
+        return <EventNoteIcon />;
+      case 'assets':
+      case 'my-assets':
+        return <ComputerIcon />;
       case 'clients':
-        return <FolderIcon />;
+      case 'client':
+        return <StorefrontIcon />;
       case 'administration':
       case 'admin':
         return <PersonIcon />;
-      case 'communication':
-        return <ChatIcon />;
-      case 'work':
-        return <CalendarIcon />;
       case 'settings':
+      case 'setting':
         return <SettingsIcon />;
       case 'payroll':
+      case 'salary':
         return <PayrollHeaderIcon />;
       case 'crm':
         return <ContactPhoneIcon />;
       case 'admin-telecaller':
+      case 'telecaller':
         return <PhoneInTalkIcon />;
-      default:
+      case 'reports':
+      case 'analytics':
+        return <AnalyticsIcon />;
+      case 'billing':
+      case 'payments':
+      case 'finance':
+        return <CreditCardIcon />;
+      case 'support':
+      case 'help':
+        return <SupportAgentIcon />;
+      case 'documents':
+      case 'files':
+        return <DescriptionIcon />;
+      default: {
+        if (key.includes('task')) return <TaskIcon />;
+        if (key.includes('meet')) return <VideoCallIcon />;
+        if (key.includes('comm') || key.includes('chat') || key.includes('message')) return <ChatIcon />;
+        if (key.includes('proj') || key.includes('group')) return <GroupsIcon />;
+        if (key.includes('work')) return <CalendarIcon />;
+        if (key.includes('main') || key.includes('dash') || key.includes('home')) return <DashboardIcon />;
+        if (key.includes('admin') || key.includes('user') || key.includes('people') || key.includes('member')) return <PersonIcon />;
+        if (key.includes('set') || key.includes('config')) return <SettingsIcon />;
+        if (key.includes('client') || key.includes('customer')) return <StorefrontIcon />;
+        if (key.includes('pay') || key.includes('sal') || key.includes('wage')) return <PayrollHeaderIcon />;
+        if (key.includes('call') || key.includes('tele') || key.includes('phone')) return <PhoneInTalkIcon />;
+        if (key.includes('report') || key.includes('analyt')) return <AnalyticsIcon />;
+        if (key.includes('leave')) return <EventNoteIcon />;
+        if (key.includes('attend')) return <CalendarIcon />;
+        if (key.includes('asset') || key.includes('device')) return <ComputerIcon />;
+        if (key.includes('alert') || key.includes('notif')) return <NotificationsIcon />;
         return <FolderIcon />;
+      }
     }
   };
 
   const renderSectionDropdown = (category, items) => {
     if (!items || !items.length) return null;
 
-    if (category === 'main') {
+    const lowerCat = String(category || '').trim().toLowerCase();
+    if (lowerCat === 'main' && (!sidebarConfig || !Array.isArray(sidebarConfig.ranges) || sidebarConfig.ranges.length === 0)) {
       return (
         <List sx={{ py: 0 }}>
           {items.map(item => (
@@ -3723,7 +3806,9 @@ const Sidebar = ({
       );
     }
 
-    const label = categoryLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    const label = categoryLabels[lowerCat] || categoryLabels[category] || (
+      String(category || '').charAt(0).toUpperCase() + String(category || '').slice(1)
+    );
     const isOpen = openSections.has(category);
     const isActive = items.some(item => location.pathname === item.path || (item.path && location.pathname.startsWith(item.path)));
 
@@ -3747,8 +3832,11 @@ const Sidebar = ({
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
           alignItems: 'center',
           p: isSidebarOpen ? '5px 8px' : 0,
-          minHeight: isSidebarOpen ? 34 : 40,
-          borderRadius: isSidebarOpen ? '7px' : '9px',
+          minHeight: 34,
+          height: 34,
+          width: isSidebarOpen ? 'calc(100% - 10px)' : 36,
+          m: isSidebarOpen ? '1px 5px' : '2px auto',
+          borderRadius: isSidebarOpen ? '7px' : '8px',
           border: isSidebarOpen ? (isActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
           backgroundColor: isSidebarOpen 
             ? (isActive ? 'rgba(37, 99, 235, 0.08)' : (isOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
@@ -3763,7 +3851,10 @@ const Sidebar = ({
       >
         <StyledListItemIcon sx={{ 
           mr: isSidebarOpen ? 1.25 : 0, 
-          minWidth: isSidebarOpen ? 28 : 0, 
+          m: isSidebarOpen ? undefined : '0 auto',
+          minWidth: 28, 
+          width: 28,
+          height: 24,
           justifyContent: 'center',
           alignItems: 'center',
           color: isActive ? 'primary.main' : '#475569'
@@ -3962,6 +4053,9 @@ const Sidebar = ({
   const [draggedCategory, setDraggedCategory] = useState(null);
   const [dragOverCategory, setDragOverCategory] = useState(null);
   const [dropPosition, setDropPosition] = useState('after');
+  const scrollContainerRef = useRef(null);
+  const scrollSpeedRef = useRef(0);
+  const isAutoScrollingRef = useRef(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -3989,6 +4083,91 @@ const Sidebar = ({
     });
   }, [groupedItems, customSectionOrder]);
 
+  useEffect(() => {
+    if (!draggedCategory) {
+      isAutoScrollingRef.current = false;
+      scrollSpeedRef.current = 0;
+      return;
+    }
+
+    const startAutoScroll = () => {
+      if (isAutoScrollingRef.current) return;
+      isAutoScrollingRef.current = true;
+
+      const loop = () => {
+        if (!isAutoScrollingRef.current || !scrollContainerRef.current) {
+          isAutoScrollingRef.current = false;
+          return;
+        }
+        if (scrollSpeedRef.current !== 0) {
+          scrollContainerRef.current.scrollTop += scrollSpeedRef.current;
+        }
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+    };
+
+    const handleWindowDragOver = (e) => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+
+      // Only auto-scroll when cursor is within the sidebar horizontal boundaries
+      if (clientX < rect.left - 20 || clientX > rect.right + 20) {
+        scrollSpeedRef.current = 0;
+        return;
+      }
+
+      const threshold = 100;
+      const maxSpeed = 16;
+
+      if (clientY < rect.top + threshold && clientY >= rect.top - 50) {
+        // Dragging near top edge -> scroll up
+        const dist = (rect.top + threshold) - clientY;
+        const speedRatio = Math.min(Math.max(dist / threshold, 0.25), 1);
+        scrollSpeedRef.current = -Math.round(speedRatio * maxSpeed);
+        startAutoScroll();
+      } else if (clientY > rect.bottom - threshold && clientY <= rect.bottom + 120) {
+        // Dragging near bottom edge -> scroll down
+        const dist = clientY - (rect.bottom - threshold);
+        const speedRatio = Math.min(Math.max(dist / threshold, 0.25), 1);
+        scrollSpeedRef.current = Math.round(speedRatio * maxSpeed);
+        startAutoScroll();
+
+        // If dragged down towards the bottom past sections, target last section
+        if (orderedCategories.length > 0) {
+          const lastCat = orderedCategories[orderedCategories.length - 1];
+          if (lastCat && lastCat !== draggedCategory) {
+            setDragOverCategory(lastCat);
+            setDropPosition('after');
+          }
+        }
+      } else {
+        scrollSpeedRef.current = 0;
+      }
+    };
+
+    const handleWindowDragEnd = () => {
+      isAutoScrollingRef.current = false;
+      scrollSpeedRef.current = 0;
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('dragend', handleWindowDragEnd);
+    window.addEventListener('drop', handleWindowDragEnd);
+
+    return () => {
+      isAutoScrollingRef.current = false;
+      scrollSpeedRef.current = 0;
+      window.removeEventListener('dragover', handleWindowDragOver);
+      window.removeEventListener('dragend', handleWindowDragEnd);
+      window.removeEventListener('drop', handleWindowDragEnd);
+    };
+  }, [draggedCategory, orderedCategories]);
+
   const handleDragStart = (e, category) => {
     if (!isSidebarOpen) return;
     setDraggedCategory(category);
@@ -4009,15 +4188,14 @@ const Sidebar = ({
     setDropPosition(isAbove ? 'before' : 'after');
   };
 
-  const handleDragLeave = (e, category) => {
-    if (e.currentTarget.contains(e.relatedTarget)) return;
-    if (dragOverCategory === category) {
-      setDragOverCategory(null);
-    }
+  const handleDragLeave = () => {
+    // Drag leave is managed at container level to prevent flickering when hovering over drop slots
   };
 
   const handleDrop = (e, targetCategory) => {
     e.preventDefault();
+    isAutoScrollingRef.current = false;
+    scrollSpeedRef.current = 0;
     if (!draggedCategory || draggedCategory === targetCategory) {
       setDraggedCategory(null);
       setDragOverCategory(null);
@@ -4045,33 +4223,61 @@ const Sidebar = ({
   };
 
   const handleDragEnd = () => {
+    isAutoScrollingRef.current = false;
+    scrollSpeedRef.current = 0;
     setDraggedCategory(null);
     setDragOverCategory(null);
   };
 
   useEffect(() => {
-    Object.entries(groupedItems).forEach(([cat, items]) => {
-      if (items.some(item => item.path === location.pathname || (item.path && location.pathname.startsWith(item.path)))) {
-        setOpenSections(prev => {
-          if (prev.has(cat)) return prev;
-          const next = new Set(prev);
-          next.add(cat);
-          return next;
-        });
-      }
-    });
+    if (isCrmPath(location.pathname)) {
+      setAdminCrmDropdownOpen(true);
+      setAdminTelecallerDropdownOpen(false);
+      setPayrollDropdownOpen(false);
+      setOpenSections(new Set());
+      return;
+    }
+    if (isTelecallerPath(location.pathname)) {
+      setAdminTelecallerDropdownOpen(true);
+      setAdminCrmDropdownOpen(false);
+      setPayrollDropdownOpen(false);
+      setOpenSections(new Set());
+      return;
+    }
+    if (isPayrollPath(location.pathname)) {
+      setPayrollDropdownOpen(true);
+      setAdminCrmDropdownOpen(false);
+      setAdminTelecallerDropdownOpen(false);
+      setOpenSections(new Set());
+      return;
+    }
+
+    const matchedEntry = Object.entries(groupedItems).find(([cat, items]) => 
+      items.some(item => item.path === location.pathname || (item.path && location.pathname.startsWith(item.path)))
+    );
+
+    if (matchedEntry) {
+      const [matchedCat] = matchedEntry;
+      setOpenSections(prev => {
+        if (prev.has(matchedCat) && prev.size === 1) return prev;
+        return new Set([matchedCat]);
+      });
+      setAdminCrmDropdownOpen(false);
+      setAdminTelecallerDropdownOpen(false);
+      setPayrollDropdownOpen(false);
+    }
   }, [location.pathname, groupedItems]);
 
   const toggleSection = (category) => {
     setOpenSections(prev => {
-      const next = new Set(prev);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
+      if (prev.has(category)) {
+        return new Set();
       }
-      return next;
+      return new Set([category]);
     });
+    setAdminCrmDropdownOpen(false);
+    setAdminTelecallerDropdownOpen(false);
+    setPayrollDropdownOpen(false);
   };
 
   
@@ -4250,11 +4456,11 @@ const Sidebar = ({
                 justifyContent: isSidebarOpen ? 'flex-start' : 'center',
                 alignItems: 'center',
                 width: isSidebarOpen ? '100%' : 36,
-                height: 36,
-                minHeight: 36,
+                height: 34,
+                minHeight: 34,
                 p: isSidebarOpen ? '5px 10px' : 0,
                 m: isSidebarOpen ? 0 : '0 auto',
-                borderRadius: '10px',
+                borderRadius: '8px',
                 borderLeft: '1px solid transparent',
                 '&:hover': { 
                   backgroundColor: 'rgba(239, 68, 68, 0.08)',
@@ -4265,11 +4471,11 @@ const Sidebar = ({
             >
               <StyledListItemIcon sx={{ 
                 color: 'inherit', 
-                m: 0,
+                m: isSidebarOpen ? undefined : '0 auto',
                 mr: isSidebarOpen ? 1.25 : 0, 
-                minWidth: isSidebarOpen ? 28 : 0, 
-                width: isSidebarOpen ? 28 : 44,
-                height: 44,
+                minWidth: 28, 
+                width: 28, 
+                height: 24, 
                 display: 'inline-flex',
                 justifyContent: 'center',
                 alignItems: 'center',
@@ -4327,7 +4533,7 @@ const Sidebar = ({
 
   
   const renderCategoryHeading = (category) => {
-    if (category === 'main') {
+    if (String(category || '').trim().toLowerCase() === 'main') {
       return null;
     }
 
@@ -4342,6 +4548,50 @@ const Sidebar = ({
       />
     );
   };
+
+  const renderDropSlot = (targetCategory) => (
+    <Box
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => handleDrop(e, targetCategory)}
+      sx={{
+        height: 36,
+        mx: isSidebarOpen ? '6px' : '4px',
+        my: '4px',
+        borderRadius: '8px',
+        border: '1.5px dashed #2563eb',
+        backgroundColor: (theme) =>
+          theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.16)' : 'rgba(37, 99, 235, 0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 0.8,
+        transition: 'all 0.15s ease-out',
+        animation: 'dropSlotIn 0.18s ease-out',
+        '@keyframes dropSlotIn': {
+          from: { height: 0, opacity: 0, transform: 'scale(0.97)' },
+          to: { height: 36, opacity: 1, transform: 'scale(1)' },
+        },
+      }}
+    >
+      <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#2563eb', opacity: 0.8 }} />
+      <Typography
+        sx={{
+          fontSize: '0.68rem',
+          fontWeight: 700,
+          color: '#2563eb',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          userSelect: 'none',
+        }}
+      >
+        Drop Section Here
+      </Typography>
+      <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#2563eb', opacity: 0.8 }} />
+    </Box>
+  );
 
   const renderClientCompanySwitcher = () => {
     if (!isClientUser || clientCompanies.length === 0) return null;
@@ -4458,12 +4708,13 @@ const Sidebar = ({
       
       {/* Main Navigation with Scroll */}
       <Box 
+        ref={scrollContainerRef}
         sx={{ 
           flex: 1, 
           minHeight: 0, 
           overflowY: 'auto', 
           overflowX: 'hidden',
-          pb: 6,
+          pb: 8,
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(203, 213, 225, 0.5) transparent',
           '&::-webkit-scrollbar': {
@@ -4476,13 +4727,13 @@ const Sidebar = ({
         }}
       >
         <Collapse in={isSidebarOpen} timeout={250}>
-          <Box sx={{ px: 1.25, py: 1.2, borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.85 }}>
+          <Box sx={{ px: 2, py: 2.25, borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1.35 }}>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ fontSize: '0.82rem', lineHeight: 1.25, color: 'text.primary' }}>
+                <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ fontSize: '0.875rem', lineHeight: 1.4, color: 'text.primary' }}>
                   {userData?.name || 'User'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.2, fontSize: '0.68rem', textTransform: 'capitalize' }}>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.35, textTransform: 'capitalize' }}>
                   {userSubtitle}
                 </Typography>
                 {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
@@ -4491,9 +4742,9 @@ const Sidebar = ({
                     display="block" 
                     color="text.secondary" 
                     sx={{ 
-                      fontSize: '0.66rem', 
+                      fontSize: '0.7rem', 
                       fontWeight: 500,
-                      mt: 0.3,
+                      mt: 0.5,
                       opacity: 0.8,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -4514,44 +4765,43 @@ const Sidebar = ({
                     flex: '0 0 auto',
                     width: '100%',
                     minWidth: 0,
-                    height: 38,
-                    px: 1.2,
-                    py: 0.5,
-                    borderRadius: 2,
+                    height: 50,
+                    px: 1.5,
+                    borderRadius: 2.25,
                     textTransform: 'none',
                     fontWeight: 700,
                     color: 'primary.main',
                     background: 'linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%)',
                     border: '1px solid #cfe0ff',
-                    boxShadow: '0 3px 10px rgba(37, 99, 235, 0.1)',
+                    boxShadow: '0 5px 14px rgba(37, 99, 235, 0.14)',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%)',
-                      boxShadow: '0 5px 14px rgba(37, 99, 235, 0.16)',
+                      boxShadow: '0 7px 18px rgba(37, 99, 235, 0.2)',
                     },
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.74rem', lineHeight: 1 }}>
-                      <PersonIcon sx={{ fontSize: 18 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.78rem', lineHeight: 1 }}>
+                      <PersonIcon sx={{ fontSize: 20 }} />
                       <span>Profile</span>
                     </Box>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-                    <Box sx={{ position: 'relative', width: 28, height: 28, flex: '0 0 28px', display: 'grid', placeItems: 'center' }}>
+                    <Divider orientation="vertical" flexItem sx={{ mx: 0.55 }} />
+                    <Box sx={{ position: 'relative', width: 34, height: 34, flex: '0 0 34px', display: 'grid', placeItems: 'center' }}>
                       <CircularProgress
                         variant="determinate"
                         value={100}
-                        size={28}
-                        thickness={3.5}
+                        size={34}
+                        thickness={4}
                         sx={{ position: 'absolute', color: '#dbe7f8' }}
                       />
                       <CircularProgress
                         variant="determinate"
                         value={profileCompletion}
-                        size={28}
-                        thickness={3.5}
+                        size={34}
+                        thickness={4}
                         sx={{ position: 'absolute', color: '#2878db', '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }}
                       />
-                      <Typography component="span" sx={{ color: '#172033', fontSize: '0.58rem', fontWeight: 700 }}>
+                      <Typography component="span" sx={{ color: '#172033', fontSize: '0.62rem', fontWeight: 700 }}>
                         {profileCompletion}%
                       </Typography>
                     </Box>
@@ -4562,77 +4812,117 @@ const Sidebar = ({
           </Box>
         </Collapse>
         {renderClientCompanySwitcher()}
-        {orderedCategories.map(category => (
-          <Box 
-            key={category}
-            draggable={isSidebarOpen}
-            onDragStart={(e) => handleDragStart(e, category)}
-            onDragOver={(e) => handleDragOver(e, category)}
-            onDragLeave={(e) => handleDragLeave(e, category)}
-            onDrop={(e) => handleDrop(e, category)}
-            onDragEnd={handleDragEnd}
-            sx={{
-              position: 'relative',
-              opacity: draggedCategory === category ? 0.35 : 1,
-              transform: draggedCategory === category ? 'scale(0.98)' : 'none',
-              transition: 'opacity 0.18s ease, transform 0.18s ease',
-              cursor: isSidebarOpen ? 'grab' : 'default',
-              '&:active': {
-                cursor: isSidebarOpen ? 'grabbing' : 'default',
-              },
-              ...(dragOverCategory === category && {
-                '&::before': dropPosition === 'before' ? {
-                  content: '""',
-                  position: 'absolute',
-                  top: -2,
-                  left: 8,
-                  right: 8,
-                  height: 3,
-                  borderRadius: 2,
-                  backgroundColor: '#2563eb',
-                  zIndex: 10,
-                  boxShadow: '0 0 8px rgba(37, 99, 235, 0.6)'
-                } : undefined,
-                '&::after': dropPosition === 'after' ? {
-                  content: '""',
-                  position: 'absolute',
-                  bottom: -2,
-                  left: 8,
-                  right: 8,
-                  height: 3,
-                  borderRadius: 2,
-                  backgroundColor: '#2563eb',
-                  zIndex: 10,
-                  boxShadow: '0 0 8px rgba(37, 99, 235, 0.6)'
-                } : undefined,
-              })
+        <Box
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setDragOverCategory(null);
+            }
+          }}
+        >
+          {orderedCategories.map(category => {
+            const isTarget = draggedCategory && draggedCategory !== category && dragOverCategory === category;
+            const showSlotBefore = isTarget && dropPosition === 'before';
+            const showSlotAfter = isTarget && dropPosition === 'after';
+
+            return (
+              <React.Fragment key={category}>
+                {showSlotBefore && renderDropSlot(category)}
+                <Box 
+                  draggable={isSidebarOpen}
+                  onDragStart={(e) => handleDragStart(e, category)}
+                  onDragOver={(e) => handleDragOver(e, category)}
+                  onDrop={(e) => handleDrop(e, category)}
+                  onDragEnd={handleDragEnd}
+                  sx={{
+                    position: 'relative',
+                    opacity: draggedCategory === category ? 0.35 : 1,
+                    transform: draggedCategory === category ? 'scale(0.98)' : 'none',
+                    transition: 'opacity 0.18s ease, transform 0.18s ease',
+                    cursor: isSidebarOpen ? 'grab' : 'default',
+                    '&:active': {
+                      cursor: isSidebarOpen ? 'grabbing' : 'default',
+                    },
+                  }}
+                >
+                  {renderCategoryHeading(category)}
+                  
+                  {category === 'crm' ? (
+                    renderAdminCrmMenu(groupedItems[category])
+                  ) : category === 'admin-telecaller' ? (
+                    renderTelecallerMenu(groupedItems[category])
+                  ) : category === 'payroll' ? (
+                    renderPayrollMenu(groupedItems[category])
+                  ) : (
+                    renderSectionDropdown(category, groupedItems[category])
+                  )}
+                </Box>
+                {showSlotAfter && renderDropSlot(category)}
+              </React.Fragment>
+            );
+          })}
+        </Box>
+
+        {draggedCategory && (
+          <Box
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (orderedCategories.length > 0) {
+                const lastCat = orderedCategories[orderedCategories.length - 1];
+                if (lastCat !== draggedCategory) {
+                  setDragOverCategory(lastCat);
+                  setDropPosition('after');
+                }
+              }
             }}
-          >
-            {renderCategoryHeading(category)}
-            
-            {category === 'crm' ? (
-              renderAdminCrmMenu(groupedItems[category])
-            ) : category === 'admin-telecaller' ? (
-              renderTelecallerMenu(groupedItems[category])
-            ) : category === 'payroll' ? (
-              renderPayrollMenu(groupedItems[category])
-            ) : (
-              renderSectionDropdown(category, groupedItems[category])
-            )}
-          </Box>
-        ))}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (draggedCategory && orderedCategories.length > 0) {
+                const lastCat = orderedCategories[orderedCategories.length - 1];
+                handleDrop(e, lastCat);
+              }
+            }}
+            sx={{
+              height: 44,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          />
+        )}
       </Box>
 
-      <Box sx={{ 
-        width: '100%',
-        p: isSidebarOpen ? '6px 10px' : '6px 0', 
-        display: 'flex', 
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderTop: '1px solid rgba(0, 0, 0, 0.06)',
-        transition: 'padding 0.2s ease',
-        boxSizing: 'border-box'
-      }}>
+      <Box 
+        onDragOver={(e) => {
+          if (draggedCategory) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (orderedCategories.length > 0) {
+              const lastCat = orderedCategories[orderedCategories.length - 1];
+              if (lastCat !== draggedCategory) {
+                setDragOverCategory(lastCat);
+                setDropPosition('after');
+              }
+            }
+          }
+        }}
+        onDrop={(e) => {
+          if (draggedCategory && orderedCategories.length > 0) {
+            const lastCat = orderedCategories[orderedCategories.length - 1];
+            handleDrop(e, lastCat);
+          }
+        }}
+        sx={{ 
+          width: '100%',
+          p: isSidebarOpen ? '6px 10px' : '6px 0', 
+          display: 'flex', 
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+          transition: 'padding 0.2s ease',
+          boxSizing: 'border-box'
+        }}
+      >
         <Tooltip title={!isSidebarOpen ? "Logout" : ""} placement="right" disableHoverListener={isSidebarOpen}>
           <StyledListItemButton
             onClick={handleLogout}
@@ -4642,8 +4932,8 @@ const Sidebar = ({
               justifyContent: isSidebarOpen ? 'flex-start' : 'center',
               alignItems: 'center',
               width: isSidebarOpen ? '100%' : 36,
-              height: 36,
-              minHeight: 36,
+              height: 34,
+              minHeight: 34,
               p: isSidebarOpen ? '5px 10px' : 0,
               m: isSidebarOpen ? 0 : '0 auto',
               borderRadius: '8px',
@@ -4657,11 +4947,11 @@ const Sidebar = ({
           >
             <StyledListItemIcon sx={{ 
               color: 'inherit', 
-              m: 0,
+              m: isSidebarOpen ? undefined : '0 auto',
               mr: isSidebarOpen ? 1.25 : 0, 
-              minWidth: isSidebarOpen ? 24 : 0, 
-              width: isSidebarOpen ? 24 : 36,
-              height: 36,
+              minWidth: 28, 
+              width: 28, 
+              height: 24, 
               display: 'inline-flex',
               justifyContent: 'center',
               alignItems: 'center',

@@ -121,10 +121,12 @@ const injectLogoutModalStyles = () => {
       box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35) !important;
     }
 
-    .ciis-logout-confirm:hover {
+    .ciis-logout-confirm:hover,
+    .ciis-logout-confirm:focus,
+    .ciis-logout-confirm:focus-visible {
       background: #dc2626 !important;
       border-color: #dc2626 !important;
-      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45) !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.35), 0 4px 14px rgba(239, 68, 68, 0.45) !important;
     }
 
     .ciis-logout-btn:active {
@@ -166,9 +168,13 @@ export const handleAppLogout = async ({ navigate, redirectPath = "/" } = {}) => 
     cancelButtonText: "Cancel",
     buttonsStyling: false,
     reverseButtons: true,
-    focusCancel: true,
+    focusConfirm: true,
+    focusCancel: false,
     allowOutsideClick: true,
     allowEscapeKey: true,
+    didOpen: () => {
+      Swal.getConfirmButton()?.focus();
+    },
     customClass: {
       container: "ciis-logout-container",
       popup: "ciis-logout-popup",

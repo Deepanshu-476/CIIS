@@ -36,10 +36,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    host: true, 
+    host: '127.0.0.1',
     hmr: {
       protocol: 'ws',
-      host: 'localhost',
+      host: '127.0.0.1',
       port: 5173, 
       clientPort: 5173,
       timeout: 5000

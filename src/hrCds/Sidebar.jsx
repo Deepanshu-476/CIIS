@@ -83,6 +83,7 @@ import {
   Subscriptions as SubscriptionsIcon,
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
+import { handleAppLogout } from '../utils/logoutModal';
 import axiosInstance from '../utils/axiosConfig';
 import { isCrmPage, requiresPageAccess, hasPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
@@ -99,7 +100,7 @@ import {
 } from './utils/clientPortalData';
 import { getProfileCompletion } from './utils/profileCompletion';
 
-const drawerWidthOpen = 224;
+const drawerWidthOpen = 236;
 const drawerWidthClosed = 70;
 const BADGE_REFRESH_INTERVAL = 120000;
 const BADGE_CACHE_TTL = 120000;
@@ -255,6 +256,53 @@ const getRecordId = value => {
 
 const isMongoId = value => /^[0-9a-fA-F]{24}$/.test(String(value || '').trim());
 
+const isPayrollPath = (path = '') => {
+  const normalized = String(path || '').toLowerCase();
+  return (
+    normalized.includes('/salary-component') ||
+    normalized.includes('/salary-structure') ||
+    normalized.includes('/salary-assignment') ||
+    normalized.includes('/assign-salary') ||
+    normalized.includes('/payroll-process') ||
+    normalized.includes('/payslip') ||
+    normalized.includes('/payroll-reports')
+  );
+};
+
+const isPayrollItem = (item) => {
+  const id = String(item?.id || '').toLowerCase();
+  const name = String(item?.name || '').toLowerCase();
+  const path = String(item?.path || '').toLowerCase();
+  const cat = String(item?.category || '').toLowerCase();
+  return (
+    cat === 'payroll' ||
+    isPayrollPath(path) ||
+    id === 'salary-component' ||
+    id === 'salary-structure' ||
+    id === 'salary-assignment' ||
+    id === 'assign-salary' ||
+    id === 'payroll-process' ||
+    id === 'payslip' ||
+    id === 'payroll-reports' ||
+    id.includes('salary') ||
+    id.includes('payroll') ||
+    id === 'payslip' ||
+    name.includes('salary') ||
+    name.includes('payroll') ||
+    name.includes('payslip')
+  );
+};
+
+const isCrmPath = (path = '') => {
+  const normalized = String(path || '').toLowerCase();
+  return normalized.includes('/crm');
+};
+
+const isTelecallerPath = (path = '') => {
+  const normalized = String(path || '').toLowerCase();
+  return normalized.includes('/telecaller');
+};
+
 const getRecordDisplayName = value => {
   if (!value) return '';
   if (typeof value === 'object') {
@@ -331,11 +379,11 @@ const StyledListItem = styled(ListItem)({
 const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isCollapsed'
 })(({ theme, selected, isCollapsed }) => ({
-  minHeight: isCollapsed ? 44 : 42,
-  height: isCollapsed ? 44 : 'auto',
-  width: isCollapsed ? 44 : 'calc(100% - 16px)',
-  margin: isCollapsed ? '3px auto' : theme.spacing(0.25, 1),
-  padding: isCollapsed ? 0 : theme.spacing(0.8, 1.5),
+  minHeight: isCollapsed ? 40 : 34,
+  height: 'auto',
+  width: isCollapsed ? 40 : 'calc(100% - 10px)',
+  margin: isCollapsed ? '2px auto' : '1px 5px',
+  padding: isCollapsed ? 0 : '3px 8px',
   justifyContent: isCollapsed ? 'center' : 'flex-start',
   alignItems: 'center',
   color: selected ? '#1d4ed8' : '#475569',
@@ -346,11 +394,11 @@ const StyledListItemButton = styled(ListItemButton, {
   borderLeft: isCollapsed 
     ? (selected ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid transparent')
     : (selected ? '3px solid #2563eb' : '3px solid transparent'),
-  borderRadius: isCollapsed ? '10px' : '0 10px 10px 0',
+  borderRadius: isCollapsed ? '8px' : '0 7px 7px 0',
   boxShadow: selected && isCollapsed ? '0 2px 8px rgba(37, 99, 235, 0.12)' : 'none',
-  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
   boxSizing: 'border-box',
-  overflow: 'hidden',
+  overflow: 'visible',
   '&:hover': {
     backgroundColor: selected 
       ? (isCollapsed ? 'rgba(37, 99, 235, 0.16)' : 'rgba(37, 99, 235, 0.12)')
@@ -360,8 +408,8 @@ const StyledListItemButton = styled(ListItemButton, {
     boxShadow: isCollapsed ? '0 4px 12px rgba(15, 23, 42, 0.06)' : 'none',
   },
   '& .MuiListItemIcon-root': {
-    minWidth: isCollapsed ? 0 : 30,
-    marginRight: isCollapsed ? 0 : theme.spacing(1.25),
+    minWidth: isCollapsed ? 0 : 24,
+    marginRight: isCollapsed ? 0 : theme.spacing(0.9),
     margin: isCollapsed ? 0 : undefined,
     display: 'inline-flex',
     justifyContent: 'center',
@@ -373,13 +421,14 @@ const StyledListItemButton = styled(ListItemButton, {
     color: '#2563eb',
   },
   '& .MuiListItemText-primary': {
-    fontSize: '0.78rem',
+    fontSize: '0.76rem',
     lineHeight: 1.25,
     fontWeight: selected ? 600 : 500,
     letterSpacing: '-0.01em',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
+    whiteSpace: 'normal',
+    wordBreak: 'normal',
+    overflow: 'visible',
+    textOverflow: 'clip',
   },
 }));
 
@@ -2033,6 +2082,22 @@ const addCompanyAccessFallbackItems = (items, companyData, isPageAccessAdmin = f
 };
 
 
+const categoryLabels = {
+  'main': 'Main',
+  'work': 'Work',
+  'payroll': 'Payroll',
+  'communication': 'Communication',
+  'admin': 'Admin',
+  'settings': 'Settings',
+  'administration': 'Administration',
+  'tasks': 'Tasks',
+  'projects': 'Projects',
+  'meetings': 'Meetings',
+  'clients': 'Clients',
+  'crm': 'Admin CRM',
+  'admin-telecaller': 'Admin Telecaller'
+};
+
 const Sidebar = ({ 
   isMobile = false, 
   closeSidebar,
@@ -2074,6 +2139,25 @@ const Sidebar = ({
       setTelecallerWorkspaceOpen(true);
     }
   }, [location.pathname]);
+  const [payrollDropdownOpen, setPayrollDropdownOpen] = useState(() => isPayrollPath(location.pathname));
+  useEffect(() => {
+    if (isPayrollPath(location.pathname)) {
+      setPayrollDropdownOpen(true);
+    }
+  }, [location.pathname]);
+  const [adminCrmDropdownOpen, setAdminCrmDropdownOpen] = useState(() => isCrmPath(location.pathname));
+  useEffect(() => {
+    if (isCrmPath(location.pathname)) {
+      setAdminCrmDropdownOpen(true);
+    }
+  }, [location.pathname]);
+  const [adminTelecallerDropdownOpen, setAdminTelecallerDropdownOpen] = useState(() => isTelecallerPath(location.pathname));
+  useEffect(() => {
+    if (isTelecallerPath(location.pathname)) {
+      setAdminTelecallerDropdownOpen(true);
+    }
+  }, [location.pathname]);
+  const [openSections, setOpenSections] = useState(() => new Set());
   const [openAdminCrmGroups, setOpenAdminCrmGroups] = useState(() => new Set(
     location.pathname.includes('/crm/admin/add-lead') ? ['lead-management'] : ['call-management']
   ));
@@ -2101,7 +2185,7 @@ const Sidebar = ({
   ).trim();
 
   
-  const drawerWidthOpen = propDrawerWidthOpen || 224;
+  const drawerWidthOpen = propDrawerWidthOpen || 236;
   const drawerWidthClosed = propDrawerWidthClosed || 70;
   const isSidebarOpen = isMobile || (propIsOpen !== undefined ? propIsOpen : isHovered);
 
@@ -2640,42 +2724,8 @@ const Sidebar = ({
     });
   }, [badgeSeenStorageKey, menuBadgeCounts]);
 
-  const handleLogout = useCallback(async () => {
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "You'll be logged out of your account.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, Logout",
-      cancelButtonText: "Cancel",
-      background: "#f9f9f9",
-      color: "#333",
-      customClass: {
-        popup: "rounded-xl shadow-lg",
-        title: "text-lg font-semibold",
-        confirmButton: "px-4 py-2 rounded-md",
-        cancelButton: "px-4 py-2 rounded-md",
-      },
-    });
-
-    if (result.isConfirmed) {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      localStorage.removeItem("companyDetails");
-      localStorage.removeItem("sidebarConfig");
-
-      Swal.fire({
-        title: "Logged Out!",
-        text: "You have successfully logged out.",
-        icon: "success",
-        showConfirmButton: false,
-        timer: 2000,
-      });
-
-      setTimeout(() => navigate("/"), 1800);
-    }
+  const handleLogout = useCallback(() => {
+    handleAppLogout({ navigate, redirectPath: "/" });
   }, [navigate]);
 
   const handleNavigate = useCallback((path, badgeKey) => {
@@ -3073,11 +3123,12 @@ const Sidebar = ({
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
             disabled={item.disabled}
             sx={{
-              minHeight: 44,
+              minHeight: 32,
               height: 'auto',
               alignItems: 'center',
-              mx: 1,
-              px: 1.5,
+              mx: '4px',
+              px: 1,
+              py: '2px',
               opacity: item.disabled ? 0.5 : 1,
               cursor: item.disabled ? 'not-allowed' : 'pointer'
             }}
@@ -3091,9 +3142,10 @@ const Sidebar = ({
               primaryTypographyProps={{
                 variant: 'body2',
                 fontWeight: selected ? 600 : 500,
-                fontSize: '0.75rem',
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
+                fontSize: '0.78rem',
+                lineHeight: 1.25,
+                whiteSpace: 'normal',
+                wordBreak: 'normal',
                 overflow: 'visible',
                 textOverflow: 'clip'
               }}
@@ -3127,81 +3179,205 @@ const Sidebar = ({
   };
 
   const renderTelecallerMenu = (items) => {
+    if (!items || !items.length) return null;
+
     const callSlugs = ['call-dashboard', 'assigned-calls', 'todays-calls', 'pending-calls', 'scheduled-calls', 'completed-calls', 'call-history', 'call-workspace', 'lead-detail'];
     const getSlug = item => String(item.path || '').replace(/\/+$/, '').split('/').pop();
     const children = callSlugs.map(slug => items.find(item => getSlug(item) === slug)).filter(Boolean);
     const dashboard = items.find(item => getSlug(item) === 'dashboard');
     const remaining = items.filter(item => getSlug(item) !== 'dashboard' && !callSlugs.includes(getSlug(item)));
+    const isTelecallerActive = items.some(item => location.pathname === item.path)
+      || isTelecallerPath(location.pathname);
     const selected = children.some(item => location.pathname === item.path)
       || /\/telecaller\/(call-workspace|lead-detail)(\/|$)/i.test(location.pathname);
     const submenuId = `telecaller-call-menu-${isMobile ? 'mobile' : 'desktop'}`;
 
-    return (
-      <List sx={{ py: 0 }}>
-        {dashboard && <StyledListItem disablePadding>{renderMenuItem(dashboard, isSidebarOpen)}</StyledListItem>}
-        {children.length > 0 && (
+    const toggleTelecaller = (e) => {
+      const willOpen = !adminTelecallerDropdownOpen;
+      setAdminTelecallerDropdownOpen(open => !open);
+      if (willOpen) {
+        const target = e?.currentTarget;
+        setTimeout(() => {
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      }
+    };
+
+    const telecallerButton = (
+      <StyledListItemButton
+        selected={isTelecallerActive}
+        isCollapsed={!isSidebarOpen}
+        onClick={toggleTelecaller}
+        sx={{
+          justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+          alignItems: 'center',
+          p: isSidebarOpen ? '5px 8px' : 0,
+          minHeight: isSidebarOpen ? 34 : 40,
+          borderRadius: isSidebarOpen ? '7px' : '9px',
+          border: isSidebarOpen ? (isTelecallerActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
+          backgroundColor: isSidebarOpen 
+            ? (isTelecallerActive ? 'rgba(37, 99, 235, 0.08)' : (adminTelecallerDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
+            : undefined,
+          boxShadow: isSidebarOpen ? '0 1px 3px rgba(15, 23, 42, 0.04)' : undefined,
+          transition: 'all 0.18s ease',
+          '&:hover': {
+            backgroundColor: isTelecallerActive ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+            borderColor: isTelecallerActive ? 'rgba(37, 99, 235, 0.4)' : 'rgba(203, 213, 225, 0.9)',
+          }
+        }}
+      >
+        <StyledListItemIcon sx={{ 
+          mr: isSidebarOpen ? 1.25 : 0, 
+          minWidth: isSidebarOpen ? 28 : 0, 
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: isTelecallerActive ? 'primary.main' : '#475569'
+        }}>
+          <PhoneInTalkIcon />
+        </StyledListItemIcon>
+        {isSidebarOpen && (
           <>
-            <StyledListItem disablePadding>
-              <Tooltip title={isSidebarOpen ? '' : 'Call Workspace'} placement="right">
-                <StyledListItemButton
-                  component="button"
-                  type="button"
-                  selected={selected}
-                  isCollapsed={!isSidebarOpen}
-                  aria-label="Call Workspace"
-                  aria-expanded={isSidebarOpen && telecallerWorkspaceOpen}
-                  aria-controls={submenuId}
-                  onClick={() => setTelecallerWorkspaceOpen(open => !open)}
-                  sx={{
-                    justifyContent: isSidebarOpen ? 'flex-start' : 'center',
-                    alignItems: 'center',
-                    p: isSidebarOpen ? '8px 12px' : 0,
-                  }}
-                >
-                  <StyledListItemIcon sx={{ 
-                    mr: isSidebarOpen ? 1.25 : 0, 
-                    minWidth: isSidebarOpen ? 28 : 0, 
-                    justifyContent: 'center',
-                    alignItems: 'center' 
-                  }}>
-                    <SupportAgentIcon />
-                  </StyledListItemIcon>
-                  {isSidebarOpen && (
-                    <>
-                      <ListItemText primary="Call Workspace" primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: selected ? 600 : 500 }} />
-                      {telecallerWorkspaceOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
-                    </>
-                  )}
-                </StyledListItemButton>
-              </Tooltip>
-            </StyledListItem>
-            <Collapse id={submenuId} in={isSidebarOpen && telecallerWorkspaceOpen} timeout="auto">
-              <List disablePadding sx={{
-                ml: 2.25,
-                mr: 1,
-                my: 0.35,
-                pl: 0.75,
-                borderLeft: '1px solid rgba(226, 232, 240, 0.8)',
-                '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
-              }}> 
-                {children.map(item => (
-                  <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, isSidebarOpen)}</StyledListItem>
-                ))}
-              </List>
-            </Collapse>
+            <ListItemText
+              primary="Admin Telecaller"
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: isTelecallerActive ? 700 : 600,
+                fontSize: '0.78rem',
+                whiteSpace: 'nowrap',
+                color: isTelecallerActive ? 'primary.main' : '#1e293b'
+              }}
+            />
+            {items.length > 0 && (
+              <Box sx={{
+                fontSize: '0.64rem',
+                fontWeight: 700,
+                color: adminTelecallerDropdownOpen ? 'primary.main' : '#64748b',
+                bgcolor: adminTelecallerDropdownOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+                px: 0.6,
+                py: 0.1,
+                borderRadius: '6px',
+                mr: 0.75,
+                lineHeight: 1.2
+              }}>
+                {items.length}
+              </Box>
+            )}
+            <ExpandMore sx={{ 
+              fontSize: 18, 
+              color: adminTelecallerDropdownOpen ? 'primary.main' : '#64748b',
+              transform: adminTelecallerDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.22s ease'
+            }} />
           </>
         )}
-        {remaining.map(item => (
-          <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, isSidebarOpen)}</StyledListItem>
-        ))}
+      </StyledListItemButton>
+    );
+
+    return (
+      <List sx={{ py: 0 }}>
+        <StyledListItem disablePadding>
+          {isSidebarOpen ? telecallerButton : (
+            <Tooltip title="Admin Telecaller" placement="right">{telecallerButton}</Tooltip>
+          )}
+        </StyledListItem>
+        <Collapse 
+          in={isSidebarOpen && adminTelecallerDropdownOpen} 
+          timeout="auto" 
+          unmountOnExit
+          onEntered={(node) => {
+            node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }}
+        >
+          <List disablePadding sx={{
+            ml: 1.25,
+            mr: 0.5,
+            my: 0.15,
+            pl: 0.5,
+            borderLeft: '1.5px solid rgba(226, 232, 240, 0.9)',
+            '& .MuiListItemButton-root': { minHeight: 32, width: '100%', mx: 0, py: '2px', borderRadius: '0 6px 6px 0' }
+          }}>
+            {dashboard && <StyledListItem disablePadding>{renderMenuItem(dashboard, isSidebarOpen)}</StyledListItem>}
+            {children.length > 0 && (
+              <>
+                <StyledListItem disablePadding>
+                  <Tooltip title={isSidebarOpen ? '' : 'Call Workspace'} placement="right">
+                    <StyledListItemButton
+                      component="button"
+                      type="button"
+                      selected={selected}
+                      isCollapsed={!isSidebarOpen}
+                      aria-label="Call Workspace"
+                      aria-expanded={isSidebarOpen && telecallerWorkspaceOpen}
+                      aria-controls={submenuId}
+                      onClick={() => setTelecallerWorkspaceOpen(open => !open)}
+                      sx={{
+                        justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+                        alignItems: 'center',
+                        p: isSidebarOpen ? '5px 8px' : 0,
+                        minHeight: 32,
+                      }}
+                    >
+                      <StyledListItemIcon sx={{ 
+                        mr: isSidebarOpen ? 1.25 : 0, 
+                        minWidth: isSidebarOpen ? 28 : 0, 
+                        justifyContent: 'center',
+                        alignItems: 'center' 
+                      }}>
+                        <SupportAgentIcon />
+                      </StyledListItemIcon>
+                      {isSidebarOpen && (
+                        <>
+                          <ListItemText primary="Call Workspace" primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: selected ? 600 : 500 }} />
+                          {telecallerWorkspaceOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
+                        </>
+                      )}
+                    </StyledListItemButton>
+                  </Tooltip>
+                </StyledListItem>
+                <Collapse id={submenuId} in={isSidebarOpen && telecallerWorkspaceOpen} timeout="auto">
+                  <List disablePadding sx={{
+                    ml: 1.25,
+                    mr: 0.5,
+                    my: 0.15,
+                    pl: 0.5,
+                    borderLeft: '1.5px solid rgba(226, 232, 240, 0.9)',
+                    '& .MuiListItemButton-root': { minHeight: 32, width: '100%', mx: 0, py: '2px', borderRadius: '0 6px 6px 0' }
+                  }}> 
+                    {children.map(item => (
+                      <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, isSidebarOpen)}</StyledListItem>
+                    ))}
+                  </List>
+                </Collapse>
+              </>
+            )}
+            {remaining.map(item => (
+              <StyledListItem key={item.id} disablePadding>{renderMenuItem(item, isSidebarOpen)}</StyledListItem>
+            ))}
+          </List>
+        </Collapse>
       </List>
     );
   };
 
   const renderAdminCrmMenu = (items) => {
+    if (!items || !items.length) return null;
+
     const dashboardItem = items.find(item => item.id === 'admin-crm-dashboard');
     const groupedIds = new Set(ADMIN_CRM_MENU_GROUPS.flatMap(group => group.itemIds));
     const remainingItems = items.filter(item => item.id !== 'admin-crm-dashboard' && !groupedIds.has(item.id));
+    const isCrmActive = items.some(item => location.pathname === item.path)
+      || isCrmPath(location.pathname);
+
+    const toggleCrm = (e) => {
+      const willOpen = !adminCrmDropdownOpen;
+      setAdminCrmDropdownOpen(open => !open);
+      if (willOpen) {
+        const target = e?.currentTarget;
+        setTimeout(() => {
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      }
+    };
 
     const toggleGroup = (groupId) => {
       setOpenAdminCrmGroups(current => {
@@ -3212,92 +3388,476 @@ const Sidebar = ({
       });
     };
 
+    const crmButton = (
+      <StyledListItemButton
+        selected={isCrmActive}
+        isCollapsed={!isSidebarOpen}
+        onClick={toggleCrm}
+        sx={{
+          justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+          alignItems: 'center',
+          p: isSidebarOpen ? '5px 8px' : 0,
+          minHeight: isSidebarOpen ? 34 : 40,
+          borderRadius: isSidebarOpen ? '7px' : '9px',
+          border: isSidebarOpen ? (isCrmActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
+          backgroundColor: isSidebarOpen 
+            ? (isCrmActive ? 'rgba(37, 99, 235, 0.08)' : (adminCrmDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
+            : undefined,
+          boxShadow: isSidebarOpen ? '0 1px 3px rgba(15, 23, 42, 0.04)' : undefined,
+          transition: 'all 0.18s ease',
+          '&:hover': {
+            backgroundColor: isCrmActive ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+            borderColor: isCrmActive ? 'rgba(37, 99, 235, 0.4)' : 'rgba(203, 213, 225, 0.9)',
+          }
+        }}
+      >
+        <StyledListItemIcon sx={{ 
+          mr: isSidebarOpen ? 1.25 : 0, 
+          minWidth: isSidebarOpen ? 28 : 0, 
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: isCrmActive ? 'primary.main' : '#475569'
+        }}>
+          <ContactPhoneIcon />
+        </StyledListItemIcon>
+        {isSidebarOpen && (
+          <>
+            <ListItemText
+              primary="Admin CRM"
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: isCrmActive ? 700 : 600,
+                fontSize: '0.78rem',
+                whiteSpace: 'nowrap',
+                color: isCrmActive ? 'primary.main' : '#1e293b'
+              }}
+            />
+            {items.length > 0 && (
+              <Box sx={{
+                fontSize: '0.64rem',
+                fontWeight: 700,
+                color: adminCrmDropdownOpen ? 'primary.main' : '#64748b',
+                bgcolor: adminCrmDropdownOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+                px: 0.6,
+                py: 0.1,
+                borderRadius: '6px',
+                mr: 0.75,
+                lineHeight: 1.2
+              }}>
+                {items.length}
+              </Box>
+            )}
+            <ExpandMore sx={{ 
+              fontSize: 18, 
+              color: adminCrmDropdownOpen ? 'primary.main' : '#64748b',
+              transform: adminCrmDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.22s ease'
+            }} />
+          </>
+        )}
+      </StyledListItemButton>
+    );
+
     return (
       <List sx={{ py: 0 }}>
-        {dashboardItem && (
-          <StyledListItem disablePadding>
-            {renderMenuItem({ ...dashboardItem, name: 'Dashboard' }, isSidebarOpen)}
-          </StyledListItem>
-        )}
-
-        {ADMIN_CRM_MENU_GROUPS.map(group => {
-          const children = group.itemIds.map(id => items.find(item => item.id === id)).filter(Boolean);
-          if (!children.length) return null;
-          if (group.direct) return (
-            <StyledListItem key={group.id} disablePadding>
-              {renderMenuItem(children[0], isSidebarOpen)}
-            </StyledListItem>
-          );
-          const isOpen = openAdminCrmGroups.has(group.id);
-          const hasSelectedChild = children.some(item => location.pathname === item.path);
-          const groupButton = (
-            <StyledListItemButton
-              selected={hasSelectedChild}
-              isCollapsed={!isSidebarOpen}
-              onClick={() => toggleGroup(group.id)}
-              sx={{
-                justifyContent: isSidebarOpen ? 'flex-start' : 'center',
-                alignItems: 'center',
-                p: isSidebarOpen ? '8px 12px' : 0,
-              }}
-            >
-              <StyledListItemIcon sx={{ 
-                mr: isSidebarOpen ? 1.25 : 0, 
-                minWidth: isSidebarOpen ? 28 : 0, 
-                justifyContent: 'center',
-                alignItems: 'center' 
-              }}>
-                {getIconComponent(group.icon)}
-              </StyledListItemIcon>
-              {isSidebarOpen && (
-                <>
-                  <ListItemText
-                    primary={group.name}
-                    primaryTypographyProps={{
-                      variant: 'body2',
-                      fontWeight: hasSelectedChild ? 600 : 500,
-                      fontSize: '0.75rem',
-                      whiteSpace: 'nowrap'
-                    }}
-                  />
-                  {isOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
-                </>
-              )}
-            </StyledListItemButton>
-          );
-
-          return (
-            <React.Fragment key={group.id}>
+        <StyledListItem disablePadding>
+          {isSidebarOpen ? crmButton : (
+            <Tooltip title="Admin CRM" placement="right">{crmButton}</Tooltip>
+          )}
+        </StyledListItem>
+        <Collapse 
+          in={isSidebarOpen && adminCrmDropdownOpen} 
+          timeout="auto" 
+          unmountOnExit
+          onEntered={(node) => {
+            node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }}
+        >
+          <List disablePadding sx={{
+            ml: 1.25,
+            mr: 0.5,
+            my: 0.15,
+            pl: 0.5,
+            borderLeft: '1.5px solid rgba(226, 232, 240, 0.9)',
+            '& .MuiListItemButton-root': { minHeight: 32, width: '100%', mx: 0, py: '2px', borderRadius: '0 6px 6px 0' }
+          }}>
+            {dashboardItem && (
               <StyledListItem disablePadding>
-                {isSidebarOpen ? groupButton : (
-                  <Tooltip title={group.name} placement="right">{groupButton}</Tooltip>
-                )}
+                {renderMenuItem({ ...dashboardItem, name: 'Dashboard' }, isSidebarOpen)}
               </StyledListItem>
-              <Collapse in={isSidebarOpen && isOpen} timeout="auto" unmountOnExit>
-                <List disablePadding sx={{
-                  ml: 2.25,
-                  mr: 1,
-                  my: 0.35,
-                  pl: 0.75,
-                  borderLeft: '1px solid rgba(226, 232, 240, 0.8)',
-                  '& .MuiListItemButton-root': { minHeight: 38, width: '100%', mx: 0, borderRadius: '0 7px 7px 0' }
-                }}> 
-                  {children.map(item => (
-                    <StyledListItem key={item.id} disablePadding>
-                      {renderMenuItem(item, isSidebarOpen)}
-                    </StyledListItem>
-                  ))}
-                </List>
-              </Collapse>
-            </React.Fragment>
-          );
-        })}
+            )}
 
-        {remainingItems.map(item => (
-          <StyledListItem key={item.id} disablePadding>
-            {renderMenuItem(item, isSidebarOpen)}
-          </StyledListItem>
-        ))}
+            {ADMIN_CRM_MENU_GROUPS.map(group => {
+              const children = group.itemIds.map(id => items.find(item => item.id === id)).filter(Boolean);
+              if (!children.length) return null;
+              if (group.direct) return (
+                <StyledListItem key={group.id} disablePadding>
+                  {renderMenuItem(children[0], isSidebarOpen)}
+                </StyledListItem>
+              );
+              const isOpen = openAdminCrmGroups.has(group.id);
+              const hasSelectedChild = children.some(item => location.pathname === item.path);
+              const groupButton = (
+                <StyledListItemButton
+                  selected={hasSelectedChild}
+                  isCollapsed={!isSidebarOpen}
+                  onClick={() => toggleGroup(group.id)}
+                  sx={{
+                    justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+                    alignItems: 'center',
+                    p: isSidebarOpen ? '5px 8px' : 0,
+                    minHeight: 32,
+                  }}
+                >
+                  <StyledListItemIcon sx={{ 
+                    mr: isSidebarOpen ? 1.25 : 0, 
+                    minWidth: isSidebarOpen ? 28 : 0, 
+                    justifyContent: 'center',
+                    alignItems: 'center' 
+                  }}>
+                    {getIconComponent(group.icon)}
+                  </StyledListItemIcon>
+                  {isSidebarOpen && (
+                    <>
+                      <ListItemText
+                        primary={group.name}
+                        sx={{ minWidth: 0, my: 0, overflow: 'visible' }}
+                        primaryTypographyProps={{
+                          variant: 'body2',
+                          fontWeight: hasSelectedChild ? 600 : 500,
+                          fontSize: '0.78rem',
+                          lineHeight: 1.25,
+                          whiteSpace: 'normal',
+                          wordBreak: 'normal',
+                          overflow: 'visible',
+                          textOverflow: 'clip'
+                        }}
+                      />
+                      {isOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
+                    </>
+                  )}
+                </StyledListItemButton>
+              );
+
+              return (
+                <React.Fragment key={group.id}>
+                  <StyledListItem disablePadding>
+                    {isSidebarOpen ? groupButton : (
+                      <Tooltip title={group.name} placement="right">{groupButton}</Tooltip>
+                    )}
+                  </StyledListItem>
+                  <Collapse in={isSidebarOpen && isOpen} timeout="auto" unmountOnExit>
+                    <List disablePadding sx={{
+                      ml: 1.25,
+                      mr: 0.5,
+                      my: 0.15,
+                      pl: 0.5,
+                      borderLeft: '1.5px solid rgba(226, 232, 240, 0.9)',
+                      '& .MuiListItemButton-root': { minHeight: 32, width: '100%', mx: 0, py: '2px', borderRadius: '0 6px 6px 0' }
+                    }}> 
+                      {children.map(item => (
+                        <StyledListItem key={item.id} disablePadding>
+                          {renderMenuItem(item, isSidebarOpen)}
+                        </StyledListItem>
+                      ))}
+                    </List>
+                  </Collapse>
+                </React.Fragment>
+              );
+            })}
+
+            {remainingItems.map(item => (
+              <StyledListItem key={item.id} disablePadding>
+                {renderMenuItem(item, isSidebarOpen)}
+              </StyledListItem>
+            ))}
+          </List>
+        </Collapse>
+      </List>
+    );
+  };
+
+  const renderPayrollMenu = (items) => {
+    if (!items || !items.length) return null;
+
+    const isPayrollActive = items.some(item => location.pathname === item.path)
+      || isPayrollPath(location.pathname);
+
+    const togglePayroll = (e) => {
+      const willOpen = !payrollDropdownOpen;
+      setPayrollDropdownOpen(prev => !prev);
+      if (willOpen) {
+        const target = e?.currentTarget;
+        setTimeout(() => {
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      }
+    };
+
+    const payrollButton = (
+      <StyledListItemButton
+        selected={isPayrollActive}
+        isCollapsed={!isSidebarOpen}
+        onClick={togglePayroll}
+        sx={{
+          justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+          alignItems: 'center',
+          p: isSidebarOpen ? '5px 8px' : 0,
+          minHeight: isSidebarOpen ? 34 : 40,
+          borderRadius: isSidebarOpen ? '7px' : '9px',
+          border: isSidebarOpen ? (isPayrollActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
+          backgroundColor: isSidebarOpen 
+            ? (isPayrollActive ? 'rgba(37, 99, 235, 0.08)' : (payrollDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
+            : undefined,
+          boxShadow: isSidebarOpen ? '0 1px 3px rgba(15, 23, 42, 0.04)' : undefined,
+          transition: 'all 0.18s ease',
+          '&:hover': {
+            backgroundColor: isPayrollActive ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+            borderColor: isPayrollActive ? 'rgba(37, 99, 235, 0.4)' : 'rgba(203, 213, 225, 0.9)',
+          }
+        }}
+      >
+        <StyledListItemIcon sx={{ 
+          mr: isSidebarOpen ? 1.25 : 0, 
+          minWidth: isSidebarOpen ? 28 : 0, 
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: isPayrollActive ? 'primary.main' : '#475569'
+        }}>
+          <PayrollHeaderIcon />
+        </StyledListItemIcon>
+        {isSidebarOpen && (
+          <>
+            <ListItemText
+              primary="Payroll"
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: isPayrollActive ? 700 : 600,
+                fontSize: '0.78rem',
+                whiteSpace: 'nowrap',
+                color: isPayrollActive ? 'primary.main' : '#1e293b'
+              }}
+            />
+            {items.length > 0 && (
+              <Box sx={{
+                fontSize: '0.64rem',
+                fontWeight: 700,
+                color: payrollDropdownOpen ? 'primary.main' : '#64748b',
+                bgcolor: payrollDropdownOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+                px: 0.6,
+                py: 0.1,
+                borderRadius: '6px',
+                mr: 0.75,
+                lineHeight: 1.2
+              }}>
+                {items.length}
+              </Box>
+            )}
+            <ExpandMore sx={{ 
+              fontSize: 18, 
+              color: payrollDropdownOpen ? 'primary.main' : '#64748b',
+              transform: payrollDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.22s ease'
+            }} />
+          </>
+        )}
+      </StyledListItemButton>
+    );
+
+    return (
+      <List sx={{ py: 0 }}>
+        <StyledListItem disablePadding>
+          {isSidebarOpen ? payrollButton : (
+            <Tooltip title="Payroll" placement="right">{payrollButton}</Tooltip>
+          )}
+        </StyledListItem>
+        <Collapse 
+          in={isSidebarOpen && payrollDropdownOpen} 
+          timeout="auto" 
+          unmountOnExit
+          onEntered={(node) => {
+            node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }}
+        >
+          <List disablePadding sx={{
+            ml: 1.25,
+            mr: 0.5,
+            my: 0.15,
+            pl: 0.5,
+            borderLeft: '1.5px solid rgba(226, 232, 240, 0.9)',
+            '& .MuiListItemButton-root': { minHeight: 32, width: '100%', mx: 0, py: '2px', borderRadius: '0 6px 6px 0' }
+          }}> 
+            {items.map(item => (
+              <StyledListItem key={item.id} disablePadding>
+                {renderMenuItem(item, isSidebarOpen)}
+              </StyledListItem>
+            ))}
+          </List>
+        </Collapse>
+      </List>
+    );
+  };
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'tasks':
+        return <TaskIcon />;
+      case 'projects':
+        return <GroupsIcon />;
+      case 'meetings':
+        return <VideoCallIcon />;
+      case 'clients':
+        return <FolderIcon />;
+      case 'administration':
+      case 'admin':
+        return <PersonIcon />;
+      case 'communication':
+        return <ChatIcon />;
+      case 'work':
+        return <CalendarIcon />;
+      case 'settings':
+        return <SettingsIcon />;
+      case 'payroll':
+        return <PayrollHeaderIcon />;
+      case 'crm':
+        return <ContactPhoneIcon />;
+      case 'admin-telecaller':
+        return <PhoneInTalkIcon />;
+      default:
+        return <FolderIcon />;
+    }
+  };
+
+  const renderSectionDropdown = (category, items) => {
+    if (!items || !items.length) return null;
+
+    if (category === 'main') {
+      return (
+        <List sx={{ py: 0 }}>
+          {items.map(item => (
+            <StyledListItem key={item.id} disablePadding>
+              {renderMenuItem(item, isSidebarOpen)}
+            </StyledListItem>
+          ))}
+        </List>
+      );
+    }
+
+    const label = categoryLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    const isOpen = openSections.has(category);
+    const isActive = items.some(item => location.pathname === item.path || (item.path && location.pathname.startsWith(item.path)));
+
+    const handleSectionClick = (e) => {
+      const willOpen = !openSections.has(category);
+      toggleSection(category);
+      if (willOpen) {
+        const target = e?.currentTarget;
+        setTimeout(() => {
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      }
+    };
+
+    const sectionButton = (
+      <StyledListItemButton
+        selected={isActive}
+        isCollapsed={!isSidebarOpen}
+        onClick={handleSectionClick}
+        sx={{
+          justifyContent: isSidebarOpen ? 'flex-start' : 'center',
+          alignItems: 'center',
+          p: isSidebarOpen ? '5px 8px' : 0,
+          minHeight: isSidebarOpen ? 34 : 40,
+          borderRadius: isSidebarOpen ? '7px' : '9px',
+          border: isSidebarOpen ? (isActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
+          backgroundColor: isSidebarOpen 
+            ? (isActive ? 'rgba(37, 99, 235, 0.08)' : (isOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
+            : undefined,
+          boxShadow: isSidebarOpen ? '0 1px 3px rgba(15, 23, 42, 0.04)' : undefined,
+          transition: 'all 0.18s ease',
+          '&:hover': {
+            backgroundColor: isActive ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+            borderColor: isActive ? 'rgba(37, 99, 235, 0.4)' : 'rgba(203, 213, 225, 0.9)',
+          }
+        }}
+      >
+        <StyledListItemIcon sx={{ 
+          mr: isSidebarOpen ? 1.25 : 0, 
+          minWidth: isSidebarOpen ? 28 : 0, 
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: isActive ? 'primary.main' : '#475569'
+        }}>
+          {getCategoryIcon(category)}
+        </StyledListItemIcon>
+        {isSidebarOpen && (
+          <>
+            <ListItemText
+              primary={label}
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: isActive ? 700 : 600,
+                fontSize: '0.78rem',
+                whiteSpace: 'nowrap',
+                color: isActive ? 'primary.main' : '#1e293b'
+              }}
+            />
+            {items.length > 0 && (
+              <Box sx={{
+                fontSize: '0.64rem',
+                fontWeight: 700,
+                color: isOpen ? 'primary.main' : '#64748b',
+                bgcolor: isOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(241, 245, 249, 1)',
+                px: 0.6,
+                py: 0.1,
+                borderRadius: '6px',
+                mr: 0.75,
+                lineHeight: 1.2
+              }}>
+                {items.length}
+              </Box>
+            )}
+            <ExpandMore sx={{ 
+              fontSize: 18, 
+              color: isOpen ? 'primary.main' : '#64748b',
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.22s ease'
+            }} />
+          </>
+        )}
+      </StyledListItemButton>
+    );
+
+    return (
+      <List sx={{ py: 0 }}>
+        <StyledListItem disablePadding>
+          {isSidebarOpen ? sectionButton : (
+            <Tooltip title={label} placement="right">{sectionButton}</Tooltip>
+          )}
+        </StyledListItem>
+        <Collapse 
+          in={isSidebarOpen && isOpen} 
+          timeout="auto" 
+          unmountOnExit
+          onEntered={(node) => {
+            node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }}
+        >
+          <List disablePadding sx={{
+            ml: 1.25,
+            mr: 0.5,
+            my: 0.15,
+            pl: 0.5,
+            borderLeft: '1.5px solid rgba(226, 232, 240, 0.9)',
+            '& .MuiListItemButton-root': { minHeight: 32, width: '100%', mx: 0, py: '2px', borderRadius: '0 6px 6px 0' }
+          }}> 
+            {items.map(item => (
+              <StyledListItem key={item.id} disablePadding>
+                {renderMenuItem(item, isSidebarOpen)}
+              </StyledListItem>
+            ))}
+          </List>
+        </Collapse>
       </List>
     );
   };
@@ -3335,15 +3895,7 @@ const Sidebar = ({
     if (id === 'logout' || name === 'logout') return 'settings';
 
     // Payroll
-    if (
-      id.includes('salary') || 
-      id.includes('payroll') || 
-      id === 'payslip' ||
-      name.includes('salary') || 
-      name.includes('payroll') || 
-      name.includes('payslip') ||
-      item.category === 'payroll'
-    ) return 'payroll';
+    if (isPayrollItem(item)) return 'payroll';
     
     // Keep original database category if not matching the targeted 15 items!
     return item.category || 'main';
@@ -3358,7 +3910,13 @@ const Sidebar = ({
     const hasCustomRanges = customRanges.length > 0;
     
     menuItems.forEach(item => {
-      let category = String(item.path || '').toLowerCase().startsWith('/ciisuser/telecaller/') ? 'admin-telecaller' : String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/') ? 'crm' : '';
+      let category = String(item.path || '').toLowerCase().startsWith('/ciisuser/telecaller/') 
+        ? 'admin-telecaller' 
+        : String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/') 
+        ? 'crm' 
+        : isPayrollItem(item)
+        ? 'payroll'
+        : '';
       if (!category && hasCustomRanges && Number.isFinite(Number(item.order))) {
         const orderVal = Number(item.order);
         const matchedRange = customRanges.find(r => orderVal >= r.min && orderVal <= r.max);
@@ -3418,6 +3976,31 @@ const Sidebar = ({
       })
     );
   }, [menuItems, sidebarConfig]);
+
+  useEffect(() => {
+    Object.entries(groupedItems).forEach(([cat, items]) => {
+      if (items.some(item => item.path === location.pathname || (item.path && location.pathname.startsWith(item.path)))) {
+        setOpenSections(prev => {
+          if (prev.has(cat)) return prev;
+          const next = new Set(prev);
+          next.add(cat);
+          return next;
+        });
+      }
+    });
+  }, [location.pathname, groupedItems]);
+
+  const toggleSection = (category) => {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  };
 
   
   const Container = isMobile ? MobileSidebarContainer : SidebarContainer;
@@ -3504,8 +4087,8 @@ const Sidebar = ({
           },
         }}>
           <Collapse in={isSidebarOpen} timeout={250}>
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
+            <Box sx={{ p: 1.25, borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="subtitle2" fontWeight={600} noWrap>
                     {userData?.name || 'Client User'}
@@ -3578,7 +4161,7 @@ const Sidebar = ({
 
         <Box sx={{ 
           width: '100%',
-          p: isSidebarOpen ? '12px 14px' : '10px 0', 
+          p: isSidebarOpen ? '6px 10px' : '6px 0', 
           display: 'flex', 
           justifyContent: 'center',
           alignItems: 'center',
@@ -3594,10 +4177,10 @@ const Sidebar = ({
                 color: 'error.main',
                 justifyContent: isSidebarOpen ? 'flex-start' : 'center',
                 alignItems: 'center',
-                width: isSidebarOpen ? '100%' : 44,
-                height: 44,
-                minHeight: 44,
-                p: isSidebarOpen ? '8px 12px' : 0,
+                width: isSidebarOpen ? '100%' : 36,
+                height: 36,
+                minHeight: 36,
+                p: isSidebarOpen ? '5px 10px' : 0,
                 m: isSidebarOpen ? 0 : '0 auto',
                 borderRadius: '10px',
                 borderLeft: '1px solid transparent',
@@ -3672,53 +4255,20 @@ const Sidebar = ({
 
   
   const renderCategoryHeading = (category) => {
-    const categoryLabels = {
-      'main': 'Main',
-      'work': 'Work',
-      'payroll': 'Payroll',
-      'communication': 'Communication',
-      'admin': 'Admin',
-      'settings': 'Settings',
-      'administration': 'Administration',
-      'tasks': 'Tasks',
-      'projects': 'Projects',
-      'meetings': 'Meetings',
-      'clients': 'Clients'
-      ,'crm': 'Admin CRM'
-      ,'admin-telecaller': 'Admin Telecaller'
-    };
-    
-    const label = categoryLabels[category] || category;
-    
-    if (isSidebarOpen) {
-      return (
-        <SectionHeading key={`heading-${category}`}>
-          <span>{label}</span>
-        </SectionHeading>
-      );
-    } else {
-      return (
-        <Tooltip key={`heading-${category}`} title={label} placement="right">
-          <CollapsedHeading>
-            {getIconComponent(
-              category === 'main' ? 'Dashboard' : 
-              category === 'work' ? 'Task' :
-              category === 'payroll' ? 'PayrollHeader' :
-              category === 'communication' ? 'Notifications' :
-              category === 'admin' ? 'Person' :
-              category === 'settings' ? 'Settings' : 
-              category === 'administration' ? 'Person' :
-              category === 'tasks' ? 'Task' :
-              category === 'projects' ? 'Groups' :
-              category === 'meetings' ? 'VideoCall' :
-              category === 'crm' || category === 'admin-crm' ? 'ContactPhone' :
-              category === 'admin-telecaller' ? 'PhoneInTalk' :
-              category === 'clients' ? 'Person' : 'Dashboard'
-            )}
-          </CollapsedHeading>
-        </Tooltip>
-      );
+    if (category === 'main') {
+      return null;
     }
+
+    return (
+      <Divider 
+        key={`divider-${category}`} 
+        sx={{ 
+          my: 0.2, 
+          mx: isSidebarOpen ? 1 : 0.75, 
+          borderColor: 'rgba(226, 232, 240, 0.65)' 
+        }} 
+      />
+    );
   };
 
   const renderClientCompanySwitcher = () => {
@@ -3841,23 +4391,26 @@ const Sidebar = ({
           minHeight: 0, 
           overflowY: 'auto', 
           overflowX: 'hidden',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
+          pb: 6,
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(203, 213, 225, 0.5) transparent',
           '&::-webkit-scrollbar': {
-            display: 'none',
-            width: 0,
-            height: 0,
+            width: 4,
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(203, 213, 225, 0.5)',
+            borderRadius: 2,
           },
         }}
       >
         <Collapse in={isSidebarOpen} timeout={250}>
-          <Box sx={{ px: 2, py: 2.25, borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1.35 }}>
+          <Box sx={{ px: 1.25, py: 1.2, borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.85 }}>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ fontSize: '0.875rem', lineHeight: 1.4, color: 'text.primary' }}>
+                <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ fontSize: '0.82rem', lineHeight: 1.25, color: 'text.primary' }}>
                   {userData?.name || 'User'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.35, textTransform: 'capitalize' }}>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.2, fontSize: '0.68rem', textTransform: 'capitalize' }}>
                   {userSubtitle}
                 </Typography>
                 {(companyData?.companyName || userData?.companyName || userData?.companyDetails?.companyName) && (
@@ -3866,9 +4419,9 @@ const Sidebar = ({
                     display="block" 
                     color="text.secondary" 
                     sx={{ 
-                      fontSize: '0.7rem', 
+                      fontSize: '0.66rem', 
                       fontWeight: 500,
-                      mt: 0.5,
+                      mt: 0.3,
                       opacity: 0.8,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -3889,43 +4442,44 @@ const Sidebar = ({
                     flex: '0 0 auto',
                     width: '100%',
                     minWidth: 0,
-                    height: 50,
-                    px: 1.5,
-                    borderRadius: 2.25,
+                    height: 38,
+                    px: 1.2,
+                    py: 0.5,
+                    borderRadius: 2,
                     textTransform: 'none',
                     fontWeight: 700,
                     color: 'primary.main',
                     background: 'linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%)',
                     border: '1px solid #cfe0ff',
-                    boxShadow: '0 5px 14px rgba(37, 99, 235, 0.14)',
+                    boxShadow: '0 3px 10px rgba(37, 99, 235, 0.1)',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%)',
-                      boxShadow: '0 7px 18px rgba(37, 99, 235, 0.2)',
+                      boxShadow: '0 5px 14px rgba(37, 99, 235, 0.16)',
                     },
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.78rem', lineHeight: 1 }}>
-                      <PersonIcon sx={{ fontSize: 20 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.74rem', lineHeight: 1 }}>
+                      <PersonIcon sx={{ fontSize: 18 }} />
                       <span>Profile</span>
                     </Box>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 0.55 }} />
-                    <Box sx={{ position: 'relative', width: 34, height: 34, flex: '0 0 34px', display: 'grid', placeItems: 'center' }}>
+                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                    <Box sx={{ position: 'relative', width: 28, height: 28, flex: '0 0 28px', display: 'grid', placeItems: 'center' }}>
                       <CircularProgress
                         variant="determinate"
                         value={100}
-                        size={34}
-                        thickness={4}
+                        size={28}
+                        thickness={3.5}
                         sx={{ position: 'absolute', color: '#dbe7f8' }}
                       />
                       <CircularProgress
                         variant="determinate"
                         value={profileCompletion}
-                        size={34}
-                        thickness={4}
+                        size={28}
+                        thickness={3.5}
                         sx={{ position: 'absolute', color: '#2878db', '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }}
                       />
-                      <Typography component="span" sx={{ color: '#172033', fontSize: '0.62rem', fontWeight: 700 }}>
+                      <Typography component="span" sx={{ color: '#172033', fontSize: '0.58rem', fontWeight: 700 }}>
                         {profileCompletion}%
                       </Typography>
                     </Box>
@@ -3940,14 +4494,14 @@ const Sidebar = ({
           <Box key={category}>
             {renderCategoryHeading(category)}
             
-            {category === 'crm' ? renderAdminCrmMenu(groupedItems[category]) : category === 'admin-telecaller' ? renderTelecallerMenu(groupedItems[category]) : (
-              <List sx={{ py: 0 }}>
-                {groupedItems[category].map((item) => (
-                  <StyledListItem key={item.id} disablePadding>
-                    {renderMenuItem(item, isSidebarOpen)}
-                  </StyledListItem>
-                ))}
-              </List>
+            {category === 'crm' ? (
+              renderAdminCrmMenu(groupedItems[category])
+            ) : category === 'admin-telecaller' ? (
+              renderTelecallerMenu(groupedItems[category])
+            ) : category === 'payroll' ? (
+              renderPayrollMenu(groupedItems[category])
+            ) : (
+              renderSectionDropdown(category, groupedItems[category])
             )}
           </Box>
         ))}
@@ -3955,7 +4509,7 @@ const Sidebar = ({
 
       <Box sx={{ 
         width: '100%',
-        p: isSidebarOpen ? '12px 14px' : '10px 0', 
+        p: isSidebarOpen ? '6px 10px' : '6px 0', 
         display: 'flex', 
         justifyContent: 'center',
         alignItems: 'center',
@@ -3971,12 +4525,12 @@ const Sidebar = ({
               color: 'error.main',
               justifyContent: isSidebarOpen ? 'flex-start' : 'center',
               alignItems: 'center',
-              width: isSidebarOpen ? '100%' : 44,
-              height: 44,
-              minHeight: 44,
-              p: isSidebarOpen ? '8px 12px' : 0,
+              width: isSidebarOpen ? '100%' : 36,
+              height: 36,
+              minHeight: 36,
+              p: isSidebarOpen ? '5px 10px' : 0,
               m: isSidebarOpen ? 0 : '0 auto',
-              borderRadius: '10px',
+              borderRadius: '8px',
               borderLeft: '1px solid transparent',
               '&:hover': { 
                 backgroundColor: 'rgba(239, 68, 68, 0.08)',
@@ -3989,9 +4543,9 @@ const Sidebar = ({
               color: 'inherit', 
               m: 0,
               mr: isSidebarOpen ? 1.25 : 0, 
-              minWidth: isSidebarOpen ? 28 : 0, 
-              width: isSidebarOpen ? 28 : 44,
-              height: 44,
+              minWidth: isSidebarOpen ? 24 : 0, 
+              width: isSidebarOpen ? 24 : 36,
+              height: 36,
               display: 'inline-flex',
               justifyContent: 'center',
               alignItems: 'center',

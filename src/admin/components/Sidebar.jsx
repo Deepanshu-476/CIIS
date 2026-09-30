@@ -34,6 +34,7 @@ import {
   LogoutOutlined
 } from '@mui/icons-material';
 import Swal from "sweetalert2";
+import { handleAppLogout } from "../../utils/logoutModal";
 
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
@@ -210,40 +211,8 @@ const Sidebar = ({ isMobile = false }) => {
     }
   };
 
-  const handleLogout = async () => {
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "You'll be logged out of your account.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, Logout",
-      cancelButtonText: "Cancel",
-      background: "#f9f9f9",
-      color: "#333",
-      customClass: {
-        popup: "rounded-xl shadow-lg",
-        title: "text-lg font-semibold",
-        confirmButton: "px-4 py-2 rounded-md",
-        cancelButton: "px-4 py-2 rounded-md",
-      },
-    });
-
-    if (result.isConfirmed) {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-
-      Swal.fire({
-        title: "Logged Out!",
-        text: "You have successfully logged out.",
-        icon: "success",
-        showConfirmButton: false,
-        timer: 2000,
-      });
-
-      setTimeout(() => navigate("/"), 1800);
-    }
+  const handleLogout = () => {
+    handleAppLogout({ navigate, redirectPath: "/" });
   };
 
   

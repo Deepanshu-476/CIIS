@@ -16,7 +16,7 @@ import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
 
-const drawerWidthOpen = 224;
+const drawerWidthOpen = 236;
 const drawerWidthClosed = 70;
 const SIDEBAR_TRANSITION = '0.28s cubic-bezier(0.4, 0, 0.2, 1)';
 

@@ -111,6 +111,7 @@ const UserLayout = () => {
   }, [isMobile]);
 
   useEffect(() => {
+    setIsSidebarHovered(false);
     if (isMobile) {
       setMobileSidebarOpen(false);
     }

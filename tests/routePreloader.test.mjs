@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import fs from 'node:fs'; 
+import vm from 'node:vm';  
 
 test('hover preload resolves mixed-case payroll and every canonical CRM route', async () => {
   const loaded = [];

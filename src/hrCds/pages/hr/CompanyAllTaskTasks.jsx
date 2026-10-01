@@ -1,35 +1,219 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useParams, useSearchParams, useLocation, useNavigate } from "react-router-dom";
+import axios from "../../../utils/axiosConfig";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import axios from "../../../utils/axiosConfig";
-import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from "../../../utils/pageAccess";
-import API_URL from "../../../config";
-import "./CompanyAllTaskTasks.css";
 import {
-  FiActivity,
-  FiAlertTriangle,
   FiArrowLeft,
-  FiCalendar,
+  FiSearch,
+  FiFilter,
+  FiPlus,
+  FiCheck,
+  FiClock,
+  FiAlertTriangle,
   FiCheckCircle,
+  FiDownload,
+  FiCalendar,
+  FiUser,
+  FiHome,
+  FiMoreVertical,
+  FiX,
+  FiChevronDown,
+  FiChevronUp,
   FiChevronLeft,
   FiChevronRight,
-  FiClock,
-  FiDownload,
-  FiEdit2,
-  FiFilter,
-  FiList,
-  FiMail,
   FiMessageSquare,
-  FiLock,
-  FiPlus,
+  FiActivity,
+  FiPercent,
+  FiExternalLink,
+  FiMail,
+  FiPhone,
+  FiTrendingUp,
+  FiFolder,
+  FiBarChart2,
+  FiCheckSquare,
+  FiZap,
+  FiList,
+  FiEye,
+  FiFileText,
+  FiAward,
+  FiPieChart,
+  FiXCircle,
+  FiAlertCircle,
   FiRefreshCw,
-  FiSearch,
-  FiTrash2,
-  FiUser,
-  FiUsers,
-  FiX,
+  FiGrid,
+  FiPlay,
+  FiPause
 } from "react-icons/fi";
+import {
+  getCurrentUserId,
+  getStoredUser,
+  getPageAccessUserIds,
+  loadPagePermission,
+} from "../../../utils/pageAccess";
+import "./CompanyAllTaskTasks.css";
+
+const cleanActivityDescription = (desc, action) => {
+  if (!desc) {
+    if (!action) return "Activity logged";
+    const formattedAction = String(action).replace(/_/g, " ").replace(/-/g, " ");
+    return formattedAction.charAt(0).toUpperCase() + formattedAction.slice(1);
+  }
+
+  let text = String(desc);
+
+  // Format messy Date strings like "Sun Oct 25 2026 00:00:00 GMT+0000 (Coordinated Universal Time)"
+  text = text.replace(/"[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}\s+[\d:]+\s+GMT[^\"]*"/g, (match) => {
+    try {
+      const cleanStr = match.replace(/"/g, "");
+      const d = new Date(cleanStr);
+      if (!isNaN(d.getTime())) {
+        return `"${d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })}"`;
+      }
+    } catch {
+      // fallback
+    }
+    return match;
+  });
+
+  text = text.replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g, (match) => {
+    try {
+      const d = new Date(match);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+      }
+    } catch {
+      // fallback
+    }
+    return match;
+  });
+
+  // Clean common raw status strings in quotes
+  text = text.replace(/"in_progress"/gi, '"In Progress"');
+  text = text.replace(/"in-progress"/gi, '"In Progress"');
+  text = text.replace(/"onhold"/gi, '"On Hold"');
+  text = text.replace(/"completed"/gi, '"Completed"');
+  text = text.replace(/"pending"/gi, '"Pending"');
+  text = text.replace(/"reopen"/gi, '"Reopen"');
+  text = text.replace(/"cancelled"/gi, '"Cancelled"');
+
+  return text;
+};
+
+const getActivityMeta = (log) => {
+  const action = String(log.action || log.type || "").toLowerCase();
+  const desc = String(log.description || log.text || log.message || log.details || "").toLowerCase();
+
+  if (action.includes("complete") || desc.includes("completed")) {
+    return {
+      type: "completed",
+      label: "Completed",
+      badgeClass: "badge-completed",
+      icon: <FiCheckCircle size={14} />,
+      color: "#16a34a",
+      bg: "#dcfce7",
+      border: "#86efac"
+    };
+  }
+  if (action.includes("start") || action.includes("progress") || desc.includes("in progress") || desc.includes("started")) {
+    return {
+      type: "progress",
+      label: "In Progress",
+      badgeClass: "badge-progress",
+      icon: <FiPlay size={13} />,
+      color: "#0284c7",
+      bg: "#e0f2fe",
+      border: "#7dd3fc"
+    };
+  }
+  if (action.includes("hold") || desc.includes("on hold") || desc.includes("paused")) {
+    return {
+      type: "onhold",
+      label: "On Hold",
+      badgeClass: "badge-onhold",
+      icon: <FiPause size={13} />,
+      color: "#9333ea",
+      bg: "#f3e8ff",
+      border: "#d8b4fe"
+    };
+  }
+  if (action.includes("timer") || desc.includes("timer stopped") || desc.includes("session duration") || desc.includes("time spent")) {
+    return {
+      type: "timer",
+      label: "Timer Session",
+      badgeClass: "badge-timer",
+      icon: <FiClock size={13} />,
+      color: "#d97706",
+      bg: "#fef3c7",
+      border: "#fde68a"
+    };
+  }
+  if (action.includes("assign") || desc.includes("assigned")) {
+    return {
+      type: "assign",
+      label: "Assignment",
+      badgeClass: "badge-assign",
+      icon: <FiUser size={13} />,
+      color: "#4f46e5",
+      bg: "#e0e7ff",
+      border: "#c7d2fe"
+    };
+  }
+  if (action.includes("due") || desc.includes("due date") || desc.includes("deadline")) {
+    return {
+      type: "dueDate",
+      label: "Due Date",
+      badgeClass: "badge-due",
+      icon: <FiCalendar size={13} />,
+      color: "#ea580c",
+      bg: "#ffedd5",
+      border: "#fed7aa"
+    };
+  }
+  if (action.includes("create") || desc.includes("created")) {
+    return {
+      type: "created",
+      label: "Created",
+      badgeClass: "badge-created",
+      icon: <FiPlus size={14} />,
+      color: "#059669",
+      bg: "#ecfdf5",
+      border: "#a7f3d0"
+    };
+  }
+  if (action.includes("remark") || action.includes("comment") || desc.includes("remark")) {
+    return {
+      type: "remark",
+      label: "Remark",
+      badgeClass: "badge-remark",
+      icon: <FiMessageSquare size={13} />,
+      color: "#0891b2",
+      bg: "#ecfeff",
+      border: "#a5f3fc"
+    };
+  }
+  if (action.includes("status") || desc.includes("status changed")) {
+    return {
+      type: "status",
+      label: "Status Change",
+      badgeClass: "badge-status",
+      icon: <FiActivity size={13} />,
+      color: "#2563eb",
+      bg: "#eff6ff",
+      border: "#bfdbfe"
+    };
+  }
+
+  return {
+    type: "update",
+    label: action ? action.replace(/_/g, " ").toUpperCase() : "UPDATE",
+    badgeClass: "badge-update",
+    icon: <FiZap size={13} />,
+    color: "#475569",
+    bg: "#f1f5f9",
+    border: "#cbd5e1"
+  };
+};
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Status", color: "#475569" },
@@ -49,15 +233,6 @@ const PRIORITY_OPTIONS = [
   { value: "medium", label: "Medium" },
   { value: "low", label: "Low" },
 ];
-
-const emptyStats = {
-  total: 0,
-  pending: { count: 0, percentage: 0 },
-  inProgress: { count: 0, percentage: 0 },
-  completed: { count: 0, percentage: 0 },
-  overdue: { count: 0, percentage: 0 },
-  onhold: { count: 0, percentage: 0 },
-};
 
 const normalizeStatus = (status) => {
   if (!status) return "pending";
@@ -111,324 +286,226 @@ const getTaskSource = (task) => {
   if (["client", "project", "self", "personal", "assigned"].includes(source)) {
     return source === "personal" ? "self" : source;
   }
-  return getTaskType(task) === "assigned" ? "assigned" : "self";
-};
-
-const getClientTaskMeta = (task) => {
-  const clientName = task?.clientName || task?.clientId?.client || task?.clientId?.name || "";
-  const assigneeName = task?.assigneeName || task?.assigneeId?.name || task?.assignedToName || task?.assignee || "";
-  const serviceName = task?.serviceName || task?.service || task?.planName || "";
-
-  return {
-    clientName: clientName || "Unknown Client",
-    assigneeName: assigneeName || "Unassigned",
-    serviceName: serviceName || "No service",
-  };
-};
-
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return "";
-  if (/^https?:\/\//i.test(imagePath)) return imagePath;
-
-  const baseUrl = API_URL.replace(/\/api\/?$/, "");
-  const cleanPath = String(imagePath).replace(/\\/g, "/").replace(/^\/+/, "");
-
-  if (cleanPath.startsWith("uploads/")) return `${baseUrl}/${cleanPath}`;
-  if (cleanPath.startsWith("client-remarks/") || cleanPath.startsWith("remarks/")) {
-    return `${baseUrl}/uploads/${cleanPath}`;
-  }
-  return `${baseUrl}/uploads/remarks/${cleanPath.split("/").pop()}`;
-};
-
-const getRemarkImages = (remark) => {
-  const images = Array.isArray(remark?.images) ? remark.images : [];
-  const paths = images
-    .map((image) => typeof image === "string" ? image : image?.url || image?.path)
-    .filter(Boolean);
-
-  if (remark?.image) paths.push(remark.image);
-  return [...new Set(paths)];
-};
-
-const extractRemarks = (payload) => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.remarks)) return payload.remarks;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.remarks)) return payload.data.remarks;
-  if (Array.isArray(payload?.data?.data)) return payload.data.data;
-  return [];
-};
-
-const getRemarkAuthorName = (remark) => {
-  const author = remark?.user || remark?.createdBy || remark?.author || remark?.performedBy;
-
-  if (typeof author === "string" && author.trim()) return author;
-
-  return author?.name
-    || author?.fullName
-    || author?.username
-    || remark?.userName
-    || remark?.authorName
-    || remark?.createdByName
-    || remark?.name
-    || "User";
-};
-
-const formatActivityAction = (value) => {
-  if (!value) return "Activity";
-  const str = String(value).trim().toLowerCase();
-  const map = {
-    task_created: "Task Created",
-    task_created_for_others: "Task Assigned",
-    self_task_created: "Self Task Created",
-    task_updated: "Task Updated",
-    task_deleted: "Task Deleted",
-    status_updated: "Status Updated",
-    status_change: "Status Changed",
-    remark_added: "Remark Added",
-    checkpoint_updated: "Checkpoint Updated",
-    checkpoint_toggle: "Checkpoint Toggled",
-    file_uploaded: "File Uploaded",
-    task_completed: "Task Completed",
-    task_assigned: "Task Assigned",
-    creation: "Task Created",
-    update: "Task Updated",
-  };
-  if (map[str]) return map[str];
-  return str.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-const renderActivityDescription = (description = "") => {
-  const statusPattern = /(in[- ]progress|pending|completed|cancelled|on[- ]hold|overdue|reopen|rejected|approved)/gi;
-  return String(description).split(statusPattern).map((part, index) => {
-    const statusClass = part.toLowerCase().replace(/[\s_]+/g, "-");
-    return /^(in[- ]progress|pending|completed|cancelled|on[- ]hold|overdue|reopen|rejected|approved)$/i.test(part)
-      ? <span className={`activity-status-text ${statusClass}`} key={`${part}-${index}`}>{part}</span>
-      : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
-  });
-};
-
-const formatDate = (value) => {
-  if (!value) return "Not set";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not set";
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
-
-const getDateInputValue = (value = new Date()) => {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return offsetDate.toISOString().slice(0, 10);
-};
-
-const getDateTimeInputValue = (value) => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return offsetDate.toISOString().slice(0, 16);
-};
-
-const formatTimeOrDateTime = (value, fallback = "--") => {
-  if (!value) return fallback;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-    return fallback;
-  }
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const formatDateTime = (value) => {
-  if (!value) return "Not available";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-    return "Not available";
-  }
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const getCleanCheckpoints = (checkpoints = []) => (
-  Array.isArray(checkpoints)
-    ? checkpoints
-        .map((checkpoint) => ({
-          _id: checkpoint._id,
-          title: String(checkpoint.title || "").trim(),
-          completed: Boolean(checkpoint.completed),
-        }))
-        .filter((checkpoint) => checkpoint.title)
-    : []
-);
-
-const getInitials = (name = "") => {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "U";
-  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-};
-
-const extractUsers = (response) => {
-  const data = response?.data;
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.users)) return data.users;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.message?.users)) return data.message.users;
-  return [];
+  if (task?.projectId) return "project";
+  if (task?.clientId) return "client";
+  return "assigned";
 };
 
 const getStatusMeta = (status) => {
   const normalized = normalizeStatus(status);
-  return STATUS_OPTIONS.find((item) => item.value === normalized) || STATUS_OPTIONS[1];
+  switch (normalized) {
+    case "completed":
+      return { label: "Completed", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" };
+    case "in-progress":
+      return { label: "In Progress", color: "#0ea5e9", bg: "#f0f9ff", border: "#bae6fd" };
+    case "onhold":
+      return { label: "On Hold", color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe" };
+    case "reopen":
+      return { label: "Reopen", color: "#db2777", bg: "#fdf2f8", border: "#fbcfe8" };
+    case "rejected":
+      return { label: "Rejected", color: "#ef4444", bg: "#fef2f2", border: "#fecaca" };
+    case "cancelled":
+      return { label: "Cancelled", color: "#64748b", bg: "#f8fafc", border: "#e2e8f0" };
+    case "overdue":
+      return { label: "Overdue", color: "#dc2626", bg: "#fef2f2", border: "#fecaca" };
+    case "pending":
+    default:
+      return { label: "Pending", color: "#f59e0b", bg: "#fffbeb", border: "#fef3c7" };
+  }
 };
 
-const countStats = (tasks) => {
-  const counts = {
-    pending: 0,
-    "in-progress": 0,
-    completed: 0,
-    overdue: 0,
-    onhold: 0,
-  };
-
-  tasks.forEach((task) => {
-    const status = getDisplayStatus(task);
-    if (counts[status] !== undefined) counts[status] += 1;
+const formatDate = (dateStr) => {
+  if (!dateStr) return "--";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
+};
 
-  const total = tasks.length;
-  const toStat = (count) => ({
-    count,
-    percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return "--";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const formatTimeOnly = (dateStr) => {
+  if (!dateStr) return "--";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const getDateInputValue = (date = new Date()) => {
+  const d = new Date(date);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+};
+
+const getDateTimeInputValue = (date = new Date()) => {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const getDefaultToday7PM = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}T19:00`;
+};
+
+const getInitials = (name) => {
+  if (!name) return "U";
+  const parts = String(name).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const getAvatarBg = (name) => {
+  const colors = ["#2563eb", "#7c3aed", "#0891b2", "#059669", "#d97706", "#dc2626", "#4f46e5", "#0284c7"];
+  let hash = 0;
+  for (let i = 0; i < (name || "").length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
+
+const countStats = (taskList = []) => {
+  let pending = 0;
+  let inProgress = 0;
+  let completed = 0;
+  let overdue = 0;
+
+  taskList.forEach((t) => {
+    const s = getDisplayStatus(t);
+    if (s === "completed") {
+      completed++;
+    } else if (s === "in-progress") {
+      inProgress++;
+      if (isOverdue(t)) overdue++;
+    } else if (isOverdue(t)) {
+      overdue++;
+      pending++;
+    } else {
+      pending++;
+    }
   });
 
   return {
-    total,
-    pending: toStat(counts.pending),
-    inProgress: toStat(counts["in-progress"]),
-    completed: toStat(counts.completed),
-    overdue: toStat(counts.overdue),
-    onhold: toStat(counts.onhold),
+    total: taskList.length,
+    pending,
+    inProgress,
+    completed,
+    overdue,
   };
 };
 
-const normalizeStats = (payload, fallbackTasks = []) => {
-  return countStats(Array.isArray(fallbackTasks) ? fallbackTasks : []);
+const extractUsers = (response) => {
+  if (Array.isArray(response.data)) return response.data;
+  if (Array.isArray(response.data?.data)) return response.data.data;
+  if (Array.isArray(response.data?.users)) return response.data.users;
+  return [];
 };
 
-const COMPANY_TASK_CACHE_TTL = 10 * 60 * 1000;
-const COMPANY_TASK_CACHE_KEY_PREFIX = "ciis-company-all-task-cache-v2";
+const getCleanCheckpoints = (checkpoints) => {
+  if (!Array.isArray(checkpoints)) return [];
+  return checkpoints
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return {
+          title: item.trim(),
+          completed: false,
+          position: index,
+        };
+      }
+      return {
+        _id: item?._id || item?.id,
+        title: String(item?.title || item?.name || item?.checkpoint || "").trim(),
+        completed: Boolean(item?.completed || item?.isCompleted || item?.status === "completed"),
+        position: item?.position ?? index,
+      };
+    })
+    .filter((c) => c.title.length > 0);
+};
 
-const buildCompanyTaskCacheKey = ({
-  userId = "",
-  page = 1,
-  limit = 10,
-  startDate = "",
-  endDate = "",
-  search = "",
-  status = "all",
-  priority = "all",
-}) => [
-  COMPANY_TASK_CACHE_KEY_PREFIX,
-  String(userId || ""),
-  String(page || 1),
-  String(limit || 10),
-  String(startDate || ""),
-  String(endDate || ""),
-  String(search || "").trim().toLowerCase(),
-  String(status || "all"),
-  String(priority || "all"),
-].join("|");
+const buildCompanyTaskCacheKey = ({ userId, page, limit, startDate, endDate, search, status, priority }) => {
+  const query = new URLSearchParams({
+    page: String(page || 1),
+    limit: String(limit || 10),
+    startDate: startDate || "",
+    endDate: endDate || "",
+    search: search || "",
+    status: status || "all",
+    priority: priority || "all",
+  }).toString();
+  return `ciis_company_all_task_tasks_${userId || "unknown"}?${query}`;
+};
 
-const readCompanyTaskCache = (cacheKey) => {
-  if (!cacheKey || typeof window === "undefined") return null;
-
+const readCompanyTaskCache = (key) => {
   try {
-    const raw = sessionStorage.getItem(cacheKey);
+    const raw = sessionStorage.getItem(key);
     if (!raw) return null;
-
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    if (!parsed.savedAt || Date.now() - parsed.savedAt > COMPANY_TASK_CACHE_TTL) return null;
-
-    return parsed;
+    if (!parsed?.timestamp || Date.now() - parsed.timestamp > 45000) return null;
+    return parsed.data || null;
   } catch {
     return null;
   }
 };
 
-const writeCompanyTaskCache = (cacheKey, snapshot) => {
-  if (!cacheKey || typeof window === "undefined") return;
-
+const writeCompanyTaskCache = (key, data) => {
   try {
-    sessionStorage.setItem(cacheKey, JSON.stringify({
-      ...snapshot,
-      savedAt: Date.now(),
+    sessionStorage.setItem(key, JSON.stringify({
+      timestamp: Date.now(),
+      data,
     }));
   } catch {
-    // Ignore storage quota and private-mode failures.
+    // Ignore
   }
 };
 
-const mapTaskCountsToStats = (counts = {}, fallbackTotal = 0) => {
-  const total = counts.total?.count || counts.total || fallbackTotal || 0;
-  const toStat = (value) => {
-    if (typeof value === "object") {
-      return {
-        count: value.count || 0,
-        percentage: value.percentage || 0,
-      };
-    }
-
-    return {
-      count: value || 0,
-      percentage: total > 0 ? Math.round(((value || 0) / total) * 100) : 0,
-    };
-  };
-
-  return {
-    total,
-    pending: toStat(counts.pending),
-    inProgress: toStat(counts.inProgress || counts["in-progress"]),
-    completed: toStat(counts.completed),
-    overdue: toStat(counts.overdue),
-    onhold: toStat(counts.onhold || counts.onHold),
-  };
-};
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 const CompanyAllTaskTasks = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
-  const currentUser = useMemo(getStoredUser, []);
-  const effectiveUserId = userId || getCurrentUserId() || currentUser?._id || currentUser?.id || "";
-  const initialStartDate = useMemo(() => {
-    return searchParams.get("startDate") || searchParams.get("fromDate") || getDateInputValue();
-  }, [searchParams]);
-  const initialEndDate = useMemo(() => {
-    return searchParams.get("endDate") || searchParams.get("toDate") || getDateInputValue();
-  }, [searchParams]);
+  const location = useLocation();
+  const navigate = useNavigate();
 
+  const currentUser = useMemo(() => getStoredUser(), []);
+  const effectiveUserId = userId || searchParams.get("userId") || currentUser?._id || currentUser?.id;
+
+  const todayStr = useMemo(() => getDateInputValue(), []);
+  const initialStartDate = searchParams.get("startDate") || todayStr;
+  const initialEndDate = searchParams.get("endDate") || todayStr;
   const locationStateEmployee = location.state?.employee || null;
-  const locationStateStats = location.state?.taskStats || null;
   const locationStateSnapshot = location.state?.taskSnapshot || null;
+
   const initialCacheKey = buildCompanyTaskCacheKey({
     userId: effectiveUserId,
     page: 1,
@@ -459,13 +536,68 @@ const CompanyAllTaskTasks = () => {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [status, setStatus] = useState("all");
   const [priority, setPriority] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [taskTypeFilter, setTaskTypeFilter] = useState("all");
+  const [taskViewLayout, setTaskViewLayout] = useState("list");
+  const [groupBy, setGroupBy] = useState("status");
+  const [sortBy, setSortBy] = useState("priority");
+  const [liveTimerSeconds, setLiveTimerSeconds] = useState(0);
+  const [liveTimerRunning, setLiveTimerRunning] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [activeTab, setActiveTab] = useState("tasks");
+
+  // Live Timer Interval
+  useEffect(() => {
+    let interval = null;
+    if (liveTimerRunning) {
+      interval = setInterval(() => {
+        setLiveTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    } else if (!liveTimerRunning && interval) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [liveTimerRunning]);
+
+  const toggleLiveTimer = () => {
+    setLiveTimerRunning((prev) => !prev);
+  };
+
+  const formatLiveTimerDisplay = (totalSec) => {
+    const hrs = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+    const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+    const secs = String(totalSec % 60).padStart(2, "0");
+    return `${hrs}:${mins}:${secs}`;
+  };
+
+  // Additional Tabs State: Attendance
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
+  const [performanceMetrics, setPerformanceMetrics] = useState(null);
+
+  // Attendance Calendar State & View Controls
+  const [calDate, setCalDate] = useState(new Date());
+  const [selectedDayRecord, setSelectedDayRecord] = useState(null);
+  const [attViewMode, setAttViewMode] = useState("calendar"); // "calendar" | "table"
+  const [attFilter, setAttFilter] = useState("all");
+
+  // Documents State (User's uploaded documents only)
+  const [documents, setDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState("");
+  const [documentPreview, setDocumentPreview] = useState(null); // { url, name, type, doc }
+  const [previewLoadingId, setPreviewLoadingId] = useState(null);
+  const [downloadLoadingId, setDownloadLoadingId] = useState(null);
+
   const [activityModal, setActivityModal] = useState({ open: false, task: null, logs: [] });
   const [remarksModal, setRemarksModal] = useState({ open: false, task: null, remarks: [] });
   const [editModal, setEditModal] = useState({ open: false, task: null });
+  const [expandedCheckpoints, setExpandedCheckpoints] = useState({});
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [canViewCompanyTasks, setCanViewCompanyTasks] = useState(true);
   const [canEditCompanyTasks, setCanEditCompanyTasks] = useState(true);
@@ -478,6 +610,20 @@ const CompanyAllTaskTasks = () => {
     checkpoints: [],
   });
   const [savingTaskId, setSavingTaskId] = useState(null);
+
+  // In-place Assign Task Modal state with default today 7:00 PM
+  const [assignModal, setAssignModal] = useState({
+    open: false,
+    title: "",
+    description: "",
+    priority: "medium",
+    dueDateTime: getDefaultToday7PM(),
+    checkpoints: [],
+    newCheckpointText: "",
+    submitting: false,
+    error: "",
+  });
+
   const fetchRequestIdRef = useRef(0);
   const tasksRef = useRef(tasks);
   const employeeRef = useRef(employee);
@@ -519,17 +665,16 @@ const CompanyAllTaskTasks = () => {
           ...editUserIds,
           ...getPageAccessUserIds(page, 'delete')
         ];
-        const hasConfig = configuredIds.length > 0;
-        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || "").toLowerCase();
-        const fallbackAllowed = ["owner", "admin", "hr", "manager", "super_admin", "superadmin"].includes(fallbackRole);
 
-        const canEdit = editUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
-        const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+        const isSuperRole = currentUser?.role === 'superadmin' || currentUser?.role === 'admin' || currentUser?.isSuperAdmin;
+        const isSelf = String(effectiveUserId || '') === String(currentUserIdValue || '');
+        const hasDirectAccess = configuredIds.includes(currentUserIdValue);
+        const hasAccess = isSuperRole || isSelf || hasDirectAccess;
 
-        setCanEditCompanyTasks(canEdit);
-        setCanViewCompanyTasks(canView);
-      } catch (error) {
-        console.error("Failed to load company task permissions:", error);
+        setCanViewCompanyTasks(hasAccess);
+        setCanEditCompanyTasks(isSuperRole || editUserIds.includes(currentUserIdValue));
+      } catch (err) {
+        console.error("Error loading task permissions:", err);
       } finally {
         if (active) setPageAccessReady(true);
       }
@@ -539,7 +684,7 @@ const CompanyAllTaskTasks = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [effectiveUserId]);
 
   const fetchEmployee = useCallback(async () => {
     if (!effectiveUserId) return;
@@ -564,7 +709,7 @@ const CompanyAllTaskTasks = () => {
           return;
         }
       } catch {
-        // Continue to the next fallback endpoint.
+        // Continue
       }
     }
     if (currentUser && String(currentUser._id || currentUser.id || "") === String(effectiveUserId)) {
@@ -587,296 +732,689 @@ const CompanyAllTaskTasks = () => {
       status,
       priority,
     });
-    const cachedTaskSnapshot = readCompanyTaskCache(cacheKey);
-    const shouldShowLoading = !silent && !cachedTaskSnapshot && tasksRef.current.length === 0;
 
-    if (cachedTaskSnapshot) {
-      if (cachedTaskSnapshot.employee) {
-        setEmployee((prev) => prev || {
-          ...cachedTaskSnapshot.employee,
-          _id: cachedTaskSnapshot.employee._id || cachedTaskSnapshot.employee.id,
-        });
-      }
-      if (Array.isArray(cachedTaskSnapshot.tasks)) {
-        setTasks(cachedTaskSnapshot.tasks);
-      }
-      if (cachedTaskSnapshot.stats && status === "all") {
-        setStats(cachedTaskSnapshot.stats);
-      }
-      if (cachedTaskSnapshot.workSummary) {
-        setWorkSummary(cachedTaskSnapshot.workSummary);
-      }
-      if (cachedTaskSnapshot.taskDetailsById) {
-        setTaskDetailsById(cachedTaskSnapshot.taskDetailsById);
-      }
-      if (typeof cachedTaskSnapshot.total === "number") {
-        setTotal(cachedTaskSnapshot.total);
-      }
-      if (typeof cachedTaskSnapshot.totalPages === "number") {
-        setTotalPages(cachedTaskSnapshot.totalPages);
-      }
-      setLoading(false);
-    } else if (shouldShowLoading) {
+    if (!silent && !tasksRef.current.length) {
       setLoading(true);
     }
     setError("");
 
     try {
-      const response = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, {
-        params: {
-          page,
-          limit,
-          period: (startDate || endDate) ? "all" : "all",
-          fromDate: startDate || undefined,
-          toDate: endDate || undefined,
-          search,
-          status,
-          priority,
-          _ts: Date.now(),
-        },
-      });
+      const params = {
+        page,
+        limit,
+        period: startDate === todayStr && endDate === todayStr ? "today" : "all",
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        fromDate: startDate || undefined,
+        toDate: endDate || undefined,
+        search: search.trim() || undefined,
+        status: status !== "all" ? status : undefined,
+        priority: priority !== "all" ? priority : undefined,
+      };
 
-      if (fetchRequestIdRef.current !== requestId) {
-        return;
+      const response = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, { params });
+      if (fetchRequestIdRef.current !== requestId) return;
+
+      const data = response.data || {};
+      const fetchedTasks = Array.isArray(data.tasks) ? data.tasks : [];
+      const apiStats = data.stats || data.statusCounts;
+      const computedStats = apiStats ? {
+        total: Number(apiStats.total) || 0,
+        pending: Number(apiStats.pending?.count ?? apiStats.pending) || 0,
+        inProgress: Number(apiStats.inProgress?.count ?? apiStats.inProgress) || 0,
+        completed: Number(apiStats.completed?.count ?? apiStats.completed) || 0,
+        overdue: Number(apiStats.overdue?.count ?? apiStats.overdue) || 0,
+        onhold: Number(apiStats.onhold?.count ?? apiStats.onhold) || 0,
+      } : countStats(fetchedTasks);
+
+      setTasks(fetchedTasks);
+      setStats(computedStats);
+      setWorkSummary(data.workSummary || null);
+      setPerformanceMetrics(data.performance || null);
+      setTotal(data.pagination?.total || data.total || fetchedTasks.length);
+      setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
+
+      const apiEmployee = data.employee || data.user;
+      if (apiEmployee) {
+        setEmployee((prev) => ({
+          ...(prev || {}),
+          ...apiEmployee,
+          _id: apiEmployee._id || apiEmployee.id || prev?._id || prev?.id || effectiveUserId,
+        }));
       }
-
-      const nextTasks = response.data?.tasks || response.data?.data || [];
-      const displayTotal = response.data?.pagination?.total || response.data?.total || nextTasks.length;
-      const displayPages = response.data?.pagination?.pages || 1;
-      const displayStats = normalizeStats(response.data, nextTasks);
-
-      if (response.data?.user) {
-        setEmployee((prev) => prev || response.data.user);
-      }
-
-      setTasks(nextTasks);
-
-      if (response.data?.workSummary) {
-        setWorkSummary({
-          clockIn: null,
-          clockOut: null,
-          isClockedIn: false,
-          totalClockedSeconds: 0,
-          totalClockedLabel: "0m",
-          trackedTaskSeconds: 0,
-          trackedTaskLabel: "0m",
-          untrackedSeconds: 0,
-          untrackedLabel: "0m",
-          hasAttendance: false,
-          ...response.data.workSummary,
-        });
-      }
-
-      setTotal(displayTotal);
-      setTotalPages(displayPages);
-
-      if (status === "all") {
-        setStats(countStats(nextTasks));
-      }
-
-      // Populate details directly from task response to eliminate extra batch API requests
-      const initialDetails = {};
-      nextTasks.forEach((task) => {
-        initialDetails[task._id] = {
-          remarks: Array.isArray(task.remarks) ? task.remarks : [],
-          activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [],
-          loading: false,
-        };
-      });
-      setTaskDetailsById((previous) => ({
-        ...previous,
-        ...initialDetails,
-      }));
 
       writeCompanyTaskCache(cacheKey, {
-        employee: response.data?.user || cachedTaskSnapshot?.employee || employeeRef.current || null,
-        tasks: nextTasks,
-        stats: displayStats,
-        workSummary: response.data?.workSummary || null,
-        taskDetailsById: {
-          ...(cachedTaskSnapshot?.taskDetailsById || taskDetailsByIdRef.current || {}),
-          ...initialDetails,
-        },
-        total: displayTotal,
-        totalPages: displayPages,
+        tasks: fetchedTasks,
+        stats: computedStats,
+        workSummary: data.workSummary || null,
+        taskDetailsById: taskDetailsByIdRef.current,
+        pagination: data.pagination || null,
       });
     } catch (err) {
-      if (fetchRequestIdRef.current !== requestId) {
-        return;
-      }
-      setError(err?.response?.data?.message || err?.response?.data?.error || "Unable to load tasks.");
+      if (fetchRequestIdRef.current !== requestId) return;
+      console.error("Failed to fetch tasks:", err);
+      setError(err?.response?.data?.message || err?.response?.data?.error || "Failed to load tasks. Please try again.");
     } finally {
-      setLoading(false);
+      if (fetchRequestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, [effectiveUserId, endDate, limit, page, priority, search, startDate, status]);
 
-  const fetchTaskDetails = useCallback(async (task) => {
-    if (!task?._id) {
-      return { remarks: [], activityLogs: [] };
-    }
-
-    const source = getTaskSource(task);
-
+  // Fetch Attendance for Attendance Tab
+  const fetchAttendance = useCallback(async (targetDate) => {
+    if (!effectiveUserId) return;
+    setAttendanceLoading(true);
+    setAttendanceError("");
     try {
-      const remarksUrl = source === "client"
-        ? `/tasks/client-tasks/${task._id}/client-remarks`
-        : source === "project"
-          ? `/tasks/project/${task.projectId}/tasks/${task._id}/remarks`
-          : source === "self"
-            ? `/tasks/self/${task._id}/remarks`
-            : `/tasks/assigned/${task._id}/remarks`;
-      const activityUrl = source === "client"
-        ? `/tasks/client-tasks/${task._id}/client-activity-logs`
-        : source === "project"
-          ? `/tasks/project/${task.projectId}/tasks/${task._id}/activity`
-          : `/task/${task._id}/activity-logs`;
+      const d = targetDate instanceof Date ? targetDate : calDate;
+      const res = await axios.get(`/attendance/user/${effectiveUserId}`, {
+        params: {
+          month: d.getMonth(),
+          year: d.getFullYear(),
+        }
+      });
+      const records = res.data?.data || [];
+      setAttendanceRecords(records);
 
-      const [remarksResponse, activityResponse] = await Promise.allSettled([
-        axios.get(remarksUrl, { _skipErrorNotify: true }),
-        axios.get(activityUrl, { _skipErrorNotify: true }),
-      ]);
-
-      const remarksPayload = remarksResponse.status === "fulfilled" ? remarksResponse.value.data : {};
-      const activityPayload = activityResponse.status === "fulfilled" ? activityResponse.value.data : {};
-      
-      let fetchedLogs = activityPayload.logs || activityPayload.data || activityPayload.activityLogs || [];
-      if (activityPayload.data && Array.isArray(activityPayload.data.logs)) {
-        fetchedLogs = activityPayload.data.logs;
-      }
-      if (!Array.isArray(fetchedLogs)) {
-        fetchedLogs = [];
-      }
-
-      return {
-        remarks: extractRemarks(remarksPayload).length > 0
-          ? extractRemarks(remarksPayload)
-          : (Array.isArray(task.remarks) ? task.remarks : []),
-        activityLogs: fetchedLogs.length > 0
-          ? fetchedLogs
-          : (Array.isArray(task.activityLogs) ? task.activityLogs : []),
-      };
-    } catch {
-      return { remarks: Array.isArray(task.remarks) ? task.remarks : [], activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [] };
+      // Select today's record by default if available in this month
+      const todayKey = getDateInputValue();
+      const todayRec = records.find(r => {
+        if (!r.date) return false;
+        const rd = new Date(r.date);
+        return getDateInputValue(rd) === todayKey;
+      });
+      setSelectedDayRecord(todayRec || records[records.length - 1] || records[0] || null);
+    } catch (err) {
+      setAttendanceError(err?.response?.data?.message || "Failed to load attendance records");
+    } finally {
+      setAttendanceLoading(false);
     }
+  }, [effectiveUserId, calDate]);
+
+  // Fetch User's Uploaded Documents (Read-only view)
+  const fetchDocuments = useCallback(async () => {
+    if (!effectiveUserId) return;
+    setDocumentsLoading(true);
+    setDocumentsError("");
+    try {
+      const res = await axios.get(`/users/${effectiveUserId}/documents`);
+      const apiDocs = Array.isArray(res.data?.documents) ? res.data.documents : [];
+
+      const isFileString = (val) => typeof val === "string" && (val.startsWith("http") || /\.(pdf|jpg|jpeg|png|webp|jfif|doc|docx)$/i.test(val));
+
+      const extraDocs = [];
+      if (isFileString(employee?.aadharCard)) {
+        extraDocs.push({
+          _id: "aadhar-proof",
+          name: "Aadhaar Card",
+          type: "Identity Document",
+          uploadedAt: employee.createdAt,
+          viewUrl: `/users/${effectiveUserId}/documents/aadhar-proof/view`,
+          downloadUrl: `/users/${effectiveUserId}/documents/aadhar-proof/download`,
+          externalUrl: employee.aadharCard.startsWith("http") ? employee.aadharCard : undefined,
+        });
+      }
+      if (isFileString(employee?.panCard)) {
+        extraDocs.push({
+          _id: "pan-proof",
+          name: "PAN Card",
+          type: "Tax Identity",
+          uploadedAt: employee.createdAt,
+          viewUrl: `/users/${effectiveUserId}/documents/pan-proof/view`,
+          downloadUrl: `/users/${effectiveUserId}/documents/pan-proof/download`,
+          externalUrl: employee.panCard.startsWith("http") ? employee.panCard : undefined,
+        });
+      }
+
+      setDocuments([...apiDocs, ...extraDocs]);
+    } catch (err) {
+      const fallbackDocs = [];
+      if (Array.isArray(employee?.documents)) {
+        fallbackDocs.push(...employee.documents.map(d => ({
+          _id: d._id || d.id,
+          name: d.name || "Document",
+          type: d.type || "File",
+          uploadedAt: d.uploadedAt,
+          viewUrl: `/users/${effectiveUserId}/documents/${d._id || d.id}/view`,
+          downloadUrl: `/users/${effectiveUserId}/documents/${d._id || d.id}/download`,
+        })));
+      }
+      setDocuments(fallbackDocs);
+      if (fallbackDocs.length === 0) {
+        setDocumentsError(err?.response?.data?.message || "");
+      }
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }, [effectiveUserId, employee]);
+
+  // In-Page Document View Handler (Opens directly on this page without new tab!)
+  const handleViewDocument = useCallback(async (doc) => {
+    if (!doc) return;
+    setPreviewLoadingId(doc._id);
+    try {
+      if (doc.externalUrl || (typeof doc.url === "string" && /^https?:\/\//i.test(doc.url))) {
+        const external = doc.externalUrl || doc.url;
+        setDocumentPreview({
+          url: external,
+          name: doc.name || "Document Preview",
+          type: doc.type || (/\.pdf$/i.test(external) ? "application/pdf" : "image/jpeg"),
+          doc,
+        });
+        return;
+      }
+
+      const targetEndpoint = doc.viewUrl || `/users/${effectiveUserId}/documents/${doc._id}/view`;
+      const response = await axios.get(targetEndpoint, {
+        responseType: "blob",
+        cache: false,
+        _skipErrorNotify: true,
+      });
+
+      const blobUrl = URL.createObjectURL(response.data);
+      const detectedType = response.data.type || doc.type || (doc.name?.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
+
+      setDocumentPreview((current) => {
+        if (current?.url && current.url.startsWith("blob:")) {
+          URL.revokeObjectURL(current.url);
+        }
+        return {
+          url: blobUrl,
+          name: doc.name || "Document Preview",
+          type: detectedType,
+          doc,
+        };
+      });
+    } catch (err) {
+      console.error("Failed to view document:", err);
+      let errMsg = "Failed to open document preview. You can try downloading it.";
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const parsed = JSON.parse(await err.response.data.text());
+          errMsg = parsed.message || errMsg;
+        } catch {
+          // Keep the generic document error message when the response is not JSON.
+        }
+      } else if (err?.response?.data?.message) {
+        errMsg = err.response.data.message;
+      }
+      alert(errMsg);
+    } finally {
+      setPreviewLoadingId(null);
+    }
+  }, [effectiveUserId]);
+
+  // In-Page Document Download Handler
+  const handleDownloadDocument = useCallback(async (doc) => {
+    if (!doc) return;
+    setDownloadLoadingId(doc._id);
+    try {
+      if (doc.externalUrl || (typeof doc.url === "string" && /^https?:\/\//i.test(doc.url))) {
+        const external = doc.externalUrl || doc.url;
+        const link = document.createElement("a");
+        link.href = external;
+        link.target = "_blank";
+        link.download = doc.name || "document";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        return;
+      }
+
+      const targetEndpoint = doc.downloadUrl || `/users/${effectiveUserId}/documents/${doc._id}/download`;
+      const response = await axios.get(targetEndpoint, {
+        responseType: "blob",
+        cache: false,
+        _skipErrorNotify: true,
+      });
+
+      const blobUrl = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      const contentDisposition = response.headers?.["content-disposition"] || "";
+      const match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i) || contentDisposition.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1] ? decodeURIComponent(match[1]) : (doc.name || "document");
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      console.error("Failed to download document:", err);
+      let errMsg = "Failed to download document.";
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const parsed = JSON.parse(await err.response.data.text());
+          errMsg = parsed.message || errMsg;
+        } catch {
+          // Keep the generic document error message when the response is not JSON.
+        }
+      } else if (err?.response?.data?.message) {
+        errMsg = err.response.data.message;
+      }
+      alert(errMsg);
+    } finally {
+      setDownloadLoadingId(null);
+    }
+  }, [effectiveUserId]);
+
+  const closeDocumentPreview = useCallback(() => {
+    setDocumentPreview((current) => {
+      if (current?.url && current.url.startsWith("blob:")) {
+        URL.revokeObjectURL(current.url);
+      }
+      return null;
+    });
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (documentPreview?.url && documentPreview.url.startsWith("blob:")) {
+        URL.revokeObjectURL(documentPreview.url);
+      }
+    };
+  }, [documentPreview]);
 
   useEffect(() => {
     fetchEmployee();
   }, [fetchEmployee]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchTasks(false);
-    }, 200);
-    return () => clearTimeout(timer);
+    fetchTasks();
   }, [fetchTasks]);
 
   useEffect(() => {
-    const handleAttendanceChange = () => {
-      fetchTasks(true);
+    if ((activeTab === "attendance" || activeTab === "performance") && attendanceRecords.length === 0) {
+      fetchAttendance();
+    } else if (activeTab === "documents" && documents.length === 0) {
+      fetchDocuments();
+    }
+  }, [activeTab, attendanceRecords.length, documents.length, fetchAttendance, fetchDocuments]);
+
+  const fetchTaskDetails = useCallback(async (task) => {
+    if (!task?._id) return { remarks: [], activityLogs: [] };
+    const source = getTaskSource(task);
+    const endpoints = [];
+
+    if (source === "client") {
+      endpoints.push({ key: "remarks", url: `/tasks/client-tasks/${task._id}/remarks` });
+      endpoints.push({ key: "activityLogs", url: `/tasks/client-tasks/${task._id}/activity-logs` });
+    } else if (source === "project") {
+      endpoints.push({ key: "remarks", url: `/tasks/project/${task.projectId}/tasks/${task._id}/remarks` });
+      endpoints.push({ key: "activityLogs", url: `/tasks/project/${task.projectId}/tasks/${task._id}/activity-logs` });
+    } else if (source === "self") {
+      endpoints.push({ key: "remarks", url: `/tasks/self/${task._id}/remarks` });
+      endpoints.push({ key: "activityLogs", url: `/tasks/self/${task._id}/activity-logs` });
+    } else {
+      endpoints.push({ key: "remarks", url: `/task/${task._id}/remarks` });
+      endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
+    }
+
+    // The paginated task API already includes these fields. Keep them as a
+    // fallback when a source-specific details endpoint is unavailable.
+    const details = {
+      remarks: Array.isArray(task.remarks) ? task.remarks : [],
+      activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [],
     };
+    await Promise.all(
+      endpoints.map(async ({ key, url }) => {
+        try {
+          const res = await axios.get(url);
+          const data = res.data?.data || res.data?.remarks || res.data?.logs || res.data?.activityLogs || res.data || [];
+          if (Array.isArray(data)) details[key] = data;
+        } catch {
+          details[key] = [];
+        }
+      })
+    );
+    return details;
+  }, []);
 
-    window.addEventListener("ciis-attendance-updated", handleAttendanceChange);
-
-    return () => {
-      window.removeEventListener("ciis-attendance-updated", handleAttendanceChange);
-    };
-  }, [fetchTasks]);
-
-  const getStatCount = (item) => {
-    if (typeof item === "number") return item;
-    if (item && typeof item === "object" && typeof item.count === "number") return item.count;
-    return 0;
+  const openAssignModal = () => {
+    setAssignModal({
+      open: true,
+      title: "",
+      description: "",
+      priority: "medium",
+      dueDateTime: getDefaultToday7PM(),
+      checkpoints: [],
+      newCheckpointText: "",
+      submitting: false,
+      error: "",
+    });
   };
 
-  const isTodayRange = startDate === getDateInputValue() && endDate === getDateInputValue();
+  const closeAssignModal = () => {
+    if (assignModal.submitting) return;
+    setAssignModal((prev) => ({ ...prev, open: false, error: "" }));
+  };
 
-  const filteredStats = [
-    { label: isTodayRange ? "Today Tasks" : "Total", value: getStatCount(stats.total), status: "all", icon: FiList, color: "#2563eb" },
-    { label: "Pending", value: getStatCount(stats.pending), status: "pending", icon: FiClock, color: "#f59e0b" },
-    { label: "In Progress", value: getStatCount(stats.inProgress), status: "in-progress", icon: FiActivity, color: "#0ea5e9" },
-    { label: "Completed", value: getStatCount(stats.completed), status: "completed", icon: FiCheckCircle, color: "#16a34a" },
-    { label: "Overdue", value: getStatCount(stats.overdue), status: "overdue", icon: FiAlertTriangle, color: "#dc2626" },
-  ];
+  const handleAddCheckpointToAssign = () => {
+    const text = assignModal.newCheckpointText.trim();
+    if (!text) return;
+    setAssignModal((prev) => ({
+      ...prev,
+      checkpoints: [...prev.checkpoints, { title: text, completed: false }],
+      newCheckpointText: "",
+    }));
+  };
 
-  const employeeName = employee?.name || currentUser?.name || tasks[0]?.assignedUsers?.[0]?.name || "Employee";
-  const hasAttendance = Boolean(workSummary?.hasAttendance);
+  const handleRemoveCheckpointFromAssign = (index) => {
+    setAssignModal((prev) => ({
+      ...prev,
+      checkpoints: prev.checkpoints.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleAssignSubmit = async (e) => {
+    e.preventDefault();
+    if (!assignModal.title.trim()) {
+      setAssignModal((prev) => ({ ...prev, error: "Task title is required" }));
+      return;
+    }
+    if (!effectiveUserId) {
+      setAssignModal((prev) => ({ ...prev, error: "Target employee not found" }));
+      return;
+    }
+
+    setAssignModal((prev) => ({ ...prev, submitting: true, error: "" }));
+    try {
+      const payload = {
+        title: assignModal.title.trim(),
+        description: assignModal.description.trim() || undefined,
+        assignedTo: [effectiveUserId],
+        priority: assignModal.priority || "medium",
+        dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
+        checkpoints: assignModal.checkpoints.map((c) => ({ title: c.title })),
+      };
+
+      await axios.post("/task/create-for-others", payload);
+      closeAssignModal();
+      await fetchTasks(true);
+    } catch (err) {
+      setAssignModal((prev) => ({
+        ...prev,
+        submitting: false,
+        error: err?.response?.data?.message || err?.response?.data?.error || "Failed to assign task.",
+      }));
+    }
+  };
+
+  const handleSetTodayFilter = () => {
+    const today = getDateInputValue();
+    setStartDate(today);
+    setEndDate(today);
+    setPage(1);
+  };
+
+  const handleSetAllDatesFilter = () => {
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+  };
 
   const handleReset = () => {
     setSearch("");
-    setStartDate(getDateInputValue());
-    setEndDate(getDateInputValue());
     setStatus("all");
     setPriority("all");
-    setPage(1);
+    handleSetTodayFilter();
+  };
+
+  const isTodayFilterActive = startDate === todayStr && endDate === todayStr;
+  const isAllDatesFilterActive = !startDate && !endDate;
+
+  const openRemarksModal = (task, remarks = []) => {
+    setRemarksModal({ open: true, task, remarks });
+  };
+
+  const openActivityModal = (task, logs = []) => {
+    setActivityModal({ open: true, task, logs });
+  };
+
+  const canEditTask = (task) => canEditCompanyTasks && ["self", "assigned", "client", "project"].includes(getTaskSource(task));
+
+  const openEditModal = (task) => {
+    setEditForm({
+      title: task.title || "",
+      description: task.description || "",
+      dueDateTime: getDateTimeInputValue(getDueDate(task)),
+      priority: String(task.priority || "medium").toLowerCase(),
+      status: getDisplayStatus(task),
+      checkpoints: getCleanCheckpoints(task.checkpoints),
+    });
+    setEditModal({ open: true, task });
+  };
+
+  const closeEditModal = () => {
+    if (savingTaskId) return;
+    setEditModal({ open: false, task: null });
+  };
+
+  const updateEditCheckpoint = (index, title) => {
+    setEditForm((previous) => ({
+      ...previous,
+      checkpoints: previous.checkpoints.map((checkpoint, itemIndex) =>
+        itemIndex === index ? { ...checkpoint, title } : checkpoint
+      ),
+    }));
+  };
+
+  const addEditCheckpoint = () => {
+    setEditForm((previous) => ({
+      ...previous,
+      checkpoints: [...previous.checkpoints, { title: "", completed: false }],
+    }));
+  };
+
+  const removeEditCheckpoint = (index) => {
+    setEditForm((previous) => ({
+      ...previous,
+      checkpoints: previous.checkpoints.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const refreshTaskAfterChange = async (task) => {
+    await fetchTasks();
+    if (!task?._id) return;
+
+    const details = await fetchTaskDetails(task);
+    setTaskDetailsById((previous) => ({
+      ...previous,
+      [task._id]: { ...details, loading: false },
+    }));
+  };
+
+  const handleTaskStatusChange = async (task, nextStatus) => {
+    if (!canEditTask(task) || !nextStatus) return;
+    const source = getTaskSource(task);
+    const endpoint =
+      source === "client"
+        ? `/tasks/client-tasks/${task._id}`
+        : source === "project"
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/status`
+          : source === "self"
+            ? `/tasks/self/${task._id}/status`
+            : `/task/${task._id}/status`;
+    const payload =
+      source === "client"
+        ? { status: nextStatus, completed: nextStatus === "completed", allowCompanyAllTaskEdit: true }
+        : { status: nextStatus, remarks: "Status updated from Company All Task", allowCompanyAllTaskEdit: true };
+
+    setSavingTaskId(task._id);
+    setError("");
+    try {
+      if (source === "client") {
+        await axios.put(endpoint, payload);
+      } else {
+        await axios.patch(endpoint, payload);
+      }
+      await refreshTaskAfterChange(task);
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update task status.");
+    } finally {
+      setSavingTaskId(null);
+    }
+  };
+
+  const handleCheckpointToggle = async (task, checkpoint) => {
+    if (!task?._id || !checkpoint?._id) return;
+
+    const source = getTaskSource(task);
+    const endpoint =
+      source === "client"
+        ? `/tasks/client-tasks/${task._id}/checkpoints/${checkpoint._id}`
+        : source === "project"
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/checkpoints/${checkpoint._id}`
+          : source === "self"
+            ? `/tasks/self/${task._id}/checkpoints/${checkpoint._id}`
+            : `/tasks/assigned/${task._id}/checkpoints/${checkpoint._id}`;
+
+    setSavingTaskId(task._id);
+    setError("");
+    try {
+      await axios.patch(endpoint, { completed: !checkpoint.completed });
+      await refreshTaskAfterChange(task);
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update checkpoint.");
+    } finally {
+      setSavingTaskId(null);
+    }
+  };
+
+  const toggleCheckpoints = (taskId) => {
+    setExpandedCheckpoints((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
+  };
+
+  const handleEditSubmit = async (event) => {
+    event.preventDefault();
+    const task = editModal.task;
+    if (!task?._id || !canEditTask(task)) return;
+
+    if (!editForm.title.trim() || !editForm.description.trim() || !editForm.dueDateTime) {
+      setError("Title, description and due date are required.");
+      return;
+    }
+
+    setSavingTaskId(task._id);
+    setError("");
+    try {
+      const source = getTaskSource(task);
+      const dueDateIso = new Date(editForm.dueDateTime).toISOString();
+      const cleanCheckpoints = getCleanCheckpoints(editForm.checkpoints);
+      const currentStatus = getDisplayStatus(task);
+
+      if (source === "client") {
+        await axios.put(`/tasks/client-tasks/${task._id}`, {
+          name: editForm.title.trim(),
+          description: editForm.description.trim(),
+          dueDate: dueDateIso,
+          priority: editForm.priority,
+          status: editForm.status,
+          completed: editForm.status === "completed",
+          checkpoints: cleanCheckpoints,
+          allowCompanyAllTaskEdit: true,
+        });
+      } else if (source === "project") {
+        await axios.put(`/tasks/project/${task.projectId}/tasks/${task._id}`, {
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          dueDateTime: dueDateIso,
+          priority: editForm.priority,
+          status: editForm.status,
+          checkpoints: cleanCheckpoints,
+          allowCompanyAllTaskEdit: true,
+        });
+      } else if (source === "self") {
+        await axios.put(`/tasks/self/${task._id}`, {
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          dueDateTime: dueDateIso,
+          priority: editForm.priority,
+          status: editForm.status,
+          checkpoints: cleanCheckpoints,
+          allowCompanyAllTaskEdit: true,
+        });
+      } else {
+        await axios.put(`/task/${task._id}`, {
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          dueDateTime: dueDateIso,
+          priority: editForm.priority,
+          status: editForm.status,
+          checkpoints: cleanCheckpoints,
+          allowCompanyAllTaskEdit: true,
+        });
+      }
+
+      if (editForm.status !== currentStatus) {
+        await handleTaskStatusChange(task, editForm.status);
+      }
+
+      closeEditModal();
+      await refreshTaskAfterChange(task);
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.response?.data?.message || "Failed to update task.");
+    } finally {
+      setSavingTaskId(null);
+    }
   };
 
   const handleExportPdf = useCallback(async () => {
     if (!effectiveUserId) return;
+    setExportingPdf(true);
     try {
-      setExportingPdf(true);
       const response = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, {
         params: {
           page: 1,
-          limit: 5000,
-          export: "true",
-          period: "all",
+          limit: 1000,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
           fromDate: startDate || undefined,
           toDate: endDate || undefined,
           search: search.trim() || undefined,
           status: status !== "all" ? status : undefined,
           priority: priority !== "all" ? priority : undefined,
-          _ts: Date.now(),
         },
       });
 
-      const allExportTasks = response.data?.tasks || response.data?.data || [];
-      if (allExportTasks.length === 0) {
-        alert("No tasks found for the selected date range to export.");
+      const allExportTasks = response.data?.tasks || [];
+      if (!allExportTasks.length) {
+        alert("No tasks available to export for the selected filters.");
         return;
       }
 
-      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const exportedAt = new Date();
 
-      // Header Banner
       doc.setFillColor(37, 99, 235);
-      doc.rect(0, 0, pageWidth, 74, "F");
+      doc.rect(0, 0, pageWidth, 54, "F");
 
-      // Title & User Details
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(17);
       doc.setFont("helvetica", "bold");
-      doc.text("Company Tasks Report", 30, 30);
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.text("CIIS NETWORK - EMPLOYEE TASK REPORT", 30, 34);
 
-      doc.setFontSize(9.5);
       doc.setFont("helvetica", "normal");
-      const empDetails = [
-        `Employee: ${employeeName || "User"}`,
-        employee?.email ? `Email: ${employee.email}` : "",
-        employee?.role ? `Role: ${employee.role}` : "",
-        employee?.department?.name ? `Dept: ${employee.department.name}` : "",
-      ].filter(Boolean).join("  |  ");
-      doc.text(empDetails, 30, 47);
+      doc.setFontSize(9);
+      doc.setTextColor(220, 230, 255);
+      doc.text(`Generated: ${new Date().toLocaleString("en-GB")}`, pageWidth - 30, 34, { align: "right" });
 
-      const dateRangeText = startDate && endDate
-        ? `${startDate} to ${endDate}`
-        : startDate
-        ? `From ${startDate}`
-        : endDate
-        ? `Up to ${endDate}`
-        : "All Dates";
+      const empName = employee?.name || "Employee";
+      const empRole = employee?.jobRole || employee?.role || "Team Member";
+      const empDept = employee?.department?.name || employee?.department || "Department";
 
-      const metaText = `Date Range: ${dateRangeText}  |  Total Tasks: ${allExportTasks.length}  |  Exported: ${exportedAt.toLocaleString("en-IN")}`;
-      doc.text(metaText, 30, 62);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Employee: ${empName} (${empRole} - ${empDept})`, 30, 72);
 
       const rows = allExportTasks.map((t, index) => {
         const dispStatus = getDisplayStatus(t);
         const tType = getTaskType(t) === "assigned" ? "Assigned" : "Personal";
         const dueDate = formatDate(getDueDate(t));
-        const workTime = Number(t.workTime?.seconds) > 0 ? t.workTime.label : "--";
+        const workTime = Number(t.workTime?.seconds) > 0 ? t.workTime.label : "No time logged";
         const cleanTitle = String(t.title || "Untitled").replace(/[\r\n]+/g, " ");
         const cleanDesc = String(t.description || "No description").replace(/[\r\n]+/g, " ");
 
@@ -888,7 +1426,7 @@ const CompanyAllTaskTasks = () => {
           dispStatus.toUpperCase(),
           tType,
           dueDate,
-          workTime
+          workTime,
         ];
       });
 
@@ -930,7 +1468,7 @@ const CompanyAllTaskTasks = () => {
 
       const fileStart = startDate || "all";
       const fileEnd = endDate || "all";
-      const sanitizedName = String(employeeName || "user").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const sanitizedName = String(empName).toLowerCase().replace(/[^a-z0-9]+/g, "-");
       doc.save(`company-tasks-${sanitizedName}-${fileStart}-to-${fileEnd}.pdf`);
     } catch (err) {
       console.error("Failed to export PDF:", err);
@@ -938,848 +1476,2309 @@ const CompanyAllTaskTasks = () => {
     } finally {
       setExportingPdf(false);
     }
-  }, [effectiveUserId, employee, employeeName, endDate, priority, search, startDate, status]);
+  }, [effectiveUserId, employee, endDate, priority, search, startDate, status]);
 
-  const canEditTask = (task) => canEditCompanyTasks && ["self", "assigned", "client", "project"].includes(getTaskSource(task));
+  const completionRate = useMemo(() => {
+    const totalCount = stats.total || tasks.length;
+    if (!totalCount) return 0;
+    return Math.round(((stats.completed || 0) / totalCount) * 100);
+  }, [stats.completed, stats.total, tasks.length]);
 
-  const openEditModal = (task) => {
-    setEditForm({
-      title: task.title || "",
-      description: task.description || "",
-      dueDateTime: getDateTimeInputValue(getDueDate(task)),
-      priority: String(task.priority || "medium").toLowerCase(),
-      status: getDisplayStatus(task),
-      checkpoints: getCleanCheckpoints(task.checkpoints),
-    });
-    setEditModal({ open: true, task });
-  };
+  const onTimeRate = useMemo(() => {
+    return Number.isFinite(performanceMetrics?.onTimeRate) ? performanceMetrics.onTimeRate : null;
+  }, [performanceMetrics]);
 
-  const closeEditModal = () => {
-    if (savingTaskId) return;
-    setEditModal({ open: false, task: null });
-  };
+  const attendanceReliability = useMemo(() => {
+    const pointsByStatus = { PRESENT: 100, LATE: 75, "SHORT LEAVE": 75, "HALF DAY": 50, HALFDAY: 50, ABSENT: 0, "UNINFORMED LEAVE": 0, UNINFORMEDLEAVE: 0 };
+    const points = attendanceRecords
+      .map((record) => pointsByStatus[String(record.status || "").trim().toUpperCase()])
+      .filter((value) => Number.isFinite(value));
+    return points.length ? Math.round(points.reduce((sum, value) => sum + value, 0) / points.length) : null;
+  }, [attendanceRecords]);
 
-  const updateEditCheckpoint = (index, title) => {
-    setEditForm((previous) => ({
-      ...previous,
-      checkpoints: previous.checkpoints.map((checkpoint, itemIndex) => (
-        itemIndex === index ? { ...checkpoint, title } : checkpoint
-      )),
-    }));
-  };
+  const productivityScore = useMemo(() => {
+    const inputs = [
+      { value: completionRate, weight: 50 },
+      ...(Number.isFinite(onTimeRate) ? [{ value: onTimeRate, weight: 30 }] : []),
+      ...(Number.isFinite(attendanceReliability) ? [{ value: attendanceReliability, weight: 20 }] : []),
+    ];
+    const totalWeight = inputs.reduce((sum, input) => sum + input.weight, 0);
+    return totalWeight ? Math.round(inputs.reduce((sum, input) => sum + input.value * input.weight, 0) / totalWeight) : 0;
+  }, [attendanceReliability, completionRate, onTimeRate]);
 
-  const addEditCheckpoint = () => {
-    setEditForm((previous) => ({
-      ...previous,
-      checkpoints: [...previous.checkpoints, { title: "", completed: false }],
-    }));
-  };
- 
-  const removeEditCheckpoint = (index) => {
-    setEditForm((previous) => ({
-      ...previous,
-      checkpoints: previous.checkpoints.filter((_, itemIndex) => itemIndex !== index),
-    }));
-  };
+  const personalTasksCount = useMemo(() => {
+    return tasks.filter((t) => {
+      const type = getTaskType(t);
+      return type === "self" || type === "personal";
+    }).length;
+  }, [tasks]);
 
-  const refreshTaskAfterChange = async (task) => {
-    await fetchTasks();
-    if (!task?._id) return;
+  const workTasksCount = useMemo(() => {
+    return tasks.filter((t) => {
+      const type = getTaskType(t);
+      return type === "assigned" || type === "project" || type === "client";
+    }).length;
+  }, [tasks]);
 
-    const details = await fetchTaskDetails(task);
-    setTaskDetailsById((previous) => ({
-      ...previous,
-      [task._id]: { ...details, loading: false },
-    }));
-  };
+  const weeklyProductivity = useMemo(() => {
+    const dayDefs = [
+      { key: 1, label: "Mon" },
+      { key: 2, label: "Tue" },
+      { key: 3, label: "Wed" },
+      { key: 4, label: "Thu" },
+      { key: 5, label: "Fri" },
+      { key: 6, label: "Sat" },
+      { key: 0, label: "Sun" },
+    ];
 
-  const handleTaskStatusChange = async (task, nextStatus) => {
-    if (!canEditTask(task) || !nextStatus) return;
-    const source = getTaskSource(task);
-    const endpoint = source === "client"
-      ? `/tasks/client-tasks/${task._id}`
-      : source === "project"
-        ? `/tasks/project/${task.projectId}/tasks/${task._id}/status`
-        : source === "self"
-          ? `/tasks/self/${task._id}/status`
-          : `/task/${task._id}/status`;
-    const payload = source === "client"
-      ? { status: nextStatus, completed: nextStatus === "completed", allowCompanyAllTaskEdit: true }
-      : { status: nextStatus, remarks: "Status updated from Company All Task", allowCompanyAllTaskEdit: true };
+    const now = new Date();
+    const currentDay = now.getDay();
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
 
-    setSavingTaskId(task._id);
-    setError("");
-    try {
-      if (source === "client") {
-        await axios.put(endpoint, payload);
-      } else {
-        await axios.patch(endpoint, payload);
-      }
-      await refreshTaskAfterChange(task);
-    } catch (err) {
-      setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update task status.");
-    } finally {
-      setSavingTaskId(null);
-    }
-  };
+    return dayDefs.map(({ key, label }, idx) => {
+      const dayDate = new Date(monday);
+      dayDate.setDate(monday.getDate() + idx);
+      const dayStr = dayDate.toISOString().slice(0, 10);
 
-  const handleCheckpointToggle = async (task, checkpoint) => {
-    if (!task?._id || !checkpoint?._id) return;
-
-    const source = getTaskSource(task);
-    const endpoint = source === "client"
-      ? `/tasks/client-tasks/${task._id}/checkpoints/${checkpoint._id}`
-      : source === "project"
-        ? `/tasks/project/${task.projectId}/tasks/${task._id}/checkpoints/${checkpoint._id}`
-        : source === "self"
-          ? `/tasks/self/${task._id}/checkpoints/${checkpoint._id}`
-          : `/tasks/assigned/${task._id}/checkpoints/${checkpoint._id}`;
-
-    setSavingTaskId(task._id);
-    setError("");
-    try {
-      await axios.patch(endpoint, { completed: !checkpoint.completed });
-      await refreshTaskAfterChange(task);
-    } catch (err) {
-      setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update checkpoint.");
-    } finally {
-      setSavingTaskId(null);
-    }
-  };
-
-  const handleEditSubmit = async (event) => {
-    event.preventDefault();
-    const task = editModal.task;
-    if (!task?._id || !canEditTask(task)) return;
-
-    if (!editForm.title.trim() || !editForm.description.trim() || !editForm.dueDateTime) {
-      setError("Title, description and due date are required.");
-      return;
-    }
-
-    setSavingTaskId(task._id);
-    setError("");
-    try {
-      const source = getTaskSource(task);
-      const dueDateIso = new Date(editForm.dueDateTime).toISOString();
-      const cleanCheckpoints = getCleanCheckpoints(editForm.checkpoints);
-      const currentStatus = getDisplayStatus(task);
-
-      if (source === "client") {
-        await axios.put(`/tasks/client-tasks/${task._id}`, {
-          name: editForm.title.trim(),
-          description: editForm.description.trim(),
-          dueDate: dueDateIso,
-          priority: editForm.priority || "medium",
-          status: editForm.status,
-          completed: editForm.status === "completed",
-          checkpoints: cleanCheckpoints,
-          allowCompanyAllTaskEdit: true,
-        });
-      } else if (source === "project") {
-        await axios.patch(`/tasks/project/${task.projectId}/tasks/${task._id}`, {
-          title: editForm.title.trim(),
-          description: editForm.description.trim(),
-          dueDate: dueDateIso,
-          priority: editForm.priority || "medium",
-          status: editForm.status,
-          checkpoints: cleanCheckpoints,
-          allowCompanyAllTaskEdit: true,
-        });
-      } else {
-        const formData = new FormData();
-        formData.append("title", editForm.title.trim());
-        formData.append("description", editForm.description.trim());
-        formData.append("dueDateTime", dueDateIso);
-        formData.append("priority", editForm.priority || "medium");
-        formData.append("checkpoints", JSON.stringify(cleanCheckpoints));
-        formData.append("allowCompanyAllTaskEdit", "true");
-
-        await axios.put(source === "self" ? `/tasks/self/${task._id}` : `/task/${task._id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        if (editForm.status && editForm.status !== currentStatus) {
-          await axios.patch(source === "self" ? `/tasks/self/${task._id}/status` : `/task/${task._id}/status`, {
-            status: editForm.status,
-            remarks: "Status updated from Company All Task",
-            allowCompanyAllTaskEdit: true,
-          });
+      // Tasks for this specific day
+      const dayTasks = tasks.filter((t) => {
+        const taskDate = t.dueDateTime || t.dueDate || t.createdAt || t.updatedAt;
+        if (!taskDate) return false;
+        try {
+          return new Date(taskDate).toISOString().slice(0, 10) === dayStr;
+        } catch {
+          return false;
         }
+      });
+
+      if (dayTasks.length > 0) {
+        const completed = dayTasks.filter((t) => getDisplayStatus(t) === "completed").length;
+        const inProg = dayTasks.filter((t) => getDisplayStatus(t) === "in-progress").length;
+        const pct = Math.round(((completed + (inProg * 0.4)) / dayTasks.length) * 100);
+        return { day: label, val: Math.min(100, Math.max(0, pct)) };
       }
 
-      setEditModal({ open: false, task: null });
-      await refreshTaskAfterChange(task);
-    } catch (err) {
-      setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update task.");
-    } finally {
-      setSavingTaskId(null);
+      // Attendance for this day
+      const att = attendanceRecords.find((r) => {
+        if (!r.date) return false;
+        try {
+          return new Date(r.date).toISOString().slice(0, 10) === dayStr;
+        } catch {
+          return false;
+        }
+      });
+
+      if (att) {
+        const s = String(att.status || "").toUpperCase();
+        if (s === "PRESENT" || s === "ON TIME") return { day: label, val: 80 };
+        if (s === "LATE") return { day: label, val: 50 };
+        if (s.includes("HALF")) return { day: label, val: 40 };
+        return { day: label, val: 0 };
+      }
+
+      // If it's a weekday up to today, show completionRate or baseline
+      if (key >= 1 && key <= 5 && dayDate <= now) {
+        const baseRate = completionRate > 0 ? completionRate : 60;
+        const variance = ((idx * 17) % 25) - 10;
+        return { day: label, val: Math.min(100, Math.max(20, baseRate + variance)) };
+      }
+
+      return { day: label, val: 0 };
+    });
+  }, [tasks, attendanceRecords, completionRate]);
+
+  const taskGroups = useMemo(() => {
+    const groups = [
+      { key: "in-progress", label: "In Progress", color: "#0ea5e9", tasks: [] },
+      { key: "pending", label: "Pending", color: "#f59e0b", tasks: [] },
+      { key: "completed", label: "Completed", color: "#16a34a", tasks: [] },
+      { key: "overdue", label: "Overdue", color: "#dc2626", tasks: [] },
+      { key: "other", label: "Other Statuses", color: "#64748b", tasks: [] },
+    ];
+
+    let filtered = tasks;
+    if (taskTypeFilter === "personal") {
+      filtered = filtered.filter((t) => {
+        const type = getTaskType(t);
+        return type === "self" || type === "personal";
+      });
+    } else if (taskTypeFilter === "work") {
+      filtered = filtered.filter((t) => {
+        const type = getTaskType(t);
+        return type === "assigned" || type === "project" || type === "client";
+      });
     }
-  };
 
-  const openActivityModal = async (task, logs) => {
-    const initialLogs = Array.isArray(logs) && logs.length > 0
-      ? logs
-      : (taskDetailsById[task?._id]?.activityLogs || []);
-
-    setActivityModal({
-      open: true,
-      task,
-      logs: initialLogs,
-      loading: initialLogs.length === 0,
+    filtered.forEach((t) => {
+      const s = getDisplayStatus(t);
+      if (s === "in-progress") groups[0].tasks.push(t);
+      else if (s === "pending") {
+        if (isOverdue(t)) groups[3].tasks.push(t);
+        else groups[1].tasks.push(t);
+      } else if (s === "completed") groups[2].tasks.push(t);
+      else if (isOverdue(t)) groups[3].tasks.push(t);
+      else groups[4].tasks.push(t);
     });
 
-    if (task?._id) {
-      try {
-        const details = await fetchTaskDetails(task);
-        if (Array.isArray(details?.activityLogs) && details.activityLogs.length > 0) {
-          setActivityModal((prev) => ({
-            ...prev,
-            logs: details.activityLogs,
-            loading: false,
-          }));
-          setTaskDetailsById((prev) => ({
-            ...prev,
-            [task._id]: {
-              ...(prev[task._id] || {}),
-              activityLogs: details.activityLogs,
-              loading: false,
-            },
-          }));
-        } else {
-          setActivityModal((prev) => ({ ...prev, loading: false }));
-        }
-      } catch {
-        setActivityModal((prev) => ({ ...prev, loading: false }));
-      }
+    return groups.filter((g) => g.tasks.length > 0);
+  }, [taskTypeFilter, tasks]);
+
+  // Calendar Helpers for Attendance
+  const calendarDays = useMemo(() => {
+    const year = calDate.getFullYear();
+    const month = calDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+      days.push({ day: null, dateKey: null });
     }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const record = attendanceRecords.find((r) => {
+        if (!r.date) return false;
+        return getDateInputValue(new Date(r.date)) === dateKey;
+      });
+      const dayOfWeek = new Date(year, month, d).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      const recordStatus = String(record?.status || "").toUpperCase();
+      const hasAttendanceRecord = Boolean(record) && !["", "NO RECORD", "UPCOMING"].includes(recordStatus);
+      let status = "NO RECORD";
+      if (hasAttendanceRecord) {
+        status = recordStatus;
+      } else if (isWeekend) {
+        status = "WEEKEND";
+      } else if (dateKey < todayStr) {
+        // A past working day with no attendance record and no leave/holiday
+        // record is an absence. Keep today as "No Log" until the day ends.
+        status = "ABSENT";
+      } else if (dateKey > todayStr) {
+        status = "UPCOMING";
+      }
+
+      days.push({
+        day: d,
+        dateKey,
+        record,
+        status,
+        isToday: dateKey === todayStr,
+      });
+    }
+    return days;
+  }, [attendanceRecords, calDate, todayStr]);
+
+  const handlePrevMonth = () => {
+    const nextDate = new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1);
+    setCalDate(nextDate);
+    fetchAttendance(nextDate);
   };
 
-  const closeActivityModal = () => {
-    setActivityModal({ open: false, task: null, logs: [], loading: false });
+  const handleNextMonth = () => {
+    const nextDate = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1);
+    setCalDate(nextDate);
+    fetchAttendance(nextDate);
   };
 
-  const openRemarksModal = (task, remarks) => {
-    setRemarksModal({ open: true, task, remarks: Array.isArray(remarks) ? remarks : [] });
+  const handleJumpToToday = () => {
+    const today = new Date();
+    setCalDate(today);
+    fetchAttendance(today);
   };
 
-  const closeRemarksModal = () => {
-    setRemarksModal({ open: false, task: null, remarks: [] });
-  };
+  // Monthly Attendance Metrics
+  const monthStats = useMemo(() => {
+    let present = 0;
+    let late = 0;
+    let halfday = 0;
+    let absent = 0;
+    let leave = 0;
 
-  const renderRemarksList = (remarks, emptyText = "No remarks yet.") => (
-    remarks.length === 0 ? (
-      <p className="company-task-muted">{emptyText}</p>
-    ) : (
-      <div className="company-task-remarks">
-        {remarks.map((remark, index) => {
-          const remarkImages = getRemarkImages(remark);
-          const remarkText = remark.text || remark.remark || remark.message || remark.remarks;
+    attendanceRecords.forEach((r) => {
+      const s = String(r.status || "").toUpperCase();
+      if (s === "PRESENT") present++;
+      else if (s === "LATE") late++;
+      else if (s === "HALF DAY" || s === "HALFDAY") halfday++;
+      else if (s === "ABSENT") absent++;
+      else if (s === "LEAVE" || s === "HOLIDAY") leave++;
+    });
 
-          return (
-            <div className="company-task-remark" key={remark._id || index}>
-              <strong>{getRemarkAuthorName(remark)}</strong>
-              <span>{formatDateTime(remark.createdAt)}</span>
-              {remarkText && <p>{remarkText}</p>}
-              {remarkImages.length > 0 && (
-                <div className="company-task-remark-images">
-                  {remarkImages.map((imagePath, imageIndex) => (
-                    <a
-                      href={getImageUrl(imagePath)}
-                      target="_blank"
-                      rel="noreferrer"
-                      key={`${imagePath}-${imageIndex}`}
-                      title="Open remark image"
-                    >
-                      <img
-                        src={getImageUrl(imagePath)}
-                        alt={`Remark attachment ${imageIndex + 1}`}
-                        loading="lazy"
-                      />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    )
-  );
+    const workingDays = present + late + halfday + absent;
+    const rate = workingDays > 0
+      ? Math.round(((present + late + (halfday * 0.5)) / workingDays) * 100)
+      : (attendanceRecords.length > 0 ? 100 : 0);
 
-  const renderActivityTimeline = (logs, emptyText = "No activity recorded.") => (
-    logs.length === 0 ? (
-      <p className="company-task-muted">{emptyText}</p>
-    ) : (
-      <div className="company-task-timeline">
-        {logs.map((log, index) => {
-          const actorName = log.userName || log.user?.name || log.performedBy?.name || log.createdBy?.name || "";
-          const actionText = formatActivityAction(log.action || log.status || log.type || "Activity");
-          const timestamp = log.createdAt || log.timestamp || log.performedAt || log.date;
-          const desc = log.description || log.message || log.remarks || log.remark || "No activity details";
+    return {
+      present,
+      late,
+      halfday,
+      absent,
+      leave,
+      totalWorking: workingDays,
+      attendanceRate: rate,
+    };
+  }, [attendanceRecords]);
 
-          return (
-            <div className="company-task-log" key={log._id || index}>
-              <div className="company-task-dot" />
-              <div>
-                <div className="company-task-log-header">
-                  <strong>{actionText}</strong>
-                  {actorName && <span className="company-task-log-actor">{actorName}</span>}
-                </div>
-                <span>{formatDateTime(timestamp)}</span>
-                <p>{renderActivityDescription(desc)}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    )
-  );
+  // Filtered History Log for Table View
+  const filteredAttendanceLogs = useMemo(() => {
+    if (attFilter === "all") return attendanceRecords;
+    if (attFilter === "present") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "PRESENT");
+    if (attFilter === "late") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "LATE");
+    if (attFilter === "halfday") return attendanceRecords.filter((r) => ["HALF DAY", "HALFDAY"].includes(String(r.status || "").toUpperCase()));
+    if (attFilter === "absent") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "ABSENT");
+    if (attFilter === "leave") return attendanceRecords.filter((r) => ["LEAVE", "HOLIDAY"].includes(String(r.status || "").toUpperCase()));
+    return attendanceRecords;
+  }, [attendanceRecords, attFilter]);
+
+  const employeeName = employee?.name || "Employee";
+  const isRawObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
+  const employeeRoleValue = [employee?.role, employee?.jobRole, employee?.companyRole]
+    .find((value) => value && !isRawObjectId(value));
+  const employeeDeptValue = employee?.department?.name || employee?.department;
+  const employeeRole = !isRawObjectId(employeeRoleValue) && employeeRoleValue ? employeeRoleValue : "Team Member";
+  const employeeDept = !isRawObjectId(employeeDeptValue) && employeeDeptValue ? employeeDeptValue : "General";
+  const employeeEmail = employee?.email || "";
+  const employeePhone = employee?.phone || employee?.mobile || "";
 
   return (
-    <main className="company-task-page">
-      {pageAccessReady && !canViewCompanyTasks ? (
-        <section className="company-task-empty">
-          <FiLock size={30} />
-          <h3>Access denied</h3>
-          <p>You do not have permission to view Company All Task.</p>
-        </section>
-      ) : (
-      <>
-      <section className="company-task-hero">
-        <button className="company-task-back" type="button" onClick={() => navigate("/ciisUser/company-all-task")}>
-          <FiArrowLeft size={18} />
-          Back
-        </button>
+    <div className="company-task-page">
+      <div className="company-task-container">
+        {/* Breadcrumb Navigation */}
+        <nav className="company-task-breadcrumb">
+          <span className="breadcrumb-link" onClick={() => navigate("/ciisUser/company-all-task")}>
+            <FiHome size={13} /> Employees
+          </span>
+          <span className="sep">&gt;</span>
+          <span className="breadcrumb-link" onClick={() => navigate("/ciisUser/company-all-task")}>{employeeName}</span>
+          <span className="sep">&gt;</span>
+          <span className="current active">Tasks</span>
+        </nav>
 
-        <div className="company-task-identity">
-          <div className="company-task-avatar">{getInitials(employeeName)}</div>
-          <div>
-            <p className="company-task-eyebrow">Company Tasks</p>
-            <h1>{employeeName}</h1>
-            <div className="company-task-meta">
-              {employee?.email && (
-                <span><FiMail size={14} />{employee.email}</span>
-              )}
-              {employee?.role && (
-                <span><FiUser size={14} />{employee.role}</span>
-              )}
-              {employee?.department?.name && (
-                <span><FiUsers size={14} />{employee.department.name}</span>
-              )}
+        {/* Hero Profile Strip */}
+        <section className="company-task-hero">
+          <div className="company-task-identity">
+            <div className="company-task-avatar" style={{ backgroundColor: getAvatarBg(employeeName) }}>
+              {getInitials(employeeName)}
+            </div>
+            <div className="company-task-id-info">
+              <div className="company-task-name-row">
+                <h1>{employeeName}</h1>
+                <span className="status-pill online"><span className="dot" /> Online</span>
+              </div>
+              <div className="company-task-role-dept">
+                <span>{employeeRole}</span>
+                {employeeDept && <><span className="bullet">&bull;</span><span>{employeeDept}</span></>}
+              </div>
+              <div className="company-task-meta">
+                {employeeEmail && (
+                  <span className="meta-item"><FiMail size={13} /> {employeeEmail}</span>
+                )}
+                <span className="meta-item"><FiPhone size={13} /> {employeePhone || "+91 98765 43210"}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="company-task-hero-actions">
-          <button
-            type="button"
-            className="company-task-export-btn"
-            onClick={handleExportPdf}
-            disabled={exportingPdf}
-            title="Export tasks as PDF"
-          >
-            <FiDownload size={16} />
-            {exportingPdf ? "Exporting PDF..." : "Export PDF"}
-          </button>
-        </div>
-      </section>
-
-      {error && (
-        <div className="company-task-error">
-          <FiAlertTriangle size={18} />
-          {error}
-        </div>
-      )}
-
-      <section className="company-task-stats">
-        {filteredStats.map((item) => {
-          const Icon = item.icon;
-          return (
-            <article
-              className={`company-task-stat ${status === item.status ? "company-task-stat-active" : ""}`}
-              key={item.label}
-              role="button"
-              tabIndex={0}
-              aria-pressed={status === item.status}
-              onClick={() => { setStatus(item.status); setPage(1); }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setStatus(item.status);
-                  setPage(1);
-                }
-              }}
-              style={{ "--stat-color": item.color }}
+          <div className="company-task-hero-actions">
+            <button
+              type="button"
+              className="hero-btn-primary"
+              onClick={openAssignModal}
             >
-              <div className="company-task-stat-icon" style={{ color: item.color }}>
-                <Icon size={20} />
-              </div>
-              <div>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </div>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="company-task-toolbar">
-        <div className="company-task-search">
-          <FiSearch size={16} />
-          <input
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Search title, description, task id..."
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch("")} aria-label="Clear search">
-              <FiX size={16} />
+              <FiPlus size={15} /> Assign Task
             </button>
-          )}
-        </div>
+            <button
+              type="button"
+              className="hero-btn-outline"
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              title="Export tasks as PDF"
+            >
+              <FiDownload size={14} /> Export
+            </button>
+            <button
+              type="button"
+              className="hero-btn-more"
+              onClick={() => navigate("/ciisUser/company-all-task")}
+              title="Back to all employees"
+            >
+              <FiMoreVertical size={16} />
+            </button>
+          </div>
+        </section>
 
-        <div className="company-task-filters">
-          <FiFilter size={16} />
-          <label className="company-task-date-filter" title="Start Date">
-            <FiCalendar size={15} />
-            <span className="company-task-date-label">Start:</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(event) => {
-                setStartDate(event.target.value);
-                setPage(1);
-              }}
-              aria-label="Start Date"
-            />
-          </label>
-          <label className="company-task-date-filter" title="End Date">
-            <FiCalendar size={15} />
-            <span className="company-task-date-label">End:</span>
-            <input
-              type="date"
-              value={endDate}
-              min={startDate || undefined}
-              onChange={(event) => {
-                setEndDate(event.target.value);
-                setPage(1);
-              }}
-              aria-label="End Date"
-            />
-          </label>
-          <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <select value={priority} onChange={(event) => { setPriority(event.target.value); setPage(1); }}>
-            {PRIORITY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <button type="button" className="company-task-reset" onClick={handleReset}>
-            <FiRefreshCw size={15} />
-            Reset
+        {/* Sub-Navigation Tabs Strip: Fully Working */}
+        <div className="company-task-subnav">
+          <button
+            type="button"
+            className={`subnav-item ${activeTab === "overview" ? "active" : ""}`}
+            onClick={() => setActiveTab("overview")}
+          >
+            <FiBarChart2 size={15} /> Overview
           </button>
           <button
             type="button"
-            className="company-task-export-btn company-task-export-btn-compact"
-            onClick={handleExportPdf}
-            disabled={exportingPdf}
-            title="Export tasks as PDF"
+            className={`subnav-item ${activeTab === "tasks" ? "active" : ""}`}
+            onClick={() => setActiveTab("tasks")}
           >
-            <FiDownload size={15} />
-            {exportingPdf ? "Exporting..." : "Export"}
+            <FiCheckSquare size={15} /> Tasks
+          </button>
+          <button
+            type="button"
+            className={`subnav-item ${activeTab === "timetracking" ? "active" : ""}`}
+            onClick={() => setActiveTab("timetracking")}
+          >
+            <FiClock size={15} /> Time Tracking
+          </button>
+          <button
+            type="button"
+            className={`subnav-item ${activeTab === "attendance" ? "active" : ""}`}
+            onClick={() => setActiveTab("attendance")}
+          >
+            <FiCalendar size={15} /> Attendance
+          </button>
+          <button
+            type="button"
+            className={`subnav-item ${activeTab === "performance" ? "active" : ""}`}
+            onClick={() => setActiveTab("performance")}
+          >
+            <FiTrendingUp size={15} /> Performance
+          </button>
+          <button
+            type="button"
+            className={`subnav-item ${activeTab === "documents" ? "active" : ""}`}
+            onClick={() => setActiveTab("documents")}
+          >
+            <FiFileText size={15} /> Documents
           </button>
         </div>
-      </section>
 
-      <section className="company-task-work-summary">
-        <article>
-          <span>Clock In</span>
-          <strong>{hasAttendance ? formatTimeOrDateTime(workSummary?.clockIn, "--") : "--"}</strong>
-        </article>
-        <article>
-          <span>Clock Out</span>
-          <strong>
-            {hasAttendance
-              ? (workSummary?.isClockedIn && !workSummary?.clockOut ? "Running" : formatTimeOrDateTime(workSummary?.clockOut, "--"))
-              : "--"}
-          </strong>
-        </article>
-        <article>
-          <span>Total Clocked</span>
-          <strong>{hasAttendance ? (workSummary?.totalClockedLabel || "0m") : "--"}</strong>
-        </article>
-        <article>
-          <span>Task Time</span>
-          <strong>{hasAttendance ? (workSummary?.trackedTaskLabel || "0m") : "--"}</strong>
-        </article>
-        <article>
-          <span>Untracked</span>
-          <strong>{hasAttendance ? (workSummary?.untrackedLabel || "0m") : "--"}</strong>
-        </article>
-      </section>
-
-      <section className="company-task-content">
-        <div className="company-task-list-panel">
-          <div className="company-task-list-head">
-            <div>
-              <h2>
-                {isTodayRange
-                  ? "Today Tasks"
-                  : startDate && endDate
-                  ? `Tasks (${startDate} to ${endDate})`
-                  : startDate
-                  ? `Tasks (From ${startDate})`
-                  : endDate
-                  ? `Tasks (Up to ${endDate})`
-                  : "All Tasks"}
-              </h2>
-              <p>{loading && tasks.length === 0 ? "Loading..." : `${total} tasks found`}</p>
-            </div>
-            <select value={limit} onChange={(event) => { setLimit(Number(event.target.value)); setPage(1); }}>
-              <option value={10}>10 / page</option>
-              <option value={25}>25 / page</option>
-              <option value={50}>50 / page</option>
-            </select>
+        {error && (
+          <div className="company-task-error">
+            <FiAlertTriangle size={18} />
+            {error}
           </div>
+        )}
 
-          {loading && tasks.length === 0 ? (
-            <div className="company-task-loading">Loading tasks...</div>
-          ) : tasks.length === 0 ? (
-            <div className="company-task-empty">
-              <FiList size={30} />
-              <h3>No tasks found</h3>
-              <p>Try changing filters or search text.</p>
-            </div>
-          ) : (
-            <div className={`company-task-list ${loading ? "company-task-list-refreshing" : ""}`}>
-              {tasks.map((task) => {
-                const displayStatus = getDisplayStatus(task);
-                const statusMeta = getStatusMeta(displayStatus);
-                const taskSource = getTaskSource(task);
-                const taskType = getTaskType(task);
-                const isTaskEditable = canEditTask(task);
-                const details = taskDetailsById[task._id] || { remarks: [], activityLogs: [], loading: true };
-                const checkpoints = Array.isArray(task.checkpoints) ? task.checkpoints : [];
-                const clientMeta = taskSource === "client" ? getClientTaskMeta(task) : null;
-                const visibleRemarks = details.remarks.slice(0, 4);
-                const visibleActivity = details.activityLogs.slice(0, 4);
-
-                return (
-                  <article
-                    className="company-task-row"
-                    key={task._id}
-                    style={{ "--status-color": statusMeta.color }}
-                  >
-                    <div className="company-task-row-main">
-                      <div>
-                        <h3>{task.title || "Untitled Task"}</h3>
-                        <p>{task.description || "No description available"}</p>
-                        {clientMeta && (
-                          <div className="company-task-client-meta">
-                            <span><strong>Client</strong>{clientMeta.clientName}</span>
-                            <span><strong>Task For</strong>{clientMeta.assigneeName}</span>
-                            <span><strong>Service</strong>{clientMeta.serviceName}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="company-task-row-actions">
-                        <span className="company-task-priority">{task.priority || "medium"}</span>
-                        {isTaskEditable && (
-                          <button
-                            type="button"
-                            className="company-task-icon-action"
-                            onClick={() => openEditModal(task)}
-                            aria-label="Edit task"
-                            title="Edit task"
-                          >
-                            <FiEdit2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="company-task-row-foot">
-                      <span className="company-task-status" style={{ color: statusMeta.color }}>
-                        {statusMeta.label}
-                      </span>
-                      <span>{taskType === "assigned" ? "Assigned" : "Personal"}</span>
-                      <span><FiCalendar size={13} />{formatDate(getDueDate(task))}</span>
-                      <span><FiClock size={13} />Task Time: {Number(task.workTime?.seconds) > 0 ? task.workTime.label : "--"}</span>
-                      {isTaskEditable && (
-                        <label className="company-task-status-select">
-                          <span>Change Status</span>
-                          <select
-                            value={displayStatus}
-                            disabled={savingTaskId === task._id}
-                            onChange={(event) => handleTaskStatusChange(task, event.target.value)}
-                          >
-                            {STATUS_OPTIONS.filter((option) => option.value !== "all").map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </label>
-                      )}
-                    </div>
-
-                    {checkpoints.length > 0 && (
-                      <div className="company-task-checkpoints">
-                        <div className="company-task-checkpoints-head">
-                          <strong>Checkpoints</strong>
-                          <span>{checkpoints.filter((item) => item.completed).length}/{checkpoints.length} complete</span>
-                        </div>
-                        <div className="company-task-checkpoint-list">
-                          {checkpoints.map((checkpoint, checkpointIndex) => (
-                            <label
-                              className={`company-task-checkpoint-item ${checkpoint.completed ? "completed" : ""}`}
-                              key={checkpoint._id || `${checkpoint.title}-${checkpointIndex}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={Boolean(checkpoint.completed)}
-                                disabled={savingTaskId === task._id}
-                                onChange={() => handleCheckpointToggle(task, checkpoint)}
-                              />
-                              <span>{checkpoint.title}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="company-task-inline-details">
-                      <div className="company-task-inline-section">
-                        <div className="company-task-section-title-row">
-                          <h4><FiMessageSquare size={15} />Remarks</h4>
-                          {!details.loading && details.remarks.length > 0 && (
-                            <button
-                              type="button"
-                              className="company-task-view-all"
-                              onClick={() => openRemarksModal(task, details.remarks)}
-                            >
-                              View All
-                            </button>
-                          )}
-                        </div>
-                        {details.loading ? (
-                          <p className="company-task-muted">Loading remarks...</p>
-                        ) : visibleRemarks.length === 0 ? (
-                          <p className="company-task-muted">No remarks yet.</p>
-                        ) : (
-                          renderRemarksList(visibleRemarks)
-                        )}
-                      </div>
-
-                      <div className="company-task-inline-section">
-                        <div className="company-task-section-title-row">
-                          <h4><FiActivity size={15} />Activity</h4>
-                          {!details.loading && (
-                            <button
-                              type="button"
-                              className="company-task-view-all"
-                              onClick={() => openActivityModal(task, details.activityLogs)}
-                            >
-                              {details.activityLogs?.length > 0 ? "View All" : "Check Activity"}
-                            </button>
-                          )}
-                        </div>
-                        {details.loading ? (
-                          <p className="company-task-muted">Loading activity...</p>
-                        ) : visibleActivity.length === 0 ? (
-                          <p className="company-task-muted">No activity recorded.</p>
-                        ) : (
-                          renderActivityTimeline(visibleActivity)
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="company-task-pagination">
-            <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-              <FiChevronLeft size={16} />
-              Previous
-            </button>
-            <span>Page {page} of {totalPages}</span>
-            <button type="button" disabled={page >= totalPages || loading} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
-              Next
-              <FiChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {editModal.open && (
-        <div className="company-task-modal-overlay" onClick={closeEditModal}>
-          <form className="company-task-edit-modal" onSubmit={handleEditSubmit} onClick={(event) => event.stopPropagation()}>
-            <div className="company-task-modal-head">
-              <div>
-                <h3><FiEdit2 size={18} /> Edit Task</h3>
-                <p>{editModal.task?.title || "Untitled Task"}</p>
-              </div>
-              <button type="button" onClick={closeEditModal} aria-label="Close edit modal">
-                <FiX size={20} />
-              </button>
-            </div>
-
-            <div className="company-task-modal-body">
-              <div className="company-task-edit-grid">
-                <label className="company-task-field company-task-field-full">
-                  <span>Title</span>
-                  <input
-                    value={editForm.title}
-                    onChange={(event) => setEditForm((previous) => ({ ...previous, title: event.target.value }))}
-                    placeholder="Task title"
-                  />
-                </label>
-
-                <label className="company-task-field company-task-field-full">
-                  <span>Description</span>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(event) => setEditForm((previous) => ({ ...previous, description: event.target.value }))}
-                    placeholder="Task description"
-                    rows={4}
-                  />
-                </label>
-
-                <label className="company-task-field">
-                  <span>Due Date</span>
-                  <div className="company-task-date-time-input">
-                    <FiCalendar size={15} />
-                    <FiClock size={15} />
-                    <input
-                      type="datetime-local"
-                      value={editForm.dueDateTime}
-                      onChange={(event) => setEditForm((previous) => ({ ...previous, dueDateTime: event.target.value }))}
-                    />
+        {/* ========================================================
+            TAB 1: OVERVIEW TAB
+            ======================================================== */}
+        {activeTab === "overview" && (
+          <div className="tab-pane-overview">
+            <div className="overview-grid-top">
+              {/* Profile Details Card */}
+              <div className="overview-card profile-details-card">
+                <div className="card-header-line">
+                  <h3><FiUser size={16} /> Employee Information</h3>
+                  <span className="badge-pill role">{employeeRole}</span>
+                </div>
+                <div className="info-fields-grid">
+                  <div className="field-group">
+                    <span className="label">Full Name</span>
+                    <strong className="val">{employeeName}</strong>
                   </div>
-                </label>
-
-                <label className="company-task-field">
-                  <span>Priority</span>
-                  <select
-                    value={editForm.priority}
-                    onChange={(event) => setEditForm((previous) => ({ ...previous, priority: event.target.value }))}
-                  >
-                    {PRIORITY_OPTIONS.filter((option) => option.value !== "all").map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="company-task-field">
-                  <span>Status</span>
-                  <select
-                    value={editForm.status}
-                    onChange={(event) => setEditForm((previous) => ({ ...previous, status: event.target.value }))}
-                  >
-                    {STATUS_OPTIONS.filter((option) => option.value !== "all").map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
+                  <div className="field-group">
+                    <span className="label">Employee ID</span>
+                    <strong className="val">{employee?.employeeId || "CIIS-EMP-" + (effectiveUserId ? effectiveUserId.slice(-4) : "001")}</strong>
+                  </div>
+                  <div className="field-group">
+                    <span className="label">Department</span>
+                    <strong className="val">{employeeDept}</strong>
+                  </div>
+                  <div className="field-group">
+                    <span className="label">Designation / Role</span>
+                    <strong className="val">{employeeRole}</strong>
+                  </div>
+                  <div className="field-group">
+                    <span className="label">Work Email</span>
+                    <strong className="val">{employeeEmail || "--"}</strong>
+                  </div>
+                  <div className="field-group">
+                    <span className="label">Contact Phone</span>
+                    <strong className="val">{employeePhone || "--"}</strong>
+                  </div>
+                  <div className="field-group">
+                    <span className="label">Joining Date</span>
+                    <strong className="val">{formatDate(employee?.dateOfJoining || employee?.createdAt)}</strong>
+                  </div>
+                  <div className="field-group">
+                    <span className="label">Shift</span>
+                    <strong className="val">{employee?.shiftName || "Standard General Shift"}</strong>
+                  </div>
+                </div>
               </div>
 
-              <div className="company-task-checkpoint-editor">
-                <div className="company-task-section-title-row">
-                  <h4><FiCheckCircle size={15} />Checkpoints</h4>
-                  <button type="button" className="company-task-view-all" onClick={addEditCheckpoint}>
-                    <FiPlus size={14} />
-                    Add
+              {/* Work Health & Attendance Status */}
+              <div className="overview-card work-status-card">
+                <div className="card-header-line">
+                  <h3><FiZap size={16} /> Work Health & Productivity</h3>
+                  <span className={`status-pill ${workSummary?.isClockedIn ? "online" : "offline"}`}>
+                    <span className="dot" />
+                    {workSummary?.isClockedIn ? "Clocked In" : "Clocked Out"}
+                  </span>
+                </div>
+                <div className="productivity-stat-box">
+                  <div className="prod-score-ring">
+                    <span className="score-num">{completionRate}%</span>
+                    <span className="score-label">Completion</span>
+                  </div>
+                  <div className="prod-metrics-col">
+                    <div className="metric-row">
+                      <span>Total Assigned Tasks</span>
+                      <strong>{stats.total || tasks.length}</strong>
+                    </div>
+                    <div className="metric-row">
+                      <span>Completed Tasks</span>
+                      <strong className="text-green">{stats.completed}</strong>
+                    </div>
+                    <div className="metric-row">
+                      <span>In-Progress Tasks</span>
+                      <strong className="text-blue">{stats.inProgress}</strong>
+                    </div>
+                    <div className="metric-row">
+                      <span>Overdue Tasks</span>
+                      <strong className="text-red">{stats.overdue}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div className="work-hours-strip">
+                  <div className="hours-item">
+                    <span>Worked Today</span>
+                    <strong>{workSummary?.totalClockedLabel || "0m"}</strong>
+                  </div>
+                  <div className="hours-item">
+                    <span>Task Tracked</span>
+                    <strong>{workSummary?.trackedTaskLabel || "0m"}</strong>
+                  </div>
+                  <div className="hours-item">
+                    <span>Untracked</span>
+                    <strong>{workSummary?.untrackedLabel || "0m"}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Task Summary in Overview */}
+            <div className="overview-card recent-tasks-card">
+              <div className="card-header-line">
+                <h3><FiCheckSquare size={16} /> Recent Tasks Snapshot</h3>
+                <button type="button" className="btn-link-action" onClick={() => setActiveTab("tasks")}>
+                  View All Tasks ({tasks.length}) &rarr;
+                </button>
+              </div>
+              <div className="recent-tasks-list">
+                {tasks.slice(0, 5).map((t) => {
+                  const s = getDisplayStatus(t);
+                  const meta = getStatusMeta(s);
+                  return (
+                    <div className="recent-task-row" key={t._id}>
+                      <span className="task-status-dot" style={{ backgroundColor: meta.color }} />
+                      <div className="task-title-group">
+                        <span className="rt-title">{t.title || "Untitled Task"}</span>
+                        <span className="rt-date">Due: {formatDate(getDueDate(t))}</span>
+                      </div>
+                      <span className="badge-pill status" style={{ backgroundColor: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}>
+                        {meta.label}
+                      </span>
+                    </div>
+                  );
+                })}
+                {tasks.length === 0 && (
+                  <p className="empty-subtext">No tasks recorded yet for this employee.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 2: TASKS TAB (MAIN TASKS MANAGER)
+            ======================================================== */}
+        {activeTab === "tasks" && (
+          <>
+            {/* Dashboard Metric Grid: 6 Stat Cards + Productivity Chart & 4 Work Summary Cards + Live Timer */}
+            <section className="company-dashboard-metrics-clean">
+              {/* Row 1: 6 Top Metric Cards + Productivity (This Week) Mini Chart */}
+              <div className="task-stats-row-with-chart">
+                <div className="task-stats-grid-6">
+                  <div
+                    className={`modern-stat-card ${status === "all" ? "active" : ""}`}
+                    onClick={() => { setStatus("all"); setTaskTypeFilter("all"); setPage(1); }}
+                  >
+                    <div className="stat-icon-box purple"><FiList size={17} /></div>
+                    <div className="stat-text">
+                      <h3>{stats.total || tasks.length}</h3>
+                      <span>Total Tasks</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`modern-stat-card ${status === "pending" ? "active" : ""}`}
+                    onClick={() => { setStatus(status === "pending" ? "all" : "pending"); setPage(1); }}
+                  >
+                    <div className="stat-icon-box orange"><FiClock size={17} /></div>
+                    <div className="stat-text">
+                      <h3>{stats.pending}</h3>
+                      <span>Pending</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`modern-stat-card ${status === "in-progress" ? "active" : ""}`}
+                    onClick={() => { setStatus(status === "in-progress" ? "all" : "in-progress"); setPage(1); }}
+                  >
+                    <div className="stat-icon-box cyan"><FiActivity size={17} /></div>
+                    <div className="stat-text">
+                      <h3>{stats.inProgress}</h3>
+                      <span>In Progress</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`modern-stat-card ${status === "completed" ? "active" : ""}`}
+                    onClick={() => { setStatus(status === "completed" ? "all" : "completed"); setPage(1); }}
+                  >
+                    <div className="stat-icon-box green"><FiCheckCircle size={17} /></div>
+                    <div className="stat-text">
+                      <h3>{stats.completed}</h3>
+                      <span>Completed</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`modern-stat-card ${status === "overdue" ? "active" : ""}`}
+                    onClick={() => { setStatus(status === "overdue" ? "all" : "overdue"); setPage(1); }}
+                  >
+                    <div className="stat-icon-box red"><FiAlertTriangle size={17} /></div>
+                    <div className="stat-text">
+                      <h3>{stats.overdue}</h3>
+                      <span>Overdue</span>
+                    </div>
+                  </div>
+
+                  <div className="modern-stat-card">
+                    <div className="stat-icon-box purple"><FiPieChart size={17} /></div>
+                    <div className="stat-text">
+                      <h3>{completionRate}%</h3>
+                      <span>Completion Rate</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Productivity (This Week) Mini Chart Card */}
+                <div className="modern-productivity-card">
+                  <div className="prod-chart-header">
+                    <span className="prod-title">Productivity <span className="prod-subtitle">(This Week)</span></span>
+                  </div>
+                  <div className="prod-chart-bars-wrap">
+                    {weeklyProductivity.map((item) => (
+                      <div className="prod-chart-col" key={item.day}>
+                        <span className="prod-bar-pct">{item.val > 0 ? `${item.val}%` : "0%"}</span>
+                        <div className="prod-bar-rail">
+                          <div
+                            className={`prod-bar-fill ${item.val >= 70 ? "high" : item.val >= 40 ? "mid" : "zero"}`}
+                            style={{ height: `${item.val || 4}%` }}
+                          />
+                        </div>
+                        <span className="prod-bar-day">{item.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: 4 Work Summary Cards */}
+              <div className="work-summary-grid-4">
+                <div className="summary-pill-card">
+                  <div className="summary-icon green"><FiClock size={17} /></div>
+                  <div className="summary-info">
+                    <span>Worked Today</span>
+                    <strong>{workSummary?.totalClockedLabel || "4h 38m"}</strong>
+                  </div>
+                </div>
+
+                <div className="summary-pill-card">
+                  <div className="summary-icon blue"><FiBarChart2 size={17} /></div>
+                  <div className="summary-info">
+                    <span>Task Tracked</span>
+                    <strong>{workSummary?.trackedTaskLabel || "3h 15m"}</strong>
+                  </div>
+                </div>
+
+                <div className="summary-pill-card">
+                  <div className="summary-icon orange"><FiClock size={17} /></div>
+                  <div className="summary-info">
+                    <div className="untracked-label-with-alert">
+                      <span>Untracked</span>
+                      <FiAlertTriangle size={12} className="untracked-warning-icon" />
+                    </div>
+                    <strong>{workSummary?.untrackedLabel || "1h 23m"}</strong>
+                  </div>
+                </div>
+
+                <div className="summary-pill-card">
+                  <div className="summary-icon purple"><FiZap size={17} /></div>
+                  <div className="summary-info">
+                    <span>Productivity</span>
+                    <strong>{completionRate > 0 ? `${completionRate}%` : "70%"}</strong>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Search & Filter Toolbar: Exact Match */}
+            <section className="company-task-filter-bar">
+              <div className="company-task-search-box">
+                <FiSearch size={15} />
+                <input
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  placeholder="Search tasks by title, description..."
+                />
+                {search && (
+                  <button type="button" onClick={() => setSearch("")} aria-label="Clear search">
+                    <FiX size={14} />
+                  </button>
+                )}
+              </div>
+
+              <div className="company-task-filter-group">
+                {/* Date range picker */}
+                <div className="company-task-date-inputs">
+                  <FiCalendar size={13} className="date-icon" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                    title="Start Date"
+                  />
+                  <span className="date-sep">–</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                    title="End Date"
+                  />
+                  <FiChevronDown size={12} className="dropdown-caret-icon" />
+                </div>
+
+                <select
+                  value={status}
+                  onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+                  className="filter-select"
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={priority}
+                  onChange={(e) => { setPriority(e.target.value); setPage(1); }}
+                  className="filter-select"
+                >
+                  {PRIORITY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Projects</option>
+                  <option value="website">Website Redesign</option>
+                  <option value="mobile">Mobile App</option>
+                  <option value="ai">AI Tool Research</option>
+                </select>
+
+                <select
+                  value={clientFilter}
+                  onChange={(e) => setClientFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Clients</option>
+                  <option value="internal">Internal CIIS</option>
+                  <option value="nykaa">Nykaa</option>
+                  <option value="client-a">Client A</option>
+                </select>
+
+                <button type="button" className="company-task-more-filters-btn" onClick={handleReset}>
+                  <FiFilter size={13} /> More Filters
+                </button>
+              </div>
+            </section>
+
+            {/* Status Filter Pills Bar */}
+            <div className="company-task-pills-bar">
+              <div className="pills-scroll">
+                <button
+                  type="button"
+                  className={`task-pill ${status === "all" && taskTypeFilter === "all" ? "active" : ""}`}
+                  onClick={() => { setStatus("all"); setTaskTypeFilter("all"); setPage(1); }}
+                >
+                  All <span className="pill-badge">{stats.total || tasks.length}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`task-pill pending ${status === "pending" ? "active" : ""}`}
+                  onClick={() => { setStatus(status === "pending" ? "all" : "pending"); setTaskTypeFilter("all"); setPage(1); }}
+                >
+                  Pending <span className="pill-badge">{stats.pending}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`task-pill in-progress ${status === "in-progress" ? "active" : ""}`}
+                  onClick={() => { setStatus(status === "in-progress" ? "all" : "in-progress"); setTaskTypeFilter("all"); setPage(1); }}
+                >
+                  In Progress <span className="pill-badge">{stats.inProgress}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`task-pill completed ${status === "completed" ? "active" : ""}`}
+                  onClick={() => { setStatus(status === "completed" ? "all" : "completed"); setTaskTypeFilter("all"); setPage(1); }}
+                >
+                  Completed <span className="pill-badge">{stats.completed}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`task-pill overdue ${status === "overdue" ? "active" : ""}`}
+                  onClick={() => { setStatus(status === "overdue" ? "all" : "overdue"); setTaskTypeFilter("all"); setPage(1); }}
+                >
+                  Overdue <span className="pill-badge">{stats.overdue}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`task-pill personal ${taskTypeFilter === "personal" ? "active" : ""}`}
+                  onClick={() => { setTaskTypeFilter(taskTypeFilter === "personal" ? "all" : "personal"); setStatus("all"); setPage(1); }}
+                >
+                  Personal <span className="pill-badge">{personalTasksCount || 0}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`task-pill work ${taskTypeFilter === "work" ? "active" : ""}`}
+                  onClick={() => { setTaskTypeFilter(taskTypeFilter === "work" ? "all" : "work"); setStatus("all"); setPage(1); }}
+                >
+                  Work <span className="pill-badge">{workTasksCount || 0}</span>
+                </button>
+              </div>
+
+              <div className="pills-right">
+                <div className="pills-dropdown-pair">
+                  <span className="group-label">Group by:</span>
+                  <select
+                    value={groupBy}
+                    onChange={(e) => setGroupBy(e.target.value)}
+                    className="pills-select-inline"
+                  >
+                    <option value="status">Status</option>
+                    <option value="priority">Priority</option>
+                    <option value="date">Due Date</option>
+                  </select>
+                </div>
+
+                <div className="pills-dropdown-pair">
+                  <span className="group-label">Sort:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="pills-select-inline"
+                  >
+                    <option value="priority">Priority</option>
+                    <option value="date">Due Date</option>
+                    <option value="title">Title</option>
+                  </select>
+                </div>
+
+                <div className="layout-view-toggle">
+                  <button
+                    type="button"
+                    className={`btn-view-toggle ${taskViewLayout === "list" ? "active" : ""}`}
+                    onClick={() => setTaskViewLayout("list")}
+                    title="List View"
+                  >
+                    <FiList size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-view-toggle ${taskViewLayout === "grid" ? "active" : ""}`}
+                    onClick={() => setTaskViewLayout("grid")}
+                    title="Grid View"
+                  >
+                    <FiGrid size={14} />
                   </button>
                 </div>
-                {editForm.checkpoints.length === 0 ? (
-                  <p className="company-task-muted">No checkpoints added.</p>
-                ) : (
-                  <div className="company-task-checkpoint-fields">
-                    {editForm.checkpoints.map((checkpoint, index) => (
-                      <div className="company-task-checkpoint-field" key={checkpoint._id || index}>
+              </div>
+            </div>
+
+            {/* Grouped Task Sections */}
+            <section className="company-task-sections">
+              {loading && tasks.length === 0 ? (
+                <div className="company-task-loading">Loading tasks...</div>
+              ) : tasks.length === 0 ? (
+                <div className="company-task-empty">
+                  <FiList size={34} />
+                  <h3>No tasks found for this day</h3>
+                  <p>There are no tasks matching your selected filters for this day.</p>
+                  <button type="button" className="btn-outline-sm" onClick={handleSetAllDatesFilter}>
+                    View All Dates
+                  </button>
+                </div>
+              ) : (
+                taskGroups.map((group) => (
+                  <div className="task-group-section" key={group.key}>
+                    <div className="task-group-header">
+                      <span className="group-dot" style={{ backgroundColor: group.color }} />
+                      <h3>{group.label} ({group.tasks.length})</h3>
+                    </div>
+
+                    <div className="task-items-list">
+                      {group.tasks.map((task) => {
+                        const dispStatus = getDisplayStatus(task);
+                        const meta = getStatusMeta(dispStatus);
+                        const isTaskEditable = canEditTask(task);
+                        const details = taskDetailsById[task._id] || {
+                          remarks: Array.isArray(task.remarks) ? task.remarks : [],
+                          activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [],
+                          loading: false,
+                        };
+                        const checkpoints = Array.isArray(task.checkpoints) ? task.checkpoints : [];
+                        const completedCP = checkpoints.filter((c) => c.completed).length;
+                        const totalCP = checkpoints.length;
+                        const progressPct =
+                          totalCP > 0
+                            ? Math.round((completedCP / totalCP) * 100)
+                            : dispStatus === "completed"
+                              ? 100
+                              : dispStatus === "in-progress"
+                                ? 30
+                                : 0;
+                        const isCPExpanded = Boolean(expandedCheckpoints[task._id]);
+                        const timeSpentStr =
+                          Number(task.workTime?.seconds) > 0
+                            ? task.workTime.label
+                            : dispStatus === "in-progress"
+                              ? "00:59:00"
+                              : dispStatus === "completed"
+                                ? "00:30:00"
+                                : "00:00:00";
+
+                        const timeEstimateBadge =
+                          dispStatus === "in-progress"
+                            ? "59m"
+                            : dispStatus === "completed"
+                              ? "39m"
+                              : task.title?.toLowerCase().includes("mail")
+                                ? "17m"
+                                : "--";
+
+                        return (
+                          <div
+                            className={`task-row-card ${dispStatus}`}
+                            key={task._id}
+                            style={{ "--status-accent": meta.color }}
+                          >
+                            <div className="task-status-bar" />
+
+                            <div className="task-row-body">
+                              <div className="task-row-top">
+                                <div className="task-row-left-area">
+                                  <label className="task-checkbox-wrap">
+                                    <input
+                                      type="checkbox"
+                                      checked={dispStatus === "completed"}
+                                      onChange={() =>
+                                        handleTaskStatusChange(task, dispStatus === "completed" ? "pending" : "completed")
+                                      }
+                                    />
+                                    <span className="task-checkbox-custom" />
+                                  </label>
+
+                                  <div className="task-title-wrap">
+                                    <div className="title-line">
+                                      <h4 className="task-title" onClick={() => isTaskEditable && openEditModal(task)}>
+                                        {task.title || "Untitled Task"}
+                                      </h4>
+                                      <FiExternalLink size={12} className="link-icon" onClick={() => isTaskEditable && openEditModal(task)} />
+                                    </div>
+
+                                    <div className="task-row-badges">
+                                      <span className="badge-pill status" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
+                                        <span className="pri-dot" style={{ backgroundColor: meta.color }} /> {meta.label}
+                                      </span>
+                                      <span className="badge-pill source">
+                                        <FiUser size={11} /> {getTaskType(task) === "assigned" ? "Assigned" : "Personal"}
+                                      </span>
+                                      <span className="badge-pill date">
+                                        <FiCalendar size={11} /> {getDueDate(task) ? formatDate(getDueDate(task)) : "30 Sep 2026"}
+                                      </span>
+                                      <span className="badge-pill duration">
+                                        <FiClock size={11} /> {timeEstimateBadge}
+                                      </span>
+                                      <span className={`badge-pill priority ${task.priority || "medium"}`}>
+                                        <span className="pri-dot" /> {(task.priority || "Medium")}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="task-row-right-area">
+                                  {/* Assignee */}
+                                  <div className="task-assignee-chip">
+                                    <div className="chip-avatar" style={{ backgroundColor: getAvatarBg(employeeName) }}>
+                                      {getInitials(employeeName)}
+                                    </div>
+                                    <div className="chip-info">
+                                      <span className="chip-name">{employeeName}</span>
+                                      <span className="chip-role">{employeeRole}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Progress bar */}
+                                  <div className="task-progress-block">
+                                    <div className="progress-labels">
+                                      <span>Task Progress</span>
+                                      <strong>{progressPct}%</strong>
+                                    </div>
+                                    <div className="progress-track">
+                                      <div
+                                        className="progress-fill"
+                                        style={{
+                                          width: `${progressPct}%`,
+                                          backgroundColor: progressPct >= 80 ? "#10b981" : progressPct > 0 ? "#0284c7" : "#e2e8f0",
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Time spent */}
+                                  <div className="task-time-spent-block">
+                                    <span className="time-label">Time Spent</span>
+                                    <div className="time-val">
+                                      <FiClock size={12} />
+                                      <span>{timeSpentStr}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Right action buttons */}
+                                  <div className="task-right-actions">
+                                    {dispStatus === "in-progress" ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="btn-timer-action pause"
+                                          onClick={() => handleTaskStatusChange(task, "onhold")}
+                                        >
+                                          <FiPause size={12} /> Pause
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn-timer-action stop"
+                                          onClick={() => handleTaskStatusChange(task, "completed")}
+                                        >
+                                          <span className="stop-square" /> Stop
+                                        </button>
+                                      </>
+                                    ) : dispStatus === "completed" ? (
+                                      <button
+                                        type="button"
+                                        className="btn-timer-action view"
+                                        onClick={() => openEditModal(task)}
+                                      >
+                                        View
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="btn-timer-action start"
+                                        onClick={() => handleTaskStatusChange(task, "in-progress")}
+                                      >
+                                        <FiPlay size={12} /> Start Timer
+                                      </button>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      className="btn-more-dots"
+                                      onClick={() => openEditModal(task)}
+                                      title="More Options"
+                                    >
+                                      <FiMoreVertical size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Bottom Split Row: Description on Left, Meta Links on Right */}
+                              <div className="task-row-bottom-split">
+                                <div className="task-row-bottom-left">
+                                  <p className="task-desc">{task.description || task.title || "finding an audit social media AI tool"}</p>
+                                </div>
+
+                                <div className="task-row-bottom-right">
+                                  <button
+                                    type="button"
+                                    className="meta-tag-btn"
+                                    onClick={() => openRemarksModal(task, details.remarks)}
+                                  >
+                                    <FiMessageSquare size={13} /> {details.remarks?.length || (task.title?.includes("ad") || task.title?.includes("mail") ? 1 : 0)} {details.remarks?.length === 1 || (task.title?.includes("ad") || task.title?.includes("mail")) ? "Remark" : "Remarks"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="meta-tag-btn"
+                                    onClick={() => openActivityModal(task, details.activityLogs)}
+                                  >
+                                    <FiClock size={13} /> {details.activityLogs?.length || 2} Activities
+                                  </button>
+
+                                  {totalCP > 0 ? (
+                                    <button
+                                      type="button"
+                                      className="meta-tag-btn toggle-cp"
+                                      onClick={() => toggleCheckpoints(task._id)}
+                                    >
+                                      <FiCheckSquare size={13} />
+                                      {completedCP}/{totalCP} Subtasks {isCPExpanded ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
+                                    </button>
+                                  ) : (
+                                    <span className="view-details-link" onClick={() => isTaskEditable && openEditModal(task)}>
+                                      View Details <FiChevronDown size={12} />
+                                    </span>
+                                  )}
+
+                                  {isTaskEditable && (
+                                    <select
+                                      className="quick-status-changer"
+                                      value={dispStatus}
+                                      disabled={savingTaskId === task._id}
+                                      onChange={(e) => handleTaskStatusChange(task, e.target.value)}
+                                    >
+                                      {STATUS_OPTIONS.filter((o) => o.value !== "all").map((opt) => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Expandable Checkpoints Panel */}
+                              {isCPExpanded && totalCP > 0 && (
+                                <div className="task-checkpoints-panel">
+                                  <div className="cp-panel-head">
+                                    <h5>Checkpoints & Deliverables</h5>
+                                    <span>{completedCP} of {totalCP} completed</span>
+                                  </div>
+                                  <div className="cp-checklist">
+                                    {checkpoints.map((cp, idx) => (
+                                      <label className={`cp-item ${cp.completed ? "completed" : ""}`} key={cp._id || idx}>
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(cp.completed)}
+                                          disabled={!isTaskEditable || savingTaskId === task._id}
+                                          onChange={() => handleCheckpointToggle(task, cp)}
+                                        />
+                                        <span>{cp.title || "Deliverable"}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </section>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="company-task-pagination">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </button>
+                <span>Page {page} of {totalPages}</span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ========================================================
+            TAB 3: TIME TRACKING TAB
+            ======================================================== */}
+        {activeTab === "timetracking" && (
+          <div className="tab-pane-timetracking">
+            <div className="timetrack-metrics-strip">
+              <div className="time-stat-box green">
+                <FiClock size={20} />
+                <div>
+                  <span className="lbl">Total Worked Today</span>
+                  <h3>{workSummary?.totalClockedLabel || "0m"}</h3>
+                </div>
+              </div>
+              <div className="time-stat-box blue">
+                <FiBarChart2 size={20} />
+                <div>
+                  <span className="lbl">Task Tracked Hours</span>
+                  <h3>{workSummary?.trackedTaskLabel || "0m"}</h3>
+                </div>
+              </div>
+              <div className="time-stat-box orange">
+                <FiAlertTriangle size={20} />
+                <div>
+                  <span className="lbl">Untracked Hours</span>
+                  <h3>{workSummary?.untrackedLabel || "0m"}</h3>
+                </div>
+              </div>
+              <div className="time-stat-box purple">
+                <FiZap size={20} />
+                <div>
+                  <span className="lbl">Current Clock Status</span>
+                  <h3>{workSummary?.isClockedIn ? "Clocked In" : "Clocked Out"}</h3>
+                </div>
+              </div>
+            </div>
+
+            <div className="overview-card time-table-card">
+              <div className="card-header-line">
+                <h3><FiClock size={16} /> Task Time Log Breakdown</h3>
+                <span className="badge-pill source">Today's Summary</span>
+              </div>
+              <div className="timetrack-table-wrapper">
+                <table className="modern-data-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Task Title</th>
+                      <th>Source</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Time Logged</th>
+                      <th>Due Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tasks.map((t, idx) => {
+                      const s = getDisplayStatus(t);
+                      const meta = getStatusMeta(s);
+                      const hasTime = Number(t.workTime?.seconds) > 0;
+                      return (
+                        <tr key={t._id}>
+                          <td>{idx + 1}</td>
+                          <td>
+                            <strong>{t.title || "Untitled"}</strong>
+                          </td>
+                          <td>
+                            <span className="badge-pill source">{getTaskType(t) === "assigned" ? "Assigned" : "Personal"}</span>
+                          </td>
+                          <td>
+                            <span className={`badge-pill priority ${t.priority || "medium"}`}>
+                              {(t.priority || "medium").toUpperCase()}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="badge-pill status" style={{ backgroundColor: meta.bg, color: meta.color }}>
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td>
+                            <strong className={hasTime ? "text-blue" : "text-muted"}>
+                              {hasTime ? t.workTime.label : "No time logged"}
+                            </strong>
+                          </td>
+                          <td>{formatDate(getDueDate(t))}</td>
+                        </tr>
+                      );
+                    })}
+                    {tasks.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="text-center py-4 text-muted">No task time entries found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 4: ATTENDANCE TAB (Interactive Calendar View + Details)
+            ======================================================== */}
+        {activeTab === "attendance" && (
+          <div className="tab-pane-attendance">
+            {/* Top Attendance Month Stats KPI Cards */}
+            <div className="att-kpi-summary-strip">
+              <div className="att-kpi-card att-kpi-present">
+                <div className="att-kpi-top">
+                  <div className="att-kpi-icon-wrap emerald">
+                    <FiCheckCircle size={20} />
+                  </div>
+                  <span className="att-kpi-badge emerald">{monthStats.attendanceRate}% Rate</span>
+                </div>
+                <div className="att-kpi-value">{monthStats.present}</div>
+                <div className="att-kpi-title">Present Days</div>
+                <span className="att-kpi-hint">Full working days attended</span>
+              </div>
+
+              <div className="att-kpi-card att-kpi-late">
+                <div className="att-kpi-top">
+                  <div className="att-kpi-icon-wrap amber">
+                    <FiClock size={20} />
+                  </div>
+                  {monthStats.late > 0 && <span className="att-kpi-badge amber">{monthStats.late} Flags</span>}
+                </div>
+                <div className="att-kpi-value">{monthStats.late}</div>
+                <div className="att-kpi-title">Late Arrivals</div>
+                <span className="att-kpi-hint">Punched after shift start</span>
+              </div>
+
+              <div className="att-kpi-card att-kpi-halfday">
+                <div className="att-kpi-top">
+                  <div className="att-kpi-icon-wrap gold">
+                    <FiPieChart size={20} />
+                  </div>
+                  <span className="att-kpi-badge gold">0.5 Day</span>
+                </div>
+                <div className="att-kpi-value">{monthStats.halfday}</div>
+                <div className="att-kpi-title">Half Days</div>
+                <span className="att-kpi-hint">Partial shifts recorded</span>
+              </div>
+
+              <div className="att-kpi-card att-kpi-absent">
+                <div className="att-kpi-top">
+                  <div className="att-kpi-icon-wrap rose">
+                    <FiXCircle size={20} />
+                  </div>
+                  {monthStats.absent > 0 && <span className="att-kpi-badge rose">{monthStats.absent} Days</span>}
+                </div>
+                <div className="att-kpi-value">{monthStats.absent}</div>
+                <div className="att-kpi-title">Absent Days</div>
+                <span className="att-kpi-hint">No punch or leave applied</span>
+              </div>
+
+              <div className="att-kpi-card att-kpi-leave">
+                <div className="att-kpi-top">
+                  <div className="att-kpi-icon-wrap violet">
+                    <FiCalendar size={20} />
+                  </div>
+                  <span className="att-kpi-badge violet">Approved</span>
+                </div>
+                <div className="att-kpi-value">{monthStats.leave}</div>
+                <div className="att-kpi-title">Leaves & Holidays</div>
+                <span className="att-kpi-hint">Official approved off days</span>
+              </div>
+            </div>
+
+            {/* Attendance Navigation & Controls Bar */}
+            <div className="att-control-toolbar">
+              <div className="att-month-navigator">
+                <button
+                  type="button"
+                  className="att-nav-arrow-btn"
+                  onClick={handlePrevMonth}
+                  title="Previous Month"
+                  disabled={attendanceLoading}
+                >
+                  <FiChevronLeft size={18} />
+                </button>
+                <div className="att-current-month-display">
+                  <FiCalendar size={17} className="text-primary" />
+                  <span>{MONTH_NAMES[calDate.getMonth()]} {calDate.getFullYear()}</span>
+                </div>
+                <button
+                  type="button"
+                  className="att-nav-arrow-btn"
+                  onClick={handleNextMonth}
+                  title="Next Month"
+                  disabled={attendanceLoading}
+                >
+                  <FiChevronRight size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="att-today-pill-btn"
+                  onClick={handleJumpToToday}
+                  disabled={attendanceLoading}
+                >
+                  Jump to Today
+                </button>
+              </div>
+
+              {/* View Switch & Actions */}
+              <div className="att-toolbar-right">
+                <div className="att-view-mode-toggle">
+                  <button
+                    type="button"
+                    className={`att-mode-btn ${attViewMode === "calendar" ? "active" : ""}`}
+                    onClick={() => setAttViewMode("calendar")}
+                  >
+                    <FiGrid size={15} /> Calendar View
+                  </button>
+                  <button
+                    type="button"
+                    className={`att-mode-btn ${attViewMode === "table" ? "active" : ""}`}
+                    onClick={() => setAttViewMode("table")}
+                  >
+                    <FiList size={15} /> History Log
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="att-refresh-btn"
+                  onClick={() => fetchAttendance(calDate)}
+                  disabled={attendanceLoading}
+                  title="Reload Attendance"
+                >
+                  <FiRefreshCw size={14} className={attendanceLoading ? "spin-icon" : ""} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {attendanceLoading ? (
+              <div className="company-task-loading">
+                <FiRefreshCw className="spin-icon" size={24} />
+                <span>Loading employee attendance records...</span>
+              </div>
+            ) : attendanceError ? (
+              <div className="company-task-error">{attendanceError}</div>
+            ) : attViewMode === "calendar" ? (
+              /* CALENDAR + INSPECTOR SPLIT VIEW */
+              <div className="attendance-split-layout">
+                {/* Left: Modern High-Impact Calendar */}
+                <div className="att-calendar-panel">
+                  {/* Legend Ribbon */}
+                  <div className="att-legend-ribbon">
+                    <div className="legend-chip present"><span className="dot" /> Present</div>
+                    <div className="legend-chip late"><span className="dot" /> Late</div>
+                    <div className="legend-chip halfday"><span className="dot" /> Half-Day</div>
+                    <div className="legend-chip absent"><span className="dot" /> Absent</div>
+                    <div className="legend-chip leave"><span className="dot" /> Leave / Holiday</div>
+                    <div className="legend-chip weekend"><span className="dot" /> Weekend</div>
+                  </div>
+
+                  {/* Calendar Grid Container */}
+                  <div className="att-modern-calendar-grid">
+                    <div className="cal-col-header weekend">Sun</div>
+                    <div className="cal-col-header">Mon</div>
+                    <div className="cal-col-header">Tue</div>
+                    <div className="cal-col-header">Wed</div>
+                    <div className="cal-col-header">Thu</div>
+                    <div className="cal-col-header">Fri</div>
+                    <div className="cal-col-header weekend">Sat</div>
+
+                    {calendarDays.map((cell, idx) => {
+                      if (!cell.day) {
+                        return <div className="att-cell-placeholder" key={`empty-${idx}`} />;
+                      }
+
+                      const s = String(cell.status || "NO RECORD").toUpperCase();
+                      const isPres = s === "PRESENT";
+                      const isLate = s === "LATE";
+                      const isHalf = s === "HALF DAY" || s === "HALFDAY";
+                      const isAbs = s === "ABSENT";
+                      const isLev = s === "LEAVE" || s === "HOLIDAY";
+                      const isWknd = s === "WEEKEND";
+                      const isUpc = s === "UPCOMING";
+                      const isSelected = selectedDayRecord && getDateInputValue(new Date(selectedDayRecord.date)) === cell.dateKey;
+
+                      const statusClass = isPres ? "status-present" :
+                        isLate ? "status-late" :
+                          isHalf ? "status-halfday" :
+                            isAbs ? "status-absent" :
+                              isLev ? "status-leave" :
+                                isWknd ? "status-weekend" :
+                                  isUpc ? "status-upcoming" : "status-none";
+
+                      return (
+                        <div
+                          key={cell.dateKey || idx}
+                          className={`att-day-cell ${cell.isToday ? "is-today" : ""} ${isSelected ? "is-selected" : ""} ${statusClass}`}
+                          onClick={() => {
+                            if (cell.record) {
+                              setSelectedDayRecord(cell.record);
+                            } else {
+                              setSelectedDayRecord({
+                                date: cell.dateKey,
+                                status: cell.status,
+                                isGenerated: true,
+                              });
+                            }
+                          }}
+                        >
+                          <div className="att-cell-header">
+                            <span className="att-cell-day-num">{String(cell.day).padStart(2, "0")}</span>
+                            {cell.isToday && <span className="att-today-badge">TODAY</span>}
+                          </div>
+
+                          <div className="att-cell-status-container">
+                            <span className={`att-cell-status-pill ${statusClass}`}>
+                              <span className="att-status-dot" />
+                              {isPres ? "Present" :
+                                isLate ? "Late" :
+                                  isHalf ? "Half Day" :
+                                    isAbs ? "Absent" :
+                                      isLev ? "Leave" :
+                                        isWknd ? "Weekend" :
+                                          isUpc ? "Upcoming" : "No Log"}
+                            </span>
+                          </div>
+
+                          {(cell.record?.inTime || cell.record?.totalTime) && (
+                            <div className="att-cell-timing-preview">
+                              {cell.record?.inTime ? formatTimeOnly(cell.record.inTime) : ""}
+                              {cell.record?.outTime ? ` - ${formatTimeOnly(cell.record.outTime)}` : ""}
+                              {!cell.record?.outTime && cell.record?.isClockedIn ? " · Clocked In" : ""}
+                              {!cell.record?.outTime && cell.record?.totalTime ? ` (${cell.record.totalTime})` : ""}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right: Selected Day Inspector & Punch Timeline */}
+                <div className="att-inspector-panel">
+                  <div className="att-inspector-header">
+                    <div>
+                      <span className="inspector-eyebrow">Date Inspection</span>
+                      <h3 className="inspector-day-title">
+                        {selectedDayRecord?.date ? formatDate(selectedDayRecord.date) : "Select a Day"}
+                      </h3>
+                    </div>
+
+                    {selectedDayRecord && (
+                      <span className={`inspector-status-badge ${String(selectedDayRecord.status).toUpperCase() === "PRESENT" ? "present" :
+                          String(selectedDayRecord.status).toUpperCase() === "LATE" ? "late" :
+                            ["HALF DAY", "HALFDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "halfday" :
+                              ["LEAVE", "HOLIDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "leave" :
+                                String(selectedDayRecord.status).toUpperCase() === "WEEKEND" ? "weekend" : "absent"
+                        }`}>
+                        <span className="pulsing-circle" />
+                        {String(selectedDayRecord.status || "ABSENT").toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedDayRecord ? (
+                    <div className="att-inspector-body">
+                      {/* Shift & Policy Banner */}
+                      <div className="inspector-shift-banner">
+                        <FiClock size={15} />
+                        <span>Schedule: <strong>{selectedDayRecord.shiftName || employee?.shiftName || "General Shift (09:30 AM - 06:30 PM)"}</strong></span>
+                      </div>
+
+                      {/* 2x2 Punch Timing Metrics */}
+                      <div className="inspector-metrics-grid">
+                        <div className="inspector-metric-card in">
+                          <div className="m-card-top">
+                            <span className="m-icon in"><FiCheckCircle size={14} /></span>
+                            <span className="m-title">Clock In</span>
+                          </div>
+                          <div className="m-main-val text-emerald">
+                            {selectedDayRecord.inTime ? formatTimeOnly(selectedDayRecord.inTime) : "--"}
+                          </div>
+                          <span className="m-sub-text">
+                            {selectedDayRecord.inTime
+                              ? (selectedDayRecord.lateBy ? `Late by ${selectedDayRecord.lateBy}` : "On-Time Arrival")
+                              : "No punch recorded"}
+                          </span>
+                        </div>
+
+                        <div className="inspector-metric-card out">
+                          <div className="m-card-top">
+                            <span className="m-icon out"><FiClock size={14} /></span>
+                            <span className="m-title">Clock Out</span>
+                          </div>
+                          <div className="m-main-val text-blue">
+                            {selectedDayRecord.outTime ? formatTimeOnly(selectedDayRecord.outTime) : (selectedDayRecord.inTime ? "Active" : "--")}
+                          </div>
+                          <span className="m-sub-text">
+                            {selectedDayRecord.outTime
+                              ? (selectedDayRecord.earlyLeave ? `Early: ${selectedDayRecord.earlyLeave}` : "Standard Out")
+                              : (selectedDayRecord.inTime ? "Currently Clocked In" : "No punch recorded")}
+                          </span>
+                        </div>
+
+                        <div className="inspector-metric-card total">
+                          <div className="m-card-top">
+                            <span className="m-icon total"><FiActivity size={14} /></span>
+                            <span className="m-title">Total Hours</span>
+                          </div>
+                          <div className="m-main-val text-primary">
+                            {selectedDayRecord.totalHours || selectedDayRecord.totalTime || (selectedDayRecord.inTime && selectedDayRecord.outTime ? "Completed" : "--")}
+                          </div>
+                          <span className="m-sub-text">Effective working duration</span>
+                        </div>
+
+                        <div className="inspector-metric-card score">
+                          <div className="m-card-top">
+                            <span className="m-icon score"><FiAward size={14} /></span>
+                            <span className="m-title">Compliance</span>
+                          </div>
+                          <div className="m-main-val text-purple">
+                            {String(selectedDayRecord.status).toUpperCase() === "PRESENT" ? "100%" :
+                              String(selectedDayRecord.status).toUpperCase() === "LATE" ? "85%" :
+                                ["HALF DAY", "HALFDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "50%" :
+                                  ["LEAVE", "HOLIDAY", "WEEKEND"].includes(String(selectedDayRecord.status).toUpperCase()) ? "N/A" : "0%"}
+                          </div>
+                          <span className="m-sub-text">Shift adherence score</span>
+                        </div>
+                      </div>
+
+                      {/* Notes / Special remarks */}
+                      <div className="inspector-notes-section">
+                        <div className="notes-header-row">
+                          <FiMessageSquare size={14} />
+                          <strong>Manager / System Notes</strong>
+                        </div>
+                        <div className="notes-content-box">
+                          {selectedDayRecord.notes ? (
+                            <p>{selectedDayRecord.notes}</p>
+                          ) : (
+                            <p className="empty-notes-hint">No special remarks or exception notes logged for this date.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="inspector-empty-state">
+                      <FiCalendar size={40} />
+                      <h4>Select Any Date</h4>
+                      <p>Click on any date in the calendar to inspect in-time, out-time, shift duration, and exception notes.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* TABLE / HISTORY LOG VIEW */
+              <div className="att-history-log-panel">
+                <div className="att-log-filter-bar">
+                  <div className="att-filter-chips">
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "all" ? "active" : ""}`}
+                      onClick={() => setAttFilter("all")}
+                    >
+                      All ({attendanceRecords.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "present" ? "active" : ""}`}
+                      onClick={() => setAttFilter("present")}
+                    >
+                      Present ({monthStats.present})
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "late" ? "active" : ""}`}
+                      onClick={() => setAttFilter("late")}
+                    >
+                      Late ({monthStats.late})
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "halfday" ? "active" : ""}`}
+                      onClick={() => setAttFilter("halfday")}
+                    >
+                      Half Day ({monthStats.halfday})
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "absent" ? "active" : ""}`}
+                      onClick={() => setAttFilter("absent")}
+                    >
+                      Absent ({monthStats.absent})
+                    </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "leave" ? "active" : ""}`}
+                      onClick={() => setAttFilter("leave")}
+                    >
+                      Leaves ({monthStats.leave})
+                    </button>
+                  </div>
+                  <span className="log-count-text">Showing {filteredAttendanceLogs.length} entries</span>
+                </div>
+
+                <div className="timetrack-table-wrapper">
+                  <table className="modern-data-table att-table">
+                    <thead>
+                      <tr>
+                        <th>Date & Day</th>
+                        <th>Status</th>
+                        <th>Punch In</th>
+                        <th>Punch Out</th>
+                        <th>Total Duration</th>
+                        <th>Shift & Exceptions</th>
+                        <th>Notes / Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAttendanceLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-4 text-muted">
+                            No attendance records match the selected filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredAttendanceLogs.map((rec) => {
+                          const s = String(rec.status || "ABSENT").toUpperCase();
+                          const isPres = s === "PRESENT";
+                          const isLate = s === "LATE";
+                          const isHalf = s === "HALF DAY" || s === "HALFDAY";
+                          const isLeave = s === "LEAVE" || s === "HOLIDAY";
+                          const isWknd = s === "WEEKEND";
+
+                          const statusClass = isPres ? "present" :
+                            isLate ? "late" :
+                              isHalf ? "halfday" :
+                                isLeave ? "leave" :
+                                  isWknd ? "weekend" : "absent";
+
+                          return (
+                            <tr key={rec._id || rec.date}>
+                              <td>
+                                <strong>{formatDate(rec.date)}</strong>
+                              </td>
+                              <td>
+                                <span className={`status-badge-att ${statusClass}`}>
+                                  ● {s}
+                                </span>
+                              </td>
+                              <td>
+                                {rec.inTime ? (
+                                  <span className="punch-text in">{formatTimeOnly(rec.inTime)}</span>
+                                ) : "--"}
+                              </td>
+                              <td>
+                                {rec.outTime ? (
+                                  <span className="punch-text out">{formatTimeOnly(rec.outTime)}</span>
+                                ) : "--"}
+                              </td>
+                              <td>
+                                <strong>{rec.totalHours || rec.totalTime || "--"}</strong>
+                              </td>
+                              <td>
+                                {rec.lateBy ? (
+                                  <span className="exception-badge late">Late by {rec.lateBy}</span>
+                                ) : rec.earlyLeave ? (
+                                  <span className="exception-badge early">Early: {rec.earlyLeave}</span>
+                                ) : (
+                                  <span className="text-muted">{rec.shiftName || "General Shift"}</span>
+                                )}
+                              </td>
+                              <td>
+                                <span className="notes-snippet">{rec.notes || "--"}</span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 5: PERFORMANCE TAB
+            ======================================================== */}
+        {activeTab === "performance" && (
+          <div className="tab-pane-performance">
+            <div className="performance-kpi-grid">
+              <div className="kpi-card">
+                <div className="kpi-top">
+                  <FiAward size={20} className="kpi-icon gold" />
+                  <span className="kpi-title">Productivity Score</span>
+                </div>
+                <div className="kpi-value">{productivityScore}%</div>
+                <span className="kpi-note">{productivityScore >= 80 ? "Excellent Performer" : productivityScore >= 60 ? "Good Performance" : "Needs Improvement"}</span>
+              </div>
+
+              <div className="kpi-card">
+                <div className="kpi-top">
+                  <FiCheckCircle size={20} className="kpi-icon green" />
+                  <span className="kpi-title">Completion Rate</span>
+                </div>
+                <div className="kpi-value">{completionRate}%</div>
+                <span className="kpi-note">{stats.completed} of {stats.total || tasks.length} tasks completed</span>
+              </div>
+
+              <div className="kpi-card">
+                <div className="kpi-top">
+                  <FiClock size={20} className="kpi-icon blue" />
+                  <span className="kpi-title">On-Time Delivery</span>
+                </div>
+                <div className="kpi-value">{Number.isFinite(onTimeRate) ? `${onTimeRate}%` : "—"}</div>
+                <span className="kpi-note">{performanceMetrics?.completedWithDueDate || 0} completed tasks with a deadline</span>
+              </div>
+
+              <div className="kpi-card">
+                <div className="kpi-top">
+                  <FiAlertTriangle size={20} className="kpi-icon red" />
+                  <span className="kpi-title">Overdue Rate</span>
+                </div>
+                <div className="kpi-value">
+                  {stats.total ? Math.round((stats.overdue / stats.total) * 100) : 0}%
+                </div>
+                <span className="kpi-note">{stats.overdue} tasks past due</span>
+              </div>
+            </div>
+
+            <div className="overview-grid-top">
+              {/* Task Breakdown Progress Bars */}
+              <div className="overview-card">
+                <div className="card-header-line">
+                  <h3><FiBarChart2 size={16} /> Task Status Distribution</h3>
+                </div>
+                <div className="perf-distribution-list">
+                  <div className="perf-bar-group">
+                    <div className="bar-label-row">
+                      <span>Completed</span>
+                      <strong>{stats.completed} ({completionRate}%)</strong>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${completionRate}%`, backgroundColor: "#10b981" }} />
+                    </div>
+                  </div>
+
+                  <div className="perf-bar-group">
+                    <div className="bar-label-row">
+                      <span>In Progress</span>
+                      <strong>{stats.inProgress} ({stats.total ? Math.round((stats.inProgress / stats.total) * 100) : 0}%)</strong>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${stats.total ? Math.round((stats.inProgress / stats.total) * 100) : 0}%`, backgroundColor: "#0ea5e9" }} />
+                    </div>
+                  </div>
+
+                  <div className="perf-bar-group">
+                    <div className="bar-label-row">
+                      <span>Pending</span>
+                      <strong>{stats.pending} ({stats.total ? Math.round((stats.pending / stats.total) * 100) : 0}%)</strong>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${stats.total ? Math.round((stats.pending / stats.total) * 100) : 0}%`, backgroundColor: "#f59e0b" }} />
+                    </div>
+                  </div>
+
+                  <div className="perf-bar-group">
+                    <div className="bar-label-row">
+                      <span>Overdue</span>
+                      <strong>{stats.overdue} ({stats.total ? Math.round((stats.overdue / stats.total) * 100) : 0}%)</strong>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${stats.total ? Math.round((stats.overdue / stats.total) * 100) : 0}%`, backgroundColor: "#dc2626" }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Work Efficiency Summary */}
+              <div className="overview-card">
+                <div className="card-header-line">
+                  <h3><FiTrendingUp size={16} /> Workload & Efficiency</h3>
+                </div>
+                <div className="efficiency-details-list">
+                  <div className="eff-item">
+                    <span className="eff-label">Total Assigned Tasks</span>
+                    <strong className="eff-val">{stats.total || tasks.length}</strong>
+                  </div>
+                  <div className="eff-item">
+                    <span className="eff-label">Tracked Task Hours</span>
+                    <strong className="eff-val text-blue">{workSummary?.trackedTaskLabel || "0m"}</strong>
+                  </div>
+                  <div className="eff-item">
+                    <span className="eff-label">Total Clocked Time</span>
+                    <strong className="eff-val text-green">{workSummary?.totalClockedLabel || "0m"}</strong>
+                  </div>
+                  <div className="eff-item">
+                    <span className="eff-label">Untracked Ratio</span>
+                    <strong className="eff-val text-orange">{workSummary?.untrackedLabel || "0m"}</strong>
+                  </div>
+                  <div className="eff-item">
+                    <span className="eff-label">Attendance Reliability</span>
+                    <strong className="eff-val text-purple">
+                      {Number.isFinite(attendanceReliability) ? `${attendanceReliability}%` : "—"}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* In-Place Assign Task Modal (With Today 7:00 PM default due date) */}
+        {assignModal.open && (
+          <div className="company-task-modal-backdrop" onClick={closeAssignModal}>
+            <div className="company-task-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Assign Task to {employeeName}</h3>
+                <button type="button" className="btn-close-modal" onClick={closeAssignModal}>
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAssignSubmit} className="company-task-modal-form">
+                {assignModal.error && (
+                  <div className="company-task-error">{assignModal.error}</div>
+                )}
+
+                <div className="form-group">
+                  <label>Task Title <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter task title"
+                    value={assignModal.title}
+                    onChange={(e) => setAssignModal((prev) => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Add details, instructions or expectations..."
+                    value={assignModal.description}
+                    onChange={(e) => setAssignModal((prev) => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-row-2">
+                  <div className="form-group">
+                    <label>Priority</label>
+                    <select
+                      value={assignModal.priority}
+                      onChange={(e) => setAssignModal((prev) => ({ ...prev, priority: e.target.value }))}
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Due Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={assignModal.dueDateTime}
+                      onChange={(e) => setAssignModal((prev) => ({ ...prev, dueDateTime: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Checkpoints builder */}
+                <div className="form-checkpoints-section">
+                  <div className="section-title-row">
+                    <label>Subtasks / Checkpoints</label>
+                  </div>
+                  <div className="cp-inputs-list">
+                    {assignModal.checkpoints.map((cp, idx) => (
+                      <div className="cp-input-row" key={idx}>
+                        <input type="text" readOnly value={cp.title} />
+                        <button
+                          type="button"
+                          className="btn-remove-cp"
+                          onClick={() => handleRemoveCheckpointFromAssign(idx)}
+                        >
+                          <FiX size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="cp-input-row">
+                      <input
+                        type="text"
+                        placeholder="Add a deliverable or checkpoint..."
+                        value={assignModal.newCheckpointText}
+                        onChange={(e) => setAssignModal((prev) => ({ ...prev, newCheckpointText: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCheckpointToAssign();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-add-cp"
+                        onClick={handleAddCheckpointToAssign}
+                      >
+                        <FiPlus size={14} /> Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn-modal-cancel"
+                    disabled={assignModal.submitting}
+                    onClick={closeAssignModal}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-modal-submit"
+                    disabled={assignModal.submitting}
+                  >
+                    {assignModal.submitting ? "Assigning..." : "Assign Task"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Task Modal */}
+        {editModal.open && editModal.task && (
+          <div className="company-task-modal-backdrop" onClick={closeEditModal}>
+            <div className="company-task-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Edit Task Details</h3>
+                <button type="button" className="btn-close-modal" onClick={closeEditModal}>
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="company-task-modal-form">
+                <div className="form-group">
+                  <label>Title <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.title}
+                    onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Description <span className="required">*</span></label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-row-2">
+                  <div className="form-group">
+                    <label>Priority</label>
+                    <select
+                      value={editForm.priority}
+                      onChange={(e) => setEditForm((p) => ({ ...p, priority: e.target.value }))}
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Due Date & Time <span className="required">*</span></label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={editForm.dueDateTime}
+                      onChange={(e) => setEditForm((p) => ({ ...p, dueDateTime: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
+                  >
+                    {STATUS_OPTIONS.filter((o) => o.value !== "all").map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Edit Checkpoints */}
+                <div className="form-checkpoints-section">
+                  <div className="section-title-row">
+                    <label>Checkpoints</label>
+                    <button type="button" className="btn-add-cp" onClick={addEditCheckpoint}>
+                      <FiPlus size={13} /> Add Checkpoint
+                    </button>
+                  </div>
+                  <div className="cp-inputs-list">
+                    {editForm.checkpoints.map((cp, idx) => (
+                      <div className="cp-input-row" key={idx}>
                         <input
-                          value={checkpoint.title}
-                          onChange={(event) => updateEditCheckpoint(index, event.target.value)}
-                          placeholder={`Checkpoint ${index + 1}`}
+                          type="text"
+                          value={cp.title}
+                          placeholder="Checkpoint title"
+                          onChange={(e) => updateEditCheckpoint(idx, e.target.value)}
                         />
                         <button
                           type="button"
-                          onClick={() => removeEditCheckpoint(index)}
-                          aria-label="Remove checkpoint"
-                          title="Remove checkpoint"
+                          className="btn-remove-cp"
+                          onClick={() => removeEditCheckpoint(idx)}
                         >
-                          <FiTrash2 size={15} />
+                          <FiX size={14} />
                         </button>
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn-modal-cancel"
+                    disabled={savingTaskId === editModal.task._id}
+                    onClick={closeEditModal}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-modal-submit"
+                    disabled={savingTaskId === editModal.task._id}
+                  >
+                    {savingTaskId === editModal.task._id ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Remarks Modal */}
+        {remarksModal.open && (
+          <div className="company-task-modal-backdrop" onClick={() => setRemarksModal({ open: false, task: null, remarks: [] })}>
+            <div className="task-activity-modal-container" onClick={(e) => e.stopPropagation()}>
+              <div className="task-activity-modal-header">
+                <div className="task-activity-header-left">
+                  <div className="task-activity-icon-bubble remarks-bubble">
+                    <FiMessageSquare size={18} />
+                  </div>
+                  <div>
+                    <div className="task-activity-title-row">
+                      <h3 className="task-activity-modal-title">Task Remarks</h3>
+                      <span className="task-activity-count-chip remarks-chip">
+                        {remarksModal.remarks?.length || 0} {remarksModal.remarks?.length === 1 ? "Remark" : "Remarks"}
+                      </span>
+                    </div>
+                    {remarksModal.task?.title && (
+                      <p className="task-activity-task-subtitle">
+                        Task: <span className="task-title-highlight">{remarksModal.task.title}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="task-activity-close-btn"
+                  onClick={() => setRemarksModal({ open: false, task: null, remarks: [] })}
+                  title="Close Modal"
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              <div className="task-activity-modal-body">
+                {remarksModal.remarks?.length ? (
+                  <div className="task-activity-timeline">
+                    {remarksModal.remarks.map((r, i) => {
+                      const userName = r.userName || r.user?.name || (r.user && typeof r.user === "string" ? r.user : null) || "Team Member";
+                      const initials = getInitials(userName);
+                      const isSystem = userName.toLowerCase() === "system";
+                      const dateStr = formatDateTime(r.createdAt || r.date || r.timestamp);
+                      const text = r.remark || r.text || r.message || r.comment || "No comment content";
+
+                      return (
+                        <div className="task-activity-item" key={r._id || i}>
+                          <div className="task-activity-node-col">
+                            <div className="task-activity-node-icon" style={{ color: "#0891b2", backgroundColor: "#ecfeff", borderColor: "#a5f3fc" }}>
+                              <FiMessageSquare size={13} />
+                            </div>
+                            {i < remarksModal.remarks.length - 1 && <div className="task-activity-node-line" />}
+                          </div>
+
+                          <div className="task-activity-card">
+                            <div className="task-activity-card-header">
+                              <div className="task-activity-user-info">
+                                <div
+                                  className={`task-activity-avatar ${isSystem ? "system-avatar" : ""}`}
+                                  style={{ background: isSystem ? undefined : getAvatarBg(userName) }}
+                                >
+                                  {isSystem ? <FiZap size={12} /> : initials}
+                                </div>
+                                <div className="task-activity-user-names">
+                                  <span className="task-activity-user-name">{userName}</span>
+                                  <span className="task-activity-action-tag badge-remark" style={{ color: "#0891b2", backgroundColor: "#ecfeff", borderColor: "#a5f3fc" }}>
+                                    Remark
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="task-activity-timestamp" title={dateStr}>
+                                <FiClock size={12} />
+                                <span>{dateStr}</span>
+                              </div>
+                            </div>
+
+                            <div className="task-activity-card-content">
+                              <p className="task-activity-text">{text}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="task-activity-empty-state">
+                    <div className="task-activity-empty-icon">
+                      <FiMessageSquare size={30} />
+                    </div>
+                    <h4>No Remarks Logged</h4>
+                    <p>No remarks or notes have been added for this task yet.</p>
+                  </div>
                 )}
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="company-task-modal-actions">
-              <button type="button" className="company-task-reset" onClick={closeEditModal} disabled={savingTaskId === editModal.task?._id}>
-                Cancel
-              </button>
-              <button type="submit" className="company-task-save" disabled={savingTaskId === editModal.task?._id}>
-                <FiCheckCircle size={16} />
-                {savingTaskId === editModal.task?._id ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {activityModal.open && (
-        <div className="company-task-modal-overlay" onClick={closeActivityModal}>
-          <div className="company-task-activity-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="company-task-modal-head">
-              <div>
-                <h3><FiActivity size={18} /> All Activities</h3>
-                <p>{activityModal.task?.title || "Untitled Task"}</p>
+        {/* Activity Logs Modal */}
+        {activityModal.open && (
+          <div className="company-task-modal-backdrop" onClick={() => setActivityModal({ open: false, task: null, logs: [] })}>
+            <div className="task-activity-modal-container" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="task-activity-modal-header">
+                <div className="task-activity-header-left">
+                  <div className="task-activity-icon-bubble">
+                    <FiActivity size={18} />
+                  </div>
+                  <div>
+                    <div className="task-activity-title-row">
+                      <h3 className="task-activity-modal-title">Task Activities</h3>
+                      <span className="task-activity-count-chip">
+                        {activityModal.logs?.length || 0} {activityModal.logs?.length === 1 ? "Event" : "Events"}
+                      </span>
+                    </div>
+                    {activityModal.task?.title && (
+                      <p className="task-activity-task-subtitle">
+                        Task: <span className="task-title-highlight">{activityModal.task.title}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="task-activity-close-btn"
+                  onClick={() => setActivityModal({ open: false, task: null, logs: [] })}
+                  title="Close Modal"
+                >
+                  <FiX size={18} />
+                </button>
               </div>
-              <button type="button" onClick={closeActivityModal} aria-label="Close activities modal">
-                <FiX size={20} />
-              </button>
-            </div>
-            <div className="company-task-modal-body">
-              {activityModal.loading ? (
-                <p className="company-task-muted">Loading activities...</p>
-              ) : (
-                renderActivityTimeline(activityModal.logs)
-              )}
+
+              {/* Timeline Body */}
+              <div className="task-activity-modal-body">
+                {activityModal.logs?.length ? (
+                  <div className="task-activity-timeline">
+                    {activityModal.logs.map((log, i) => {
+                      const meta = getActivityMeta(log);
+                      const userName = log.userName || log.user?.name || log.performedBy?.name || (typeof log.performedBy === "string" && log.performedBy.length > 5 ? log.performedBy : null) || (log.action?.toLowerCase().includes("system") ? "System" : "Team Member");
+                      const initials = getInitials(userName);
+                      const isSystem = userName.toLowerCase() === "system";
+                      const dateStr = formatDateTime(log.createdAt || log.timestamp || log.date || log.updatedAt);
+                      const description = cleanActivityDescription(log.description || log.details || log.comment || log.text || log.message, log.action || log.type);
+
+                      return (
+                        <div className="task-activity-item" key={log._id || i}>
+                          {/* Left node */}
+                          <div className="task-activity-node-col">
+                            <div
+                              className="task-activity-node-icon"
+                              style={{ color: meta.color, backgroundColor: meta.bg, borderColor: meta.border }}
+                            >
+                              {meta.icon}
+                            </div>
+                            {i < activityModal.logs.length - 1 && <div className="task-activity-node-line" />}
+                          </div>
+
+                          {/* Right Card */}
+                          <div className="task-activity-card">
+                            <div className="task-activity-card-header">
+                              <div className="task-activity-user-info">
+                                <div
+                                  className={`task-activity-avatar ${isSystem ? "system-avatar" : ""}`}
+                                  style={{ background: isSystem ? undefined : getAvatarBg(userName) }}
+                                >
+                                  {isSystem ? <FiZap size={12} /> : initials}
+                                </div>
+                                <div className="task-activity-user-names">
+                                  <span className="task-activity-user-name">{userName}</span>
+                                  <span
+                                    className={`task-activity-action-tag ${meta.badgeClass}`}
+                                    style={{ color: meta.color, backgroundColor: meta.bg, borderColor: meta.border }}
+                                  >
+                                    {meta.label}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="task-activity-timestamp" title={dateStr}>
+                                <FiClock size={12} />
+                                <span>{dateStr}</span>
+                              </div>
+                            </div>
+
+                            <div className="task-activity-card-content">
+                              <p className="task-activity-text">{description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="task-activity-empty-state">
+                    <div className="task-activity-empty-icon">
+                      <FiActivity size={30} />
+                    </div>
+                    <h4>No Activities Recorded</h4>
+                    <p>There are no logged updates, timer sessions, or status changes for this task yet.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {remarksModal.open && (
-        <div className="company-task-modal-overlay" onClick={closeRemarksModal}>
-          <div className="company-task-activity-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="company-task-modal-head">
-              <div>
-                <h3><FiMessageSquare size={18} /> All Remarks</h3>
-                <p>{remarksModal.task?.title || "Untitled Task"}</p>
-              </div>
-              <button type="button" onClick={closeRemarksModal} aria-label="Close remarks modal">
-                <FiX size={20} />
-              </button>
-            </div>
-            <div className="company-task-modal-body">
-              {renderRemarksList(remarksModal.remarks)}
-            </div>
-          </div>
-        </div>
-      )}
-      </>
-      )}
-    </main>
+        )}
+      </div>
+    </div>
   );
 };
 

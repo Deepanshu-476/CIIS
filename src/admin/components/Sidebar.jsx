@@ -549,7 +549,7 @@ const Sidebar = ({ isMobile = false }) => {
                   onClick={() => handleNavigate(item.path)}
                 >
                   <StyledListItemIcon>{item.icon}</StyledListItemIcon>
-                  <ListItemText
+                  <ListItemText 
                     primary={item.name}
                     primaryTypographyProps={{ 
                       variant: 'body2', 

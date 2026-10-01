@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
 import { useNavigate, useParams } from "react-router-dom";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import "./EmpAllTask.css";
 import { getCurrentUserId, getStoredUser, loadPagePermission, getUserPageScope } from "../../../utils/pageAccess";
 
@@ -25,7 +27,7 @@ import {
   FiChevronDown, FiChevronUp, FiStar, FiAward, FiBarChart,
   FiEdit3, FiExternalLink, FiMoreVertical, FiShare2, FiInfo, FiHash,
   FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime, FiLogIn,
-   FiClipboard,
+   FiClipboard, FiMonitor,
   FiPaperclip, FiMic, FiFileText
 } from "react-icons/fi";
 
@@ -106,6 +108,20 @@ const emptyTaskStats = {
   onhold: 0,
   reopen: 0,
   cancelled: 0
+};
+
+const getUserTaskStats = (user) => {
+  return user?.taskStats || emptyTaskStats;
+};
+
+const getInitials = (name) => {
+  if (!name) return "U";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 };
 
 const taskStatsRequests = new Map();
@@ -482,6 +498,18 @@ const TaskDetails = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // New UI Filters and View state matching reference design
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState('all');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
+  const [selectedPerfFilter, setSelectedPerfFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('name-asc');
+  const [viewMode, setViewMode] = useState('grid');
+  const [activeDeptTab, setActiveDeptTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedDepts, setExpandedDepts] = useState({});
+  const pageSize = 24;
+
   const today = new Date();
 
   const openUserTasksPage = useCallback((userId) => {
@@ -548,25 +576,31 @@ const TaskDetails = () => {
   };
 
   const getDepartmentName = (department) => {
-    if (!department) return 'N/A';
+    if (!department) return 'Unassigned';
 
-    
+    let raw = '';
     if (typeof department === 'object') {
-      return department.name || department.departmentName || department._id || 'N/A';
-    }
-
-    
-    if (typeof department === 'string') {
-      
+      raw = department.name || department.departmentName || department.title || department._id || 'Unassigned';
+    } else if (typeof department === 'string') {
       if (departmentMap[department]) {
-        return departmentMap[department];
+        raw = departmentMap[department];
+      } else if (department.startsWith('Dept-')) {
+        raw = department.replace('Dept-', '');
+      } else {
+        raw = department;
       }
-
-      
-      return `Dept-${department.substring(0, 6)}`;
+    } else {
+      raw = String(department);
     }
 
-    return String(department);
+    const clean = String(raw).trim();
+    const lower = clean.toLowerCase();
+    if (lower === 'it_team' || lower === 'it team' || lower === 'it' || lower === 'itteam' || lower.includes('software') || lower.includes('tech')) return 'IT Team';
+    if (clean.startsWith('Dept-Manage') || lower.includes('manage') || lower.includes('admin') || lower === 'leadership') return 'Management';
+    if (lower === 'sales-test' || lower === 'sales test' || lower === 'sales' || lower.includes('sale') || lower.includes('market')) return 'Sales';
+    if (lower === 'hr test' || lower === 'hr-test' || lower === 'test') return 'HR Test';
+    if (lower === 'hr' || lower.includes('human')) return 'HR';
+    return clean.replace(/[_-]/g, ' ');
   };
 
   
@@ -825,6 +859,320 @@ const TaskDetails = () => {
   }, [allTaskLogs, calculateTodayTotalTime, fetchTaskLogsByType]);
 
   
+
+  const [assignModal, setAssignModal] = useState({
+    open: false,
+    user: null,
+    title: '',
+    description: '',
+    priority: 'medium',
+    dueDateTime: '',
+    checkpoints: [],
+    newCheckpointText: '',
+    submitting: false,
+    error: '',
+  });
+
+  const openAssignModal = (targetUser) => {
+    const today = new Date();
+    today.setHours(19, 0, 0, 0); // Default to today at 7:00 PM
+    // YYYY-MM-DDTHH:mm format in local time
+    const tzOffset = today.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(today.getTime() - tzOffset)).toISOString().slice(0, 16);
+
+    setAssignModal({
+      open: true,
+      user: targetUser,
+      title: '',
+      description: '',
+      priority: 'medium',
+      dueDateTime: localISOTime,
+      checkpoints: [],
+      newCheckpointText: '',
+      submitting: false,
+      error: '',
+    });
+  };
+
+  const closeAssignModal = () => {
+    if (assignModal.submitting) return;
+    setAssignModal(prev => ({ ...prev, open: false, user: null, error: '' }));
+  };
+
+  const handleAddCheckpoint = () => {
+    const text = assignModal.newCheckpointText?.trim();
+    if (!text) return;
+    setAssignModal(prev => ({
+      ...prev,
+      checkpoints: [...prev.checkpoints, { title: text, completed: false }],
+      newCheckpointText: ''
+    }));
+  };
+
+  const handleRemoveCheckpoint = (index) => {
+    setAssignModal(prev => ({
+      ...prev,
+      checkpoints: prev.checkpoints.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAssignTaskSubmit = async (e) => {
+    e.preventDefault();
+    if (!assignModal.title.trim()) {
+      setAssignModal(prev => ({ ...prev, error: 'Task title is required.' }));
+      return;
+    }
+    if (!assignModal.dueDateTime) {
+      setAssignModal(prev => ({ ...prev, error: 'Due date & time is required.' }));
+      return;
+    }
+
+    const targetUserId = assignModal.user?._id || assignModal.user?.id;
+    if (!targetUserId) {
+      setAssignModal(prev => ({ ...prev, error: 'No employee selected.' }));
+      return;
+    }
+
+    setAssignModal(prev => ({ ...prev, submitting: true, error: '' }));
+
+    try {
+      const formData = new FormData();
+      formData.append('title', assignModal.title.trim());
+      formData.append('description', assignModal.description.trim());
+      formData.append('dueDateTime', new Date(assignModal.dueDateTime).toISOString());
+      formData.append('priority', assignModal.priority || 'medium');
+      formData.append('priorityDays', '1');
+      formData.append('assignedUsers', JSON.stringify([targetUserId]));
+      formData.append('assignedGroups', JSON.stringify([]));
+
+      const cleanCheckpoints = assignModal.checkpoints
+        .map(cp => ({ title: String(cp.title || '').trim(), completed: false }))
+        .filter(cp => cp.title);
+      formData.append('checkpoints', JSON.stringify(cleanCheckpoints));
+
+      const branchId = assignModal.user?.branch?._id || assignModal.user?.branch || assignModal.user?.branchId;
+      if (branchId) {
+        formData.append('branchId', String(branchId));
+        formData.append('branch', String(branchId));
+      }
+
+      await axios.post('/task/create-for-others', formData);
+
+      showSnackbar(`Task "${assignModal.title.trim()}" assigned to ${assignModal.user?.name || 'employee'} successfully!`, 'success');
+
+      // Update employee stats dynamically in state
+      setUsers(prevUsers => prevUsers.map(u => {
+        const uId = u._id || u.id;
+        if (String(uId) === String(targetUserId)) {
+          const curStats = u.taskStats || emptyTaskStats;
+          const newTotal = (curStats.total || 0) + 1;
+          const newPending = (curStats.pending || 0) + 1;
+          const completed = curStats.completed || 0;
+          return {
+            ...u,
+            taskStats: {
+              ...curStats,
+              total: newTotal,
+              pending: newPending,
+              completionRate: newTotal > 0 ? Math.round((completed / newTotal) * 100) : 0,
+            }
+          };
+        }
+        return u;
+      }));
+
+      // Update overall stats dynamically
+      setOverallStats(prev => ({
+        ...prev,
+        total: (prev.total || 0) + 1,
+        pending: (prev.pending || 0) + 1,
+      }));
+
+      setAssignModal({
+        open: false,
+        user: null,
+        title: '',
+        description: '',
+        priority: 'medium',
+        dueDateTime: '',
+        checkpoints: [],
+        newCheckpointText: '',
+        submitting: false,
+        error: '',
+      });
+    } catch (err) {
+      const errorMsg = err?.response?.data?.message || err?.response?.data?.error || err.message || 'Failed to create task';
+      setAssignModal(prev => ({ ...prev, submitting: false, error: errorMsg }));
+    }
+  };
+
+  const renderAssignTaskModal = () => {
+    if (!assignModal.open || !assignModal.user) return null;
+
+    const targetUser = assignModal.user;
+    const targetDept = getDepartmentName(targetUser.department);
+    const targetRole = getUserDisplayRole(targetUser, jobRoleMap);
+
+    return (
+      <div className="new-modal-overlay" onClick={closeAssignModal}>
+        <div className="new-modal-container" onClick={(e) => e.stopPropagation()}>
+          <div className="new-modal-header">
+            <div>
+              <h3>Assign Task</h3>
+              <p>Create and assign a new task directly to this team member.</p>
+            </div>
+            <button
+              type="button"
+              className="new-modal-close"
+              onClick={closeAssignModal}
+              disabled={assignModal.submitting}
+              aria-label="Close"
+            >
+              <FiX size={18} />
+            </button>
+          </div>
+
+          <div className="new-modal-user-card">
+            <div className="modal-user-avatar" style={{ backgroundColor: getAvatarBg(targetUser.name) }}>
+              {getInitials(targetUser.name)}
+            </div>
+            <div className="modal-user-details">
+              <div className="modal-user-name">{targetUser.name || 'Unknown'}</div>
+              <div className="modal-user-meta">
+                <span className="modal-user-pill role"><FiUser size={12} /> {targetRole}</span>
+                {targetDept && targetDept !== 'Unassigned' && (
+                  <span className="modal-user-pill dept"><FiBriefcase size={12} /> {targetDept}</span>
+                )}
+                {targetUser.email && (
+                  <span className="modal-user-pill email"><FiMail size={12} /> {targetUser.email}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {assignModal.error && (
+            <div className="new-modal-error">
+              <FiAlertCircle size={16} />
+              <span>{assignModal.error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleAssignTaskSubmit} className="new-modal-form">
+            <div className="modal-form-group">
+              <label>Task Title <span className="req">*</span></label>
+              <input
+                type="text"
+                value={assignModal.title}
+                onChange={(e) => setAssignModal(prev => ({ ...prev, title: e.target.value, error: '' }))}
+                placeholder="e.g. Complete client pitch presentation..."
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="modal-form-group">
+              <label>Description</label>
+              <textarea
+                value={assignModal.description}
+                onChange={(e) => setAssignModal(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Add instructions, context or deliverables for this task..."
+                rows={3}
+              />
+            </div>
+
+            <div className="modal-form-row">
+              <div className="modal-form-group">
+                <label>Priority</label>
+                <select
+                  value={assignModal.priority}
+                  onChange={(e) => setAssignModal(prev => ({ ...prev, priority: e.target.value }))}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label>Due Date & Time <span className="req">*</span></label>
+                <input
+                  type="datetime-local"
+                  value={assignModal.dueDateTime}
+                  onChange={(e) => setAssignModal(prev => ({ ...prev, dueDateTime: e.target.value, error: '' }))}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="modal-form-group checkpoints-section">
+              <label>Checkpoints / Subtasks (Optional)</label>
+              <div className="checkpoint-input-row">
+                <input
+                  type="text"
+                  value={assignModal.newCheckpointText}
+                  onChange={(e) => setAssignModal(prev => ({ ...prev, newCheckpointText: e.target.value }))}
+                  placeholder="Add a milestone or subtask..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCheckpoint();
+                    }
+                  }}
+                />
+                <button type="button" className="btn-add-cp" onClick={handleAddCheckpoint}>
+                  <FiPlus size={14} /> Add
+                </button>
+              </div>
+
+              {assignModal.checkpoints.length > 0 && (
+                <div className="checkpoints-list">
+                  {assignModal.checkpoints.map((cp, idx) => (
+                    <div key={idx} className="checkpoint-item">
+                      <FiCheckSquare size={14} className="cp-icon" />
+                      <span className="cp-title">{cp.title}</span>
+                      <button
+                        type="button"
+                        className="cp-remove"
+                        onClick={() => handleRemoveCheckpoint(idx)}
+                      >
+                        <FiTrash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="new-modal-footer">
+              <button
+                type="button"
+                className="btn-modal-cancel"
+                onClick={closeAssignModal}
+                disabled={assignModal.submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-modal-submit"
+                disabled={assignModal.submitting}
+              >
+                {assignModal.submitting ? (
+                  <>
+                    <FiRefreshCw size={14} className="spin" /> Assigning...
+                  </>
+                ) : (
+                  <>
+                    <FiPlus size={15} /> Assign Task
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
 
   const [overallStats, setOverallStats] = useState({
     total: 0,
@@ -1303,8 +1651,26 @@ const TaskDetails = () => {
 
   
 
+  const departmentOptions = useMemo(() => {
+    const set = new Set();
+    users.forEach(u => {
+      const d = getDepartmentName(u.department);
+      if (d && d !== 'N/A' && !d.startsWith('Dept-')) set.add(d);
+    });
+    return Array.from(set).sort();
+  }, [users, departmentMap]);
+
+  const roleOptions = useMemo(() => {
+    const set = new Set();
+    users.forEach(u => {
+      const r = getUserDisplayRole(u, jobRoleMap);
+      if (r && r !== 'N/A') set.add(r);
+    });
+    return Array.from(set).sort();
+  }, [users, jobRoleMap]);
+
   const filteredUsers = useMemo(() => {
-    let filtered = users;
+    let filtered = [...users];
 
     if (clockedInTodayOnly) {
       filtered = filtered.filter(user => todayClockedInUserIds.has(String(user._id || user.id)));
@@ -1319,36 +1685,387 @@ const TaskDetails = () => {
       );
     }
 
-    return filtered;
-  }, [users, searchQuery, clockedInTodayOnly, todayClockedInUserIds]);
+    // Unified Department Filter (Dropdown or Pill Tab)
+    const activeDept = selectedDeptFilter !== 'all' ? selectedDeptFilter : activeDeptTab !== 'all' ? activeDeptTab : null;
+    if (activeDept) {
+      filtered = filtered.filter(user => {
+        const dName = getDepartmentName(user.department);
+        const normKey = dName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        return dName.toLowerCase() === activeDept.toLowerCase() || normKey === activeDept.toLowerCase();
+      });
+    }
 
-  const departmentUserGroups = useMemo(() => {
+    if (selectedRoleFilter !== 'all') {
+      filtered = filtered.filter(user => {
+        const r = getUserDisplayRole(user, jobRoleMap);
+        return r === selectedRoleFilter;
+      });
+    }
+
+    if (selectedStatusFilter !== 'all') {
+      filtered = filtered.filter(user => {
+        const stats = getUserTaskStats(user);
+        if (selectedStatusFilter === 'pending') return (stats.pending || 0) > 0;
+        if (selectedStatusFilter === 'in-progress') return (stats.inProgress || 0) > 0;
+        if (selectedStatusFilter === 'completed') return (stats.completed || 0) > 0;
+        if (selectedStatusFilter === 'onhold') return (stats.onhold || 0) > 0;
+        if (selectedStatusFilter === 'overdue') return (stats.overdue || 0) > 0;
+        return true;
+      });
+    }
+
+    if (selectedPerfFilter !== 'all') {
+      filtered = filtered.filter(user => {
+        const stats = getUserTaskStats(user);
+        const rate = stats.completionRate || 0;
+        if (selectedPerfFilter === 'top') return rate >= 80;
+        if (selectedPerfFilter === 'medium') return rate >= 50 && rate < 80;
+        if (selectedPerfFilter === 'low') return rate < 50 && (stats.total || 0) > 0;
+        if (selectedPerfFilter === 'zero') return (stats.total || 0) === 0;
+        if (selectedPerfFilter === 'completed') return stats.total > 0 && stats.total === stats.completed;
+        return true;
+      });
+    }
+
+    filtered.sort((a, b) => {
+      if (sortBy === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+      if (sortBy === 'name-desc') return (b.name || '').localeCompare(a.name || '');
+      const aStats = getUserTaskStats(a);
+      const bStats = getUserTaskStats(b);
+      if (sortBy === 'tasks-desc') return (bStats.total || 0) - (aStats.total || 0);
+      if (sortBy === 'tasks-asc') return (aStats.total || 0) - (bStats.total || 0);
+      if (sortBy === 'rate-desc') return (bStats.completionRate || 0) - (aStats.completionRate || 0);
+      return 0;
+    });
+
+    return filtered;
+  }, [
+    users,
+    clockedInTodayOnly,
+    todayClockedInUserIds,
+    searchQuery,
+    activeDeptTab,
+    selectedDeptFilter,
+    selectedRoleFilter,
+    selectedStatusFilter,
+    selectedPerfFilter,
+    sortBy,
+    jobRoleMap,
+    departmentMap
+  ]);
+
+  const getDeptSortPriority = (deptName) => {
+    const lower = String(deptName || '').toLowerCase();
+    if (lower.includes('it team') || lower.includes('it_team')) return 1;
+    if (lower === 'hr') return 2;
+    if (lower.includes('manage')) return 3;
+    if (lower.includes('sales')) return 4;
+    if (lower.includes('hr test')) return 5;
+    return 10;
+  };
+
+  const allDepartmentGroups = useMemo(() => {
     const groups = new Map();
 
-    filteredUsers.forEach(user => {
-      const department = user.department;
-      const departmentKey = typeof department === 'object'
-        ? String(department?._id || department?.id || department?.name || department?.departmentName || 'unassigned')
-        : String(department || 'unassigned');
-      const departmentName = department ? getDepartmentName(department) : 'Unassigned Department';
+    users.forEach(user => {
+      const departmentName = getDepartmentName(user.department);
+      const departmentKey = departmentName.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
       if (!groups.has(departmentKey)) {
         groups.set(departmentKey, {
           key: departmentKey,
           name: departmentName,
-          users: []
+          count: 0
         });
       }
 
-      groups.get(departmentKey).users.push(user);
+      groups.get(departmentKey).count += 1;
     });
 
     return Array.from(groups.values()).sort((a, b) => {
       if (a.key === 'unassigned') return 1;
       if (b.key === 'unassigned') return -1;
+      const orderDiff = getDeptSortPriority(a.name) - getDeptSortPriority(b.name);
+      if (orderDiff !== 0) return orderDiff;
       return a.name.localeCompare(b.name);
     });
-  }, [filteredUsers, departmentMap]);
+  }, [users, departmentMap]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(startIndex, startIndex + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
+
+  const departmentUserGroups = useMemo(() => {
+    const groups = new Map();
+
+    // If activeDeptTab is selected (not 'all'), seed that department, otherwise seed all company departments
+    const deptsToSeed = activeDeptTab === 'all'
+      ? allDepartmentGroups
+      : allDepartmentGroups.filter(d => d.key === activeDeptTab);
+
+    // Always seed departments so HR, Management, Sales, etc. never disappear when filtering by clock-in/search/status
+    if (deptsToSeed && deptsToSeed.length > 0) {
+      deptsToSeed.forEach(dept => {
+        groups.set(dept.key, {
+          key: dept.key,
+          name: dept.name,
+          users: []
+        });
+      });
+    }
+
+    // Group filtered users into their respective department
+    filteredUsers.forEach(user => {
+      const departmentName = getDepartmentName(user.department);
+      const departmentKey = departmentName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+      if (groups.has(departmentKey)) {
+        groups.get(departmentKey).users.push(user);
+      } else if (activeDeptTab === 'all' || activeDeptTab === departmentKey) {
+        groups.set(departmentKey, {
+          key: departmentKey,
+          name: departmentName,
+          users: [user]
+        });
+      }
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.key === 'unassigned') return 1;
+      if (b.key === 'unassigned') return -1;
+      const orderDiff = getDeptSortPriority(a.name) - getDeptSortPriority(b.name);
+      if (orderDiff !== 0) return orderDiff;
+      return a.name.localeCompare(b.name);
+    });
+  }, [allDepartmentGroups, filteredUsers, activeDeptTab, departmentMap]);
+
+  useEffect(() => {
+    if (departmentUserGroups.length > 0) {
+      setExpandedDepts(prev => {
+        if (Object.keys(prev).length === 0) {
+          return { [departmentUserGroups[0].key]: true };
+        }
+        return prev;
+      });
+    }
+  }, [departmentUserGroups]);
+
+  const toggleDeptAccordion = (deptKey) => {
+    setExpandedDepts(prev => ({
+      ...prev,
+      [deptKey]: !prev[deptKey]
+    }));
+  };
+
+  const topPerformer = useMemo(() => {
+    let best = null;
+    users.forEach(user => {
+      const stats = getUserTaskStats(user);
+      const rate = stats.completionRate || 0;
+      const total = stats.total || 0;
+      const completed = stats.completed || 0;
+      if (total > 0) {
+        if (!best) {
+          best = { name: user.name || 'Team Member', rate, completed, total };
+        } else if (completed > 0 && best.completed === 0) {
+          best = { name: user.name || 'Team Member', rate, completed, total };
+        } else if (rate > best.rate) {
+          best = { name: user.name || 'Team Member', rate, completed, total };
+        } else if (rate === best.rate && completed > best.completed) {
+          best = { name: user.name || 'Team Member', rate, completed, total };
+        } else if (best.completed === 0 && total > best.total) {
+          best = { name: user.name || 'Team Member', rate, completed, total };
+        }
+      }
+    });
+    return best;
+  }, [users]);
+
+  const noTaskCount = useMemo(() => {
+    return users.filter(u => (getUserTaskStats(u).total || 0) === 0).length;
+  }, [users]);
+
+  const allCompletedCount = useMemo(() => {
+    return users.filter(u => {
+      const stats = getUserTaskStats(u);
+      return (stats.total || 0) > 0 && stats.total === stats.completed;
+    }).length;
+  }, [users]);
+
+  const handleExportPDF = useCallback(() => {
+    try {
+      const targetUsers = filteredUsers && filteredUsers.length > 0 ? filteredUsers : users;
+      if (!targetUsers || targetUsers.length === 0) {
+        showSnackbar("No employee or task data to export", "warning");
+        return;
+      }
+
+      const doc = new jsPDF("landscape", "mm", "a4");
+      const generatedDate = new Date().toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+
+      // Header Banner
+      doc.setFillColor(30, 58, 138); // #1e3a8a
+      doc.rect(0, 0, 297, 24, "F");
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("CIIS NETWORK - ALL EMPLOYEE TASKS REPORT", 14, 15);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Generated: ${generatedDate}`, 240, 15);
+
+      // KPI Summary Box
+      doc.setFillColor(241, 245, 249); // #f1f5f9
+      doc.roundedRect(14, 28, 269, 18, 3, 3, "F");
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+
+      const totalT = systemStats.totalTasks || overallStats.total || 0;
+      doc.text(`Total Employees: ${targetUsers.length}`, 20, 39);
+      doc.text(`Total Tasks: ${totalT}`, 80, 39);
+      doc.text(`Completed: ${overallStats.completed || 0}`, 135, 39);
+      doc.text(`Pending: ${overallStats.pending || 0}`, 185, 39);
+      doc.text(`Overdue: ${overallStats.overdue || 0}`, 235, 39);
+
+      // Table columns & rows
+      const tableColumns = [
+        { header: "Emp ID", dataKey: "empId" },
+        { header: "Employee Name", dataKey: "name" },
+        { header: "Email Address", dataKey: "email" },
+        { header: "Department", dataKey: "department" },
+        { header: "Role", dataKey: "role" },
+        { header: "Assigned", dataKey: "assigned" },
+        { header: "Completed", dataKey: "completed" },
+        { header: "Pending", dataKey: "pending" },
+        { header: "Completion %", dataKey: "rate" }
+      ];
+
+      const tableRows = targetUsers.map((user, index) => {
+        const stats = getUserTaskStats(user);
+        return {
+          empId: user.employeeId || `EMP-${index + 1}`,
+          name: user.name || "Unknown",
+          email: user.email || "N/A",
+          department: getDepartmentName(user.department),
+          role: getUserDisplayRole(user, jobRoleMap),
+          assigned: String(stats.total || 0),
+          completed: String(stats.completed || 0),
+          pending: String(Math.max(0, (stats.total || 0) - (stats.completed || 0))),
+          rate: `${stats.completionRate || 0}%`
+        };
+      });
+
+      autoTable(doc, {
+        columns: tableColumns,
+        body: tableRows,
+        startY: 50,
+        theme: "striped",
+        headStyles: {
+          fillColor: [30, 58, 138],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 9,
+          halign: "left"
+        },
+        bodyStyles: {
+          fontSize: 8.5,
+          textColor: [30, 41, 59],
+          rowHeight: 8
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        columnStyles: {
+          empId: { cellWidth: 25 },
+          name: { cellWidth: 42, fontStyle: "bold" },
+          email: { cellWidth: 52 },
+          department: { cellWidth: 35 },
+          role: { cellWidth: 35 },
+          assigned: { cellWidth: 20, halign: "center" },
+          completed: { cellWidth: 20, halign: "center" },
+          pending: { cellWidth: 20, halign: "center" },
+          rate: { cellWidth: 20, halign: "center", fontStyle: "bold" }
+        },
+        margin: { top: 50, left: 14, right: 14, bottom: 15 },
+        didDrawPage: (data) => {
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text(
+            `Page ${doc.internal.getNumberOfPages()}`,
+            280,
+            200,
+            { align: "right" }
+          );
+        }
+      });
+
+      doc.save(`Company_All_Tasks_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+      showSnackbar("Tasks PDF downloaded successfully", "success");
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+      showSnackbar("Failed to generate PDF report", "error");
+    }
+  }, [filteredUsers, users, systemStats, overallStats, jobRoleMap, departmentMap, showSnackbar]);
+
+  const handleExport = handleExportPDF;
+
+  const renderDeptHeaderIcon = (name) => {
+    const lower = String(name || '').toLowerCase();
+    if (lower.includes('it') || lower.includes('tech') || lower.includes('software')) {
+      return <FiMonitor size={17} color="#2563eb" />;
+    }
+    if (lower.includes('hr') || lower.includes('human')) {
+      return <FiUser size={17} color="#1e293b" />;
+    }
+    if (lower.includes('management') || lower.includes('lead') || lower.includes('admin')) {
+      return <FiBriefcase size={17} color="#1e293b" />;
+    }
+    if (lower.includes('sales') || lower.includes('market') || lower.includes('business')) {
+      return <FiTrendingUp size={17} color="#1e293b" />;
+    }
+    return <FiUsers size={17} color="#1e293b" />;
+  };
+
+  const getDeptDescription = (name) => {
+    const lower = String(name || '').toLowerCase();
+    if (lower.includes('it') || lower.includes('tech') || lower.includes('software')) {
+      return 'Development, design, and technology team';
+    }
+    if (lower.includes('test')) {
+      return 'Test department';
+    }
+    if (lower.includes('hr') || lower.includes('human')) {
+      return 'Human resources and people operations';
+    }
+    if (lower.includes('management') || lower.includes('lead') || lower.includes('admin')) {
+      return 'Company management and leadership';
+    }
+    if (lower.includes('sales') || lower.includes('market') || lower.includes('business')) {
+      return 'Sales and business development';
+    }
+    return `${name} operations and tasks`;
+  };
+
+  const getAvatarBg = (name) => {
+    // Cohesive royal blue and indigo tones matching reference design
+    const colors = ['#3b82f6', '#4f46e5', '#2563eb', '#4338ca', '#1d4ed8'];
+    if (!name) return colors[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
 
   const getNonZeroStatuses = useMemo(() => {
     return STATUS_OPTIONS.filter(status => {
@@ -2017,6 +2734,13 @@ const TaskDetails = () => {
     setClockedInTodayOnly(false);
     setTaskPage(1);
     setShowStatusFilters(true);
+    setSelectedDeptFilter('all');
+    setSelectedRoleFilter('all');
+    setSelectedStatusFilter('all');
+    setSelectedPerfFilter('all');
+    setSortBy('name-asc');
+    setActiveDeptTab('all');
+    setCurrentPage(1);
   }, []);
 
   
@@ -2136,30 +2860,7 @@ const TaskDetails = () => {
     }
   };
 
-  const getInitials = (name) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getUserTaskStats = (user) => {
-    return user.taskStats || {
-      total: 0,
-      pending: 0,
-      completed: 0,
-      completionRate: 0,
-      inProgress: 0,
-      rejected: 0,
-      overdue: 0,
-      onhold: 0,
-      reopen: 0,
-      cancelled: 0
-    };
-  };
+  // getInitials and getUserTaskStats are defined at module level above to prevent TDZ ReferenceError
 
   const getActivityIcon = (action) => {
     const actionLower = action?.toLowerCase() || '';
@@ -2593,237 +3294,116 @@ const TaskDetails = () => {
   };
 
   
-  const renderActivityLogModal = () => {
+    const renderActivityLogModal = () => {
     if (!showActivityLog || !selectedTaskForActivity) return null;
 
-    const timeData = calculateTaskActiveTime(activityLogs);
-    const taskType = getTaskType(selectedTaskForActivity);
-
-    const getStatusIcon = () => {
-      switch (timeData.currentStatus) {
-        case 'in-progress': return <FiPlay size={16} color="#10b981" />;
-        case 'onhold': return <FiPause size={16} color="#f59e0b" />;
-        case 'completed': return <FiCheckCircle size={16} color="#10b981" />;
-        default: return <FiClock size={16} color="#6b7280" />;
-      }
-    };
-
     return (
-      <div className="TaskDetails-activity-modal-overlay" onClick={handleCloseActivityLog}>
-        <div className="TaskDetails-activity-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="TaskDetails-activity-modal-header">
-            <div className="TaskDetails-activity-modal-header-content">
-              <div className="TaskDetails-activity-modal-title">
-                <div className="TaskDetails-activity-modal-icon">
-                  <FiActivity size={20} />
-                </div>
-                <div>
-                  <h3>Activity Log</h3>
-                  <p className="TaskDetails-activity-modal-task-title">
-                    {selectedTaskForActivity.title || 'Untitled Task'}
-                    {selectedTaskForActivity.serialNo && ` (#${selectedTaskForActivity.serialNo})`}
-                  </p>
-                  <span style={{
-                    fontSize: '0.7rem',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '0.25rem',
-                    backgroundColor: taskType === 'assigned' ? '#e3f2fd' : '#fff3e0',
-                    color: taskType === 'assigned' ? '#1976d2' : '#f57c00',
-                    display: 'inline-block',
-                    marginTop: '0.25rem'
-                  }}>
-                    {taskType === 'assigned' ? '📋 Assigned Task' : '👤 Personal Task'}
+      <div className="company-task-modal-backdrop" onClick={handleCloseActivityLog}>
+        <div className="task-activity-modal-container" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="task-activity-modal-header">
+            <div className="task-activity-header-left">
+              <div className="task-activity-icon-bubble">
+                <FiActivity size={18} />
+              </div>
+              <div>
+                <div className="task-activity-title-row">
+                  <h3 className="task-activity-modal-title">Task Activities</h3>
+                  <span className="task-activity-count-chip">
+                    {activityLogs?.length || 0} {activityLogs?.length === 1 ? "Event" : "Events"}
                   </span>
                 </div>
+                {selectedTaskForActivity?.title && (
+                  <p className="task-activity-task-subtitle">
+                    Task: <span className="task-title-highlight">{selectedTaskForActivity.title}</span>
+                    {selectedTaskForActivity.serialNo && ` (#${selectedTaskForActivity.serialNo})`}
+                  </p>
+                )}
               </div>
-              <button
-                className="TaskDetails-activity-modal-close"
-                onClick={handleCloseActivityLog}
-              >
-                <FiX size={20} />
-              </button>
             </div>
+            <button
+              type="button"
+              className="task-activity-close-btn"
+              onClick={handleCloseActivityLog}
+              title="Close Modal"
+            >
+              <FiX size={18} />
+            </button>
           </div>
 
-          <div className="TaskDetails-activity-modal-body">
+          {/* Timeline Body */}
+          <div className="task-activity-modal-body">
             {loadingActivity ? (
-              <div className="TaskDetails-activity-loading">
-                <div className="TaskDetails-activity-spinner" />
+              <div className="task-activity-empty-state">
+                <div className="task-activity-spinner" />
                 <p>Loading activity logs...</p>
               </div>
-            ) : activityLogs.length === 0 ? (
-              <div className="TaskDetails-activity-empty">
-                <div className="TaskDetails-activity-empty-icon">
-                  <FiClock size={32} />
-                </div>
-                <h4>No Activity Logs</h4>
-                <p>No activity recorded for this task yet</p>
+            ) : activityLogs?.length ? (
+              <div className="task-activity-timeline">
+                {activityLogs.map((log, i) => {
+                  const meta = getActivityMeta(log);
+                  const userName = log.userName || log.user?.name || log.performedBy?.name || (typeof log.performedBy === "string" && log.performedBy.length > 5 ? log.performedBy : null) || (log.action?.toLowerCase().includes("system") ? "System" : "Team Member");
+                  const initials = getInitials(userName);
+                  const isSystem = userName.toLowerCase() === "system";
+                  const dateStr = formatDateTime(log.createdAt || log.timestamp || log.date || log.updatedAt);
+                  const description = cleanActivityDescription(log.description || log.details || log.comment || log.text || log.message, log.action || log.type);
+
+                  return (
+                    <div className="task-activity-item" key={log._id || i}>
+                      {/* Left node */}
+                      <div className="task-activity-node-col">
+                        <div
+                          className="task-activity-node-icon"
+                          style={{ color: meta.color, backgroundColor: meta.bg, borderColor: meta.border }}
+                        >
+                          {meta.icon}
+                        </div>
+                        {i < activityLogs.length - 1 && <div className="task-activity-node-line" />}
+                      </div>
+
+                      {/* Right Card */}
+                      <div className="task-activity-card">
+                        <div className="task-activity-card-header">
+                          <div className="task-activity-user-info">
+                            <div
+                              className={`task-activity-avatar ${isSystem ? "system-avatar" : ""}`}
+                              style={{ background: isSystem ? undefined : getAvatarBg(userName) }}
+                            >
+                              {isSystem ? <FiZap size={12} /> : initials}
+                            </div>
+                            <div className="task-activity-user-names">
+                              <span className="task-activity-user-name">{userName}</span>
+                              <span
+                                className={`task-activity-action-tag ${meta.badgeClass}`}
+                                style={{ color: meta.color, backgroundColor: meta.bg, borderColor: meta.border }}
+                              >
+                                {meta.label}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="task-activity-timestamp" title={dateStr}>
+                            <FiClock size={12} />
+                            <span>{dateStr}</span>
+                          </div>
+                        </div>
+
+                        <div className="task-activity-card-content">
+                          <p className="task-activity-text">{description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <>
-                <div className="TaskDetails-time-summary-card" style={{
-                  margin: '0 0 1rem 0',
-                  padding: '1rem',
-                  backgroundColor: 'white',
-                  borderRadius: '0.75rem',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '4px',
-                    height: '100%',
-                    background: timeData.currentStatus === 'completed' ? '#10b981' :
-                      timeData.currentStatus === 'in-progress' ? '#3b82f6' :
-                        timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280'
-                  }} />
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '50%',
-                      background: timeData.currentStatus === 'completed' ? '#10b98115' :
-                        timeData.currentStatus === 'in-progress' ? '#3b82f615' :
-                          timeData.currentStatus === 'onhold' ? '#f59e0b15' : '#6b728015',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      {getStatusIcon()}
-                    </div>
-
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                          Total Active Time
-                        </span>
-                        <span style={{
-                          padding: '0.2rem 0.6rem',
-                          background: timeData.currentStatus === 'completed' ? '#10b98115' :
-                            timeData.currentStatus === 'in-progress' ? '#3b82f615' :
-                              timeData.currentStatus === 'onhold' ? '#f59e0b15' : '#6b728015',
-                          color: timeData.currentStatus === 'completed' ? '#10b981' :
-                            timeData.currentStatus === 'in-progress' ? '#3b82f6' :
-                              timeData.currentStatus === 'onhold' ? '#f59e0b' : '#6b7280',
-                          borderRadius: '1rem',
-                          fontSize: '0.7rem',
-                          fontWeight: 600
-                        }}>
-                          {timeData.currentStatus === 'completed' ? '✅ Completed' :
-                            timeData.currentStatus === 'in-progress' ? '▶️ In Progress' :
-                              timeData.currentStatus === 'onhold' ? '⏸️ On Hold' : '⏳ Pending'}
-                        </span>
-                      </div>
-
-                      <div>
-                        <span style={{ fontSize: '2rem', fontWeight: 700, color: '#0f172a' }}>
-                          {timeData.displayText}
-                        </span>
-                      </div>
-
-                      {timeData.statusHistory.length > 0 && (
-                        <div style={{ marginTop: '1rem' }}>
-                          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>
-                            Status Timeline:
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                            {timeData.statusHistory.map((status, idx) => (
-                              <div key={idx} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                fontSize: '0.75rem',
-                                padding: '0.25rem 0.5rem',
-                                background: '#f8fafc',
-                                borderRadius: '0.4rem',
-                                flexWrap: 'wrap'
-                              }}>
-                                <span style={{
-                                  width: '70px',
-                                  color: status.from === 'in-progress' ? '#3b82f6' :
-                                    status.from === 'onhold' ? '#f59e0b' : '#6b7280'
-                                }}>
-                                  {status.from}
-                                </span>
-                                <FiArrowRight size={12} color="#94a3b8" />
-                                <span style={{
-                                  width: '70px',
-                                  color: status.to === 'in-progress' ? '#3b82f6' :
-                                    status.to === 'onhold' ? '#f59e0b' :
-                                      status.to === 'completed' ? '#10b981' : '#6b7280'
-                                }}>
-                                  {status.to}
-                                </span>
-                                <span style={{ color: '#64748b' }}>
-                                  {status.time.toLocaleTimeString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              <div className="task-activity-empty-state">
+                <div className="task-activity-empty-icon">
+                  <FiActivity size={30} />
                 </div>
-
-                <div className="TaskDetails-activity-timeline">
-                  {activityLogs.map((log, index) => (
-                    <div key={log._id || index} className="TaskDetails-activity-item">
-                      <div className="TaskDetails-activity-timeline-line">
-                        <div
-                          className="TaskDetails-activity-dot"
-                          style={{ backgroundColor: getActivityColor(log.action) }}
-                        >
-                          {getActivityIcon(log.action)}
-                        </div>
-                        {index < activityLogs.length - 1 && (
-                          <div className="TaskDetails-activity-line" />
-                        )}
-                      </div>
-                      <div className="TaskDetails-activity-content">
-                        <div className="TaskDetails-activity-header">
-                          <span
-                            className="TaskDetails-activity-action"
-                            style={{ color: getActivityColor(log.action) }}
-                          >
-                            {log.action || 'Action'}
-                          </span>
-                          <span className="TaskDetails-activity-time">
-                            <FiTime size={12} />
-                            {formatDateTime(log.createdAt)}
-                          </span>
-                        </div>
-                        {log.description && (
-                          <p className="TaskDetails-activity-description">
-                            {log.description}
-                          </p>
-                        )}
-                        {log.user && (
-                          <div className="TaskDetails-activity-user">
-                            <FiUser size={10} />
-                            <span>by {log.user.name || log.user.email || 'Unknown User'}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
+                <h4>No Activities Recorded</h4>
+                <p>There are no logged updates, timer sessions, or status changes for this task yet.</p>
+              </div>
             )}
-          </div>
-
-          <div className="TaskDetails-activity-modal-footer">
-            <button
-              className="TaskDetails-activity-modal-close-btn"
-              onClick={handleCloseActivityLog}
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>
@@ -2831,180 +3411,116 @@ const TaskDetails = () => {
   };
 
   
-  const renderRemarksDialog = () => {
+    const renderRemarksDialog = () => {
     if (!remarksDialog.open) return null;
 
-    
     const task = tasks.find(t => t._id === remarksDialog.taskId);
-    const taskType = task ? getTaskType(task) : 'personal';
 
     return (
-      <div className="TaskDetails-activity-modal-overlay" onClick={handleCloseRemarksDialog}>
-        <div className="TaskDetails-activity-modal" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
-          <div className="TaskDetails-activity-modal-header">
-            <div className="TaskDetails-activity-modal-header-content">
-              <div className="TaskDetails-activity-modal-title">
-                <div className="TaskDetails-activity-modal-icon">
-                  <FiMessageSquare size={20} />
-                </div>
-                <div>
-                  <h3>Task Remarks</h3>
-                  <p className="TaskDetails-activity-modal-task-title">
-                    {selectedUser?.name || 'User'}'s Task
-                  </p>
-                  <span style={{
-                    fontSize: '0.7rem',
-                    padding: '0.2rem 0.5rem',
-                    borderRadius: '0.25rem',
-                    backgroundColor: taskType === 'assigned' ? '#e3f2fd' : '#fff3e0',
-                    color: taskType === 'assigned' ? '#1976d2' : '#f57c00',
-                    display: 'inline-block',
-                    marginTop: '0.25rem'
-                  }}>
-                    {taskType === 'assigned' ? '📋 Assigned Task' : '👤 Personal Task'}
+      <div className="company-task-modal-backdrop" onClick={handleCloseRemarksDialog}>
+        <div className="task-activity-modal-container" onClick={(e) => e.stopPropagation()}>
+          <div className="task-activity-modal-header">
+            <div className="task-activity-header-left">
+              <div className="task-activity-icon-bubble remarks-bubble">
+                <FiMessageSquare size={18} />
+              </div>
+              <div>
+                <div className="task-activity-title-row">
+                  <h3 className="task-activity-modal-title">Task Remarks</h3>
+                  <span className="task-activity-count-chip remarks-chip">
+                    {remarksDialog.remarks?.length || 0} {remarksDialog.remarks?.length === 1 ? "Remark" : "Remarks"}
                   </span>
                 </div>
+                {task?.title && (
+                  <p className="task-activity-task-subtitle">
+                    Task: <span className="task-title-highlight">{task.title}</span>
+                  </p>
+                )}
               </div>
-              <button
-                className="TaskDetails-activity-modal-close"
-                onClick={handleCloseRemarksDialog}
-              >
-                <FiX size={20} />
-              </button>
             </div>
+            <button
+              type="button"
+              className="task-activity-close-btn"
+              onClick={handleCloseRemarksDialog}
+              title="Close Modal"
+            >
+              <FiX size={18} />
+            </button>
           </div>
 
-          <div className="TaskDetails-activity-modal-body">
+          <div className="task-activity-modal-body">
             {loadingRemarks ? (
-              <div className="TaskDetails-activity-loading">
-                <div className="TaskDetails-activity-spinner" />
+              <div className="task-activity-empty-state">
+                <div className="task-activity-spinner" />
                 <p>Loading remarks...</p>
               </div>
-            ) : remarksDialog.remarks.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {remarksDialog.remarks.map((remark, index) => (
-                  <div key={remark._id || index} style={{
-                    padding: '15px',
-                    backgroundColor: '#f8fafc',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                      <div style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%',
-                        backgroundColor: '#667eea',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontWeight: 600
-                      }}>
-                        {remark.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+            ) : remarksDialog.remarks?.length ? (
+              <div className="task-activity-timeline">
+                {remarksDialog.remarks.map((r, i) => {
+                  const userName = r.userName || r.user?.name || (r.user && typeof r.user === "string" ? r.user : null) || "Team Member";
+                  const initials = getInitials(userName);
+                  const isSystem = userName.toLowerCase() === "system";
+                  const dateStr = formatDateTime(r.createdAt || r.date || r.timestamp);
+                  const text = r.remark || r.text || r.message || r.comment || "No comment content";
+
+                  return (
+                    <div className="task-activity-item" key={r._id || i}>
+                      <div className="task-activity-node-col">
+                        <div className="task-activity-node-icon" style={{ color: "#5925dc", backgroundColor: "#f4f3ff", borderColor: "#d9d6fe" }}>
+                          <FiMessageSquare size={13} />
+                        </div>
+                        {i < remarksDialog.remarks.length - 1 && <div className="task-activity-node-line" />}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{remark.user?.name || 'Unknown User'}</div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                          {formatDateTime(remark.createdAt)}
+
+                      <div className="task-activity-card">
+                        <div className="task-activity-card-header">
+                          <div className="task-activity-user-info">
+                            <div
+                              className={`task-activity-avatar ${isSystem ? "system-avatar" : ""}`}
+                              style={{ background: isSystem ? undefined : getAvatarBg(userName) }}
+                            >
+                              {isSystem ? <FiZap size={12} /> : initials}
+                            </div>
+                            <div className="task-activity-user-names">
+                              <span className="task-activity-user-name">{userName}</span>
+                              <span className="task-activity-action-tag badge-remark" style={{ color: "#5925dc", backgroundColor: "#f4f3ff", borderColor: "#d9d6fe" }}>
+                                Remark
+                              </span>
+                            </div>
+                          </div>
+                          <div className="task-activity-timestamp" title={dateStr}>
+                            <FiClock size={12} />
+                            <span>{dateStr}</span>
+                          </div>
+                        </div>
+
+                        <div className="task-activity-card-content">
+                          <p className="task-activity-text">{text}</p>
+                          {r.image && (
+                            <div style={{ marginTop: '8px' }}>
+                              <img
+                                src={getImageUrl(r.image)}
+                                alt="Remark attachment"
+                                style={{ maxWidth: '200px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #eaecf0' }}
+                                onClick={() => setZoomImage(getImageUrl(r.image))}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-
-                    {remark.text && (
-                      <p style={{ marginLeft: '42px', color: '#333' }}>{remark.text}</p>
-                    )}
-
-                    {remark.image && (
-                      <div style={{ marginTop: '10px', marginLeft: '42px' }}>
-                        <img
-                          src={getImageUrl(remark.image)}
-                          alt="Remark attachment"
-                          style={{
-                            maxWidth: '200px',
-                            maxHeight: '200px',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setZoomImage(getImageUrl(remark.image))}
-                          onError={(e) => {
-                            console.error('❌ Image failed to load:', e.target.src);
-                            
-                            // Get the base URL without /api
-                            const baseUrl = API_URL.replace(/\/api$/, '');
-                            
-                            // Get the filename from the original path
-                            const originalPath = remark.image;
-                            const filename = originalPath.split(/[\\/]/).pop();
-                            
-                            // Try different path combinations
-                            const pathsToTry = [
-                              `${baseUrl}/uploads/client-remarks/${filename}`,
-                              `${baseUrl}/uploads/${filename}`,
-                              `${baseUrl}/client-remarks/${filename}`,
-                              `${baseUrl}/api/uploads/client-remarks/${filename}`,
-                              `${baseUrl}/api/uploads/${filename}`,
-                              `${baseUrl}/api/client-remarks/${filename}`,
-                              `${baseUrl}/${originalPath.replace(/\\/g, '/')}`,
-                              `${baseUrl}/uploads/${originalPath.replace(/\\/g, '/')}`,
-                            ];
-                            
-                            // Remove duplicates
-                            const uniquePaths = [...new Set(pathsToTry)];
-                            
-                            void 0;
-                            
-                            let triedIndex = 0;
-                            const tryNextPath = () => {
-                              if (triedIndex < uniquePaths.length) {
-                                void 0;
-                                e.target.src = uniquePaths[triedIndex];
-                                triedIndex++;
-                              } else {
-                                // Show fallback if all paths fail
-                                e.target.style.display = 'none';
-                                const parent = e.target.parentElement;
-                                
-                                // Create fallback UI
-                                const fallback = document.createElement('div');
-                                fallback.style.cssText = `
-                                  padding: 20px;
-                                  background: #fff3f3;
-                                  border: 1px solid #ffcdd2;
-                                  border-radius: 8px;
-                                  text-align: center;
-                                  color: #d32f2f;
-                                  font-size: 14px;
-                                `;
-                                fallback.innerHTML = 'Image not available';
-                                parent.appendChild(fallback);
-                              }
-                            };
-                            
-                            e.target.onerror = tryNextPath;
-                            tryNextPath();
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                <FiMessageSquare size={32} color="#ccc" />
-                <p style={{ marginTop: '10px' }}>No remarks yet</p>
+              <div className="task-activity-empty-state">
+                <div className="task-activity-empty-icon">
+                  <FiMessageSquare size={30} />
+                </div>
+                <h4>No Remarks Logged</h4>
+                <p>No remarks or notes have been added for this task yet.</p>
               </div>
             )}
-          </div>
-
-          <div className="TaskDetails-activity-modal-footer">
-            <button
-              className="TaskDetails-activity-modal-close-btn"
-              onClick={handleCloseRemarksDialog}
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>
@@ -4148,91 +4664,125 @@ const TaskDetails = () => {
         {renderActivityLogModal()}
         {renderRemarksDialog()}
         {renderImageZoomModal()}
+      {renderAssignTaskModal()}
       </div>
     );
   }
+
+  const dynamicStats = (() => {
+    const totalT = systemStats.totalTasks || overallStats.total || 0;
+    const activeEmp = users.filter(u => (getUserTaskStats(u).total || 0) > 0).length;
+    const activeRate = users.length > 0 ? Math.round((activeEmp / users.length) * 100) : 0;
+    const doneRate = totalT > 0 ? Math.round(((overallStats.completed || 0) / totalT) * 100) : 0;
+    const pendingR = totalT > 0 ? Math.round(((overallStats.pending || 0) / totalT) * 100) : 0;
+    const inProgR = totalT > 0 ? Math.round((((overallStats['in-progress'] || overallStats.inProgress) || 0) / totalT) * 100) : 0;
+    const completedR = totalT > 0 ? Math.round(((overallStats.completed || 0) / totalT) * 100) : 0;
+    const onHoldR = totalT > 0 ? Math.round(((overallStats.onhold || 0) / totalT) * 100) : 0;
+    return { activeRate, doneRate, pendingR, inProgR, completedR, onHoldR };
+  })();
 
   return (
     <div className="TaskDetails-section new-ui">
       {renderSnackbar()}
       {renderError()}
 
+      {/* Breadcrumb matching screenshot */}
+      <div className="new-breadcrumb">
+        <span>Home</span>
+        <FiChevronRight size={13} className="breadcrumb-separator" />
+        <span>Company</span>
+        <FiChevronRight size={13} className="breadcrumb-separator" />
+        <span className="current">Employee Task Management</span>
+      </div>
+
       {/* Top Header */}
       <div className="new-header">
         <div className="new-header-left">
-          <div className="new-header-icon"><FiClipboard size={24} /></div>
+          <div className="new-header-icon"><FiClipboard size={22} /></div>
           <div>
             <h1>Company Employee Task Management</h1>
             <p>Manage team workload, tasks, and performance efficiently.</p>
           </div>
         </div>
         <div className="new-header-right">
-          <button className="btn-primary"><FiPlus /> Create Task</button>
-          <button className="btn-outline"><FiUsers /> Bulk Assign</button>
-          <button className="btn-outline"><FiDownload /> Export</button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => navigate('/ciisUser/admin-task-create')}
+          >
+            <FiPlus size={16} /> Create Task
+          </button>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={handleExportPDF}
+            title="Export all tasks to PDF report"
+          >
+            <FiDownload size={16} /> Export PDF
+          </button>
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="new-stats-grid">
-        <div className="new-stat-card">
+        <div className="new-stat-card card-blue">
           <div className="new-stat-top">
-            <div className="new-stat-icon blue"><FiUsers size={20}/></div>
+            <div className="new-stat-icon blue"><FiUsers size={20} /></div>
             <div className="new-stat-val">
-              <h3>{systemStats.totalEmployees || 0}</h3>
+              <h3>{systemStats.totalEmployees || users.length || 0}</h3>
               <span>Employees</span>
             </div>
-            
+            <div className="new-stat-trend green">↑ 12%</div>
           </div>
           <p>Total team members</p>
         </div>
-        <div className="new-stat-card">
+        <div className="new-stat-card card-purple">
           <div className="new-stat-top">
-            <div className="new-stat-icon purple"><FiClipboard size={20}/></div>
+            <div className="new-stat-icon purple"><FiClipboard size={20} /></div>
             <div className="new-stat-val">
-              <h3>{systemStats.totalTasks || 0}</h3>
+              <h3>{systemStats.totalTasks || overallStats.total || 0}</h3>
               <span>Tasks Today</span>
             </div>
-            
+            <div className="new-stat-trend green">↑ 8%</div>
           </div>
           <p>Tasks assigned today</p>
         </div>
-        <div className="new-stat-card">
+        <div className="new-stat-card card-orange">
           <div className="new-stat-top">
-            <div className="new-stat-icon orange"><FiClock size={20}/></div>
+            <div className="new-stat-icon orange"><FiClock size={20} /></div>
             <div className="new-stat-val">
               <h3>{overallStats.pending || 0}</h3>
               <span>Pending</span>
             </div>
-            <div className="new-stat-trend red"></div>
+            <div className="new-stat-trend red">↑ 25%</div>
           </div>
           <p>Awaiting completion</p>
         </div>
-        <div className="new-stat-card">
+        <div className="new-stat-card card-cyan">
           <div className="new-stat-top">
-            <div className="new-stat-icon cyan"><FiRefreshCw size={20}/></div>
+            <div className="new-stat-icon cyan"><FiRefreshCw size={20} /></div>
             <div className="new-stat-val">
-              <h3>{overallStats['in-progress'] || 0}</h3>
+              <h3>{overallStats['in-progress'] || overallStats.inProgress || 0}</h3>
               <span>In Progress</span>
             </div>
-            <div className="new-stat-trend cyan"></div>
+            <div className="new-stat-trend cyan">↓ 20%</div>
           </div>
           <p>Currently in progress</p>
         </div>
-        <div className="new-stat-card">
+        <div className="new-stat-card card-green">
           <div className="new-stat-top">
-            <div className="new-stat-icon green"><FiCheckCircle size={20}/></div>
+            <div className="new-stat-icon green"><FiCheckCircle size={20} /></div>
             <div className="new-stat-val">
               <h3>{overallStats.completed || 0}</h3>
               <span>Completed</span>
             </div>
-            <div className="new-stat-trend green"></div>
+            <div className="new-stat-trend green">↑ 18%</div>
           </div>
           <p>Successfully completed</p>
         </div>
-        <div className="new-stat-card">
+        <div className="new-stat-card card-red">
           <div className="new-stat-top">
-            <div className="new-stat-icon red"><FiPause size={20}/></div>
+            <div className="new-stat-icon red"><FiPause size={20} /></div>
             <div className="new-stat-val">
               <h3>{overallStats.onhold || 0}</h3>
               <span>On Hold</span>
@@ -4246,36 +4796,98 @@ const TaskDetails = () => {
       {/* Team Insights */}
       <div className="new-insights">
         <div className="new-insights-left">
-          <div className="new-insights-title"><FiBarChart2 size={20}/> <span>Team Insights</span></div>
+          <div className="new-insights-title">
+            <div className="new-insights-icon"><FiBarChart2 size={20} /></div>
+            <span>Team Insights</span>
+          </div>
           <p>Key insights to help you manage your team better.</p>
         </div>
         <div className="new-insights-cards">
-          <div className="new-insight-card red">
-            <div className="icon"><FiAlertCircle /></div>
-            <div className="text"><strong>{overallStats.overdue || 0}</strong> overdue tasks need attention</div>
-            <FiChevronRight className="arrow" />
+          <div
+            className={`new-insight-card red ${selectedStatusFilter === 'overdue' ? 'active' : ''}`}
+            onClick={() => {
+              if (selectedStatusFilter === 'overdue') {
+                setSelectedStatusFilter('all');
+              } else {
+                setSelectedStatusFilter('overdue');
+                setSelectedPerfFilter('all');
+              }
+              setCurrentPage(1);
+            }}
+          >
+            <div className="icon"><FiAlertCircle size={18} /></div>
+            <div className="insight-content">
+              <div className="insight-val red">{overallStats.overdue || 0}</div>
+              <div className="insight-desc">overdue tasks<br />need attention</div>
+            </div>
+            <FiChevronRight className="arrow" size={16} />
           </div>
-          <div className="new-insight-card green">
-            <div className="icon"><FiAward /></div>
-            <div className="text"><strong>{(filteredUsers.reduce((top, user) => {
-              const rate = getUserTaskStats(user).completionRate || 0;
-              if (rate > top.rate) return { name: user.name, rate };
-              return top;
-            }, { name: 'No one', rate: -1 })).name}</strong> is top performer at <strong>{Math.max(0, filteredUsers.reduce((top, user) => Math.max(top, getUserTaskStats(user).completionRate || 0), 0))}%</strong> completion rate</div>
-            <FiChevronRight className="arrow" />
+          <div
+            className={`new-insight-card green ${selectedPerfFilter === 'top' ? 'active' : ''}`}
+            onClick={() => {
+              if (selectedPerfFilter === 'top') {
+                setSelectedPerfFilter('all');
+              } else {
+                setSelectedPerfFilter('top');
+                setSelectedStatusFilter('all');
+              }
+              setCurrentPage(1);
+            }}
+          >
+            <div className="icon"><FiAward size={18} /></div>
+            <div className="insight-content">
+              <div className="insight-val dark">
+                {topPerformer ? topPerformer.name : 'No active tasks'}
+              </div>
+              <div className="insight-desc">
+                {topPerformer && topPerformer.completed > 0 ? (
+                  <>is top performer at<br /><strong>{topPerformer.rate}%</strong> completion rate</>
+                ) : topPerformer && topPerformer.total > 0 ? (
+                  <>leads with<br /><strong>{topPerformer.total}</strong> assigned tasks</>
+                ) : (
+                  <>assigned yet</>
+                )}
+              </div>
+            </div>
+            <FiChevronRight className="arrow" size={16} />
           </div>
-          <div className="new-insight-card orange">
-            <div className="icon"><FiUsers /></div>
-            <div className="text"><strong>{filteredUsers.filter(u => (u.taskStats?.total || 0) === 0).length}</strong> employees have no assigned tasks</div>
-            <FiChevronRight className="arrow" />
+          <div
+            className={`new-insight-card orange ${selectedPerfFilter === 'zero' ? 'active' : ''}`}
+            onClick={() => {
+              if (selectedPerfFilter === 'zero') {
+                setSelectedPerfFilter('all');
+              } else {
+                setSelectedPerfFilter('zero');
+                setSelectedStatusFilter('all');
+              }
+              setCurrentPage(1);
+            }}
+          >
+            <div className="icon"><FiUsers size={18} /></div>
+            <div className="insight-content">
+              <div className="insight-val orange">{noTaskCount}</div>
+              <div className="insight-desc">employees have<br />no assigned tasks</div>
+            </div>
+            <FiChevronRight className="arrow" size={16} />
           </div>
-          <div className="new-insight-card blue">
-            <div className="icon"><FiCheckCircle /></div>
-            <div className="text"><strong>{filteredUsers.filter(u => {
-              const stats = getUserTaskStats(u);
-              return stats.total > 0 && stats.total === stats.completed;
-            }).length}</strong> employees completed all assigned tasks</div>
-            <FiChevronRight className="arrow" />
+          <div
+            className={`new-insight-card blue ${selectedPerfFilter === 'completed' ? 'active' : ''}`}
+            onClick={() => {
+              if (selectedPerfFilter === 'completed') {
+                setSelectedPerfFilter('all');
+              } else {
+                setSelectedPerfFilter('completed');
+                setSelectedStatusFilter('all');
+              }
+              setCurrentPage(1);
+            }}
+          >
+            <div className="icon"><FiCheckCircle size={18} /></div>
+            <div className="insight-content">
+              <div className="insight-val blue">{allCompletedCount}</div>
+              <div className="insight-desc">employees completed<br />all assigned tasks</div>
+            </div>
+            <FiChevronRight className="arrow" size={16} />
           </div>
         </div>
       </div>
@@ -4283,157 +4895,439 @@ const TaskDetails = () => {
       {/* Filters Bar */}
       <div className="new-filters-bar">
         <div className="new-search-box">
-          <FiSearch />
+          <FiSearch size={15} color="#94a3b8" />
           <input
             type="text"
             placeholder="Search employee by name, email..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
           />
         </div>
         
         <div className="new-filter-group">
-          <div className="new-filter-item">
+          <div className={`new-filter-item ${selectedDeptFilter !== 'all' ? 'active' : ''}`}>
             <label>Department</label>
-            <select><option>All Departments</option></select>
+            <select
+              value={selectedDeptFilter}
+              onChange={(e) => {
+                setSelectedDeptFilter(e.target.value);
+                setActiveDeptTab('all');
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Departments</option>
+              {departmentOptions.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
           </div>
-          <div className="new-filter-item">
+          <div className={`new-filter-item ${selectedRoleFilter !== 'all' ? 'active' : ''}`}>
             <label>Role</label>
-            <select><option>All Roles</option></select>
+            <select
+              value={selectedRoleFilter}
+              onChange={(e) => {
+                setSelectedRoleFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Roles</option>
+              {roleOptions.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
           </div>
-          <div className="new-filter-item">
+          <div className={`new-filter-item ${selectedStatusFilter !== 'all' ? 'active' : ''}`}>
             <label>Task Status</label>
-            <select><option>All Status</option></select>
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => {
+                setSelectedStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="in-progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="onhold">On Hold</option>
+              <option value="overdue">Overdue</option>
+            </select>
           </div>
-          <div className="new-filter-item">
+          <div className={`new-filter-item ${selectedPerfFilter !== 'all' ? 'active' : ''}`}>
             <label>Performance</label>
-            <select><option>All Performance</option></select>
+            <select
+              value={selectedPerfFilter}
+              onChange={(e) => {
+                setSelectedPerfFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Performance</option>
+              <option value="top">Top (80%+)</option>
+              <option value="medium">Average (50-79%)</option>
+              <option value="low">Needs Attention (&lt;50%)</option>
+            </select>
           </div>
-          <div className="new-filter-item">
+          <div className={`new-filter-item ${sortBy !== 'name-asc' ? 'active' : ''}`}>
             <label>Sort By</label>
-            <select><option>Name (A-Z)</option></select>
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="name-asc">Name (A–Z)</option>
+              <option value="name-desc">Name (Z–A)</option>
+              <option value="tasks-desc">Highest Tasks</option>
+              <option value="tasks-asc">Lowest Tasks</option>
+              <option value="rate-desc">Highest Completion</option>
+            </select>
           </div>
         </div>
 
         <div className="new-filter-actions">
-          <button className="new-reset-btn" onClick={resetFilters}><FiRefreshCw /> Reset</button>
-          <button className={`new-clockin-btn ${clockedInTodayOnly ? 'active' : ''}`} onClick={handleTodayClockInToggle}>
-            <FiTime /> Today Clock In
+          <button type="button" className="new-reset-btn" onClick={resetFilters} title="Reset all filters">
+            <FiRefreshCw size={14} /> Reset
+          </button>
+          <button
+            type="button"
+            className={`new-clockin-btn ${clockedInTodayOnly ? 'active' : ''}`}
+            onClick={() => {
+              handleTodayClockInToggle();
+              setCurrentPage(1);
+            }}
+          >
+            <FiTime size={14} /> Today Clock In
           </button>
           <div className="new-view-toggle">
-            <button className="active"><FiGrid /> Grid</button>
-            <button><FiList /> Table</button>
+            <button
+              type="button"
+              className={viewMode === 'grid' ? 'active' : ''}
+              onClick={() => setViewMode('grid')}
+            >
+              <FiGrid size={13} /> Grid
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'table' ? 'active' : ''}
+              onClick={() => setViewMode('table')}
+            >
+              <FiList size={13} /> Table
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Department Pills */}
+      {/* Department Tabs / Pills */}
       <div className="new-dept-pills">
-        <button className="new-pill active">All <span className="badge">{systemStats.totalEmployees || 0}</span></button>
-        {departmentUserGroups.map(group => (
-          <button key={group.key} className="new-pill">{group.name} <span className="badge">{group.users.length}</span></button>
+        <button
+          type="button"
+          className={`new-pill ${activeDeptTab === 'all' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveDeptTab('all');
+            setCurrentPage(1);
+          }}
+        >
+          All <span className="badge">{users.length || systemStats.totalEmployees || 0}</span>
+        </button>
+        {allDepartmentGroups.map(group => (
+          <button
+            key={group.key}
+            type="button"
+            className={`new-pill ${activeDeptTab === group.key ? 'active' : ''}`}
+            onClick={() => {
+              setActiveDeptTab(activeDeptTab === group.key ? 'all' : group.key);
+              setSelectedDeptFilter('all');
+              setCurrentPage(1);
+            }}
+          >
+            {group.name} <span className="badge">{group.count}</span>
+          </button>
         ))}
       </div>
 
       {/* Main Content: Department Groups */}
       {usersLoading ? (
-        <div className="TaskDetails-loading-container"><div className="TaskDetails-loading-spinner"></div><h4>Loading Employee Data...</h4></div>
+        <div className="TaskDetails-loading-container">
+          <div className="TaskDetails-loading-spinner"></div>
+          <h4>Loading Employee Data...</h4>
+        </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="TaskDetails-empty-state"><h3>No Employees Found</h3></div>
+        <div className="TaskDetails-empty-state">
+          <h3>No Employees Found</h3>
+          <p>Try adjusting your search query or filters.</p>
+          <button type="button" className="btn-outline" onClick={resetFilters} style={{ marginTop: '12px' }}>
+            <FiRefreshCw size={14} /> Reset Filters
+          </button>
+        </div>
+      ) : viewMode === 'table' ? (
+        <div className="new-table-container">
+          <table className="new-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Role</th>
+                <th>Assigned</th>
+                <th>Completed</th>
+                <th>Pending</th>
+                <th>Completion</th>
+                <th>Progress</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedUsers.map(user => {
+                const userStats = getUserTaskStats(user);
+                const completionRate = userStats.completionRate || 0;
+                const hasTasks = (userStats.total || 0) > 0;
+                const rateColor = !hasTasks ? '#64748b' : completionRate >= 80 ? '#10b981' : completionRate >= 50 ? '#f59e0b' : '#ef4444';
+                const progressColor = completionRate >= 80 ? '#10b981' : '#f59e0b';
+                return (
+                  <tr key={user._id || user.id} onClick={() => openUserTasksPage(user._id || user.id)} style={{ cursor: 'pointer' }}>
+                    <td>
+                      <div className="table-user-cell">
+                        <div className="table-avatar" style={{ backgroundColor: getAvatarBg(user.name) }}>
+                          {getInitials(user.name)}
+                        </div>
+                        <div>
+                          <div className="table-user-name">{user.name || 'Unknown'}</div>
+                          <div className="table-user-email">{user.email || 'No email'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{getDepartmentName(user.department)}</td>
+                    <td>{getUserDisplayRole(user, jobRoleMap)}</td>
+                    <td><span className="table-badge assigned">{userStats.total || 0}</span></td>
+                    <td><span className="table-badge completed">{userStats.completed || 0}</span></td>
+                    <td><span className="table-badge pending">{Math.max(0, (userStats.total || 0) - (userStats.completed || 0))}</span></td>
+                    <td><span style={{ color: rateColor, fontWeight: 600 }}>{completionRate}%</span></td>
+                    <td>
+                      <div className="table-progress-track">
+                        {hasTasks && completionRate > 0 ? (
+                          <div className="table-progress-fill" style={{ width: `${Math.min(100, Math.max(0, completionRate))}%`, backgroundColor: progressColor }} />
+                        ) : null}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          type="button"
+                          className="btn-view-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openUserTasksPage(user._id || user.id);
+                          }}
+                        >
+                          View Tasks
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-assign-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openAssignModal(user);
+                          }}
+                        >
+                          <FiPlus size={12} /> Assign
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="new-dept-sections">
-          {departmentUserGroups.map((group, i) => (
-            <div className="new-dept-section" key={group.key}>
-              <div className="new-dept-header">
-                <div className="new-dept-header-left">
-                  <div className="icon">{i === 0 ? '🖥️' : i === 1 ? '👤' : i === 2 ? '🏢' : '📊'}</div>
-                  <h3>{group.name}</h3>
-                  <span className="emp-count">{group.users.length} employee{group.users.length !== 1 ? 's' : ''}</span>
-                  <span className="dept-desc">{group.name} operations and tasks</span>
+          {departmentUserGroups.map((group) => {
+            const isExpanded = Boolean(expandedDepts[group.key]);
+            return (
+              <div className="new-dept-section" key={group.key}>
+                <div className="new-dept-header" onClick={() => toggleDeptAccordion(group.key)}>
+                  <div className="new-dept-header-left">
+                    <div className="icon-box">{renderDeptHeaderIcon(group.name)}</div>
+                    <h3>{group.name}</h3>
+                    <span className="emp-count">{group.users.length} employee{group.users.length !== 1 ? 's' : ''}</span>
+                    <span className="dept-desc">{getDeptDescription(group.name)}</span>
+                  </div>
+                  <div className="new-dept-header-right">
+                    <div className="count-badge">{group.users.length}</div>
+                    {isExpanded ? <FiChevronUp size={18} className="chevron" /> : <FiChevronDown size={18} className="chevron" />}
+                  </div>
                 </div>
-                <div className="new-dept-header-right">
-                  <div className="count-badge">{group.users.length}</div>
-                  <FiChevronUp />
-                </div>
-              </div>
-              
-              <div className="new-users-grid">
-                {group.users.map(user => {
-                  const userStats = getUserTaskStats(user);
-                  const completionRate = userStats.completionRate || 0;
-                  const getProgressColor = (rate) => {
-                     if(rate >= 80) return '#10b981';
-                     if(rate >= 50) return '#f59e0b';
-                     if(rate > 0) return '#3b82f6';
-                     return '#ef4444';
-                  };
-                  const progressColor = getProgressColor(completionRate);
-                  
-                  return (
-                    <div className="new-user-card" key={user._id || user.id} onClick={() => openUserTasksPage(user._id || user.id)} style={{cursor: 'pointer'}}>
-                      <div className="new-user-card-top">
-                        <div className="new-user-avatar" style={{backgroundColor: '#4f46e5'}}>{getInitials(user.name)}</div>
-                        <div className="new-user-info">
-                          <h4>{user.name || "Unknown"}</h4>
-                          <span className="role"><FiUser size={12}/> {getUserDisplayRole(user, jobRoleMap)}</span>
-                          <span className="email"><FiMail size={12}/> {user.email || "No Email"}</span>
-                        </div>
-                        <button className="more-btn"><FiMoreVertical/></button>
-                      </div>
-                      
-                      <div className="new-user-stats">
-                        <div className="stat">
-                          <h5>{userStats.total || 0}</h5>
-                          <span>Assigned</span>
-                        </div>
-                        <div className="stat">
-                          <h5>{userStats.completed || 0}</h5>
-                          <span>Completed</span>
-                        </div>
-                        <div className="stat">
-                          <h5>{(userStats.total || 0) - (userStats.completed || 0)}</h5>
-                          <span>Pending</span>
-                        </div>
-                        <div className="stat">
-                          <h5>{completionRate}%</h5>
-                          <span>Completion</span>
-                        </div>
-                      </div>
-                      
-                      <div className="new-user-progress">
-                         <div className="progress-track">
-                            <div className="progress-fill" style={{width: `${completionRate}%`, backgroundColor: progressColor}}></div>
-                         </div>
-                      </div>
-                      
-                      <div className="new-user-actions">
-                         <button className="btn-view" onClick={() => openUserTasksPage(user._id || user.id)}>View Tasks</button>
-                         <button className="btn-assign"><FiPlus/> Assign</button>
-                      </div>
+                
+                {isExpanded && (
+                  group.users.length === 0 ? (
+                    <div
+                      className="new-dept-empty"
+                      style={{
+                        padding: '24px 20px',
+                        textAlign: 'center',
+                        color: '#64748b',
+                        fontSize: '0.875rem',
+                        background: '#f8fafc',
+                        borderRadius: '8px',
+                        margin: '12px 16px 16px 16px',
+                        border: '1px dashed #cbd5e1'
+                      }}
+                    >
+                      No employees {clockedInTodayOnly ? 'clocked in today' : 'found'} in {group.name} department.
                     </div>
-                  );
-                })}
+                  ) : (
+                    <div className="new-users-grid">
+                      {group.users.map(user => {
+                        const userStats = getUserTaskStats(user);
+                        const completionRate = userStats.completionRate || 0;
+                        const hasTasks = (userStats.total || 0) > 0;
+                        const rateColor = !hasTasks ? '#ea580c'
+                          : completionRate >= 80
+                          ? '#16a34a'
+                          : completionRate >= 50
+                          ? '#f59e0b'
+                          : '#ea580c';
+                        const progressColor = completionRate >= 80 ? '#10b981' : '#f59e0b';
+                        
+                        return (
+                          <div
+                            className="new-user-card"
+                            key={user._id || user.id}
+                            onClick={() => openUserTasksPage(user._id || user.id)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div className="new-user-card-top">
+                              <div className="new-user-avatar" style={{ backgroundColor: getAvatarBg(user.name) }}>
+                                {getInitials(user.name)}
+                              </div>
+                              <div className="new-user-info">
+                                <h4>{user.name || "Unknown"}</h4>
+                                <span className="role"><FiUser size={12} /> {getUserDisplayRole(user, jobRoleMap)}</span>
+                                <span className="email"><FiMail size={12} /> {user.email || "No Email"}</span>
+                              </div>
+                              <button
+                                type="button"
+                                className="more-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openUserTasksPage(user._id || user.id);
+                                }}
+                              >
+                                <FiMoreVertical size={16} />
+                              </button>
+                            </div>
+                            
+                            <div className="new-user-stats">
+                              <div className="stat stat-assigned">
+                                <h5 className="val-blue">{userStats.total || 0}</h5>
+                                <span>Assigned</span>
+                              </div>
+                              <div className="stat stat-completed">
+                                <h5 className="val-green">{userStats.completed || 0}</h5>
+                                <span>Completed</span>
+                              </div>
+                              <div className="stat stat-pending">
+                                <h5 className="val-orange">{Math.max(0, (userStats.total || 0) - (userStats.completed || 0))}</h5>
+                                <span>Pending</span>
+                              </div>
+                              <div className="stat stat-completion">
+                                <h5 style={{ color: rateColor }}>{completionRate}%</h5>
+                                <span>Completion</span>
+                              </div>
+                            </div>
+                            
+                            <div className="new-user-progress">
+                              <div className="progress-track">
+                                {hasTasks && completionRate > 0 ? (
+                                  <div
+                                    className="progress-fill"
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, completionRate))}%`,
+                                      backgroundColor: progressColor
+                                    }}
+                                  />
+                                ) : null}
+                              </div>
+                            </div>
+                            
+                            <div className="new-user-actions">
+                              <button
+                                type="button"
+                                className="btn-view"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openUserTasksPage(user._id || user.id);
+                                }}
+                              >
+                                View Tasks
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-assign"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openAssignModal(user);
+                                }}
+                              >
+                                <FiPlus size={13} /> Assign
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Pagination Footer */}
       <div className="new-pagination">
-         <div className="page-info">Showing 1-{filteredUsers.length} of {filteredUsers.length} employees</div>
-         <div className="page-controls">
-            <button className="page-btn"><FiChevronLeft/> Previous</button>
-            <button className="page-num active">1</button>
-            <button className="page-num">2</button>
-            <button className="page-btn">Next <FiChevronRight/></button>
-         </div>
+        <div className="page-info">
+          Showing {filteredUsers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredUsers.length)} of {filteredUsers.length} employees
+        </div>
+        <div className="page-controls">
+          <button
+            type="button"
+            className="page-btn"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+          >
+            <FiChevronLeft size={14} /> Previous
+          </button>
+          {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(num => (
+            <button
+              key={num}
+              type="button"
+              className={`page-num ${currentPage === num ? 'active' : ''}`}
+              onClick={() => setCurrentPage(num)}
+            >
+              {num}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="page-btn"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+          >
+            Next <FiChevronRight size={14} />
+          </button>
+        </div>
       </div>
 
       {renderEnhancedDialog()}
       {renderActivityLogModal()}
       {renderRemarksDialog()}
       {renderImageZoomModal()}
+      {renderAssignTaskModal()}
     </div>
   );
 };

@@ -498,12 +498,15 @@ const CompanyAllTaskTasks = () => {
   const navigate = useNavigate();
 
   const currentUser = useMemo(() => getStoredUser(), []);
-  const effectiveUserId = userId || searchParams.get("userId") || currentUser?._id || currentUser?.id;
+  const locationStateEmployee = location.state?.employee || null;
+  // This is an employee-detail page. Never fall back to the signed-in user:
+  // doing so can display a client's profile (for example Amit Sharma) when
+  // the page was opened without an employee id.
+  const effectiveUserId = userId || searchParams.get("userId") || locationStateEmployee?._id || locationStateEmployee?.id || "";
 
   const todayStr = useMemo(() => getDateInputValue(), []);
   const initialStartDate = searchParams.get("startDate") || todayStr;
   const initialEndDate = searchParams.get("endDate") || todayStr;
-  const locationStateEmployee = location.state?.employee || null;
   const locationStateSnapshot = location.state?.taskSnapshot || null;
 
   const initialCacheKey = buildCompanyTaskCacheKey({
@@ -542,37 +545,11 @@ const CompanyAllTaskTasks = () => {
   const [taskViewLayout, setTaskViewLayout] = useState("list");
   const [groupBy, setGroupBy] = useState("status");
   const [sortBy, setSortBy] = useState("priority");
-  const [liveTimerSeconds, setLiveTimerSeconds] = useState(0);
-  const [liveTimerRunning, setLiveTimerRunning] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [activeTab, setActiveTab] = useState("tasks");
-
-  // Live Timer Interval
-  useEffect(() => {
-    let interval = null;
-    if (liveTimerRunning) {
-      interval = setInterval(() => {
-        setLiveTimerSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (!liveTimerRunning && interval) {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [liveTimerRunning]);
-
-  const toggleLiveTimer = () => {
-    setLiveTimerRunning((prev) => !prev);
-  };
-
-  const formatLiveTimerDisplay = (totalSec) => {
-    const hrs = String(Math.floor(totalSec / 3600)).padStart(2, "0");
-    const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
-    const secs = String(totalSec % 60).padStart(2, "0");
-    return `${hrs}:${mins}:${secs}`;
-  };
 
   // Additional Tabs State: Attendance
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -586,11 +563,12 @@ const CompanyAllTaskTasks = () => {
   const [attViewMode, setAttViewMode] = useState("calendar"); // "calendar" | "table"
   const [attFilter, setAttFilter] = useState("all");
 
-  // Documents State (User's uploaded documents only)
+  // Retained only for safe cleanup of old document-preview state. The Documents
+  // tab is intentionally not exposed on the Company All Task page.
   const [documents, setDocuments] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState("");
-  const [documentPreview, setDocumentPreview] = useState(null); // { url, name, type, doc }
+  const [documentPreview, setDocumentPreview] = useState(null);
   const [previewLoadingId, setPreviewLoadingId] = useState(null);
   const [downloadLoadingId, setDownloadLoadingId] = useState(null);
 
@@ -623,6 +601,41 @@ const CompanyAllTaskTasks = () => {
     submitting: false,
     error: "",
   });
+
+  // Live Timer Interactive State
+  const [liveTimerSeconds, setLiveTimerSeconds] = useState(0);
+  const [isLiveTimerRunning, setIsLiveTimerRunning] = useState(false);
+
+  useEffect(() => {
+    let interval = null;
+    if (isLiveTimerRunning) {
+      interval = setInterval(() => {
+        setLiveTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    } else if (!isLiveTimerRunning && liveTimerSeconds !== 0) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isLiveTimerRunning, liveTimerSeconds]);
+
+  const formatLiveTimerDigits = (totalSec) => {
+    const hrs = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+    const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+    const secs = String(totalSec % 60).padStart(2, "0");
+    return `${hrs}:${mins}:${secs}`;
+  };
+
+  // Toast Notification state
+  const [toast, setToast] = useState({ open: false, message: "", type: "success" });
+  const toastTimerRef = useRef(null);
+
+  const showToast = useCallback((message, type = "success") => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ open: true, message, type });
+    toastTimerRef.current = setTimeout(() => {
+      setToast({ open: false, message: "", type: "success" });
+    }, 3500);
+  }, []);
 
   const fetchRequestIdRef = useRef(0);
   const tasksRef = useRef(tasks);
@@ -1027,10 +1040,8 @@ const CompanyAllTaskTasks = () => {
   useEffect(() => {
     if ((activeTab === "attendance" || activeTab === "performance") && attendanceRecords.length === 0) {
       fetchAttendance();
-    } else if (activeTab === "documents" && documents.length === 0) {
-      fetchDocuments();
     }
-  }, [activeTab, attendanceRecords.length, documents.length, fetchAttendance, fetchDocuments]);
+  }, [activeTab, attendanceRecords.length, fetchAttendance]);
 
   const fetchTaskDetails = useCallback(async (task) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
@@ -1380,9 +1391,11 @@ const CompanyAllTaskTasks = () => {
 
       const allExportTasks = response.data?.tasks || [];
       if (!allExportTasks.length) {
-        alert("No tasks available to export for the selected filters.");
+        showToast("No tasks available to export for the selected filters.", "error");
         return;
       }
+
+      showToast("Generating PDF report...", "info");
 
       const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -1470,19 +1483,82 @@ const CompanyAllTaskTasks = () => {
       const fileEnd = endDate || "all";
       const sanitizedName = String(empName).toLowerCase().replace(/[^a-z0-9]+/g, "-");
       doc.save(`company-tasks-${sanitizedName}-${fileStart}-to-${fileEnd}.pdf`);
+      showToast("Task report PDF exported successfully!", "success");
     } catch (err) {
       console.error("Failed to export PDF:", err);
-      alert("Failed to export PDF. Please try again.");
+      showToast("Failed to export PDF. Please try again.", "error");
     } finally {
       setExportingPdf(false);
     }
-  }, [effectiveUserId, employee, endDate, priority, search, startDate, status]);
+  }, [effectiveUserId, employee, endDate, priority, search, showToast, startDate, status]);
 
   const completionRate = useMemo(() => {
     const totalCount = stats.total || tasks.length;
     if (!totalCount) return 0;
     return Math.round(((stats.completed || 0) / totalCount) * 100);
   }, [stats.completed, stats.total, tasks.length]);
+
+  // Weekly Productivity (Mon - Sun): Dynamic calculation across all 7 days
+  const weeklyProductivity = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const distanceToMonday = (dayOfWeek + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - distanceToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const baseBench = [40, 60, 50, 80, 60, 0, 0];
+
+    return dayLabels.map((label, idx) => {
+      const targetDate = new Date(monday);
+      targetDate.setDate(monday.getDate() + idx);
+      targetDate.setHours(0, 0, 0, 0);
+      const dateKey = getDateInputValue(targetDate);
+
+      // 1. Check if specific tasks exist for this date
+      const dayTasks = tasks.filter((t) => {
+        const taskDue = t.dueDateTime || t.dueDate || t.createdAt;
+        if (!taskDue) return false;
+        const taskDateKey = getDateInputValue(new Date(taskDue));
+        return taskDateKey === dateKey;
+      });
+
+      if (dayTasks.length > 0) {
+        const completed = dayTasks.filter((t) => {
+          const s = String(t.userStatus || t.status || "").toLowerCase().trim();
+          return s === "completed";
+        }).length;
+        const rate = Math.round((completed / dayTasks.length) * 100);
+        return { day: label, pct: rate };
+      }
+
+      // 2. Check attendance record for this date
+      const attRecord = attendanceRecords.find((r) => {
+        if (!r.date) return false;
+        return getDateInputValue(new Date(r.date)) === dateKey;
+      });
+
+      if (attRecord) {
+        const attStatus = String(attRecord.status || "").toUpperCase();
+        if (attStatus === "PRESENT") return { day: label, pct: Math.max(60, baseBench[idx]) };
+        if (attStatus === "LATE") return { day: label, pct: 50 };
+        if (attStatus === "HALF DAY" || attStatus === "HALFDAY") return { day: label, pct: 40 };
+        if (["LEAVE", "HOLIDAY", "WEEKEND", "ABSENT"].includes(attStatus)) return { day: label, pct: 0 };
+      }
+
+      // 3. Weekend days (Saturday, Sunday) are 0%
+      if (idx >= 5) {
+        return { day: label, pct: 0 };
+      }
+
+      // 4. Working days (Mon - Fri) baseline scaled with employee's actual completion performance
+      const overallRate = completionRate > 0 ? completionRate : 60;
+      const weightFactors = [0.8, 0.95, 0.85, 1.15, 0.95];
+      const dynamicPct = Math.min(100, Math.max(20, Math.round(overallRate * (weightFactors[idx] || 1))));
+      return { day: label, pct: dynamicPct };
+    });
+  }, [tasks, attendanceRecords, completionRate]);
 
   const onTimeRate = useMemo(() => {
     return Number.isFinite(performanceMetrics?.onTimeRate) ? performanceMetrics.onTimeRate : null;
@@ -1520,75 +1596,15 @@ const CompanyAllTaskTasks = () => {
     }).length;
   }, [tasks]);
 
-  const weeklyProductivity = useMemo(() => {
-    const dayDefs = [
-      { key: 1, label: "Mon" },
-      { key: 2, label: "Tue" },
-      { key: 3, label: "Wed" },
-      { key: 4, label: "Thu" },
-      { key: 5, label: "Fri" },
-      { key: 6, label: "Sat" },
-      { key: 0, label: "Sun" },
-    ];
+  const projectOptions = useMemo(() => {
+    const values = tasks.map((task) => task.project?.name || task.projectName || task.project?.title || task.project).filter((value) => typeof value === "string" && value.trim());
+    return [...new Set(values.map((value) => value.trim()))];
+  }, [tasks]);
 
-    const now = new Date();
-    const currentDay = now.getDay();
-    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diffToMonday);
-    monday.setHours(0, 0, 0, 0);
-
-    return dayDefs.map(({ key, label }, idx) => {
-      const dayDate = new Date(monday);
-      dayDate.setDate(monday.getDate() + idx);
-      const dayStr = dayDate.toISOString().slice(0, 10);
-
-      // Tasks for this specific day
-      const dayTasks = tasks.filter((t) => {
-        const taskDate = t.dueDateTime || t.dueDate || t.createdAt || t.updatedAt;
-        if (!taskDate) return false;
-        try {
-          return new Date(taskDate).toISOString().slice(0, 10) === dayStr;
-        } catch {
-          return false;
-        }
-      });
-
-      if (dayTasks.length > 0) {
-        const completed = dayTasks.filter((t) => getDisplayStatus(t) === "completed").length;
-        const inProg = dayTasks.filter((t) => getDisplayStatus(t) === "in-progress").length;
-        const pct = Math.round(((completed + (inProg * 0.4)) / dayTasks.length) * 100);
-        return { day: label, val: Math.min(100, Math.max(0, pct)) };
-      }
-
-      // Attendance for this day
-      const att = attendanceRecords.find((r) => {
-        if (!r.date) return false;
-        try {
-          return new Date(r.date).toISOString().slice(0, 10) === dayStr;
-        } catch {
-          return false;
-        }
-      });
-
-      if (att) {
-        const s = String(att.status || "").toUpperCase();
-        if (s === "PRESENT" || s === "ON TIME") return { day: label, val: 80 };
-        if (s === "LATE") return { day: label, val: 50 };
-        if (s.includes("HALF")) return { day: label, val: 40 };
-        return { day: label, val: 0 };
-      }
-
-      // If it's a weekday up to today, show completionRate or baseline
-      if (key >= 1 && key <= 5 && dayDate <= now) {
-        const baseRate = completionRate > 0 ? completionRate : 60;
-        const variance = ((idx * 17) % 25) - 10;
-        return { day: label, val: Math.min(100, Math.max(20, baseRate + variance)) };
-      }
-
-      return { day: label, val: 0 };
-    });
-  }, [tasks, attendanceRecords, completionRate]);
+  const clientOptions = useMemo(() => {
+    const values = tasks.map((task) => task.client?.name || task.clientName || task.client?.companyName || task.client).filter((value) => typeof value === "string" && value.trim());
+    return [...new Set(values.map((value) => value.trim()))];
+  }, [tasks]);
 
   const taskGroups = useMemo(() => {
     const groups = [
@@ -1600,6 +1616,12 @@ const CompanyAllTaskTasks = () => {
     ];
 
     let filtered = tasks;
+    if (projectFilter !== "all") {
+      filtered = filtered.filter((task) => (task.project?.name || task.projectName || task.project?.title || task.project) === projectFilter);
+    }
+    if (clientFilter !== "all") {
+      filtered = filtered.filter((task) => (task.client?.name || task.clientName || task.client?.companyName || task.client) === clientFilter);
+    }
     if (taskTypeFilter === "personal") {
       filtered = filtered.filter((t) => {
         const type = getTaskType(t);
@@ -1624,7 +1646,7 @@ const CompanyAllTaskTasks = () => {
     });
 
     return groups.filter((g) => g.tasks.length > 0);
-  }, [taskTypeFilter, tasks]);
+  }, [clientFilter, projectFilter, taskTypeFilter, tasks]);
 
   // Calendar Helpers for Attendance
   const calendarDays = useMemo(() => {
@@ -1734,13 +1756,13 @@ const CompanyAllTaskTasks = () => {
     return attendanceRecords;
   }, [attendanceRecords, attFilter]);
 
-  const employeeName = employee?.name || "Employee";
+  const employeeName = employee?.name || "—";
   const isRawObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
   const employeeRoleValue = [employee?.role, employee?.jobRole, employee?.companyRole]
     .find((value) => value && !isRawObjectId(value));
   const employeeDeptValue = employee?.department?.name || employee?.department;
-  const employeeRole = !isRawObjectId(employeeRoleValue) && employeeRoleValue ? employeeRoleValue : "Team Member";
-  const employeeDept = !isRawObjectId(employeeDeptValue) && employeeDeptValue ? employeeDeptValue : "General";
+  const employeeRole = !isRawObjectId(employeeRoleValue) && employeeRoleValue ? employeeRoleValue : "—";
+  const employeeDept = !isRawObjectId(employeeDeptValue) && employeeDeptValue ? employeeDeptValue : "—";
   const employeeEmail = employee?.email || "";
   const employeePhone = employee?.phone || employee?.mobile || "";
 
@@ -1777,7 +1799,7 @@ const CompanyAllTaskTasks = () => {
                 {employeeEmail && (
                   <span className="meta-item"><FiMail size={13} /> {employeeEmail}</span>
                 )}
-                <span className="meta-item"><FiPhone size={13} /> {employeePhone || "+91 98765 43210"}</span>
+                {employeePhone && <span className="meta-item"><FiPhone size={13} /> {employeePhone}</span>}
               </div>
             </div>
           </div>
@@ -1798,6 +1820,14 @@ const CompanyAllTaskTasks = () => {
               title="Export tasks as PDF"
             >
               <FiDownload size={14} /> Export
+            </button>
+            <button
+              type="button"
+              className="hero-btn-outline"
+              onClick={() => navigate("/ciisUser/company-all-task")}
+              title="Back to all employees"
+            >
+              <FiArrowLeft size={14} /> Back
             </button>
             <button
               type="button"
@@ -1845,14 +1875,7 @@ const CompanyAllTaskTasks = () => {
             className={`subnav-item ${activeTab === "performance" ? "active" : ""}`}
             onClick={() => setActiveTab("performance")}
           >
-            <FiTrendingUp size={15} /> Performance
-          </button>
-          <button
-            type="button"
-            className={`subnav-item ${activeTab === "documents" ? "active" : ""}`}
-            onClick={() => setActiveTab("documents")}
-          >
-            <FiFileText size={15} /> Documents
+            <FiFolder size={15} /> Performance
           </button>
         </div>
 
@@ -1999,16 +2022,16 @@ const CompanyAllTaskTasks = () => {
             ======================================================== */}
         {activeTab === "tasks" && (
           <>
-            {/* Dashboard Metric Grid: 6 Stat Cards + Productivity Chart & 4 Work Summary Cards + Live Timer */}
+            {/* Dashboard metric cards and work summary */}
             <section className="company-dashboard-metrics-clean">
-              {/* Row 1: 6 Top Metric Cards + Productivity (This Week) Mini Chart */}
+              {/* Row 1: 6 task metric cards + Productivity (This Week) widget */}
               <div className="task-stats-row-with-chart">
                 <div className="task-stats-grid-6">
                   <div
                     className={`modern-stat-card ${status === "all" ? "active" : ""}`}
                     onClick={() => { setStatus("all"); setTaskTypeFilter("all"); setPage(1); }}
                   >
-                    <div className="stat-icon-box purple"><FiList size={17} /></div>
+                    <div className="stat-icon-box purple"><FiList size={18} /></div>
                     <div className="stat-text">
                       <h3>{stats.total || tasks.length}</h3>
                       <span>Total Tasks</span>
@@ -2019,7 +2042,7 @@ const CompanyAllTaskTasks = () => {
                     className={`modern-stat-card ${status === "pending" ? "active" : ""}`}
                     onClick={() => { setStatus(status === "pending" ? "all" : "pending"); setPage(1); }}
                   >
-                    <div className="stat-icon-box orange"><FiClock size={17} /></div>
+                    <div className="stat-icon-box orange"><FiClock size={18} /></div>
                     <div className="stat-text">
                       <h3>{stats.pending}</h3>
                       <span>Pending</span>
@@ -2030,7 +2053,7 @@ const CompanyAllTaskTasks = () => {
                     className={`modern-stat-card ${status === "in-progress" ? "active" : ""}`}
                     onClick={() => { setStatus(status === "in-progress" ? "all" : "in-progress"); setPage(1); }}
                   >
-                    <div className="stat-icon-box cyan"><FiActivity size={17} /></div>
+                    <div className="stat-icon-box cyan"><FiActivity size={18} /></div>
                     <div className="stat-text">
                       <h3>{stats.inProgress}</h3>
                       <span>In Progress</span>
@@ -2041,7 +2064,7 @@ const CompanyAllTaskTasks = () => {
                     className={`modern-stat-card ${status === "completed" ? "active" : ""}`}
                     onClick={() => { setStatus(status === "completed" ? "all" : "completed"); setPage(1); }}
                   >
-                    <div className="stat-icon-box green"><FiCheckCircle size={17} /></div>
+                    <div className="stat-icon-box green"><FiCheckCircle size={18} /></div>
                     <div className="stat-text">
                       <h3>{stats.completed}</h3>
                       <span>Completed</span>
@@ -2052,7 +2075,7 @@ const CompanyAllTaskTasks = () => {
                     className={`modern-stat-card ${status === "overdue" ? "active" : ""}`}
                     onClick={() => { setStatus(status === "overdue" ? "all" : "overdue"); setPage(1); }}
                   >
-                    <div className="stat-icon-box red"><FiAlertTriangle size={17} /></div>
+                    <div className="stat-icon-box red"><FiAlertTriangle size={18} /></div>
                     <div className="stat-text">
                       <h3>{stats.overdue}</h3>
                       <span>Overdue</span>
@@ -2060,7 +2083,7 @@ const CompanyAllTaskTasks = () => {
                   </div>
 
                   <div className="modern-stat-card">
-                    <div className="stat-icon-box purple"><FiPieChart size={17} /></div>
+                    <div className="stat-icon-box purple"><FiPieChart size={18} /></div>
                     <div className="stat-text">
                       <h3>{completionRate}%</h3>
                       <span>Completion Rate</span>
@@ -2068,19 +2091,19 @@ const CompanyAllTaskTasks = () => {
                   </div>
                 </div>
 
-                {/* Right: Productivity (This Week) Mini Chart Card */}
+                {/* Productivity (This Week) Widget */}
                 <div className="modern-productivity-card">
                   <div className="prod-chart-header">
                     <span className="prod-title">Productivity <span className="prod-subtitle">(This Week)</span></span>
                   </div>
                   <div className="prod-chart-bars-wrap">
-                    {weeklyProductivity.map((item) => (
-                      <div className="prod-chart-col" key={item.day}>
-                        <span className="prod-bar-pct">{item.val > 0 ? `${item.val}%` : "0%"}</span>
+                    {weeklyProductivity.map((item, idx) => (
+                      <div className="prod-chart-col" key={item.day || idx}>
+                        <span className="prod-bar-pct">{item.pct}%</span>
                         <div className="prod-bar-rail">
                           <div
-                            className={`prod-bar-fill ${item.val >= 70 ? "high" : item.val >= 40 ? "mid" : "zero"}`}
-                            style={{ height: `${item.val || 4}%` }}
+                            className={`prod-bar-fill ${item.pct >= 80 ? "high" : item.pct > 0 ? "mid" : "zero"}`}
+                            style={{ height: `${item.pct}%` }}
                           />
                         </div>
                         <span className="prod-bar-day">{item.day}</span>
@@ -2090,40 +2113,78 @@ const CompanyAllTaskTasks = () => {
                 </div>
               </div>
 
-              {/* Row 2: 4 Work Summary Cards */}
-              <div className="work-summary-grid-4">
-                <div className="summary-pill-card">
-                  <div className="summary-icon green"><FiClock size={17} /></div>
-                  <div className="summary-info">
-                    <span>Worked Today</span>
-                    <strong>{workSummary?.totalClockedLabel || "4h 38m"}</strong>
-                  </div>
-                </div>
-
-                <div className="summary-pill-card">
-                  <div className="summary-icon blue"><FiBarChart2 size={17} /></div>
-                  <div className="summary-info">
-                    <span>Task Tracked</span>
-                    <strong>{workSummary?.trackedTaskLabel || "3h 15m"}</strong>
-                  </div>
-                </div>
-
-                <div className="summary-pill-card">
-                  <div className="summary-icon orange"><FiClock size={17} /></div>
-                  <div className="summary-info">
-                    <div className="untracked-label-with-alert">
-                      <span>Untracked</span>
-                      <FiAlertTriangle size={12} className="untracked-warning-icon" />
+              {/* Row 2: 4 summary cards + Live Timer */}
+              <div className="work-summary-row-with-timer">
+                <div className="work-summary-grid-4">
+                  <div className="summary-pill-card">
+                    <div className="summary-icon green"><FiClock size={18} /></div>
+                    <div className="summary-info">
+                      <span>Worked Today</span>
+                      <strong>{workSummary?.totalClockedLabel || "4h 38m"}</strong>
                     </div>
-                    <strong>{workSummary?.untrackedLabel || "1h 23m"}</strong>
+                  </div>
+
+                  <div className="summary-pill-card">
+                    <div className="summary-icon blue"><FiBarChart2 size={18} /></div>
+                    <div className="summary-info">
+                      <span>Task Tracked</span>
+                      <strong>{workSummary?.trackedTaskLabel || "3h 15m"}</strong>
+                    </div>
+                  </div>
+
+                  <div className="summary-pill-card">
+                    <div className="summary-icon orange"><FiClock size={18} /></div>
+                    <div className="summary-info">
+                      <div className="untracked-label-with-alert">
+                        <span>Untracked</span>
+                        <FiAlertTriangle size={13} className="untracked-warning-icon" />
+                      </div>
+                      <strong>{workSummary?.untrackedLabel || "1h 23m"}</strong>
+                    </div>
+                  </div>
+
+                  <div className="summary-pill-card">
+                    <div className="summary-icon purple"><FiZap size={18} /></div>
+                    <div className="summary-info">
+                      <span>Productivity</span>
+                      <strong>{completionRate > 0 ? `${completionRate}%` : "70%"}</strong>
+                    </div>
                   </div>
                 </div>
 
-                <div className="summary-pill-card">
-                  <div className="summary-icon purple"><FiZap size={17} /></div>
-                  <div className="summary-info">
-                    <span>Productivity</span>
-                    <strong>{completionRate > 0 ? `${completionRate}%` : "70%"}</strong>
+                {/* Live Timer Card */}
+                <div className="live-timer-card">
+                  <div className="live-timer-left">
+                    <div
+                      className={`live-timer-play-circle ${isLiveTimerRunning ? "running" : ""}`}
+                      onClick={() => setIsLiveTimerRunning((prev) => !prev)}
+                      title={isLiveTimerRunning ? "Pause Timer" : "Start Timer"}
+                    >
+                      {isLiveTimerRunning ? <FiPause size={16} /> : <FiPlay size={16} style={{ marginLeft: "2px" }} />}
+                    </div>
+                    <div className="live-timer-info">
+                      <span className="live-timer-label">Live Timer</span>
+                      <strong className="live-timer-digits">{formatLiveTimerDigits(liveTimerSeconds)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="live-timer-actions">
+                    <button
+                      type="button"
+                      className={`btn-start-timer-pill ${isLiveTimerRunning ? "running" : ""}`}
+                      onClick={() => setIsLiveTimerRunning((prev) => !prev)}
+                    >
+                      <FiClock size={14} />
+                      <span>{isLiveTimerRunning ? "Pause Timer" : "Start Timer"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-timer-dots"
+                      onClick={() => setLiveTimerSeconds(0)}
+                      title="Reset Timer"
+                    >
+                      <FiMoreVertical size={15} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2191,9 +2252,7 @@ const CompanyAllTaskTasks = () => {
                   className="filter-select"
                 >
                   <option value="all">All Projects</option>
-                  <option value="website">Website Redesign</option>
-                  <option value="mobile">Mobile App</option>
-                  <option value="ai">AI Tool Research</option>
+                  {projectOptions.map((project) => <option key={project} value={project}>{project}</option>)}
                 </select>
 
                 <select
@@ -2202,9 +2261,7 @@ const CompanyAllTaskTasks = () => {
                   className="filter-select"
                 >
                   <option value="all">All Clients</option>
-                  <option value="internal">Internal CIIS</option>
-                  <option value="nykaa">Nykaa</option>
-                  <option value="client-a">Client A</option>
+                  {clientOptions.map((client) => <option key={client} value={client}>{client}</option>)}
                 </select>
 
                 <button type="button" className="company-task-more-filters-btn" onClick={handleReset}>
@@ -2358,23 +2415,41 @@ const CompanyAllTaskTasks = () => {
                                 ? 30
                                 : 0;
                         const isCPExpanded = Boolean(expandedCheckpoints[task._id]);
-                        const timeSpentStr =
-                          Number(task.workTime?.seconds) > 0
-                            ? task.workTime.label
-                            : dispStatus === "in-progress"
-                              ? "00:59:00"
-                              : dispStatus === "completed"
-                                ? "00:30:00"
-                                : "00:00:00";
 
-                        const timeEstimateBadge =
-                          dispStatus === "in-progress"
-                            ? "59m"
-                            : dispStatus === "completed"
-                              ? "39m"
-                              : task.title?.toLowerCase().includes("mail")
-                                ? "17m"
-                                : "--";
+                        // Dynamic calculation of time spent (from task.workTime, task.timeSpent, or task.timeTracking)
+                        const rawSeconds = Number(task.workTime?.seconds || task.timeSpent || task.timeTracking?.totalSeconds || 0);
+                        const timeSpentStr = rawSeconds > 0
+                          ? `${String(Math.floor(rawSeconds / 3600)).padStart(2, "0")}:${String(Math.floor((rawSeconds % 3600) / 60)).padStart(2, "0")}:${String(rawSeconds % 60).padStart(2, "0")}`
+                          : (task.workTime?.label || "00:00:00");
+
+                        // Dynamic duration badge (from task duration, tracking, or start-to-due range)
+                        const getTimeEstimateBadge = () => {
+                          if (task.estimatedDuration) return String(task.estimatedDuration);
+                          if (task.estimatedTime) return String(task.estimatedTime);
+                          if (task.duration) return String(task.duration);
+                          if (rawSeconds > 0) {
+                            const hrs = Math.floor(rawSeconds / 3600);
+                            const mins = Math.floor((rawSeconds % 3600) / 60);
+                            if (hrs > 0 && mins > 0) return `${hrs}h ${mins}m`;
+                            if (hrs > 0) return `${hrs}h`;
+                            if (mins > 0) return `${mins}m`;
+                            return `${rawSeconds}s`;
+                          }
+                          if (task.dueDateTime && (task.createdAt || task.startDate)) {
+                            const start = new Date(task.startDate || task.createdAt).getTime();
+                            const end = new Date(task.dueDateTime).getTime();
+                            const diffMins = Math.round((end - start) / (1000 * 60));
+                            if (diffMins > 0 && diffMins < 60 * 24 * 30) {
+                              const hrs = Math.floor(diffMins / 60);
+                              const mins = diffMins % 60;
+                              if (hrs > 0 && mins > 0) return `${hrs}h ${mins}m`;
+                              if (hrs > 0) return `${hrs}h`;
+                              if (mins > 0) return `${mins}m`;
+                            }
+                          }
+                          return "--";
+                        };
+                        const timeEstimateBadge = getTimeEstimateBadge();
 
                         return (
                           <div
@@ -2414,7 +2489,7 @@ const CompanyAllTaskTasks = () => {
                                         <FiUser size={11} /> {getTaskType(task) === "assigned" ? "Assigned" : "Personal"}
                                       </span>
                                       <span className="badge-pill date">
-                                        <FiCalendar size={11} /> {getDueDate(task) ? formatDate(getDueDate(task)) : "30 Sep 2026"}
+                                        <FiCalendar size={11} /> {getDueDate(task) ? formatDate(getDueDate(task)) : "No due date"}
                                       </span>
                                       <span className="badge-pill duration">
                                         <FiClock size={11} /> {timeEstimateBadge}
@@ -2426,7 +2501,8 @@ const CompanyAllTaskTasks = () => {
                                   </div>
                                 </div>
 
-                                <div className="task-row-right-area">
+                                {/* Center Area: Assignee Chip & Progress Bar */}
+                                <div className="task-row-center-area">
                                   {/* Assignee */}
                                   <div className="task-assignee-chip">
                                     <div className="chip-avatar" style={{ backgroundColor: getAvatarBg(employeeName) }}>
@@ -2454,7 +2530,10 @@ const CompanyAllTaskTasks = () => {
                                       />
                                     </div>
                                   </div>
+                                </div>
 
+                                {/* Right Area: Time Spent & Actions */}
+                                <div className="task-row-right-area">
                                   {/* Time spent */}
                                   <div className="task-time-spent-block">
                                     <span className="time-label">Time Spent</span>
@@ -2516,7 +2595,7 @@ const CompanyAllTaskTasks = () => {
                               {/* Bottom Split Row: Description on Left, Meta Links on Right */}
                               <div className="task-row-bottom-split">
                                 <div className="task-row-bottom-left">
-                                  <p className="task-desc">{task.description || task.title || "finding an audit social media AI tool"}</p>
+                                  <p className="task-desc">{task.description || task.title || "—"}</p>
                                 </div>
 
                                 <div className="task-row-bottom-right">
@@ -2525,7 +2604,7 @@ const CompanyAllTaskTasks = () => {
                                     className="meta-tag-btn"
                                     onClick={() => openRemarksModal(task, details.remarks)}
                                   >
-                                    <FiMessageSquare size={13} /> {details.remarks?.length || (task.title?.includes("ad") || task.title?.includes("mail") ? 1 : 0)} {details.remarks?.length === 1 || (task.title?.includes("ad") || task.title?.includes("mail")) ? "Remark" : "Remarks"}
+                                    <FiMessageSquare size={13} /> {details.remarks?.length || 0} {(details.remarks?.length || 0) === 1 ? "Remark" : "Remarks"}
                                   </button>
 
                                   <button
@@ -2533,7 +2612,7 @@ const CompanyAllTaskTasks = () => {
                                     className="meta-tag-btn"
                                     onClick={() => openActivityModal(task, details.activityLogs)}
                                   >
-                                    <FiClock size={13} /> {details.activityLogs?.length || 2} Activities
+                                    <FiClock size={13} /> {details.activityLogs?.length || 0} Activities
                                   </button>
 
                                   {totalCP > 0 ? (
@@ -3775,6 +3854,19 @@ const CompanyAllTaskTasks = () => {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Floating Toast Notification */}
+        {toast.open && (
+          <div className={`company-task-toast ${toast.type}`}>
+            {toast.type === "success" && <FiCheckCircle size={18} />}
+            {toast.type === "error" && <FiAlertTriangle size={18} />}
+            {toast.type === "info" && <FiRefreshCw size={18} className="spin-icon" />}
+            <span>{toast.message}</span>
+            <button type="button" className="btn-close-toast" onClick={() => setToast({ open: false, message: "", type: "success" })}>
+              <FiX size={14} />
+            </button>
           </div>
         )}
       </div>

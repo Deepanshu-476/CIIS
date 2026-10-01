@@ -161,6 +161,7 @@ const readEmpUsersCache = (cacheKey) => {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
     if (!parsed.savedAt || Date.now() - parsed.savedAt > EMP_USERS_CACHE_TTL) return null;
+    if (!Array.isArray(parsed.users) || parsed.users.length === 0) return null;
 
     return parsed;
   } catch {
@@ -170,6 +171,7 @@ const readEmpUsersCache = (cacheKey) => {
 
 const writeEmpUsersCache = (cacheKey, snapshot) => {
   if (!cacheKey || typeof window === "undefined") return;
+  if (!Array.isArray(snapshot?.users) || snapshot.users.length === 0) return;
 
   try {
     sessionStorage.setItem(cacheKey, JSON.stringify({
@@ -564,7 +566,13 @@ const TaskDetails = () => {
   
 
   const isOwner = useCallback(() => {
-    return currentUserCompanyRole === 'Owner' || currentUserRole === 'Owner' || currentUserRole === 'CAREER INFOWIS Admin';
+    const role = String(currentUserRole || '').trim().toLowerCase();
+    const compRole = String(currentUserCompanyRole || '').trim().toLowerCase();
+    const adminRoles = [
+      'owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin',
+      'admin', 'hr', 'manager', 'career infowis admin', 'super admin'
+    ];
+    return adminRoles.includes(role) || adminRoles.includes(compRole);
   }, [currentUserCompanyRole, currentUserRole]);
 
   const getCompanyName = (company) => {
@@ -601,6 +609,25 @@ const TaskDetails = () => {
     if (lower === 'hr test' || lower === 'hr-test' || lower === 'test') return 'HR Test';
     if (lower === 'hr' || lower.includes('human')) return 'HR';
     return clean.replace(/[_-]/g, ' ');
+  };
+
+  // Defense in depth for the Company All Task employee workspace. Older
+  // cached responses or fallback endpoints can still contain client accounts.
+  const isClientAccount = (user) => {
+    const normalize = (value) => String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, '');
+    const roleValues = [
+      user?.companyRole,
+      user?.role,
+      user?.userRole,
+      user?.userType,
+      user?.accountType,
+      user?.employeeType,
+    ];
+    const departmentName = normalize(getDepartmentName(user?.department));
+    return roleValues.some((value) => normalize(value) === 'client') || departmentName === 'client';
   };
 
   
@@ -1350,59 +1377,26 @@ const TaskDetails = () => {
   useEffect(() => {
     const fetchUserData = () => {
       try {
-        const userStr = localStorage.getItem("user");
-        if (!userStr) {
+        const stored = getStoredUser();
+        const userStr = localStorage.getItem("user") || localStorage.getItem("currentUser") || localStorage.getItem("superAdmin");
+        const parsed = stored || (userStr ? JSON.parse(userStr) : null);
+        if (!parsed) {
           setError("Please log in to access this page");
           return;
         }
 
-        const user = JSON.parse(userStr);
-        void 0;
+        const user = parsed.user || parsed.data || parsed;
 
-        let foundUser = null;
-        let userRole = 'user';
-        let companyRole = 'employee';
-        let userName = '';
-        let userCompany = null;
-        let userDepartment = null;
-
-        if (user.id && typeof user.id === 'string') {
-          foundUser = user;
-          userRole = user.role || 'user';
-          companyRole = user.companyRole || user.role || 'employee';
-          userName = user.name || 'Unknown User';
-          userCompany = user.company || null;
-          userDepartment = user.department || null;
-        }
-        else if (user.user && user.user.id) {
-          foundUser = user.user;
-          userRole = user.user.role || 'user';
-          companyRole = user.user.companyRole || user.user.role || 'employee';
-          userName = user.user.name || 'Unknown User';
-          userCompany = user.user.company || null;
-          userDepartment = user.user.department || null;
-        }
-        else if (user._id) {
-          foundUser = user;
-          userRole = user.role || 'user';
-          companyRole = user.companyRole || user.role || 'employee';
-          userName = user.name || 'Unknown User';
-          userCompany = user.company || null;
-          userDepartment = user.department || null;
-        }
-
-        if (!userName && user.email) {
-          userName = user.email.split('@')[0];
-        }
+        let foundUser = user;
+        let userRole = user.role || 'user';
+        let companyRole = user.companyRole || user.role || 'employee';
+        let userName = user.name || (user.email ? user.email.split('@')[0] : 'Unknown User');
 
         if (isMounted.current) {
-          setCurrentUser(foundUser || user);
+          setCurrentUser(foundUser);
           setCurrentUserRole(userRole);
           setCurrentUserCompanyRole(companyRole);
         }
-
-        void 0;
-
       } catch (error) {
         console.error("Error parsing user data:", error);
         setError("Error loading user data");
@@ -1417,13 +1411,18 @@ const TaskDetails = () => {
   
 
   const fetchUsersWithTasks = useCallback(async () => {
-    
     if (fetchUsersTimeoutRef.current) {
       clearTimeout(fetchUsersTimeoutRef.current);
     }
 
+    // This loader is invoked again when permissions and role metadata finish
+    // loading. Mark this invocation immediately so an older in-flight request
+    // can never replace the visible employee list after a newer one starts.
+    const requestId = usersFetchRequestRef.current + 1;
+    usersFetchRequestRef.current = requestId;
+
     fetchUsersTimeoutRef.current = setTimeout(async () => {
-      if (!isMounted.current) return;
+      if (!isMounted.current || usersFetchRequestRef.current !== requestId) return;
 
       const todayStr = getDateInputValue();
       const cacheKey = buildEmpUsersCacheKey({
@@ -1434,16 +1433,20 @@ const TaskDetails = () => {
       const shouldShowLoading = !cachedUsersSnapshot;
 
       if (cachedUsersSnapshot) {
-        if (Array.isArray(cachedUsersSnapshot.users)) {
-          setUsers(cachedUsersSnapshot.users);
+        if (Array.isArray(cachedUsersSnapshot.users) && cachedUsersSnapshot.users.length > 0) {
+          const employeeUsers = cachedUsersSnapshot.users.filter((user) => !isClientAccount(user));
+          if (usersFetchRequestRef.current === requestId) {
+            setUsers(employeeUsers);
+            calculateOverallStats(employeeUsers);
+          }
         }
-        if (cachedUsersSnapshot.overallStats) {
+        if (cachedUsersSnapshot.overallStats && usersFetchRequestRef.current === requestId) {
           setOverallStats(cachedUsersSnapshot.overallStats);
         }
-        if (cachedUsersSnapshot.systemStats) {
+        if (cachedUsersSnapshot.systemStats && usersFetchRequestRef.current === requestId) {
           setSystemStats(cachedUsersSnapshot.systemStats);
         }
-        setUsersLoading(false);
+        if (usersFetchRequestRef.current === requestId) setUsersLoading(false);
       } else {
         setUsersLoading(true);
       }
@@ -1451,8 +1454,6 @@ const TaskDetails = () => {
       setError("");
 
       try {
-        void 0;
-
         const token = localStorage.getItem('token');
         if (!token) {
           setError("Please log in to access this page");
@@ -1471,35 +1472,48 @@ const TaskDetails = () => {
         let usersData = [];
 
         try {
-          response = await axios.get('/users/company-users', {
+          response = await axios.get('/tasks/all/company-overview', {
             ...config,
-            params: {
-              noPagination: 'true',
-              view: 'task-overview'
-            }
+            params: { includeStats: 'false' }
           });
         } catch (apiError) {
-          void 0;
-          throw apiError;
+          try {
+            response = await axios.get('/users/company-users', {
+              ...config,
+              params: {
+                noPagination: 'true',
+                view: 'task-overview'
+              }
+            });
+          } catch (err2) {
+            try {
+              response = await axios.get('/users/department-users', { ...config });
+            } catch (err3) {
+              response = await axios.get('/users/all', { ...config });
+            }
+          }
         }
 
-        if (response?.data?.users && Array.isArray(response.data.users)) {
+        if (Array.isArray(response?.data?.users)) {
           usersData = response.data.users;
-        } else if (response?.data?.data && Array.isArray(response.data.data)) {
+        } else if (Array.isArray(response?.data?.data?.users)) {
+          usersData = response.data.data.users;
+        } else if (Array.isArray(response?.data?.data)) {
           usersData = response.data.data;
-        } else if (response?.data && Array.isArray(response.data)) {
-          usersData = response.data;
-        } else if (response?.data?.message?.users && Array.isArray(response.data.message.users)) {
+        } else if (Array.isArray(response?.data?.message?.users)) {
           usersData = response.data.message.users;
+        } else if (Array.isArray(response?.data?.message)) {
+          usersData = response.data.message;
+        } else if (Array.isArray(response?.data)) {
+          usersData = response.data;
         }
-
-        void 0;
 
         let filteredUsers = usersData
           .filter(user => {
             const statusText = String(user?.status || '').trim().toLowerCase();
             return user?.isActive !== false && statusText !== 'inactive';
           })
+          .filter(user => !isClientAccount(user))
           .filter(user => {
             if (isOwner()) return true;
             if (!pageScope) return true;
@@ -1507,14 +1521,16 @@ const TaskDetails = () => {
             // Branch restriction from Page Management scope
             if (pageScope.branchIds && !pageScope.branchIds.includes('all') && pageScope.branchIds.length > 0) {
               const userBranchIds = getUserBranchIds(user);
-              const hasBranchMatch = userBranchIds.some(bId => pageScope.branchIds.includes(bId));
-              if (!hasBranchMatch) return false;
+              if (userBranchIds.length > 0) {
+                const hasBranchMatch = userBranchIds.some(bId => pageScope.branchIds.includes(bId));
+                if (!hasBranchMatch) return false;
+              }
             }
 
             // Department restriction from Page Management scope
             if (pageScope.departmentIds && !pageScope.departmentIds.includes('all') && pageScope.departmentIds.length > 0) {
               const userDeptId = String(user.department?._id || user.department?.id || user.department || '');
-              if (!pageScope.departmentIds.includes(userDeptId)) return false;
+              if (userDeptId && !pageScope.departmentIds.includes(userDeptId)) return false;
             }
 
             return true;
@@ -1526,13 +1542,11 @@ const TaskDetails = () => {
             taskStats: emptyTaskStats
           }));
 
-        if (isMounted.current) {
+        if (isMounted.current && usersFetchRequestRef.current === requestId && filteredUsers.length > 0) {
           setUsers(filteredUsers);
           calculateOverallStats(filteredUsers);
         }
 
-        const requestId = usersFetchRequestRef.current + 1;
-        usersFetchRequestRef.current = requestId;
         const fromDateParam = globalFromDate || undefined;
         const toDateParam = globalToDate || undefined;
         const isDateFiltered = fromDateParam || toDateParam;
@@ -1608,7 +1622,7 @@ const TaskDetails = () => {
       } catch (err) {
         console.error("❌ Error fetching users with tasks:", err);
 
-        if (!cachedUsersSnapshot) {
+        if (!cachedUsersSnapshot && usersFetchRequestRef.current === requestId) {
           if (err.response?.status === 401) {
             setError("You are not authorized to load this data.");
           } else if (err.response?.status === 403) {
@@ -1627,7 +1641,7 @@ const TaskDetails = () => {
           }
         }
       } finally {
-        if (isMounted.current && shouldShowLoading) {
+        if (isMounted.current && shouldShowLoading && usersFetchRequestRef.current === requestId) {
           setUsersLoading(false);
         }
       }
@@ -1894,11 +1908,40 @@ const TaskDetails = () => {
     }).length;
   }, [users]);
 
-  const handleExportPDF = useCallback(() => {
+  const handleExportPDF = useCallback(async () => {
     try {
-      const targetUsers = filteredUsers && filteredUsers.length > 0 ? filteredUsers : users;
+      let targetUsers = filteredUsers && filteredUsers.length > 0 ? filteredUsers : users;
+
+      // The employee list is populated asynchronously. If Export is clicked
+      // while that request is still settling (or the overview endpoint timed
+      // out), load the same company employee list directly instead of showing
+      // a false "no data" message.
       if (!targetUsers || targetUsers.length === 0) {
-        showSnackbar("No employee or task data to export", "warning");
+        const token = localStorage.getItem('token');
+        const response = await axios.get('/users/company-users', {
+          params: { noPagination: 'true', view: 'task-overview' },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          _skipErrorNotify: true,
+        });
+        const exportUsers = response.data?.users || response.data?.data?.users || response.data?.data || response.data || [];
+
+        if (Array.isArray(exportUsers)) {
+          targetUsers = exportUsers
+            .filter((user) => {
+              const statusText = String(user?.status || '').trim().toLowerCase();
+              return user?.isActive !== false && statusText !== 'inactive' && !isClientAccount(user);
+            })
+            .map((user) => ({
+              ...user,
+              _id: user._id || user.id,
+              role: getUserDisplayRole(user, jobRoleMap),
+              taskStats: user.taskStats || emptyTaskStats,
+            }));
+        }
+      }
+
+      if (!targetUsers || targetUsers.length === 0) {
+        showSnackbar("No employees are available to export.", "warning");
         return;
       }
 
@@ -2741,7 +2784,15 @@ const TaskDetails = () => {
     setSortBy('name-asc');
     setActiveDeptTab('all');
     setCurrentPage(1);
-  }, []);
+
+    try {
+      const todayStr = getDateInputValue();
+      sessionStorage.removeItem(buildEmpUsersCacheKey({ fromDate: todayStr, toDate: todayStr }));
+    } catch {
+      // ignore
+    }
+    fetchUsersWithTasks();
+  }, [fetchUsersWithTasks]);
 
   
   const refreshContent = useCallback(() => {
@@ -3579,17 +3630,31 @@ const TaskDetails = () => {
   const renderSnackbar = () => {
     if (!snackbar.open) return null;
 
+    const ToastIcon = snackbar.severity === 'success'
+      ? FiCheckCircle
+      : snackbar.severity === 'error'
+        ? FiXCircle
+        : snackbar.severity === 'warning'
+          ? FiAlertTriangle
+          : FiInfo;
+
     return (
-      <div className="user-create-task-snackbar-top" style={{ zIndex: 9999 }}>
-        <div className={`user-create-task-snackbar-content user-create-task-snackbar-${snackbar.severity}`}>
-          <div className="user-create-task-snackbar-message">
-            {snackbar.message}
+      <div className="emp-task-toast-region" role="status" aria-live="polite">
+        <div className={`emp-task-toast emp-task-toast--${snackbar.severity}`}>
+          <div className="emp-task-toast__icon" aria-hidden="true">
+            <ToastIcon size={21} />
+          </div>
+          <div className="emp-task-toast__copy">
+            <strong>{snackbar.severity === 'success' ? 'Success' : snackbar.severity === 'error' ? 'Something went wrong' : 'Notice'}</strong>
+            <span>{snackbar.message}</span>
           </div>
           <button
-            className="user-create-task-snackbar-close"
+            type="button"
+            className="emp-task-toast__close"
             onClick={() => setSnackbar({ ...snackbar, open: false })}
+            aria-label="Dismiss notification"
           >
-            <FiX size={18} />
+            <FiX size={17} />
           </button>
         </div>
       </div>
@@ -4716,9 +4781,10 @@ const TaskDetails = () => {
             type="button"
             className="btn-outline"
             onClick={handleExportPDF}
-            title="Export all tasks to PDF report"
+            disabled={usersLoading}
+            title={usersLoading ? "Employee data is loading..." : "Export all tasks to PDF report"}
           >
-            <FiDownload size={16} /> Export PDF
+            <FiDownload size={16} /> {usersLoading ? "Loading..." : "Export PDF"}
           </button>
         </div>
       </div>
@@ -5057,10 +5123,13 @@ const TaskDetails = () => {
           <h4>Loading Employee Data...</h4>
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="TaskDetails-empty-state">
+        <div className="TaskDetails-empty-state emp-task-empty-state">
+          <div className="emp-task-empty-state__icon" aria-hidden="true">
+            <FiUsers size={28} />
+          </div>
           <h3>No Employees Found</h3>
-          <p>Try adjusting your search query or filters.</p>
-          <button type="button" className="btn-outline" onClick={resetFilters} style={{ marginTop: '12px' }}>
+          <p>No employees match the filters you selected. Reset them to see your full team.</p>
+          <button type="button" className="emp-task-empty-state__button" onClick={resetFilters}>
             <FiRefreshCw size={14} /> Reset Filters
           </button>
         </div>

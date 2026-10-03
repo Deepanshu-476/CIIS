@@ -1,6 +1,6 @@
-export const API_URL = 'https://backendcds.ciisnetwork.in/api'
-export const API_URL_IMG = 'https://backendcds.ciisnetwork.in/'
-export const SOCKET_URL = 'https://backendcds.ciisnetwork.in/'
+export const API_URL = 'https://backendciisnetwork.com/api'
+export const API_URL_IMG = 'https://backendciisnetwork.com/'
+export const SOCKET_URL = 'https://backendciisnetwork.com/'
 
 // export const API_URL = 'https://backendappapp.ciisnetwork.in/api'
 // export const API_URL_IMG = 'https://backendappapp.ciisnetwork.in/'
@@ -16,7 +16,7 @@ export const SOCKET_URL = 'https://backendcds.ciisnetwork.in/'
 export const CHAT_UPLOAD_ORIGINS = [
   API_URL_IMG,
   'https://backendappapp.ciisnetwork.in/',
-  'https://backendcds.ciisnetwork.in/',
+  'https://backendciisnetwork.com/',
 ];
 
 export const TURN_URL = import.meta.env.VITE_TURN_URL || ''

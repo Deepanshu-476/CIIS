@@ -991,7 +991,7 @@
   box-shadow: var(--alert-shadow-lg), 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 620px;
-  max-height: 90vh;
+  max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1000,6 +1000,13 @@
 
 .cam-modal.detail-modal {
   max-width: 540px;
+}
+
+.cam-modal > form {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
 }
 
 @keyframes cam-scale-in {
@@ -1013,6 +1020,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .cam-modal-header h2 {
@@ -1045,6 +1053,8 @@
   padding: 24px;
   overflow-y: auto;
   display: flex;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: 20px;
 }
@@ -1321,6 +1331,7 @@
   justify-content: flex-end;
   gap: 12px;
   background: var(--alert-gray-50);
+  flex-shrink: 0;
 }
 
 .cam-btn {

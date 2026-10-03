@@ -14,6 +14,7 @@ import {
   Grid,
   InputAdornment,
   Paper,
+  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -224,6 +225,7 @@ export default function CompanyAccessManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
 
   const selectedCompany = useMemo(
     () => companies.find(company => company._id === selectedCompanyId),
@@ -273,13 +275,15 @@ export default function CompanyAccessManagement() {
       const fetchedCompanies = response.data?.companies || response.data?.data || [];
       setCompanies(fetchedCompanies);
     } catch (error) {
-      setNotice({
-        severity: "error",
-        message: error.response?.data?.message || "Failed to load companies",
-      });
+      showAccessNotice("error", error.response?.data?.message || "Failed to load companies");
     } finally {
       setLoading(false);
     }
+  };
+
+  const showAccessNotice = (severity, message) => {
+    setNotice({ severity, message });
+    setToast({ open: true, severity, message });
   };
 
   useEffect(() => {
@@ -353,11 +357,11 @@ export default function CompanyAccessManagement() {
   const saveAccess = async () => {
     if (!selectedCompany) return;
     if (selectedPages.length === 0) {
-      setNotice({ severity: "warning", message: "Select at least one page before activating access." });
+      showAccessNotice("warning", "Select at least one page before activating access.");
       return;
     }
     if (selectedSuperAdminPages.length === 0) {
-      setNotice({ severity: "warning", message: "Select at least one super admin page before activating access." });
+      showAccessNotice("warning", "Select at least one super admin page before activating access.");
       return;
     }
 
@@ -383,15 +387,9 @@ export default function CompanyAccessManagement() {
         localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
       }
 
-      setNotice({
-        severity: "success",
-        message: response.data.message || "Company access saved successfully.",
-      });
+      showAccessNotice("success", response.data.message || "Save successful. Company access has been updated.");
     } catch (error) {
-      setNotice({
-        severity: "error",
-        message: error.response?.data?.message || "Failed to save company access",
-      });
+      showAccessNotice("error", error.response?.data?.message || "Failed to save company access");
     } finally {
       setSaving(false);
     }
@@ -710,6 +708,22 @@ export default function CompanyAccessManagement() {
           {notice.message}
         </Alert>
       )}
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3500}
+        onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={() => setToast(prev => ({ ...prev, open: false }))}
+          sx={{ width: "100%", boxShadow: "0 16px 40px rgba(15, 23, 42, 0.22)" }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
 
       <div className="JobRoleManagement-paper">
         <div className="JobRoleManagement-header">

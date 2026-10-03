@@ -55,13 +55,13 @@ const TransferredCalls = () => {
           leadId: leadCode(lead.leadId || lead._id),
           name: lead.name || 'Lead',
           phone: lead.phone || '—',
-          transferredFrom: lead.transferredFrom?.name || 'Unassigned / Direct',
-          transferredTo: lead.assignedTo?.name || 'Unassigned',
+          transferredFrom: lead.transferredFromName || lead.transferredFrom?.name || 'Unassigned / Direct',
+          transferredTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
           reason: lead.transferReason || lead.remarks || 'Lead reassigned',
           dateTime: formatDateTime(lead.assignedAt || lead.createdAt),
           rawDate: lead.assignedAt || lead.createdAt || null,
           status: lead.status || 'Transferred',
-          transferredBy: lead.transferredBy?.name || 'Admin / Manager',
+          transferredBy: lead.transferredByName || lead.transferredBy?.name || 'Admin / Manager',
           method: lead.method || 'Manual Reassignment',
           notes: lead.remarks || '—'
         }));

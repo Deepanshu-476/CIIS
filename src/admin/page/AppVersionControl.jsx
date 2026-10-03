@@ -36,15 +36,15 @@ const defaultPlatform = {
 const defaultForm = {
   ios: {
     ...defaultPlatform,
-    latestVersionName: '1.1.29',
-    latestVersionCode: 44,
+    latestVersionName: '1.1.32',
+    latestVersionCode: 47,
     appIdentifier: 'ciisnetwork.in',
     storeId: '6780872642'
   },
   android: {
     ...defaultPlatform,
-    latestVersionName: '1.1.29',
-    latestVersionCode: 39,
+    latestVersionName: '1.1.32',
+    latestVersionCode: 41,
     appIdentifier: 'ciisnetwork.in'
   }
 };
@@ -108,7 +108,9 @@ const PlatformCard = ({ platform, value, onChange }) => {
   const updateField = (field, nextValue) => {
     onChange(platform, {
       ...value,
-      [field]: numberFields.has(field) ? Number(nextValue || 0) : nextValue
+      [field]: numberFields.has(field)
+        ? (nextValue === '' ? '' : Math.max(0, parseInt(nextValue, 10) || 0))
+        : nextValue
     });
   };
 
@@ -251,7 +253,19 @@ function AppVersionControl() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await axios.put('/app-version/admin', form);
+      const payload = {
+        ios: {
+          ...form.ios,
+          latestVersionCode: Number(form.ios.latestVersionCode || 0),
+          minimumVersionCode: Number(form.ios.minimumVersionCode || 0)
+        },
+        android: {
+          ...form.android,
+          latestVersionCode: Number(form.android.latestVersionCode || 0),
+          minimumVersionCode: Number(form.android.minimumVersionCode || 0)
+        }
+      };
+      const response = await axios.put('/app-version/admin', payload);
       const settings = response.data?.settings || {};
       setForm(normalizeSettings(settings));
       setUpdatedAt(settings.updatedAt || new Date().toISOString());
@@ -295,9 +309,18 @@ function AppVersionControl() {
         </Alert>
 
         <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 2 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }}>
             <Typography variant="body2" color="text.secondary">Last updated: {lastUpdatedLabel}</Typography>
-            <VersionStatus platform="ios" data={form.ios} />
+            <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap alignItems="center">
+              <Stack direction="row" spacing={1} alignItems="center">
+                <AppleIcon fontSize="small" sx={{ color: '#0f172a' }} />
+                <VersionStatus platform="ios" data={form.ios} />
+              </Stack>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <AndroidIcon fontSize="small" sx={{ color: '#16a34a' }} />
+                <VersionStatus platform="android" data={form.android} />
+              </Stack>
+            </Stack>
           </Stack>
         </Paper>
 

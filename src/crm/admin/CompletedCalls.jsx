@@ -47,15 +47,15 @@ const CompletedCalls = () => {
             name: lead.name || 'Lead',
             note: lead.remarks || lead.customField1 || '—',
             phone: lead.phone || '—',
-            source: lead.leadSource?.name || lead.source || 'Direct',
-            leadType: lead.leadType?.name || 'General',
+            source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
+            leadType: lead.leadTypeName || lead.leadType?.name || 'General',
             leadStatus: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Converted',
             outcome: lead.status === 'converted' ? 'Converted' : 'Interested',
             callType: 'Outbound',
             completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
             rawCompletedDate: lead.updatedAt ? getLocalDateString(lead.updatedAt) : '',
             attempts: lead.callHistory?.length || 0,
-            assignedTo: lead.assignedTo?.name || 'Unassigned',
+            assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
             remarks: lead.remarks || '—'
           }));
           setCalls(items);

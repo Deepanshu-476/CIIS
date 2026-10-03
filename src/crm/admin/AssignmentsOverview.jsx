@@ -533,9 +533,9 @@ export default function AssignmentsOverview() {
               ) : (
                 rows.map((row, index) => {
                   const code = leadCode(row._id);
-                  const sourceName = row.leadSource?.name || row.source || 'Direct';
-                  const typeName = row.leadType?.name || row.type || 'General';
-                  const assignedAgent = row.assignedTo?.name || null;
+                  const sourceName = row.leadSourceName || row.leadSource?.name || row.source || 'Direct';
+                  const typeName = row.leadTypeName || row.leadType?.name || row.type || 'General';
+                  const assignedAgent = row.assignedToName || row.assignedTo?.name || null;
                   const status = String(row.status || 'New');
                   const statusLower = status.toLowerCase();
 
@@ -700,7 +700,7 @@ export default function AssignmentsOverview() {
                   <span>{assignModalLead.phone || 'No phone number'}</span>
                 </div>
                 <span className="aso-badge-source" style={{ marginLeft: 'auto' }}>
-                  {assignModalLead.leadSource?.name || assignModalLead.source || 'Direct'}
+                  {assignModalLead.leadSourceName || assignModalLead.leadSource?.name || assignModalLead.source || 'Direct'}
                 </span>
               </div>
 

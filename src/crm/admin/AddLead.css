@@ -219,6 +219,22 @@
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.crm-add-lead .al-success-banner button {
+  border: 1px solid #047857;
+  background: #ffffff;
+  color: #047857;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* Form Action Buttons */
@@ -346,4 +362,3 @@
   cursor: pointer;
   font-weight: 600;
 }
-

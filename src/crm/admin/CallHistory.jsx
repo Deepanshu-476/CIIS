@@ -88,16 +88,16 @@ const CallHistory = () => {
         if (isMounted && res.data && Array.isArray(res.data.items)) {
           const mapped = res.data.items.map((log, idx) => ({
             id: log._id || idx + 1,
-            leadId: `#LD-${String(log.lead?._id || idx + 1).slice(-3)}`,
-            name: log.lead?.name || 'Lead',
-            phone: log.lead?.phone || '—',
-            source: log.lead?.leadSource?.name || log.lead?.source || 'Direct',
-            leadType: log.lead?.leadType?.name || 'General',
+            leadId: `#LD-${String(log.leadId || log.lead?._id || idx + 1).slice(-3)}`,
+            name: log.leadName || log.lead?.name || 'Lead',
+            phone: log.leadPhone || log.lead?.phone || '—',
+            source: log.leadSourceName || log.lead?.leadSource?.name || log.lead?.source || 'Direct',
+            leadType: log.leadTypeName || log.lead?.leadType?.name || 'General',
             callType: 'Outbound',
             outcome: log.status ? log.status.charAt(0).toUpperCase() + log.status.slice(1) : 'Answered',
             remarks: log.notes || '—',
             callTime: new Date(log.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-            assignedTo: log.agent?.name || 'Agent',
+            assignedTo: log.agentName || log.agent?.name || 'Agent',
             duration: log.duration ? `${Math.floor(log.duration / 60).toString().padStart(2, '0')}m ${(log.duration % 60).toString().padStart(2, '0')}s` : '00m 00s'
           }));
           setCalls(mapped);

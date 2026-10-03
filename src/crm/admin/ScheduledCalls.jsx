@@ -138,8 +138,8 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
           name: lead.name || 'Lead',
           phone: lead.phone || '—',
           email: lead.email || '',
-          source: lead.leadSource?.name || lead.source || 'Direct',
-          leadType: lead.leadType?.name || 'General',
+          source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
+          leadType: lead.leadTypeName || lead.leadType?.name || 'General',
           status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Scheduled',
           scheduledRaw: lead.nextFollowUp,
           scheduledDate: lead.nextFollowUp ? getLocalDateString(lead.nextFollowUp) : '—',
@@ -147,7 +147,7 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
           assignedAge: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
           createdRawDate: lead.createdAt,
           note: lead.remarks || lead.customField1 || lead.notes || '—',
-          assignedTo: lead.assignedTo?.name || 'Unassigned',
+          assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
           assignedRole: lead.assignedTo?.jobRole || lead.assignedTo?.role || 'Telecaller'
         }));
         setFetchedCalls(items);

@@ -87,8 +87,8 @@ export default function BulkAssignment() {
   // Derived filtered leads on client for source / type dropdowns
   const displayedLeads = useMemo(() => {
     return leads.filter((item) => {
-      const src = item.leadSource?.name || item.source || 'Direct';
-      const typ = item.leadType?.name || item.type || 'General';
+      const src = item.leadSourceName || item.leadSource?.name || item.source || 'Direct';
+      const typ = item.leadTypeName || item.leadType?.name || item.type || 'General';
       if (sourceFilter !== 'All' && src.toLowerCase() !== sourceFilter.toLowerCase()) return false;
       if (typeFilter !== 'All' && typ.toLowerCase() !== typeFilter.toLowerCase()) return false;
       return true;
@@ -99,7 +99,7 @@ export default function BulkAssignment() {
   const availableSources = useMemo(() => {
     const s = new Set();
     leads.forEach((l) => {
-      const val = l.leadSource?.name || l.source;
+      const val = l.leadSourceName || l.leadSource?.name || l.source;
       if (val) s.add(val);
     });
     return Array.from(s);
@@ -108,7 +108,7 @@ export default function BulkAssignment() {
   const availableTypes = useMemo(() => {
     const t = new Set();
     leads.forEach((l) => {
-      const val = l.leadType?.name || l.type;
+      const val = l.leadTypeName || l.leadType?.name || l.type;
       if (val) t.add(val);
     });
     return Array.from(t);
@@ -391,8 +391,8 @@ export default function BulkAssignment() {
               ) : (
                 displayedLeads.map((row) => {
                   const isChecked = selectedIds.includes(row._id);
-                  const source = row.leadSource?.name || row.source || 'Direct';
-                  const type = row.leadType?.name || row.type || 'General';
+                  const source = row.leadSourceName || row.leadSource?.name || row.source || 'Direct';
+                  const type = row.leadTypeName || row.leadType?.name || row.type || 'General';
                   const code = leadCode(row._id);
                   const location = row.city || row.state || row.address || '—';
 
@@ -621,7 +621,7 @@ export default function BulkAssignment() {
                   .filter((l) => selectedIds.includes(l._id))
                   .map((lead) => (
                     <div key={lead._id} className="bka-preview-item">
-                      <span>{leadCode(lead._id)}</span> - <strong>{lead.name}</strong> ({lead.leadSource?.name || lead.source || 'Direct'})
+                      <span>{leadCode(lead._id)}</span> - <strong>{lead.name}</strong> ({lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct'})
                     </div>
                   ))}
               </div>

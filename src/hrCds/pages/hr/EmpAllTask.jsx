@@ -2378,13 +2378,9 @@ const TaskDetails = () => {
 
     fetchingTasksForUser.current = `${userId}-${page}`;
 
-    
-    const user = users.find((x) => x._id === userId || x.id === userId);
+    let user = users.find((x) => x._id === userId || x.id === userId);
     if (!user) {
-      setError("User not found");
-      setLoading(false);
-      fetchingTasksForUser.current = null;
-      return;
+      user = { _id: userId, id: userId, name: "Employee" };
     }
 
     if (isMounted.current) {

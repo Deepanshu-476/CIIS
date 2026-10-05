@@ -195,7 +195,7 @@ const CompanyAssetManagement = () => {
 
   const looksLikeObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
 
-  const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+  const normalizeStatus = (status) => String(status || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 
   const getCommentAttachmentUrl = (imagePath) => {
     if (!imagePath) return '';
@@ -643,7 +643,7 @@ const CompanyAssetManagement = () => {
     }
     
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(asset => asset.status === statusFilter);
+      filtered = filtered.filter(asset => normalizeStatus(asset.status) === statusFilter);
     }
     
     if (searchTerm.trim()) {

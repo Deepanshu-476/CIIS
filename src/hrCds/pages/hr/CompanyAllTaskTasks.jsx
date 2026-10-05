@@ -1073,14 +1073,14 @@ const CompanyAllTaskTasks = () => {
     const endpoints = [];
 
     if (source === "client") {
-      endpoints.push({ key: "remarks", url: `/tasks/client-tasks/${task._id}/remarks` });
-      endpoints.push({ key: "activityLogs", url: `/tasks/client-tasks/${task._id}/activity-logs` });
+      endpoints.push({ key: "remarks", url: `/tasks/client-tasks/${task._id}/client-remarks` });
+      endpoints.push({ key: "activityLogs", url: `/tasks/client-tasks/${task._id}/client-activity-logs` });
     } else if (source === "project") {
       endpoints.push({ key: "remarks", url: `/tasks/project/${task.projectId}/tasks/${task._id}/remarks` });
-      endpoints.push({ key: "activityLogs", url: `/tasks/project/${task.projectId}/tasks/${task._id}/activity-logs` });
+      endpoints.push({ key: "activityLogs", url: `/tasks/project/${task.projectId}/tasks/${task._id}/activity` });
     } else if (source === "self") {
       endpoints.push({ key: "remarks", url: `/tasks/self/${task._id}/remarks` });
-      endpoints.push({ key: "activityLogs", url: `/tasks/self/${task._id}/activity-logs` });
+      endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
     } else {
       endpoints.push({ key: "remarks", url: `/task/${task._id}/remarks` });
       endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
@@ -1099,7 +1099,7 @@ const CompanyAllTaskTasks = () => {
           const data = res.data?.data || res.data?.remarks || res.data?.logs || res.data?.activityLogs || res.data || [];
           if (Array.isArray(data)) details[key] = data;
         } catch {
-          details[key] = [];
+          // Keep the list payload fallback when a detail endpoint is unavailable.
         }
       })
     );
@@ -1158,7 +1158,8 @@ const CompanyAllTaskTasks = () => {
       const payload = {
         title: assignModal.title.trim(),
         description: assignModal.description.trim() || undefined,
-        assignedTo: [effectiveUserId],
+        assignedUsers: [effectiveUserId],
+        assignedGroups: [],
         priority: assignModal.priority || "medium",
         dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
         checkpoints: assignModal.checkpoints.map((c) => ({ title: c.title })),
@@ -1370,10 +1371,10 @@ const CompanyAllTaskTasks = () => {
           allowCompanyAllTaskEdit: true,
         });
       } else if (source === "project") {
-        await axios.put(`/tasks/project/${task.projectId}/tasks/${task._id}`, {
+        await axios.patch(`/tasks/project/${task.projectId}/tasks/${task._id}`, {
           title: editForm.title.trim(),
           description: editForm.description.trim(),
-          dueDateTime: dueDateIso,
+          dueDate: dueDateIso,
           priority: editForm.priority,
           status: editForm.status,
           checkpoints: cleanCheckpoints,

@@ -109,9 +109,9 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
   const halfDay = count('HALF DAY', 'HALFDAY');
   const leaveDays = normalizedRecords.filter(item => item.leave).length;
   const firstDay = new Date(year, month, 1).getDay();
-  const departmentName = typeof employee?.department === 'object'
+  const departmentName = employee?.departmentName || (typeof employee?.department === 'object'
     ? (employee?.department?.name || 'Unassigned')
-    : (employee?.department || 'Unassigned');
+    : (employee?.department || 'Unassigned'));
 
   return (
     <div className="EmppAttendence-monthly-overlay" onMouseDown={onClose}>
@@ -688,6 +688,7 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
 
 const getDepartmentName = (deptId, departmentsMap, departmentsList) => {
   if (!deptId) return 'Unassigned';
+  if (typeof deptId === 'object') return deptId.name || deptId.departmentName || 'Unassigned';
   
   if (departmentsMap && departmentsMap[deptId]) {
     return departmentsMap[deptId];
@@ -820,7 +821,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
               <h4>{getEmployeeName()}</h4>
               <p className="EmppAttendence-text-muted">{record.user?.email || "N/A"}</p>
               <p className="EmppAttendence-text-muted">
-                {record.user?.department || "N/A"} • {record.user?.employeeType?.toUpperCase() || "N/A"} • 
+                {(record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || "N/A")} • {record.user?.employeeType?.toUpperCase() || "N/A"} • 
                 {record.date ? new Date(record.date).toLocaleDateString() : "N/A"}
               </p>
             </div>
@@ -1083,7 +1084,7 @@ const QuickEditModal = ({ records, onClose, onSave }) => {
                   <div className="EmppAttendence-employee-avatar small">
                     {getInitials(record.user?.name)}
                   </div>
-                  <span>{record.user?.name || 'Unknown'} - {record.user?.department || 'N/A'}</span>
+                  <span>{record.user?.name || 'Unknown'} - {record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || 'N/A'}</span>
                 </div>
               ))}
               {records.length > 5 && (
@@ -1597,22 +1598,29 @@ const EmployeeAttendance = () => {
       
       const usersWithDepartment = usersData.map(user => {
         let deptId = null;
-        let deptName = "Unassigned";
+        let deptName =
+          user.departmentName ||
+          (typeof user.department === "object" ? user.department?.name : null) ||
+          (user.department && deptMap[user.department]) ||
+          (user.departmentId && deptMap[user.departmentId]) ||
+          user.department_name ||
+          (typeof user.department === "string" && user.department.length !== 24 ? user.department : "Unassigned");
         
-        if (user.department) {
-          if (typeof user.department === "object") {
-            deptId = user.department._id || user.department.id;
-            deptName = user.department.name || "Unassigned";
-          } else {
-            deptId = user.department;
-            deptName = deptMap[user.department] || user.departmentName || "Unassigned";
-          }
+        if (typeof user.department === "object" && user.department) {
+          deptId = user.department._id || user.department.id || null;
+        } else if (user.department) {
+          deptId = user.department;
         } else if (user.departmentId) {
           deptId = user.departmentId;
-          deptName = deptMap[user.departmentId] || "Unassigned";
-        } else if (user.department_name) {
-          deptName = user.department_name;
         }
+
+        const jobRoleName =
+          user.jobRoleName ||
+          (typeof user.jobRole === "object" ? user.jobRole?.name : null) ||
+          user.jobRole ||
+          user.position ||
+          user.designation ||
+          "";
         
         return {
           id: user.id || user._id,
@@ -1623,7 +1631,9 @@ const EmployeeAttendance = () => {
           employeeType: user.employeeType || user.employmentType || 'full-time',
           departmentId: deptId,
           department: deptName,
-          jobRole: user.jobRole || user.position || user.designation
+          departmentName: deptName,
+          jobRole: jobRoleName,
+          jobRoleName: jobRoleName
         };
       });
       
@@ -2027,9 +2037,10 @@ const EmployeeAttendance = () => {
     }
 
     if (selectedDepartment !== "all") {
-      filtered = filtered.filter(
-        (rec) => rec.user?.department === selectedDepartment
-      );
+      filtered = filtered.filter((rec) => {
+        const deptVal = rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || rec.user?.departmentId;
+        return deptVal === selectedDepartment;
+      });
     }
 
     if (statusFilter !== "all") {
@@ -2042,13 +2053,15 @@ const EmployeeAttendance = () => {
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(
-        (rec) =>
+      filtered = filtered.filter((rec) => {
+        const deptStr = String(rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || '');
+        return (
           rec.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rec.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          rec.user?.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          deptStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rec.status?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+        );
+      });
     }
 
     filtered.sort((a, b) => {
@@ -2415,7 +2428,7 @@ const EmployeeAttendance = () => {
       const rows = filteredRecords.map((rec, index) => {
         const dateStr = rec.displayDate || (rec.date ? formatDate(rec.date) : "N/A");
         const empInfo = getDisplayEmployeeInfo(rec.user);
-        const dept = rec.user?.department || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned";
+        const dept = rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned";
         const empType = rec.user?.employeeType ? rec.user.employeeType.toUpperCase() : "N/A";
         const shift = getShiftLabel(rec);
         const checkIn = formatTime(rec.inTime);
@@ -2757,7 +2770,7 @@ const EmployeeAttendance = () => {
           { val: rec.displayDate || (rec.date ? formatDate(rec.date) : "N/A"), align: "center" },
           { val: empInfo.name, align: "left", isBold: true },
           { val: empInfo.email, align: "left" },
-          { val: rec.user?.department || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned", align: "left" },
+          { val: rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned", align: "left" },
           { val: rec.user?.employeeType ? rec.user.employeeType.toUpperCase() : "N/A", align: "center" },
           { val: getShiftLabel(rec), align: "center" },
           { val: formatTime(rec.inTime), align: "center" },
@@ -2884,7 +2897,7 @@ const EmployeeAttendance = () => {
     
     const excelData = filteredRecords.map(record => ({
       'Date': record.displayDate || formatDate(record.date),
-      'Department': record.user?.department || 'Unassigned',
+      'Department': record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || 'Unassigned',
       'Employee ID': record.user?.id || record.user?._id || 'N/A',
       'Name': record.user?.name || 'N/A',
       'Email': record.user?.email || 'N/A',
@@ -2953,7 +2966,7 @@ const EmployeeAttendance = () => {
     
     const csvData = filteredRecords.map(record => [
       record.displayDate || formatDate(record.date),
-      record.user?.department || 'Unassigned',
+      record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || 'Unassigned',
       record.user?.name || 'N/A',
       record.user?.email || 'N/A',
       record.user?.employeeType?.toUpperCase() || 'N/A',
@@ -3610,7 +3623,8 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-department">
                             <span className="EmppAttendence-department-chip">
-                              {rec.user?.department || 
+                              {rec.user?.departmentName || 
+                               (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || 
                                (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || 
                                'Unassigned'}
                             </span>
@@ -3732,7 +3746,7 @@ const EmployeeAttendance = () => {
                   
                   Object.entries(
                     filteredRecords.reduce((acc, rec) => {
-                      const dept = rec.user?.department || 'Unassigned';
+                      const dept = rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || 'Unassigned';
                       if (!acc[dept]) acc[dept] = [];
                       acc[dept].push(rec);
                       return acc;
@@ -3783,7 +3797,8 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-department">
                             <span className="EmppAttendence-department-chip">
-                              {rec.user?.department || 
+                              {rec.user?.departmentName || 
+                               (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || 
                                (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || 
                                'Unassigned'}
                             </span>

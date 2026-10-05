@@ -286,21 +286,25 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   };
   
   const getJobRoleName = (jobRoleId) => {
-    if (!jobRoleId || !jobRoles || jobRoles.length === 0) {
-      return typeof emp.jobRole === 'string' ? emp.jobRole.charAt(0).toUpperCase() + emp.jobRole.slice(1) : 'N/A';
+    if (emp?.jobRoleName) return emp.jobRoleName;
+    if (typeof jobRoleId === 'object' && (jobRoleId?.roleName || jobRoleId?.name)) {
+      return jobRoleId.roleName || jobRoleId.name;
     }
-    
     const roleId = typeof jobRoleId === 'object' ? jobRoleId._id || jobRoleId.id : jobRoleId;
-    
-    const jobRole = jobRoles.find(role => 
-      role._id === roleId || 
-      role.id === roleId ||
-      role.roleNumber === roleId ||
-      role.roleName === roleId ||
-      role.name === roleId
-    );
-    
-    return jobRole ? jobRole.roleName : (typeof emp.jobRole === 'string' ? emp.jobRole : 'N/A');
+    if (roleId && jobRoles && jobRoles.length > 0) {
+      const jobRole = jobRoles.find(role => 
+        role._id === roleId || 
+        role.id === roleId ||
+        role.roleNumber === roleId ||
+        role.roleName === roleId ||
+        role.name === roleId
+      );
+      if (jobRole) return jobRole.roleName || jobRole.name;
+    }
+    if (typeof emp.jobRole === 'string' && emp.jobRole && !emp.jobRole.match(/^[0-9a-fA-F]{24}$/)) {
+      return emp.jobRole.charAt(0).toUpperCase() + emp.jobRole.slice(1);
+    }
+    return 'N/A';
   };
 
   const getShiftName = () => {
@@ -321,17 +325,17 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   };
   
   const getDepartmentName = (dept) => {
+    if (emp?.departmentName) return emp.departmentName;
     if (!dept) return 'Not assigned';
-    
     if (typeof dept === 'object') {
-      return getRecordName(dept) || 'Not assigned';
+      return getRecordName(dept) || dept.name || 'Not assigned';
     }
-    
     if (typeof dept === 'string') {
-      const department = departments.find(d => sameId(d, dept));
-      return department ? getRecordName(department) || department.name : 'Not assigned';
+      const department = departments.find(d => sameId(d, dept) || d.name?.toLowerCase() === dept.toLowerCase());
+      if (department) return getRecordName(department) || department.name;
+      if (!dept.match(/^[0-9a-fA-F]{24}$/)) return dept;
+      return 'Not assigned';
     }
-    
     return 'Not assigned';
   };
   
@@ -345,16 +349,16 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   };
 
   const getBranchLabel = (branchValue) => {
-    if (!branchValue) return '';
+    if (!branchValue) return emp.branchName || '';
     if (typeof branchValue === 'object') {
       const name = branchValue.name || branchValue.branchName || '';
       const code = branchValue.branchCode || branchValue.code || '';
       return name ? `${name}${code ? ` (${code})` : ''}` : code;
     }
-
-    const branch = branches.find(item => sameId(item, branchValue));
-    if (!branch) return String(branchValue);
-    return `${branch.name}${branch.branchCode ? ` (${branch.branchCode})` : ''}`;
+    const branch = branches.find(item => sameId(item, branchValue) || item.name?.toLowerCase() === String(branchValue).toLowerCase());
+    if (branch) return `${branch.name}${branch.branchCode ? ` (${branch.branchCode})` : ''}`;
+    if (!String(branchValue).match(/^[0-9a-fA-F]{24}$/)) return String(branchValue);
+    return emp.branchName || String(branchValue);
   };
 
   const assignedBranchLabels = getIdList([

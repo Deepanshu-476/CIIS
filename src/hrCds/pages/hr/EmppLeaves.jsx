@@ -1534,7 +1534,7 @@ const EmployeeLeaves = () => {
     const days = calculateDays(leave.startDate, leave.endDate);
     const createdDate = leave.createdAt ? formatDateTime(leave.createdAt) : "N/A";
     const updatedDate = leave.updatedAt ? formatDateTime(leave.updatedAt) : "N/A";
-    const departmentName = getDepartmentName(leave.user?.department);
+    const departmentName = leave.user?.departmentName || getDepartmentName(leave.user?.department);
     const approvedByName = getUserName(leave.approvedBy);
 
     return (
@@ -1802,7 +1802,7 @@ const EmployeeLeaves = () => {
                 const days = calculateDays(leave.startDate, leave.endDate);
                 const userId = leave.user?._id || leave.user;
                 const isOwnLeave = userId === currentUserId;
-                const departmentName = getDepartmentName(leave.user?.department);
+                const departmentName = leave.user?.departmentName || getDepartmentName(leave.user?.department);
                 const canApproveThisLeave = leave.status === 'Pending' && canApproveLeave(leave);
                 
                 return (

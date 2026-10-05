@@ -283,7 +283,15 @@ const MyAssets = () => {
   const assetsFetchInFlightRef = useRef(false);
 
   // Normalize status string helper
-  const normalizeStatus = (status) => String(status || "").toLowerCase().trim();
+  const normalizeStatus = (status) => {
+    const compact = String(status || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+    if (compact === "assigned") return "approved";
+    if (compact === "completed") return "deposited";
+    return compact;
+  };
 
   // Helper to determine if an asset request is actively assigned
   const isActiveAssetRequest = (req) => {

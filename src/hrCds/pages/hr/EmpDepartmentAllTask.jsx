@@ -589,10 +589,9 @@ const TaskDetails = () => {
     setLoading(true);
     setError("");
     try {
-      const user = users.find((x) => x._id === userId);
+      let user = users.find((x) => (x._id || x.id) === userId);
       if (!user) {
-        setError("User not found");
-        return;
+        user = { _id: userId, id: userId, name: "Employee" };
       }
 
       setSelectedUser(user);

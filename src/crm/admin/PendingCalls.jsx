@@ -194,15 +194,15 @@ export default function PendingCalls() {
             leadId: `#LD-${String(lead._id).slice(-3)}`,
             name: lead.name || 'Lead',
             phone: lead.phone || '—',
-            source: lead.leadSource?.name || lead.source || 'Direct',
-            leadType: lead.leadType?.name || 'General',
+            source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
+            leadType: lead.leadTypeName || lead.leadType?.name || 'General',
             status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Assigned',
             lastCall: lead.callHistory?.length ? new Date(lead.callHistory.at(-1).date).toLocaleString('en-GB') : 'Never Called',
             nextFollowup: lead.nextFollowUp ? new Date(lead.nextFollowUp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Not Scheduled',
             assignedDate: lead.assignedAt ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
             assignedAgo: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
             priority: lead.priority || 'Normal',
-            assignedTo: lead.assignedTo?.name || 'Unassigned',
+            assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
             attempts: lead.callHistory?.length || 0
           }));
           setCalls(items);

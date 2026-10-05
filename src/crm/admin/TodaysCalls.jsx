@@ -33,15 +33,15 @@ export default function TodaysCalls() {
         if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
           const mapped = res.value.data.items.map((c, idx) => ({
             id: c._id || idx + 1,
-            lead: c.lead?.name || 'Lead',
+            lead: c.leadName || c.lead?.name || 'Lead',
             time: new Date(c.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            phone: c.lead?.phone || '—',
-            source: c.lead?.leadSource?.name || c.lead?.source || 'Direct',
-            leadType: c.lead?.leadType?.name || 'General',
+            phone: c.leadPhone || c.lead?.phone || '—',
+            source: c.leadSourceName || c.lead?.leadSource?.name || c.lead?.source || 'Direct',
+            leadType: c.leadTypeName || c.lead?.leadType?.name || 'General',
             callType: 'Outbound',
             outcome: c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : 'Answered',
             notes: c.notes || '—',
-            assignedTo: c.agent?.name || 'Agent',
+            assignedTo: c.agentName || c.agent?.name || 'Agent',
             duration: c.duration ? `${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : '0s'
           }));
           setCalls(mapped);

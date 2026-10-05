@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Select from 'react-select';
 import {
   FiChevronRight,
@@ -42,6 +42,7 @@ const getInitials = (name = '') => {
 };
 
 export default function AllLeads() {
+  const location = useLocation();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -159,10 +160,11 @@ export default function AllLeads() {
     let active = true;
     api.get('/crm/leads', {cache:false}).then(({data}) => {
       if(active) setLeads(data.items.map(item => ({...item, id:item._id, leadId: item._id ? `#LD-${String(item._id).slice(-6).toUpperCase()}` : '#LD-000', note:item.remarks || '',
-        source:item.leadSource?.name || item.source || '-', type:item.leadType?.name || '-',
+        source: item.leadSourceName || item.leadSource?.name || item.source || '-',
+        type: item.leadTypeName || item.leadType?.name || item.type || '-',
         status: item.status ? item.status.charAt(0).toUpperCase()+item.status.slice(1) : 'New',
-        assignedTo:item.assignedTo?.name || 'Unassigned',
-        assignedUserId:item.assignedTo?._id || '',
+        assignedTo: item.assignedToName || item.assignedTo?.name || (typeof item.assignedTo === 'string' && item.assignedTo !== 'Unassigned' ? item.assignedTo : 'Unassigned'),
+        assignedUserId: item.assignedTo?._id || (typeof item.assignedTo === 'string' && item.assignedTo !== 'Unassigned' ? item.assignedTo : '') || '',
         assignedDate: (item.assignedTo && item.assignedAt) ? new Date(item.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
         createdDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
         assignedAge:item.assignedTo && item.assignedAt ? `${Math.max(0, Math.floor((Date.now() - new Date(item.assignedAt).getTime()) / 86400000))} days` : '-'})));
@@ -239,6 +241,14 @@ export default function AllLeads() {
   const [filterType, setFilterType] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+
+  useEffect(() => {
+    if (loading) return;
+    const leadId = new URLSearchParams(location.search).get('lead');
+    if (!leadId) return;
+    const lead = leads.find(item => String(item.id || item._id) === leadId);
+    if (lead) setSelectedLead(lead);
+  }, [leads, loading, location.search]);
 
   // Filtered Leads
   const filteredLeads = useMemo(() => {

@@ -40,6 +40,7 @@ export default function AddLead() {
   const [form, setForm] = useState(() => { const today = new Date(); return {...initialForm, leadDate: `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`}; });
   const [errors, setErrors] = useState({});
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [savedLeadId, setSavedLeadId] = useState('');
 
   const [options, setOptions] = useState({types: [], sources: []});
   const [loading, setLoading] = useState(true);
@@ -78,6 +79,12 @@ export default function AddLead() {
     setSavedSuccess(false);
   };
 
+  const handleViewSavedLead = () => {
+    clearTimeout(redirectTimer.current);
+    const query = savedLeadId ? `?lead=${encodeURIComponent(savedLeadId)}` : '';
+    navigate(`/ciisUser/crm/admin/all-leads${query}`);
+  };
+
   const handleFullNameBlur = () => {
     if (form.fullName && form.fullName.trim()) {
       setForm(prev => ({ ...prev, fullName: toTitleCase(prev.fullName) }));
@@ -107,9 +114,12 @@ export default function AddLead() {
       pending.current = true; setSaving(true); setApiError('');
       try {
         const payload = { ...form, fullName: formattedFullName };
-        await api.post('/crm/leads', payload);
+        const res = await api.post('/crm/leads', payload);
+        const createdLeadId = res.data?.item?._id || '';
+        setSavedLeadId(createdLeadId);
         setSavedSuccess(true);
-        redirectTimer.current = setTimeout(() => navigate('/ciisUser/crm/admin/all-leads'), 1000);
+        const query = createdLeadId ? `?lead=${encodeURIComponent(createdLeadId)}` : '';
+        redirectTimer.current = setTimeout(() => navigate(`/ciisUser/crm/admin/all-leads${query}`), 1000);
       } catch(err) {
         setErrors(err.response?.data?.errors || {});
         setApiError(err.response?.data?.message || 'Could not save lead. Your details are still here; please try again.');
@@ -376,7 +386,10 @@ export default function AddLead() {
 
           {savedSuccess && (
             <div className="al-success-banner" role="status">
-              Lead saved successfully! Redirecting...
+              <span>Lead saved successfully! Redirecting...</span>
+              <button type="button" onClick={handleViewSavedLead}>
+                View Lead
+              </button>
             </div>
           )}
 

@@ -96,6 +96,18 @@ const getLoggedCompany = () => {
   return null;
 };
 
+const pickArray = (data, keys = []) => {
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+    if (Array.isArray(data?.data?.[key])) return data.data[key];
+    if (Array.isArray(data?.message?.[key])) return data.message[key];
+  }
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.message)) return data.message;
+  return [];
+};
+
 const emptyQuestion = () => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   label: '',
@@ -198,13 +210,22 @@ const FeedbackQuestionnaireManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [companyRes, userRes, questionnaireRes] = await Promise.all([
+      const [companyResult, userResult, questionnaireResult] = await Promise.allSettled([
         axiosInstance.get('/superAdmin/companies'),
         axiosInstance.get('/superAdmin/users'),
         axiosInstance.get('/feedback/questionnaires?limit=100'),
       ]);
 
-      const allCompanies = Array.isArray(companyRes.data) ? companyRes.data : [];
+      let userResponse = userResult.status === 'fulfilled' ? userResult.value : null;
+      if (!userResponse) {
+        try {
+          userResponse = await axiosInstance.get('/users/company-users', { params: lockedCompanyId ? { companyId: lockedCompanyId } : {} });
+        } catch {
+          userResponse = null;
+        }
+      }
+
+      const allCompanies = companyResult.status === 'fulfilled' ? pickArray(companyResult.value.data, ['companies']) : [];
       const matchedCompany = lockedCompanyId
         ? allCompanies.find(company => getId(company) === lockedCompanyId) || loggedCompany
         : null;
@@ -216,8 +237,12 @@ const FeedbackQuestionnaireManagement = () => {
           branch: getId(prev.company) === getId(matchedCompany) ? prev.branch : null,
         }));
       }
-      setUsers(Array.isArray(userRes.data) ? userRes.data : []);
-      setQuestionnaires(Array.isArray(questionnaireRes.data?.data?.questionnaires) ? questionnaireRes.data.data.questionnaires : []);
+      setUsers(userResponse ? pickArray(userResponse.data, ['users']).filter(user => getId(user)) : []);
+      setQuestionnaires(questionnaireResult.status === 'fulfilled' ? pickArray(questionnaireResult.value.data, ['questionnaires']) : []);
+
+      if (questionnaireResult.status === 'rejected') {
+        setNotice({ severity: 'error', message: questionnaireResult.reason?.response?.data?.message || 'Failed to load questionnaire data' });
+      }
     } catch (error) {
       setNotice({ severity: 'error', message: error.response?.data?.message || 'Failed to load questionnaire data' });
     } finally {

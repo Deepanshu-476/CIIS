@@ -415,11 +415,22 @@ const TaskDetails = () => {
 
     const loadTaskPermissions = async () => {
       try {
-        const page = await loadPagePermission('/ciisUser/company-all-task');
+        const [pageMain, pageTasks] = await Promise.all([
+          loadPagePermission('/ciisUser/company-all-task'),
+          loadPagePermission('/ciisUser/company-all-task/tasks')
+        ]);
         if (!active) return;
 
         const currentUserIdValue = getCurrentUserId();
-        const scope = getUserPageScope(page, currentUserIdValue);
+        const scopeMain = getUserPageScope(pageMain, currentUserIdValue);
+        const scopeTasks = getUserPageScope(pageTasks, currentUserIdValue);
+        const scope = {
+          canView: Boolean(scopeMain?.canView || scopeTasks?.canView),
+          canEdit: Boolean(scopeMain?.canEdit || scopeTasks?.canEdit),
+          canDelete: Boolean(scopeMain?.canDelete || scopeTasks?.canDelete),
+          canApprove: Boolean(scopeMain?.canApprove || scopeTasks?.canApprove),
+          allowedUserIds: Array.from(new Set([...(scopeMain?.allowedUserIds || []), ...(scopeTasks?.allowedUserIds || [])]))
+        };
         setPageScope(scope);
       } catch (err) {
         console.error('Failed to load company-all-task permissions:', err);
@@ -2390,13 +2401,9 @@ const TaskDetails = () => {
 
     fetchingTasksForUser.current = `${userId}-${page}`;
 
-    
-    const user = users.find((x) => x._id === userId || x.id === userId);
+    let user = users.find((x) => x._id === userId || x.id === userId);
     if (!user) {
-      setError("User not found");
-      setLoading(false);
-      fetchingTasksForUser.current = null;
-      return;
+      user = { _id: userId, id: userId, name: "Employee" };
     }
 
     if (isMounted.current) {
@@ -4115,6 +4122,17 @@ const TaskDetails = () => {
                               {formatDateTime(task.dueDateTime)}
                               {isToday && <span className="TaskDetails-modal-task-time-badge today">Today</span>}
                               {isOverdue && <span className="TaskDetails-modal-task-time-badge overdue">Overdue</span>}
+                            </span>
+                          </div>
+                        )}
+
+                        {task.lastEditedByName && (
+                          <div className="TaskDetails-modal-task-time-item task-edited-info" style={{ gridColumn: '1 / -1' }}>
+                            <FiEdit3 size={12} color="#d97706" />
+                            <span className="TaskDetails-modal-task-time-label" style={{ color: '#b45309' }}>Edited:</span>
+                            <span className="TaskDetails-modal-task-time-value" style={{ color: '#92400e' }}>
+                              by <strong>{task.lastEditedByName}</strong> {task.lastEditedAt && `(${formatDateTime(task.lastEditedAt)})`}
+                              {task.lastEditChanges && <span style={{ display: 'block', fontSize: '0.75rem', color: '#78350f', marginTop: '2px' }}>{task.lastEditChanges}</span>}
                             </span>
                           </div>
                         )}

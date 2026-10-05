@@ -1444,18 +1444,19 @@ const AdminTaskManagement = () => {
       
       if (task.statusInfo && Array.isArray(task.statusInfo)) {
         setTaskUserStatuses(task.statusInfo);
-      } else if (task.statusByUser && Array.isArray(task.statusByUser)) {
         const enrichedStatuses = task.statusByUser.map(status => {
-          const user = users.find(u => 
+          const userObj = (typeof status.user === 'object' && status.user) ? status.user : null;
+          const user = userObj || users.find(u => 
             u.id === status.user || 
             u._id === status.user ||
             (status.user?._id && (u.id === status.user._id || u._id === status.user._id))
           );
           return {
-            userId: status.user,
-            name: user?.name || 'Unknown User',
-            role: user?.role || 'N/A',
-            email: user?.email || 'N/A',
+            userId: status.user?._id || status.user?.id || status.user,
+            name: status.name || user?.name || user?.fullName || 'Unknown User',
+            role: status.role || user?.role || user?.jobRole || 'N/A',
+            email: status.email || user?.email || 'N/A',
+            profileImage: status.profileImage || user?.profileImage || user?.avatar || '',
             status: status.status,
             updatedAt: status.updatedAt
           };
@@ -1782,7 +1783,9 @@ const AdminTaskManagement = () => {
   const getAssignedUsersCount = (task) => {
     let count = task.assignedUsers?.length || 0;
     task.assignedGroups?.forEach(groupId => {
-      const group = groups.find(g => g._id === groupId || g.id === groupId);
+      const group = (typeof groupId === 'object' && groupId.name)
+        ? groupId
+        : groups.find(g => g._id === groupId || g.id === groupId);
       if (group) count += group.members?.length || 0;
     });
     return count;
@@ -1817,8 +1820,10 @@ const AdminTaskManagement = () => {
     
     if (task.assignedUsers && Array.isArray(task.assignedUsers)) {
       task.assignedUsers.forEach(user => {
-        const userId = user.id || user._id || user;
-        const userObj = users.find(u => u.id === userId || u._id === userId);
+        const userId = user?.id || user?._id || user;
+        const userObj = (typeof user === 'object' && (user.name || user.fullName))
+          ? user
+          : (users.find(u => u.id === userId || u._id === userId) || (typeof user === 'object' ? user : null));
         if (userObj) {
           assignedUsers.push({
             user: userObj,
@@ -1831,16 +1836,21 @@ const AdminTaskManagement = () => {
     
     if (task.assignedGroups && Array.isArray(task.assignedGroups)) {
       task.assignedGroups.forEach(groupId => {
-        const group = groups.find(g => g._id === groupId || g.id === groupId);
+        const group = (typeof groupId === 'object' && groupId.name)
+          ? groupId
+          : groups.find(g => g._id === groupId || g.id === groupId);
         if (group && group.members) {
           group.members.forEach(memberId => {
-            const userObj = users.find(u => u.id === memberId || u._id === memberId);
+            const memberObjId = memberId?.id || memberId?._id || memberId;
+            const userObj = (typeof memberId === 'object' && (memberId.name || memberId.fullName))
+              ? memberId
+              : (users.find(u => u.id === memberObjId || u._id === memberObjId) || (typeof memberId === 'object' ? memberId : null));
             if (userObj && !assignedUsers.some(u => 
-              (u.user.id === userObj.id || u.user._id === userObj._id)
+              (u.user?.id === userObj?.id || u.user?._id === userObj?._id)
             )) {
               assignedUsers.push({
                 user: userObj,
-                status: getUserStatusForTask(task, memberId),
+                status: getUserStatusForTask(task, memberObjId),
                 type: 'group'
               });
             }
@@ -2564,7 +2574,7 @@ const AdminTaskManagement = () => {
                                   {getUserName(remark.user)}
                                 </div>
                                 <div className="AdminTaskManagement-remark-user-details">
-                                  {users.find(u => u.id === remark.user || u._id === remark.user)?.role || 'User'} • {new Date(remark.createdAt).toLocaleDateString()} at {' '}
+                                  {remark.user?.role || (typeof remark.user === 'object' && remark.user?.jobRole) || users.find(u => u.id === remark.user || u._id === remark.user)?.role || 'User'} • {new Date(remark.createdAt).toLocaleDateString()} at {' '}
                                   {new Date(remark.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </div>
                               </div>
@@ -2681,7 +2691,7 @@ const AdminTaskManagement = () => {
                           <div className="AdminTaskManagement-activity-user-info">
                             <div className="AdminTaskManagement-activity-user-name">{getUserName(log.user)}</div>
                             <div className="AdminTaskManagement-activity-user-role">
-                              {users.find(u => u.id === log.user || u._id === log.user)?.role || 'User'}
+                              {log.user?.role || (typeof log.user === 'object' && log.user?.jobRole) || users.find(u => u.id === log.user || u._id === log.user)?.role || 'User'}
                             </div>
                           </div>
                         </div>
@@ -2748,11 +2758,15 @@ const AdminTaskManagement = () => {
           <div className="AdminTaskManagement-user-statuses">
             {taskUserStatuses.length > 0 ? (
               taskUserStatuses.map((userStatus, index) => {
-                const user = users.find(u => 
+                const userObj = (typeof userStatus.user === 'object' && userStatus.user) ? userStatus.user : null;
+                const user = userObj || users.find(u => 
                   u.id === userStatus.userId || 
                   u._id === userStatus.userId ||
                   (userStatus.user && (u.id === userStatus.user.id || u._id === userStatus.user._id))
                 );
+                const displayName = user?.name || user?.fullName || userStatus.name || 'Unknown User';
+                const displayRole = user?.role || user?.jobRole || userStatus.role || 'User';
+                const displayEmail = user?.email || userStatus.email || 'N/A';
                 
                 return (
                   <div key={index} className="AdminTaskManagement-card AdminTaskManagement-card-outline">
@@ -2761,14 +2775,14 @@ const AdminTaskManagement = () => {
                         <div className="AdminTaskManagement-user-status-header">
                           <div className="AdminTaskManagement-user-status-user">
                             <div className="AdminTaskManagement-user-status-avatar">
-                              {user?.name?.charAt(0)?.toUpperCase() || userStatus.name?.charAt(0)?.toUpperCase() || 'U'}
+                              {displayName.charAt(0).toUpperCase()}
                             </div>
                             <div className="AdminTaskManagement-user-status-info">
                               <div className="AdminTaskManagement-user-status-name">
-                                {user?.name || userStatus.name || 'Unknown User'}
+                                {displayName}
                               </div>
                               <div className="AdminTaskManagement-user-status-details">
-                                 • {user?.email || userStatus.email || 'N/A'}
+                                {displayRole} • {displayEmail}
                               </div>
                             </div>
                           </div>

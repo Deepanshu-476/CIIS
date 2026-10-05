@@ -1397,20 +1397,29 @@ const UserDashboard = () => {
   }, [cancelPendingRequests, cameraStream]);
 
   const getJobRoleDisplayName = useCallback(() => {
-    if (jobRolesLoading) return 'Loading...';
-    if (!jobRoles.length) return '';
-    
+    const directRoleName = dashboardUser?.jobRoleName || user?.jobRoleName;
+    if (directRoleName) return directRoleName;
+
     const userJobRole = dashboardUser?.jobRole || user?.jobRole;
     if (!userJobRole) return '';
+    if (typeof userJobRole === 'object' && (userJobRole?.roleName || userJobRole?.name)) {
+      return userJobRole.roleName || userJobRole.name;
+    }
+    if (typeof userJobRole === 'string' && userJobRole && !userJobRole.match(/^[0-9a-fA-F]{24}$/)) {
+      return userJobRole.charAt(0).toUpperCase() + userJobRole.slice(1);
+    }
+    if (jobRolesLoading) return 'Loading...';
+    if (!jobRoles.length) return typeof userJobRole === 'string' ? userJobRole : '';
     
     const foundRole = jobRoles.find(role => 
       role._id === userJobRole || 
       role.roleNumber === userJobRole ||
-      role.roleName === userJobRole
+      role.roleName === userJobRole ||
+      role.name === userJobRole
     );
     
-    return foundRole?.roleName || (typeof userJobRole === 'string' ? userJobRole : '');
-  }, [dashboardUser?.jobRole, jobRoles, jobRolesLoading, user?.jobRole]);
+    return foundRole?.roleName || foundRole?.name || (typeof userJobRole === 'string' ? userJobRole : '');
+  }, [dashboardUser?.jobRole, dashboardUser?.jobRoleName, jobRoles, jobRolesLoading, user?.jobRole, user?.jobRoleName]);
 
   const filteredAttendanceData = useMemo(() => {
     if (!userJoinDate) return attendanceData;

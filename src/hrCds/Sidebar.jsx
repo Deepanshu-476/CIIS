@@ -1607,8 +1607,61 @@ const getMenuDisplayName = (name) => {
   return name;
 };
 
+const normalizeSidebarRouteValue = value => String(value || '')
+  .trim()
+  .toLowerCase()
+  .split(/[?#]/)[0]
+  .replace(/\/+$/, '');
+
+const canonicalSidebarItems = [
+  {
+    id: 'client-management',
+    name: 'Client Management',
+    icon: 'Person',
+    path: '/ciisUser/emp-client',
+    category: 'clients'
+  },
+  {
+    id: 'active-clients',
+    name: 'Active Clients',
+    icon: 'Groups',
+    path: '/ciisUser/active-clients',
+    category: 'clients'
+  },
+  {
+    id: 'client-plans',
+    name: 'Client Plans',
+    icon: 'Subscriptions',
+    path: '/ciisUser/client-plans',
+    category: 'clients'
+  }
+];
+
+const canonicalSidebarItemByKey = canonicalSidebarItems.reduce((map, item) => {
+  const keys = [
+    item.id,
+    item.name,
+    item.path,
+    item.path.replace(/^\/ciisUser\//i, ''),
+    item.path.replace(/^\/+/, ''),
+    getPathFromName(item.name)
+  ];
+  keys.forEach(key => {
+    const normalized = normalizeSidebarRouteValue(key).replace(/^\/+/, '');
+    if (normalized) map.set(normalized, item);
+  });
+  return map;
+}, new Map());
+
+const getCanonicalSidebarItem = item => {
+  const keys = [item?.id, item?.path, item?.name]
+    .map(key => normalizeSidebarRouteValue(key).replace(/^\/+/, ''))
+    .filter(Boolean);
+  return keys.map(key => canonicalSidebarItemByKey.get(key)).find(Boolean) || null;
+};
+
 const getMenuRouteKey = item => String(item?.path || '').split('/').filter(Boolean).pop();
-const managementClientPageIds = new Set(['emp-client', 'active-clients']);
+const managementClientPageIds = new Set(['emp-client', 'client-management', 'client-plans', 'active-clients']);
 
 const getMenuAccessKeys = item => {
   const id = String(item?.id || '').trim();
@@ -2829,7 +2882,7 @@ const Sidebar = ({
     );
     const roleConfiguredPaths = new Set(
       (Array.isArray(sidebarConfig?.menuItems) ? sidebarConfig.menuItems : [])
-        .map(item => String(item?.path || '').toLowerCase().replace(/\/+$/, ''))
+        .map(item => String(getCanonicalSidebarItem(item)?.path || item?.path || '').toLowerCase().replace(/\/+$/, ''))
         .filter(Boolean)
     );
     const filterItemsByPageAccess = items => {
@@ -2874,24 +2927,26 @@ const Sidebar = ({
     }
 
     let items = [];
+    const hasCustomSidebarConfig = sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems);
 
-    if (sidebarConfig && sidebarConfig.menuItems && Array.isArray(sidebarConfig.menuItems)) {
+    if (hasCustomSidebarConfig) {
       items = sidebarConfig.menuItems
         .map((item, index) => {
+          const canonicalItem = getCanonicalSidebarItem(item);
           const crmPage = allPagesItems.find(page => ['crm', 'admin-telecaller'].includes(page.category) && (
             page.id === item.id ||
             page.path.toLowerCase() === String(item.path || '').toLowerCase().replace(/\/+$/, '')
           ));
           const processedItem = {
-            id: crmPage?.id || item.id || item._id || Math.random().toString(36).substr(2, 9),
+            id: canonicalItem?.id || crmPage?.id || item.id || item._id || Math.random().toString(36).substr(2, 9),
             // CRM entries always use the canonical page label. Older saved
             // configs sometimes persisted the page id in `name`, which made
             // raw ids flash in the sidebar after a refresh.
-            name: getMenuDisplayName(crmPage?.name || item.name || 'Unnamed Item'),
-            icon: crmPage?.icon || item.icon || 'Dashboard',
-            category: crmPage?.category || item.category || 'main',
+            name: getMenuDisplayName(canonicalItem?.name || crmPage?.name || item.name || 'Unnamed Item'),
+            icon: canonicalItem?.icon || crmPage?.icon || item.icon || 'Dashboard',
+            category: canonicalItem?.category || crmPage?.category || item.category || 'main',
             order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
-            path: crmPage?.path || item.path || getPathFromName(item.name),
+            path: canonicalItem?.path || crmPage?.path || item.path || getPathFromName(item.name),
             disabled: item.disabled || false,
             visible: item.visible !== false
           };
@@ -2914,18 +2969,19 @@ const Sidebar = ({
       items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
     }
 
-    // Plan-enabled strict pages (Payroll/CRM) must remain discoverable even
-    // when the user's role has an older saved sidebar configuration. The
-    // page-access filter below still removes every page not assigned to them.
+    // A saved/custom sidebar is authoritative for what the role can see.
+    // Fallback items are only used when no custom config exists.
     let accessFilteredItems = filterItemsByCompanyAccess(
-      addCompanyAccessFallbackItems(items, companyData, isPageAccessAdmin),
+      hasCustomSidebarConfig
+        ? items
+        : addCompanyAccessFallbackItems(items, companyData, isPageAccessAdmin),
       companyData
     );
 
     // Keep the register approval page available to the same privileged roles
-    // that are allowed by the backend controller, including companies with a
-    // saved/custom sidebar configuration.
-    {
+    // that are allowed by the backend controller when no custom sidebar config
+    // is assigned for the role.
+    if (!hasCustomSidebarConfig) {
       const normalizeRole = value => String(value || '')
         .trim()
         .toLowerCase()

@@ -480,7 +480,7 @@ const EmmpTask = () => {
 
     formData.append('title', newTask.title);
     formData.append('description', newTask.description);
-    formData.append('dueDate', newTask.dueDate.toISOString().split('T')[0]);
+    formData.append('dueDateTime', newTask.dueDate.toISOString());
     
     formData.append('priorityDays', newTask.priorityDays);
     formData.append('priority', newTask.priority);
@@ -615,12 +615,16 @@ const EmmpTask = () => {
   };
 
   const getUserName = (userId) => {
-    const user = users.find(u => u._id === userId);
+    if (userId && typeof userId === 'object' && (userId.name || userId.fullName)) return userId.name || userId.fullName;
+    const uid = userId?._id || userId?.id || userId;
+    const user = users.find(u => u._id === uid || u.id === uid);
     return user ? user.name : 'Unknown User';
   };
 
   const getGroupName = (groupId) => {
-    const group = groups.find(g => g._id === groupId);
+    if (groupId && typeof groupId === 'object' && groupId.name) return groupId.name;
+    const gid = groupId?._id || groupId?.id || groupId;
+    const group = groups.find(g => g._id === gid || g.id === gid);
     return group ? group.name : 'Unknown Group';
   };
 

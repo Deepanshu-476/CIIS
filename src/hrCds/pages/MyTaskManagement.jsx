@@ -454,15 +454,18 @@ const MyTaskManagement = () => {
     if (!task.assignedUsers || !task.statusByUser) return [];
     
     return task.assignedUsers.map(assignedUserId => {
+      const uid = assignedUserId?._id || assignedUserId?.id || assignedUserId;
       const userStatus = task.statusByUser.find(s => 
-        s.user === assignedUserId || s.user?._id === assignedUserId
+        s.user === uid || s.user?._id === uid
       );
-      const user = users.find(u => u._id === assignedUserId);
+      const user = (typeof assignedUserId === 'object' && (assignedUserId.name || assignedUserId.fullName))
+        ? assignedUserId
+        : users.find(u => (u._id || u.id) === uid);
       
       return {
-        userId: assignedUserId,
-        userName: user?.name || 'Unknown User',
-        userRole: user?.role || 'N/A',
+        userId: uid,
+        userName: user?.name || user?.fullName || 'Unknown User',
+        userRole: user?.role || user?.jobRole || 'N/A',
         status: userStatus?.status || 'pending',
         updatedAt: userStatus?.updatedAt || task.createdAt
       };
@@ -829,8 +832,10 @@ const MyTaskManagement = () => {
   };
 
   const getUserName = (userId) => {
-    const user = users.find(u => u._id === userId);
-    return user ? user.name : 'Unknown User';
+    if (!userId) return 'Unknown User';
+    if (typeof userId === 'object') return userId.name || userId.fullName || 'Unknown User';
+    const user = users.find(u => (u._id || u.id) === userId);
+    return user ? (user.name || user.fullName) : 'Unknown User';
   };
 
   const getRepeatInfo = (task) => {
@@ -1302,9 +1307,11 @@ const MyTaskManagement = () => {
                 <div className="MyTaskManagement-members-label">Members ({group.members.length})</div>
                 <div className="MyTaskManagement-members-list">
                   {group.members.slice(0, 3).map(memberId => {
-                    const member = users.find(u => u._id === memberId);
+                    const member = (typeof memberId === 'object' && (memberId.name || memberId.fullName))
+                      ? memberId
+                      : users.find(u => (u._id || u.id) === (memberId?._id || memberId));
                     return member ? (
-                      <div key={memberId} className="MyTaskManagement-member-item">
+                      <div key={member._id || member.id || memberId} className="MyTaskManagement-member-item">
                         <div className="MyTaskManagement-member-avatar">
                           {member.name.charAt(0).toUpperCase()}
                         </div>
@@ -2002,10 +2009,13 @@ const MyTaskManagement = () => {
                             Object.values(assignedTasksGrouped).flat().find(t => t._id === statusChangeDialog.taskId);
                 
                 return task?.assignedUsers?.map(assignedUserId => {
-                  const user = users.find(u => u._id === assignedUserId);
+                  const uid = assignedUserId?._id || assignedUserId?.id || assignedUserId;
+                  const user = (typeof assignedUserId === 'object' && (assignedUserId.name || assignedUserId.fullName))
+                    ? assignedUserId
+                    : users.find(u => (u._id || u.id) === uid);
                   return user ? (
-                    <option key={user._id} value={user._id}>
-                      {user.name} ({user.role})
+                    <option key={user._id || uid} value={user._id || uid}>
+                      {user.name} ({user.role || user.jobRole || 'User'})
                     </option>
                   ) : null;
                 }) || [];

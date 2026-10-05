@@ -451,14 +451,23 @@ const EmpAssets = () => {
     }
   };
 
+  const normalizeStatus = (status) => {
+    const compact = String(status || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_');
+    if (compact === 'assigned') return 'approved';
+    if (compact === 'completed') return 'deposited';
+    return compact;
+  };
+
   const calculateStats = (data) => {
-    const normalize = (value) => String(value || '').toLowerCase();
-    const pending = data.filter(r => normalize(r.status) === 'pending').length;
-    const approved = data.filter(r => normalize(r.status) === 'approved').length;
-    const rejected = data.filter(r => normalize(r.status) === 'rejected').length;
-    const returnRequested = data.filter(r => normalize(r.status) === 'return_requested').length;
-    const pendingVerification = data.filter(r => normalize(r.status) === 'pending_verification').length;
-    const deposited = data.filter(r => normalize(r.status) === 'deposited').length;
+    const pending = data.filter(r => normalizeStatus(r.status) === 'pending').length;
+    const approved = data.filter(r => normalizeStatus(r.status) === 'approved').length;
+    const rejected = data.filter(r => normalizeStatus(r.status) === 'rejected').length;
+    const returnRequested = data.filter(r => normalizeStatus(r.status) === 'return_requested').length;
+    const pendingVerification = data.filter(r => normalizeStatus(r.status) === 'pending_verification').length;
+    const deposited = data.filter(r => normalizeStatus(r.status) === 'deposited').length;
     setStats({ total: data.length, pending, approved, rejected, returnRequested, pendingVerification, deposited });
   };
 
@@ -506,8 +515,6 @@ const EmpAssets = () => {
       setStatusFilter(type);
     }
   };
-
-  const normalizeStatus = (status) => String(status || '').toLowerCase();
 
   const getStatusLabel = (status) => {
     switch (normalizeStatus(status)) {
@@ -967,7 +974,7 @@ const EmpAssets = () => {
   const getInitials = (name) => name ? name.split(' ').map(w => w[0]).join('').toUpperCase() : 'U';
 
   const filteredRequests = requests.filter(req => {
-    const statusMatch = !statusFilter || String(req.status || '').toLowerCase() === statusFilter;
+    const statusMatch = !statusFilter || normalizeStatus(req.status) === statusFilter;
     const departmentMatch = !departmentFilter || String(req.department?._id || req.department || req.departmentId || '').toLowerCase() === departmentFilter.toLowerCase();
     const q = searchQuery.trim().toLowerCase();
     const searchMatch = !q || [

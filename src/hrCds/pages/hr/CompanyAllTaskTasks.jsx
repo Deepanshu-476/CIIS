@@ -43,7 +43,8 @@ import {
   FiRefreshCw,
   FiGrid,
   FiPlay,
-  FiPause
+  FiPause,
+  FiEdit2
 } from "react-icons/fi";
 import {
   getCurrentUserId,
@@ -103,6 +104,18 @@ const cleanActivityDescription = (desc, action) => {
 const getActivityMeta = (log) => {
   const action = String(log.action || log.type || "").toLowerCase();
   const desc = String(log.description || log.text || log.message || log.details || "").toLowerCase();
+
+  if (action.includes("edit") || desc.includes("edited by") || action === "edited") {
+    return {
+      type: "edited",
+      label: "Edited",
+      badgeClass: "badge-edited",
+      icon: <FiEdit2 size={13} />,
+      color: "#d97706",
+      bg: "#fef3c7",
+      border: "#fde68a"
+    };
+  }
 
   if (action.includes("complete") || desc.includes("completed")) {
     return {
@@ -665,19 +678,30 @@ const CompanyAllTaskTasks = () => {
 
     const loadTaskPermissions = async () => {
       try {
-        const page = await loadPagePermission("/ciisUser/company-all-task");
+        const [pageMain, pageTasks] = await Promise.all([
+          loadPagePermission("/ciisUser/company-all-task"),
+          loadPagePermission("/ciisUser/company-all-task/tasks")
+        ]);
         if (!active) return;
 
         const currentUserIdValue = getCurrentUserId();
         const currentUser = getStoredUser();
-        const viewUserIds = getPageAccessUserIds(page, 'view');
-        const editUserIds = getPageAccessUserIds(page, 'edit');
-        const configuredIds = [
-          ...getPageAccessUserIds(page, 'approve'),
+        const viewUserIds = Array.from(new Set([
+          ...getPageAccessUserIds(pageMain, 'view'),
+          ...getPageAccessUserIds(pageTasks, 'view')
+        ]));
+        const editUserIds = Array.from(new Set([
+          ...getPageAccessUserIds(pageMain, 'edit'),
+          ...getPageAccessUserIds(pageTasks, 'edit')
+        ]));
+        const configuredIds = Array.from(new Set([
+          ...getPageAccessUserIds(pageMain, 'approve'),
+          ...getPageAccessUserIds(pageTasks, 'approve'),
           ...viewUserIds,
           ...editUserIds,
-          ...getPageAccessUserIds(page, 'delete')
-        ];
+          ...getPageAccessUserIds(pageMain, 'delete'),
+          ...getPageAccessUserIds(pageTasks, 'delete')
+        ]));
 
         const isSuperRole = currentUser?.role === 'superadmin' || currentUser?.role === 'admin' || currentUser?.isSuperAdmin;
         const isSelf = String(effectiveUserId || '') === String(currentUserIdValue || '');
@@ -1183,7 +1207,17 @@ const CompanyAllTaskTasks = () => {
     setActivityModal({ open: true, task, logs });
   };
 
-  const canEditTask = (task) => canEditCompanyTasks && ["self", "assigned", "client", "project"].includes(getTaskSource(task));
+  const canEditTask = (task) => {
+    if (!task) return false;
+    const source = getTaskSource(task);
+    if (!["self", "assigned", "client", "project"].includes(source)) return false;
+    if (canEditCompanyTasks) return true;
+    const currentUserIdValue = getCurrentUserId();
+    if (source === "self" && (String(task.assignedTo || task.userId || task.createdBy?._id || task.createdBy || '') === String(currentUserIdValue))) {
+      return true;
+    }
+    return false;
+  };
 
   const openEditModal = (task) => {
     setEditForm({
@@ -1237,7 +1271,12 @@ const CompanyAllTaskTasks = () => {
   };
 
   const handleTaskStatusChange = async (task, nextStatus) => {
-    if (!canEditTask(task) || !nextStatus) return;
+    if (!task?._id) return;
+    if (!canEditTask(task)) {
+      setError("You do not have permission to change task status on this page. Edit permission can be configured in Page Management.");
+      return;
+    }
+    if (!nextStatus) return;
     const source = getTaskSource(task);
     const endpoint =
       source === "client"
@@ -1300,7 +1339,11 @@ const CompanyAllTaskTasks = () => {
   const handleEditSubmit = async (event) => {
     event.preventDefault();
     const task = editModal.task;
-    if (!task?._id || !canEditTask(task)) return;
+    if (!task?._id) return;
+    if (!canEditTask(task)) {
+      setError("You do not have permission to edit tasks on this page. Edit permission can be configured in Page Management.");
+      return;
+    }
 
     if (!editForm.title.trim() || !editForm.description.trim() || !editForm.dueDateTime) {
       setError("Title, description and due date are required.");
@@ -1881,8 +1924,13 @@ const CompanyAllTaskTasks = () => {
 
         {error && (
           <div className="company-task-error">
-            <FiAlertTriangle size={18} />
-            {error}
+            <div className="company-task-error-text">
+              <FiAlertTriangle size={18} />
+              <span>{error}</span>
+            </div>
+            <button type="button" className="btn-close-error" onClick={() => setError("")} title="Dismiss">
+              <FiX size={16} />
+            </button>
           </div>
         )}
 
@@ -2497,6 +2545,11 @@ const CompanyAllTaskTasks = () => {
                                       <span className={`badge-pill priority ${task.priority || "medium"}`}>
                                         <span className="pri-dot" /> {(task.priority || "Medium")}
                                       </span>
+                                      {task.lastEditedByName && (
+                                        <span className="badge-pill edited" title={`Edited by ${task.lastEditedByName}${task.lastEditChanges ? ': ' + task.lastEditChanges : ''}`}>
+                                          <FiEdit2 size={11} /> Edited by {task.lastEditedByName}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -2596,6 +2649,16 @@ const CompanyAllTaskTasks = () => {
                               <div className="task-row-bottom-split">
                                 <div className="task-row-bottom-left">
                                   <p className="task-desc">{task.description || task.title || "—"}</p>
+                                  {task.lastEditedByName && (
+                                    <div className="task-last-edit-info">
+                                      <FiEdit2 size={12} className="edit-info-icon" />
+                                      <span className="edit-info-text">
+                                        <strong>Edited by {task.lastEditedByName}</strong>
+                                        {task.lastEditedAt && ` on ${formatDateTime(task.lastEditedAt)}`}
+                                        {task.lastEditChanges && `: ${task.lastEditChanges}`}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="task-row-bottom-right">
@@ -3547,6 +3610,21 @@ const CompanyAllTaskTasks = () => {
               </div>
 
               <form onSubmit={handleEditSubmit} className="company-task-modal-form">
+                {editModal.task?.lastEditedByName && (
+                  <div className="modal-edit-audit-banner">
+                    <FiEdit2 size={16} className="audit-icon" />
+                    <div className="audit-content">
+                      <div className="audit-title">
+                        Last edited by <strong>{editModal.task.lastEditedByName}</strong>
+                        {editModal.task.lastEditedAt && ` on ${formatDateTime(editModal.task.lastEditedAt)}`}
+                      </div>
+                      {editModal.task.lastEditChanges && (
+                        <div className="audit-changes">{editModal.task.lastEditChanges}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>Title <span className="required">*</span></label>
                   <input

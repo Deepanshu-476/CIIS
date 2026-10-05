@@ -38,6 +38,8 @@ const PAYROLL_PERMISSION_ACTIONS = {
   "job-role-management": { view: "View", edit: "Create / Edit", delete: "Delete" },
   "company-assets": { view: "View", edit: "Create / Edit", delete: "Delete" },
   companyAssets: { view: "View", edit: "Create / Edit", delete: "Delete" },
+  "company-all-task": { view: "View", edit: "Edit Tasks", delete: "Delete" },
+  "company-all-task-tasks": { view: "View", edit: "Edit Tasks", delete: "Delete" },
 };
 
 const FALLBACK_PAGES = [
@@ -50,7 +52,8 @@ const FALLBACK_PAGES = [
   { pageKey: "department", name: "Department Management", path: "/ciisUser/department", permissionPattern: "viewEdit" },
   { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Create / Edit", delete: "Delete" } },
   { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
-  { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit" },
+  { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Edit Tasks", delete: "Delete" } },
+  { pageKey: "company-all-task-tasks", name: "Company Tasks", path: "/ciisUser/company-all-task/tasks", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Edit Tasks", delete: "Delete" } },
   { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
   { pageKey: "emp-client", name: "Client Management", path: "/ciisUser/emp-client", permissionPattern: "viewEdit" },
   { pageKey: "client-plans", name: "Client Plans", path: "/ciisUser/client-plans", permissionPattern: "viewEdit" },
@@ -80,6 +83,7 @@ const ICON_MAP = {
   JobRoleManagement: AssignmentIndOutlined,
   "manage-groups": GroupsOutlined,
   "company-all-task": ViewColumnOutlined,
+  "company-all-task-tasks": ViewColumnOutlined,
   SidebarManagement: LockOutlined,
   "client-plans": WorkOutline,
   "active-clients": WorkOutline,

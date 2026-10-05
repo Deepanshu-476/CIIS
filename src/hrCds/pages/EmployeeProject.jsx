@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 
-const SHOW_TASK_DOCUMENTS = false;
+const SHOW_TASK_DOCUMENTS = true;
 
 const parseStoredJson = (key) => {
   try {
@@ -201,6 +201,7 @@ const EmployeeProject = () => {
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfPath, setSelectedPdfPath] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
+  const [selectedPdfContext, setSelectedPdfContext] = useState(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState(null);
@@ -566,10 +567,14 @@ const EmployeeProject = () => {
         }
       });
       const loadedProjects = getProjectsFromResponse(res.data);
-      const normalizedCompanyCode = companyCode.toLowerCase();
+      const normalizedCompanyCode = (companyCode || "").trim().toLowerCase();
       const companyProjects = loadedProjects.filter(project => {
-        const projectCompanyCode = getProjectCompanyCode(project);
-        return !normalizedCompanyCode || !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
+        if (!normalizedCompanyCode) return true;
+        const projectCompanyCode = getProjectCompanyCode(project).toLowerCase();
+        if (!projectCompanyCode) return true;
+        return projectCompanyCode === normalizedCompanyCode ||
+          projectCompanyCode.startsWith(normalizedCompanyCode) ||
+          normalizedCompanyCode.startsWith(projectCompanyCode);
       }).map(normalizeProjectTaskOrder);
 
       setProjects(companyProjects);
@@ -876,33 +881,39 @@ const EmployeeProject = () => {
   };
 
   
-  const viewPdf = async (pdfPath, filename) => {
-    if (!pdfPath) {
+  const viewPdf = async (pdfPath, filename, context = {}) => {
+    const rawPath = pdfPath || context?.path;
+    const projectId = context?.projectId || (context?.project ? (context.project._id || context.project.id) : null);
+    const taskId = context?.taskId || (context?.task ? (context.task._id || context.task.id) : null);
+
+    if (!rawPath && !projectId) {
       showSnackbar("No file available", "warning");
       return;
     }
-    
-    const pathParts = pdfPath.split('/');
+
+    const pathParts = rawPath ? String(rawPath).split('/') : [];
     const pdfFilename = pathParts[pathParts.length - 1];
     const displayName = filename || pdfFilename || "document.pdf";
-    const pdfUrl = getUploadUrl(pdfPath) || getLiveUploadUrl(pdfPath);
+    const fallbackUrl = rawPath ? (getUploadUrl(rawPath) || getLiveUploadUrl(rawPath)) : "";
 
-    if (isImagePath(displayName || pdfPath)) {
+    setSelectedPdfContext(context);
+
+    if (isImagePath(displayName || rawPath)) {
       if (detailTaskId) {
         setTaskDetailToRestore(detailTaskId);
       } else {
         setTaskDetailToRestore(null);
       }
       setImagePreview({
-        url: pdfUrl,
-        path: pdfPath,
+        url: fallbackUrl,
+        path: rawPath || "",
         name: displayName
       });
       setOpenPdfDialog(false);
       setDetailTaskId(null);
       return;
     }
-    
+
     if (detailTaskId) {
       setTaskDetailToRestore(detailTaskId);
       setDetailTaskId(null);
@@ -915,26 +926,31 @@ const EmployeeProject = () => {
       setPdfBlobUrl(null);
     }
 
-    setSelectedPdfUrl(pdfUrl);
-    setSelectedPdfPath(pdfPath);
+    setSelectedPdfUrl(fallbackUrl);
+    setSelectedPdfPath(rawPath || "");
     setSelectedPdfName(displayName);
     setPdfLoading(true);
     setPdfError(null);
     setOpenPdfDialog(true);
 
-    const downloadUrls = [
-      getUploadUrl(pdfPath),
-      getLiveUploadUrl(pdfPath)
-    ].filter((url, index, urls) => url && urls.indexOf(url) === index);
+    const candidateUrls = [];
+    if (projectId && taskId) {
+      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document?view=true`);
+    } else if (projectId) {
+      candidateUrls.push(`/projects/${projectId}/document?view=true`);
+    }
+    if (fallbackUrl) {
+      candidateUrls.push(fallbackUrl);
+    }
 
     try {
       let response = null;
-      for (const url of downloadUrls) {
+      for (const url of candidateUrls) {
         try {
           response = await axios.get(url, { responseType: 'blob' });
           break;
         } catch (error) {
-          if (url === downloadUrls[downloadUrls.length - 1]) throw error;
+          if (url === candidateUrls[candidateUrls.length - 1]) throw error;
         }
       }
 
@@ -946,6 +962,7 @@ const EmployeeProject = () => {
       const fileBlob = new Blob([response.data], { type: contentType });
       const objectUrl = URL.createObjectURL(fileBlob);
       setPdfBlobUrl(objectUrl);
+      setSelectedPdfUrl(objectUrl);
     } catch (err) {
       console.error("Error loading PDF preview:", err);
       setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
@@ -960,6 +977,7 @@ const EmployeeProject = () => {
       URL.revokeObjectURL(pdfBlobUrl);
       setPdfBlobUrl(null);
     }
+    setSelectedPdfContext(null);
     setPdfLoading(false);
     setPdfError(null);
     if (taskDetailToRestore) {
@@ -976,29 +994,40 @@ const EmployeeProject = () => {
     }
   };
 
-  
-  const downloadPdf = async (pdfPath, filename) => {
-    if (!pdfPath) {
+  const downloadPdf = async (pdfPath, filename, context = null) => {
+    const activeContext = context || selectedPdfContext || {};
+    const rawPath = pdfPath || activeContext?.path;
+    const projectId = activeContext?.projectId || (activeContext?.project ? (activeContext.project._id || activeContext.project.id) : null);
+    const taskId = activeContext?.taskId || (activeContext?.task ? (activeContext.task._id || activeContext.task.id) : null);
+
+    if (!rawPath && !projectId) {
       showSnackbar("No file available", "warning");
       return;
     }
-    
-    const pathParts = pdfPath.split('/');
+
+    const pathParts = rawPath ? String(rawPath).split('/') : [];
     const pdfFilename = pathParts[pathParts.length - 1];
     const downloadName = filename || pdfFilename || 'document.pdf';
-    const downloadUrls = [
-      getUploadUrl(pdfPath),
-      getLiveUploadUrl(pdfPath)
-    ].filter((url, index, urls) => url && urls.indexOf(url) === index);
-    
+
+    const candidateUrls = [];
+    if (projectId && taskId) {
+      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document`);
+    } else if (projectId) {
+      candidateUrls.push(`/projects/${projectId}/document`);
+    }
+    if (rawPath) {
+      const uploadUrl = getUploadUrl(rawPath);
+      if (uploadUrl) candidateUrls.push(uploadUrl);
+    }
+
     try {
       let response = null;
-      for (const url of downloadUrls) {
+      for (const url of candidateUrls) {
         try {
           response = await axios.get(url, { responseType: 'blob' });
           break;
         } catch (error) {
-          if (url === downloadUrls[downloadUrls.length - 1]) throw error;
+          if (url === candidateUrls[candidateUrls.length - 1]) throw error;
         }
       }
       if (!response) throw new Error("No download URL available");
@@ -1120,8 +1149,8 @@ const EmployeeProject = () => {
     : taskAssigneeFilter === "unassigned"
       ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
       : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
-  const displayedTasks = sortTasksByCreatedAt(assigneeFilteredTasks);
-  const documentCount = projectDetails?.pdfFile?.path ? 1 : 0;
+  const taskDocCount = (tasks || []).filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length;
+  const documentCount = (projectDetails?.pdfFile?.path || projectDetails?.pdfFile?.filename || projectDetails?.pdfFile?.url ? 1 : 0) + (SHOW_TASK_DOCUMENTS ? taskDocCount : 0);
 
   const taskAssigneeOptions = [
     { value: "all", label: "All assignees" },
@@ -1394,8 +1423,8 @@ const EmployeeProject = () => {
                 </div>
               </div>
 
-              <div className={`EmployeeProject-task-attachment ${!t.pdfFile?.path ? 'EmployeeProject-task-attachment-empty' : ''}`}>
-                {t.pdfFile?.path ? (
+              <div className={`EmployeeProject-task-attachment ${!(t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url) ? 'EmployeeProject-task-attachment-empty' : ''}`}>
+                {(t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url) ? (
                   <>
                   <div className="EmployeeProject-task-attachment-main">
                     {isImagePath(t.pdfFile) ? (
@@ -1417,7 +1446,7 @@ const EmployeeProject = () => {
                       className="EmployeeProject-icon-button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        viewPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
+                        viewPdf(t.pdfFile?.path, getFileDisplayName(t.pdfFile), { projectId: selectedProject, taskId: t._id });
                       }}
                       aria-label="Preview task attachment"
                     >
@@ -1428,7 +1457,7 @@ const EmployeeProject = () => {
                       className="EmployeeProject-icon-button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        downloadPdf(t.pdfFile.path, getFileDisplayName(t.pdfFile));
+                        downloadPdf(t.pdfFile?.path, getFileDisplayName(t.pdfFile), { projectId: selectedProject, taskId: t._id });
                       }}
                       aria-label="Download task attachment"
                     >
@@ -1874,7 +1903,7 @@ const EmployeeProject = () => {
                   </div>
                   
                   
-                  {p.pdfFile?.path && (
+                  {(p.pdfFile?.path || p.pdfFile?.filename || p.pdfFile?.url) && (
                     <div className="EmployeeProject-card-pdf">
                       <div className="EmployeeProject-pdf-info">
                         <Icons.PictureAsPdf />
@@ -1996,7 +2025,7 @@ const EmployeeProject = () => {
                 <p className="EmployeeProject-documents-subtitle">All project-related documents and files</p>
                 
                 
-                {projectDetails.pdfFile?.path ? (
+                {(projectDetails.pdfFile?.path || projectDetails.pdfFile?.filename || projectDetails.pdfFile?.url) ? (
                   <div className="EmployeeProject-document-card">
                     <div className="EmployeeProject-document-content">
                       <div className="EmployeeProject-document-info">
@@ -2011,14 +2040,14 @@ const EmployeeProject = () => {
                       <div className="EmployeeProject-document-actions">
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => viewPdf(projectDetails.pdfFile.path, getFileDisplayName(projectDetails.pdfFile, "Project document"))}
+                          onClick={() => viewPdf(projectDetails.pdfFile?.path, getFileDisplayName(projectDetails.pdfFile, "Project document"), { projectId: selectedProject || projectDetails._id })}
                         >
                           <Icons.Visibility />
                           Preview
                         </button>
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => downloadPdf(projectDetails.pdfFile.path, getFileDisplayName(projectDetails.pdfFile, "Project document"))}
+                          onClick={() => downloadPdf(projectDetails.pdfFile?.path, getFileDisplayName(projectDetails.pdfFile, "Project document"), { projectId: selectedProject || projectDetails._id })}
                         >
                           <Icons.Download />
                           Download
@@ -2034,12 +2063,12 @@ const EmployeeProject = () => {
                 {SHOW_TASK_DOCUMENTS && (
                 <>
                 <h3 className="EmployeeProject-task-documents-title">
-                  Task Documents ({tasks.filter(t => t.pdfFile?.path).length})
+                  Task Documents ({tasks.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length})
                 </h3>
-                {tasks.filter(t => t.pdfFile?.path).length > 0 ? (
+                {tasks.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length > 0 ? (
                   <div className="EmployeeProject-task-documents-grid">
                     {tasks
-                      .filter(task => task.pdfFile?.path)
+                      .filter(task => task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url)
                       .map((task) => (
                         <div className="EmployeeProject-task-document-card" key={task._id}>
                           <div className="EmployeeProject-task-document-content">
@@ -2061,14 +2090,14 @@ const EmployeeProject = () => {
                               <div className="EmployeeProject-task-document-buttons">
                                 <button
                                   className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
-                                  onClick={() => viewPdf(task.pdfFile.path, getFileDisplayName(task.pdfFile))}
+                                  onClick={() => viewPdf(task.pdfFile?.path, getFileDisplayName(task.pdfFile), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
                                 >
                                   <Icons.Visibility />
                                   Preview
                                 </button>
                                 <button
                                   className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
-                                  onClick={() => downloadPdf(task.pdfFile.path, getFileDisplayName(task.pdfFile))}
+                                  onClick={() => downloadPdf(task.pdfFile?.path, getFileDisplayName(task.pdfFile), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
                                 >
                                   <Icons.Download />
                                   Download
@@ -2282,7 +2311,7 @@ const EmployeeProject = () => {
                 </div>
               )}
 
-              {detailTask.pdfFile?.path && (
+              {(detailTask.pdfFile?.path || detailTask.pdfFile?.filename || detailTask.pdfFile?.url) && (
                 <div className="EmployeeProject-task-detail-section">
                   <h4>Attachment</h4>
                   <div className="EmployeeProject-detail-attachment">
@@ -2290,14 +2319,14 @@ const EmployeeProject = () => {
                       <button
                         type="button"
                         className="EmployeeProject-detail-image-button"
-                        onClick={() => viewPdf(detailTask.pdfFile.path, getFileDisplayName(detailTask.pdfFile))}
+                        onClick={() => viewPdf(detailTask.pdfFile?.path, getFileDisplayName(detailTask.pdfFile), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
                       >
                         <img
-                          src={getUploadUrl(detailTask.pdfFile.path)}
+                          src={getUploadUrl(detailTask.pdfFile?.path)}
                           alt={getFileDisplayName(detailTask.pdfFile)}
                           className="EmployeeProject-detail-image-preview"
                           onError={(event) => {
-                            const fallbackUrl = getLiveUploadUrl(detailTask.pdfFile.path);
+                            const fallbackUrl = getLiveUploadUrl(detailTask.pdfFile?.path);
                             if (fallbackUrl && event.currentTarget.src !== fallbackUrl) event.currentTarget.src = fallbackUrl;
                           }}
                         />
@@ -2311,14 +2340,14 @@ const EmployeeProject = () => {
                       <div className="EmployeeProject-task-detail-actions">
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => viewPdf(detailTask.pdfFile.path, getFileDisplayName(detailTask.pdfFile))}
+                          onClick={() => viewPdf(detailTask.pdfFile?.path, getFileDisplayName(detailTask.pdfFile), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
                         >
                           <Icons.Visibility />
                           Preview
                         </button>
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => downloadPdf(detailTask.pdfFile.path, getFileDisplayName(detailTask.pdfFile))}
+                          onClick={() => downloadPdf(detailTask.pdfFile?.path, getFileDisplayName(detailTask.pdfFile), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
                         >
                           <Icons.Download />
                           Download

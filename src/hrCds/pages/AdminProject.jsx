@@ -226,6 +226,7 @@ export const AdminProject = () => {
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
   const [selectedPdfPath, setSelectedPdfPath] = useState("");
+  const [selectedPdfContext, setSelectedPdfContext] = useState(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState(null);
@@ -380,10 +381,15 @@ export const AdminProject = () => {
         timeout: 10000 
       });
 
-      const normalizedCompanyCode = companyCode.toLowerCase();
-      const companyProjects = dedupeByRecordId(getProjectsFromResponse(res.data)).filter(project => {
-        const projectCompanyCode = getProjectCompanyCode(project);
-        return !normalizedCompanyCode || !projectCompanyCode || projectCompanyCode.toLowerCase() === normalizedCompanyCode;
+      const allProjects = dedupeByRecordId(getProjectsFromResponse(res.data));
+      const normalizedCompanyCode = (companyCode || "").trim().toLowerCase();
+      const companyProjects = allProjects.filter(project => {
+        if (!normalizedCompanyCode) return true;
+        const projectCompanyCode = getProjectCompanyCode(project).toLowerCase();
+        if (!projectCompanyCode) return true;
+        return projectCompanyCode === normalizedCompanyCode ||
+          projectCompanyCode.startsWith(normalizedCompanyCode) ||
+          normalizedCompanyCode.startsWith(projectCompanyCode);
       });
       setProjects(companyProjects);
     } catch (error) {
@@ -637,39 +643,42 @@ export const AdminProject = () => {
     setOpenDetailsDialog(true);
   };
 
-  const viewPdf = async (pdfPath, filename) => {
-    if (!pdfPath) {
-      showSnackbar("No PDF file available", "warning");
-      return;
-    }
-    
-    const displayName = filename || pdfPath.split('/').pop() || "Document preview";
-    const pdfUrl = getProjectFileUrl(pdfPath);
+  const viewPdf = async (pdfPath, filename, context = {}) => {
+    const rawPath = pdfPath || context?.path;
+    const projectId = context?.projectId || (context?.project ? getProjectId(context.project) : null);
+    const taskId = context?.taskId || (context?.task ? getTaskId(context.task) : null);
 
-    if (isImageFile(displayName || pdfPath)) {
-      setSelectedPdfUrl(pdfUrl);
-      setSelectedPdfName(displayName);
-      setSelectedPdfPath(pdfPath);
-      setOpenPdfDialog(true);
+    if (!rawPath && !projectId) {
+      showSnackbar("No document file available", "warning");
       return;
     }
+
+    const displayName = filename || (rawPath ? rawPath.split('/').pop() : "") || "Document preview";
+    const fallbackStaticUrl = rawPath ? getProjectFileUrl(rawPath) : "";
+
+    setSelectedPdfName(displayName);
+    setSelectedPdfPath(rawPath || "");
+    setSelectedPdfContext(context);
+    setSelectedPdfUrl(fallbackStaticUrl);
 
     if (pdfBlobUrl) {
       URL.revokeObjectURL(pdfBlobUrl);
       setPdfBlobUrl(null);
     }
 
-    setSelectedPdfUrl(pdfUrl);
-    setSelectedPdfName(displayName);
-    setSelectedPdfPath(pdfPath);
     setPdfLoading(true);
     setPdfError(null);
     setOpenPdfDialog(true);
 
-    const candidateUrls = [
-      pdfUrl,
-      getProjectFileUrl(pdfPath, LIVE_API_URL),
-    ].filter((url, idx, arr) => url && arr.indexOf(url) === idx);
+    const candidateUrls = [];
+    if (projectId && taskId) {
+      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document?view=true`);
+    } else if (projectId) {
+      candidateUrls.push(`/projects/${projectId}/document?view=true`);
+    }
+    if (fallbackStaticUrl) {
+      candidateUrls.push(fallbackStaticUrl);
+    }
 
     try {
       let response = null;
@@ -688,8 +697,9 @@ export const AdminProject = () => {
       const fileBlob = new Blob([response.data], { type: contentType });
       const objectUrl = URL.createObjectURL(fileBlob);
       setPdfBlobUrl(objectUrl);
+      setSelectedPdfUrl(objectUrl);
     } catch (err) {
-      console.error("Error loading PDF preview:", err);
+      console.error("Error loading document preview:", err);
       setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
     } finally {
       setPdfLoading(false);
@@ -702,21 +712,32 @@ export const AdminProject = () => {
       URL.revokeObjectURL(pdfBlobUrl);
       setPdfBlobUrl(null);
     }
+    setSelectedPdfContext(null);
     setPdfLoading(false);
     setPdfError(null);
   };
 
-  const downloadPdf = async (pdfPath, filename) => {
-    if (!pdfPath) {
-      showSnackbar("No PDF file available", "warning");
+  const downloadPdf = async (pdfPath, filename, context = null) => {
+    const activeContext = context || selectedPdfContext || {};
+    const rawPath = pdfPath || activeContext?.path;
+    const projectId = activeContext?.projectId || (activeContext?.project ? getProjectId(activeContext.project) : null);
+    const taskId = activeContext?.taskId || (activeContext?.task ? getTaskId(activeContext.task) : null);
+
+    if (!rawPath && !projectId) {
+      showSnackbar("No document file available", "warning");
       return;
     }
 
-    const downloadName = filename || pdfPath.split('/').pop() || 'document.pdf';
-    const candidateUrls = [
-      getProjectFileUrl(pdfPath),
-      getProjectFileUrl(pdfPath, LIVE_API_URL),
-    ].filter((url, idx, arr) => url && arr.indexOf(url) === idx);
+    const downloadName = filename || (rawPath ? rawPath.split('/').pop() : "") || 'document.pdf';
+    const candidateUrls = [];
+    if (projectId && taskId) {
+      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document`);
+    } else if (projectId) {
+      candidateUrls.push(`/projects/${projectId}/document`);
+    }
+    if (rawPath) {
+      candidateUrls.push(getProjectFileUrl(rawPath));
+    }
 
     try {
       let response = null;
@@ -1131,8 +1152,8 @@ export const AdminProject = () => {
                               <span><Icons.Person /> {task.assignedTo?.name || "Unassigned"}</span>
                               {task.dueDate && <span><Icons.Calendar /> Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
                             </div>
-                            {task.pdfFile?.path && (
-                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile.path, task.pdfFile.filename)}>
+                            {(task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url) && (
+                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile.path, task.pdfFile.filename, { projectId: selectedProject._id, taskId: task._id })}>
                                 <Icons.Visibility />
                               </button>
                             )}
@@ -1153,7 +1174,7 @@ export const AdminProject = () => {
                 <div className="ap-tab-panel">
                   <h4 className="ap-section-title">Project Documents</h4>
                   
-                  {selectedProject.pdfFile?.path ? (
+                  {(selectedProject.pdfFile?.path || selectedProject.pdfFile?.filename || selectedProject.pdfFile?.url) ? (
                     <div className="ap-document-card">
                       <div className="ap-document-icon"><Icons.Pdf /></div>
                       <div className="ap-document-info">
@@ -1161,10 +1182,10 @@ export const AdminProject = () => {
                         <div className="ap-document-meta">Uploaded on: {selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : "Unknown"}</div>
                       </div>
                       <div className="ap-document-actions">
-                        <button className="ap-icon-btn" onClick={() => viewPdf(selectedProject.pdfFile.path, selectedProject.pdfFile.filename)}>
+                        <button className="ap-icon-btn" onClick={() => viewPdf(selectedProject.pdfFile?.path, selectedProject.pdfFile?.filename, { projectId: selectedProject._id })}>
                           <Icons.Visibility />
                         </button>
-                        <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(selectedProject.pdfFile.path, selectedProject.pdfFile.filename)}>
+                        <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(selectedProject.pdfFile?.path, selectedProject.pdfFile?.filename, { projectId: selectedProject._id })}>
                           <Icons.Download />
                         </button>
                       </div>
@@ -1173,23 +1194,23 @@ export const AdminProject = () => {
                     <div className="ap-alert ap-alert-info">No project document uploaded</div>
                   )}
 
-                  <h4 className="ap-section-title ap-section-title-small">Task Documents ({selectedProject.tasks?.filter(t => t.pdfFile?.path).length || 0})</h4>
-                  {selectedProject.tasks?.filter(t => t.pdfFile?.path).length > 0 ? (
+                  <h4 className="ap-section-title ap-section-title-small">Task Documents ({selectedProject.tasks?.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length || 0})</h4>
+                  {selectedProject.tasks?.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length > 0 ? (
                     <div className="ap-document-list">
                       {selectedProject.tasks
-                        .filter(task => task.pdfFile?.path)
+                        .filter(task => task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url)
                         .map((task, index) => (
                           <div key={`${task._id || task.id || 'doc'}-${index}`} className="ap-document-item">
                             <div className="ap-document-icon"><Icons.File /></div>
                             <div className="ap-document-info">
-                              <div className="ap-document-name">{task.pdfFile.filename || "Task Document"}</div>
+                              <div className="ap-document-name">{task.pdfFile?.filename || "Task Document"}</div>
                               <div className="ap-document-meta">From: {task.title || "Untitled"} • Assigned to: {task.assignedTo?.name || "Unassigned"}</div>
                             </div>
                             <div className="ap-document-actions">
-                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile.path, task.pdfFile.filename)}>
+                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile?.path, task.pdfFile?.filename, { projectId: selectedProject._id, taskId: task._id })}>
                                 <Icons.Visibility />
                               </button>
-                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(task.pdfFile.path, task.pdfFile.filename)}>
+                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(task.pdfFile?.path, task.pdfFile?.filename, { projectId: selectedProject._id, taskId: task._id })}>
                                 <Icons.Download />
                               </button>
                             </div>
@@ -1612,12 +1633,12 @@ export const AdminProject = () => {
                       
                       <div className="ap-project-actions">
                         <div className="ap-pdf-actions">
-                          {p.pdfFile?.path ? (
+                          {(p.pdfFile?.path || p.pdfFile?.filename || p.pdfFile?.url) ? (
                             <>
-                              <button className="ap-icon-btn" onClick={() => viewPdf(p.pdfFile.path, p.pdfFile.filename)} title="View PDF">
+                              <button className="ap-icon-btn" onClick={() => viewPdf(p.pdfFile?.path, p.pdfFile?.filename, { projectId: p._id })} title="View PDF">
                                 <Icons.Visibility />
                               </button>
-                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(p.pdfFile.path, p.pdfFile.filename)} title="Download PDF">
+                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(p.pdfFile?.path, p.pdfFile?.filename, { projectId: p._id })} title="Download PDF">
                                 <Icons.Download />
                               </button>
                             </>

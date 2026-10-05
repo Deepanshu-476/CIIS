@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useLocation, useNavigate } from "react-rout
 import axios from "../../../utils/axiosConfig";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import TaskDetailsModal from "../../components/TaskDetailsModal";
 import {
   FiArrowLeft,
   FiSearch,
@@ -43,7 +44,8 @@ import {
   FiRefreshCw,
   FiGrid,
   FiPlay,
-  FiPause
+  FiPause,
+  FiEdit2
 } from "react-icons/fi";
 import {
   getCurrentUserId,
@@ -103,8 +105,9 @@ const cleanActivityDescription = (desc, action) => {
 const getActivityMeta = (log) => {
   const action = String(log.action || log.type || "").toLowerCase();
   const desc = String(log.description || log.text || log.message || log.details || "").toLowerCase();
+  const newS = String(log.newValues?.status || "").toLowerCase();
 
-  if (action.includes("complete") || desc.includes("completed")) {
+  if (newS === "completed" || desc.includes("to completed") || action.includes("complete") || (desc.includes("completed") && !desc.includes("from completed"))) {
     return {
       type: "completed",
       label: "Completed",
@@ -115,18 +118,8 @@ const getActivityMeta = (log) => {
       border: "#86efac"
     };
   }
-  if (action.includes("start") || action.includes("progress") || desc.includes("in progress") || desc.includes("started")) {
-    return {
-      type: "progress",
-      label: "In Progress",
-      badgeClass: "badge-progress",
-      icon: <FiPlay size={13} />,
-      color: "#0284c7",
-      bg: "#e0f2fe",
-      border: "#7dd3fc"
-    };
-  }
-  if (action.includes("hold") || desc.includes("on hold") || desc.includes("paused")) {
+
+  if (newS === "onhold" || newS === "on-hold" || desc.includes("to on hold") || desc.includes("to onhold") || desc.includes("to on-hold") || (action.includes("hold") && !action.includes("resumed"))) {
     return {
       type: "onhold",
       label: "On Hold",
@@ -137,6 +130,31 @@ const getActivityMeta = (log) => {
       border: "#d8b4fe"
     };
   }
+
+  if (newS === "in-progress" || newS === "inprogress" || desc.includes("to in progress") || desc.includes("to in-progress") || desc.includes("to inprogress") || action.includes("start") || action.includes("progress") || action.includes("resumed")) {
+    return {
+      type: "progress",
+      label: "In Progress",
+      badgeClass: "badge-progress",
+      icon: <FiPlay size={13} />,
+      color: "#0284c7",
+      bg: "#e0f2fe",
+      border: "#7dd3fc"
+    };
+  }
+
+  if (action.includes("create") || desc.includes("was created") || desc.includes("task created") || action === "creation") {
+    return {
+      type: "created",
+      label: "Created",
+      badgeClass: "badge-created",
+      icon: <FiPlus size={14} />,
+      color: "#059669",
+      bg: "#ecfdf5",
+      border: "#a7f3d0"
+    };
+  }
+
   if (action.includes("timer") || desc.includes("timer stopped") || desc.includes("session duration") || desc.includes("time spent")) {
     return {
       type: "timer",
@@ -403,11 +421,10 @@ const countStats = (taskList = []) => {
     if (s === "completed") {
       completed++;
     } else if (s === "in-progress") {
-      inProgress++;
       if (isOverdue(t)) overdue++;
+      else inProgress++;
     } else if (isOverdue(t)) {
       overdue++;
-      pending++;
     } else {
       pending++;
     }
@@ -575,6 +592,7 @@ const CompanyAllTaskTasks = () => {
   const [activityModal, setActivityModal] = useState({ open: false, task: null, logs: [] });
   const [remarksModal, setRemarksModal] = useState({ open: false, task: null, remarks: [] });
   const [editModal, setEditModal] = useState({ open: false, task: null });
+  const [taskDetailsModal, setTaskDetailsModal] = useState({ open: false, task: null });
   const [expandedCheckpoints, setExpandedCheckpoints] = useState({});
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [canViewCompanyTasks, setCanViewCompanyTasks] = useState(true);
@@ -755,7 +773,7 @@ const CompanyAllTaskTasks = () => {
       const params = {
         page,
         limit,
-        period: startDate === todayStr && endDate === todayStr ? "today" : "all",
+        period: (startDate === todayStr && endDate === todayStr) ? "today" : (startDate || endDate ? "custom" : "all"),
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         fromDate: startDate || undefined,
@@ -1048,34 +1066,48 @@ const CompanyAllTaskTasks = () => {
     const source = getTaskSource(task);
     const endpoints = [];
 
+    // Remarks endpoints by source with universal fallback
     if (source === "client") {
       endpoints.push({ key: "remarks", url: `/tasks/client-tasks/${task._id}/remarks` });
-      endpoints.push({ key: "activityLogs", url: `/tasks/client-tasks/${task._id}/activity-logs` });
-    } else if (source === "project") {
+    } else if (source === "project" && task.projectId) {
       endpoints.push({ key: "remarks", url: `/tasks/project/${task.projectId}/tasks/${task._id}/remarks` });
-      endpoints.push({ key: "activityLogs", url: `/tasks/project/${task.projectId}/tasks/${task._id}/activity-logs` });
     } else if (source === "self") {
       endpoints.push({ key: "remarks", url: `/tasks/self/${task._id}/remarks` });
-      endpoints.push({ key: "activityLogs", url: `/tasks/self/${task._id}/activity-logs` });
     } else {
       endpoints.push({ key: "remarks", url: `/task/${task._id}/remarks` });
-      endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
     }
 
-    // The paginated task API already includes these fields. Keep them as a
-    // fallback when a source-specific details endpoint is unavailable.
+    // Universal Activity Logs endpoint works for all task types
+    endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
+
+    const fallbackLogs = Array.isArray(task.activityLogs) && task.activityLogs.length > 0
+      ? task.activityLogs
+      : (Array.isArray(task.statusHistory) ? task.statusHistory : []);
+
     const details = {
-      remarks: Array.isArray(task.remarks) ? task.remarks : [],
-      activityLogs: Array.isArray(task.activityLogs) ? task.activityLogs : [],
+      remarks: Array.isArray(task.remarks) ? [...task.remarks] : [],
+      activityLogs: [...fallbackLogs],
     };
+
     await Promise.all(
       endpoints.map(async ({ key, url }) => {
         try {
           const res = await axios.get(url);
-          const data = res.data?.data || res.data?.remarks || res.data?.logs || res.data?.activityLogs || res.data || [];
-          if (Array.isArray(data)) details[key] = data;
-        } catch {
-          details[key] = [];
+          const data = res.data?.logs || res.data?.activityLogs || res.data?.remarks || res.data?.data || res.data;
+          if (Array.isArray(data) && data.length > 0) {
+            details[key] = data;
+          }
+        } catch (err) {
+          // If a specific remarks endpoint fails, try universal /task/:id/remarks
+          if (key === "remarks" && url !== `/task/${task._id}/remarks`) {
+            try {
+              const fallbackRes = await axios.get(`/task/${task._id}/remarks`);
+              const fbData = fallbackRes.data?.remarks || fallbackRes.data?.data || fallbackRes.data;
+              if (Array.isArray(fbData) && fbData.length > 0) details.remarks = fbData;
+            } catch {
+              // keep existing fallback remarks
+            }
+          }
         }
       })
     );
@@ -1169,18 +1201,65 @@ const CompanyAllTaskTasks = () => {
     setSearch("");
     setStatus("all");
     setPriority("all");
+    setProjectFilter("all");
+    setClientFilter("all");
+    setTaskTypeFilter("all");
     handleSetTodayFilter();
   };
 
   const isTodayFilterActive = startDate === todayStr && endDate === todayStr;
   const isAllDatesFilterActive = !startDate && !endDate;
 
-  const openRemarksModal = (task, remarks = []) => {
-    setRemarksModal({ open: true, task, remarks });
+  const openRemarksModal = async (task, initialRemarks = []) => {
+    const defaultRemarks = Array.isArray(initialRemarks) && initialRemarks.length > 0
+      ? initialRemarks
+      : (Array.isArray(task?.remarks) ? task.remarks : []);
+    setRemarksModal({ open: true, task, remarks: defaultRemarks });
+
+    if (task?._id) {
+      try {
+        const details = await fetchTaskDetails(task);
+        if (details.remarks && Array.isArray(details.remarks)) {
+          setRemarksModal((prev) => {
+            if (!prev.open || String(prev.task?._id || "") !== String(task._id || "")) return prev;
+            return { ...prev, remarks: details.remarks };
+          });
+          setTaskDetailsById((prev) => ({
+            ...prev,
+            [task._id]: { ...(prev[task._id] || {}), ...details, loading: false }
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load remarks:", err);
+      }
+    }
   };
 
-  const openActivityModal = (task, logs = []) => {
-    setActivityModal({ open: true, task, logs });
+  const openActivityModal = async (task, initialLogs = []) => {
+    const defaultLogs = Array.isArray(initialLogs) && initialLogs.length > 0
+      ? initialLogs
+      : (Array.isArray(task?.activityLogs) && task.activityLogs.length > 0
+          ? task.activityLogs
+          : (Array.isArray(task?.statusHistory) ? task.statusHistory : []));
+    setActivityModal({ open: true, task, logs: defaultLogs });
+
+    if (task?._id) {
+      try {
+        const details = await fetchTaskDetails(task);
+        if (details.activityLogs && Array.isArray(details.activityLogs)) {
+          setActivityModal((prev) => {
+            if (!prev.open || String(prev.task?._id || "") !== String(task._id || "")) return prev;
+            return { ...prev, logs: details.activityLogs };
+          });
+          setTaskDetailsById((prev) => ({
+            ...prev,
+            [task._id]: { ...(prev[task._id] || {}), ...details, loading: false }
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load activity logs:", err);
+      }
+    }
   };
 
   const canEditTask = (task) => canEditCompanyTasks && ["self", "assigned", "client", "project"].includes(getTaskSource(task));
@@ -1252,7 +1331,25 @@ const CompanyAllTaskTasks = () => {
         ? { status: nextStatus, completed: nextStatus === "completed", allowCompanyAllTaskEdit: true }
         : { status: nextStatus, remarks: "Status updated from Company All Task", allowCompanyAllTaskEdit: true };
 
-    setSavingTaskId(task._id);
+    // Optimistic UI update
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
+        String(t._id || "") === String(task._id || "")
+          ? { ...t, status: nextStatus, overallStatus: nextStatus, completed: nextStatus === "completed" }
+          : t
+      )
+    );
+    setTaskDetailsById((prev) => ({
+      ...prev,
+      [task._id]: {
+        ...(prev[task._id] || {}),
+        status: nextStatus,
+        overallStatus: nextStatus,
+        completed: nextStatus === "completed",
+        loading: false,
+      },
+    }));
+
     setError("");
     try {
       if (source === "client") {
@@ -1260,13 +1357,80 @@ const CompanyAllTaskTasks = () => {
       } else {
         await axios.patch(endpoint, payload);
       }
-      await refreshTaskAfterChange(task);
     } catch (err) {
+      console.error("Failed to update task status:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update task status.");
-    } finally {
-      setSavingTaskId(null);
+      fetchTasks();
     }
   };
+
+  const handleOpenTaskDetails = useCallback(async (task) => {
+    if (!task) return;
+    const taskObj = { ...task };
+    setTaskDetailsModal({ open: true, task: taskObj });
+    try {
+      const details = await fetchTaskDetails(task);
+      setTaskDetailsModal((prev) => {
+        if (!prev.open || !prev.task || String(prev.task._id || '') !== String(task._id || '')) return prev;
+        return {
+          ...prev,
+          task: {
+            ...prev.task,
+            remarks: details.remarks || prev.task.remarks || [],
+            activityLogs: details.activityLogs || prev.task.activityLogs || []
+          }
+        };
+      });
+    } catch (err) {
+      console.error("Failed to fetch full task details:", err);
+    }
+  }, [fetchTaskDetails]);
+
+  const handleAddRemarkFromModal = useCallback(async (task, text, files = []) => {
+    if (!task?._id || !text) return;
+    const source = getTaskSource(task);
+    const endpoint =
+      source === "client"
+        ? `/tasks/client-tasks/${task._id}/remarks`
+        : source === "project"
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/remarks`
+          : source === "self"
+            ? `/tasks/self/${task._id}/remarks`
+            : `/task/${task._id}/remarks`;
+
+    if (files && files.length > 0) {
+      const formData = new FormData();
+      formData.append("text", text);
+      formData.append("remark", text);
+      files.forEach((f) => formData.append("image", f));
+      await axios.post(endpoint, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+    } else {
+      await axios.post(endpoint, { text, remark: text, comment: text });
+    }
+
+    const updatedDetails = await fetchTaskDetails(task);
+    setTaskDetailsModal((prev) => {
+      if (!prev.open || !prev.task) return prev;
+      return {
+        ...prev,
+        task: { ...prev.task, ...updatedDetails, remarks: updatedDetails.remarks }
+      };
+    });
+  }, [fetchTaskDetails]);
+
+  const handleStatusChangeFromModal = useCallback(async (task, newStatus) => {
+    await handleTaskStatusChange(task, newStatus);
+    const updatedDetails = await fetchTaskDetails(task);
+    setTaskDetailsModal((prev) => {
+      if (!prev.open || !prev.task) return prev;
+      return {
+        ...prev,
+        task: { ...prev.task, ...updatedDetails, status: newStatus, overallStatus: newStatus }
+      };
+    });
+  }, [fetchTaskDetails, handleTaskStatusChange]);
 
   const handleCheckpointToggle = async (task, checkpoint) => {
     if (!task?._id || !checkpoint?._id) return;
@@ -1281,15 +1445,30 @@ const CompanyAllTaskTasks = () => {
             ? `/tasks/self/${task._id}/checkpoints/${checkpoint._id}`
             : `/tasks/assigned/${task._id}/checkpoints/${checkpoint._id}`;
 
-    setSavingTaskId(task._id);
+    const nextCompleted = !checkpoint.completed;
+
+    // Optimistic UI update
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => {
+        if (String(t._id || "") === String(task._id || "")) {
+          const updatedCps = (t.checkpoints || []).map((cp) =>
+            String(cp._id || "") === String(checkpoint._id || "")
+              ? { ...cp, completed: nextCompleted }
+              : cp
+          );
+          return { ...t, checkpoints: updatedCps };
+        }
+        return t;
+      })
+    );
+
     setError("");
     try {
-      await axios.patch(endpoint, { completed: !checkpoint.completed });
-      await refreshTaskAfterChange(task);
+      await axios.patch(endpoint, { completed: nextCompleted });
     } catch (err) {
+      console.error("Failed to update checkpoint:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update checkpoint.");
-    } finally {
-      setSavingTaskId(null);
+      fetchTasks();
     }
   };
 
@@ -1307,67 +1486,106 @@ const CompanyAllTaskTasks = () => {
       return;
     }
 
-    setSavingTaskId(task._id);
-    setError("");
-    try {
-      const source = getTaskSource(task);
-      const dueDateIso = new Date(editForm.dueDateTime).toISOString();
-      const cleanCheckpoints = getCleanCheckpoints(editForm.checkpoints);
-      const currentStatus = getDisplayStatus(task);
+    const source = getTaskSource(task);
+    const dueDateIso = new Date(editForm.dueDateTime).toISOString();
+    const cleanCheckpoints = getCleanCheckpoints(editForm.checkpoints);
+    const updatedTitle = editForm.title.trim();
+    const updatedDesc = editForm.description.trim();
+    const updatedPriority = editForm.priority;
+    const updatedStatus = editForm.status;
 
+    // 1. INSTANT OPTIMISTIC UPDATE: Update UI instantly with zero lag!
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => {
+        if (String(t._id || "") === String(task._id || "")) {
+          return {
+            ...t,
+            title: updatedTitle,
+            name: updatedTitle,
+            description: updatedDesc,
+            dueDateTime: dueDateIso,
+            dueDate: dueDateIso,
+            priority: updatedPriority,
+            status: updatedStatus,
+            overallStatus: updatedStatus,
+            completed: updatedStatus === "completed",
+            checkpoints: cleanCheckpoints,
+          };
+        }
+        return t;
+      })
+    );
+
+    setTaskDetailsById((prev) => ({
+      ...prev,
+      [task._id]: {
+        ...(prev[task._id] || {}),
+        title: updatedTitle,
+        name: updatedTitle,
+        description: updatedDesc,
+        dueDateTime: dueDateIso,
+        dueDate: dueDateIso,
+        priority: updatedPriority,
+        status: updatedStatus,
+        overallStatus: updatedStatus,
+        completed: updatedStatus === "completed",
+        checkpoints: cleanCheckpoints,
+        loading: false,
+      },
+    }));
+
+    // 2. CLOSE MODAL IMMEDIATELY
+    closeEditModal();
+    setError("");
+
+    // 3. BACKGROUND PERSISTENCE: Single fast request
+    try {
       if (source === "client") {
         await axios.put(`/tasks/client-tasks/${task._id}`, {
-          name: editForm.title.trim(),
-          description: editForm.description.trim(),
+          name: updatedTitle,
+          description: updatedDesc,
           dueDate: dueDateIso,
-          priority: editForm.priority,
-          status: editForm.status,
-          completed: editForm.status === "completed",
+          priority: updatedPriority,
+          status: updatedStatus,
+          completed: updatedStatus === "completed",
           checkpoints: cleanCheckpoints,
           allowCompanyAllTaskEdit: true,
         });
       } else if (source === "project") {
         await axios.put(`/tasks/project/${task.projectId}/tasks/${task._id}`, {
-          title: editForm.title.trim(),
-          description: editForm.description.trim(),
+          title: updatedTitle,
+          description: updatedDesc,
           dueDateTime: dueDateIso,
-          priority: editForm.priority,
-          status: editForm.status,
+          priority: updatedPriority,
+          status: updatedStatus,
           checkpoints: cleanCheckpoints,
           allowCompanyAllTaskEdit: true,
         });
       } else if (source === "self") {
         await axios.put(`/tasks/self/${task._id}`, {
-          title: editForm.title.trim(),
-          description: editForm.description.trim(),
+          title: updatedTitle,
+          description: updatedDesc,
           dueDateTime: dueDateIso,
-          priority: editForm.priority,
-          status: editForm.status,
+          priority: updatedPriority,
+          status: updatedStatus,
           checkpoints: cleanCheckpoints,
           allowCompanyAllTaskEdit: true,
         });
       } else {
         await axios.put(`/task/${task._id}`, {
-          title: editForm.title.trim(),
-          description: editForm.description.trim(),
+          title: updatedTitle,
+          description: updatedDesc,
           dueDateTime: dueDateIso,
-          priority: editForm.priority,
-          status: editForm.status,
+          priority: updatedPriority,
+          status: updatedStatus,
           checkpoints: cleanCheckpoints,
           allowCompanyAllTaskEdit: true,
         });
       }
-
-      if (editForm.status !== currentStatus) {
-        await handleTaskStatusChange(task, editForm.status);
-      }
-
-      closeEditModal();
-      await refreshTaskAfterChange(task);
     } catch (err) {
+      console.error("Failed to save task update to server:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || "Failed to update task.");
-    } finally {
-      setSavingTaskId(null);
+      fetchTasks();
     }
   };
 
@@ -1498,29 +1716,34 @@ const CompanyAllTaskTasks = () => {
     return Math.round(((stats.completed || 0) / totalCount) * 100);
   }, [stats.completed, stats.total, tasks.length]);
 
-  // Weekly Productivity (Mon - Sun): Dynamic calculation across all 7 days
+  // Weekly Productivity (Mon - Sun): Dynamic calculation for current week only
   const weeklyProductivity = useMemo(() => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
-    const distanceToMonday = (dayOfWeek + 6) % 7;
+    const distanceToMonday = (dayOfWeek + 6) % 7; // 0 = Mon, 1 = Tue, ..., 6 = Sun
     const monday = new Date(now);
     monday.setDate(now.getDate() - distanceToMonday);
     monday.setHours(0, 0, 0, 0);
 
     const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const baseBench = [40, 60, 50, 80, 60, 0, 0];
 
     return dayLabels.map((label, idx) => {
+      // Future days in current week must strictly be 0%
+      if (idx > distanceToMonday) {
+        return { day: label, pct: 0 };
+      }
+
       const targetDate = new Date(monday);
       targetDate.setDate(monday.getDate() + idx);
       targetDate.setHours(0, 0, 0, 0);
       const dateKey = getDateInputValue(targetDate);
+      const isToday = idx === distanceToMonday;
 
       // 1. Check if specific tasks exist for this date
       const dayTasks = tasks.filter((t) => {
-        const taskDue = t.dueDateTime || t.dueDate || t.createdAt;
-        if (!taskDue) return false;
-        const taskDateKey = getDateInputValue(new Date(taskDue));
+        const taskDate = t.completedAt || t.dueDateTime || t.dueDate || t.createdAt;
+        if (!taskDate) return false;
+        const taskDateKey = getDateInputValue(new Date(taskDate));
         return taskDateKey === dateKey;
       });
 
@@ -1533,7 +1756,15 @@ const CompanyAllTaskTasks = () => {
         return { day: label, pct: rate };
       }
 
-      // 2. Check attendance record for this date
+      // 2. For today: if workSummary has productivity percentage, use that
+      if (isToday && workSummary?.productivity) {
+        const parsedProd = parseInt(String(workSummary.productivity).replace('%', ''), 10);
+        if (!isNaN(parsedProd)) {
+          return { day: label, pct: parsedProd };
+        }
+      }
+
+      // 3. Check attendance record for this date
       const attRecord = attendanceRecords.find((r) => {
         if (!r.date) return false;
         return getDateInputValue(new Date(r.date)) === dateKey;
@@ -1541,24 +1772,23 @@ const CompanyAllTaskTasks = () => {
 
       if (attRecord) {
         const attStatus = String(attRecord.status || "").toUpperCase();
-        if (attStatus === "PRESENT") return { day: label, pct: Math.max(60, baseBench[idx]) };
-        if (attStatus === "LATE") return { day: label, pct: 50 };
-        if (attStatus === "HALF DAY" || attStatus === "HALFDAY") return { day: label, pct: 40 };
+        if (attStatus === "PRESENT") {
+          return { day: label, pct: isToday && stats.total > 0 ? completionRate : (attRecord.totalHours ? Math.min(100, Math.round((attRecord.totalHours / 8) * 100)) : 100) };
+        }
+        if (attStatus === "LATE") return { day: label, pct: 75 };
+        if (attStatus === "HALF DAY" || attStatus === "HALFDAY") return { day: label, pct: 50 };
         if (["LEAVE", "HOLIDAY", "WEEKEND", "ABSENT"].includes(attStatus)) return { day: label, pct: 0 };
       }
 
-      // 3. Weekend days (Saturday, Sunday) are 0%
-      if (idx >= 5) {
-        return { day: label, pct: 0 };
+      // 4. If today, use completionRate if tasks exist, otherwise 0
+      if (isToday && completionRate > 0) {
+        return { day: label, pct: completionRate };
       }
 
-      // 4. Working days (Mon - Fri) baseline scaled with employee's actual completion performance
-      const overallRate = completionRate > 0 ? completionRate : 60;
-      const weightFactors = [0.8, 0.95, 0.85, 1.15, 0.95];
-      const dynamicPct = Math.min(100, Math.max(20, Math.round(overallRate * (weightFactors[idx] || 1))));
-      return { day: label, pct: dynamicPct };
+      // Any other past day with no recorded tasks/attendance is 0%
+      return { day: label, pct: 0 };
     });
-  }, [tasks, attendanceRecords, completionRate]);
+  }, [tasks, attendanceRecords, completionRate, workSummary?.productivity, stats.total]);
 
   const onTimeRate = useMemo(() => {
     return Number.isFinite(performanceMetrics?.onTimeRate) ? performanceMetrics.onTimeRate : null;
@@ -1607,15 +1837,28 @@ const CompanyAllTaskTasks = () => {
   }, [tasks]);
 
   const taskGroups = useMemo(() => {
-    const groups = [
-      { key: "in-progress", label: "In Progress", color: "#0ea5e9", tasks: [] },
-      { key: "pending", label: "Pending", color: "#f59e0b", tasks: [] },
-      { key: "completed", label: "Completed", color: "#16a34a", tasks: [] },
-      { key: "overdue", label: "Overdue", color: "#dc2626", tasks: [] },
-      { key: "other", label: "Other Statuses", color: "#64748b", tasks: [] },
-    ];
-
     let filtered = tasks;
+    const normalizedSearch = search.trim().toLowerCase();
+
+    // Keep the visible list faithful to the selected controls even when an
+    // endpoint returns an unfiltered page of tasks.
+    if (normalizedSearch) {
+      filtered = filtered.filter((task) => [task.title, task.name, task.description]
+        .some((value) => String(value || "").toLowerCase().includes(normalizedSearch)));
+    }
+    if (priority !== "all") {
+      filtered = filtered.filter((task) => String(task.priority || "").toLowerCase() === priority);
+    }
+    if (status !== "all") {
+      filtered = filtered.filter((task) => {
+        const taskStatus = getDisplayStatus(task);
+        const taskIsOverdue = isOverdue(task);
+        if (status === "overdue") return taskStatus === "overdue" || taskIsOverdue;
+        // Overdue work is intentionally reserved for the Overdue filter.
+        if (taskIsOverdue && ["pending", "in-progress"].includes(status)) return false;
+        return taskStatus === status;
+      });
+    }
     if (projectFilter !== "all") {
       filtered = filtered.filter((task) => (task.project?.name || task.projectName || task.project?.title || task.project) === projectFilter);
     }
@@ -1634,19 +1877,52 @@ const CompanyAllTaskTasks = () => {
       });
     }
 
-    filtered.forEach((t) => {
-      const s = getDisplayStatus(t);
-      if (s === "in-progress") groups[0].tasks.push(t);
-      else if (s === "pending") {
-        if (isOverdue(t)) groups[3].tasks.push(t);
-        else groups[1].tasks.push(t);
-      } else if (s === "completed") groups[2].tasks.push(t);
-      else if (isOverdue(t)) groups[3].tasks.push(t);
-      else groups[4].tasks.push(t);
+    const priorityRank = { high: 0, medium: 1, low: 2 };
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === "title") {
+        return String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""));
+      }
+      if (sortBy === "date") {
+        return new Date(getDueDate(a) || 0).getTime() - new Date(getDueDate(b) || 0).getTime();
+      }
+      return (priorityRank[String(a.priority || "medium").toLowerCase()] ?? 3)
+        - (priorityRank[String(b.priority || "medium").toLowerCase()] ?? 3);
     });
 
-    return groups.filter((g) => g.tasks.length > 0);
-  }, [clientFilter, projectFilter, taskTypeFilter, tasks]);
+    const groupDefinitions = groupBy === "priority"
+      ? [
+          { key: "high", label: "High Priority", color: "#dc2626", matches: (task) => String(task.priority || "").toLowerCase() === "high" },
+          { key: "medium", label: "Medium Priority", color: "#d97706", matches: (task) => String(task.priority || "medium").toLowerCase() === "medium" },
+          { key: "low", label: "Low Priority", color: "#16a34a", matches: (task) => String(task.priority || "").toLowerCase() === "low" },
+          { key: "other-priority", label: "Other Priority", color: "#64748b", matches: (task) => !["high", "medium", "low"].includes(String(task.priority || "").toLowerCase()) },
+        ]
+      : [
+          { key: "in-progress", label: "In Progress", color: "#0ea5e9", matches: (task) => getDisplayStatus(task) === "in-progress" && !isOverdue(task) },
+          { key: "pending", label: "Pending", color: "#f59e0b", matches: (task) => getDisplayStatus(task) === "pending" && !isOverdue(task) },
+          { key: "completed", label: "Completed", color: "#16a34a", matches: (task) => getDisplayStatus(task) === "completed" },
+          { key: "overdue", label: "Overdue", color: "#dc2626", matches: (task) => isOverdue(task) },
+          { key: "other", label: "Other Statuses", color: "#64748b", matches: (task) => !["in-progress", "pending", "completed"].includes(getDisplayStatus(task)) && !isOverdue(task) },
+        ];
+
+    if (groupBy === "date") {
+      const groupsByDate = new Map();
+      sorted.forEach((task) => {
+        const dueDate = getDueDate(task);
+        const parsedDueDate = dueDate ? new Date(dueDate) : null;
+        const hasValidDueDate = parsedDueDate && !Number.isNaN(parsedDueDate.getTime());
+        const key = hasValidDueDate ? parsedDueDate.toISOString().slice(0, 10) : "no-due-date";
+        if (!groupsByDate.has(key)) {
+          groupsByDate.set(key, { key, label: hasValidDueDate ? formatDate(dueDate) : "No Due Date", color: "#64748b", tasks: [] });
+        }
+        groupsByDate.get(key).tasks.push(task);
+      });
+      return [...groupsByDate.values()].sort((a, b) => a.key.localeCompare(b.key));
+    }
+
+    return groupDefinitions
+      .map((group) => ({ ...group, tasks: sorted.filter(group.matches) }))
+      .filter((group) => group.tasks.length > 0);
+  }, [clientFilter, groupBy, priority, projectFilter, search, sortBy, status, taskTypeFilter, tasks]);
 
   // Calendar Helpers for Attendance
   const calendarDays = useMemo(() => {
@@ -2113,7 +2389,7 @@ const CompanyAllTaskTasks = () => {
                 </div>
               </div>
 
-              {/* Row 2: 4 summary cards + Live Timer */}
+              {/* Row 2: 4 summary cards */}
               <div className="work-summary-row-with-timer">
                 <div className="work-summary-grid-4">
                   <div className="summary-pill-card">
@@ -2149,42 +2425,6 @@ const CompanyAllTaskTasks = () => {
                       <span>Productivity</span>
                       <strong>{completionRate > 0 ? `${completionRate}%` : "70%"}</strong>
                     </div>
-                  </div>
-                </div>
-
-                {/* Live Timer Card */}
-                <div className="live-timer-card">
-                  <div className="live-timer-left">
-                    <div
-                      className={`live-timer-play-circle ${isLiveTimerRunning ? "running" : ""}`}
-                      onClick={() => setIsLiveTimerRunning((prev) => !prev)}
-                      title={isLiveTimerRunning ? "Pause Timer" : "Start Timer"}
-                    >
-                      {isLiveTimerRunning ? <FiPause size={16} /> : <FiPlay size={16} style={{ marginLeft: "2px" }} />}
-                    </div>
-                    <div className="live-timer-info">
-                      <span className="live-timer-label">Live Timer</span>
-                      <strong className="live-timer-digits">{formatLiveTimerDigits(liveTimerSeconds)}</strong>
-                    </div>
-                  </div>
-
-                  <div className="live-timer-actions">
-                    <button
-                      type="button"
-                      className={`btn-start-timer-pill ${isLiveTimerRunning ? "running" : ""}`}
-                      onClick={() => setIsLiveTimerRunning((prev) => !prev)}
-                    >
-                      <FiClock size={14} />
-                      <span>{isLiveTimerRunning ? "Pause Timer" : "Start Timer"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-timer-dots"
-                      onClick={() => setLiveTimerSeconds(0)}
-                      title="Reset Timer"
-                    >
-                      <FiMoreVertical size={15} />
-                    </button>
                   </div>
                 </div>
               </div>
@@ -2248,7 +2488,7 @@ const CompanyAllTaskTasks = () => {
 
                 <select
                   value={projectFilter}
-                  onChange={(e) => setProjectFilter(e.target.value)}
+                  onChange={(e) => { setProjectFilter(e.target.value); setPage(1); }}
                   className="filter-select"
                 >
                   <option value="all">All Projects</option>
@@ -2257,7 +2497,7 @@ const CompanyAllTaskTasks = () => {
 
                 <select
                   value={clientFilter}
-                  onChange={(e) => setClientFilter(e.target.value)}
+                  onChange={(e) => { setClientFilter(e.target.value); setPage(1); }}
                   className="filter-select"
                 >
                   <option value="all">All Clients</option>
@@ -2376,10 +2616,10 @@ const CompanyAllTaskTasks = () => {
             <section className="company-task-sections">
               {loading && tasks.length === 0 ? (
                 <div className="company-task-loading">Loading tasks...</div>
-              ) : tasks.length === 0 ? (
+              ) : taskGroups.length === 0 ? (
                 <div className="company-task-empty">
                   <FiList size={34} />
-                  <h3>No tasks found for this day</h3>
+                  <h3>No tasks found</h3>
                   <p>There are no tasks matching your selected filters for this day.</p>
                   <button type="button" className="btn-outline-sm" onClick={handleSetAllDatesFilter}>
                     View All Dates
@@ -2475,10 +2715,10 @@ const CompanyAllTaskTasks = () => {
 
                                   <div className="task-title-wrap">
                                     <div className="title-line">
-                                      <h4 className="task-title" onClick={() => isTaskEditable && openEditModal(task)}>
+                                      <h4 className="task-title" onClick={() => handleOpenTaskDetails(task)}>
                                         {task.title || "Untitled Task"}
                                       </h4>
-                                      <FiExternalLink size={12} className="link-icon" onClick={() => isTaskEditable && openEditModal(task)} />
+                                      <FiExternalLink size={12} className="link-icon" onClick={() => handleOpenTaskDetails(task)} />
                                     </div>
 
                                     <div className="task-row-badges">
@@ -2545,48 +2785,13 @@ const CompanyAllTaskTasks = () => {
 
                                   {/* Right action buttons */}
                                   <div className="task-right-actions">
-                                    {dispStatus === "in-progress" ? (
-                                      <>
-                                        <button
-                                          type="button"
-                                          className="btn-timer-action pause"
-                                          onClick={() => handleTaskStatusChange(task, "onhold")}
-                                        >
-                                          <FiPause size={12} /> Pause
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="btn-timer-action stop"
-                                          onClick={() => handleTaskStatusChange(task, "completed")}
-                                        >
-                                          <span className="stop-square" /> Stop
-                                        </button>
-                                      </>
-                                    ) : dispStatus === "completed" ? (
-                                      <button
-                                        type="button"
-                                        className="btn-timer-action view"
-                                        onClick={() => openEditModal(task)}
-                                      >
-                                        View
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        className="btn-timer-action start"
-                                        onClick={() => handleTaskStatusChange(task, "in-progress")}
-                                      >
-                                        <FiPlay size={12} /> Start Timer
-                                      </button>
-                                    )}
-
                                     <button
                                       type="button"
-                                      className="btn-more-dots"
+                                      className="btn-edit-task-action"
                                       onClick={() => openEditModal(task)}
-                                      title="More Options"
+                                      title="Edit Task"
                                     >
-                                      <FiMoreVertical size={15} />
+                                      <FiEdit2 size={13} /> Edit
                                     </button>
                                   </div>
                                 </div>
@@ -2615,20 +2820,28 @@ const CompanyAllTaskTasks = () => {
                                     <FiClock size={13} /> {details.activityLogs?.length || 0} Activities
                                   </button>
 
-                                  {totalCP > 0 ? (
+                                  {totalCP > 0 && (
                                     <button
                                       type="button"
                                       className="meta-tag-btn toggle-cp"
                                       onClick={() => toggleCheckpoints(task._id)}
+                                      title="Toggle Subtasks Checklist"
                                     >
                                       <FiCheckSquare size={13} />
-                                      {completedCP}/{totalCP} Subtasks {isCPExpanded ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
+                                      <span>{completedCP}/{totalCP} Subtasks</span>
+                                      {isCPExpanded ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
                                     </button>
-                                  ) : (
-                                    <span className="view-details-link" onClick={() => isTaskEditable && openEditModal(task)}>
-                                      View Details <FiChevronDown size={12} />
-                                    </span>
                                   )}
+
+                                  <button
+                                    type="button"
+                                    className="btn-view-details-pill"
+                                    onClick={() => handleOpenTaskDetails(task)}
+                                    title="View full task details"
+                                  >
+                                    <FiEye size={13} />
+                                    <span>View Details</span>
+                                  </button>
 
                                   {isTaskEditable && (
                                     <select
@@ -3538,104 +3751,166 @@ const CompanyAllTaskTasks = () => {
         {/* Edit Task Modal */}
         {editModal.open && editModal.task && (
           <div className="company-task-modal-backdrop" onClick={closeEditModal}>
-            <div className="company-task-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>Edit Task Details</h3>
-                <button type="button" className="btn-close-modal" onClick={closeEditModal}>
+            <div className="modern-edit-task-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modern-edit-modal-header">
+                <div className="modern-edit-header-left">
+                  <div className="modern-edit-icon-bubble">
+                    <FiEdit2 size={18} />
+                  </div>
+                  <div>
+                    <div className="modern-edit-title-row">
+                      <h3 className="modern-edit-title">Edit Task</h3>
+                      <span className="modern-edit-type-badge">
+                        {editModal.task.projectName ? editModal.task.projectName : (editModal.task.clientName ? editModal.task.clientName : "Task")}
+                      </span>
+                    </div>
+                    <p className="modern-edit-subtitle">
+                      Update task details, schedule, priority & checkpoints
+                    </p>
+                  </div>
+                </div>
+                <button type="button" className="modern-edit-close-btn" onClick={closeEditModal} title="Close">
                   <FiX size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleEditSubmit} className="company-task-modal-form">
-                <div className="form-group">
-                  <label>Title <span className="required">*</span></label>
+              <form onSubmit={handleEditSubmit} className="modern-edit-modal-form">
+                {/* Task Title */}
+                <div className="modern-form-field">
+                  <label className="modern-form-label">
+                    Task Title <span className="req-star">*</span>
+                  </label>
                   <input
                     type="text"
                     required
+                    className="modern-form-input"
+                    placeholder="e.g. Implement user authentication flow"
                     value={editForm.title}
                     onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>Description <span className="required">*</span></label>
+                {/* Description */}
+                <div className="modern-form-field">
+                  <label className="modern-form-label">
+                    Description <span className="req-star">*</span>
+                  </label>
                   <textarea
                     rows={3}
                     required
+                    className="modern-form-textarea"
+                    placeholder="Provide detailed description, requirements or notes..."
                     value={editForm.description}
                     onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
                   />
                 </div>
 
-                <div className="form-row-2">
-                  <div className="form-group">
-                    <label>Priority</label>
-                    <select
-                      value={editForm.priority}
-                      onChange={(e) => setEditForm((p) => ({ ...p, priority: e.target.value }))}
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
+                {/* Priority & Due Date Row */}
+                <div className="modern-form-row-2">
+                  <div className="modern-form-field">
+                    <label className="modern-form-label">Priority</label>
+                    <div className="priority-pill-selector">
+                      {[
+                        { val: "low", label: "Low", color: "green" },
+                        { val: "medium", label: "Medium", color: "amber" },
+                        { val: "high", label: "High", color: "rose" }
+                      ].map((p) => (
+                        <button
+                          key={p.val}
+                          type="button"
+                          className={`priority-pill-btn ${p.color} ${editForm.priority === p.val ? "active" : ""}`}
+                          onClick={() => setEditForm((prev) => ({ ...prev, priority: p.val }))}
+                        >
+                          <span className="priority-pill-dot" />
+                          <span>{p.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label>Due Date & Time <span className="required">*</span></label>
+                  <div className="modern-form-field">
+                    <label className="modern-form-label">
+                      Due Date & Time <span className="req-star">*</span>
+                    </label>
                     <input
                       type="datetime-local"
                       required
+                      className="modern-form-input datetime"
                       value={editForm.dueDateTime}
                       onChange={(e) => setEditForm((p) => ({ ...p, dueDateTime: e.target.value }))}
                     />
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label>Status</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
-                  >
-                    {STATUS_OPTIONS.filter((o) => o.value !== "all").map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {/* Status Selector */}
+                <div className="modern-form-field">
+                  <label className="modern-form-label">Status</label>
+                  <div className="status-pill-selector">
+                    {[
+                      { val: "pending", label: "Pending", cls: "pending" },
+                      { val: "in-progress", label: "In Progress", cls: "in-progress" },
+                      { val: "completed", label: "Completed", cls: "completed" },
+                      { val: "onhold", label: "On Hold", cls: "onhold" },
+                    ].map((st) => (
+                      <button
+                        key={st.val}
+                        type="button"
+                        className={`status-pill-btn ${st.cls} ${editForm.status === st.val ? "active" : ""}`}
+                        onClick={() => setEditForm((prev) => ({ ...prev, status: st.val }))}
+                      >
+                        {st.label}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 {/* Edit Checkpoints */}
-                <div className="form-checkpoints-section">
-                  <div className="section-title-row">
-                    <label>Checkpoints</label>
-                    <button type="button" className="btn-add-cp" onClick={addEditCheckpoint}>
-                      <FiPlus size={13} /> Add Checkpoint
+                <div className="modern-cp-section">
+                  <div className="modern-cp-header">
+                    <div className="modern-cp-title">
+                      <FiCheckSquare size={14} />
+                      <span>Subtasks / Checkpoints</span>
+                      <span className="modern-cp-count">({editForm.checkpoints.length})</span>
+                    </div>
+                    <button type="button" className="modern-btn-add-cp" onClick={addEditCheckpoint}>
+                      <FiPlus size={13} /> Add Subtask
                     </button>
                   </div>
-                  <div className="cp-inputs-list">
+
+                  <div className="modern-cp-list">
                     {editForm.checkpoints.map((cp, idx) => (
-                      <div className="cp-input-row" key={idx}>
+                      <div className="modern-cp-item" key={idx}>
+                        <span className="modern-cp-num">{idx + 1}</span>
                         <input
                           type="text"
+                          className="modern-cp-input"
                           value={cp.title}
-                          placeholder="Checkpoint title"
+                          placeholder="e.g. Design review with client"
                           onChange={(e) => updateEditCheckpoint(idx, e.target.value)}
                         />
                         <button
                           type="button"
-                          className="btn-remove-cp"
+                          className="modern-cp-remove-btn"
+                          title="Remove Checkpoint"
                           onClick={() => removeEditCheckpoint(idx)}
                         >
-                          <FiX size={14} />
+                          <FiX size={15} />
                         </button>
                       </div>
                     ))}
+                    {editForm.checkpoints.length === 0 && (
+                      <div className="modern-cp-empty">
+                        No subtasks added yet. Click &quot;Add Subtask&quot; to break down this task.
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="modal-footer">
+                {/* Footer Actions */}
+                <div className="modern-edit-modal-footer">
                   <button
                     type="button"
-                    className="btn-modal-cancel"
+                    className="btn-modal-ghost"
                     disabled={savingTaskId === editModal.task._id}
                     onClick={closeEditModal}
                   >
@@ -3643,10 +3918,18 @@ const CompanyAllTaskTasks = () => {
                   </button>
                   <button
                     type="submit"
-                    className="btn-modal-submit"
+                    className="btn-modal-primary"
                     disabled={savingTaskId === editModal.task._id}
                   >
-                    {savingTaskId === editModal.task._id ? "Saving..." : "Save Changes"}
+                    {savingTaskId === editModal.task._id ? (
+                      <>
+                        <FiRefreshCw size={14} className="spin-icon" /> Saving Changes...
+                      </>
+                    ) : (
+                      <>
+                        <FiCheck size={16} /> Save Changes
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -3691,7 +3974,39 @@ const CompanyAllTaskTasks = () => {
                 {remarksModal.remarks?.length ? (
                   <div className="task-activity-timeline">
                     {remarksModal.remarks.map((r, i) => {
-                      const userName = r.userName || r.user?.name || (r.user && typeof r.user === "string" ? r.user : null) || "Team Member";
+                      const resolveRemarkUser = (item, taskObj) => {
+                        if (item.userName && typeof item.userName === "string" && item.userName.trim() && !/^[0-9a-fA-F]{24}$/.test(item.userName.trim())) {
+                          return item.userName.trim();
+                        }
+                        if (item.name && typeof item.name === "string" && item.name.trim() && !/^[0-9a-fA-F]{24}$/.test(item.name.trim())) {
+                          return item.name.trim();
+                        }
+                        if (item.user?.name && typeof item.user.name === "string" && item.user.name.trim()) {
+                          return item.user.name.trim();
+                        }
+                        if (item.author?.name && typeof item.author.name === "string" && item.author.name.trim()) {
+                          return item.author.name.trim();
+                        }
+                        const rawId = String(item.user?._id || item.user?.id || (typeof item.user === "string" ? item.user : "") || item.userId || "");
+                        const curId = String(currentUser?._id || currentUser?.id || "");
+                        const empId = String(employee?._id || employee?.id || effectiveUserId || "");
+                        if (rawId && curId && rawId === curId) {
+                          return currentUser?.name || "You";
+                        }
+                        if (rawId && empId && rawId === empId) {
+                          return employee?.name || "Employee";
+                        }
+                        if (rawId && Array.isArray(taskObj?.assignedUsers)) {
+                          const matched = taskObj.assignedUsers.find((u) => String(u?._id || u?.id || u) === rawId);
+                          if (matched?.name) return matched.name;
+                        }
+                        if (typeof item.user === "string" && item.user.trim() && !/^[0-9a-fA-F]{24}$/.test(item.user.trim())) {
+                          return item.user.trim();
+                        }
+                        return employee?.name || currentUser?.name || "Admin";
+                      };
+
+                      const userName = resolveRemarkUser(r, remarksModal.task);
                       const initials = getInitials(userName);
                       const isSystem = userName.toLowerCase() === "system";
                       const dateStr = formatDateTime(r.createdAt || r.date || r.timestamp);
@@ -3789,8 +4104,33 @@ const CompanyAllTaskTasks = () => {
                 {activityModal.logs?.length ? (
                   <div className="task-activity-timeline">
                     {activityModal.logs.map((log, i) => {
-                      const meta = getActivityMeta(log);
-                      const userName = log.userName || log.user?.name || log.performedBy?.name || (typeof log.performedBy === "string" && log.performedBy.length > 5 ? log.performedBy : null) || (log.action?.toLowerCase().includes("system") ? "System" : "Team Member");
+                      const resolveActivityUser = (item, taskObj) => {
+                        if (item.userName && typeof item.userName === "string" && item.userName.trim() && !/^[0-9a-fA-F]{24}$/.test(item.userName.trim())) {
+                          return item.userName.trim();
+                        }
+                        if (item.user?.name && typeof item.user.name === "string" && item.user.name.trim()) {
+                          return item.user.name.trim();
+                        }
+                        if (item.performedBy?.name && typeof item.performedBy.name === "string" && item.performedBy.name.trim()) {
+                          return item.performedBy.name.trim();
+                        }
+                        if (item.action?.toLowerCase().includes("system")) return "System";
+                        const rawId = String(item.user?._id || item.user?.id || item.performedBy?._id || (typeof item.performedBy === "string" ? item.performedBy : "") || "");
+                        const curId = String(currentUser?._id || currentUser?.id || "");
+                        const empId = String(employee?._id || employee?.id || effectiveUserId || "");
+                        if (rawId && curId && rawId === curId) return currentUser?.name || "You";
+                        if (rawId && empId && rawId === empId) return employee?.name || "Employee";
+                        if (rawId && Array.isArray(taskObj?.assignedUsers)) {
+                          const matched = taskObj.assignedUsers.find((u) => String(u?._id || u?.id || u) === rawId);
+                          if (matched?.name) return matched.name;
+                        }
+                        if (typeof item.performedBy === "string" && item.performedBy.trim() && !/^[0-9a-fA-F]{24}$/.test(item.performedBy.trim())) {
+                          return item.performedBy.trim();
+                        }
+                        return employee?.name || currentUser?.name || "Admin";
+                      };
+
+                      const userName = resolveActivityUser(log, activityModal.task);
                       const initials = getInitials(userName);
                       const isSystem = userName.toLowerCase() === "system";
                       const dateStr = formatDateTime(log.createdAt || log.timestamp || log.date || log.updatedAt);
@@ -3855,6 +4195,29 @@ const CompanyAllTaskTasks = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* New Rich Task Details Modal */}
+        {taskDetailsModal.open && (
+          <TaskDetailsModal
+            open={taskDetailsModal.open}
+            task={taskDetailsModal.task}
+            employeeInfo={employee}
+            onClose={() => setTaskDetailsModal({ open: false, task: null })}
+            onStatusChange={handleStatusChangeFromModal}
+            onRemarkAdded={handleAddRemarkFromModal}
+            onCheckpointToggle={async (task, cp) => {
+              await handleCheckpointToggle(task, cp);
+              setTaskDetailsModal((prev) => {
+                if (!prev.open || !prev.task) return prev;
+                const updatedCps = Array.isArray(prev.task.checkpoints)
+                  ? prev.task.checkpoints.map((c) => (String(c._id || c.id) === String(cp._id || cp.id) ? { ...c, completed: !c.completed } : c))
+                  : [];
+                return { ...prev, task: { ...prev.task, checkpoints: updatedCps } };
+              });
+            }}
+            canEdit={canEditCompanyTasks}
+          />
         )}
 
         {/* Floating Toast Notification */}

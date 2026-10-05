@@ -348,7 +348,7 @@ export default function PremiumMarketingPage({ pageKey = 'product-overview' }) {
               <div className="pm-browser">
                 <div className="pm-browser-top"><span></span><span></span><span></span><b>CIIS Network</b></div>
                 {page.image ? (
-                  <img src={page.image} alt={`${page.eyebrow} preview`} />
+                  <img src={page.image} alt={`${page.eyebrow} preview`} loading="lazy" decoding="async" />
                 ) : (
                   <div className="pm-mock">
                     <Icon size={42} />

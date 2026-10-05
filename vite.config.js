@@ -23,12 +23,39 @@ export default defineConfig({
 
   
   build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 800,
     commonjsOptions: {
       include: [/node_modules/]
     },
-    esbuild: {
-      loader: {
-        '.js': 'jsx', 
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react/') || id.includes('react-dom/') || id.includes('react-router-dom/')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@mui/') || id.includes('@emotion/')) {
+              return 'vendor-mui';
+            }
+            if (id.includes('recharts') || id.includes('chart.js') || id.includes('react-chartjs-2') || id.includes('d3-')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('jspdf') || id.includes('xlsx') || id.includes('html2canvas')) {
+              return 'vendor-export';
+            }
+            if (id.includes('lucide-react') || id.includes('react-icons') || id.includes('sweetalert2') || id.includes('react-toastify') || id.includes('react-select')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('socket.io-client') || id.includes('engine.io-client')) {
+              return 'vendor-socket';
+            }
+            if (id.includes('date-fns') || id.includes('dayjs') || id.includes('axios')) {
+              return 'vendor-utils';
+            }
+          }
+        },
       },
     },
   },

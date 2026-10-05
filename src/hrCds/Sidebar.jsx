@@ -3137,13 +3137,15 @@ const Sidebar = ({
               sx={{ minWidth: 0, my: 0, overflow: 'visible' }}
               primaryTypographyProps={{
                 variant: 'body2',
-                fontWeight: selected ? 600 : 500,
-                fontSize: '0.78rem',
-                lineHeight: 1.25,
-                whiteSpace: 'normal',
-                wordBreak: 'normal',
-                overflow: 'visible',
-                textOverflow: 'clip'
+                sx: {
+                  fontWeight: selected ? 600 : 500,
+                  fontSize: '0.78rem',
+                  lineHeight: 1.25,
+                  whiteSpace: 'normal',
+                  wordBreak: 'normal',
+                  overflow: 'visible',
+                  textOverflow: 'clip'
+                }
               }}
             />
           </StyledListItemButton>
@@ -3531,13 +3533,15 @@ const Sidebar = ({
                         sx={{ minWidth: 0, my: 0, overflow: 'visible' }}
                         primaryTypographyProps={{
                           variant: 'body2',
-                          fontWeight: hasSelectedChild ? 600 : 500,
-                          fontSize: '0.78rem',
-                          lineHeight: 1.25,
-                          whiteSpace: 'normal',
-                          wordBreak: 'normal',
-                          overflow: 'visible',
-                          textOverflow: 'clip'
+                          sx: {
+                            fontWeight: hasSelectedChild ? 600 : 500,
+                            fontSize: '0.78rem',
+                            lineHeight: 1.25,
+                            whiteSpace: 'normal',
+                            wordBreak: 'normal',
+                            overflow: 'visible',
+                            textOverflow: 'clip'
+                          }
                         }}
                       />
                       {isOpen ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}

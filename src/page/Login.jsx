@@ -854,12 +854,14 @@ const Login = () => {
                   src={companyDetails.logo} 
                   alt={companyDetails.companyName} 
                   className="company-logo"
+                  decoding="async"
                 />
               ) : (
                 <img
                   src="/logoo.png"
                   alt="CIIS Network"
                   className="company-logo"
+                  decoding="async"
                 />
               )}
             </div>
@@ -910,12 +912,14 @@ const Login = () => {
                     src={companyDetails.logo} 
                     alt={companyDetails?.companyName || 'Company Logo'} 
                     className="mobile-logo-img"
+                    decoding="async"
                   />
                 ) : (
                   <img
                     src="/logoo.png"
                     alt="CIIS Network"
                     className="mobile-logo-img"
+                    decoding="async"
                   />
                 )}
               </div>

@@ -192,7 +192,15 @@ const TaskDetailsModal = ({
   const assigneeRole = employeeInfo?.role || employeeInfo?.designation || employeeInfo?.jobRole;
   const assigneeDept = employeeInfo?.department?.name || employeeInfo?.department;
   const assigneeSummary = [assigneeName, assigneeRole, assigneeDept].filter(Boolean).join(' · ');
-  const taskTypeTag = task.taskFor === 'self' || task.isSelfTask ? 'Personal task' : task.source === 'client' ? 'Client task' : 'Company task';
+  const projectName = task.projectName || task.project?.name || task.project?.title || (typeof task.project === 'string' ? task.project : '');
+  const clientName = task.clientName || task.client?.name || task.client?.companyName || task.clientId?.client || task.clientId?.name || task.clientId?.company || (typeof task.client === 'string' ? task.client : '');
+  const taskTypeTag = task.taskFor === 'self' || task.isSelfTask
+    ? 'Personal task'
+    : (task.source === 'project' || task.projectId || projectName)
+      ? (projectName ? `Project: ${projectName}` : 'Project task')
+      : (task.source === 'client' || task.clientId || clientName)
+        ? (clientName ? `Client: ${clientName}` : 'Client task')
+        : 'Company task';
 
   // Dynamic Dates
   const createdDate = task.createdAt || task.createdTime;
@@ -888,6 +896,20 @@ const TaskDetailsModal = ({
                     <FiFolder size={12} />
                     <span>{taskTypeTag}</span>
                   </div>
+
+                  {projectName && (
+                    <div className="task-meta-pill project-pill" style={{ color: '#0284c7', backgroundColor: '#e0f2fe', borderColor: '#bae6fd' }}>
+                      <FiFolder size={12} />
+                      <span>Project: {projectName}</span>
+                    </div>
+                  )}
+
+                  {clientName && (
+                    <div className="task-meta-pill client-pill" style={{ color: '#059669', backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                      <FiUser size={12} />
+                      <span>Client: {clientName}</span>
+                    </div>
+                  )}
 
                   <div
                     className="task-meta-pill priority-pill"

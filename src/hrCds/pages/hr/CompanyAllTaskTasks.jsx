@@ -341,6 +341,16 @@ const getTaskSource = (task) => {
   return "assigned";
 };
 
+const getProjectName = (task) => {
+  const candidate = task?.projectName || task?.project?.name || task?.project?.title || (typeof task?.project === "string" ? task.project : "");
+  return resolveDisplayString(candidate, "");
+};
+
+const getClientName = (task) => {
+  const candidate = task?.clientName || task?.client?.name || task?.client?.companyName || task?.clientId?.client || task?.clientId?.name || task?.clientId?.company || (typeof task?.client === "string" ? task.client : "");
+  return resolveDisplayString(candidate, "");
+};
+
 const getStatusMeta = (status) => {
   const normalized = normalizeStatus(status);
   switch (normalized) {
@@ -1088,10 +1098,12 @@ const CompanyAllTaskTasks = () => {
   }, [fetchTasks]);
 
   useEffect(() => {
-    if ((activeTab === "attendance" || activeTab === "performance") && attendanceRecords.length === 0) {
+    // The weekly productivity card also needs attendance history. Loading it
+    // only on the Attendance/Performance tabs left Monday and prior days at 0.
+    if (attendanceRecords.length === 0) {
       fetchAttendance();
     }
-  }, [activeTab, attendanceRecords.length, fetchAttendance]);
+  }, [attendanceRecords.length, fetchAttendance]);
 
   const fetchTaskDetails = useCallback(async (task) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
@@ -1748,7 +1760,7 @@ const CompanyAllTaskTasks = () => {
     return Math.round(((stats.completed || 0) / totalCount) * 100);
   }, [stats.completed, stats.total, tasks.length]);
 
-  // Weekly Productivity (Mon - Sun): Dynamic calculation for current week only
+  // Weekly Productivity (Mon - Sat): reset automatically with each new Monday.
   const weeklyProductivity = useMemo(() => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
@@ -1757,7 +1769,9 @@ const CompanyAllTaskTasks = () => {
     monday.setDate(now.getDate() - distanceToMonday);
     monday.setHours(0, 0, 0, 0);
 
-    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    // Sunday is a weekly rest day. On Sunday, keep the completed Mon-Sat
+    // chart visible; a fresh week begins next Monday.
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     return dayLabels.map((label, idx) => {
       // Future days in current week must strictly be 0%
@@ -2780,9 +2794,19 @@ const CompanyAllTaskTasks = () => {
                                       <span className="badge-pill status" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
                                         <span className="pri-dot" style={{ backgroundColor: meta.color }} /> {meta.label}
                                       </span>
-                                      <span className="badge-pill source">
-                                        <FiUser size={11} /> {getTaskType(task) === "assigned" ? "Assigned" : "Personal"}
-                                      </span>
+                                      {getProjectName(task) ? (
+                                        <span className="badge-pill project" title={`Project: ${getProjectName(task)}`}>
+                                          <FiFolder size={11} /> Project: {getProjectName(task)}
+                                        </span>
+                                      ) : getClientName(task) ? (
+                                        <span className="badge-pill client" title={`Client: ${getClientName(task)}${task.service ? ` (${task.service})` : ""}`}>
+                                          <FiUser size={11} /> Client: {getClientName(task)}
+                                        </span>
+                                      ) : (
+                                        <span className="badge-pill source">
+                                          <FiUser size={11} /> {getTaskType(task) === "assigned" ? "Assigned" : "Personal"}
+                                        </span>
+                                      )}
                                       <span className="badge-pill date">
                                         <FiCalendar size={11} /> {getDueDate(task) ? formatDate(getDueDate(task)) : "No due date"}
                                       </span>
@@ -3049,7 +3073,17 @@ const CompanyAllTaskTasks = () => {
                             <strong>{t.title || "Untitled"}</strong>
                           </td>
                           <td>
-                            <span className="badge-pill source">{getTaskType(t) === "assigned" ? "Assigned" : "Personal"}</span>
+                            {getProjectName(t) ? (
+                              <span className="badge-pill project" title={`Project: ${getProjectName(t)}`}>
+                                <FiFolder size={11} /> {getProjectName(t)}
+                              </span>
+                            ) : getClientName(t) ? (
+                              <span className="badge-pill client" title={`Client: ${getClientName(t)}`}>
+                                <FiUser size={11} /> {getClientName(t)}
+                              </span>
+                            ) : (
+                              <span className="badge-pill source">{getTaskType(t) === "assigned" ? "Assigned" : "Personal"}</span>
+                            )}
                           </td>
                           <td>
                             <span className={`badge-pill priority ${t.priority || "medium"}`}>

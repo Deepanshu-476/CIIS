@@ -2112,6 +2112,12 @@ const filterItemsByCompanyAccess = (items, companyData) => {
   const hasCrmAccess = allowedSet.has('crm') || allowedSet.has('admin-crm');
 
   return items.filter(item => {
+    // Dashboard is the authenticated landing route, not an optional feature.
+    // Keeping it prevents stale allowedPages data from hiding the Main link.
+    if (['dashboard', 'user-dashboard'].includes(String(item?.id || '').toLowerCase()) ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard') {
+      return true;
+    }
     if (String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/')) {
       return hasCrmAccess || [...getMenuAccessKeys(item)].some(key => allowedSet.has(normalizeKey(key)));
     }
@@ -2586,6 +2592,11 @@ const Sidebar = ({
           departmentId: sidebarDepartmentId,
           role: sidebarRoleKey
         },
+        // Sidebar permissions/configuration are admin-managed data. Serving
+        // a persisted GET cache here can hide newly added menu items until its
+        // long cache TTL expires.
+        noCache: true,
+        cache: false,
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -2967,6 +2978,19 @@ const Sidebar = ({
     else {
       void 0;
       items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
+    }
+
+    // The dashboard is the employee's landing page. The server configuration
+    // normally supplies it, but an old browser/sidebar cache can omit it even
+    // after the configuration has been updated. Reuse the existing Main item
+    // only when it is absent; this never creates a second Main section or a
+    // duplicate Dashboard entry.
+    if (!isClientUser && !items.some(item => (
+      String(item?.id || '').toLowerCase() === 'dashboard' ||
+      String(item?.id || '').toLowerCase() === 'user-dashboard' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard'
+    ))) {
+      items = [{ ...fixedDefaultItems[0], order: 1 }, ...items];
     }
 
     // A saved/custom sidebar is authoritative for what the role can see.
@@ -4032,6 +4056,16 @@ const Sidebar = ({
     const crmSectionOrder = category => category === 'crm' ? 1 : category === 'admin-telecaller' ? 2 : 0;
     const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
     const hasCustomRanges = customRanges.length > 0;
+    // Custom range headings retain the spelling entered in Sidebar Management
+    // (for example, "Main"). The built-in Dashboard category is "main".
+    // Without this lookup the two case variants become separate groups, which
+    // renders two identical Main sections when Dashboard falls outside a range.
+    const customHeadingByNormalizedName = new Map(
+      customRanges
+        .map(range => String(range?.heading || '').trim())
+        .filter(Boolean)
+        .map(heading => [heading.toLowerCase(), heading])
+    );
     
     menuItems.forEach(item => {
       let category = String(item.path || '').toLowerCase().startsWith('/ciisuser/telecaller/') 
@@ -4052,6 +4086,10 @@ const Sidebar = ({
       if (!category) {
         category = getWebsiteCategory(item);
       }
+
+      // Keep default categories with the matching custom heading in one
+      // section. This puts Dashboard back in the existing Main dropdown.
+      category = customHeadingByNormalizedName.get(String(category).trim().toLowerCase()) || category;
 
       if (!groups[category]) {
         groups[category] = [];

@@ -515,10 +515,19 @@ const Attendance = () => {
     if (s.includes("LATE")) return "LATE";
     if (s.includes("HALF")) return "HALF DAY";
     if (s.includes("HOLIDAY")) return "HOLIDAY";
-    if (s.includes("WEEKLY") || s.includes("OFF")) return "WEEKLY OFF";
+    if (s.includes("WEEKLY") || s.includes("WEEKEND") || s.includes("OFF")) return "WEEKLY OFF";
     if (s.includes("LEAVE") && !s.includes("UNINFORMED")) return "ON LEAVE";
     if (s.includes("ABSENT") || s.includes("UNINFORMED")) return "ABSENT";
     return s;
+  };
+
+  const isCalendarWeeklyOff = (dateKey) => {
+    if (!dateKey) return false;
+    const [year, month, day] = dateKey.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    if (isNaN(date.getTime())) return false;
+    const weekday = date.getDay();
+    return weekday === 0 || weekday === 6;
   };
 
   const getRecordLoginDisplay = (item) => {
@@ -993,8 +1002,9 @@ const Attendance = () => {
       );
 
       let status = "NONE";
-      if (isHol) status = "HOLIDAY";
-      else if (rec) status = getNormalizedStatus(rec.status);
+      if (rec) status = getNormalizedStatus(rec.status);
+      else if (isHol) status = "HOLIDAY";
+      else if (isCalendarWeeklyOff(dateKey)) status = "WEEKLY OFF";
 
       const isToday =
         todayDate.getFullYear() === currentYear &&

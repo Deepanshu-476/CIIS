@@ -673,75 +673,96 @@
 /* Panel */
 .EmployeeProject-panel {
   margin-top: 2rem;
-  border-radius: 12px;
+  border-radius: 14px;
   background: white;
   overflow: visible;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.05);
-  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5eaf3;
 }
 
 .EmployeeProject-panel-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4f6df5 0%, #6f42c1 100%);
   color: white;
-  padding: 0 1.5rem;
+  padding: 10px 12px;
+  border-radius: 14px 14px 0 0;
 }
 
 .EmployeeProject-tabs {
   display: flex;
-  border-bottom: none;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.EmployeeProject-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .EmployeeProject-tab {
-  padding: 12px 24px;
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.7);
-  font-weight: 600;
-  font-size: 0.95rem;
+  flex: 0 0 auto;
+  min-width: 158px;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.82);
+  font-weight: 700;
+  font-size: 0.9rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 9px;
   position: relative;
-  min-height: 48px;
+  min-height: 46px;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.EmployeeProject-tab:hover {
+  background: rgba(255,255,255,0.16);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.28);
+}
+
+.EmployeeProject-tab svg,
+.EmployeeProject-tab .EmployeeProject-icon {
+  flex: 0 0 auto;
 }
 
 .EmployeeProject-tab-active {
-  color: white;
+  color: #1e293b;
+  background: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+  transform: translateY(1px);
 }
 
 .EmployeeProject-tab-count {
   min-width: 22px;
   height: 22px;
   padding: 0 7px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.38);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  color: inherit;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
   font-size: 0.75rem;
   line-height: 20px;
   text-align: center;
+  font-weight: 800;
 }
 
 .EmployeeProject-tab-active .EmployeeProject-tab-count {
-  background: white;
-  color: #4f62cf;
-}
-
-.EmployeeProject-tab-active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background-color: white;
-  border-radius: 3px 3px 0 0;
+  background: #eff4ff;
+  border-color: #c7d2fe;
+  color: #3557d6;
 }
 
 .EmployeeProject-panel-content {
   padding: 1.5rem;
+  border-radius: 0 0 14px 14px;
 }
 
 .EmployeeProject-panel-header-content {

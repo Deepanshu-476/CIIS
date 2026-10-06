@@ -89,6 +89,15 @@ const getProjectFileUrl = (filePath, apiBase = axios.defaults.baseURL) => {
   return `${String(apiBase || "").replace(/\/$/, "")}/${relativePath}`;
 };
 
+const resolveApiPreviewUrl = (url) => {
+  const rawUrl = String(url || "").trim();
+  if (!rawUrl) return "";
+  if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith("blob:")) return rawUrl;
+  const baseUrl = String(axios.defaults?.baseURL || "").replace(/\/+$/, "");
+  if (!baseUrl) return rawUrl;
+  return `${baseUrl}/${rawUrl.replace(/^\/+/, "")}`;
+};
+
 const parseStoredJson = (key) => {
   try {
     const value = localStorage.getItem(key);
@@ -728,7 +737,13 @@ export const AdminProject = () => {
       setSelectedPdfUrl(objectUrl);
     } catch (err) {
       console.error("Error loading document preview:", err);
-      setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+      const directPreviewUrl = resolveApiPreviewUrl(fallbackStaticUrl || candidateUrls[0]);
+      if (directPreviewUrl) {
+        setSelectedPdfUrl(directPreviewUrl);
+        setPdfError(null);
+      } else {
+        setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+      }
     } finally {
       setPdfLoading(false);
     }
@@ -790,7 +805,19 @@ export const AdminProject = () => {
       URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error("Error downloading file:", error);
-      showSnackbar("Unable to download file", "error");
+      const directUrl = resolveApiPreviewUrl((rawPath ? getProjectFileUrl(rawPath) : "") || candidateUrls[0]);
+      if (directUrl) {
+        const link = document.createElement('a');
+        link.href = directUrl;
+        link.download = downloadName;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        showSnackbar("Unable to download file", "error");
+      }
     }
   };
 
@@ -975,9 +1002,9 @@ export const AdminProject = () => {
                     Loading document preview...
                   </p>
                 </div>
-              ) : pdfBlobUrl ? (
+              ) : (pdfBlobUrl || selectedPdfUrl) ? (
                 <iframe
-                  src={pdfBlobUrl}
+                  src={pdfBlobUrl || selectedPdfUrl}
                   title={selectedPdfName || "PDF Viewer"}
                   className="ap-pdf-viewer"
                 />
@@ -1012,11 +1039,11 @@ export const AdminProject = () => {
               )}
             </div>
             <div className="ap-dialog-footer">
-              {pdfBlobUrl && (
+              {(pdfBlobUrl || selectedPdfUrl) && (
                 <button
                   type="button"
                   className="ap-btn ap-btn-outline"
-                  onClick={() => window.open(pdfBlobUrl, "_blank")}
+                  onClick={() => window.open(pdfBlobUrl || selectedPdfUrl, "_blank", "noopener,noreferrer")}
                 >
                   Open in New Tab
                 </button>

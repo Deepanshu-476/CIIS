@@ -483,6 +483,7 @@ const EmpAssets = () => {
   };
 
   const canDeleteRequest = () => {
+    if (isOwner === true || isAdmin === true) return true;
     if (deletePermissionUserIds.length > 0) {
       return deletePermissionUserIds.includes(String(currentUserId));
     }
@@ -560,12 +561,22 @@ const EmpAssets = () => {
     if (!window.confirm('Are you sure you want to delete this request?')) return;
     setActionLoading(true);
     try {
-      
-      await axios.delete(`/asset-requests/delete/${id}`);
+      try {
+        await axios.delete(`/asset-requests/delete/${id}`);
+      } catch (delErr) {
+        if (delErr?.response?.status === 404) {
+          await axios.delete(`/asset-requests/${id}`);
+        } else {
+          throw delErr;
+        }
+      }
       setNotification({ message: 'Request deleted successfully', severity: 'success' });
       fetchRequests();
     } catch (err) {
-      setNotification({ message: 'Failed to delete request', severity: 'error' });
+      setNotification({ 
+        message: err?.response?.data?.message || err?.response?.data?.error || 'Failed to delete request', 
+        severity: 'error' 
+      });
       console.error('Delete error:', err);
     } finally { 
       setActionLoading(false); 

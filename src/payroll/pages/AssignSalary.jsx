@@ -39,10 +39,18 @@ export default function AssignSalary() {
   const departments = useMemo(() => [...new Set(users.map((user) => nameOf(user.department)).filter((item) => item !== "—"))].sort(), [users]);
   const jobRoles = useMemo(() => [...new Set(users.map((user) => nameOf(user.jobRole)).filter((item) => item !== "—"))].sort(), [users]);
   const filteredUsers = useMemo(() => {
-    const byStatus = activeFilter === "assigned" ? assignedUsers : activeFilter === "pending" ? unassignedUsers : users;
+    const byStatus = activeFilter === "assigned"
+      ? assignedUsers
+      : (activeFilter === "unassigned" || activeFilter === "pending")
+        ? unassignedUsers
+        : users;
     return byStatus.filter((user) => (!departmentFilter || nameOf(user.department) === departmentFilter) && (!jobRoleFilter || nameOf(user.jobRole) === jobRoleFilter));
   }, [activeFilter, users, assignedUsers, unassignedUsers, departmentFilter, jobRoleFilter]);
-  const filterTitle = activeFilter === "assigned" ? "Salary Assigned" : activeFilter === "pending" ? "Salary Not Assigned" : "All Employees";
+  const filterTitle = activeFilter === "assigned"
+    ? "Salary Assigned"
+    : (activeFilter === "unassigned" || activeFilter === "pending")
+      ? "Salary Unassigned"
+      : "All Employees";
 
   const handleUnassign = async (user, assignment) => {
     if (!assignment?._id) return;
@@ -72,11 +80,11 @@ export default function AssignSalary() {
   };
 
   return <main className="esa-container assign-salary-page">
-    <section className="esa-card as-header"><div className="esa-card-header"><h2>Assign Salary</h2><p>View employees with an assigned salary and employees still pending salary assignment.</p></div><div className="as-header-actions"><div className="as-filters"><label>Department<select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}><option value="">All Departments</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label><label>Job Role<select value={jobRoleFilter} onChange={(event) => setJobRoleFilter(event.target.value)}><option value="">All Job Roles</option>{jobRoles.map((jobRole) => <option key={jobRole} value={jobRole}>{jobRole}</option>)}</select></label></div><button type="button" onClick={() => navigate("/ciisUser/salary-assignment")}><FiUserPlus /> Assign Salary</button></div></section>
+    <section className="esa-card as-header"><div className="esa-card-header"><h2>Assign Salary</h2><p>View employees with an assigned salary and employees still pending salary assignment.</p></div><div className="as-header-actions"><div className="as-filters"><label>Status<select value={activeFilter === "pending" ? "unassigned" : activeFilter} onChange={(event) => setActiveFilter(event.target.value)}><option value="all">All Employees ({users.length})</option><option value="assigned">Salary Assigned ({assignedUsers.length})</option><option value="unassigned">Salary Unassigned ({unassignedUsers.length})</option></select></label><label>Department<select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}><option value="">All Departments</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label><label>Job Role<select value={jobRoleFilter} onChange={(event) => setJobRoleFilter(event.target.value)}><option value="">All Job Roles</option>{jobRoles.map((jobRole) => <option key={jobRole} value={jobRole}>{jobRole}</option>)}</select></label></div><button type="button" onClick={() => navigate("/ciisUser/salary-assignment")}><FiUserPlus /> Assign Salary</button></div></section>
     <section className="as-counts">
       <button type="button" className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}><FiUsers /><span><small>Total Employees</small><strong>{users.length}</strong></span></button>
       <button type="button" className={`green ${activeFilter === "assigned" ? "active" : ""}`} onClick={() => setActiveFilter("assigned")}><FiCheckCircle /><span><small>Salary Assigned</small><strong>{assignedUsers.length}</strong></span></button>
-      <button type="button" className={`orange ${activeFilter === "pending" ? "active" : ""}`} onClick={() => setActiveFilter("pending")}><FiUserPlus /><span><small>Pending Assignment</small><strong>{unassignedUsers.length}</strong></span></button>
+      <button type="button" className={`orange ${activeFilter === "unassigned" || activeFilter === "pending" ? "active" : ""}`} onClick={() => setActiveFilter("unassigned")}><FiUserPlus /><span><small>Salary Unassigned</small><strong>{unassignedUsers.length}</strong></span></button>
     </section>
     {loading && <section className="as-card as-empty">Loading employees…</section>}
     {!loading && error && <section className="as-card as-error">{error}</section>}

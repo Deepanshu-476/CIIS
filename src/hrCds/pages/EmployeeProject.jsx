@@ -1149,6 +1149,7 @@ const EmployeeProject = () => {
     : taskAssigneeFilter === "unassigned"
       ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
       : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
+  const displayedTasks = assigneeFilteredTasks;
   const taskDocCount = (tasks || []).filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length;
   const documentCount = (projectDetails?.pdfFile?.path || projectDetails?.pdfFile?.filename || projectDetails?.pdfFile?.url ? 1 : 0) + (SHOW_TASK_DOCUMENTS ? taskDocCount : 0);
 

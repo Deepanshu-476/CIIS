@@ -54,6 +54,38 @@ import {
 } from "../../../utils/pageAccess";
 import "./CompanyAllTaskTasks.css";
 
+const isRawObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
+
+const resolveDisplayString = (value, fallback = "—") => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || isRawObjectId(trimmed)) return fallback;
+    return trimmed;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    const candidate =
+      value.name ||
+      value.title ||
+      value.roleName ||
+      value.departmentName ||
+      value.companyName ||
+      value.client ||
+      value.label ||
+      "";
+    if (typeof candidate === "string" && candidate.trim() && !isRawObjectId(candidate)) {
+      return candidate.trim();
+    }
+    if (typeof candidate === "object" && candidate !== null) {
+      return resolveDisplayString(candidate, fallback);
+    }
+  }
+  return fallback;
+};
+
 const cleanActivityDescription = (desc, action) => {
   if (!desc) {
     if (!action) return "Activity logged";
@@ -1800,15 +1832,38 @@ const CompanyAllTaskTasks = () => {
     return attendanceRecords;
   }, [attendanceRecords, attFilter]);
 
-  const employeeName = employee?.name || "—";
-  const isRawObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
-  const employeeRoleValue = [employee?.role, employee?.jobRole, employee?.companyRole]
-    .find((value) => value && !isRawObjectId(value));
-  const employeeDeptValue = employee?.department?.name || employee?.department;
-  const employeeRole = !isRawObjectId(employeeRoleValue) && employeeRoleValue ? employeeRoleValue : "—";
-  const employeeDept = !isRawObjectId(employeeDeptValue) && employeeDeptValue ? employeeDeptValue : "—";
-  const employeeEmail = employee?.email || "";
-  const employeePhone = employee?.phone || employee?.mobile || "";
+  const employeeName = resolveDisplayString(employee?.name, "—");
+  const employeeRoleCandidates = [
+    employee?.jobRoleName,
+    employee?.jobRole,
+    employee?.role,
+    employee?.companyRole,
+  ];
+  let employeeRole = "—";
+  for (const candidate of employeeRoleCandidates) {
+    const resolved = resolveDisplayString(candidate, "");
+    if (resolved && resolved !== "—") {
+      employeeRole = resolved;
+      break;
+    }
+  }
+
+  const employeeDeptCandidates = [
+    employee?.departmentName,
+    employee?.department?.name,
+    employee?.department?.departmentName,
+    employee?.department,
+  ];
+  let employeeDept = "—";
+  for (const candidate of employeeDeptCandidates) {
+    const resolved = resolveDisplayString(candidate, "");
+    if (resolved && resolved !== "—") {
+      employeeDept = resolved;
+      break;
+    }
+  }
+  const employeeEmail = typeof employee?.email === "string" ? employee.email : "";
+  const employeePhone = typeof employee?.phone === "string" ? employee.phone : (typeof employee?.mobile === "string" ? employee.mobile : "");
 
   return (
     <div className="company-task-page">
@@ -1837,7 +1892,7 @@ const CompanyAllTaskTasks = () => {
               </div>
               <div className="company-task-role-dept">
                 <span>{employeeRole}</span>
-                {employeeDept && <><span className="bullet">&bull;</span><span>{employeeDept}</span></>}
+                {employeeDept && employeeDept !== "—" && <><span className="bullet">&bull;</span><span>{employeeDept}</span></>}
               </div>
               <div className="company-task-meta">
                 {employeeEmail && (
@@ -2543,12 +2598,12 @@ const CompanyAllTaskTasks = () => {
                                       <span className="badge-pill duration">
                                         <FiClock size={11} /> {timeEstimateBadge}
                                       </span>
-                                      <span className={`badge-pill priority ${task.priority || "medium"}`}>
-                                        <span className="pri-dot" /> {(task.priority || "Medium")}
+                                      <span className={`badge-pill priority ${typeof task.priority === "string" ? task.priority.toLowerCase() : "medium"}`}>
+                                        <span className="pri-dot" /> {resolveDisplayString(task.priority, "Medium")}
                                       </span>
                                       {task.lastEditedByName && (
-                                        <span className="badge-pill edited" title={`Edited by ${task.lastEditedByName}${task.lastEditChanges ? ': ' + task.lastEditChanges : ''}`}>
-                                          <FiEdit2 size={11} /> Edited by {task.lastEditedByName}
+                                        <span className="badge-pill edited" title={`Edited by ${resolveDisplayString(task.lastEditedByName, '')}${task.lastEditChanges ? ': ' + task.lastEditChanges : ''}`}>
+                                          <FiEdit2 size={11} /> Edited by {resolveDisplayString(task.lastEditedByName, 'User')}
                                         </span>
                                       )}
                                     </div>
@@ -2654,7 +2709,7 @@ const CompanyAllTaskTasks = () => {
                                     <div className="task-last-edit-info">
                                       <FiEdit2 size={12} className="edit-info-icon" />
                                       <span className="edit-info-text">
-                                        <strong>Edited by {task.lastEditedByName}</strong>
+                                        <strong>Edited by {resolveDisplayString(task.lastEditedByName, 'User')}</strong>
                                         {task.lastEditedAt && ` on ${formatDateTime(task.lastEditedAt)}`}
                                         {task.lastEditChanges && `: ${task.lastEditChanges}`}
                                       </span>
@@ -3616,7 +3671,7 @@ const CompanyAllTaskTasks = () => {
                     <FiEdit2 size={16} className="audit-icon" />
                     <div className="audit-content">
                       <div className="audit-title">
-                        Last edited by <strong>{editModal.task.lastEditedByName}</strong>
+                        Last edited by <strong>{resolveDisplayString(editModal.task.lastEditedByName, 'User')}</strong>
                         {editModal.task.lastEditedAt && ` on ${formatDateTime(editModal.task.lastEditedAt)}`}
                       </div>
                       {editModal.task.lastEditChanges && (
@@ -3953,4 +4008,48 @@ const CompanyAllTaskTasks = () => {
   );
 };
 
-export default CompanyAllTaskTasks;
+class CompanyTaskErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("CompanyAllTaskTasks ErrorBoundary caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "40px", textAlign: "center", background: "#fff", borderRadius: "12px", margin: "24px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+          <h2 style={{ color: "#ef4444", marginBottom: "12px" }}>Unable to load task page</h2>
+          <p style={{ color: "#64748b", marginBottom: "20px" }}>{this.state.error?.message || "An unexpected error occurred while displaying employee tasks."}</p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              style={{ padding: "10px 20px", background: "#2563eb", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600 }}
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => window.location.href = "/ciisUser/company-all-task"}
+              style={{ padding: "10px 20px", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "8px", cursor: "pointer", fontWeight: 600 }}
+            >
+              Back to Employees
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const SafeCompanyAllTaskTasks = (props) => (
+  <CompanyTaskErrorBoundary>
+    <CompanyAllTaskTasks {...props} />
+  </CompanyTaskErrorBoundary>
+);
+
+export default SafeCompanyAllTaskTasks;

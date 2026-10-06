@@ -530,8 +530,10 @@ const TaskDetails = () => {
     const selectedUser = users.find((user) => String(user._id || user.id) === String(userId));
     const params = new URLSearchParams();
     const todayStr = getDateInputValue();
-    params.set('startDate', todayStr);
-    params.set('endDate', todayStr);
+    const startDate = globalFromDate || todayStr;
+    const endDate = globalToDate || todayStr;
+    params.set('startDate', startDate);
+    params.set('endDate', endDate);
     const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`, {
       state: {
@@ -539,7 +541,7 @@ const TaskDetails = () => {
         taskStats: selectedUser?.taskStats || null,
       },
     });
-  }, [navigate, users]);
+  }, [navigate, users, globalFromDate, globalToDate]);
 
   
   useEffect(() => {
@@ -1569,9 +1571,9 @@ const TaskDetails = () => {
           const statsPayload = {
             userIds,
             filters: {
-              period: 'today',
-              fromDate: todayStr,
-              toDate: todayStr,
+              period: isDateFiltered ? 'custom' : 'today',
+              fromDate: fromDateParam || todayStr,
+              toDate: toDateParam || todayStr,
               status: 'all',
               priority: 'all',
             },
@@ -5191,7 +5193,7 @@ const TaskDetails = () => {
                     <td>{getUserDisplayRole(user, jobRoleMap)}</td>
                     <td><span className="table-badge assigned">{userStats.total || 0}</span></td>
                     <td><span className="table-badge completed">{userStats.completed || 0}</span></td>
-                    <td><span className="table-badge pending">{Math.max(0, (userStats.total || 0) - (userStats.completed || 0))}</span></td>
+                    <td><span className="table-badge pending">{userStats.pending ?? 0}</span></td>
                     <td><span style={{ color: rateColor, fontWeight: 600 }}>{completionRate}%</span></td>
                     <td>
                       <div className="table-progress-track">
@@ -5318,7 +5320,7 @@ const TaskDetails = () => {
                                 <span>Completed</span>
                               </div>
                               <div className="stat stat-pending">
-                                <h5 className="val-orange">{Math.max(0, (userStats.total || 0) - (userStats.completed || 0))}</h5>
+                                <h5 className="val-orange">{userStats.pending ?? 0}</h5>
                                 <span>Pending</span>
                               </div>
                               <div className="stat stat-completion">

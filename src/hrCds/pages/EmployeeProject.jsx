@@ -361,6 +361,31 @@ const EmployeeProject = () => {
     event.currentTarget.src = liveUrl;
   };
 
+  const sanitizeDocName = (value, fallback = 'Document') => {
+    const clean = String(value || '')
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, '')
+      .replace(/\s+/g, '_')
+      .slice(0, 60);
+    return clean || fallback;
+  };
+
+  const getProjectDocumentDisplayName = (project) => {
+    const safeName = sanitizeDocName(project?.projectName || project?.name || 'Project');
+    const rawFileName = project?.pdfFile?.filename || project?.pdfFile?.originalName || project?.pdfFile?.path || '';
+    const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
+    const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
+    return `${safeName}_Document${ext}`;
+  };
+
+  const getTaskDocumentDisplayName = (task, project = null) => {
+    const safeTask = sanitizeDocName(task?.title || 'Task');
+    const rawFileName = task?.pdfFile?.filename || task?.pdfFile?.originalName || task?.pdfFile?.path || '';
+    const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
+    const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
+    return `${safeTask}_Document${ext}`;
+  };
+
   const getFileDisplayName = (fileObj, fallback = "Attachment") => {
     if (!fileObj) return fallback;
     if (typeof fileObj === "string") return fileObj.split("/").pop() || fallback;
@@ -721,7 +746,12 @@ const EmployeeProject = () => {
         }
       });
 
-      if (file) formData.append("pdfFile", file);
+      if (file) {
+        const ext = file.name ? file.name.substring(file.name.lastIndexOf('.')) : '.pdf';
+        const safeTaskTitle = sanitizeDocName(newTask.title, 'Task');
+        const customFileName = `${safeTaskTitle}_Document${(ext || '.pdf').toLowerCase()}`;
+        formData.append("pdfFile", file, customFileName);
+      }
 
       await axios.post(`/projects/${selectedProject}/tasks`, formData, {
         headers: { "Content-Type": "multipart/form-data" }
@@ -1149,6 +1179,7 @@ const EmployeeProject = () => {
     : taskAssigneeFilter === "unassigned"
       ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
       : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
+  const displayedTasks = assigneeFilteredTasks;
   const taskDocCount = (tasks || []).filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length;
   const documentCount = (projectDetails?.pdfFile?.path || projectDetails?.pdfFile?.filename || projectDetails?.pdfFile?.url ? 1 : 0) + (SHOW_TASK_DOCUMENTS ? taskDocCount : 0);
 
@@ -1430,7 +1461,7 @@ const EmployeeProject = () => {
                     {isImagePath(t.pdfFile) ? (
                       <img
                         src={getUploadUrl(t.pdfFile.path)}
-                        alt={getFileDisplayName(t.pdfFile)}
+                        alt={getTaskDocumentDisplayName(t, projectDetails)}
                         className="EmployeeProject-task-attachment-thumbnail"
                         onError={(event) => {
                           const fallbackUrl = getLiveUploadUrl(t.pdfFile.path);
@@ -1438,7 +1469,7 @@ const EmployeeProject = () => {
                         }}
                       />
                     ) : <Icons.InsertDriveFile />}
-                    <span>{getFileDisplayName(t.pdfFile, "Task attachment")}</span>
+                    <span>{getTaskDocumentDisplayName(t, projectDetails)}</span>
                   </div>
                   <div className="EmployeeProject-task-pdf-actions">
                     <button
@@ -1446,7 +1477,7 @@ const EmployeeProject = () => {
                       className="EmployeeProject-icon-button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        viewPdf(t.pdfFile?.path, getFileDisplayName(t.pdfFile), { projectId: selectedProject, taskId: t._id });
+                        viewPdf(t.pdfFile?.path, getTaskDocumentDisplayName(t, projectDetails), { projectId: selectedProject, taskId: t._id });
                       }}
                       aria-label="Preview task attachment"
                     >
@@ -1457,7 +1488,7 @@ const EmployeeProject = () => {
                       className="EmployeeProject-icon-button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        downloadPdf(t.pdfFile?.path, getFileDisplayName(t.pdfFile), { projectId: selectedProject, taskId: t._id });
+                        downloadPdf(t.pdfFile?.path, getTaskDocumentDisplayName(t, projectDetails), { projectId: selectedProject, taskId: t._id });
                       }}
                       aria-label="Download task attachment"
                     >
@@ -2033,21 +2064,21 @@ const EmployeeProject = () => {
                           <Icons.PictureAsPdf />
                         </div>
                         <div className="EmployeeProject-document-details">
-                          <h4>{projectDetails.pdfFile.filename || 'Project Document'}</h4>
+                          <h4>{getProjectDocumentDisplayName(projectDetails)}</h4>
                           <p>Main project document • Uploaded on: {new Date(projectDetails.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <div className="EmployeeProject-document-actions">
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => viewPdf(projectDetails.pdfFile?.path, getFileDisplayName(projectDetails.pdfFile, "Project document"), { projectId: selectedProject || projectDetails._id })}
+                          onClick={() => viewPdf(projectDetails.pdfFile?.path, getProjectDocumentDisplayName(projectDetails), { projectId: selectedProject || projectDetails._id })}
                         >
                           <Icons.Visibility />
                           Preview
                         </button>
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => downloadPdf(projectDetails.pdfFile?.path, getFileDisplayName(projectDetails.pdfFile, "Project document"), { projectId: selectedProject || projectDetails._id })}
+                          onClick={() => downloadPdf(projectDetails.pdfFile?.path, getProjectDocumentDisplayName(projectDetails), { projectId: selectedProject || projectDetails._id })}
                         >
                           <Icons.Download />
                           Download
@@ -2076,7 +2107,7 @@ const EmployeeProject = () => {
                               <div className="EmployeeProject-task-document-info">
                                 {isImagePath(task.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
                                 <div className="EmployeeProject-task-document-text">
-                                  <h5>{task.pdfFile.filename || 'Task Document'}</h5>
+                                  <h5>{getTaskDocumentDisplayName(task, projectDetails)}</h5>
                                   <p>From: {task.title}</p>
                                   <p>
                                     Assigned to: {getTaskAssigneeNames(task)} • Status: 
@@ -2090,14 +2121,14 @@ const EmployeeProject = () => {
                               <div className="EmployeeProject-task-document-buttons">
                                 <button
                                   className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
-                                  onClick={() => viewPdf(task.pdfFile?.path, getFileDisplayName(task.pdfFile), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
+                                  onClick={() => viewPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, projectDetails), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
                                 >
                                   <Icons.Visibility />
                                   Preview
                                 </button>
                                 <button
                                   className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
-                                  onClick={() => downloadPdf(task.pdfFile?.path, getFileDisplayName(task.pdfFile), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
+                                  onClick={() => downloadPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, projectDetails), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
                                 >
                                   <Icons.Download />
                                   Download
@@ -2319,11 +2350,11 @@ const EmployeeProject = () => {
                       <button
                         type="button"
                         className="EmployeeProject-detail-image-button"
-                        onClick={() => viewPdf(detailTask.pdfFile?.path, getFileDisplayName(detailTask.pdfFile), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
+                        onClick={() => viewPdf(detailTask.pdfFile?.path, getTaskDocumentDisplayName(detailTask, projectDetails), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
                       >
                         <img
                           src={getUploadUrl(detailTask.pdfFile?.path)}
-                          alt={getFileDisplayName(detailTask.pdfFile)}
+                          alt={getTaskDocumentDisplayName(detailTask, projectDetails)}
                           className="EmployeeProject-detail-image-preview"
                           onError={(event) => {
                             const fallbackUrl = getLiveUploadUrl(detailTask.pdfFile?.path);
@@ -2335,19 +2366,19 @@ const EmployeeProject = () => {
                     <div className="EmployeeProject-detail-attachment-info">
                       <div className="EmployeeProject-detail-attachment-name">
                         {isImagePath(detailTask.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
-                        <span>{getFileDisplayName(detailTask.pdfFile, "Task attachment")}</span>
+                        <span>{getTaskDocumentDisplayName(detailTask, projectDetails)}</span>
                       </div>
                       <div className="EmployeeProject-task-detail-actions">
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => viewPdf(detailTask.pdfFile?.path, getFileDisplayName(detailTask.pdfFile), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
+                          onClick={() => viewPdf(detailTask.pdfFile?.path, getTaskDocumentDisplayName(detailTask, projectDetails), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
                         >
                           <Icons.Visibility />
                           Preview
                         </button>
                         <button
                           className="EmployeeProject-button EmployeeProject-button-outline"
-                          onClick={() => downloadPdf(detailTask.pdfFile?.path, getFileDisplayName(detailTask.pdfFile), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
+                          onClick={() => downloadPdf(detailTask.pdfFile?.path, getTaskDocumentDisplayName(detailTask, projectDetails), { projectId: selectedProject || projectDetails?._id, taskId: detailTask._id })}
                         >
                           <Icons.Download />
                           Download

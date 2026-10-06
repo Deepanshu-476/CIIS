@@ -1533,6 +1533,15 @@ const UserCreateTask = () => {
   const getStatusOptionsForTask = useCallback((status, taskSource) => {
     const normalizedStatus = normalizeStatus(status);
 
+    if (normalizedStatus === 'overdue') {
+      return [
+        { value: 'overdue', label: 'Overdue' },
+        { value: 'in-progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'onhold', label: 'On Hold' }
+      ];
+    }
+
     if (normalizedStatus === 'onhold' && taskSource !== 'client') {
       return [
         { value: 'in-progress', label: 'In Progress' },
@@ -3805,9 +3814,11 @@ const UserCreateTask = () => {
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
     const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
+    const isOverdueTransitionAllowed = ['in-progress', 'completed', 'onhold', 'cancelled', 'rejected'].includes(normalizeStatus(newStatus));
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
       !isResumedFromHold &&
+      !isOverdueTransitionAllowed &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3849,9 +3860,11 @@ const UserCreateTask = () => {
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
     const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
+    const isOverdueTransitionAllowed = ['in-progress', 'completed', 'onhold', 'cancelled', 'rejected'].includes(normalizeStatus(newStatus));
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
       !isResumedFromHold &&
+      !isOverdueTransitionAllowed &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -3896,9 +3909,11 @@ const UserCreateTask = () => {
     const task = findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
     const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
+    const isOverdueTransitionAllowed = ['in-progress', 'completed', 'onhold', 'cancelled', 'rejected'].includes(normalizeStatus(newStatus));
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
       !isResumedFromHold &&
+      !isOverdueTransitionAllowed &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -4104,9 +4119,11 @@ const UserCreateTask = () => {
     const task = typeof taskOrId === 'object' ? taskOrId : findTaskInGroups(taskId);
     const currentStatus = task ? getStatusForTask(task) : '';
     const isResumedFromHold = currentStatus === 'onhold' && normalizeStatus(newStatus) === 'in-progress';
+    const isOverdueTransitionAllowed = ['in-progress', 'completed', 'onhold', 'cancelled', 'rejected'].includes(normalizeStatus(newStatus));
     if (
       normalizeStatus(newStatus) !== 'overdue' &&
       !isResumedFromHold &&
+      !isOverdueTransitionAllowed &&
       (currentStatus === 'overdue' || isOverdue(getDueDateForTask(task), currentStatus, task))
     ) {
       showSnackbar('Overdue task status cannot be changed', 'error');
@@ -6074,11 +6091,12 @@ const UserCreateTask = () => {
                         const attachmentUrl = getImageUrl(getAttachmentPath(attachment));
                         const attachmentName = getAttachmentName(attachment);
                         const attachmentIsImage = isImageAttachment(attachment);
-                        const statusOptions = getStatusOptionsForTask(status, taskSource);
+                        const effectiveStatus = taskIsOverdue ? 'overdue' : status;
+                        const statusOptions = getStatusOptionsForTask(effectiveStatus, taskSource);
                         const isOnHoldActionSelect = normalizeStatus(status) === 'onhold' && taskSource !== 'client';
                         const selectValue = isOnHoldActionSelect ? '' : status;
                         const displayStatusOptions = taskIsOverdue && !statusOptions.some(option => option.value === 'overdue')
-                          ? [...statusOptions, { value: 'overdue', label: 'Overdue' }]
+                          ? [{ value: 'overdue', label: 'Overdue' }, ...statusOptions]
                           : statusOptions;
                         const displayedSelectValue = taskIsOverdue ? 'overdue' : selectValue;
                         const displayedStatus = taskIsOverdue ? 'overdue' : status;
@@ -6256,13 +6274,12 @@ const UserCreateTask = () => {
                                         }
                                       }}
                                       className="user-create-task-select"
-                                      disabled={status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue'}
                                       style={{ 
                                         minWidth: '90px',
                                         borderColor: taskIsOverdue ? '#f44336' : undefined,
                                         color: taskIsOverdue ? '#f44336' : undefined,
                                         fontWeight: taskIsOverdue ? '600' : undefined,
-                                        cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
+                                        cursor: 'pointer'
                                       }}
                                     >
                                       {isOnHoldActionSelect && <option value="" disabled>Change Status</option>}
@@ -6325,11 +6342,12 @@ const UserCreateTask = () => {
                           const attachmentUrl = getImageUrl(getAttachmentPath(attachment));
                           const attachmentName = getAttachmentName(attachment);
                           const attachmentIsImage = isImageAttachment(attachment);
-                          const statusOptions = getStatusOptionsForTask(status, taskSource);
+                          const effectiveStatus = taskIsOverdue ? 'overdue' : status;
+                          const statusOptions = getStatusOptionsForTask(effectiveStatus, taskSource);
                           const isOnHoldActionSelect = normalizeStatus(status) === 'onhold' && taskSource !== 'client';
                           const selectValue = isOnHoldActionSelect ? '' : status;
                           const displayStatusOptions = taskIsOverdue && !statusOptions.some(option => option.value === 'overdue')
-                            ? [...statusOptions, { value: 'overdue', label: 'Overdue' }]
+                            ? [{ value: 'overdue', label: 'Overdue' }, ...statusOptions]
                             : statusOptions;
                           const displayedSelectValue = taskIsOverdue ? 'overdue' : selectValue;
                           const displayedStatus = taskIsOverdue ? 'overdue' : status;
@@ -6580,13 +6598,12 @@ const UserCreateTask = () => {
                                     }
                                   }}
                                   className="user-create-task-select"
-                                  disabled={status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue'}
                                   style={{ 
                                     minWidth: isMobile ? '90px' : '100px',
                                     borderColor: taskIsOverdue ? '#f44336' : undefined,
                                     color: taskIsOverdue ? '#f44336' : undefined,
                                     fontWeight: taskIsOverdue ? '600' : undefined,
-                                    cursor: (status === 'overdue' || taskIsOverdue || task.overallStatus === 'overdue') ? 'not-allowed' : 'pointer'
+                                    cursor: 'pointer'
                                   }}
                                 >
                                   {isOnHoldActionSelect && <option value="" disabled>Change Status</option>}

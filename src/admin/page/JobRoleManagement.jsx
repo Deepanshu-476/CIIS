@@ -725,11 +725,13 @@ const JobRoleManagement = () => {
     const isSuper = checkSuperAdminStatus(user);
     
     if (!isSuper && !showAllCompanies) {
-      const companyId = resolveCompanyId(user);
-      filtered = jobRoles.filter(jobRole => 
-        !jobRole.company || 
-        getRecordId(jobRole.company) === companyId
-      );
+      const companyId = String(resolveCompanyId(user) || '').trim();
+      if (companyId) {
+        filtered = jobRoles.filter(jobRole => {
+          const roleCompanyId = String(getRecordId(jobRole.company) || '').trim();
+          return roleCompanyId === companyId;
+        });
+      }
     }
     
     if (searchTerm) {

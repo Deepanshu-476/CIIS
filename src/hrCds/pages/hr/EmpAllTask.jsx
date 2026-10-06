@@ -5240,7 +5240,7 @@ const TaskDetails = () => {
                     <td>{getUserDisplayRole(user, jobRoleMap)}</td>
                     <td><span className="table-badge assigned">{userStats.total || 0}</span></td>
                     <td><span className="table-badge completed">{userStats.completed || 0}</span></td>
-                    <td><span className="table-badge pending">{Math.max(0, (userStats.total || 0) - (userStats.completed || 0))}</span></td>
+                    <td><span className="table-badge pending">{userStats.pending ?? 0}</span></td>
                     <td><span style={{ color: rateColor, fontWeight: 600 }}>{completionRate}%</span></td>
                     <td>
                       <div className="table-progress-track">
@@ -5367,7 +5367,7 @@ const TaskDetails = () => {
                                 <span>Completed</span>
                               </div>
                               <div className="stat stat-pending">
-                                <h5 className="val-orange">{Math.max(0, (userStats.total || 0) - (userStats.completed || 0))}</h5>
+                                <h5 className="val-orange">{userStats.pending ?? 0}</h5>
                                 <span>Pending</span>
                               </div>
                               <div className="stat stat-completion">

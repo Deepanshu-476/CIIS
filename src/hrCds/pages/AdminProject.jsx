@@ -53,6 +53,31 @@ const getProjectId = (p) => p?._id || p?.id;
 const isImageFile = (value = "") => /\.(avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(String(value));
 const LIVE_API_URL = "https://backendciisnetwork.com/api";
 
+const sanitizeDocName = (value, fallback = 'Document') => {
+  const clean = String(value || '')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 60);
+  return clean || fallback;
+};
+
+const getProjectDocumentDisplayName = (project) => {
+  const safeName = sanitizeDocName(project?.projectName || project?.name || 'Project');
+  const rawFileName = project?.pdfFile?.filename || project?.pdfFile?.originalName || project?.pdfFile?.path || '';
+  const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
+  const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
+  return `${safeName}_Document${ext}`;
+};
+
+const getTaskDocumentDisplayName = (task, project = null) => {
+  const safeTask = sanitizeDocName(task?.title || 'Task');
+  const rawFileName = task?.pdfFile?.filename || task?.pdfFile?.originalName || task?.pdfFile?.path || '';
+  const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
+  const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
+  return `${safeTask}_Document${ext}`;
+};
+
 const getProjectFileUrl = (filePath, apiBase = axios.defaults.baseURL) => {
   const rawPath = String(filePath || "").replace(/\\/g, "/").trim();
   if (!rawPath) return "";
@@ -488,7 +513,10 @@ export const AdminProject = () => {
     }
     
     if (file) {
-      formData.append("pdfFile", file);
+      const ext = file.name ? file.name.substring(file.name.lastIndexOf('.')) : '.pdf';
+      const safeProjectName = sanitizeDocName(projectName, 'Project');
+      const customFileName = `${safeProjectName}_Document${(ext || '.pdf').toLowerCase()}`;
+      formData.append("pdfFile", file, customFileName);
     }
 
     try {
@@ -1178,14 +1206,14 @@ export const AdminProject = () => {
                     <div className="ap-document-card">
                       <div className="ap-document-icon"><Icons.Pdf /></div>
                       <div className="ap-document-info">
-                        <div className="ap-document-name">{selectedProject.pdfFile.filename || "Project Document"}</div>
+                        <div className="ap-document-name">{getProjectDocumentDisplayName(selectedProject)}</div>
                         <div className="ap-document-meta">Uploaded on: {selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : "Unknown"}</div>
                       </div>
                       <div className="ap-document-actions">
-                        <button className="ap-icon-btn" onClick={() => viewPdf(selectedProject.pdfFile?.path, selectedProject.pdfFile?.filename, { projectId: selectedProject._id })}>
+                        <button className="ap-icon-btn" onClick={() => viewPdf(selectedProject.pdfFile?.path, getProjectDocumentDisplayName(selectedProject), { projectId: selectedProject._id })}>
                           <Icons.Visibility />
                         </button>
-                        <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(selectedProject.pdfFile?.path, selectedProject.pdfFile?.filename, { projectId: selectedProject._id })}>
+                        <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(selectedProject.pdfFile?.path, getProjectDocumentDisplayName(selectedProject), { projectId: selectedProject._id })}>
                           <Icons.Download />
                         </button>
                       </div>
@@ -1203,14 +1231,14 @@ export const AdminProject = () => {
                           <div key={`${task._id || task.id || 'doc'}-${index}`} className="ap-document-item">
                             <div className="ap-document-icon"><Icons.File /></div>
                             <div className="ap-document-info">
-                              <div className="ap-document-name">{task.pdfFile?.filename || "Task Document"}</div>
+                              <div className="ap-document-name">{getTaskDocumentDisplayName(task, selectedProject)}</div>
                               <div className="ap-document-meta">From: {task.title || "Untitled"} • Assigned to: {task.assignedTo?.name || "Unassigned"}</div>
                             </div>
                             <div className="ap-document-actions">
-                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile?.path, task.pdfFile?.filename, { projectId: selectedProject._id, taskId: task._id })}>
+                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })}>
                                 <Icons.Visibility />
                               </button>
-                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(task.pdfFile?.path, task.pdfFile?.filename, { projectId: selectedProject._id, taskId: task._id })}>
+                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })}>
                                 <Icons.Download />
                               </button>
                             </div>
@@ -1635,10 +1663,10 @@ export const AdminProject = () => {
                         <div className="ap-pdf-actions">
                           {(p.pdfFile?.path || p.pdfFile?.filename || p.pdfFile?.url) ? (
                             <>
-                              <button className="ap-icon-btn" onClick={() => viewPdf(p.pdfFile?.path, p.pdfFile?.filename, { projectId: p._id })} title="View PDF">
+                              <button className="ap-icon-btn" onClick={() => viewPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })} title="View PDF">
                                 <Icons.Visibility />
                               </button>
-                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(p.pdfFile?.path, p.pdfFile?.filename, { projectId: p._id })} title="Download PDF">
+                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })} title="Download PDF">
                                 <Icons.Download />
                               </button>
                             </>

@@ -113,10 +113,18 @@ const getCompanyContext = () => {
   const storedCompany = parseStoredJson("company") || {};
   const userCompany = typeof user.company === "object" && user.company ? user.company : {};
   const rawCompany = localStorage.getItem("company") || "";
+  const localCompanyCode = String(
+    localStorage.getItem("companyCode")
+    || localStorage.getItem("company_code")
+    || localStorage.getItem("company_code_url")
+    || localStorage.getItem("companySlug")
+    || localStorage.getItem("companyName")
+    || ""
+  ).trim();
 
   return {
     companyCode: String(
-      localStorage.getItem("companyCode")
+      localCompanyCode
       || user.companyCode
       || userCompany.companyCode
       || userCompany.code
@@ -489,7 +497,7 @@ export const AdminProject = () => {
 
     const { companyCode, companyIdentifier } = getCompanyContext();
     if (!companyCode) {
-      showSnackbar("Company code not found. Please login again from your company URL.", "error");
+      showSnackbar("Company code not found. Project cannot be created without company code.", "error");
       return;
     }
     
@@ -581,7 +589,10 @@ export const AdminProject = () => {
       } else if (err.response?.status === 500) {
         showSnackbar("❌ Server error - please try again later", "error");
       } else {
-        showSnackbar(err.response?.data?.message || "Something went wrong", "error");
+        const validationMessage = Array.isArray(err.response?.data?.errors)
+          ? err.response.data.errors.map(item => item.msg || item.message).filter(Boolean).join(", ")
+          : "";
+        showSnackbar(validationMessage || err.response?.data?.message || "Something went wrong", "error");
       }
     } finally {
       setLoading(false);

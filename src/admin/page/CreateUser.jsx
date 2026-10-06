@@ -36,7 +36,7 @@ const departmentBelongsToBranch = (department, branchId) => {
     getId(department.branchId) ||
     getId(department.branch_id);
 
-  return departmentBranchId === branchId;
+  return !departmentBranchId || departmentBranchId === branchId;
 };
 
 const getRoleShiftOptions = (role = {}) => {

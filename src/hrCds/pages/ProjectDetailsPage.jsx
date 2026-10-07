@@ -12,7 +12,7 @@ const parseStoredJson = (key) => {
     return value ? JSON.parse(value) : null;
   } catch {
     return null;
-  }
+  }  
 };
 
 const getObjectIdTime = (id) => {

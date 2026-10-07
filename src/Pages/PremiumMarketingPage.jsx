@@ -33,7 +33,7 @@ const pageCatalog = {
     description: 'Bring people, work, clients and insights into one CIIS workspace with shared data, permissions and real-time visibility.',
     icon: Workflow,
     color: '#2563eb',
-    image: '/dashboard-preview.jpg',
+    image: '/Dashboard-home.jpg',
     bullets: ['Unified company dashboard', 'Role-based access for every team', 'Web and mobile workflows'],
     stats: [['4', 'Operating pillars'], ['99.9%', 'Cloud uptime'], ['1', 'Company database']]
   },
@@ -43,7 +43,7 @@ const pageCatalog = {
     description: 'A complete workforce command center for HR, admins, managers and employees.',
     icon: Users,
     color: '#2563eb',
-    image: '/dashboard-preview.jpg',
+    image: '/Dashboard-home.jpg',
     bullets: ['Employee directory and roles', 'Attendance, shifts and leave workflows', 'Payroll and asset operations'],
     stats: [['10K+', 'Employee records'], ['99.8%', 'Punch accuracy'], ['30 min', 'Setup']]
   },
@@ -63,7 +63,7 @@ const pageCatalog = {
     description: 'A shared delivery layer for account teams and client portals, with service tasks and updates connected to the same system.',
     icon: Briefcase,
     color: '#0891b2',
-    image: '/dashboard-preview.jpg',
+    image: '/Dashboard-home.jpg',
     bullets: ['Client account management', 'Services, support and documents', 'Payments and delivery timelines'],
     stats: [['360°', 'Client view'], ['24/7', 'Support trail'], ['1', 'Portal']]
   },

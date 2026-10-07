@@ -507,23 +507,43 @@ const Attendance = () => {
     [userJoinDate]
   );
 
-  // Normalize status string
-  const getNormalizedStatus = (statusStr) => {
-    if (!statusStr) return "ABSENT";
-    const s = statusStr.toUpperCase().trim();
+  const holidayDateKeySet = useMemo(() => {
+    const set = new Set();
+    if (Array.isArray(holidays)) {
+      holidays.forEach((h) => {
+        const k = h?.dateKey || (h?.date ? normalizeToDateKey(h.date) : null);
+        if (k) set.add(k);
+      });
+    }
+    return set;
+  }, [holidays]);
+
+  // Normalize status string with holiday cross-check
+  const getNormalizedStatus = useCallback((statusStr, recDate, rec) => {
+    const s = statusStr ? String(statusStr).toUpperCase().trim() : "";
     if (s.includes("PRESENT")) return "PRESENT";
     if (s.includes("LATE")) return "LATE";
     if (s.includes("HALF")) return "HALF DAY";
     if (s.includes("HOLIDAY")) return "HOLIDAY";
     if (s.includes("WEEKLY") || s.includes("OFF")) return "WEEKLY OFF";
     if (s.includes("LEAVE") && !s.includes("UNINFORMED")) return "ON LEAVE";
+
+    // Cross-check holiday date when no clock-in occurred
+    const targetDate = recDate || rec?.date || rec?.dateKey;
+    if (targetDate) {
+      const dateKey = normalizeToDateKey(targetDate);
+      if (holidayDateKeySet.has(dateKey) && !rec?.inTime && !rec?.checkInTime && !rec?.login) {
+        return "HOLIDAY";
+      }
+    }
+
     if (s.includes("ABSENT") || s.includes("UNINFORMED")) return "ABSENT";
-    return s;
-  };
+    return s || "ABSENT";
+  }, [holidayDateKeySet]);
 
   const getRecordLoginDisplay = (item) => {
     if (!item) return "-";
-    const normStatus = getNormalizedStatus(item.status);
+    const normStatus = getNormalizedStatus(item.status, item.date, item);
     const isInactiveDay =
       normStatus === "ABSENT" ||
       normStatus === "WEEKLY OFF" ||
@@ -544,7 +564,7 @@ const Attendance = () => {
 
   const getRecordLogoutDisplay = (item) => {
     if (!item) return "-";
-    const normStatus = getNormalizedStatus(item.status);
+    const normStatus = getNormalizedStatus(item.status, item.date, item);
     const isInactiveDay =
       normStatus === "ABSENT" ||
       normStatus === "WEEKLY OFF" ||
@@ -703,7 +723,7 @@ const Attendance = () => {
 
         // Status Filter
         if (statusFilter !== "ALL") {
-          const norm = getNormalizedStatus(rec.status);
+          const norm = getNormalizedStatus(rec.status, rec.date, rec);
           if (norm !== statusFilter) return false;
         }
 
@@ -727,7 +747,8 @@ const Attendance = () => {
     currentYear,
     currentMonth,
     statusFilter,
-    search
+    search,
+    getNormalizedStatus
   ]);
 
   // Pagination Slice
@@ -780,7 +801,7 @@ const Attendance = () => {
         recDate.getMonth() === currentMonth
       ) {
         total++;
-        const s = getNormalizedStatus(rec.status);
+        const s = getNormalizedStatus(rec.status, rec.date, rec);
         if (s === "PRESENT") present++;
         else if (s === "LATE") {
           late++;
@@ -889,7 +910,7 @@ const Attendance = () => {
     ];
 
     const rows = filteredRecords.map((r) => {
-      const normStatus = getNormalizedStatus(r.status);
+      const normStatus = getNormalizedStatus(r.status, r.date, r);
       const loginDisplay = getRecordLoginDisplay(r);
       const logoutDisplay = getRecordLogoutDisplay(r);
 
@@ -994,7 +1015,7 @@ const Attendance = () => {
 
       let status = "NONE";
       if (isHol) status = "HOLIDAY";
-      else if (rec) status = getNormalizedStatus(rec.status);
+      else if (rec) status = getNormalizedStatus(rec.status, rec.date, rec);
 
       const isToday =
         todayDate.getFullYear() === currentYear &&
@@ -1327,7 +1348,7 @@ const Attendance = () => {
                   ) : (
                     paginatedRecords.map((item, idx) => {
                       const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
-                      const normStatus = getNormalizedStatus(item.status);
+                      const normStatus = getNormalizedStatus(item.status, item.date, item);
                       const isLate = normStatus === "LATE" || Boolean(item.lateBy && item.lateBy !== "-" && item.lateBy !== "00:00:00");
                       const displayLogin = getRecordLoginDisplay(item);
                       const displayLogout = getRecordLogoutDisplay(item);
@@ -1845,21 +1866,30 @@ const Attendance = () => {
                 <div className="att-modal-stats-grid">
                   <div className="att-modal-stat-box">
                     <span className="att-modal-stat-lbl">Status</span>
-                    <span
-                      className={`att-status-pill ${
-                        getNormalizedStatus(selectedDayRecord.status) === "PRESENT"
-                          ? "present"
-                          : getNormalizedStatus(selectedDayRecord.status) === "LATE"
-                          ? "late"
-                          : getNormalizedStatus(selectedDayRecord.status) === "HALF DAY"
-                          ? "halfday"
-                          : getNormalizedStatus(selectedDayRecord.status) === "HOLIDAY"
-                          ? "holiday"
-                          : "absent"
-                      }`}
-                    >
-                      {getNormalizedStatus(selectedDayRecord.status)}
-                    </span>
+                    {(() => {
+                      const statusVal = getNormalizedStatus(
+                        selectedDayRecord.status,
+                        selectedDayRecord.date,
+                        selectedDayRecord
+                      );
+                      return (
+                        <span
+                          className={`att-status-pill ${
+                            statusVal === "PRESENT"
+                              ? "present"
+                              : statusVal === "LATE"
+                              ? "late"
+                              : statusVal === "HALF DAY"
+                              ? "halfday"
+                              : statusVal === "HOLIDAY"
+                              ? "holiday"
+                              : "absent"
+                          }`}
+                        >
+                          {statusVal}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="att-modal-stat-box">

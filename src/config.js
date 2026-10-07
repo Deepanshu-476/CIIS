@@ -1,14 +1,22 @@
-const LOCAL_API_ORIGIN = 'http://127.0.0.1:3000';
-const PRODUCTION_API_ORIGIN = 'https://backendcds.ciisnetwork.in';
-const defaultApiOrigin = import.meta.env.DEV ? LOCAL_API_ORIGIN : PRODUCTION_API_ORIGIN;
+export const API_URL = 'https://backendcds.ciisnetwork.in/api'
+export const API_URL_IMG = 'https://backendcds.ciisnetwork.in/'
+export const SOCKET_URL = 'https://backendcds.ciisnetwork.in/'
 
-export const API_URL = import.meta.env.VITE_API_URL || `${defaultApiOrigin}/api`;
-export const API_URL_IMG = import.meta.env.VITE_API_URL_IMG || `${defaultApiOrigin}/`;
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || defaultApiOrigin;
+// export const API_URL = 'https://backendappapp.ciisnetwork.in/api'
+// export const API_URL_IMG = 'https://backendappapp.ciisnetwork.in/'
+// export const SOCKET_URL = 'https://backendappapp.ciisnetwork.in'
+
+// // export const API_URL = 'https://backendapp.ciisnetwork.in/api'
+// // export const API_URL_IMG = 'https://backendapp.ciisnetwork.in/'
+// // export const SOCKET_URL = 'https://backendapp.ciisnetwork.in/'
+
+// export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000/api';
+// export const API_URL_IMG = import.meta.env.VITE_API_URL_IMG || 'http://127.0.0.1:3000/';
+// export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://127.0.0.1:3000';
 export const CHAT_UPLOAD_ORIGINS = [
   API_URL_IMG,
-  'https://backendappapp.ciisnetwork.in/',
-  'https://backendciisnetwork.com/',
+  // 'https://backendappapp.ciisnetwork.in/',
+  'https://backendcds.ciisnetwork.in/',
 ];
 
 export const TURN_URL = import.meta.env.VITE_TURN_URL || ''

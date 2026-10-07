@@ -457,6 +457,8 @@ const countStats = (taskList = []) => {
   let inProgress = 0;
   let completed = 0;
   let overdue = 0;
+  let personal = 0;
+  let work = 0;
 
   taskList.forEach((t) => {
     const s = getDisplayStatus(t);
@@ -470,6 +472,12 @@ const countStats = (taskList = []) => {
     } else {
       pending++;
     }
+    const taskType = getTaskType(t);
+    if (taskType === "self" || taskType === "personal") {
+      personal++;
+    } else {
+      work++;
+    }
   });
 
   return {
@@ -478,6 +486,8 @@ const countStats = (taskList = []) => {
     inProgress,
     completed,
     overdue,
+    personal,
+    work,
   };
 };
 
@@ -832,12 +842,14 @@ const CompanyAllTaskTasks = () => {
       const fetchedTasks = Array.isArray(data.tasks) ? data.tasks : [];
       const apiStats = data.stats || data.statusCounts;
       const computedStats = apiStats ? {
-        total: Number(apiStats.total) || 0,
+        total: Number(apiStats.total?.count ?? apiStats.total) || 0,
         pending: Number(apiStats.pending?.count ?? apiStats.pending) || 0,
         inProgress: Number(apiStats.inProgress?.count ?? apiStats.inProgress) || 0,
         completed: Number(apiStats.completed?.count ?? apiStats.completed) || 0,
         overdue: Number(apiStats.overdue?.count ?? apiStats.overdue) || 0,
         onhold: Number(apiStats.onhold?.count ?? apiStats.onhold) || 0,
+        personal: Number(apiStats.personal?.count ?? apiStats.personal ?? data.typeCounts?.personal) || 0,
+        work: Number(apiStats.work?.count ?? apiStats.work ?? data.typeCounts?.work) || 0,
       } : countStats(fetchedTasks);
 
       setTasks(fetchedTasks);
@@ -1859,18 +1871,20 @@ const CompanyAllTaskTasks = () => {
   }, [attendanceReliability, completionRate, onTimeRate]);
 
   const personalTasksCount = useMemo(() => {
+    if (typeof stats.personal === "number") return stats.personal;
     return tasks.filter((t) => {
       const type = getTaskType(t);
       return type === "self" || type === "personal";
     }).length;
-  }, [tasks]);
+  }, [stats.personal, tasks]);
 
   const workTasksCount = useMemo(() => {
+    if (typeof stats.work === "number") return stats.work;
     return tasks.filter((t) => {
       const type = getTaskType(t);
       return type === "assigned" || type === "project" || type === "client";
     }).length;
-  }, [tasks]);
+  }, [stats.work, tasks]);
 
   const projectOptions = useMemo(() => {
     const values = tasks.map((task) => task.project?.name || task.projectName || task.project?.title || task.project).filter((value) => typeof value === "string" && value.trim());

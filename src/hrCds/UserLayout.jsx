@@ -37,17 +37,17 @@ const MainContent = styled('main', {
   overflow: 'auto',
   backgroundColor: '#f8faff',
   transition: `margin ${SIDEBAR_TRANSITION}, width ${SIDEBAR_TRANSITION}`,
-  
+
   ...(!isMobile && {
     marginLeft: `${drawerWidthClosed}px`,
     width: `calc(100% - ${drawerWidthClosed}px)`,
-    
+
     ...(isSidebarHovered && {
       marginLeft: `${drawerWidthOpen}px`,
       width: `calc(100% - ${drawerWidthOpen}px)`,
     }),
   }),
-  
+
   ...(isMobile && {
     marginLeft: 0,
     width: '100%',
@@ -93,17 +93,17 @@ const UserLayout = () => {
       }
     };
   }, []);
-  
+
   const toggleMobileSidebar = () => {
     setMobileSidebarOpen(!mobileSidebarOpen);
   };
-  
+
   const handleCloseMobileSidebar = () => {
     if (isMobile) {
       setMobileSidebarOpen(false);
     }
   };
-  
+
   useEffect(() => {
     if (!isMobile) {
       setMobileSidebarOpen(false);
@@ -116,7 +116,7 @@ const UserLayout = () => {
       setMobileSidebarOpen(false);
     }
   }, [location.pathname, isMobile]);
-  
+
   return (
     <LayoutContainer>
       <CssBaseline />
@@ -155,7 +155,7 @@ const UserLayout = () => {
           anchor="left"
           open={mobileSidebarOpen}
           onClose={handleCloseMobileSidebar}
-          ModalProps={{ 
+          ModalProps={{
             keepMounted: true,
             BackdropProps: { invisible: false }
           }}
@@ -176,12 +176,12 @@ const UserLayout = () => {
         </Drawer>
       )}
 
-      <MainContent 
+      <MainContent
         className={isSidebarHovered ? 'ClientDashboard-sidebar-open' : ''}
-        isMobile={isMobile} 
+        isMobile={isMobile}
         isSidebarHovered={isSidebarHovered}
-        sx={{ 
-          maxWidth: '100%', 
+        sx={{
+          maxWidth: '100%',
           overflow: 'auto',
           padding: 0,
           mt: isMobile ? 7 : 8,

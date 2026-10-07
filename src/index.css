@@ -1850,6 +1850,52 @@ body.ciis-modal-open {
   transform: translateY(1px) scale(0.98) !important;
 }
 
+/* ============================================================
+   GLOBAL MODAL & FORM INPUT FOCUS NORMALIZATION
+   Removes native browser double-border/inner focus-ring outlines
+   ============================================================ */
+[class*="modal"] input:focus,
+[class*="modal"] input:focus-visible,
+[class*="modal"] textarea:focus,
+[class*="modal"] textarea:focus-visible,
+[class*="modal"] select:focus,
+[class*="modal"] select:focus-visible,
+[class*="Modal"] input:focus,
+[class*="Modal"] input:focus-visible,
+[class*="dialog"] input:focus,
+[class*="dialog"] input:focus-visible,
+[class*="Dialog"] input:focus,
+[class*="Dialog"] input:focus-visible,
+[class*="popup"] input:focus,
+[class*="popup"] input:focus-visible,
+[class*="input-wrap"] input:focus,
+[class*="input-wrap"] input:focus-visible,
+[class*="input-container"] input:focus,
+[class*="input-container"] input:focus-visible,
+[class*="input-box"] input:focus,
+[class*="input-box"] input:focus-visible,
+[class*="field-wrap"] input:focus,
+[class*="field-wrap"] input:focus-visible,
+.MuiModal-root input:focus,
+.MuiModal-root input:focus-visible,
+.MuiDialog-root input:focus,
+.MuiDialog-root input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Prevent inner autofill outlines and background color distortion */
+[class*="modal"] input:-webkit-autofill,
+[class*="modal"] input:-webkit-autofill:hover,
+[class*="modal"] input:-webkit-autofill:focus,
+[class*="Modal"] input:-webkit-autofill,
+[class*="input-wrap"] input:-webkit-autofill,
+[class*="input-wrap"] input:-webkit-autofill:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 
 
 

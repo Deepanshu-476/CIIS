@@ -1218,11 +1218,6 @@ export const AdminProject = () => {
                               <span><Icons.Person /> {task.assignedTo?.name || "Unassigned"}</span>
                               {task.dueDate && <span><Icons.Calendar /> Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
                             </div>
-                            {(task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url) && (
-                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile.path, task.pdfFile.filename, { projectId: selectedProject._id, taskId: task._id })}>
-                                <Icons.Visibility />
-                              </button>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -1258,33 +1253,6 @@ export const AdminProject = () => {
                     </div>
                   ) : (
                     <div className="ap-alert ap-alert-info">No project document uploaded</div>
-                  )}
-
-                  <h4 className="ap-section-title ap-section-title-small">Task Documents ({selectedProject.tasks?.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length || 0})</h4>
-                  {selectedProject.tasks?.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length > 0 ? (
-                    <div className="ap-document-list">
-                      {selectedProject.tasks
-                        .filter(task => task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url)
-                        .map((task, index) => (
-                          <div key={`${task._id || task.id || 'doc'}-${index}`} className="ap-document-item">
-                            <div className="ap-document-icon"><Icons.File /></div>
-                            <div className="ap-document-info">
-                              <div className="ap-document-name">{getTaskDocumentDisplayName(task, selectedProject)}</div>
-                              <div className="ap-document-meta">From: {task.title || "Untitled"} • Assigned to: {task.assignedTo?.name || "Unassigned"}</div>
-                            </div>
-                            <div className="ap-document-actions">
-                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })}>
-                                <Icons.Visibility />
-                              </button>
-                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })}>
-                                <Icons.Download />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="ap-alert ap-alert-info">No task documents available</div>
                   )}
                 </div>
               )}

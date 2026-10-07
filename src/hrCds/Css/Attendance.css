@@ -1274,12 +1274,12 @@
 }
 
 .att-cal-day.status-weeklyoff {
-  background-color: #f8fafc;
-  border-color: #e2e8f0;
+  background-color: #eef2f7;
+  border-color: #cbd5e1;
 }
 .att-cal-day.status-weeklyoff .att-cal-day-num {
-  color: #64748b;
-  font-weight: 600;
+  color: #475569;
+  font-weight: 700;
 }
 
 .att-cal-day.today {
@@ -2455,5 +2455,4 @@
 .att-stat-val.earn {
   color: #16a34a;
 }
-
 

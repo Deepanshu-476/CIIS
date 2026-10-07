@@ -76,7 +76,7 @@ const shouldUsePersistentCache = (url, config = {}) => {
   if (config.cache === false || config.noCache === true || config._skipPersistentCache === true) return false;
   if (config.responseType === "blob" || config.responseType === "arraybuffer" || config.responseType === "stream") return false;
   const normalizedUrl = normalizeGetUrl(url).toLowerCase();
-  return !["/auth", "/login", "/logout", "/download"].some(pattern => normalizedUrl.includes(pattern));
+  return !["/auth", "/login", "/logout", "/download", "/stats", "/status", "/clock", "/task/user", "/tasks/all/stats"].some(pattern => normalizedUrl.includes(pattern));
 };
 
 const serializeCacheableResponse = (response) => ({

@@ -89,6 +89,15 @@ const getProjectFileUrl = (filePath, apiBase = axios.defaults.baseURL) => {
   return `${String(apiBase || "").replace(/\/$/, "")}/${relativePath}`;
 };
 
+const resolveApiPreviewUrl = (url) => {
+  const rawUrl = String(url || "").trim();
+  if (!rawUrl) return "";
+  if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith("blob:")) return rawUrl;
+  const baseUrl = String(axios.defaults?.baseURL || "").replace(/\/+$/, "");
+  if (!baseUrl) return rawUrl;
+  return `${baseUrl}/${rawUrl.replace(/^\/+/, "")}`;
+};
+
 const parseStoredJson = (key) => {
   try {
     const value = localStorage.getItem(key);
@@ -104,10 +113,18 @@ const getCompanyContext = () => {
   const storedCompany = parseStoredJson("company") || {};
   const userCompany = typeof user.company === "object" && user.company ? user.company : {};
   const rawCompany = localStorage.getItem("company") || "";
+  const localCompanyCode = String(
+    localStorage.getItem("companyCode")
+    || localStorage.getItem("company_code")
+    || localStorage.getItem("company_code_url")
+    || localStorage.getItem("companySlug")
+    || localStorage.getItem("companyName")
+    || ""
+  ).trim();
 
   return {
     companyCode: String(
-      localStorage.getItem("companyCode")
+      localCompanyCode
       || user.companyCode
       || userCompany.companyCode
       || userCompany.code
@@ -480,7 +497,7 @@ export const AdminProject = () => {
 
     const { companyCode, companyIdentifier } = getCompanyContext();
     if (!companyCode) {
-      showSnackbar("Company code not found. Please login again from your company URL.", "error");
+      showSnackbar("Company code not found. Project cannot be created without company code.", "error");
       return;
     }
     
@@ -572,7 +589,10 @@ export const AdminProject = () => {
       } else if (err.response?.status === 500) {
         showSnackbar("❌ Server error - please try again later", "error");
       } else {
-        showSnackbar(err.response?.data?.message || "Something went wrong", "error");
+        const validationMessage = Array.isArray(err.response?.data?.errors)
+          ? err.response.data.errors.map(item => item.msg || item.message).filter(Boolean).join(", ")
+          : "";
+        showSnackbar(validationMessage || err.response?.data?.message || "Something went wrong", "error");
       }
     } finally {
       setLoading(false);
@@ -728,7 +748,13 @@ export const AdminProject = () => {
       setSelectedPdfUrl(objectUrl);
     } catch (err) {
       console.error("Error loading document preview:", err);
-      setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+      const directPreviewUrl = resolveApiPreviewUrl(fallbackStaticUrl || candidateUrls[0]);
+      if (directPreviewUrl) {
+        setSelectedPdfUrl(directPreviewUrl);
+        setPdfError(null);
+      } else {
+        setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+      }
     } finally {
       setPdfLoading(false);
     }
@@ -790,7 +816,19 @@ export const AdminProject = () => {
       URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error("Error downloading file:", error);
-      showSnackbar("Unable to download file", "error");
+      const directUrl = resolveApiPreviewUrl((rawPath ? getProjectFileUrl(rawPath) : "") || candidateUrls[0]);
+      if (directUrl) {
+        const link = document.createElement('a');
+        link.href = directUrl;
+        link.download = downloadName;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        showSnackbar("Unable to download file", "error");
+      }
     }
   };
 
@@ -975,9 +1013,9 @@ export const AdminProject = () => {
                     Loading document preview...
                   </p>
                 </div>
-              ) : pdfBlobUrl ? (
+              ) : (pdfBlobUrl || selectedPdfUrl) ? (
                 <iframe
-                  src={pdfBlobUrl}
+                  src={pdfBlobUrl || selectedPdfUrl}
                   title={selectedPdfName || "PDF Viewer"}
                   className="ap-pdf-viewer"
                 />
@@ -1012,11 +1050,11 @@ export const AdminProject = () => {
               )}
             </div>
             <div className="ap-dialog-footer">
-              {pdfBlobUrl && (
+              {(pdfBlobUrl || selectedPdfUrl) && (
                 <button
                   type="button"
                   className="ap-btn ap-btn-outline"
-                  onClick={() => window.open(pdfBlobUrl, "_blank")}
+                  onClick={() => window.open(pdfBlobUrl || selectedPdfUrl, "_blank", "noopener,noreferrer")}
                 >
                   Open in New Tab
                 </button>

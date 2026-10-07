@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
@@ -263,6 +263,7 @@ const EmployeeProject = () => {
   });
 
   const [taskErrors, setTaskErrors] = useState({});
+  const projectDetailsRequestRef = useRef(0);
 
   const TASK_STATUS_OPTIONS = [
     { value: "pending", label: "Pending", color: "#FFA726" },
@@ -353,6 +354,15 @@ const EmployeeProject = () => {
     const cleanPath = getUploadCleanPath(filePath);
     if (!cleanPath || /^https?:\/\//i.test(cleanPath)) return "";
     return `${LIVE_UPLOAD_BASE}/${cleanPath}`.replace(/([^:]\/)\/+/g, "$1");
+  };
+
+  const resolveApiPreviewUrl = (url) => {
+    const rawUrl = String(url || "").trim();
+    if (!rawUrl) return "";
+    if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith("blob:")) return rawUrl;
+    const baseUrl = String(axios.defaults?.baseURL || "").replace(/\/+$/, "");
+    if (!baseUrl) return rawUrl;
+    return `${baseUrl}/${rawUrl.replace(/^\/+/, "")}`;
   };
 
   const handlePreviewImageError = (event) => {
@@ -613,10 +623,13 @@ const EmployeeProject = () => {
 
   
   const handleSelectProject = async (id) => {
+    const requestId = projectDetailsRequestRef.current + 1;
+    projectDetailsRequestRef.current = requestId;
     setLoading(prev => ({ ...prev, tasks: true }));
     try {
       setSelectedProject(id);
       const res = await axios.get(`/projects/${id}`);
+      if (projectDetailsRequestRef.current !== requestId) return;
       const sortedTasks = sortTasksByCreatedAt(res.data.tasks);
       setProjectDetails({ ...res.data, tasks: sortedTasks });
       setProjectUsers(res.data.users || []);
@@ -625,10 +638,13 @@ const EmployeeProject = () => {
       setTaskAssigneeFilter("all");
       setTabValue(0); 
     } catch (error) {
+      if (projectDetailsRequestRef.current !== requestId) return;
       console.error("Error loading project details:", error);
       showSnackbar("Error loading project details", "error");
     } finally {
-      setLoading(prev => ({ ...prev, tasks: false }));
+      if (projectDetailsRequestRef.current === requestId) {
+        setLoading(prev => ({ ...prev, tasks: false }));
+      }
     }
   };
 
@@ -995,7 +1011,13 @@ const EmployeeProject = () => {
       setSelectedPdfUrl(objectUrl);
     } catch (err) {
       console.error("Error loading PDF preview:", err);
-      setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+      const directPreviewUrl = resolveApiPreviewUrl(fallbackUrl || candidateUrls[0]);
+      if (directPreviewUrl) {
+        setSelectedPdfUrl(directPreviewUrl);
+        setPdfError(null);
+      } else {
+        setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
+      }
     } finally {
       setPdfLoading(false);
     }
@@ -1072,7 +1094,19 @@ const EmployeeProject = () => {
       URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error("Error downloading file:", error);
-      showSnackbar("Unable to download file", "error");
+      const directUrl = resolveApiPreviewUrl((rawPath ? getUploadUrl(rawPath) : "") || candidateUrls[0]);
+      if (directUrl) {
+        const link = document.createElement('a');
+        link.href = directUrl;
+        link.download = downloadName;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        showSnackbar("Unable to download file", "error");
+      }
     }
   };
 
@@ -1614,9 +1648,9 @@ const EmployeeProject = () => {
                       Loading document preview...
                     </p>
                   </div>
-                ) : pdfBlobUrl ? (
+                ) : (pdfBlobUrl || selectedPdfUrl) ? (
                   <iframe
-                    src={pdfBlobUrl}
+                    src={pdfBlobUrl || selectedPdfUrl}
                     title={selectedPdfName || "File Viewer"}
                     className="EmployeeProject-pdf-frame"
                   />
@@ -1653,11 +1687,11 @@ const EmployeeProject = () => {
                 )}
               </div>
               <div className="EmployeeProject-modal-footer">
-                {pdfBlobUrl && (
+                {(pdfBlobUrl || selectedPdfUrl) && (
                   <button
                     type="button"
                     className="EmployeeProject-button EmployeeProject-button-outline"
-                    onClick={() => window.open(pdfBlobUrl, "_blank")}
+                    onClick={() => window.open(pdfBlobUrl || selectedPdfUrl, "_blank", "noopener,noreferrer")}
                   >
                     <Icons.Visibility />
                     Open in New Tab

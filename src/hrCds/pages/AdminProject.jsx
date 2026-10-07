@@ -63,19 +63,11 @@ const sanitizeDocName = (value, fallback = 'Document') => {
 };
 
 const getProjectDocumentDisplayName = (project) => {
-  const safeName = sanitizeDocName(project?.projectName || project?.name || 'Project');
-  const rawFileName = project?.pdfFile?.filename || project?.pdfFile?.originalName || project?.pdfFile?.path || '';
-  const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
-  const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
-  return `${safeName}_Document${ext}`;
+  return project?.pdfFile?.originalName || project?.pdfFile?.filename || (project?.pdfFile?.path ? project.pdfFile.path.replace(/\\/g, '/').split('/').pop() : '') || 'Document.pdf';
 };
 
 const getTaskDocumentDisplayName = (task, project = null) => {
-  const safeTask = sanitizeDocName(task?.title || 'Task');
-  const rawFileName = task?.pdfFile?.filename || task?.pdfFile?.originalName || task?.pdfFile?.path || '';
-  const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
-  const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
-  return `${safeTask}_Document${ext}`;
+  return task?.pdfFile?.originalName || task?.pdfFile?.filename || (task?.pdfFile?.path ? task.pdfFile.path.replace(/\\/g, '/').split('/').pop() : '') || 'Attachment';
 };
 
 const getProjectFileUrl = (filePath, apiBase = axios.defaults.baseURL) => {
@@ -1218,10 +1210,15 @@ export const AdminProject = () => {
                               <span><Icons.Person /> {task.assignedTo?.name || "Unassigned"}</span>
                               {task.dueDate && <span><Icons.Calendar /> Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
                             </div>
-                            {(task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url) && (
-                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile.path, task.pdfFile.filename, { projectId: selectedProject._id, taskId: task._id })}>
-                                <Icons.Visibility />
-                              </button>
+                            {(task.pdfFile?.path || task.pdfFile?.url) && (
+                              <div className="ap-task-attachment-actions" style={{ display: 'flex', gap: '6px' }}>
+                                <button type="button" className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })} title="View Attachment">
+                                  <Icons.Visibility />
+                                </button>
+                                <button type="button" className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })} title="Download Attachment">
+                                  <Icons.Download />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1240,7 +1237,7 @@ export const AdminProject = () => {
                 <div className="ap-tab-panel">
                   <h4 className="ap-section-title">Project Documents</h4>
                   
-                  {(selectedProject.pdfFile?.path || selectedProject.pdfFile?.filename || selectedProject.pdfFile?.url) ? (
+                  {(selectedProject.pdfFile?.path || selectedProject.pdfFile?.url) ? (
                     <div className="ap-document-card">
                       <div className="ap-document-icon"><Icons.Pdf /></div>
                       <div className="ap-document-info">
@@ -1258,33 +1255,6 @@ export const AdminProject = () => {
                     </div>
                   ) : (
                     <div className="ap-alert ap-alert-info">No project document uploaded</div>
-                  )}
-
-                  <h4 className="ap-section-title ap-section-title-small">Task Documents ({selectedProject.tasks?.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length || 0})</h4>
-                  {selectedProject.tasks?.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length > 0 ? (
-                    <div className="ap-document-list">
-                      {selectedProject.tasks
-                        .filter(task => task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url)
-                        .map((task, index) => (
-                          <div key={`${task._id || task.id || 'doc'}-${index}`} className="ap-document-item">
-                            <div className="ap-document-icon"><Icons.File /></div>
-                            <div className="ap-document-info">
-                              <div className="ap-document-name">{getTaskDocumentDisplayName(task, selectedProject)}</div>
-                              <div className="ap-document-meta">From: {task.title || "Untitled"} • Assigned to: {task.assignedTo?.name || "Unassigned"}</div>
-                            </div>
-                            <div className="ap-document-actions">
-                              <button className="ap-icon-btn" onClick={() => viewPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })}>
-                                <Icons.Visibility />
-                              </button>
-                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, selectedProject), { projectId: selectedProject._id, taskId: task._id })}>
-                                <Icons.Download />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="ap-alert ap-alert-info">No task documents available</div>
                   )}
                 </div>
               )}
@@ -1699,7 +1669,7 @@ export const AdminProject = () => {
                       
                       <div className="ap-project-actions">
                         <div className="ap-pdf-actions">
-                          {(p.pdfFile?.path || p.pdfFile?.filename || p.pdfFile?.url) ? (
+                          {(p.pdfFile?.path || p.pdfFile?.url) ? (
                             <>
                               <button className="ap-icon-btn" onClick={() => viewPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })} title="View PDF">
                                 <Icons.Visibility />

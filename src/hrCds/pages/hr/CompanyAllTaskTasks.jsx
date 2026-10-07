@@ -519,7 +519,7 @@ const getCleanCheckpoints = (checkpoints) => {
     .filter((c) => c.title.length > 0);
 };
 
-const buildCompanyTaskCacheKey = ({ userId, page, limit, startDate, endDate, search, status, priority }) => {
+const buildCompanyTaskCacheKey = ({ userId, page, limit, startDate, endDate, search, status, priority, project, client, taskType }) => {
   const query = new URLSearchParams({
     page: String(page || 1),
     limit: String(limit || 10),
@@ -528,6 +528,9 @@ const buildCompanyTaskCacheKey = ({ userId, page, limit, startDate, endDate, sea
     search: search || "",
     status: status || "all",
     priority: priority || "all",
+    project: project || "all",
+    client: client || "all",
+    taskType: taskType || "all",
   }).toString();
   return `ciis_company_all_task_tasks_${userId || "unknown"}?${query}`;
 };
@@ -611,6 +614,7 @@ const CompanyAllTaskTasks = () => {
   const [projectFilter, setProjectFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [taskTypeFilter, setTaskTypeFilter] = useState("all");
+  const [filterOptions, setFilterOptions] = useState(initialTaskSnapshot?.filterOptions || { projects: [], clients: [] });
   const [taskViewLayout, setTaskViewLayout] = useState("list");
   const [groupBy, setGroupBy] = useState("status");
   const [sortBy, setSortBy] = useState("priority");
@@ -814,6 +818,9 @@ const CompanyAllTaskTasks = () => {
       search,
       status,
       priority,
+      project: projectFilter,
+      client: clientFilter,
+      taskType: taskTypeFilter,
     });
 
     if (!silent && !tasksRef.current.length) {
@@ -833,6 +840,9 @@ const CompanyAllTaskTasks = () => {
         search: search.trim() || undefined,
         status: status !== "all" ? status : undefined,
         priority: priority !== "all" ? priority : undefined,
+        project: projectFilter !== "all" ? projectFilter : undefined,
+        client: clientFilter !== "all" ? clientFilter : undefined,
+        taskType: taskTypeFilter !== "all" ? taskTypeFilter : undefined,
       };
 
       const response = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, { params });
@@ -853,6 +863,7 @@ const CompanyAllTaskTasks = () => {
       } : countStats(fetchedTasks);
 
       setTasks(fetchedTasks);
+      setFilterOptions(data.filterOptions || { projects: [], clients: [] });
       setStats(computedStats);
       setWorkSummary(data.workSummary || null);
       setPerformanceMetrics(data.performance || null);
@@ -874,6 +885,7 @@ const CompanyAllTaskTasks = () => {
         workSummary: data.workSummary || null,
         taskDetailsById: taskDetailsByIdRef.current,
         pagination: data.pagination || null,
+        filterOptions: data.filterOptions || { projects: [], clients: [] },
       });
     } catch (err) {
       if (fetchRequestIdRef.current !== requestId) return;
@@ -884,7 +896,7 @@ const CompanyAllTaskTasks = () => {
         setLoading(false);
       }
     }
-  }, [effectiveUserId, endDate, limit, page, priority, search, startDate, status]);
+  }, [clientFilter, effectiveUserId, endDate, limit, page, priority, projectFilter, search, startDate, status, taskTypeFilter]);
 
   // Fetch Attendance for Attendance Tab
   const fetchAttendance = useCallback(async (targetDate) => {
@@ -1888,13 +1900,13 @@ const CompanyAllTaskTasks = () => {
 
   const projectOptions = useMemo(() => {
     const values = tasks.map((task) => task.project?.name || task.projectName || task.project?.title || task.project).filter((value) => typeof value === "string" && value.trim());
-    return [...new Set(values.map((value) => value.trim()))];
-  }, [tasks]);
+    return [...new Set([...(filterOptions.projects || []), ...values.map((value) => value.trim())])];
+  }, [filterOptions.projects, tasks]);
 
   const clientOptions = useMemo(() => {
     const values = tasks.map((task) => task.client?.name || task.clientName || task.client?.companyName || task.client).filter((value) => typeof value === "string" && value.trim());
-    return [...new Set(values.map((value) => value.trim()))];
-  }, [tasks]);
+    return [...new Set([...(filterOptions.clients || []), ...values.map((value) => value.trim())])];
+  }, [filterOptions.clients, tasks]);
 
   const taskGroups = useMemo(() => {
     let filtered = tasks;
@@ -2479,7 +2491,7 @@ const CompanyAllTaskTasks = () => {
                     <div className="summary-icon green"><FiClock size={18} /></div>
                     <div className="summary-info">
                       <span>Worked Today</span>
-                      <strong>{workSummary?.totalClockedLabel || "4h 38m"}</strong>
+                      <strong>{workSummary?.totalClockedLabel || "0m"}</strong>
                     </div>
                   </div>
 
@@ -2487,7 +2499,7 @@ const CompanyAllTaskTasks = () => {
                     <div className="summary-icon blue"><FiBarChart2 size={18} /></div>
                     <div className="summary-info">
                       <span>Task Tracked</span>
-                      <strong>{workSummary?.trackedTaskLabel || "3h 15m"}</strong>
+                      <strong>{workSummary?.trackedTaskLabel || "0m"}</strong>
                     </div>
                   </div>
 
@@ -2498,7 +2510,7 @@ const CompanyAllTaskTasks = () => {
                         <span>Untracked</span>
                         <FiAlertTriangle size={13} className="untracked-warning-icon" />
                       </div>
-                      <strong>{workSummary?.untrackedLabel || "1h 23m"}</strong>
+                      <strong>{workSummary?.untrackedLabel || "0m"}</strong>
                     </div>
                   </div>
 
@@ -2506,7 +2518,7 @@ const CompanyAllTaskTasks = () => {
                     <div className="summary-icon purple"><FiZap size={18} /></div>
                     <div className="summary-info">
                       <span>Productivity</span>
-                      <strong>{completionRate > 0 ? `${completionRate}%` : "70%"}</strong>
+                      <strong>{completionRate > 0 ? `${completionRate}%` : "0%"}</strong>
                     </div>
                   </div>
                 </div>
@@ -4272,6 +4284,7 @@ const CompanyAllTaskTasks = () => {
                       const isSystem = userName.toLowerCase() === "system";
                       const dateStr = formatDateTime(log.createdAt || log.timestamp || log.date || log.updatedAt);
                       const description = cleanActivityDescription(log.description || log.details || log.comment || log.text || log.message, log.action || log.type);
+                      const meta = getActivityMeta(log);
 
                       return (
                         <div className="task-activity-item" key={log._id || i}>

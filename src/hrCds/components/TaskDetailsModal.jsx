@@ -142,9 +142,9 @@ const TaskDetailsModal = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [howTrackingOpen, setHowTrackingOpen] = useState(false);
   const [remarkText, setRemarkText] = useState('');
-  const [isSubmittingRemark, setIsSubmittingRemark] = useState(false);
   const [remarkFiles, setRemarkFiles] = useState([]);
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [isSubmittingRemark, setIsSubmittingRemark] = useState(false);
+  const [openStatusMenu, setOpenStatusMenu] = useState(null); // 'header' | 'footer' | null
   const [liveSessionSeconds, setLiveSessionSeconds] = useState(0);
 
   const fileInputRef = useRef(null);
@@ -171,14 +171,14 @@ const TaskDetailsModal = ({
       const clickedHeaderMenu = statusMenuRef.current?.contains(e.target);
       const clickedFooterMenu = footerStatusMenuRef.current?.contains(e.target);
       if (!clickedHeaderMenu && !clickedFooterMenu) {
-        setStatusDropdownOpen(false);
+        setOpenStatusMenu(null);
       }
     };
-    if (statusDropdownOpen) {
+    if (openStatusMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [statusDropdownOpen]);
+  }, [openStatusMenu]);
 
   if (!open || !task) return null;
 
@@ -819,7 +819,7 @@ const TaskDetailsModal = ({
   };
 
   const handleStatusSelect = (newStatus) => {
-    setStatusDropdownOpen(false);
+    setOpenStatusMenu(null);
     if (newStatus === currentStatus) return;
     if (onStatusChange) {
       onStatusChange(task, newStatus);
@@ -936,14 +936,14 @@ const TaskDetailsModal = ({
                   <button
                     type="button"
                     className="task-status-btn"
-                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                    onClick={() => setOpenStatusMenu(openStatusMenu === 'header' ? null : 'header')}
                     disabled={!canEdit}
                   >
                     <span>{statusConf.label}</span>
-                    <FiChevronDown size={14} className={statusDropdownOpen ? 'rotate-180' : ''} />
+                    <FiChevronDown size={14} className={openStatusMenu === 'header' ? 'rotate-180' : ''} />
                   </button>
 
-                  {statusDropdownOpen && (
+                  {openStatusMenu === 'header' && (
                     <div className="task-status-dropdown-menu">
                       <div className="dropdown-menu-header">Change Status</div>
                       {Object.entries(STATUS_CONFIG).filter(([k]) => k !== 'inprogress').map(([key, cfg]) => (
@@ -1524,13 +1524,13 @@ const TaskDetailsModal = ({
             <button
               type="button"
               className="footer-status-pill"
-              onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+              onClick={() => setOpenStatusMenu(openStatusMenu === 'footer' ? null : 'footer')}
               disabled={!canEdit}
             >
               <span>Status: {statusConf.label}</span>
-              <FiChevronDown size={14} />
+              <FiChevronDown size={14} className={openStatusMenu === 'footer' ? 'rotate-180' : ''} />
             </button>
-            {statusDropdownOpen && (
+            {openStatusMenu === 'footer' && (
               <div className="footer-status-dropdown-menu">
                 <div className="dropdown-menu-header">Change Status</div>
                 {Object.entries(STATUS_CONFIG).filter(([key]) => key !== 'inprogress').map(([key, cfg]) => (

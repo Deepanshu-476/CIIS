@@ -53,8 +53,8 @@ const getEffectiveWorkingDays = (department, date) => {
   const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const history = Array.isArray(department.workingDayHistory)
     ? [...department.workingDayHistory]
-        .filter(entry => entry?.effectiveFrom)
-        .sort((a, b) => new Date(a.effectiveFrom) - new Date(b.effectiveFrom))
+      .filter(entry => entry?.effectiveFrom)
+      .sort((a, b) => new Date(a.effectiveFrom) - new Date(b.effectiveFrom))
     : [];
   let workingDays = normalizeWorkingDays(department.workingDays);
 
@@ -353,7 +353,7 @@ const UserDashboard = () => {
     () => getActiveClockState(initialDashboardSnapshot.activeClock),
     [initialDashboardSnapshot.activeClock]
   );
-  
+
   const [timer, setTimer] = useState(() => initialActiveClock
     ? Math.max(0, Math.floor((Date.now() - new Date(initialActiveClock.inTime).getTime()) / 1000))
     : 0);
@@ -384,11 +384,11 @@ const UserDashboard = () => {
   const [leaveData, setLeaveData] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
   const [recentTaskEvents, setRecentTaskEvents] = useState([]);
-  
-  
+
+
   const [holidays, setHolidays] = useState([]);
   const [holidaysLoading, setHolidaysLoading] = useState(false);
-  
+
   const [loading, setLoading] = useState({
     attendance: true,
     leaves: true,
@@ -418,9 +418,13 @@ const UserDashboard = () => {
   const [quickDepartmentsLoading, setQuickDepartmentsLoading] = useState(false);
   const [quickAssigneeOpen, setQuickAssigneeOpen] = useState(false);
   const [weather, setWeather] = useState({ loading: false, temperature: null, feelsLike: null, label: 'Weather' });
-  const [focusStats, setFocusStats] = useState(() => initialDashboardSnapshot.focusStats
-    ? { ...initialDashboardSnapshot.focusStats, loading: false }
-    : { loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 });
+  const [focusStats, setFocusStats] = useState(() => {
+    const cached = initialDashboardSnapshot.focusStats;
+    if (cached && typeof cached === 'object' && Number(cached.dueToday) < 100) {
+      return { ...cached, loading: false };
+    }
+    return { loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 };
+  });
   const [dashboardTaskStats, setDashboardTaskStats] = useState({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
   const [hoveredProductivityDay, setHoveredProductivityDay] = useState(null);
   const [productivityPeriod, setProductivityPeriod] = useState('weekly');
@@ -436,7 +440,7 @@ const UserDashboard = () => {
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
   const [dashboardUser, setDashboardUser] = useState(null);
-  
+
   const [showClockOutConfirm, setShowClockOutConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [attendanceMode, setAttendanceMode] = useState('normal');
@@ -467,7 +471,7 @@ const UserDashboard = () => {
   }, []);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  
+
   const user = useMemo(() => {
     try {
       const userData = localStorage.getItem('user');
@@ -527,7 +531,7 @@ const UserDashboard = () => {
   useEffect(() => {
     if (productivityPeriod !== 'custom') fetchProductivity(productivityPeriod, productivityDates);
   }, [fetchProductivity, productivityDates, productivityPeriod]);
-  
+
   const companyDetails = useMemo(() => {
     try {
       const details = localStorage.getItem('companyDetails');
@@ -597,7 +601,7 @@ const UserDashboard = () => {
     return () => window.clearInterval(dateRefreshInterval);
   }, []);
 
-  
+
   const fetchInProgress = useRef({
     attendance: false,
     leaves: false,
@@ -614,28 +618,28 @@ const UserDashboard = () => {
   const holidaysTimeoutRef = useRef(null);
   const initialLoadRef = useRef(false);
 
-  
+
   useEffect(() => {
     if (user?.createdAt) {
       const joinDate = new Date(user.createdAt);
       setUserJoinDate(joinDate);
-      
-      const formatted = joinDate.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric', 
-        year: 'numeric' 
+
+      const formatted = joinDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
       });
       setFormattedJoinDate(formatted);
     }
   }, [user?.createdAt]);
 
   const getCompanyId = useCallback(() => {
-    return companyDetails?._id || 
-           companyDetails?.id ||
-           user?.company ||
-           user?.companyId ||
-           user?.companyDetails?._id;
+    return companyDetails?._id ||
+      companyDetails?.id ||
+      user?.company ||
+      user?.companyId ||
+      user?.companyDetails?._id;
   }, [companyDetails, user]);
 
   const isUserInCurrentCompany = useMemo(() => {
@@ -675,7 +679,7 @@ const UserDashboard = () => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
+
     [attendanceTimeoutRef, leavesTimeoutRef, statusTimeoutRef, holidaysTimeoutRef].forEach(ref => {
       if (ref.current) {
         clearTimeout(ref.current);
@@ -684,38 +688,38 @@ const UserDashboard = () => {
     });
   }, []);
 
-  
+
   const fetchJobRoles = useCallback(async () => {
     if (!isUserInCurrentCompany) return [];
     if (fetchInProgress.current.jobRoles) return [];
-    
+
     const companyId = getCompanyId();
     if (!companyId) return [];
-    
+
     setJobRolesLoading(true);
     fetchInProgress.current.jobRoles = true;
-    
+
     try {
       const response = await axios.get(`/job-roles?company=${companyId}`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
-      
+
       let jobRolesData = [];
       if (response.data) {
         if (Array.isArray(response.data.jobRoles)) jobRolesData = response.data.jobRoles;
         else if (Array.isArray(response.data.data)) jobRolesData = response.data.data;
         else if (Array.isArray(response.data)) jobRolesData = response.data;
       }
-      
+
       const formattedJobRoles = jobRolesData.map(role => ({
         _id: role._id || role.id || role.roleId,
         roleName: role.roleName || role.name || role.jobRole || role.title || '',
         roleNumber: role.roleNumber || role.roleNo || role.code || '',
       })).filter(role => role.roleName);
-      
+
       setJobRoles(formattedJobRoles);
-      
+
     } catch (error) {
       console.error('Job roles fetch error:', error);
       setJobRoles([]);
@@ -725,39 +729,39 @@ const UserDashboard = () => {
     }
   }, [getCompanyId, token, isUserInCurrentCompany]);
 
-  
+
   const fetchHolidays = useCallback(async () => {
     if (!isUserInCurrentCompany) return;
     if (fetchInProgress.current.holidays) return;
-    
+
     if (holidaysTimeoutRef.current) {
       clearTimeout(holidaysTimeoutRef.current);
     }
 
     holidaysTimeoutRef.current = setTimeout(async () => {
       if (fetchInProgress.current.holidays) return;
-      
+
       fetchInProgress.current.holidays = true;
       setHolidaysLoading(true);
 
       try {
-        
+
         const response = await axios.get('/holidays', {
           headers: { Authorization: `Bearer ${token}` },
           timeout: 10000
         });
-        
-        
+
+
         if (response.data.success) {
           let holidaysData = response.data.holidays || [];
-          
-          
+
+
           if (userJoinDate) {
-            holidaysData = holidaysData.filter(holiday => 
+            holidaysData = holidaysData.filter(holiday =>
               !isBeforeJoinDate(new Date(holiday.date))
             );
           }
-          
+
           setHolidays(holidaysData);
         }
       } catch (error) {
@@ -771,21 +775,21 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate]);
 
-  
+
   const fetchAttendanceData = useCallback(async (force = false) => {
     if (!isUserInCurrentCompany) {
       setLoading(prev => ({ ...prev, attendance: false }));
       return;
     }
     if (!force && fetchInProgress.current.attendance) return;
-    
+
     if (attendanceTimeoutRef.current) {
       clearTimeout(attendanceTimeoutRef.current);
     }
 
     const loadAttendance = async () => {
       if (fetchInProgress.current.attendance) return;
-      
+
       fetchInProgress.current.attendance = true;
       setLoading(prev => ({ ...prev, attendance: true }));
 
@@ -801,22 +805,22 @@ const UserDashboard = () => {
           signal: abortControllerRef.current.signal,
           timeout: 15000
         });
-        
+
         let data = response.data?.data || [];
-        
+
         if (userJoinDate) {
           data = data.filter(record => !isBeforeJoinDate(record.date));
         }
-        
+
         const normalizedData = data.map(normalizeAttendanceRecord);
         setAttendanceData(normalizedData);
-        
-        
+
+
         updateRecentActivity(
           normalizedData.filter(record => record.inTime || record.outTime || record.isClockedIn),
           holidays
         );
-        
+
       } catch (error) {
         if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') return;
         console.error('Failed to load attendance data:', error);
@@ -836,21 +840,21 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate, holidays]);
 
-  
+
   const fetchLeaveData = useCallback(async () => {
     if (!isUserInCurrentCompany) {
       setLoading(prev => ({ ...prev, leaves: false }));
       return;
     }
     if (fetchInProgress.current.leaves) return;
-    
+
     if (leavesTimeoutRef.current) {
       clearTimeout(leavesTimeoutRef.current);
     }
 
     leavesTimeoutRef.current = setTimeout(async () => {
       if (fetchInProgress.current.leaves) return;
-      
+
       fetchInProgress.current.leaves = true;
       setLoading(prev => ({ ...prev, leaves: true }));
 
@@ -859,17 +863,17 @@ const UserDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
           timeout: 10000
         });
-        
+
         let leaves = response.data?.leaves || [];
-        
+
         if (userJoinDate) {
-          leaves = leaves.filter(leave => 
+          leaves = leaves.filter(leave =>
             !isBeforeJoinDate(leave.startDate) && !isBeforeJoinDate(leave.endDate)
           );
         }
-        
+
         setLeaveData(leaves);
-        
+
       } catch (error) {
         console.error('Failed to load leave data:', error);
       } finally {
@@ -881,23 +885,23 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany, userJoinDate, isBeforeJoinDate]);
 
-  
+
   const fetchCurrentStatus = useCallback(async () => {
     if (!isUserInCurrentCompany) {
       setIsRunning(false);
       setLoading(prev => ({ ...prev, status: false }));
       return;
     }
-    
+
     if (fetchInProgress.current.status) return;
-    
+
     if (statusTimeoutRef.current) {
       clearTimeout(statusTimeoutRef.current);
     }
 
     statusTimeoutRef.current = setTimeout(async () => {
       if (fetchInProgress.current.status) return;
-      
+
       fetchInProgress.current.status = true;
       setLoading(prev => ({ ...prev, status: true }));
 
@@ -906,7 +910,7 @@ const UserDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
           timeout: 10000
         });
-        
+
         if (isAttendanceFlagTrue(response.data?.isClockedIn)) {
           const inTime = new Date(response.data.inTime);
           if (!Number.isNaN(inTime.getTime())) {
@@ -925,7 +929,7 @@ const UserDashboard = () => {
           setTimer(0);
           writeDashboardCache({ activeClock: null });
         }
-        
+
       } catch (error) {
         console.error('Failed to load status:', error);
         setIsRunning(false);
@@ -1011,10 +1015,10 @@ const UserDashboard = () => {
     }
 
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 };
+      const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 15000, cache: false, noCache: true };
       const [todayResponse, allResponse] = await Promise.all([
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned' } }),
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned' } })
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned', _t: Date.now() } }),
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned', _t: Date.now() } })
       ]);
       const today = todayResponse.data?.statusCounts || {};
       const all = allResponse.data?.statusCounts || {};
@@ -1040,7 +1044,7 @@ const UserDashboard = () => {
         completedToday,
         dailyProgress: dueToday
           ? Math.min(100, Math.round(((completedToday + (inProgressToday * 0.5)) / dueToday) * 100))
-          : 0
+          : (completedToday > 0 ? 100 : (inProgressToday > 0 ? 50 : 0))
       };
       setFocusStats(nextFocusStats);
       writeDashboardCache({ focusStats: nextFocusStats });
@@ -1106,13 +1110,13 @@ const UserDashboard = () => {
     }
   }, [companyDetails, isUserInCurrentCompany, token, user]);
 
-  
+
   const updateRecentActivity = useCallback((attendance, holidayList, tasks = recentTaskEvents) => {
-    
+
     const allActivities = [];
     const todayKey = new Date().toDateString();
-    
-    
+
+
     attendance.filter(record => {
       const recordDate = new Date(record.date || record.inTime || record.createdAt);
       return !Number.isNaN(recordDate.getTime()) && recordDate.toDateString() === todayKey;
@@ -1149,8 +1153,8 @@ const UserDashboard = () => {
         displayDate: new Date(task.date || Date.now())
       });
     });
-    
-    
+
+
     allActivities.sort((a, b) => {
       const aDate = new Date(a.date);
       const bDate = new Date(b.date);
@@ -1159,7 +1163,7 @@ const UserDashboard = () => {
       if (aDay !== bDay) return bDay - aDay;
       return bDate - aDate;
     });
-    
+
     let hasClockIn = false;
     const deduplicatedActivities = allActivities.filter(activity => {
       if (activity.type !== 'clock-in') return true;
@@ -1277,22 +1281,23 @@ const UserDashboard = () => {
     }
   }, [isUserInCurrentCompany, token, userJoinDate, isBeforeJoinDate, updateRecentActivity]);
 
-  
+
   useEffect(() => {
     if (initialLoadRef.current) return;
     if (!isUserInCurrentCompany) {
       return;
     }
-    
+
     initialLoadRef.current = true;
-    
+
     const loadData = async () => {
       cancelPendingRequests();
-      
+
       try {
         // Attendance status is intentionally fetched independently of the larger
         // dashboard summary so a clock-in made on another device is shown at once.
         fetchCurrentStatus();
+        fetchFocusStats();
         const summaryLoaded = await fetchDashboardSummary();
         if (summaryLoaded) {
           // The summary contains only persisted attendance records, while the
@@ -1314,11 +1319,11 @@ const UserDashboard = () => {
         setInitialLoadDone(true);
       }
     };
-    
+
     loadData();
-    
+
     return () => cancelPendingRequests();
-  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, cancelPendingRequests, isUserInCurrentCompany]);
+  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchFocusStats, cancelPendingRequests, isUserInCurrentCompany]);
 
   useEffect(() => {
     if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
@@ -1344,7 +1349,7 @@ const UserDashboard = () => {
     fetchRecentTaskActivity
   ]);
 
-  
+
   useEffect(() => {
     if (attendanceData.length > 0 || holidays.length > 0 || recentTaskEvents.length > 0) {
       updateRecentActivity(
@@ -1355,7 +1360,7 @@ const UserDashboard = () => {
     }
   }, [attendanceData, holidays, recentTaskEvents, updateRecentActivity]);
 
-  
+
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
@@ -1383,7 +1388,7 @@ const UserDashboard = () => {
     };
   }, [initialLoadDone, isUserInCurrentCompany, fetchCurrentStatus]);
 
-  
+
   useEffect(() => {
     return () => {
       cancelPendingRequests();
@@ -1410,14 +1415,14 @@ const UserDashboard = () => {
     }
     if (jobRolesLoading) return 'Loading...';
     if (!jobRoles.length) return typeof userJobRole === 'string' ? userJobRole : '';
-    
-    const foundRole = jobRoles.find(role => 
-      role._id === userJobRole || 
+
+    const foundRole = jobRoles.find(role =>
+      role._id === userJobRole ||
       role.roleNumber === userJobRole ||
       role.roleName === userJobRole ||
       role.name === userJobRole
     );
-    
+
     return foundRole?.roleName || foundRole?.name || (typeof userJobRole === 'string' ? userJobRole : '');
   }, [dashboardUser?.jobRole, dashboardUser?.jobRoleName, jobRoles, jobRolesLoading, user?.jobRole, user?.jobRoleName]);
 
@@ -1428,7 +1433,7 @@ const UserDashboard = () => {
 
   const filteredLeaveData = useMemo(() => {
     if (!userJoinDate) return leaveData;
-    return leaveData.filter(leave => 
+    return leaveData.filter(leave =>
       !isBeforeJoinDate(leave.startDate) && !isBeforeJoinDate(leave.endDate)
     );
   }, [leaveData, userJoinDate, isBeforeJoinDate]);
@@ -1471,7 +1476,7 @@ const UserDashboard = () => {
         const start = new Date(leave.startDate);
         const end = new Date(leave.endDate);
         const current = new Date(start);
-        
+
         while (current <= end) {
           if (!isBeforeJoinDate(current)) {
             dates.push(`${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`);
@@ -1486,7 +1491,7 @@ const UserDashboard = () => {
   const leaveDateSet = useMemo(() => new Set(leaveDates), [leaveDates]);
   const absentDateSet = useMemo(() => new Set(absentDates), [absentDates]);
 
-  
+
   const holidayDates = useMemo(() => {
     return holidays.map(holiday => {
       const date = new Date(holiday.date);
@@ -1495,7 +1500,7 @@ const UserDashboard = () => {
   }, [holidays]);
   const holidayDateSet = useMemo(() => new Set(holidayDates), [holidayDates]);
 
-  
+
   const holidayTitles = useMemo(() => {
     const map = {};
     holidays.forEach(holiday => {
@@ -1552,17 +1557,17 @@ const UserDashboard = () => {
     return Math.round(((currentValue - previousValue) / previousValue) * 100);
   }, []);
 
-  
+
   const getDayStatus = useCallback((day) => {
     if (!day) return null;
-    
+
     const dateObj = new Date(calendarYear, calendarMonth, day);
     const key = `${calendarYear}-${calendarMonth}-${day}`;
     const isWeekend = isConfiguredWeekend(dateObj, getDepartmentSettings(dashboardUser, user));
-    
-    
+
+
     if (holidayDates.includes(key)) return "holiday";
-    
+
     if (isBeforeJoinDate(dateObj)) return "before-join";
     if (leaveDateSet.has(key)) return "leave";
     if (lateDates.includes(key)) return "late";
@@ -1577,15 +1582,15 @@ const UserDashboard = () => {
   }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDates, weekendDates, dashboardUser, user]);
 
   const isToday = useCallback((day) => {
-    return day === currentDate.getDate() && 
-           calendarMonth === currentDate.getMonth() && 
-           calendarYear === currentDate.getFullYear();
+    return day === currentDate.getDate() &&
+      calendarMonth === currentDate.getMonth() &&
+      calendarYear === currentDate.getFullYear();
   }, [currentDate, calendarMonth, calendarYear]);
 
-  
+
   const getDayIcon = useCallback((day) => {
     const status = getDayStatus(day);
-    switch(status) {
+    switch (status) {
       case 'holiday': return '🎉';
       case 'present': return '✓';
       case 'late': return 'L';
@@ -1704,14 +1709,14 @@ const UserDashboard = () => {
 
   const handleIn = async (payload = {}) => {
     if (!isUserInCurrentCompany || isProcessing) return;
-    
+
     setIsProcessing(true);
     try {
       await axios.post('/attendance/in', payload, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
-      
+
       setIsRunning(true);
       const clockedInAt = new Date();
       setTimer(0);
@@ -1728,12 +1733,12 @@ const UserDashboard = () => {
       });
       window.dispatchEvent(new Event('ciis-attendance-updated'));
       toast.success('Clocked in successfully!');
-      
+
       setTimeout(() => {
         fetchCurrentStatus();
         fetchAttendanceData(true);
       }, 500);
-      
+
     } catch (error) {
       toast.error(error.response?.data?.message || 'Clock-in failed');
     } finally {
@@ -1743,7 +1748,7 @@ const UserDashboard = () => {
 
   const handleClockOut = async (payload = {}) => {
     if (!isUserInCurrentCompany || isProcessing) return;
-    
+
     setIsProcessing(true);
     try {
       const response = await axios.post("/attendance/out", payload, {
@@ -1850,7 +1855,7 @@ const UserDashboard = () => {
   }, [loading.attendance, fetchAttendanceData, fetchRecentTaskActivity, fetchFocusStats]);
 
   const getStatusColor = useCallback((status) => {
-    switch(status) {
+    switch (status) {
       case 'PRESENT': return 'status-present';
       case 'LATE': return 'status-late';
       case 'HALF DAY': return 'status-halfday';
@@ -1934,11 +1939,11 @@ const UserDashboard = () => {
   }).slice(0, 3), [dashboardProjects]);
 
   const quickActions = [
-    { label: 'New Task', icon: <CirclePlus />, tone: 'purple', fields: [['title','Task title','text'],['description','Description','textarea'],['dueDateTime','Due date','datetime-local']] },
-    { label: 'Apply Leave', icon: <Umbrella />, tone: 'green', fields: [['type','Leave type','select'],['startDate','Start date','date'],['endDate','End date','date'],['reason','Reason','textarea']] },
-    { label: 'Request Asset', icon: <BriefcaseBusiness />, tone: 'orange', fields: [['assetId','Asset ID','text'],['reason','Reason','textarea']] },
-    { label: 'Add Client', icon: <UserPlus />, tone: 'blue', fields: [['client','Client name','text'],['company','Company','text'],['email','Email','email'],['phone','Phone','tel']] },
-    { label: 'New Project', icon: <Folder />, tone: 'purple', fields: [['projectName','Project name','text'],['description','Description','textarea'],['startDate','Start date','date'],['endDate','End date','date']] },
+    { label: 'New Task', icon: <CirclePlus />, tone: 'purple', fields: [['title', 'Task title', 'text'], ['description', 'Description', 'textarea'], ['dueDateTime', 'Due date', 'datetime-local']] },
+    { label: 'Apply Leave', icon: <Umbrella />, tone: 'green', fields: [['type', 'Leave type', 'select'], ['startDate', 'Start date', 'date'], ['endDate', 'End date', 'date'], ['reason', 'Reason', 'textarea']] },
+    { label: 'Request Asset', icon: <BriefcaseBusiness />, tone: 'orange', fields: [['assetId', 'Asset ID', 'text'], ['reason', 'Reason', 'textarea']] },
+    { label: 'Add Client', icon: <UserPlus />, tone: 'blue', fields: [['client', 'Client name', 'text'], ['company', 'Company', 'text'], ['email', 'Email', 'email'], ['phone', 'Phone', 'tel']] },
+    { label: 'New Project', icon: <Folder />, tone: 'purple', fields: [['projectName', 'Project name', 'text'], ['description', 'Description', 'textarea'], ['startDate', 'Start date', 'date'], ['endDate', 'End date', 'date']] },
     { label: 'Meetings', icon: <CalendarDays />, tone: 'red', fields: [] },
     { label: 'My Notes', icon: <NotebookPen />, tone: 'blue', fields: null },
     { label: 'Timesheet', icon: <Clock3 />, tone: 'green', fields: null },
@@ -2231,7 +2236,7 @@ const UserDashboard = () => {
     } finally { setQuickSubmitting(false); }
   };
 
-  
+
   if (!user || !token) {
     navigate('/login');
     return null;
@@ -2283,7 +2288,7 @@ const UserDashboard = () => {
             </button>
             <h3 className="confirmation-title">Confirm Clock Out</h3>
             <p className="confirmation-message">
-              Are you sure you want to clock out? 
+              Are you sure you want to clock out?
               <br />
               <span className="confirmation-warning">This will log you out of the system.</span>
             </p>
@@ -2723,547 +2728,547 @@ const UserDashboard = () => {
       )}
 
       <div className={`dashboard-reference-grid ${isMobile ? 'MobileDashV2-legacyHidden' : ''}`}>
-      <main className="dashboard-main-column">
-      
-      <div className="dashboard-header">
-        <div className="dashboard-header-content">
-          <div className="dashboard-user-details">
-            <p className="dashboard-greeting">
-              {new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 18 ? 'Good Afternoon' : 'Good Evening'}, <span>👋</span>
-            </p>
-            <h1 className="dashboard-user-name">{displayUser?.name || ''}</h1>
-            <p className="dashboard-user-welcome">Stay focused and make today productive!</p>
-            <div className="dashboard-user-tags">
-              {userJobRoleDisplay && <span className="dashboard-tag dashboard-tag-role">
-                <FiBriefcase size={14} /> {userJobRoleDisplay}
-              </span>}
-              {user?.employeeType && <span className="dashboard-tag dashboard-tag-type">
-                <FiUser size={14} /> {user.employeeType}
-              </span>}
-              {companyDetails?.companyName && <span className="dashboard-tag dashboard-tag-company">
-                <FiBriefcase size={14} /> {companyDetails.companyName}
-              </span>}
-            </div>
-            <div className="dashboard-date-info">
-              <MdToday size={14} />
-              {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              <span className="dashboard-weather" title={weather.temperature === null ? weather.label : `Actual ${weather.temperature}°C${weather.feelsLike === null ? '' : ` · Feels like ${weather.feelsLike}°C`}`}><FiSun /> {weather.loading ? 'Loading weather…' : weather.temperature === null ? weather.label : `${weather.temperature}°C\u00A0 ${weather.label}`}</span>
-            </div>
-          </div>
+        <main className="dashboard-main-column">
 
-          {dashboardShiftLabel && (
-            <div className="dashboard-shift-slot" aria-label="Current shift">
-              <div className="dashboard-shift-chip dashboard-shift-chip-desktop">
-                <FiClock size={14} />
-                <span>{dashboardShiftLabel}</span>
-                {dashboardShiftTime && <small>{dashboardShiftTime}</small>}
-              </div>
-            </div>
-          )}
-
-          <div className="dashboard-focus-card">
-            <strong>Today's Focus</strong>
-            <span><FiCheckCircle /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.dueToday} Tasks Due Today`}</span>
-            <span><FiCheckCircle /> Attendance {loading.attendance ? 'Loading…' : hasTodayAttendance ? 'Completed' : 'Pending'}</span>
-            <span><FiCalendar /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.inProgress} Tasks In Progress`}</span>
-          </div>
-
-          <div className="dashboard-progress-dial" style={{ '--score': `${focusStats.dailyProgress * 3.6}deg` }}>
-            <svg className="dashboard-progress-ring" viewBox="0 0 120 120" aria-hidden="true">
-              <defs><linearGradient id="dashboard-progress-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#7357ee" /><stop offset="100%" stopColor="#5b38e5" /></linearGradient></defs>
-              <circle className="dashboard-progress-track" cx="60" cy="60" r="51" pathLength="100" />
-              <circle className="dashboard-progress-value" cx="60" cy="60" r="51" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(100, focusStats.dailyProgress))} 100`} />
-            </svg>
-            <div>
-              <span className="progress-title">Daily Progress</span>
-              <strong>{focusStats.loading ? '—' : `${focusStats.dailyProgress}%`}</strong>
-              <small>{focusStats.loading ? 'Loading…' : getDailyProgressMessage(focusStats.dailyProgress)}</small>
-            </div>
-          </div>
-          
-          <div className="dashboard-clock-section dashboard-clock-inline">
-            <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value">{formatTime(displayTimer)}</div>
-              <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
-                <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
-                {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
-              </div>
-            </div>
-            <div className="dashboard-clock-buttons">
-              <button
-                onClick={() => handleActionClick('in')}
-                disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
-                className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}
-              >
-                <FiPlay size={20} /> Clock In
-              </button>
-              <button
-                onClick={() => setShowClockOutConfirm(true)}
-                disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
-                className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}
-              >
-                <FiSquare size={20} /> Clock Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      
-      <div className="dashboard-stats-grid">
-          <div className="dashboard-stat-card stat-card-present">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-present"><span className="stat-image-icon stat-image-present" aria-hidden="true" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{String(monthlyStats.presentDays).padStart(2, '0')} <small>Days</small></div>
-            <div className="stat-label">Present</div>
-            <div className="stat-footer">
-              <FiTrendingUp className="stat-trend-icon" />
-              <span className="stat-month-text">{getMonthlyChange(monthlyStats.presentDays, previousMonthlyStats.presentDays)}% vs {previousMonthLabel}</span>
-            </div>
-            <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,22 14,10 28,18 42,7 56,20 70,12 84,23 100,5 120,16" /></svg>
-          </div>
-
-          <div className="dashboard-stat-card stat-card-late">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-late"><span className="stat-image-icon stat-image-late" aria-hidden="true" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{String(monthlyStats.lateDays).padStart(2, '0')} <small>Days</small></div>
-            <div className="stat-label">Late</div>
-            <div className="stat-footer">
-              <FiAlertTriangle className="stat-trend-icon" />
-              <span className="stat-month-text">{getMonthlyChange(monthlyStats.lateDays, previousMonthlyStats.lateDays)}% vs {previousMonthLabel}</span>
-            </div>
-            <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,8 14,23 28,14 42,19 56,10 70,21 84,13 100,24 120,7" /></svg>
-          </div>
-
-          <div className="dashboard-stat-card stat-card-halfday">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-halfday"><span className="stat-image-icon stat-image-halfday" aria-hidden="true" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{String(monthlyStats.halfDays).padStart(2, '0')} <small>Days</small></div>
-            <div className="stat-label">Half Day</div>
-            <div className="stat-footer">
-              <FiActivity className="stat-trend-icon" />
-              <span className="stat-month-text">{getMonthlyChange(monthlyStats.halfDays, previousMonthlyStats.halfDays)}% vs {previousMonthLabel}</span>
-            </div>
-            <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,19 14,7 28,13 42,9 56,22 70,15 84,20 100,10 120,12" /></svg>
-          </div>
-
-          <div className="dashboard-stat-card stat-card-leave">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-leave"><span className="stat-image-icon stat-image-leave" aria-hidden="true" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{String(monthlyStats.leavesTaken).padStart(2, '0')} <small>Days</small></div>
-            <div className="stat-label">Leave</div>
-            <div className="stat-footer">
-              <FiCheckCircle className="stat-trend-icon" />
-              <span className="stat-month-text">{getMonthlyChange(monthlyStats.leavesTaken, previousMonthlyStats.leavesTaken)}% vs {previousMonthLabel}</span>
-            </div>
-            <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,6 14,8 28,22 42,13 56,24 70,11 84,20 100,9 120,18" /></svg>
-          </div>
-
-          <div className="dashboard-stat-card stat-card-absent">
-            <div className="stat-card-header">
-              <div className="stat-icon-container icon-absent"><span className="stat-image-icon stat-image-absent" aria-hidden="true" /></div>
-              <div className="stat-current-month">Current Month</div>
-            </div>
-            <div className="stat-value">{String(monthlyStats.absentDays).padStart(2, '0')} <small>Days</small></div>
-            <div className="stat-label">Absent</div>
-            <div className="stat-footer">
-              <FiAlertCircle className="stat-trend-icon" />
-              <span className="stat-month-text">{getMonthlyChange(monthlyStats.absentDays, previousMonthlyStats.absentDays)}% vs {previousMonthLabel}</span>
-            </div>
-            <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,7 14,9 28,24 42,19 56,22 70,11 84,25 100,18 120,20" /></svg>
-          </div>
-      </div>
-
-      <div className="dashboard-content-grid">
-        
-        <div className="dashboard-calendar-card">
-            <div className="calendar-header">
-              <div className="calendar-title-section">
-                <div className="calendar-icon-container"><FiCalendar className="calendar-icon" /></div>
-                <div>
-                  <h2 className="calendar-title">Attendance Calendar</h2>
-                </div>
-              </div>
-              <div className="calendar-controls">
-                <button onClick={handlePrevMonth} className="calendar-nav-btn" disabled={isMonthBeforeJoin(calendarYear, calendarMonth)}>
-                  <FiChevronLeft className="nav-icon" />
-                </button>
-                <strong className="calendar-current-month">{monthNames[calendarMonth]} {calendarYear}</strong>
-                <button onClick={resetToCurrentMonth} className="calendar-today-btn">Today</button>
-                <button onClick={handleNextMonth} className="calendar-nav-btn">
-                  <FiChevronRight className="nav-icon" />
-                </button>
-              </div>
-            </div>
-
-            {isMonthBeforeJoin(calendarYear, calendarMonth) && (
-              <div className="calendar-before-join-message">
-                <FiClock size={16} />
-                <span>You joined on {formattedJoinDate}. No attendance records before this date.</span>
-              </div>
-            )}
-
-            <div className="calendar-body">
-              <div className="calendar-week-header">
-                {daysOfWeek.map(day => <div key={day} className="calendar-day-header">{day}</div>)}
-              </div>
-              <div className="calendar-grid">
-                {calendarDays.map((week, weekIndex) => (
-                  <div key={weekIndex} className="calendar-week">
-                    {week.map((day, dayIndex) => (
-                      <div key={dayIndex} className="calendar-day-wrapper">
-                        {day ? (
-                          <div className="calendar-day-container">
-                            <div
-                              className={`calendar-day ${getDayStatus(day) || 'empty'} ${isToday(day) ? 'day-today' : ''}`}
-                              title={
-                                getDayStatus(day) === 'holiday' 
-                                  ? `🎉 Holiday: ${holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] || 'Holiday'}`
-                                  : isBeforeJoinDate(new Date(calendarYear, calendarMonth, day)) 
-                                    ? 'Before joining date' 
-                                    : getDayStatus(day)?.charAt(0).toUpperCase() + getDayStatus(day)?.slice(1) || 'No Record'
-                              }
-                              data-holiday-title={getDayStatus(day) === 'holiday' ? holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] : ''}
-                            >
-                              <span className="day-number">{day}</span>
-                              {getDayStatus(day) && <span className="day-status-icon" aria-hidden="true" />}
-                            </div>
-                            {isToday(day) && <div className="today-indicator"></div>}
-                          </div>
-                        ) : <div className="calendar-empty-day"></div>}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="attendance-day-summary">
-              <div className="attendance-summary-head">
-                <strong>{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
-                {(() => {
-                  const statusMeta = loading.attendance
-                    ? { label: 'Loading…', className: 'pending' }
-                    : getAttendanceStatusMeta(todayAttendance?.status);
-                  return (
-                    <span className={`attendance-summary-status attendance-summary-status--${statusMeta.className}`}>
-                      {statusMeta.label}
-                    </span>
-                  );
-                })()}
-              </div>
-              <dl>
-                <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
-                <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>
-                <div><dt>Total Working</dt><dd>{totalWorkingDisplay}</dd></div>
-                <div><dt>Late</dt><dd>{todayAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(todayAttendance.status)) ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
-                <div><dt>Break Time</dt><dd>{getTrackedBreakTime(todayAttendance)}</dd></div>
-                <div><dt>Tasks Completed</dt><dd>{focusStats.loading ? '—' : focusStats.completedToday}</dd></div>
-              </dl>
-              <button onClick={() => navigate('/ciisUser/attendance')}>View Full Attendance</button>
-            </div>
-
-            <div className="calendar-legend">
-              <div className="legend-item"><div className="legend-color color-present"></div><span>Present</span></div>
-              <div className="legend-item"><div className="legend-color color-late"></div><span>Late</span></div>
-              <div className="legend-item"><div className="legend-color color-halfday"></div><span>Half Day</span></div>
-              <div className="legend-item"><div className="legend-color color-leave"></div><span>Leave</span></div>
-              <div className="legend-item"><div className="legend-color color-absent"></div><span>Absent</span></div>
-              <div className="legend-item"><div className="legend-color color-weekend"></div><span>Weekend</span></div>
-              <div className="legend-item"><div className="legend-color color-holiday"></div><span>Holiday 🎉</span></div>
-              <div className="legend-item"><div className="legend-color color-before-join"></div><span>Before Joining</span></div>
-            </div>
-        </div>
-
-        
-        <div className="dashboard-activity-card">
-          <div className="activity-header">
-            <div className="activity-title-section">
-              <div className="activity-icon-container"><span className="activity-header-image-icon" aria-hidden="true" /></div>
-              <div>
-                <h2 className="activity-title">Recent Activity</h2>
-              </div>
-            </div>
-            <button onClick={() => setShowAllActivities(true)} className="activity-view-all">View All</button>
-          </div>
-
-          <div className="activity-list">
-            
-            {loading.attendance && recentActivity.length > 0 && <RefreshOverlay />}
-            
-            
-            {recentActivity.slice(0, 5).map((item, index) => {
-              if (['clock-in', 'clock-out', 'lunch'].includes(item.type)) {
-                const date = new Date(item.date);
-                return (
-                  <div key={`${item.type}-${index}`} className={`activity-item timeline-activity activity-type-${item.type}`}>
-                    <time className="activity-timeline-time">{item.displayTime || (Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>
-                    <div className="activity-item-content">
-                      <div className="activity-status-icon status-default"><span className="timeline-css-icon" /></div>
-                      <div className="activity-details"><div className="activity-title">{item.title}</div><div className="activity-time">{item.subtitle}</div></div>
-                    </div>
-                  </div>
-                );
-              }
-              
-              if (item.type === 'holiday') {
-                const date = new Date(item.date);
-                return (
-                  <div key={`holiday-${index}`} className="activity-item holiday-item">
-                    <div className="activity-item-content">
-                      <div className="activity-status-icon status-holiday">
-                        <CalendarDays className="status-icon" />
-                      </div>
-                      <div className="activity-details">
-                        <div className="activity-date">
-                          {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          <span className="holiday-badge">🎉 Holiday</span>
-                        </div>
-                        <div className="activity-title">{item.title}</div>
-                      </div>
-                    </div>
-                    <div className="activity-status status-holiday">HOLIDAY</div>
-                  </div>
-                );
-              }
-
-              if (item.type === 'task') {
-                const date = new Date(item.date);
-                return (
-                  <div key={`task-${index}`} className="activity-item timeline-activity activity-type-task">
-                    <time className="activity-timeline-time">{Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-                    <div className="activity-item-content">
-                      <div className="activity-status-icon status-default">
-                        <span className="timeline-css-icon" />
-                      </div>
-                      <div className="activity-details">
-                        <div className="activity-title">{item.title}</div>
-                        {item.assignedTo && (
-                          <div className="activity-time">
-                            <FiUser size={12} /> {item.assignedTo}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="activity-status status-default">{item.status || 'pending'}</div>
-                  </div>
-                );
-              }
-              
-              
-              const date = new Date(item.date);
-              return (
-                <div key={index} className="activity-item">
-                  <div className="activity-item-content">
-                    <div className={`activity-status-icon ${getStatusColor(item.status)}`}>
-                      {item.status === 'PRESENT' && <CheckCircle2 className="status-icon" />}
-                      {item.status === 'LATE' && <CalendarClock className="status-icon" />}
-                      {item.status === 'HALF DAY' && <Coffee className="status-icon" />}
-                      {item.status === 'ABSENT' && <LogOut className="status-icon" />}
-                      {!['PRESENT', 'LATE', 'HALF DAY', 'ABSENT'].includes(item.status) && <Play className="status-icon" />}
-                    </div>
-                    <div className="activity-details">
-                      <div className="activity-date">
-                        {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </div>
-                      <div className="activity-time">
-                        <MdAccessTime size={12} /> {item.totalTime || '--:--:--'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`activity-status ${getStatusColor(item.status)}`}>{item.status}</div>
-                </div>
-              );
-            })}
-            
-            
-            {!recentActivity.length && (
-              <div className="activity-empty-state">
-                <div className="empty-icon-container"><FiClock className="empty-icon" /></div>
-                <p className="empty-title">No activity found</p>
-                <p className="empty-subtitle">
-                  {userJoinDate ? `You joined on ${formattedJoinDate}. Records will appear after this date.` : 'Your activity will appear here'}
+          <div className="dashboard-header">
+            <div className="dashboard-header-content">
+              <div className="dashboard-user-details">
+                <p className="dashboard-greeting">
+                  {new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 18 ? 'Good Afternoon' : 'Good Evening'}, <span>👋</span>
                 </p>
+                <h1 className="dashboard-user-name">{displayUser?.name || ''}</h1>
+                <p className="dashboard-user-welcome">Stay focused and make today productive!</p>
+                <div className="dashboard-user-tags">
+                  {userJobRoleDisplay && <span className="dashboard-tag dashboard-tag-role">
+                    <FiBriefcase size={14} /> {userJobRoleDisplay}
+                  </span>}
+                  {user?.employeeType && <span className="dashboard-tag dashboard-tag-type">
+                    <FiUser size={14} /> {user.employeeType}
+                  </span>}
+                  {companyDetails?.companyName && <span className="dashboard-tag dashboard-tag-company">
+                    <FiBriefcase size={14} /> {companyDetails.companyName}
+                  </span>}
+                </div>
+                <div className="dashboard-date-info">
+                  <MdToday size={14} />
+                  {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  <span className="dashboard-weather" title={weather.temperature === null ? weather.label : `Actual ${weather.temperature}°C${weather.feelsLike === null ? '' : ` · Feels like ${weather.feelsLike}°C`}`}><FiSun /> {weather.loading ? 'Loading weather…' : weather.temperature === null ? weather.label : `${weather.temperature}°C\u00A0 ${weather.label}`}</span>
+                </div>
               </div>
-            )}
-          </div>          
-        </div>
-      </div>
 
-      <div className="dashboard-month-info">
-        <div className="month-info-content">
-          <div className="month-info-left">
-            <div className="month-info-title">
-              <div className="month-info-icon"><FiCalendar /></div>
-              <h3>Current Month: {monthNames[currentMonth]} {currentYear}</h3>
-            </div>
-            <p className="month-info-description">
-              Stats show only this month's data. Calendar displays complete attendance history from your join date.
-              {userJoinDate && <span className="month-info-note"> Dates before {formattedJoinDate} are shown in white.</span>}
-            </p>
-          </div>
-          <div className="month-info-right">
-            <div className="month-current-day">{new Date().getDate()}</div>
-            <div className="month-current-info">{monthNames[currentMonth].substring(0, 3)} • Today</div>
-            <div className="month-day-count">Day {currentDate.getDate()} of {new Date(currentYear, currentMonth + 1, 0).getDate()}</div>
-          </div>
-        </div>
-      </div>
-      <section className="dashboard-insights-row">
-        <article className="dashboard-insight-card dashboard-task-overview">
-          <div className="dashboard-section-heading"><strong>Task Overview</strong><button onClick={() => navigate('/ciisUser/task-management')}>View all</button></div>
-          {dashboardTaskStats.loading ? <div className="dashboard-empty-schedule">Loading task overview...</div> : <div className="task-overview-body">
-            <div className="task-donut" style={{ '--done': `${taskSummary.total ? (taskSummary.completed / taskSummary.total) * 360 : 0}deg` }}><span><b>{taskSummary.total}</b>Total Tasks</span></div>
-            <div className="task-legend">
-              <span><i className="green" />Completed <b>{taskSummary.completed} ({taskSummary.total ? Math.round(taskSummary.completed / taskSummary.total * 100) : 0}%)</b></span>
-              <span><i className="blue" />In Progress <b>{taskSummary.inProgress} ({taskSummary.total ? Math.round(taskSummary.inProgress / taskSummary.total * 100) : 0}%)</b></span>
-              <span><i className="orange" />Pending <b>{taskSummary.pending} ({taskSummary.total ? Math.round(taskSummary.pending / taskSummary.total * 100) : 0}%)</b></span>
-              <span><i className="red" />Overdue <b>{taskSummary.overdue} ({taskSummary.total ? Math.round(taskSummary.overdue / taskSummary.total * 100) : 0}%)</b></span>
-            </div>
-          </div>}
-        </article>
-        <article className={`dashboard-insight-card dashboard-productivity-card ${productivityPeriod === 'custom' ? 'has-custom-range' : ''}`}>
-          <div className="dashboard-section-heading productivity-heading">
-            <strong>Productivity Score</strong>
-            <div className="productivity-heading-actions">
-              <select value={productivityPeriod} onChange={event => { setHoveredProductivityDay(null); setProductivityPeriod(event.target.value); }} aria-label="Productivity period"><option value="today">Today</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="sixMonths">6 Months</option><option value="yearly">Yearly</option><option value="custom">Custom dates</option></select>
-              <em className={`productivity-score-value productivity-score-${productivityTone}`}>{productivityData.loading ? '—' : <><b>{productivityScore}%</b><small>{productivityLabel}</small></>}</em>
-            </div>
-          </div>
-          {productivityPeriod === 'custom' && <div className="productivity-date-filter"><label><span>From</span><input type="date" value={productivityDates.from} max={productivityDates.to || undefined} onChange={event => setProductivityDates(current => ({ ...current, from: event.target.value }))}/></label><label><span>To</span><input type="date" value={productivityDates.to} min={productivityDates.from || undefined} max={new Date().toISOString().slice(0, 10)} onChange={event => setProductivityDates(current => ({ ...current, to: event.target.value }))}/></label><button type="button" disabled={productivityData.refreshing || !productivityDates.from || !productivityDates.to || productivityDates.from > productivityDates.to} onClick={() => fetchProductivity('custom', productivityDates)}>{productivityData.refreshing ? 'Loading…' : 'Apply'}</button></div>}
-          {productivityData.error && <div className="productivity-filter-error">{productivityData.error}</div>}
-          {productivityData.loading ? <div className="dashboard-empty-schedule">Loading productivity...</div> : productivityTrend.some(day => day.hasData) ? (
-            <div className={`productivity-chart ${productivityData.refreshing ? 'is-refreshing' : ''}`}>
-              <div className="productivity-axis"><span>100</span><span>50</span><span>0</span></div>
-              <svg viewBox="0 0 340 120" preserveAspectRatio="none">
-                <polyline points={productivityTrend.length === 1
-                  ? `12,${productivityTrend[0].y} 328,${productivityTrend[0].y}`
-                  : productivityTrend.map(day => `${day.x},${day.y}`).join(' ')} />
-                <g>{productivityTrend.map((day, index) => <circle
-                  key={`${day.date.toISOString()}-${day.label || 'point'}-${index}`}
-                  cx={day.x}
-                  cy={day.y}
-                  r="5"
-                  tabIndex="0"
-                  onMouseEnter={() => setHoveredProductivityDay(day)}
-                  onMouseLeave={() => setHoveredProductivityDay(null)}
-                  onFocus={() => setHoveredProductivityDay(day)}
-                  onBlur={() => setHoveredProductivityDay(null)}
-                />)}</g>
-              </svg>
-              {hoveredProductivityDay && (
-                <div
-                  className={`productivity-tooltip ${hoveredProductivityDay.x >= 270
-                    ? 'productivity-tooltip--right'
-                    : hoveredProductivityDay.x <= 70
-                      ? 'productivity-tooltip--left'
-                      : ''}`}
-                  style={{
-                    left: `${(hoveredProductivityDay.x / 340) * 100}%`,
-                    top: `${Math.max(0, hoveredProductivityDay.y - 8)}px`
-                  }}
-                >
-                  <strong>{hoveredProductivityDay.label}</strong>
-                  <span>Productivity <b>{hoveredProductivityDay.score}%</b></span>
-                  <span>Attendance <b>{hoveredProductivityDay.attendanceScore === null || hoveredProductivityDay.attendanceScore === undefined ? 'No record' : `${hoveredProductivityDay.attendanceScore}%`}</b></span>
-                  <span>Tasks <b>{hoveredProductivityDay.completed}/{hoveredProductivityDay.total} completed</b></span>
+              {dashboardShiftLabel && (
+                <div className="dashboard-shift-slot" aria-label="Current shift">
+                  <div className="dashboard-shift-chip dashboard-shift-chip-desktop">
+                    <FiClock size={14} />
+                    <span>{dashboardShiftLabel}</span>
+                    {dashboardShiftTime && <small>{dashboardShiftTime}</small>}
+                  </div>
                 </div>
               )}
-              <div className={`productivity-x-axis ${productivityData.granularity === 'monthly' ? 'is-monthly' : ''}`}>{productivityAxisLabels.map((day, index) => {
-                const [primary, secondary] = String(day.label || '').split(' ');
-                return <span key={`${day.date.toISOString()}-${index}`} style={{ left: `${(day.x / 340) * 100}%` }}><b>{primary}</b>{secondary && <small>{secondary}</small>}</span>;
-              })}</div>
-            </div>
-          ) : <div className="dashboard-empty-schedule">No productivity data for this period</div>}
-          {productivityData.refreshing && <div className="productivity-refreshing" aria-label="Refreshing productivity" />}
-        </article>
-        <article className="dashboard-insight-card dashboard-projects-card">
-          <div className="dashboard-section-heading"><strong>Top Projects</strong><button onClick={() => navigate('/ciisUser/project')}>View All</button></div>
-          <div className="project-progress-list">
-            {topProjects.map((project, index) => {
-              const icons = [BriefcaseBusiness, Smartphone, LayoutDashboard];
-              const ProjectIcon = icons[index % icons.length];
-              const projectName = project.projectName || project.name || project.title || 'Untitled project';
-              return <div key={project._id || project.id || index}><span><ProjectIcon /><strong title={projectName}>{projectName}</strong><b>{project.progress}%</b></span><i><em style={{ width: `${project.progress}%` }} /></i><small>{project.taskCount} task{project.taskCount === 1 ? '' : 's'}</small></div>;
-            })}
-            {projectsLoading && <div className="dashboard-empty-schedule">Loading projects...</div>}
-            {!projectsLoading && !topProjects.length && <div className="dashboard-empty-schedule">No project data available</div>}
-          </div>
-        </article>
-      </section>
-      </main>
 
-      <aside className="dashboard-right-rail">
-        <section className="dashboard-clock-section dashboard-clock-rail">
-          <div className="dashboard-live-label"><i /> {isRunning ? 'Live' : 'Ready'}</div>
-          <div className="dashboard-timer-display">
-            <div className="dashboard-timer-value">{formatTime(displayTimer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
-            <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
-          </div>
-          <div className="dashboard-clock-buttons">
-            <button onClick={() => handleActionClick('in')} disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}><FiPlay size={17} /> Clock In</button>
-            <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
-          </div>
-        </section>
-        <section className="dashboard-ai-card">
-          <div className="dashboard-section-heading"><strong><FiZap /> AI Assistant</strong><span>Coming Soon</span></div>
-          <div className="dashboard-ai-summary dashboard-ai-coming-soon">
-            <div className="ai-coming-soon-visual">
-              <div className="ai-orb"><Sparkles /></div>
-              <i className="ai-orbit-dot ai-orbit-dot-one" />
-              <i className="ai-orbit-dot ai-orbit-dot-two" />
-            </div>
-            <p>Your smart work assistant is on the way</p>
-            <small>Get personalized insights, task suggestions and instant answers from your workspace.</small>
-            <div className="ai-feature-pills">
-              <span>Smart insights</span>
-              <span>Task help</span>
-              <span>Quick answers</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="dashboard-side-panel dashboard-schedule-panel">
-          <div className="dashboard-section-heading"><strong>Upcoming Schedule</strong><button onClick={() => navigate('/ciisUser/employee-meeting')}>View All</button></div>
-          {upcomingMeetings.slice(0, 3).map((meeting, index) => (
-            <button className="schedule-row" key={meeting._id || meeting.id || index} onClick={() => navigate('/ciisUser/employee-meeting')}>
-              <time>{meeting.scheduledAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-              <span>
-                <strong>{meeting.title || meeting.subject || meeting.agenda || 'Scheduled Meeting'}</strong>
-                <small>{meeting.scheduledAt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}{meeting.description ? ` • ${meeting.description}` : ''}</small>
-              </span>
-              {meeting.meetingLink || meeting.link || String(meeting.mode || '').toLowerCase().includes('online') ? <Video className="schedule-channel-icon" /> : <CalendarClock className="schedule-channel-icon" />}
-            </button>
-          ))}
-          {!upcomingMeetings.length && (
-            <div className="schedule-empty-state">
-              <div className="schedule-empty-visual" aria-hidden="true">
-                <CheckCircle2 />
-                <span />
+              <div className="dashboard-focus-card">
+                <strong>Today's Focus</strong>
+                <span><FiCheckCircle /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.dueToday} Tasks Due Today`}</span>
+                <span><FiCheckCircle /> Attendance {loading.attendance ? 'Loading…' : hasTodayAttendance ? 'Completed' : 'Pending'}</span>
+                <span><FiCalendar /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.inProgress} Tasks In Progress`}</span>
               </div>
-              <div className="schedule-empty-copy">
-                <strong>No meetings scheduled</strong>
-                <p>Your schedule is clear for now.</p>
+
+              <div className="dashboard-progress-dial" style={{ '--score': `${focusStats.dailyProgress * 3.6}deg` }}>
+                <svg className="dashboard-progress-ring" viewBox="0 0 120 120" aria-hidden="true">
+                  <defs><linearGradient id="dashboard-progress-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#7357ee" /><stop offset="100%" stopColor="#5b38e5" /></linearGradient></defs>
+                  <circle className="dashboard-progress-track" cx="60" cy="60" r="51" pathLength="100" />
+                  <circle className="dashboard-progress-value" cx="60" cy="60" r="51" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(100, focusStats.dailyProgress))} 100`} />
+                </svg>
+                <div>
+                  <span className="progress-title">Daily Progress</span>
+                  <strong>{focusStats.loading ? '—' : `${focusStats.dailyProgress}%`}</strong>
+                  <small>{focusStats.loading ? 'Loading…' : getDailyProgressMessage(focusStats.dailyProgress)}</small>
+                </div>
+              </div>
+
+              <div className="dashboard-clock-section dashboard-clock-inline">
+                <div className="dashboard-timer-display">
+                  <div className="dashboard-timer-value">{formatTime(displayTimer)}</div>
+                  <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
+                    <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
+                    {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
+                  </div>
+                </div>
+                <div className="dashboard-clock-buttons">
+                  <button
+                    onClick={() => handleActionClick('in')}
+                    disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                    className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}
+                  >
+                    <FiPlay size={20} /> Clock In
+                  </button>
+                  <button
+                    onClick={() => setShowClockOutConfirm(true)}
+                    disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                    className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}
+                  >
+                    <FiSquare size={20} /> Clock Out
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-        </section>
-
-        <section className="dashboard-side-panel dashboard-quick-actions-panel">
-          <div className="dashboard-section-heading"><strong>Quick Actions</strong></div>
-          <div className="dashboard-quick-grid">
-            {visibleQuickActions.map(action => <button key={action.label} onClick={() => openQuickAction(action)} className={!action.fields ? 'quick-action-static' : ''} title={!action.fields ? 'Coming soon' : action.label}><i className={action.tone}>{action.icon}</i><span>{action.label}</span></button>)}
           </div>
-        </section>
-      </aside>
+
+
+          <div className="dashboard-stats-grid">
+            <div className="dashboard-stat-card stat-card-present">
+              <div className="stat-card-header">
+                <div className="stat-icon-container icon-present"><span className="stat-image-icon stat-image-present" aria-hidden="true" /></div>
+                <div className="stat-current-month">Current Month</div>
+              </div>
+              <div className="stat-value">{String(monthlyStats.presentDays).padStart(2, '0')} <small>Days</small></div>
+              <div className="stat-label">Present</div>
+              <div className="stat-footer">
+                <FiTrendingUp className="stat-trend-icon" />
+                <span className="stat-month-text">{getMonthlyChange(monthlyStats.presentDays, previousMonthlyStats.presentDays)}% vs {previousMonthLabel}</span>
+              </div>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,22 14,10 28,18 42,7 56,20 70,12 84,23 100,5 120,16" /></svg>
+            </div>
+
+            <div className="dashboard-stat-card stat-card-late">
+              <div className="stat-card-header">
+                <div className="stat-icon-container icon-late"><span className="stat-image-icon stat-image-late" aria-hidden="true" /></div>
+                <div className="stat-current-month">Current Month</div>
+              </div>
+              <div className="stat-value">{String(monthlyStats.lateDays).padStart(2, '0')} <small>Days</small></div>
+              <div className="stat-label">Late</div>
+              <div className="stat-footer">
+                <FiAlertTriangle className="stat-trend-icon" />
+                <span className="stat-month-text">{getMonthlyChange(monthlyStats.lateDays, previousMonthlyStats.lateDays)}% vs {previousMonthLabel}</span>
+              </div>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,8 14,23 28,14 42,19 56,10 70,21 84,13 100,24 120,7" /></svg>
+            </div>
+
+            <div className="dashboard-stat-card stat-card-halfday">
+              <div className="stat-card-header">
+                <div className="stat-icon-container icon-halfday"><span className="stat-image-icon stat-image-halfday" aria-hidden="true" /></div>
+                <div className="stat-current-month">Current Month</div>
+              </div>
+              <div className="stat-value">{String(monthlyStats.halfDays).padStart(2, '0')} <small>Days</small></div>
+              <div className="stat-label">Half Day</div>
+              <div className="stat-footer">
+                <FiActivity className="stat-trend-icon" />
+                <span className="stat-month-text">{getMonthlyChange(monthlyStats.halfDays, previousMonthlyStats.halfDays)}% vs {previousMonthLabel}</span>
+              </div>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,19 14,7 28,13 42,9 56,22 70,15 84,20 100,10 120,12" /></svg>
+            </div>
+
+            <div className="dashboard-stat-card stat-card-leave">
+              <div className="stat-card-header">
+                <div className="stat-icon-container icon-leave"><span className="stat-image-icon stat-image-leave" aria-hidden="true" /></div>
+                <div className="stat-current-month">Current Month</div>
+              </div>
+              <div className="stat-value">{String(monthlyStats.leavesTaken).padStart(2, '0')} <small>Days</small></div>
+              <div className="stat-label">Leave</div>
+              <div className="stat-footer">
+                <FiCheckCircle className="stat-trend-icon" />
+                <span className="stat-month-text">{getMonthlyChange(monthlyStats.leavesTaken, previousMonthlyStats.leavesTaken)}% vs {previousMonthLabel}</span>
+              </div>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,6 14,8 28,22 42,13 56,24 70,11 84,20 100,9 120,18" /></svg>
+            </div>
+
+            <div className="dashboard-stat-card stat-card-absent">
+              <div className="stat-card-header">
+                <div className="stat-icon-container icon-absent"><span className="stat-image-icon stat-image-absent" aria-hidden="true" /></div>
+                <div className="stat-current-month">Current Month</div>
+              </div>
+              <div className="stat-value">{String(monthlyStats.absentDays).padStart(2, '0')} <small>Days</small></div>
+              <div className="stat-label">Absent</div>
+              <div className="stat-footer">
+                <FiAlertCircle className="stat-trend-icon" />
+                <span className="stat-month-text">{getMonthlyChange(monthlyStats.absentDays, previousMonthlyStats.absentDays)}% vs {previousMonthLabel}</span>
+              </div>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,7 14,9 28,24 42,19 56,22 70,11 84,25 100,18 120,20" /></svg>
+            </div>
+          </div>
+
+          <div className="dashboard-content-grid">
+
+            <div className="dashboard-calendar-card">
+              <div className="calendar-header">
+                <div className="calendar-title-section">
+                  <div className="calendar-icon-container"><FiCalendar className="calendar-icon" /></div>
+                  <div>
+                    <h2 className="calendar-title">Attendance Calendar</h2>
+                  </div>
+                </div>
+                <div className="calendar-controls">
+                  <button onClick={handlePrevMonth} className="calendar-nav-btn" disabled={isMonthBeforeJoin(calendarYear, calendarMonth)}>
+                    <FiChevronLeft className="nav-icon" />
+                  </button>
+                  <strong className="calendar-current-month">{monthNames[calendarMonth]} {calendarYear}</strong>
+                  <button onClick={resetToCurrentMonth} className="calendar-today-btn">Today</button>
+                  <button onClick={handleNextMonth} className="calendar-nav-btn">
+                    <FiChevronRight className="nav-icon" />
+                  </button>
+                </div>
+              </div>
+
+              {isMonthBeforeJoin(calendarYear, calendarMonth) && (
+                <div className="calendar-before-join-message">
+                  <FiClock size={16} />
+                  <span>You joined on {formattedJoinDate}. No attendance records before this date.</span>
+                </div>
+              )}
+
+              <div className="calendar-body">
+                <div className="calendar-week-header">
+                  {daysOfWeek.map(day => <div key={day} className="calendar-day-header">{day}</div>)}
+                </div>
+                <div className="calendar-grid">
+                  {calendarDays.map((week, weekIndex) => (
+                    <div key={weekIndex} className="calendar-week">
+                      {week.map((day, dayIndex) => (
+                        <div key={dayIndex} className="calendar-day-wrapper">
+                          {day ? (
+                            <div className="calendar-day-container">
+                              <div
+                                className={`calendar-day ${getDayStatus(day) || 'empty'} ${isToday(day) ? 'day-today' : ''}`}
+                                title={
+                                  getDayStatus(day) === 'holiday'
+                                    ? `🎉 Holiday: ${holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] || 'Holiday'}`
+                                    : isBeforeJoinDate(new Date(calendarYear, calendarMonth, day))
+                                      ? 'Before joining date'
+                                      : getDayStatus(day)?.charAt(0).toUpperCase() + getDayStatus(day)?.slice(1) || 'No Record'
+                                }
+                                data-holiday-title={getDayStatus(day) === 'holiday' ? holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] : ''}
+                              >
+                                <span className="day-number">{day}</span>
+                                {getDayStatus(day) && <span className="day-status-icon" aria-hidden="true" />}
+                              </div>
+                              {isToday(day) && <div className="today-indicator"></div>}
+                            </div>
+                          ) : <div className="calendar-empty-day"></div>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="attendance-day-summary">
+                <div className="attendance-summary-head">
+                  <strong>{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                  {(() => {
+                    const statusMeta = loading.attendance
+                      ? { label: 'Loading…', className: 'pending' }
+                      : getAttendanceStatusMeta(todayAttendance?.status);
+                    return (
+                      <span className={`attendance-summary-status attendance-summary-status--${statusMeta.className}`}>
+                        {statusMeta.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <dl>
+                  <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
+                  <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>
+                  <div><dt>Total Working</dt><dd>{totalWorkingDisplay}</dd></div>
+                  <div><dt>Late</dt><dd>{todayAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(todayAttendance.status)) ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
+                  <div><dt>Break Time</dt><dd>{getTrackedBreakTime(todayAttendance)}</dd></div>
+                  <div><dt>Tasks Completed</dt><dd>{focusStats.loading ? '—' : focusStats.completedToday}</dd></div>
+                </dl>
+                <button onClick={() => navigate('/ciisUser/attendance')}>View Full Attendance</button>
+              </div>
+
+              <div className="calendar-legend">
+                <div className="legend-item"><div className="legend-color color-present"></div><span>Present</span></div>
+                <div className="legend-item"><div className="legend-color color-late"></div><span>Late</span></div>
+                <div className="legend-item"><div className="legend-color color-halfday"></div><span>Half Day</span></div>
+                <div className="legend-item"><div className="legend-color color-leave"></div><span>Leave</span></div>
+                <div className="legend-item"><div className="legend-color color-absent"></div><span>Absent</span></div>
+                <div className="legend-item"><div className="legend-color color-weekend"></div><span>Weekend</span></div>
+                <div className="legend-item"><div className="legend-color color-holiday"></div><span>Holiday 🎉</span></div>
+                <div className="legend-item"><div className="legend-color color-before-join"></div><span>Before Joining</span></div>
+              </div>
+            </div>
+
+
+            <div className="dashboard-activity-card">
+              <div className="activity-header">
+                <div className="activity-title-section">
+                  <div className="activity-icon-container"><span className="activity-header-image-icon" aria-hidden="true" /></div>
+                  <div>
+                    <h2 className="activity-title">Recent Activity</h2>
+                  </div>
+                </div>
+                <button onClick={() => setShowAllActivities(true)} className="activity-view-all">View All</button>
+              </div>
+
+              <div className="activity-list">
+
+                {loading.attendance && recentActivity.length > 0 && <RefreshOverlay />}
+
+
+                {recentActivity.slice(0, 5).map((item, index) => {
+                  if (['clock-in', 'clock-out', 'lunch'].includes(item.type)) {
+                    const date = new Date(item.date);
+                    return (
+                      <div key={`${item.type}-${index}`} className={`activity-item timeline-activity activity-type-${item.type}`}>
+                        <time className="activity-timeline-time">{item.displayTime || (Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>
+                        <div className="activity-item-content">
+                          <div className="activity-status-icon status-default"><span className="timeline-css-icon" /></div>
+                          <div className="activity-details"><div className="activity-title">{item.title}</div><div className="activity-time">{item.subtitle}</div></div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (item.type === 'holiday') {
+                    const date = new Date(item.date);
+                    return (
+                      <div key={`holiday-${index}`} className="activity-item holiday-item">
+                        <div className="activity-item-content">
+                          <div className="activity-status-icon status-holiday">
+                            <CalendarDays className="status-icon" />
+                          </div>
+                          <div className="activity-details">
+                            <div className="activity-date">
+                              {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              <span className="holiday-badge">🎉 Holiday</span>
+                            </div>
+                            <div className="activity-title">{item.title}</div>
+                          </div>
+                        </div>
+                        <div className="activity-status status-holiday">HOLIDAY</div>
+                      </div>
+                    );
+                  }
+
+                  if (item.type === 'task') {
+                    const date = new Date(item.date);
+                    return (
+                      <div key={`task-${index}`} className="activity-item timeline-activity activity-type-task">
+                        <time className="activity-timeline-time">{Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                        <div className="activity-item-content">
+                          <div className="activity-status-icon status-default">
+                            <span className="timeline-css-icon" />
+                          </div>
+                          <div className="activity-details">
+                            <div className="activity-title">{item.title}</div>
+                            {item.assignedTo && (
+                              <div className="activity-time">
+                                <FiUser size={12} /> {item.assignedTo}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="activity-status status-default">{item.status || 'pending'}</div>
+                      </div>
+                    );
+                  }
+
+
+                  const date = new Date(item.date);
+                  return (
+                    <div key={index} className="activity-item">
+                      <div className="activity-item-content">
+                        <div className={`activity-status-icon ${getStatusColor(item.status)}`}>
+                          {item.status === 'PRESENT' && <CheckCircle2 className="status-icon" />}
+                          {item.status === 'LATE' && <CalendarClock className="status-icon" />}
+                          {item.status === 'HALF DAY' && <Coffee className="status-icon" />}
+                          {item.status === 'ABSENT' && <LogOut className="status-icon" />}
+                          {!['PRESENT', 'LATE', 'HALF DAY', 'ABSENT'].includes(item.status) && <Play className="status-icon" />}
+                        </div>
+                        <div className="activity-details">
+                          <div className="activity-date">
+                            {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </div>
+                          <div className="activity-time">
+                            <MdAccessTime size={12} /> {item.totalTime || '--:--:--'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`activity-status ${getStatusColor(item.status)}`}>{item.status}</div>
+                    </div>
+                  );
+                })}
+
+
+                {!recentActivity.length && (
+                  <div className="activity-empty-state">
+                    <div className="empty-icon-container"><FiClock className="empty-icon" /></div>
+                    <p className="empty-title">No activity found</p>
+                    <p className="empty-subtitle">
+                      {userJoinDate ? `You joined on ${formattedJoinDate}. Records will appear after this date.` : 'Your activity will appear here'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-month-info">
+            <div className="month-info-content">
+              <div className="month-info-left">
+                <div className="month-info-title">
+                  <div className="month-info-icon"><FiCalendar /></div>
+                  <h3>Current Month: {monthNames[currentMonth]} {currentYear}</h3>
+                </div>
+                <p className="month-info-description">
+                  Stats show only this month's data. Calendar displays complete attendance history from your join date.
+                  {userJoinDate && <span className="month-info-note"> Dates before {formattedJoinDate} are shown in white.</span>}
+                </p>
+              </div>
+              <div className="month-info-right">
+                <div className="month-current-day">{new Date().getDate()}</div>
+                <div className="month-current-info">{monthNames[currentMonth].substring(0, 3)} • Today</div>
+                <div className="month-day-count">Day {currentDate.getDate()} of {new Date(currentYear, currentMonth + 1, 0).getDate()}</div>
+              </div>
+            </div>
+          </div>
+          <section className="dashboard-insights-row">
+            <article className="dashboard-insight-card dashboard-task-overview">
+              <div className="dashboard-section-heading"><strong>Task Overview</strong><button onClick={() => navigate('/ciisUser/task-management')}>View all</button></div>
+              {dashboardTaskStats.loading ? <div className="dashboard-empty-schedule">Loading task overview...</div> : <div className="task-overview-body">
+                <div className="task-donut" style={{ '--done': `${taskSummary.total ? (taskSummary.completed / taskSummary.total) * 360 : 0}deg` }}><span><b>{taskSummary.total}</b>Total Tasks</span></div>
+                <div className="task-legend">
+                  <span><i className="green" />Completed <b>{taskSummary.completed} ({taskSummary.total ? Math.round(taskSummary.completed / taskSummary.total * 100) : 0}%)</b></span>
+                  <span><i className="blue" />In Progress <b>{taskSummary.inProgress} ({taskSummary.total ? Math.round(taskSummary.inProgress / taskSummary.total * 100) : 0}%)</b></span>
+                  <span><i className="orange" />Pending <b>{taskSummary.pending} ({taskSummary.total ? Math.round(taskSummary.pending / taskSummary.total * 100) : 0}%)</b></span>
+                  <span><i className="red" />Overdue <b>{taskSummary.overdue} ({taskSummary.total ? Math.round(taskSummary.overdue / taskSummary.total * 100) : 0}%)</b></span>
+                </div>
+              </div>}
+            </article>
+            <article className={`dashboard-insight-card dashboard-productivity-card ${productivityPeriod === 'custom' ? 'has-custom-range' : ''}`}>
+              <div className="dashboard-section-heading productivity-heading">
+                <strong>Productivity Score</strong>
+                <div className="productivity-heading-actions">
+                  <select value={productivityPeriod} onChange={event => { setHoveredProductivityDay(null); setProductivityPeriod(event.target.value); }} aria-label="Productivity period"><option value="today">Today</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="sixMonths">6 Months</option><option value="yearly">Yearly</option><option value="custom">Custom dates</option></select>
+                  <em className={`productivity-score-value productivity-score-${productivityTone}`}>{productivityData.loading ? '—' : <><b>{productivityScore}%</b><small>{productivityLabel}</small></>}</em>
+                </div>
+              </div>
+              {productivityPeriod === 'custom' && <div className="productivity-date-filter"><label><span>From</span><input type="date" value={productivityDates.from} max={productivityDates.to || undefined} onChange={event => setProductivityDates(current => ({ ...current, from: event.target.value }))} /></label><label><span>To</span><input type="date" value={productivityDates.to} min={productivityDates.from || undefined} max={new Date().toISOString().slice(0, 10)} onChange={event => setProductivityDates(current => ({ ...current, to: event.target.value }))} /></label><button type="button" disabled={productivityData.refreshing || !productivityDates.from || !productivityDates.to || productivityDates.from > productivityDates.to} onClick={() => fetchProductivity('custom', productivityDates)}>{productivityData.refreshing ? 'Loading…' : 'Apply'}</button></div>}
+              {productivityData.error && <div className="productivity-filter-error">{productivityData.error}</div>}
+              {productivityData.loading ? <div className="dashboard-empty-schedule">Loading productivity...</div> : productivityTrend.some(day => day.hasData) ? (
+                <div className={`productivity-chart ${productivityData.refreshing ? 'is-refreshing' : ''}`}>
+                  <div className="productivity-axis"><span>100</span><span>50</span><span>0</span></div>
+                  <svg viewBox="0 0 340 120" preserveAspectRatio="none">
+                    <polyline points={productivityTrend.length === 1
+                      ? `12,${productivityTrend[0].y} 328,${productivityTrend[0].y}`
+                      : productivityTrend.map(day => `${day.x},${day.y}`).join(' ')} />
+                    <g>{productivityTrend.map((day, index) => <circle
+                      key={`${day.date.toISOString()}-${day.label || 'point'}-${index}`}
+                      cx={day.x}
+                      cy={day.y}
+                      r="5"
+                      tabIndex="0"
+                      onMouseEnter={() => setHoveredProductivityDay(day)}
+                      onMouseLeave={() => setHoveredProductivityDay(null)}
+                      onFocus={() => setHoveredProductivityDay(day)}
+                      onBlur={() => setHoveredProductivityDay(null)}
+                    />)}</g>
+                  </svg>
+                  {hoveredProductivityDay && (
+                    <div
+                      className={`productivity-tooltip ${hoveredProductivityDay.x >= 270
+                        ? 'productivity-tooltip--right'
+                        : hoveredProductivityDay.x <= 70
+                          ? 'productivity-tooltip--left'
+                          : ''}`}
+                      style={{
+                        left: `${(hoveredProductivityDay.x / 340) * 100}%`,
+                        top: `${Math.max(0, hoveredProductivityDay.y - 8)}px`
+                      }}
+                    >
+                      <strong>{hoveredProductivityDay.label}</strong>
+                      <span>Productivity <b>{hoveredProductivityDay.score}%</b></span>
+                      <span>Attendance <b>{hoveredProductivityDay.attendanceScore === null || hoveredProductivityDay.attendanceScore === undefined ? 'No record' : `${hoveredProductivityDay.attendanceScore}%`}</b></span>
+                      <span>Tasks <b>{hoveredProductivityDay.completed}/{hoveredProductivityDay.total} completed</b></span>
+                    </div>
+                  )}
+                  <div className={`productivity-x-axis ${productivityData.granularity === 'monthly' ? 'is-monthly' : ''}`}>{productivityAxisLabels.map((day, index) => {
+                    const [primary, secondary] = String(day.label || '').split(' ');
+                    return <span key={`${day.date.toISOString()}-${index}`} style={{ left: `${(day.x / 340) * 100}%` }}><b>{primary}</b>{secondary && <small>{secondary}</small>}</span>;
+                  })}</div>
+                </div>
+              ) : <div className="dashboard-empty-schedule">No productivity data for this period</div>}
+              {productivityData.refreshing && <div className="productivity-refreshing" aria-label="Refreshing productivity" />}
+            </article>
+            <article className="dashboard-insight-card dashboard-projects-card">
+              <div className="dashboard-section-heading"><strong>Top Projects</strong><button onClick={() => navigate('/ciisUser/project')}>View All</button></div>
+              <div className="project-progress-list">
+                {topProjects.map((project, index) => {
+                  const icons = [BriefcaseBusiness, Smartphone, LayoutDashboard];
+                  const ProjectIcon = icons[index % icons.length];
+                  const projectName = project.projectName || project.name || project.title || 'Untitled project';
+                  return <div key={project._id || project.id || index}><span><ProjectIcon /><strong title={projectName}>{projectName}</strong><b>{project.progress}%</b></span><i><em style={{ width: `${project.progress}%` }} /></i><small>{project.taskCount} task{project.taskCount === 1 ? '' : 's'}</small></div>;
+                })}
+                {projectsLoading && <div className="dashboard-empty-schedule">Loading projects...</div>}
+                {!projectsLoading && !topProjects.length && <div className="dashboard-empty-schedule">No project data available</div>}
+              </div>
+            </article>
+          </section>
+        </main>
+
+        <aside className="dashboard-right-rail">
+          <section className="dashboard-clock-section dashboard-clock-rail">
+            <div className="dashboard-live-label"><i /> {isRunning ? 'Live' : 'Ready'}</div>
+            <div className="dashboard-timer-display">
+              <div className="dashboard-timer-value">{formatTime(displayTimer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
+              <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+            </div>
+            <div className="dashboard-clock-buttons">
+              <button onClick={() => handleActionClick('in')} disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}><FiPlay size={17} /> Clock In</button>
+              <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
+            </div>
+          </section>
+          <section className="dashboard-ai-card">
+            <div className="dashboard-section-heading"><strong><FiZap /> AI Assistant</strong><span>Coming Soon</span></div>
+            <div className="dashboard-ai-summary dashboard-ai-coming-soon">
+              <div className="ai-coming-soon-visual">
+                <div className="ai-orb"><Sparkles /></div>
+                <i className="ai-orbit-dot ai-orbit-dot-one" />
+                <i className="ai-orbit-dot ai-orbit-dot-two" />
+              </div>
+              <p>Your smart work assistant is on the way</p>
+              <small>Get personalized insights, task suggestions and instant answers from your workspace.</small>
+              <div className="ai-feature-pills">
+                <span>Smart insights</span>
+                <span>Task help</span>
+                <span>Quick answers</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="dashboard-side-panel dashboard-schedule-panel">
+            <div className="dashboard-section-heading"><strong>Upcoming Schedule</strong><button onClick={() => navigate('/ciisUser/employee-meeting')}>View All</button></div>
+            {upcomingMeetings.slice(0, 3).map((meeting, index) => (
+              <button className="schedule-row" key={meeting._id || meeting.id || index} onClick={() => navigate('/ciisUser/employee-meeting')}>
+                <time>{meeting.scheduledAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                <span>
+                  <strong>{meeting.title || meeting.subject || meeting.agenda || 'Scheduled Meeting'}</strong>
+                  <small>{meeting.scheduledAt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}{meeting.description ? ` • ${meeting.description}` : ''}</small>
+                </span>
+                {meeting.meetingLink || meeting.link || String(meeting.mode || '').toLowerCase().includes('online') ? <Video className="schedule-channel-icon" /> : <CalendarClock className="schedule-channel-icon" />}
+              </button>
+            ))}
+            {!upcomingMeetings.length && (
+              <div className="schedule-empty-state">
+                <div className="schedule-empty-visual" aria-hidden="true">
+                  <CheckCircle2 />
+                  <span />
+                </div>
+                <div className="schedule-empty-copy">
+                  <strong>No meetings scheduled</strong>
+                  <p>Your schedule is clear for now.</p>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="dashboard-side-panel dashboard-quick-actions-panel">
+            <div className="dashboard-section-heading"><strong>Quick Actions</strong></div>
+            <div className="dashboard-quick-grid">
+              {visibleQuickActions.map(action => <button key={action.label} onClick={() => openQuickAction(action)} className={!action.fields ? 'quick-action-static' : ''} title={!action.fields ? 'Coming soon' : action.label}><i className={action.tone}>{action.icon}</i><span>{action.label}</span></button>)}
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
   );

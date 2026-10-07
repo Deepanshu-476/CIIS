@@ -6648,7 +6648,8 @@ const UserCreateTask = () => {
       </div>
 
       
-      <div className="user-create-task-dialog-overlay personal-task-overlay" style={{ display: openDialog ? 'flex' : 'none' }}>
+      {openDialog && (
+        <div className="user-create-task-dialog-overlay personal-task-overlay">
         <div className={`user-create-task-dialog personal-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
           maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
           width: isMobile ? '95%' : 'auto'
@@ -7186,229 +7187,318 @@ const UserCreateTask = () => {
           </div>
         </div>
       </div>
+    )}
 
-      {/* Rich Task Details Modal */}
-      {selectedTaskDetails && (
-        <TaskDetailsModal
-          open={Boolean(selectedTaskDetails)}
-          task={selectedTaskDetails}
-          onClose={() => setSelectedTaskDetails(null)}
-          onStatusChange={async (task, newStatus) => {
-            const taskId = task?._id || task?.id;
-            const source = getTaskSource(task);
-            if (!taskId) return;
-            const changed = source === 'client'
-              ? await handleClientTaskStatusChange(taskId, newStatus)
-              : source === 'project'
-                ? await axios.patch(`/tasks/project/${task.projectId || task.project?._id || task.project}/tasks/${taskId}/status`, { status: newStatus })
-                    .then(() => true)
-                : source === 'self'
-                  ? await handleStatusChange(taskId, newStatus)
-                  : await handleAssignedTaskStatusChange(taskId, newStatus);
-            if (changed) {
-              setSelectedTaskDetails(prev => prev ? { ...prev, status: newStatus, overallStatus: newStatus } : null);
-              void openTaskDetails({ ...task, status: newStatus, overallStatus: newStatus });
-            }
-          }}
-          onRemarkAdded={async (task, text, files) => {
-            const taskId = task?._id || task?.id;
-            if (!taskId || (!text?.trim() && !files?.length)) return;
-            const source = getTaskSource(task);
-            const projectId = task.projectId || task.project?._id || task.project;
-            let response;
-            if (files && files.length > 0) {
-              const formData = new FormData();
-              formData.append('text', text);
-              formData.append('remark', text);
-              if (source === 'client') files.forEach(f => formData.append('images', f));
-              else files.forEach(f => formData.append('image', f));
-              const endpoint = source === 'client'
-                ? `/tasks/client-tasks/${taskId}/client-remarks/upload-images`
-                : source === 'project' && projectId
-                  ? `/tasks/project/${projectId}/tasks/${taskId}/remarks`
-                : source === 'self'
-                  ? `/tasks/self/${taskId}/remarks`
-                  : `/tasks/assigned/${taskId}/remarks`;
-              response = await axios.post(endpoint, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-              });
-            } else {
-              const endpoint = source === 'client'
-                ? `/tasks/client-tasks/${taskId}/client-remarks`
-                : source === 'project' && projectId
-                  ? `/tasks/project/${projectId}/tasks/${taskId}/remarks`
-                  : source === 'self'
-                    ? `/tasks/self/${taskId}/remarks`
-                    : `/tasks/assigned/${taskId}/remarks`;
-              response = await axios.post(endpoint, { text: text.trim(), remark: text.trim() });
-            }
-            const remark = response?.data?.remark || response?.data?.data?.remark;
-            if (remark) setSelectedTaskDetails(prev => prev ? { ...prev, remarks: [remark, ...(prev.remarks || [])] } : prev);
-            void openTaskDetails(task);
-          }}
-          onCheckpointToggle={async (task, checkpoint) => {
-            await handleCheckpointToggle(task, checkpoint);
-            setSelectedTaskDetails(prev => {
-              if (!prev) return null;
-              const updatedCps = Array.isArray(prev.checkpoints)
-                ? prev.checkpoints.map(c => String(c._id || c.id) === String(checkpoint._id || checkpoint.id) ? { ...c, completed: !c.completed } : c)
-                : [];
-              return { ...prev, checkpoints: updatedCps };
-            });
-          }}
-          canEdit={true}
-        />
-      )}
+      {/* Task Details Modal */}
+      {selectedTaskDetails && (() => {
+        const detailStatus = getStatusForTask(selectedTaskDetails);
+        const detailDueDate = getDueDateForTask(selectedTaskDetails);
+        const detailSource = getTaskSource(selectedTaskDetails);
+        const detailCheckpoints = Array.isArray(selectedTaskDetails.checkpoints) ? selectedTaskDetails.checkpoints : [];
+        const completedCheckpoints = detailCheckpoints.filter(item => item.completed).length;
+        const detailFiles = Array.isArray(selectedTaskDetails.files) ? selectedTaskDetails.files : [];
+        const detailIsOverdue = isOverdue(detailDueDate, detailStatus, selectedTaskDetails);
+        const checkpointUpdatesLocked = ['overdue', 'rejected', 'cancelled', 'onhold'].includes(normalizeStatus(detailStatus));
 
-      <div className="user-create-task-dialog-overlay" style={{ display: calendarFilterOpen ? 'flex' : 'none' }}>
-        <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-          maxWidth: isMobile ? '95%' : isTablet ? '450px' : '500px',
-          width: isMobile ? '95%' : 'auto'
-        }}>
-          <div className="user-create-task-dialog-title">
-            <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-              <FiCalendar />
-              <div>Filter by Date</div>
-            </div>
-          </div>
-          
-          <div className="user-create-task-dialog-content">
-            {isLoadingRemarks && (
-              <div className="task-dialog-loading" role="status">
-                <span className="task-dialog-loading-spinner" />
-                <span>Loading remarks...</span>
+        return (
+          <div
+            className="user-create-task-dialog-overlay task-details-overlay"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setSelectedTaskDetails(null);
+            }}
+          >
+            <div className="user-create-task-dialog task-details-modal" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="user-create-task-dialog-title task-details-modal-header">
+                <div className="task-details-heading">
+                  <span className="task-details-heading-icon"><FiFileText /></span>
+                  <div>
+                    <div className="task-details-eyebrow">Task</div>
+                    <div>Task Details</div>
+                  </div>
+                </div>
+                <button type="button" className="personal-task-close" onClick={() => setSelectedTaskDetails(null)} aria-label="Close task details">
+                  <FiX />
+                </button>
               </div>
-            )}
-            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-              <div className="user-create-task-form-control">
-                <label>Filter By</label>
-                <select
-                  className="user-create-task-select"
-                  value={dateFilterType}
-                  onChange={(e) => setDateFilterType(e.target.value)}
+
+              <div className="task-details-modal-content">
+                <div className="task-details-badges">
+                  <StatusChip status={detailIsOverdue ? 'overdue' : detailStatus} label={detailIsOverdue ? 'overdue' : detailStatus} />
+                  <PriorityChip priority={selectedTaskDetails.priority || 'medium'} />
+                </div>
+
+                <div className="task-details-description task-details-title-card">
+                  <span>Title</span>
+                  <p>{selectedTaskDetails.title || selectedTaskDetails.name || 'Untitled Task'}</p>
+                </div>
+
+                <div className="task-details-description">
+                  <span>Description</span>
+                  <p>{selectedTaskDetails.description || 'No description provided.'}</p>
+                </div>
+
+                <div className="task-details-grid">
+                  <div><FiCalendar /><span>Due Date</span><strong>{formatDueDateTime(detailDueDate)}</strong></div>
+                  <div><FiUser /><span>Task Type</span><strong>{detailSource === 'self' ? 'Personal' : detailSource === 'client' ? 'Client Task' : detailSource === 'project' ? 'Project Task' : 'Assigned Task'}</strong></div>
+                  <div><FiCheckSquare /><span>Checkpoints</span><strong>{completedCheckpoints}/{detailCheckpoints.length}</strong></div>
+                  <div><FiPaperclip /><span>Files</span><strong>{detailFiles.length}</strong></div>
+                </div>
+
+                {detailSource === 'self' && (selectedTaskDetails.isRecurring || (selectedTaskDetails.repeatPattern && selectedTaskDetails.repeatPattern !== 'none')) && (
+                  <div className="task-details-info-row">
+                    <span>Repeat Ends</span>
+                    <strong>{formatDateInputValue(selectedTaskDetails.recurrenceEndDate) || 'Not set'}</strong>
+                    <button
+                      type="button"
+                      className="user-create-task-button user-create-task-button-outlined"
+                      onClick={() => handleStopRecurringTask(selectedTaskDetails)}
+                    >
+                      <FiSlash /> Stop Repeat
+                    </button>
+                  </div>
+                )}
+
+                {detailSource === 'client' && (
+                  <div className="task-details-info-row"><span>Client</span><strong>{getClientNameFromTask(selectedTaskDetails) || 'Not specified'}</strong></div>
+                )}
+                {detailSource === 'project' && (
+                  <div className="task-details-info-row"><span>Project</span><strong>{selectedTaskDetails.projectName || 'Not specified'}</strong></div>
+                )}
+
+                {normalizeStatus(detailStatus) === 'in-progress' && (
+                  <form
+                    className="task-details-add-checkpoint"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handleAddCheckpoint(selectedTaskDetails);
+                    }}
+                  >
+                    <div className="task-details-add-checkpoint-heading">
+                      <div>
+                        <div className="task-details-section-title">Add Checkpoint</div>
+                        <small>Break this task into a clear, trackable step.</small>
+                      </div>
+                    </div>
+                    <div className="task-details-add-checkpoint-row">
+                      <input
+                        type="text"
+                        className="user-create-task-input"
+                        value={newCheckpointTitle}
+                        onChange={(event) => setNewCheckpointTitle(event.target.value)}
+                        placeholder="Enter checkpoint title"
+                        maxLength={160}
+                        autoComplete="off"
+                      />
+                      <button
+                        type="submit"
+                        className="user-create-task-button user-create-task-button-contained"
+                        disabled={!newCheckpointTitle.trim() || isAddingCheckpoint}
+                      >
+                        <FiPlus />
+                        {isAddingCheckpoint ? 'Adding...' : 'Add'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {detailCheckpoints.length > 0 && (
+                  <div className="task-details-checkpoints">
+                    <div className="task-details-section-title">Checkpoints</div>
+                    {detailCheckpoints.map(checkpoint => (
+                      <div className={checkpoint.completed ? 'completed' : ''} key={checkpoint._id || checkpoint.id || checkpoint.title}>
+                        <label className="task-details-checkpoint-label">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(checkpoint.completed)}
+                            disabled={checkpointUpdatesLocked || updatingCheckpointId === (checkpoint._id || checkpoint.id)}
+                            onChange={() => handleCheckpointToggle(selectedTaskDetails, checkpoint)}
+                          />
+                          <span>{checkpoint.title}</span>
+                        </label>
+                        {normalizeStatus(detailStatus) === 'in-progress' && (
+                          <button
+                            type="button"
+                            className="task-details-checkpoint-delete"
+                            onClick={() => handleDeleteCheckpoint(selectedTaskDetails, checkpoint)}
+                            disabled={deletingCheckpointId === (checkpoint._id || checkpoint.id || checkpoint.title)}
+                            aria-label={`Delete checkpoint ${checkpoint.title}`}
+                            title="Delete checkpoint"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="task-details-modal-actions">
+                <button
+                  type="button"
+                  className="user-create-task-button user-create-task-button-contained"
+                  onClick={() => setSelectedTaskDetails(null)}
                 >
-                  <option value="createdDate">Created Date</option>
-                  <option value="dueDate">Due Date</option>
-                </select>
-              </div>
-
-              <div>
-                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Select Specific Date</div>
-                <input
-                  type="date"
-                  className="user-create-task-input"
-                  value={selectedDate || ''}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setDateRange({ start: null, end: null });
-                    setTimeFilter('all');
-                  }}
-                />
-              </div>
-
-              <div>
-                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Or Select Date Range</div>
-                <div className="user-create-task-flex user-create-task-gap-2">
-                  <div style={{ flex: 1 }}>
-                    <input
-                      type="date"
-                      className="user-create-task-input"
-                      placeholder="Start Date"
-                      value={dateRange.start || ''}
-                      onChange={(e) => {
-                        setSelectedDate(null);
-                        setTimeFilter('all');
-                        setDateRange(prev => ({ ...prev, start: e.target.value }));
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <input
-                      type="date"
-                      className="user-create-task-input"
-                      placeholder="End Date"
-                      value={dateRange.end || ''}
-                      onChange={(e) => {
-                        setSelectedDate(null);
-                        setTimeFilter('all');
-                        setDateRange(prev => ({ ...prev, end: e.target.value }));
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Quick Filters</div>
-                <div className="user-create-task-flex user-create-task-gap-1 user-create-task-flex-wrap">
-                  <button
-                    className="user-create-task-button user-create-task-button-outlined"
-                    onClick={() => {
-                      const today = new Date();
-                      setSelectedDate(today.toISOString().split('T')[0]);
-                      setDateRange({ start: null, end: null });
-                      setTimeFilter('all');
-                    }}
-                    style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-                  >
-                    Today
-                  </button>
-                  <button
-                    className="user-create-task-button user-create-task-button-outlined"
-                    onClick={() => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      setSelectedDate(tomorrow.toISOString().split('T')[0]);
-                      setDateRange({ start: null, end: null });
-                      setTimeFilter('all');
-                    }}
-                    style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-                  >
-                    Tomorrow
-                  </button>
-                  <button
-                    className="user-create-task-button user-create-task-button-outlined"
-                    onClick={() => {
-                      const start = new Date();
-                      const end = new Date();
-                      end.setDate(end.getDate() + 7);
-                      setSelectedDate(null);
-                      setDateRange({ 
-                        start: start.toISOString().split('T')[0], 
-                        end: end.toISOString().split('T')[0] 
-                      });
-                      setTimeFilter('all');
-                    }}
-                    style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-                  >
-                    Next 7 Days
-                  </button>
-                </div>
+                  Close
+                </button>
               </div>
             </div>
           </div>
+        );
+      })()}
 
-          <div className="user-create-task-dialog-actions">
-            <button
-              className="user-create-task-button user-create-task-button-outlined"
-              onClick={clearDateFilter}
-              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-            >
-              Clear Filter
-            </button>
-            <button
-              className="user-create-task-button user-create-task-button-contained"
-              onClick={() => setCalendarFilterOpen(false)}
-              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-            >
-              Apply Filter
-            </button>
+      {calendarFilterOpen && (
+        <div className="user-create-task-dialog-overlay">
+          <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+            maxWidth: isMobile ? '95%' : isTablet ? '450px' : '500px',
+            width: isMobile ? '95%' : 'auto'
+          }}>
+            <div className="user-create-task-dialog-title">
+              <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
+                <FiCalendar />
+                <div>Filter by Date</div>
+              </div>
+            </div>
+            
+            <div className="user-create-task-dialog-content">
+              {isLoadingRemarks && (
+                <div className="task-dialog-loading" role="status">
+                  <span className="task-dialog-loading-spinner" />
+                  <span>Loading remarks...</span>
+                </div>
+              )}
+              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+                <div className="user-create-task-form-control">
+                  <label>Filter By</label>
+                  <select
+                    className="user-create-task-select"
+                    value={dateFilterType}
+                    onChange={(e) => setDateFilterType(e.target.value)}
+                  >
+                    <option value="createdDate">Created Date</option>
+                    <option value="dueDate">Due Date</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Select Specific Date</div>
+                  <input
+                    type="date"
+                    className="user-create-task-input"
+                    value={selectedDate || ''}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setDateRange({ start: null, end: null });
+                      setTimeFilter('all');
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Or Select Date Range</div>
+                  <div className="user-create-task-flex user-create-task-gap-2">
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="date"
+                        className="user-create-task-input"
+                        placeholder="Start Date"
+                        value={dateRange.start || ''}
+                        onChange={(e) => {
+                          setSelectedDate(null);
+                          setTimeFilter('all');
+                          setDateRange(prev => ({ ...prev, start: e.target.value }));
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="date"
+                        className="user-create-task-input"
+                        placeholder="End Date"
+                        value={dateRange.end || ''}
+                        onChange={(e) => {
+                          setSelectedDate(null);
+                          setTimeFilter('all');
+                          setDateRange(prev => ({ ...prev, end: e.target.value }));
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Quick Filters</div>
+                  <div className="user-create-task-flex user-create-task-gap-1 user-create-task-flex-wrap">
+                    <button
+                      className="user-create-task-button user-create-task-button-outlined"
+                      onClick={() => {
+                        const today = new Date();
+                        setSelectedDate(today.toISOString().split('T')[0]);
+                        setDateRange({ start: null, end: null });
+                        setTimeFilter('all');
+                      }}
+                      style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+                    >
+                      Today
+                    </button>
+                    <button
+                      className="user-create-task-button user-create-task-button-outlined"
+                      onClick={() => {
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setSelectedDate(tomorrow.toISOString().split('T')[0]);
+                        setDateRange({ start: null, end: null });
+                        setTimeFilter('all');
+                      }}
+                      style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+                    >
+                      Tomorrow
+                    </button>
+                    <button
+                      className="user-create-task-button user-create-task-button-outlined"
+                      onClick={() => {
+                        const start = new Date();
+                        const end = new Date();
+                        end.setDate(end.getDate() + 7);
+                        setSelectedDate(null);
+                        setDateRange({ 
+                          start: start.toISOString().split('T')[0], 
+                          end: end.toISOString().split('T')[0] 
+                        });
+                        setTimeFilter('all');
+                      }}
+                      style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+                    >
+                      Next 7 Days
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="user-create-task-dialog-actions">
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={clearDateFilter}
+                style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+              >
+                Clear Filter
+              </button>
+              <button
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={() => setCalendarFilterOpen(false)}
+                style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+              >
+                Apply Filter
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       
-      <div className="user-create-task-dialog-overlay remarks-dialog-overlay" style={{ display: remarksDialog.open ? 'flex' : 'none' }}>
+      {remarksDialog.open && (
+        <div className="user-create-task-dialog-overlay remarks-dialog-overlay">
         <div className={`user-create-task-dialog task-remarks-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
           <div className="user-create-task-dialog-title">
             <div className="remarks-heading">
@@ -7752,115 +7842,123 @@ const UserCreateTask = () => {
           </div>
         </div>
       </div>
+    )}
 
       
-      <div className="user-create-task-dialog-overlay activity-logs-overlay" style={{ display: activityDialog.open ? 'flex' : 'none' }}>
-        <div className={`user-create-task-dialog activity-logs-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-          maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px',
-          width: isMobile ? '95%' : 'auto'
-        }}>
-          <div className="user-create-task-dialog-title">
-            <div className="activity-logs-heading">
-              <span className="activity-logs-heading-icon"><FiActivity /></span>
-              <div><div>Activity Logs</div><small>View recent activities and actions performed in the system.</small></div>
+      {activityDialog.open && (
+        <div className="user-create-task-dialog-overlay activity-logs-overlay">
+          <div className={`user-create-task-dialog activity-logs-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+            maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px',
+            width: isMobile ? '95%' : 'auto'
+          }}>
+            <div className="user-create-task-dialog-title">
+              <div className="activity-logs-heading">
+                <span className="activity-logs-heading-icon"><FiActivity /></span>
+                <div><div>Activity Logs</div><small>View recent activities and actions performed in the system.</small></div>
+              </div>
+              <button type="button" className="personal-task-close" onClick={() => setActivityDialog({ open: false, taskId: null })}><FiX /></button>
             </div>
-            <button type="button" className="personal-task-close" onClick={() => setActivityDialog({ open: false, taskId: null })}><FiX /></button>
-          </div>
-          <div className="user-create-task-dialog-content">
-            {isLoadingActivity ? (
-              <div className="task-dialog-loading task-dialog-loading-centered" role="status">
-                <span className="task-dialog-loading-spinner" />
-                <span>Loading activity...</span>
-              </div>
-            ) : activityLogs.length > 0 ? (
-              <div className="activity-logs-timeline">
-                {activityLogs.map((log, index) => (
-                  <div key={log._id || index} className="user-create-task-paper activity-log-card">
-                    <span className="activity-timeline-dot" />
-                    <div className="user-create-task-paper-content">
-                      <div className="activity-log-card-header">
-                        <div className="activity-log-user">
-                          <div className="activity-log-avatar">
-                            {(log.userName || log.user?.name || '?').split(/\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join('')}
+            <div className="user-create-task-dialog-content">
+              {isLoadingActivity ? (
+                <div className="task-dialog-loading task-dialog-loading-centered" role="status">
+                  <span className="task-dialog-loading-spinner" />
+                  <span>Loading activity...</span>
+                </div>
+              ) : activityLogs.length > 0 ? (
+                <div className="activity-logs-timeline">
+                  {activityLogs.map((log, index) => (
+                    <div key={log._id || index} className="user-create-task-paper activity-log-card">
+                      <span className="activity-timeline-dot" />
+                      <div className="user-create-task-paper-content">
+                        <div className="activity-log-card-header">
+                          <div className="activity-log-user">
+                            <div className="activity-log-avatar">
+                              {(log.userName || log.user?.name || '?').split(/\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join('')}
+                            </div>
+                            <div className="activity-log-user-copy">
+                              <strong>{log.userName || log.user?.name || 'User details unavailable'}</strong>
+                              <span className={`activity-action-badge ${(log.action || '').toLowerCase().replace(/_/g, '-')}`}>
+                                {formatActivityAction(log.action)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="activity-log-user-copy">
-                            <strong>{log.userName || log.user?.name || 'User details unavailable'}</strong>
-                            <span className={`activity-action-badge ${(log.action || '').toLowerCase().replace(/_/g, '-')}`}>
-                              {formatActivityAction(log.action)}
-                            </span>
+                          <div className="activity-log-date">
+                            {formatActivityTimestamp(log.createdAt)} <FiCalendar />
                           </div>
                         </div>
-                        <div className="activity-log-date">
-                          {formatActivityTimestamp(log.createdAt)} <FiCalendar />
-                        </div>
+                        <div className="activity-log-description">{renderActivityDescription(log.description)}</div>
                       </div>
-                      <div className="activity-log-description">{renderActivityDescription(log.description)}</div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ color: '#666', textAlign: 'center', padding: isMobile ? '20px' : '24px' }}>
-                No activity logs found for this task
-              </div>
-            )}
-          </div>
-          
-          <div className="user-create-task-dialog-actions">
-            <button
-              className="user-create-task-button user-create-task-button-outlined"
-              onClick={() => setActivityDialog({ open: false, taskId: null })}
-              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-            >
-              Close
-            </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: '#666', textAlign: 'center', padding: isMobile ? '20px' : '24px' }}>
+                  No activity logs found for this task
+                </div>
+              )}
+            </div>
+            
+            <div className="user-create-task-dialog-actions">
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={() => setActivityDialog({ open: false, taskId: null })}
+                style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       
-      <div className="user-create-task-dialog-overlay" style={{ display: zoomImage ? 'flex' : 'none' }}>
-        <div style={{ 
-          position: 'relative',
-          maxWidth: '90vw',
-          maxHeight: '90vh',
-        }}>
-          <button
-            onClick={() => setZoomImage(null)}
-            style={{
-              position: 'absolute',
-              top: '16px',
-              right: '13px',
-              backgroundColor: 'rgba(0,0,0,0.6)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '50%',
-              width: isMobile ? '32px' : '36px',
-              height: isMobile ? '32px' : '36px',
-              cursor: 'pointer',
-              zIndex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+      {Boolean(zoomImage) && (
+        <div className="user-create-task-dialog-overlay" onClick={() => setZoomImage(null)}>
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
             }}
           >
-            <FiX size={isMobile ? 16 : 20} />
-          </button>
-          <img
-            src={zoomImage}
-            alt="Zoomed view"
-            style={{
-              width: '100%',
-              height: 'auto',
-              maxHeight: '77vh',
-              objectFit: 'contain',
-            }}
-            onError={(e) => {
-              console.error('Zoom image failed to load:', e.target.src);
-            }}
-          />
+            <button
+              onClick={() => setZoomImage(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '13px',
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: isMobile ? '32px' : '36px',
+                height: isMobile ? '32px' : '36px',
+                cursor: 'pointer',
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <FiX size={isMobile ? 16 : 20} />
+            </button>
+            <img
+              src={zoomImage}
+              alt="Zoomed view"
+              style={{
+                width: '100%',
+                height: 'auto',
+                maxHeight: '77vh',
+                objectFit: 'contain',
+              }}
+              onError={(e) => {
+                console.error('Zoom image failed to load:', e.target.src);
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

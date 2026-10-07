@@ -425,6 +425,13 @@ const Alerts = () => {
   // Filter alerts visible to the current user
   const isAlertVisibleToUser = useCallback(
     (alert) => {
+      // Users with permission to manage alerts can see all alerts for the company
+      if (canManage) return true;
+
+      // Creator of the alert can view it
+      const creatorId = String(alert?.createdBy?._id || alert?.createdBy || alert?.author || "");
+      if (currentUserId && creatorId === currentUserId) return true;
+
       const assignedUsers = asArray(alert?.assignedUsers);
       const assignedGroups = asArray(alert?.assignedGroups);
       if (!assignedUsers.length && !assignedGroups.length) return true;
@@ -438,7 +445,7 @@ const Alerts = () => {
       });
       return userMatch || groupMatch;
     },
-    [currentUserId, userGroupIds]
+    [canManage, currentUserId, userGroupIds]
   );
 
   const visibleAlerts = useMemo(

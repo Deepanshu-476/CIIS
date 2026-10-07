@@ -1235,7 +1235,7 @@ export const AdminProject = () => {
                 <div className="ap-tab-panel">
                   <h4 className="ap-section-title">Project Documents</h4>
                   
-                  {(selectedProject.pdfFile?.path || selectedProject.pdfFile?.filename || selectedProject.pdfFile?.url) ? (
+                  {(selectedProject.pdfFile?.path || selectedProject.pdfFile?.url) ? (
                     <div className="ap-document-card">
                       <div className="ap-document-icon"><Icons.Pdf /></div>
                       <div className="ap-document-info">
@@ -1667,7 +1667,7 @@ export const AdminProject = () => {
                       
                       <div className="ap-project-actions">
                         <div className="ap-pdf-actions">
-                          {(p.pdfFile?.path || p.pdfFile?.filename || p.pdfFile?.url) ? (
+                          {(p.pdfFile?.path || p.pdfFile?.url) ? (
                             <>
                               <button className="ap-icon-btn" onClick={() => viewPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })} title="View PDF">
                                 <Icons.Visibility />

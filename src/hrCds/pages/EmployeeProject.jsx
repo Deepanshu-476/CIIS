@@ -1214,8 +1214,8 @@ const EmployeeProject = () => {
       ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
       : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
   const displayedTasks = assigneeFilteredTasks;
-  const taskDocCount = (tasks || []).filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length;
-  const documentCount = (projectDetails?.pdfFile?.path || projectDetails?.pdfFile?.filename || projectDetails?.pdfFile?.url ? 1 : 0) + (SHOW_TASK_DOCUMENTS ? taskDocCount : 0);
+  const taskDocCount = (tasks || []).filter(t => t.pdfFile?.path || t.pdfFile?.url).length;
+  const documentCount = (projectDetails?.pdfFile?.path || projectDetails?.pdfFile?.url ? 1 : 0) + (SHOW_TASK_DOCUMENTS ? taskDocCount : 0);
 
   const taskAssigneeOptions = [
     { value: "all", label: "All assignees" },
@@ -1970,7 +1970,7 @@ const EmployeeProject = () => {
                   </div>
                   
                   
-                  {(p.pdfFile?.path || p.pdfFile?.filename || p.pdfFile?.url) && (
+                  {(p.pdfFile?.path || p.pdfFile?.url) && (
                     <div className="EmployeeProject-card-pdf">
                       <div className="EmployeeProject-pdf-info">
                         <Icons.PictureAsPdf />
@@ -2092,7 +2092,7 @@ const EmployeeProject = () => {
                 <p className="EmployeeProject-documents-subtitle">All project-related documents and files</p>
                 
                 
-                {(projectDetails.pdfFile?.path || projectDetails.pdfFile?.filename || projectDetails.pdfFile?.url) ? (
+                {(projectDetails.pdfFile?.path || projectDetails.pdfFile?.url) ? (
                   <div className="EmployeeProject-document-card">
                     <div className="EmployeeProject-document-content">
                       <div className="EmployeeProject-document-info">

@@ -1361,14 +1361,17 @@
 /* ===== MODAL STYLES ===== */
 .AdminTaskManagement-modal {
   position: fixed;
-  --AdminTaskManagement-modal-top-offset: 112px;
+  --AdminTaskManagement-modal-top-offset: 0px;
   --AdminTaskManagement-modal-gap: 18px;
-  top: var(--AdminTaskManagement-modal-top-offset);
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1395,7 +1398,7 @@
   background: var(--white);
   border-radius: 24px;
   width: 100%;
-  max-height: calc(100dvh - var(--AdminTaskManagement-modal-top-offset) - (var(--AdminTaskManagement-modal-gap) * 2));
+  max-height: calc(100dvh - 36px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1425,7 +1428,7 @@
 
 @media (max-width: 768px) {
   .AdminTaskManagement-modal {
-    --AdminTaskManagement-modal-top-offset: 96px;
+    --AdminTaskManagement-modal-top-offset: 0px;
     --AdminTaskManagement-modal-gap: 10px;
   }
 
@@ -3162,7 +3165,8 @@
 /* Final Create Task dialog positioning: center the panel on every viewport and
    keep header/footer outside the only scrollable region (the modal body). */
 .AdminTaskManagement-modal.AdminTaskManagement-create-task-modal {
-  inset: var(--AdminTaskManagement-modal-top-offset) 0 0;
+  inset: 0;
+  height: 100vh;
   width: 100vw;
   height: auto;
   padding: clamp(10px, 2vw, 24px);
@@ -3174,9 +3178,9 @@
 
 .AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-content {
   width: min(680px, calc(100vw - 32px));
-  height: min(560px, calc(100dvh - var(--AdminTaskManagement-modal-top-offset) - 48px));
+  height: min(600px, calc(100dvh - 48px));
   max-width: 680px;
-  max-height: calc(100dvh - var(--AdminTaskManagement-modal-top-offset) - 48px);
+  max-height: calc(100dvh - 48px);
   margin: auto;
   overflow: hidden;
   border-radius: 18px;
@@ -3273,8 +3277,8 @@
 
   .AdminTaskManagement-create-task-modal .AdminTaskManagement-modal-content {
     width: calc(100vw - 16px);
-    height: min(600px, calc(100dvh - var(--AdminTaskManagement-modal-top-offset) - 16px));
-    max-height: calc(100dvh - var(--AdminTaskManagement-modal-top-offset) - 16px);
+    height: min(600px, calc(100dvh - 16px));
+    max-height: calc(100dvh - 16px);
     border-radius: 14px;
   }
 

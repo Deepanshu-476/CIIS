@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, useLocation } from 'react-router-dom';
 import './index.css';
-import './utils/axiosConfig'; 
+import './utils/axiosConfig';
 import App from './App.jsx';
 
 

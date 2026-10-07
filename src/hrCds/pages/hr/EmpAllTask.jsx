@@ -453,9 +453,13 @@ const TaskDetails = () => {
   const snackbarTimerRef = useRef(null);
   const skipNextTaskFetchRef = useRef(false);
   const usersFetchRequestRef = useRef(0);
+  const usersRef = useRef([]);
 
   
   const [users, setUsers] = useState([]);
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -530,10 +534,8 @@ const TaskDetails = () => {
     const selectedUser = users.find((user) => String(user._id || user.id) === String(userId));
     const params = new URLSearchParams();
     const todayStr = getDateInputValue();
-    const startDate = globalFromDate || todayStr;
-    const endDate = globalToDate || todayStr;
-    params.set('startDate', startDate);
-    params.set('endDate', endDate);
+    params.set('startDate', globalFromDate || todayStr);
+    params.set('endDate', globalToDate || todayStr);
     const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`, {
       state: {
@@ -541,7 +543,7 @@ const TaskDetails = () => {
         taskStats: selectedUser?.taskStats || null,
       },
     });
-  }, [navigate, users, globalFromDate, globalToDate]);
+  }, [globalFromDate, globalToDate, navigate, users]);
 
   
   useEffect(() => {
@@ -1521,6 +1523,16 @@ const TaskDetails = () => {
           usersData = response.data;
         }
 
+        const existingStatsMap = new Map((usersRef.current || []).map(u => [String(u._id || u.id), u.taskStats]));
+        if (cachedUsersSnapshot?.users) {
+          cachedUsersSnapshot.users.forEach(u => {
+            const id = String(u._id || u.id);
+            if (u.taskStats && (!existingStatsMap.has(id) || !existingStatsMap.get(id)?.total)) {
+              existingStatsMap.set(id, u.taskStats);
+            }
+          });
+        }
+
         let filteredUsers = usersData
           .filter(user => {
             const statusText = String(user?.status || '').trim().toLowerCase();
@@ -1548,16 +1560,22 @@ const TaskDetails = () => {
 
             return true;
           })
-          .map(user => ({
-            ...user,
-            _id: user._id || user.id,
-            role: getUserDisplayRole(user, jobRoleMap),
-            taskStats: emptyTaskStats
-          }));
+          .map(user => {
+            const id = String(user._id || user.id);
+            return {
+              ...user,
+              _id: user._id || user.id,
+              role: getUserDisplayRole(user, jobRoleMap),
+              taskStats: existingStatsMap.get(id) || emptyTaskStats
+            };
+          });
 
         if (isMounted.current && usersFetchRequestRef.current === requestId && filteredUsers.length > 0) {
           setUsers(filteredUsers);
-          calculateOverallStats(filteredUsers);
+          const hasAnyStats = filteredUsers.some(u => (u.taskStats?.total || 0) > 0);
+          if (hasAnyStats) {
+            calculateOverallStats(filteredUsers);
+          }
         }
 
         const fromDateParam = globalFromDate || undefined;
@@ -1568,12 +1586,15 @@ const TaskDetails = () => {
         if (userIds.length === 0) return;
 
         try {
+          const effectivePeriod = isDateFiltered
+            ? (fromDateParam && toDateParam && fromDateParam === toDateParam ? 'today' : 'custom')
+            : (dateFilter || 'all');
           const statsPayload = {
             userIds,
             filters: {
-              period: isDateFiltered ? 'custom' : 'today',
-              fromDate: fromDateParam || todayStr,
-              toDate: toDateParam || todayStr,
+              period: effectivePeriod,
+              fromDate: fromDateParam,
+              toDate: toDateParam,
               status: 'all',
               priority: 'all',
             },
@@ -3517,7 +3538,33 @@ const TaskDetails = () => {
             ) : remarksDialog.remarks?.length ? (
               <div className="task-activity-timeline">
                 {remarksDialog.remarks.map((r, i) => {
-                  const userName = r.userName || r.user?.name || (r.user && typeof r.user === "string" ? r.user : null) || "Team Member";
+                  const resolveRemarkUser = (item, taskObj) => {
+                    if (item.userName && typeof item.userName === "string" && item.userName.trim() && !/^[0-9a-fA-F]{24}$/.test(item.userName.trim())) {
+                      return item.userName.trim();
+                    }
+                    if (item.name && typeof item.name === "string" && item.name.trim() && !/^[0-9a-fA-F]{24}$/.test(item.name.trim())) {
+                      return item.name.trim();
+                    }
+                    if (item.user?.name && typeof item.user.name === "string" && item.user.name.trim()) {
+                      return item.user.name.trim();
+                    }
+                    if (item.author?.name && typeof item.author.name === "string" && item.author.name.trim()) {
+                      return item.author.name.trim();
+                    }
+                    const rawId = String(item.user?._id || item.user?.id || (typeof item.user === "string" ? item.user : "") || item.userId || "");
+                    const curId = String(currentUser?._id || currentUser?.id || "");
+                    if (rawId && curId && rawId === curId) return currentUser?.name || "You";
+                    if (rawId && Array.isArray(taskObj?.assignedUsers)) {
+                      const matched = taskObj.assignedUsers.find((u) => String(u?._id || u?.id || u) === rawId);
+                      if (matched?.name) return matched.name;
+                    }
+                    if (typeof item.user === "string" && item.user.trim() && !/^[0-9a-fA-F]{24}$/.test(item.user.trim())) {
+                      return item.user.trim();
+                    }
+                    return currentUser?.name || "User";
+                  };
+
+                  const userName = resolveRemarkUser(r, remarksDialog.task);
                   const initials = getInitials(userName);
                   const isSystem = userName.toLowerCase() === "system";
                   const dateStr = formatDateTime(r.createdAt || r.date || r.timestamp);

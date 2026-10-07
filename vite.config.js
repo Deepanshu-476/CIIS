@@ -23,12 +23,37 @@ export default defineConfig({
 
   
   build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 800,
     commonjsOptions: {
       include: [/node_modules/]
     },
-    esbuild: {
-      loader: {
-        '.js': 'jsx', 
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // Large standalone export tools that don't depend on React
+            if (id.includes('jspdf') || id.includes('xlsx') || id.includes('html2canvas')) {
+              return 'vendor-export';
+            }
+            // All React and React-dependent libraries together in one unified chunk to prevent useLayoutEffect/undefined errors
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('react-router-dom') ||
+              id.includes('@mui') ||
+              id.includes('@emotion') ||
+              id.includes('@date-io') ||
+              id.includes('lucide-react') ||
+              id.includes('sweetalert2') ||
+              id.includes('recharts') ||
+              id.includes('chart.js')
+            ) {
+              return 'vendor-react-core';
+            }
+          }
+        },
       },
     },
   },

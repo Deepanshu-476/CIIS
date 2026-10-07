@@ -13,6 +13,7 @@ import {
   FiGlobe, FiSun, FiRotateCcw, FiAlertTriangle, FiFlag, FiArrowDownCircle
 } from 'react-icons/fi';
 import "../Css/TaskManagement.css";
+import TaskDetailsModal from '../components/TaskDetailsModal';
 import API_URL from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 
@@ -1462,6 +1463,40 @@ const UserCreateTask = () => {
   const getTaskSource = useCallback((task) => {
     return task?.__taskSource || (taskViewMode === 'all' ? 'assigned' : taskViewMode);
   }, [taskViewMode]);
+
+  // A task card deliberately contains only the fields needed for the list.  Load
+  // the two detail streams when the sidebar opens, so remarks and audit history
+  // never depend on whichever list happened to render the card.
+  const openTaskDetails = useCallback(async (task) => {
+    const taskId = task?._id || task?.id;
+    if (!taskId) return;
+
+    setSelectedTaskDetails({ ...task, detailsLoading: true });
+    const source = getTaskSource(task);
+    const projectId = task.projectId || task.project?._id || task.project;
+    const routes = source === 'project' && projectId
+      ? { remarks: `/tasks/project/${projectId}/tasks/${taskId}/remarks`, activity: `/tasks/project/${projectId}/tasks/${taskId}/activity` }
+      : source === 'client'
+        ? { remarks: `/tasks/client-tasks/${taskId}/client-remarks`, activity: `/tasks/client-tasks/${taskId}/client-activity-logs` }
+        : source === 'self'
+          ? { remarks: `/tasks/self/${taskId}/remarks`, activity: `/tasks/self/${taskId}/activity-logs` }
+          : { remarks: `/tasks/assigned/${taskId}/remarks`, activity: `/tasks/assigned/${taskId}/activity-logs` };
+
+    const [remarksResult, activityResult] = await Promise.allSettled([
+      axios.get(routes.remarks),
+      axios.get(routes.activity)
+    ]);
+    const remarks = remarksResult.status === 'fulfilled'
+      ? (remarksResult.value.data?.remarks || remarksResult.value.data?.data || [])
+      : (task.remarks || []);
+    const activityLogs = activityResult.status === 'fulfilled'
+      ? (activityResult.value.data?.logs || activityResult.value.data?.data || activityResult.value.data?.activityLogs || [])
+      : (task.activityLogs || task.statusHistory || []);
+
+    setSelectedTaskDetails(current => String(current?._id || current?.id) === String(taskId)
+      ? { ...current, remarks, activityLogs, detailsLoading: false }
+      : current);
+  }, [getTaskSource]);
 
   const getTaskId = useCallback((taskOrId) => {
     if (!taskOrId) return null;
@@ -6075,12 +6110,12 @@ const UserCreateTask = () => {
                             aria-label={`Open details for ${task.title || task.name || 'task'}`}
                             onClick={(event) => {
                               if (event.target.closest('button, a, input, select, textarea, label')) return;
-                              setSelectedTaskDetails(task);
+                              void openTaskDetails(task);
                             }}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault();
-                                setSelectedTaskDetails(task);
+                                void openTaskDetails(task);
                               }
                             }}
                             style={shouldHighlightOverdue ? { 
@@ -6325,12 +6360,12 @@ const UserCreateTask = () => {
                               tabIndex={0}
                               onClick={(event) => {
                                 if (event.target.closest('button, a, input, select, label')) return;
-                                setSelectedTaskDetails(task);
+                                void openTaskDetails(task);
                               }}
                               onKeyDown={(event) => {
                                 if (event.key === 'Enter' || event.key === ' ') {
                                   event.preventDefault();
-                                  setSelectedTaskDetails(task);
+                                  void openTaskDetails(task);
                                 }
                               }}
                               style={shouldHighlightOverdue ? { 
@@ -7152,163 +7187,78 @@ const UserCreateTask = () => {
         </div>
       </div>
 
-      
-      {selectedTaskDetails && (() => {
-        const detailStatus = getStatusForTask(selectedTaskDetails);
-        const detailDueDate = getDueDateForTask(selectedTaskDetails);
-        const detailSource = getTaskSource(selectedTaskDetails);
-        const detailCheckpoints = Array.isArray(selectedTaskDetails.checkpoints) ? selectedTaskDetails.checkpoints : [];
-        const completedCheckpoints = detailCheckpoints.filter(item => item.completed).length;
-        const detailFiles = Array.isArray(selectedTaskDetails.files) ? selectedTaskDetails.files : [];
-        const detailIsOverdue = isOverdue(detailDueDate, detailStatus, selectedTaskDetails);
-        const checkpointUpdatesLocked = ['overdue', 'rejected', 'cancelled', 'onhold'].includes(normalizeStatus(detailStatus));
-
-        return (
-          <div
-            className="user-create-task-dialog-overlay task-details-overlay"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setSelectedTaskDetails(null);
-            }}
-          >
-            <div className="user-create-task-dialog task-details-modal" onMouseDown={(event) => event.stopPropagation()}>
-              <div className="user-create-task-dialog-title task-details-modal-header">
-                <div className="task-details-heading">
-                  <span className="task-details-heading-icon"><FiFileText /></span>
-                  <div>
-                    <div className="task-details-eyebrow">Task</div>
-                    <div>Task Details</div>
-                  </div>
-                </div>
-                <button type="button" className="personal-task-close" onClick={() => setSelectedTaskDetails(null)} aria-label="Close task details">
-                  <FiX />
-                </button>
-              </div>
-
-              <div className="task-details-modal-content">
-                <div className="task-details-badges">
-                  <StatusChip status={detailIsOverdue ? 'overdue' : detailStatus} label={detailIsOverdue ? 'overdue' : detailStatus} />
-                  <PriorityChip priority={selectedTaskDetails.priority || 'medium'} />
-                </div>
-
-                <div className="task-details-description task-details-title-card">
-                  <span>Title</span>
-                  <p>{selectedTaskDetails.title || selectedTaskDetails.name || 'Untitled Task'}</p>
-                </div>
-
-                <div className="task-details-description">
-                  <span>Description</span>
-                  <p>{selectedTaskDetails.description || 'No description provided.'}</p>
-                </div>
-
-                <div className="task-details-grid">
-                  <div><FiCalendar /><span>Due Date</span><strong>{formatDueDateTime(detailDueDate)}</strong></div>
-                  <div><FiUser /><span>Task Type</span><strong>{detailSource === 'self' ? 'Personal' : detailSource === 'client' ? 'Client Task' : detailSource === 'project' ? 'Project Task' : 'Assigned Task'}</strong></div>
-                  <div><FiCheckSquare /><span>Checkpoints</span><strong>{completedCheckpoints}/{detailCheckpoints.length}</strong></div>
-                  <div><FiPaperclip /><span>Files</span><strong>{detailFiles.length}</strong></div>
-                </div>
-
-                {detailSource === 'self' && (selectedTaskDetails.isRecurring || (selectedTaskDetails.repeatPattern && selectedTaskDetails.repeatPattern !== 'none')) && (
-                  <div className="task-details-info-row">
-                    <span>Repeat Ends</span>
-                    <strong>{formatDateInputValue(selectedTaskDetails.recurrenceEndDate) || 'Not set'}</strong>
-                    <button
-                      type="button"
-                      className="user-create-task-button user-create-task-button-outlined"
-                      onClick={() => handleStopRecurringTask(selectedTaskDetails)}
-                    >
-                      <FiSlash /> Stop Repeat
-                    </button>
-                  </div>
-                )}
-
-                {detailSource === 'client' && (
-                  <div className="task-details-info-row"><span>Client</span><strong>{getClientNameFromTask(selectedTaskDetails) || 'Not specified'}</strong></div>
-                )}
-                {detailSource === 'project' && (
-                  <div className="task-details-info-row"><span>Project</span><strong>{selectedTaskDetails.projectName || 'Not specified'}</strong></div>
-                )}
-
-                {normalizeStatus(detailStatus) === 'in-progress' && (
-                  <form
-                    className="task-details-add-checkpoint"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      handleAddCheckpoint(selectedTaskDetails);
-                    }}
-                  >
-                    <div className="task-details-add-checkpoint-heading">
-                      <div>
-                        <div className="task-details-section-title">Add Checkpoint</div>
-                        <small>Break this task into a clear, trackable step.</small>
-                      </div>
-                    </div>
-                    <div className="task-details-add-checkpoint-row">
-                      <input
-                        type="text"
-                        className="user-create-task-input"
-                        value={newCheckpointTitle}
-                        onChange={(event) => setNewCheckpointTitle(event.target.value)}
-                        placeholder="Enter checkpoint title"
-                        maxLength={160}
-                        autoComplete="off"
-                      />
-                      <button
-                        type="submit"
-                        className="user-create-task-button user-create-task-button-contained"
-                        disabled={!newCheckpointTitle.trim() || isAddingCheckpoint}
-                      >
-                        <FiPlus />
-                        {isAddingCheckpoint ? 'Adding...' : 'Add'}
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {detailCheckpoints.length > 0 && (
-                  <div className="task-details-checkpoints">
-                    <div className="task-details-section-title">Checkpoints</div>
-                    {detailCheckpoints.map(checkpoint => (
-                      <div className={checkpoint.completed ? 'completed' : ''} key={checkpoint._id || checkpoint.id || checkpoint.title}>
-                        <label className="task-details-checkpoint-label">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(checkpoint.completed)}
-                            disabled={checkpointUpdatesLocked || updatingCheckpointId === (checkpoint._id || checkpoint.id)}
-                            onChange={() => handleCheckpointToggle(selectedTaskDetails, checkpoint)}
-                          />
-                          <span>{checkpoint.title}</span>
-                        </label>
-                        {normalizeStatus(detailStatus) === 'in-progress' && (
-                          <button
-                            type="button"
-                            className="task-details-checkpoint-delete"
-                            onClick={() => handleDeleteCheckpoint(selectedTaskDetails, checkpoint)}
-                            disabled={deletingCheckpointId === (checkpoint._id || checkpoint.id || checkpoint.title)}
-                            aria-label={`Delete checkpoint ${checkpoint.title}`}
-                            title="Delete checkpoint"
-                          >
-                            <FiTrash2 />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="task-details-modal-actions">
-                <button
-                  type="button"
-                  className="user-create-task-button user-create-task-button-contained"
-                  onClick={() => setSelectedTaskDetails(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Rich Task Details Modal */}
+      {selectedTaskDetails && (
+        <TaskDetailsModal
+          open={Boolean(selectedTaskDetails)}
+          task={selectedTaskDetails}
+          onClose={() => setSelectedTaskDetails(null)}
+          onStatusChange={async (task, newStatus) => {
+            const taskId = task?._id || task?.id;
+            const source = getTaskSource(task);
+            if (!taskId) return;
+            const changed = source === 'client'
+              ? await handleClientTaskStatusChange(taskId, newStatus)
+              : source === 'project'
+                ? await axios.patch(`/tasks/project/${task.projectId || task.project?._id || task.project}/tasks/${taskId}/status`, { status: newStatus })
+                    .then(() => true)
+                : source === 'self'
+                  ? await handleStatusChange(taskId, newStatus)
+                  : await handleAssignedTaskStatusChange(taskId, newStatus);
+            if (changed) {
+              setSelectedTaskDetails(prev => prev ? { ...prev, status: newStatus, overallStatus: newStatus } : null);
+              void openTaskDetails({ ...task, status: newStatus, overallStatus: newStatus });
+            }
+          }}
+          onRemarkAdded={async (task, text, files) => {
+            const taskId = task?._id || task?.id;
+            if (!taskId || (!text?.trim() && !files?.length)) return;
+            const source = getTaskSource(task);
+            const projectId = task.projectId || task.project?._id || task.project;
+            let response;
+            if (files && files.length > 0) {
+              const formData = new FormData();
+              formData.append('text', text);
+              formData.append('remark', text);
+              if (source === 'client') files.forEach(f => formData.append('images', f));
+              else files.forEach(f => formData.append('image', f));
+              const endpoint = source === 'client'
+                ? `/tasks/client-tasks/${taskId}/client-remarks/upload-images`
+                : source === 'project' && projectId
+                  ? `/tasks/project/${projectId}/tasks/${taskId}/remarks`
+                : source === 'self'
+                  ? `/tasks/self/${taskId}/remarks`
+                  : `/tasks/assigned/${taskId}/remarks`;
+              response = await axios.post(endpoint, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+              });
+            } else {
+              const endpoint = source === 'client'
+                ? `/tasks/client-tasks/${taskId}/client-remarks`
+                : source === 'project' && projectId
+                  ? `/tasks/project/${projectId}/tasks/${taskId}/remarks`
+                  : source === 'self'
+                    ? `/tasks/self/${taskId}/remarks`
+                    : `/tasks/assigned/${taskId}/remarks`;
+              response = await axios.post(endpoint, { text: text.trim(), remark: text.trim() });
+            }
+            const remark = response?.data?.remark || response?.data?.data?.remark;
+            if (remark) setSelectedTaskDetails(prev => prev ? { ...prev, remarks: [remark, ...(prev.remarks || [])] } : prev);
+            void openTaskDetails(task);
+          }}
+          onCheckpointToggle={async (task, checkpoint) => {
+            await handleCheckpointToggle(task, checkpoint);
+            setSelectedTaskDetails(prev => {
+              if (!prev) return null;
+              const updatedCps = Array.isArray(prev.checkpoints)
+                ? prev.checkpoints.map(c => String(c._id || c.id) === String(checkpoint._id || checkpoint.id) ? { ...c, completed: !c.completed } : c)
+                : [];
+              return { ...prev, checkpoints: updatedCps };
+            });
+          }}
+          canEdit={true}
+        />
+      )}
 
       <div className="user-create-task-dialog-overlay" style={{ display: calendarFilterOpen ? 'flex' : 'none' }}>
         <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 

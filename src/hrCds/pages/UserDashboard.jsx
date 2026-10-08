@@ -1521,6 +1521,7 @@ const UserDashboard = () => {
         const date = new Date(record.date);
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       };
+      const attendanceKeys = new Set(records.map(toDateKey));
       const explicitAbsentKeys = new Set(
         records
           .filter(record => {
@@ -1530,13 +1531,30 @@ const UserDashboard = () => {
           .map(toDateKey)
       );
 
+      const inferredAbsentKeys = new Set();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const todayStart = new Date(currentDate);
+      todayStart.setHours(0, 0, 0, 0);
+
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, month, day);
+        const key = `${year}-${month}-${day}`;
+        if (
+          date >= todayStart ||
+          isBeforeJoinDate(date) ||
+          holidayDates.includes(key) ||
+          leaveDateSet.has(key) ||
+          attendanceKeys.has(key) ||
+          isConfiguredWeekend(date, getDepartmentSettings(dashboardUser, user))
+        ) continue;
+        inferredAbsentKeys.add(key);
+      }
+
       return {
         presentDays: records.filter(record => record.status === 'PRESENT').length,
         lateDays: records.filter(record => record.status === 'LATE').length,
         halfDays: records.filter(record => record.status === 'HALF DAY').length,
-        // Do not infer absence from a missing record. The backend must explicitly
-        // mark a day ABSENT before the dashboard displays it in red.
-        absentDays: explicitAbsentKeys.size,
+        absentDays: new Set([...explicitAbsentKeys, ...inferredAbsentKeys]).size,
         leavesTaken: leaveDates.filter(dateStr => {
           const [leaveYear, leaveMonth] = dateStr.split('-').map(Number);
           return leaveYear === year && leaveMonth === month;
@@ -1550,7 +1568,7 @@ const UserDashboard = () => {
       previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
       previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
     };
-  }, [filteredAttendanceData, leaveDates, leaveDateSet, holidayDateSet, currentMonth, currentYear]);
+  }, [filteredAttendanceData, leaveDates, leaveDateSet, holidayDateSet, holidayDates, currentMonth, currentYear, currentDate, isBeforeJoinDate, dashboardUser, user]);
 
   const getMonthlyChange = useCallback((currentValue, previousValue) => {
     if (!previousValue) return currentValue ? 100 : 0;
@@ -1577,9 +1595,12 @@ const UserDashboard = () => {
     if (isWeekend) return "weekend";
     if (absentDateSet.has(key)) return "absent";
 
-    // Missing attendance data is unknown/pending, not an automatic absence.
+    const todayStart = new Date(currentDate);
+    todayStart.setHours(0, 0, 0, 0);
+    if (dateObj < todayStart) return "absent";
+
     return null;
-  }, [calendarYear, calendarMonth, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDates, weekendDates, dashboardUser, user]);
+  }, [calendarYear, calendarMonth, currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDates, weekendDates, dashboardUser, user]);
 
   const isToday = useCallback((day) => {
     return day === currentDate.getDate() &&

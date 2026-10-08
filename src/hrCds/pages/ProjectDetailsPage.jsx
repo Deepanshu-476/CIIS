@@ -494,6 +494,8 @@ const ProjectDetailsPage = () => {
     return users.map(getUserId).filter(Boolean);
   };
 
+  const hasTaskAssignees = (task) => getTaskAssignedUserIds(task).length > 0;
+
   const toggleTaskAssignedUser = (userId) => {
     setNewTask((prev) => {
       const selected = new Set(prev.assignedUsers || []);
@@ -620,6 +622,12 @@ const ProjectDetailsPage = () => {
     if (!newTask.title?.trim()) {
       errors.title = "Task title is required.";
     }
+    if (
+      normalizeTaskStatus(newTask.status) === "in progress" &&
+      !(newTask.assignedUsers || []).length
+    ) {
+      errors.assignedTo = "Assign at least one user before moving a task to In Progress.";
+    }
     if (newTask.dueDate && Number.isNaN(new Date(newTask.dueDate).getTime())) {
       errors.dueDate = "Please select a valid date/time.";
     }
@@ -627,7 +635,35 @@ const ProjectDetailsPage = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const hydrateProjectTaskForState = (task) => {
+    const assignedUserIds = Array.isArray(task?.assignedUsers)
+      ? task.assignedUsers.map(getUserId).filter(Boolean)
+      : task?.assignedTo
+      ? [getUserId(task.assignedTo)].filter(Boolean)
+      : [];
+    const projectUserById = new Map(projectUsers.map((user) => [getUserId(user), user]));
+    const assignedUsers = assignedUserIds.map((id) => projectUserById.get(id) || id);
+
+    return normalizeTaskAttachment({
+      ...task,
+      assignedUsers,
+      assignedTo: assignedUsers[0] || task?.assignedTo || "",
+    });
+  };
+
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
+    const taskForStatus = tasks.find((task) => task._id === taskId) || selectedTask;
+    if (
+      normalizeTaskStatus(newStatus) === "in progress" &&
+      !hasTaskAssignees(taskForStatus)
+    ) {
+      showSnackbar(
+        "Assign at least one user before moving this task to In Progress.",
+        "warning"
+      );
+      return;
+    }
+
     setLoading((prev) => ({ ...prev, tasks: true }));
     try {
       await axios.patch(`/projects/${projectId}/tasks/${taskId}/status`, {
@@ -708,13 +744,18 @@ const ProjectDetailsPage = () => {
         formData.append("pdfFile", file, customFileName);
       }
 
-      await axios.post(`/projects/${projectId}/tasks`, formData, {
+      const response = await axios.post(`/projects/${projectId}/tasks`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      const createdTask = hydrateProjectTaskForState(response.data?.task || {});
 
       resetTaskForm();
       setOpenTaskDialog(false);
-      await loadProjectDetails(projectId);
+      setTasks((currentTasks) => {
+        const nextTasks = sortTasksByCreatedAt([createdTask, ...currentTasks]);
+        setProjectDetails((prev) => prev ? { ...prev, tasks: nextTasks } : prev);
+        return nextTasks;
+      });
       showSnackbar("Task added successfully!", "success");
     } catch (error) {
       console.error("Error adding task:", error);
@@ -1261,16 +1302,19 @@ const ProjectDetailsPage = () => {
 
   const documentCount = hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0;
 
-  const taskAssigneeOptions = [
-    { value: "all", label: "All assignees" },
-    ...projectUsers
-      .map((user) => ({
-        value: getUserId(user),
-        label: user?.name || user?.email || "Unnamed user",
-      }))
-      .filter((option) => option.value),
-    { value: "unassigned", label: "Unassigned" },
-  ];
+  const taskAssigneeOptions = useMemo(
+    () => [
+      { value: "all", label: "All assignees" },
+      ...projectUsers
+        .map((user) => ({
+          value: getUserId(user),
+          label: user?.name || user?.email || "Unnamed user",
+        }))
+        .filter((option) => option.value),
+      { value: "unassigned", label: "Unassigned" },
+    ],
+    [projectUsers]
+  );
 
   const selectedAssigneeLabel =
     taskAssigneeOptions.find((option) => option.value === taskAssigneeFilter)
@@ -1279,6 +1323,7 @@ const ProjectDetailsPage = () => {
   const detailTask = detailTaskId
     ? tasks.find((task) => task._id === detailTaskId)
     : null;
+  const pauseTaskWorkspaceRender = openTaskDialog;
 
   // Mini components
   const StatCard = ({
@@ -2241,18 +2286,25 @@ const ProjectDetailsPage = () => {
               </div>
 
               {/* Tasks List */}
-              {tasks.length === 0
-                ? renderTaskList([], {
-                    emptyTitle: "No tasks yet",
-                    emptyMessage:
-                      "Start by creating your first task for this project.",
-                    showCreateButton: true,
-                  })
-                : renderTaskList(displayedTasks, {
-                    emptyTitle: "No tasks match your filters",
-                    emptyMessage:
-                      "Change the status filter, assignee, or search term to view tasks.",
-                  })}
+              {pauseTaskWorkspaceRender ? (
+                <div
+                  className="pdp-tasks-render-paused"
+                  aria-hidden="true"
+                />
+              ) : tasks.length === 0 ? (
+                renderTaskList([], {
+                  emptyTitle: "No tasks yet",
+                  emptyMessage:
+                    "Start by creating your first task for this project.",
+                  showCreateButton: true,
+                })
+              ) : (
+                renderTaskList(displayedTasks, {
+                  emptyTitle: "No tasks match your filters",
+                  emptyMessage:
+                    "Change the status filter, assignee, or search term to view tasks.",
+                })
+              )}
             </>
           )}
 
@@ -2991,11 +3043,23 @@ const ProjectDetailsPage = () => {
                     }
                   >
                     {TASK_STATUS_OPTIONS.map((status) => (
-                      <option key={status.value} value={status.value}>
+                      <option
+                        key={status.value}
+                        value={status.value}
+                        disabled={
+                          status.value === "in progress" &&
+                          !hasTaskAssignees(selectedTask)
+                        }
+                      >
                         {status.label}
                       </option>
                     ))}
                   </select>
+                  {!hasTaskAssignees(selectedTask) && (
+                    <span className="pdp-error-text">
+                      Assign a user before selecting In Progress.
+                    </span>
+                  )}
                 </div>
 
                 <div className="pdp-form-group">
@@ -3277,11 +3341,24 @@ const ProjectDetailsPage = () => {
                       }
                     >
                       {TASK_STATUS_OPTIONS.map((status) => (
-                        <option key={status.value} value={status.value}>
+                        <option
+                          key={status.value}
+                          value={status.value}
+                          disabled={
+                            status.value === "in progress" &&
+                            !(newTask.assignedUsers || []).length
+                          }
+                        >
                           {status.label}
                         </option>
                       ))}
                     </select>
+                    {taskErrors.assignedTo &&
+                      normalizeTaskStatus(newTask.status) === "in progress" && (
+                        <span className="pdp-error-text">
+                          {taskErrors.assignedTo}
+                        </span>
+                      )}
                   </div>
                 </div>
 

@@ -124,7 +124,11 @@ const MessageBubble = ({
     const deliveredTo = Array.isArray(message.deliveredTo)
         ? message.deliveredTo.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
         : [];
-    const deliveryState = message.seen
+    const seenBy = Array.isArray(message.seenBy)
+        ? message.seenBy.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
+        : [];
+    const isSeenBySomeoneElse = seenBy.some(id => id && id !== currentUserId);
+    const deliveryState = message.seen || (isOwn && isSeenBySomeoneElse)
         ? "seen"
         : message.delivered || deliveredTo.some(id => id !== currentUserId)
             ? "delivered"

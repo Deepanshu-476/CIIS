@@ -37,15 +37,16 @@ const getStoredUser = () => {
 };
 
 const getUserId = (user) => user?._id || user?.id || null;
+const digitsOnly = (value) => String(value || "").replace(/\D/g, "");
 
 const buildInitialForm = (user = {}) => ({
   name: user.name || "",
-  phone: user.phone || user.mobile || "",
+  phone: digitsOnly(user.phone || user.mobile),
   dob: user.dob || "",
   gender: user.gender || "",
   maritalStatus: user.maritalStatus || "",
   emergencyName: user.emergencyName || "",
-  emergencyPhone: user.emergencyPhone || "",
+  emergencyPhone: digitsOnly(user.emergencyPhone),
   emergencyRelation: user.emergencyRelation || "",
   emergencyAddress: user.emergencyAddress || "",
   address: user.address || "",
@@ -769,12 +770,12 @@ const Profile = () => {
 
     const allUpdateData = {
       name: formData.name.trim(),
-      phone: formData.phone.trim(),
+      phone: digitsOnly(formData.phone),
       dob: formData.dob || undefined,
       gender: formData.gender,
       maritalStatus: formData.maritalStatus,
       emergencyName: formData.emergencyName.trim(),
-      emergencyPhone: formData.emergencyPhone.trim(),
+      emergencyPhone: digitsOnly(formData.emergencyPhone),
       emergencyRelation: formData.emergencyRelation.trim(),
       emergencyAddress: formData.emergencyAddress.trim(),
       address: formData.address.trim(),
@@ -1367,8 +1368,10 @@ const Profile = () => {
                     Mobile Number
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={formData.phone}
-                      onChange={(event) => handleChange("phone", event.target.value)}
+                      onChange={(event) => handleChange("phone", digitsOnly(event.target.value))}
                     />
                   </label>
                 </div>
@@ -1535,7 +1538,7 @@ const Profile = () => {
                   </label>
                   <label>
                     Emergency Contact Number
-                    <input type="tel" value={formData.emergencyPhone} onChange={(event) => handleChange("emergencyPhone", event.target.value)} />
+                    <input type="tel" inputMode="numeric" pattern="[0-9]*" value={formData.emergencyPhone} onChange={(event) => handleChange("emergencyPhone", digitsOnly(event.target.value))} />
                   </label>
                   <label className="UserDetails-form-full">
                     Emergency Address

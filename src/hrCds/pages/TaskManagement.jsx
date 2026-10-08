@@ -886,6 +886,7 @@ const UserCreateTask = () => {
   const remarksRequestRef = useRef(0);
   const activityRequestRef = useRef(0);
   const allTasksRefreshTimerRef = useRef(null);
+  const allTasksRequestRef = useRef(0);
   // Prevent an older list request from replacing a task status that the user
   // has just changed optimistically.
   const lastTaskStatusMutationAtRef = useRef(0);
@@ -1260,9 +1261,27 @@ const UserCreateTask = () => {
   
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
-    // Project and client tasks stay anchored to their due date so the list matches the
-    // delivery day. Completion timestamps are reserved for time-based stats.
+    const getTaskCompletionDate = task => {
+      if (task?.completedAt || task?.completionDate) return task.completedAt || task.completionDate;
+      const statusHistory = Array.isArray(task?.statusHistory) ? task.statusHistory : [];
+      const historyDate = statusHistory
+        .filter(entry => normalizeStatus(entry?.status || entry?.newValue || entry?.newValues?.status) === 'completed')
+        .map(entry => entry.changedAt || entry.createdAt || entry.updatedAt)
+        .filter(Boolean)
+        .sort((a, b) => new Date(b) - new Date(a))[0];
+      if (historyDate) return historyDate;
+      const activityLogs = Array.isArray(task?.activityLogs) ? task.activityLogs : [];
+      return activityLogs
+        .filter(entry => normalizeStatus(entry?.newValue || entry?.newValues?.status || entry?.status) === 'completed')
+        .map(entry => entry.performedAt || entry.changedAt || entry.createdAt || entry.updatedAt)
+        .filter(Boolean)
+        .sort((a, b) => new Date(b) - new Date(a))[0];
+    };
     const getTaskGroupDate = task => {
+      const status = normalizeStatus(task?.userStatus || task?.status || task?.overallStatus);
+      if (status === 'completed') {
+        return getTaskCompletionDate(task) || task?.updatedAt || task?.dueDateTime || task?.dueDate || task?.createdAt || task?.createdDate || task?.created_on;
+      }
       const source = task?.__taskSource || task?.taskSource || task?.source;
       if (source === 'project') {
         return getProjectTaskDueDate(task) || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on;
@@ -1724,22 +1743,8 @@ const UserCreateTask = () => {
   }, [searchTerm]);
 
   const applyLocalFilters = useCallback((tasks, { includeStatus = true } = {}) => {
-    const filtered = {};
-
-    Object.entries(tasks || {}).forEach(([dateKey, dateTasks]) => {
-      const filteredDateTasks = dateTasks.filter(task => (
-        matchesTimeFilter(task) &&
-        (!includeStatus || matchesStatusFilter(task)) &&
-        matchesSearchFilter(task)
-      ));
-
-      if (filteredDateTasks.length > 0) {
-        filtered[dateKey] = filteredDateTasks;
-      }
-    });
-
-    return filtered;
-  }, [matchesTimeFilter, matchesStatusFilter, matchesSearchFilter]);
+    return tasks || {};
+  }, []);
 
   const calculateUnifiedStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
@@ -2223,13 +2228,28 @@ const UserCreateTask = () => {
     ));
   }, [userId]);
 
-  const buildTaskQueryParams = useCallback(({ includeAll = true, page = 1 } = {}) => {
+  const buildTaskQueryParams = useCallback(({ includeAll = true, page = 1, view = taskViewMode } = {}) => {
     const params = new URLSearchParams();
     params.append('page', String(page));
     params.append('limit', String(TASK_PAGE_LIMIT));
     if (includeAll) params.append('all', 'true');
+    params.append('view', view);
+    params.append('taskType', view);
+    if (statusFilter) params.append('status', statusFilter);
+    if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
+    if (showOverdueOnly) params.append('overdue', 'true');
+    params.append('dateField', dateFilterType === 'createdAt' ? 'createdAt' : 'reportDate');
+    if (selectedDate) {
+      params.append('fromDate', selectedDate);
+      params.append('toDate', selectedDate);
+    } else if (dateRange.start || dateRange.end) {
+      if (dateRange.start) params.append('fromDate', dateRange.start);
+      if (dateRange.end) params.append('toDate', dateRange.end);
+    } else if (timeFilter && timeFilter !== 'all') {
+      params.append('period', timeFilter);
+    }
     return params.toString();
-  }, []);
+  }, [dateFilterType, dateRange.end, dateRange.start, debouncedSearchTerm, selectedDate, showOverdueOnly, statusFilter, taskViewMode, timeFilter]);
 
   const getUserTaskApiPeriod = useCallback(() => {
     return 'all';
@@ -2811,23 +2831,25 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
-  const fetchAllTasks = useCallback(async (targetPage = 1) => {
+  const fetchAllTasks = useCallback(async (targetPage = 1, viewOverride = taskViewMode) => {
     if (authError || !userId) return;
 
+    const requestId = allTasksRequestRef.current + 1;
+    allTasksRequestRef.current = requestId;
     const requestStartedAt = Date.now();
     const shouldShowLoader = !allTasksLoadedRef.current;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
-      const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage }));
-      if (statusFilter) params.set('status', statusFilter);
-      if (debouncedSearchTerm.trim()) params.set('search', debouncedSearchTerm.trim());
-      if (timeFilter && timeFilter !== 'all') params.set('period', timeFilter);
+      const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
       const query = params.toString();
       const res = await axios.get(`/tasks/all?${query}`);
       let responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
+      const fallbackSource = viewOverride === 'self' || viewOverride === 'client' || viewOverride === 'project' || viewOverride === 'assigned'
+        ? viewOverride
+        : null;
       const tasksArray = responseTasks.map(task => ({
         ...task,
-        __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
+        __taskSource: task.__taskSource || task.taskSource || fallbackSource || (task.clientId ? 'client' : 'assigned')
       }));
       const groupedTasks = groupTasksByDate(tasksArray);
       const selfGrouped = groupTasksByDate(tasksArray.filter(task => task.__taskSource === 'self'));
@@ -2837,6 +2859,7 @@ const UserCreateTask = () => {
 
       // This response was requested before a local status change. Applying it
       // would briefly put a completed task back into its previous status.
+      if (allTasksRequestRef.current !== requestId) return;
       if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
 
       setAllTasksGrouped(groupedTasks);
@@ -2876,6 +2899,7 @@ const UserCreateTask = () => {
       persistTaskManagementCache(taskManagementMemoryCache);
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
+      if (allTasksRequestRef.current !== requestId) return;
       // Preserve already-rendered tasks if only a background refresh fails.
       if (shouldShowLoader) {
         setAllTasksGrouped({});
@@ -2891,11 +2915,12 @@ const UserCreateTask = () => {
         showSnackbar('Failed to load all tasks', 'error');
       }
     } finally {
-      if (shouldShowLoader) setLoadingAllTasks(false);
+      if (allTasksRequestRef.current !== requestId) return;
+      setLoadingAllTasks(false);
       allTasksLoadedRef.current = true;
       setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
     }
-  }, [authError, userId, buildTaskQueryParams, statusFilter, debouncedSearchTerm, timeFilter, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
+  }, [authError, userId, buildTaskQueryParams, taskViewMode, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 
   const scheduleAllTasksRefresh = useCallback((delay = 350) => {
     if (allTasksRefreshTimerRef.current) {
@@ -3051,13 +3076,21 @@ const UserCreateTask = () => {
   const handleViewModeChange = (mode) => {
     setTaskViewMode(mode);
     setStatusFilter('');
-    if (mode === 'all') {
-      setAllTasksPagination(prev => ({ ...prev, page: 1 }));
-    } else if (mode === 'client') {
+    setLoadingAllTasks(true);
+    setTaskViewsLoaded(prev => ({ ...prev, [mode]: false }));
+    setAllTaskStats(emptyExternalStats());
+    setAllTasksGrouped({});
+    setAllTasksStatsGrouped({});
+    setMyTasksGrouped({});
+    setAssignedToMeTasksGrouped({});
+    setClientTasksGrouped({});
+    setProjectTasksGrouped({});
+    setAllTasksPagination(prev => ({ ...prev, page: 1, total: 0, pages: 1, hasNext: false, hasPrev: false }));
+    fetchAllTasks(1, mode);
+    if (mode === 'client') {
       if (!clientsLoadAttemptedRef.current || clients.length === 0) {
         fetchClients();
       }
-      fetchClientTasks();
     }
   };
 
@@ -3557,47 +3590,8 @@ const UserCreateTask = () => {
 
   
   const applyDateFilter = useCallback((tasks) => {
-    if (!selectedDate && !dateRange.start && !dateRange.end) {
-      return tasks;
-    }
-
-    const filteredTasks = {};
-
-    Object.entries(tasks).forEach(([dateKey, dateTasks]) => {
-      const filteredDateTasks = dateTasks.filter(task => {
-        let rawTaskDate;
-        
-        if (dateFilterType === 'dueDate') {
-          rawTaskDate = getDueDateForTask(task);
-        } else {
-          rawTaskDate = task.createdAt || task.createdDate || null;
-        }
-
-        const taskDate = getLocalDateStart(rawTaskDate);
-        if (!taskDate) return false;
-
-        if (selectedDate && !dateRange.start && !dateRange.end) {
-          const selected = parseLocalDateInput(selectedDate);
-          return selected ? taskDate.getTime() === selected.getTime() : false;
-        }
-
-        if (dateRange.start || dateRange.end) {
-          const start = parseLocalDateInput(dateRange.start);
-          const end = parseLocalDateInput(dateRange.end);
-
-          return (!start || taskDate >= start) && (!end || taskDate <= end);
-        }
-
-        return true;
-      });
-
-      if (filteredDateTasks.length > 0) {
-        filteredTasks[dateKey] = filteredDateTasks;
-      }
-    });
-
-    return filteredTasks;
-  }, [selectedDate, dateRange, dateFilterType, getDueDateForTask]);
+    return tasks || {};
+  }, []);
 
   
   const clearDateFilter = () => {
@@ -4563,10 +4557,23 @@ const UserCreateTask = () => {
   }, [openDialog, storedTaskUser]);
 
   useEffect(() => {
-    if (taskViewMode !== 'all' || !userId || authError) return;
+    if (!userId || authError) return;
     setAllTasksPagination(prev => ({ ...prev, page: 1 }));
     fetchAllTasks(1);
-  }, [taskViewMode, statusFilter, debouncedSearchTerm, timeFilter, userId, authError, fetchAllTasks]);
+  }, [
+    taskViewMode,
+    statusFilter,
+    debouncedSearchTerm,
+    timeFilter,
+    selectedDate,
+    dateRange.start,
+    dateRange.end,
+    dateFilterType,
+    showOverdueOnly,
+    userId,
+    authError,
+    fetchAllTasks
+  ]);
 
   useEffect(() => {
     if (taskViewMode === 'client' && clients.length === 0 && !loadingClients && !clientsLoadAttemptedRef.current) {
@@ -4617,7 +4624,7 @@ const UserCreateTask = () => {
     );
   }
 
-  const activeStats = filteredTaskStats;
+  const activeStats = allTaskStats || filteredTaskStats;
   const statusChartItems = [
     { label: 'Completed', value: activeStats.completed?.count || 0, color: '#22a95c' },
     { label: 'In Progress', value: activeStats.inProgress?.count || 0, color: '#3478e5' },
@@ -4834,8 +4841,8 @@ const UserCreateTask = () => {
             >
               <FiGlobe size={16} />
               All Tasks
-              {taskViewMode === 'all' && countGroupedTasks(visibleAllTasksGrouped) > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(visibleAllTasksGrouped)}</span>
+              {taskViewMode === 'all' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             <button
@@ -4844,8 +4851,8 @@ const UserCreateTask = () => {
             >
               <FiUser size={16} />
               My Personal Tasks
-              {taskViewMode === 'self' && Object.keys(myTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(myTasksGrouped)}</span>
+              {taskViewMode === 'self' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             <button
@@ -4854,8 +4861,8 @@ const UserCreateTask = () => {
             >
               <FiUsers size={16} />
               Assigned to Me
-              {taskViewMode === 'assigned' && Object.keys(assignedToMeTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(assignedToMeTasksGrouped)}</span>
+              {taskViewMode === 'assigned' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             {taskFeatureAccess.client && (
@@ -4865,8 +4872,8 @@ const UserCreateTask = () => {
               >
                 <FiUsers size={16} />
                 Client Tasks
-                {taskViewMode === 'client' && Object.keys(visibleClientTasksGrouped).length > 0 && (
-                  <span className="view-toggle-count">{countGroupedTasks(visibleClientTasksGrouped)}</span>
+                {taskViewMode === 'client' && allTasksPagination.total > 0 && (
+                  <span className="view-toggle-count">{allTasksPagination.total}</span>
                 )}
               </button>
             )}
@@ -4877,8 +4884,8 @@ const UserCreateTask = () => {
               >
                 <FiTarget size={16} />
                 Project Tasks
-                {taskViewMode === 'project' && Object.keys(visibleProjectTasksGrouped).length > 0 && (
-                  <span className="view-toggle-count">{countGroupedTasks(visibleProjectTasksGrouped)}</span>
+                {taskViewMode === 'project' && allTasksPagination.total > 0 && (
+                  <span className="view-toggle-count">{allTasksPagination.total}</span>
                 )}
               </button>
             )}
@@ -6623,7 +6630,7 @@ const UserCreateTask = () => {
             })()
           )}
 
-          {taskViewMode === 'all' && allTasksPagination.total > allTasksPagination.limit && (
+          {allTasksPagination.total > allTasksPagination.limit && (
             <div className="user-create-task-pagination">
               <button
                 className="user-create-task-button user-create-task-button-outlined"

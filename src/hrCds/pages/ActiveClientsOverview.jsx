@@ -576,22 +576,82 @@ const ActiveClientsOverview = () => {
     }
   };
 
+  const getDocumentFileName = doc => doc?.name || doc?.originalName || 'document';
+
+  const getDocumentMimeType = (doc, response) => (
+    response?.headers?.['content-type'] ||
+    doc?.type ||
+    response?.data?.type ||
+    'application/octet-stream'
+  ).split(';')[0].trim().toLowerCase();
+
+  const canPreviewDocument = mimeType => {
+    const type = String(mimeType || '').toLowerCase();
+    return type.startsWith('image/') || type === 'application/pdf' || type.startsWith('text/');
+  };
+
+  const escapeHtml = value => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
   const handleOpenDocument = async doc => {
     if (!doc?._id) return;
 
     try {
       setError('');
-      const previewWindow = window.open('', '_blank', 'noopener,noreferrer');
-      const response = await clientDocumentsApi.get(`/${doc._id}/download`, {
+      const previewWindow = window.open('', '_blank');
+      if (previewWindow) {
+        previewWindow.document.write('<p style="font-family: Arial, sans-serif; padding: 24px;">Opening document...</p>');
+      }
+
+      const response = await clientDocumentsApi.get(`/${doc._id}/view`, {
         responseType: 'blob',
       });
-      const blob = new Blob([response.data], { type: doc.type || response.data?.type || 'application/octet-stream' });
+      const mimeType = getDocumentMimeType(doc, response);
+      const blob = new Blob([response.data], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
+      const fileName = getDocumentFileName(doc);
+
+      if (!canPreviewDocument(mimeType)) {
+        if (previewWindow) previewWindow.close();
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
 
       if (previewWindow) {
-        previewWindow.location.href = url;
+        previewWindow.document.open();
+        previewWindow.document.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <title>${escapeHtml(fileName)}</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <style>
+                html, body { margin: 0; width: 100%; height: 100%; background: #f8fafc; font-family: Arial, sans-serif; }
+                iframe, object { width: 100%; height: 100%; border: 0; display: block; }
+                .image-wrap { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+                img { max-width: 100%; max-height: calc(100vh - 48px); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16); background: white; }
+              </style>
+            </head>
+            <body>
+              ${mimeType.startsWith('image/')
+                ? `<div class="image-wrap"><img src="${url}" alt="${escapeHtml(fileName)}" /></div>`
+                : `<iframe src="${url}" title="${escapeHtml(fileName)}"></iframe>`}
+            </body>
+          </html>
+        `);
+        previewWindow.document.close();
       } else {
-        window.open(url, '_blank', 'noopener,noreferrer');
+        window.open(url, '_blank');
       }
     } catch (err) {
       console.error('Document open failed', err);

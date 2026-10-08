@@ -651,6 +651,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   font-size: 0.9rem;
   color: #475569;
 }
@@ -664,8 +665,10 @@
 .pdp-filter-controls {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .pdp-task-search-wrapper,
@@ -745,6 +748,10 @@
   gap: 1.25rem;
 }
 
+.pdp-tasks-render-paused {
+  min-height: 360px;
+}
+
 .pdp-task-card {
   background: #ffffff;
   border-radius: 14px;
@@ -803,6 +810,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  position: relative;
+  z-index: 2;
 }
 
 .pdp-task-description-snippet,
@@ -1326,6 +1335,20 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+.pdp-task-actions .pdp-tooltip-text {
+  top: calc(100% + 8px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  min-width: max-content;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  z-index: 20;
+}
+
 .pdp-tooltip:hover .pdp-tooltip-text {
   visibility: visible;
   opacity: 1;
@@ -1350,7 +1373,6 @@
   position: absolute;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
 }
 
 .pdp-modal-content {
@@ -1495,11 +1517,11 @@
 .pdp-user-tabs {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px;
+  gap: 10px;
   max-height: 190px;
   overflow-y: auto;
   border: 1px solid #e2e8f0;
-  padding: 8px;
+  padding: 10px;
   border-radius: 8px;
   background: #ffffff;
 }
@@ -1509,15 +1531,25 @@
 }
 
 .pdp-user-tab {
-  display: flex;
+  display: grid;
+  grid-template-columns: 16px 32px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 9px;
+  min-height: 62px;
+  padding: 10px 12px;
   background: #f8fafc;
   border-radius: 6px;
   cursor: pointer;
   border: 1px solid #e2e8f0;
   transition: all 0.15s ease;
+}
+
+.pdp-user-tab input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  align-self: start;
+  margin-top: 3px;
 }
 
 .pdp-user-tab:hover {
@@ -1530,15 +1562,15 @@
 }
 
 .pdp-user-avatar {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #6366f1;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -1546,11 +1578,13 @@
 .pdp-user-tab-copy {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  min-width: 0;
   overflow: hidden;
 }
 
 .pdp-user-tab-copy strong {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
@@ -1558,7 +1592,7 @@
 }
 
 .pdp-user-tab-copy small {
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   color: #64748b;
   white-space: nowrap;
   overflow: hidden;
@@ -2028,33 +2062,42 @@
 }
 
 /* ==========================================================================
-   Activity Drawer
+   Activity Logs Modal
    ========================================================================== */
 .pdp-activity-modal {
   position: fixed;
   inset: 0;
   z-index: 10000;
   background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(3px);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
 }
 
-.pdp-activity-modal-content,
-.pdp-activity-content {
+.pdp-activity-modal-content {
   width: 100%;
-  max-width: 450px;
+  max-width: 680px;
   background: #ffffff;
-  height: 100vh;
-  box-shadow: -4px 0 25px rgba(0, 0, 0, 0.15);
+  max-height: min(82vh, 760px);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.32);
   display: flex;
   flex-direction: column;
-  animation: pdp-drawerSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  animation: pdp-activityModalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes pdp-drawerSlide {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+@keyframes pdp-activityModalPop {
+  from {
+    transform: translateY(12px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .pdp-activity-modal-header {
@@ -2085,6 +2128,11 @@
   padding: 1.5rem;
   overflow-y: auto;
   flex: 1;
+}
+
+.pdp-activity-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .pdp-activity-task-title {
@@ -2174,7 +2222,6 @@
   inset: 0;
   z-index: 10020;
   background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -81,6 +81,44 @@ const formatMessageDateSeparator = (value) => {
     });
 };
 
+const getMessageTimeValue = (message) => {
+    const date = new Date(message?.createdAt || message?.updatedAt || 0);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const sortMessagesByCreatedAt = (items = []) => (
+    Array.isArray(items)
+        ? [...items].sort((first, second) => getMessageTimeValue(first) - getMessageTimeValue(second))
+        : []
+);
+
+const normalizeMessageForChat = (message, currentUserId = "") => {
+    const senderId = (message?.sender?._id || message?.sender?.id || message?.sender || "").toString();
+    const seenBy = Array.isArray(message?.seenBy)
+        ? message.seenBy.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
+        : [];
+    const deliveredTo = Array.isArray(message?.deliveredTo)
+        ? message.deliveredTo.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
+        : [];
+    const isOwn = senderId && currentUserId && senderId === currentUserId;
+
+    return {
+        ...message,
+        seenBy,
+        deliveredTo,
+        seen: Boolean(message?.seen) || (
+            isOwn
+                ? seenBy.some(memberId => memberId !== currentUserId)
+                : seenBy.includes(currentUserId)
+        ),
+        delivered: Boolean(message?.delivered) || (
+            isOwn
+                ? deliveredTo.some(memberId => memberId !== currentUserId)
+                : deliveredTo.includes(currentUserId)
+        ),
+    };
+};
+
 const VoiceRecordingWaveform = ({ stream, isPaused }) => {
     const [amplitudes, setAmplitudes] = useState(() => [
         4, 6, 12, 18, 14, 8, 16, 22, 10, 5, 9, 17, 24, 15, 7, 5, 11, 19, 21, 12, 6, 13, 18, 15, 8, 5, 8, 12, 6, 4
@@ -238,6 +276,7 @@ const ChatBox = ({
     const captureVideoFrontRef = useRef(null);
     const activeConversationIdRef = useRef(null);
     const chatMessagesRef = useRef(null);
+    const shouldScrollToLatestRef = useRef(false);
     const { startCall } = useCall();
     const { showToast } = useNotification();
     const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
@@ -333,6 +372,21 @@ const ChatBox = ({
         if (message?.text) return message.text;
         if (message?.file) return "Sent an attachment";
         return "Sent a message";
+    };
+
+    const scrollToLatestMessage = (behavior = "auto") => {
+        requestAnimationFrame(() => {
+            const container = chatMessagesRef.current;
+            if (!container) return;
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior,
+            });
+        });
+    };
+
+    const queueScrollToLatestMessage = (behavior = "auto") => {
+        shouldScrollToLatestRef.current = behavior;
     };
 
     const updateActiveChatDate = () => {
@@ -473,6 +527,13 @@ const ChatBox = ({
     }, [contactPrefsKey]);
 
     useEffect(() => {
+        if (!shouldScrollToLatestRef.current) return;
+        const behavior = shouldScrollToLatestRef.current;
+        shouldScrollToLatestRef.current = false;
+        scrollToLatestMessage(behavior);
+    }, [messages.length, currentConversationId]);
+
+    useEffect(() => {
         const keepSidebarInBounds = () => {
             const availableWidth = chatBoxRef.current?.getBoundingClientRect().width || window.innerWidth;
             const maximumWidth = Math.max(280, Math.min(560, availableWidth - 420));
@@ -573,6 +634,8 @@ useEffect(() => {
     const handleReceiveMessage = (message) => {
             const senderId = getEntityId(message.sender);
             const currentUserId = getEntityId(currentUser);
+            const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
+            if (incomingConversationId && incomingConversationId !== currentConversationId) return;
             if (message?._id && senderId && senderId !== currentUserId && message.messageType !== "system") {
                 markMessageSeen(message._id).catch(() => {});
                 socket.emit(
@@ -586,7 +649,6 @@ useEffect(() => {
                     }
                 );
 
-                const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
                 const isCurrentConversationMuted = incomingConversationId === currentConversationId && isMuted;
                 if (!isCurrentConversationMuted && (incomingConversationId !== currentConversationId || document.visibilityState !== "visible")) {
                     notifyIncomingMessage(message);
@@ -606,14 +668,10 @@ useEffect(() => {
 
                 return [
                     ...prev,
-                    {
-                        ...message,
-                        seen: false,
-                        delivered: Boolean(message.delivered),
-                        deliveredTo: Array.isArray(message.deliveredTo) ? message.deliveredTo : []
-                    }
+                    normalizeMessageForChat(message, currentUserId)
                 ];
             });
+            queueScrollToLatestMessage("smooth");
         };
 
     const handleTyping = (data) => {
@@ -645,22 +703,31 @@ useEffect(() => {
             setMessages((prev) => (
                 prev.some(item => item._id === message._id)
                     ? prev
-                    : [...prev, message]
+                    : sortMessagesByCreatedAt([
+                        ...prev,
+                        normalizeMessageForChat(message, getEntityId(currentUser))
+                    ])
             ));
+            queueScrollToLatestMessage("smooth");
         };
 
     const handleMessageSeen = (data) => {
+        const seenBy = getEntityId(data?.seenBy);
 
         setMessages((prev) =>
 
             prev.map((msg) =>
 
-                msg._id ===
-                data.messageId
+                String(msg._id || "") ===
+                String(data?.messageId || "")
 
                 ? {
                     ...msg,
-                    seen: true
+                    seen: true,
+                    seenBy: Array.from(new Set([
+                        ...(Array.isArray(msg.seenBy) ? msg.seenBy : []),
+                        seenBy
+                    ].filter(Boolean)))
                 }
 
                 : msg
@@ -671,7 +738,7 @@ useEffect(() => {
     const handleMessageDelivered = (data) => {
         setMessages((prev) =>
             prev.map((msg) =>
-                msg._id === data.messageId
+                String(msg._id || "") === String(data?.messageId || "")
                     ? {
                         ...msg,
                         delivered: true,
@@ -813,13 +880,17 @@ useEffect(() => {
                 );
 
             setMessages(
-                Array.isArray(res.data.messages) ? res.data.messages : []
+                sortMessagesByCreatedAt(
+                    (Array.isArray(res.data.messages) ? res.data.messages : [])
+                        .map(message => normalizeMessageForChat(message, getEntityId(currentUser)))
+                )
             );
             setMessagePagination({
                 hasMore: Boolean(res.data.pagination?.hasMore),
                 nextBefore: res.data.pagination?.nextBefore || null,
             });
             onConversationChange?.();
+            queueScrollToLatestMessage("auto");
 
         } catch (error) {
 
@@ -843,8 +914,10 @@ useEffect(() => {
             const olderMessages = Array.isArray(res.data.messages) ? res.data.messages : [];
             setMessages(prev => {
                 const existingIds = new Set(prev.map(message => String(message._id || "")));
-                const uniqueOlder = olderMessages.filter(message => !existingIds.has(String(message._id || "")));
-                return [...uniqueOlder, ...prev];
+                const uniqueOlder = olderMessages
+                    .filter(message => !existingIds.has(String(message._id || "")))
+                    .map(message => normalizeMessageForChat(message, getEntityId(currentUser)));
+                return sortMessagesByCreatedAt([...uniqueOlder, ...prev]);
             });
             setMessagePagination({
                 hasMore: Boolean(res.data.pagination?.hasMore),
@@ -869,16 +942,14 @@ useEffect(() => {
             messagesToAppend.forEach((message) => {
                 if (!combined.some((msg) => msg._id === message._id)) {
                     combined.push({
-                        ...message,
-                        seen: Boolean(message.seen),
-                        delivered: Boolean(message.delivered),
-                        deliveredTo: Array.isArray(message.deliveredTo) ? message.deliveredTo : []
+                        ...normalizeMessageForChat(message, getEntityId(currentUser)),
                     });
                 }
             });
 
-            return combined;
+            return sortMessagesByCreatedAt(combined);
         });
+        queueScrollToLatestMessage("smooth");
     };
 
     const emitSentMessage = (newMessage) => {

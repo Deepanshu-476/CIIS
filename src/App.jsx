@@ -52,6 +52,7 @@ const DashboardOverview = lazy(() => import("./hrCds/pages/DashboardOverview"));
 const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
 const EmployeeMeetingPage = lazy(() => import("./hrCds/pages/EmployeeMeetingPage"));
 const EmployeeProject = lazy(() => import("./hrCds/pages/EmployeeProject"));
+const ProjectDetailsPage = lazy(() => import("./hrCds/pages/ProjectDetailsPage"));
 const ClientMeeting = lazy(() => import("./hrCds/pages/ClientMeeting"));
 const DepartmentSupportDesk = lazy(() => import("./hrCds/pages/DepartmentSupportDesk"));
 const SupportOperations = lazy(() => import("./admin/page/SupportOperations.jsx"));
@@ -293,6 +294,22 @@ function App() {
           <Route path="dashboard-1" element={<DashboardOverview />} />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="project" element={<EmployeeProject />} />
+          <Route
+            path="project/:projectId"
+            element={(
+              <Suspense fallback={<RouteBoundaryLoader label="Loading project details..." />}>
+                <ProjectDetailsPage />
+              </Suspense>
+            )}
+          />
+          <Route
+            path="project-details/:projectId"
+            element={(
+              <Suspense fallback={<RouteBoundaryLoader label="Loading project details..." />}>
+                <ProjectDetailsPage />
+              </Suspense>
+            )}
+          />
           <Route
             path="task-management"
             element={(

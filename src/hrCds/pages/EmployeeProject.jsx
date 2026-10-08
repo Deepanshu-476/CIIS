@@ -1,11 +1,12 @@
-
-import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 
-const SHOW_TASK_DOCUMENTS = false;
+<<<<<<< HEAD
+=======
 
+>>>>>>> 4a955e08a5df6ac82b52d668712f88fc530c795c
 const parseStoredJson = (key) => {
   try {
     const value = localStorage.getItem(key);
@@ -19,32 +20,33 @@ const getCompanyContext = () => {
   const user = parseStoredJson("user") || {};
   const companyDetails = parseStoredJson("companyDetails") || {};
   const storedCompany = parseStoredJson("company") || {};
-  const userCompany = typeof user.company === "object" && user.company ? user.company : {};
+  const userCompany =
+    typeof user.company === "object" && user.company ? user.company : {};
   const rawCompany = localStorage.getItem("company") || "";
 
   const companyCode = String(
-    localStorage.getItem("companyCode")
-    || user.companyCode
-    || userCompany.companyCode
-    || userCompany.code
-    || companyDetails.companyCode
-    || companyDetails.code
-    || storedCompany.companyCode
-    || storedCompany.code
-    || (!rawCompany.trim().startsWith("{") ? rawCompany : "")
-    || ""
+    localStorage.getItem("companyCode") ||
+      user.companyCode ||
+      userCompany.companyCode ||
+      userCompany.code ||
+      companyDetails.companyCode ||
+      companyDetails.code ||
+      storedCompany.companyCode ||
+      storedCompany.code ||
+      (!rawCompany.trim().startsWith("{") ? rawCompany : "") ||
+      ""
   ).trim();
 
   const companyIdentifier = String(
-    user.companyId
-    || userCompany._id
-    || userCompany.id
-    || companyDetails._id
-    || companyDetails.id
-    || storedCompany._id
-    || storedCompany.id
-    || localStorage.getItem("companyIdentifier")
-    || ""
+    user.companyId ||
+      userCompany._id ||
+      userCompany.id ||
+      companyDetails._id ||
+      companyDetails.id ||
+      storedCompany._id ||
+      storedCompany.id ||
+      localStorage.getItem("companyIdentifier") ||
+      ""
   ).trim();
 
   return { companyCode, companyIdentifier };
@@ -60,21 +62,35 @@ const getProjectsFromResponse = (data) => {
   return [];
 };
 
-const getProjectCompanyCode = (project) => String(
-  project?.companyCode
-  || project?.company?.companyCode
-  || project?.company?.code
-  || project?.companyId?.companyCode
-  || project?.companyDetails?.companyCode
-  || ""
-).trim();
+const getProjectCompanyCode = (project) =>
+  String(
+    project?.companyCode ||
+      project?.company?.companyCode ||
+      project?.company?.code ||
+      project?.companyId?.companyCode ||
+      project?.companyDetails?.companyCode ||
+      ""
+  ).trim();
 
-const getObjectIdTime = (id) => {
-  const value = String(id || "");
-  if (!/^[a-f\d]{24}$/i.test(value)) return 0;
-  return parseInt(value.slice(0, 8), 16) * 1000;
+const Icons = {
+  Folder: () => <span className="EmployeeProject-icon">📁</span>,
+  CalendarToday: () => <span className="EmployeeProject-icon">📅</span>,
+  ArrowForward: () => <span className="EmployeeProject-icon">→</span>,
+  Group: () => <span className="EmployeeProject-icon">👥</span>,
+  Task: () => <span className="EmployeeProject-icon">✅</span>,
+  PictureAsPdf: () => <span className="EmployeeProject-icon">📄</span>,
+  Search: () => <span className="EmployeeProject-icon">🔍</span>,
+  Close: () => <span className="EmployeeProject-icon">✕</span>,
+  NoProjects: () => <span className="EmployeeProject-icon">📭</span>,
+  Dashboard: () => <span className="EmployeeProject-icon">📊</span>,
+  CheckCircle: () => <span className="EmployeeProject-icon">✅</span>,
+  PriorityHigh: () => <span className="EmployeeProject-icon">⚠️</span>,
+  Update: () => <span className="EmployeeProject-icon">🔄</span>,
+  TrendingUp: () => <span className="EmployeeProject-icon">📈</span>,
 };
 
+<<<<<<< HEAD
+=======
 const getTaskCreatedTime = (task) => {
   const creationLog = Array.isArray(task?.activityLogs)
     ? task.activityLogs.find(log => log?.type === "creation")
@@ -173,85 +189,23 @@ const isTaskOverdue = (task) => {
   return Boolean(dueDate && dueDate < new Date());
 };
 
-const LIVE_UPLOAD_BASE = "https://backendciisnetwork.com/api/uploads";
+const LIVE_UPLOAD_BASE = "https://backendcds.ciisnetwork.in/uploads";
 
+>>>>>>> 4a955e08a5df6ac82b52d668712f88fc530c795c
 const EmployeeProject = () => {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
-  const [projectDetails, setProjectDetails] = useState(null);
-  const [projectUsers, setProjectUsers] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
-  const [loading, setLoading] = useState({ projects: false, tasks: false });
-  const [file, setFile] = useState(null);
-  const [fileName, setFileName] = useState("");
-  const [taskImagePreviewUrl, setTaskImagePreviewUrl] = useState("");
-  const [isTaskFileDragging, setIsTaskFileDragging] = useState(false);
-  const [openTaskDialog, setOpenTaskDialog] = useState(false);
-  const [openStatusDialog, setOpenStatusDialog] = useState(false);
-  const [openActivityDrawer, setOpenActivityDrawer] = useState(false);
-  const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [editingTask, setEditingTask] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [statusRemark, setStatusRemark] = useState("");
-  const [remarkSubmittingTaskId, setRemarkSubmittingTaskId] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
-  const [openPdfDialog, setOpenPdfDialog] = useState(false);
-  const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
-  const [selectedPdfPath, setSelectedPdfPath] = useState("");
-  const [selectedPdfName, setSelectedPdfName] = useState("");
-  const [selectedPdfContext, setSelectedPdfContext] = useState(null);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfError, setPdfError] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [tabValue, setTabValue] = useState(0);
-  const [taskFilter, setTaskFilter] = useState("all");
-  useEffect(() => {
-    if (!openActivityDrawer) return undefined;
-
-    const handleActivityModalKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setOpenActivityDrawer(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleActivityModalKeyDown);
-    return () => window.removeEventListener("keydown", handleActivityModalKeyDown);
-  }, [openActivityDrawer]);
-
-  useEffect(() => {
-    if (!file || !String(file.type || "").startsWith("image/")) {
-      setTaskImagePreviewUrl("");
-      return undefined;
-    }
-
-    const previewUrl = URL.createObjectURL(file);
-    setTaskImagePreviewUrl(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [file]);
-
-  useEffect(() => {
-    return () => {
-      if (pdfBlobUrl) {
-        URL.revokeObjectURL(pdfBlobUrl);
-      }
-    };
-  }, [pdfBlobUrl]);
-  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState("all");
-  const [detailTaskId, setDetailTaskId] = useState(null);
-  const [taskDetailToRestore, setTaskDetailToRestore] = useState(null);
-  const [stats, setStats] = useState({
-    totalTasks: 0,
-    completedTasks: 0,
-    pendingTasks: 0,
-    inProgressTasks: 0,
-    overdueTasks: 0,
-    onHoldTasks: 0,
-    cancelledTasks: 0
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
   });
 
+<<<<<<< HEAD
+=======
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -381,19 +335,11 @@ const EmployeeProject = () => {
   };
 
   const getProjectDocumentDisplayName = (project) => {
-    const safeName = sanitizeDocName(project?.projectName || project?.name || 'Project');
-    const rawFileName = project?.pdfFile?.filename || project?.pdfFile?.originalName || project?.pdfFile?.path || '';
-    const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
-    const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
-    return `${safeName}_Document${ext}`;
+    return project?.pdfFile?.originalName || project?.pdfFile?.filename || (project?.pdfFile?.path ? project.pdfFile.path.replace(/\\/g, '/').split('/').pop() : '') || 'Document.pdf';
   };
 
   const getTaskDocumentDisplayName = (task, project = null) => {
-    const safeTask = sanitizeDocName(task?.title || 'Task');
-    const rawFileName = task?.pdfFile?.filename || task?.pdfFile?.originalName || task?.pdfFile?.path || '';
-    const extMatch = rawFileName.match(/\.[a-zA-Z0-9]+$/);
-    const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
-    return `${safeTask}_Document${ext}`;
+    return task?.pdfFile?.originalName || task?.pdfFile?.filename || (task?.pdfFile?.path ? task.pdfFile.path.replace(/\\/g, '/').split('/').pop() : '') || 'Attachment';
   };
 
   const getFileDisplayName = (fileObj, fallback = "Attachment") => {
@@ -554,645 +500,106 @@ const EmployeeProject = () => {
   };
 
   
+>>>>>>> 4a955e08a5df6ac82b52d668712f88fc530c795c
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        await loadProjects();
-    
-      } catch (error) {
-        console.error("Error loading data:", error);
-        showSnackbar("Error loading data", "error");
-      }
-    };
-    
-    loadData();
+    loadProjects();
   }, []);
 
-  useEffect(() => {
-    const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
-    const pending = tasks.filter(t => normalizeTaskStatus(t.status) === "pending").length;
-    const inProgress = tasks.filter(t => normalizeTaskStatus(t.status) === "in progress").length;
-    const overdue = tasks.filter(task => isTaskOverdue(task)).length;
-    const onHold = tasks.filter(t => normalizeTaskStatus(t.status) === "on hold").length;
-    const cancelled = tasks.filter(t => normalizeTaskStatus(t.status) === "cancelled").length;
-    setStats({
-      totalTasks: tasks.length,
-      completedTasks: completed,
-      pendingTasks: pending,
-      inProgressTasks: inProgress,
-      overdueTasks: overdue,
-      onHoldTasks: onHold,
-      cancelledTasks: cancelled
-    });
-  }, [tasks]);
-
   const loadProjects = async () => {
-    setLoading(prev => ({ ...prev, projects: true }));
+    setLoading(true);
     try {
       const { companyCode, companyIdentifier } = getCompanyContext();
 
-      // Always load fresh project assignments. This page must not apply a
-      // branch filter: a user can be assigned to projects from any branch.
       const res = await axios.get("/projects", {
         params: {
           companyCode,
           companyIdentifier: companyIdentifier || undefined,
           summary: 1,
-          limit: 100
-        }
+          limit: 100,
+        },
       });
       const loadedProjects = getProjectsFromResponse(res.data);
       const normalizedCompanyCode = (companyCode || "").trim().toLowerCase();
-      const companyProjects = loadedProjects.filter(project => {
+      const companyProjects = loadedProjects.filter((project) => {
         if (!normalizedCompanyCode) return true;
         const projectCompanyCode = getProjectCompanyCode(project).toLowerCase();
         if (!projectCompanyCode) return true;
-        return projectCompanyCode === normalizedCompanyCode ||
+        return (
+          projectCompanyCode === normalizedCompanyCode ||
           projectCompanyCode.startsWith(normalizedCompanyCode) ||
-          normalizedCompanyCode.startsWith(projectCompanyCode);
-      }).map(normalizeProjectTaskOrder);
+          normalizedCompanyCode.startsWith(projectCompanyCode)
+        );
+      });
 
       setProjects(companyProjects);
     } catch (error) {
       console.error("Error loading projects:", error);
-      showSnackbar("Error loading projects", "error");
-    } finally {
-      setLoading(prev => ({ ...prev, projects: false }));
-    }
-  };
-
-  
-  const handleSelectProject = async (id) => {
-    const requestId = projectDetailsRequestRef.current + 1;
-    projectDetailsRequestRef.current = requestId;
-    setLoading(prev => ({ ...prev, tasks: true }));
-    try {
-      setSelectedProject(id);
-      const res = await axios.get(`/projects/${id}`);
-      if (projectDetailsRequestRef.current !== requestId) return;
-      const sortedTasks = sortTasksByCreatedAt(res.data.tasks);
-      setProjectDetails({ ...res.data, tasks: sortedTasks });
-      setProjectUsers(res.data.users || []);
-      setTasks(sortedTasks);
-      setTaskFilter("all");
-      setTaskAssigneeFilter("all");
-      setTabValue(0); 
-    } catch (error) {
-      if (projectDetailsRequestRef.current !== requestId) return;
-      console.error("Error loading project details:", error);
-      showSnackbar("Error loading project details", "error");
-    } finally {
-      if (projectDetailsRequestRef.current === requestId) {
-        setLoading(prev => ({ ...prev, tasks: false }));
-      }
-    }
-  };
-
-  
-  const validateTaskForm = () => {
-    const errors = {};
-
-    if (newTask.dueDate && Number.isNaN(new Date(newTask.dueDate).getTime())) {
-      errors.dueDate = "Valid date/time select karein.";
-    }
-
-    setTaskErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  
-  const handleUpdateTaskStatus = async (taskId, newStatus) => {
-    setLoading(prev => ({ ...prev, tasks: true }));
-    try {
-      await axios.patch(`/projects/${selectedProject}/tasks/${taskId}/status`, {
-        status: newStatus,
-        remark: statusRemark,
+      setSnackbar({
+        open: true,
+        message: "Error loading projects",
+        severity: "error",
       });
-
-      
-      handleSelectProject(selectedProject);
-      loadNotifications();
-      
-      
-      setStatusRemark("");
-      setOpenStatusDialog(false);
-      setSelectedTask(null);
-      showSnackbar("Task status updated successfully!", "success");
-
-    } catch (error) {
-      console.error("Error updating task status:", error);
-      showSnackbar(error.response?.data?.message || "Error updating task status", "error");
     } finally {
-      setLoading(prev => ({ ...prev, tasks: false }));
+      setLoading(false);
     }
-  };
-
-  
-  const handleOpenStatusDialog = (task) => {
-    setSelectedTask(task);
-    setStatusRemark("");
-    setOpenStatusDialog(true);
-  };
-
-  
-  const handleLoadActivityLogs = async (taskId) => {
-    try {
-      const res = await axios.get(`/projects/${selectedProject}/tasks/${taskId}/activity`);
-      const task = tasks.find(t => t._id === taskId);
-      setSelectedTask({
-        ...task,
-        activityLogs: res.data.activityLogs || [],
-      });
-      setOpenActivityDrawer(true);
-    } catch (error) {
-      console.error("Error loading activity logs:", error);
-      showSnackbar("Error loading activity logs", "error");
-    }
-  };
-
-  
-  const loadNotifications = async () => {
-    try {
-      
-      
-      setNotifications([]); 
-    } catch (error) {
-      console.error("Error loading notifications:", error);
-    }
-  };
-
-  
-  const handleMarkNotificationAsRead = async (notificationId) => {
-    try {
-      await axios.patch(`/projects/notifications/${notificationId}/read`);
-      loadNotifications();
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-    }
-  };
-
-  
-  const handleClearAllNotifications = async () => {
-    try {
-      await axios.delete("/projects/notifications/clear");
-      setNotifications([]);
-      showSnackbar("All notifications cleared", "success");
-    } catch (error) {
-      console.error("Error clearing notifications:", error);
-      showSnackbar("Error clearing notifications", "error");
-    }
-  };
-
-  
-  const handleAddTask = async () => {
-    if (!validateTaskForm()) return;
-
-    setLoading(prev => ({ ...prev, tasks: true }));
-    try {
-      const formData = new FormData();
-      Object.keys(newTask).forEach((key) => {
-        if (key === "assignedUsers") {
-          newTask.assignedUsers.forEach(userId => formData.append("assignedUsers", userId));
-        } else if (key === "checkpoints") {
-          formData.append("checkpoints", JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
-        } else if (key === "dueDate") {
-          formData.append("dueDate", toDueDateISOString(newTask.dueDate));
-        } else {
-          formData.append(key, newTask[key]);
-        }
-      });
-
-      if (file) {
-        const ext = file.name ? file.name.substring(file.name.lastIndexOf('.')) : '.pdf';
-        const safeTaskTitle = sanitizeDocName(newTask.title, 'Task');
-        const customFileName = `${safeTaskTitle}_Document${(ext || '.pdf').toLowerCase()}`;
-        formData.append("pdfFile", file, customFileName);
-      }
-
-      await axios.post(`/projects/${selectedProject}/tasks`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-
-      resetTaskForm();
-      setOpenTaskDialog(false);
-
-      
-      handleSelectProject(selectedProject);
-      loadNotifications();
-      
-      showSnackbar("Task added successfully!", "success");
-    } catch (error) {
-      console.error("Error adding task:", error);
-      showSnackbar("Error adding task", "error");
-    } finally {
-      setLoading(prev => ({ ...prev, tasks: false }));
-    }
-  };
-
-  const handleUpdateTask = async () => {
-    if (!editingTask?._id || !validateTaskForm()) return;
-
-    setLoading(prev => ({ ...prev, tasks: true }));
-    try {
-      const assignedTo = newTask.assignedUsers[0] || "";
-      const dueDate = toDueDateISOString(newTask.dueDate);
-      const payload = {
-        title: newTask.title,
-        description: newTask.description,
-        assignedUsers: newTask.assignedUsers,
-        assignedTo,
-        dueDate,
-        priority: newTask.priority,
-        status: newTask.status,
-        checkpoints: getCleanCheckpoints(newTask.checkpoints),
-      };
-
-      await axios.patch(`/projects/${selectedProject}/tasks/${editingTask._id}`, payload);
-
-      resetTaskForm();
-      setOpenTaskDialog(false);
-      setDetailTaskId(null);
-
-      await handleSelectProject(selectedProject);
-      loadNotifications();
-
-      showSnackbar("Task updated successfully!", "success");
-    } catch (error) {
-      console.error("Error updating task:", error);
-      showSnackbar(error.response?.data?.message || "Error updating task", "error");
-    } finally {
-      setLoading(prev => ({ ...prev, tasks: false }));
-    }
-  };
-
-  
-  const handleAddRemark = async (taskId, text) => {
-    if (remarkSubmittingTaskId === taskId) return;
-
-    const task = tasks.find(item => item._id === taskId);
-    const remarkImage = task?._newRemarkImage || null;
-    const remarkText = text?.trim() || "";
-
-    if (!remarkText && !remarkImage) {
-      showSnackbar("Please enter a remark or attach an image", "warning");
-      return;
-    }
-
-    const storedUser = parseStoredJson("user") || {};
-    const optimisticRemarkId = `pending-${Date.now()}`;
-    const optimisticRemark = {
-      _id: optimisticRemarkId,
-      text: remarkText || (remarkImage ? "Image attachment" : ""),
-      createdAt: new Date().toISOString(),
-      createdBy: {
-        _id: storedUser._id || storedUser.id,
-        name: storedUser.name || "You",
-        email: storedUser.email
-      },
-      _isPending: true
-    };
-    const addOptimisticRemark = taskItem => taskItem._id === taskId
-      ? {
-          ...taskItem,
-          remarks: [...(taskItem.remarks || []), optimisticRemark],
-          _newRemark: "",
-          _newRemarkImage: null,
-          _newRemarkImageName: ""
-        }
-      : taskItem;
-
-    setTasks(prev => prev.map(addOptimisticRemark));
-    setProjectDetails(prev => prev
-      ? { ...prev, tasks: (prev.tasks || []).map(addOptimisticRemark) }
-      : prev
-    );
-    setRemarkSubmittingTaskId(taskId);
-
-    try {
-      let response;
-      if (remarkImage) {
-        const formData = new FormData();
-        formData.append("text", remarkText);
-        formData.append("image", remarkImage);
-        response = await axios.post(
-          `/projects/${selectedProject}/tasks/${taskId}/remarks`,
-          formData,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
-      } else {
-        response = await axios.post(
-          `/projects/${selectedProject}/tasks/${taskId}/remarks`,
-          { text: remarkText }
-        );
-      }
-
-      const savedRemark = response.data?.remark;
-      const confirmRemark = taskItem => taskItem._id === taskId
-        ? {
-            ...taskItem,
-            remarks: (taskItem.remarks || []).map(item =>
-              item._id === optimisticRemarkId ? (savedRemark || item) : item
-            )
-          }
-        : taskItem;
-
-      setTasks(prev => prev.map(confirmRemark));
-      setProjectDetails(prev => prev
-        ? { ...prev, tasks: (prev.tasks || []).map(confirmRemark) }
-        : prev
-      );
-      
-      showSnackbar("Remark added successfully!", "success");
-    } catch (error) {
-      console.error("Error adding remark:", error);
-      const rollbackRemark = taskItem => taskItem._id === taskId
-        ? {
-            ...taskItem,
-            remarks: (taskItem.remarks || []).filter(item => item._id !== optimisticRemarkId),
-            _newRemark: remarkText,
-            _newRemarkImage: remarkImage,
-            _newRemarkImageName: remarkImage?.name || ""
-          }
-        : taskItem;
-
-      setTasks(prev => prev.map(rollbackRemark));
-      setProjectDetails(prev => prev
-        ? { ...prev, tasks: (prev.tasks || []).map(rollbackRemark) }
-        : prev
-      );
-      showSnackbar("Error adding remark", "error");
-    } finally {
-      setRemarkSubmittingTaskId(null);
-    }
-  };
-
-  
-  const viewPdf = async (pdfPath, filename, context = {}) => {
-    const rawPath = pdfPath || context?.path;
-    const projectId = context?.projectId || (context?.project ? (context.project._id || context.project.id) : null);
-    const taskId = context?.taskId || (context?.task ? (context.task._id || context.task.id) : null);
-
-    if (!rawPath && !projectId) {
-      showSnackbar("No file available", "warning");
-      return;
-    }
-
-    const pathParts = rawPath ? String(rawPath).split('/') : [];
-    const pdfFilename = pathParts[pathParts.length - 1];
-    const displayName = filename || pdfFilename || "document.pdf";
-    const fallbackUrl = rawPath ? (getUploadUrl(rawPath) || getLiveUploadUrl(rawPath)) : "";
-
-    setSelectedPdfContext(context);
-
-    if (isImagePath(displayName || rawPath)) {
-      if (detailTaskId) {
-        setTaskDetailToRestore(detailTaskId);
-      } else {
-        setTaskDetailToRestore(null);
-      }
-      setImagePreview({
-        url: fallbackUrl,
-        path: rawPath || "",
-        name: displayName
-      });
-      setOpenPdfDialog(false);
-      setDetailTaskId(null);
-      return;
-    }
-
-    if (detailTaskId) {
-      setTaskDetailToRestore(detailTaskId);
-      setDetailTaskId(null);
-    } else {
-      setTaskDetailToRestore(null);
-    }
-
-    if (pdfBlobUrl) {
-      URL.revokeObjectURL(pdfBlobUrl);
-      setPdfBlobUrl(null);
-    }
-
-    setSelectedPdfUrl(fallbackUrl);
-    setSelectedPdfPath(rawPath || "");
-    setSelectedPdfName(displayName);
-    setPdfLoading(true);
-    setPdfError(null);
-    setOpenPdfDialog(true);
-
-    const candidateUrls = [];
-    if (projectId && taskId) {
-      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document?view=true`);
-    } else if (projectId) {
-      candidateUrls.push(`/projects/${projectId}/document?view=true`);
-    }
-    if (fallbackUrl) {
-      candidateUrls.push(fallbackUrl);
-    }
-
-    try {
-      let response = null;
-      for (const url of candidateUrls) {
-        try {
-          response = await axios.get(url, { responseType: 'blob' });
-          break;
-        } catch (error) {
-          if (url === candidateUrls[candidateUrls.length - 1]) throw error;
-        }
-      }
-
-      if (!response || !response.data) {
-        throw new Error("No data received");
-      }
-
-      const contentType = response.data.type || response.headers?.['content-type'] || 'application/pdf';
-      const fileBlob = new Blob([response.data], { type: contentType });
-      const objectUrl = URL.createObjectURL(fileBlob);
-      setPdfBlobUrl(objectUrl);
-      setSelectedPdfUrl(objectUrl);
-    } catch (err) {
-      console.error("Error loading PDF preview:", err);
-      const directPreviewUrl = resolveApiPreviewUrl(fallbackUrl || candidateUrls[0]);
-      if (directPreviewUrl) {
-        setSelectedPdfUrl(directPreviewUrl);
-        setPdfError(null);
-      } else {
-        setPdfError("Document preview cannot be displayed directly. Please use the Download button below.");
-      }
-    } finally {
-      setPdfLoading(false);
-    }
-  };
-
-  const closePdfPreview = () => {
-    setOpenPdfDialog(false);
-    if (pdfBlobUrl) {
-      URL.revokeObjectURL(pdfBlobUrl);
-      setPdfBlobUrl(null);
-    }
-    setSelectedPdfContext(null);
-    setPdfLoading(false);
-    setPdfError(null);
-    if (taskDetailToRestore) {
-      setDetailTaskId(taskDetailToRestore);
-      setTaskDetailToRestore(null);
-    }
-  };
-
-  const closeImagePreview = () => {
-    setImagePreview(null);
-    if (taskDetailToRestore) {
-      setDetailTaskId(taskDetailToRestore);
-      setTaskDetailToRestore(null);
-    }
-  };
-
-  const downloadPdf = async (pdfPath, filename, context = null) => {
-    const activeContext = context || selectedPdfContext || {};
-    const rawPath = pdfPath || activeContext?.path;
-    const projectId = activeContext?.projectId || (activeContext?.project ? (activeContext.project._id || activeContext.project.id) : null);
-    const taskId = activeContext?.taskId || (activeContext?.task ? (activeContext.task._id || activeContext.task.id) : null);
-
-    if (!rawPath && !projectId) {
-      showSnackbar("No file available", "warning");
-      return;
-    }
-
-    const pathParts = rawPath ? String(rawPath).split('/') : [];
-    const pdfFilename = pathParts[pathParts.length - 1];
-    const downloadName = filename || pdfFilename || 'document.pdf';
-
-    const candidateUrls = [];
-    if (projectId && taskId) {
-      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document`);
-    } else if (projectId) {
-      candidateUrls.push(`/projects/${projectId}/document`);
-    }
-    if (rawPath) {
-      const uploadUrl = getUploadUrl(rawPath);
-      if (uploadUrl) candidateUrls.push(uploadUrl);
-    }
-
-    try {
-      let response = null;
-      for (const url of candidateUrls) {
-        try {
-          response = await axios.get(url, { responseType: 'blob' });
-          break;
-        } catch (error) {
-          if (url === candidateUrls[candidateUrls.length - 1]) throw error;
-        }
-      }
-      if (!response) throw new Error("No download URL available");
-
-      const blobUrl = URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = downloadName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error("Error downloading file:", error);
-      const directUrl = resolveApiPreviewUrl((rawPath ? getUploadUrl(rawPath) : "") || candidateUrls[0]);
-      if (directUrl) {
-        const link = document.createElement('a');
-        link.href = directUrl;
-        link.download = downloadName;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        showSnackbar("Unable to download file", "error");
-      }
-    }
-  };
-
-  const handleTaskFileSelect = (selectedFile) => {
-    if (selectedFile) {
-      const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"];
-      if (!allowedTypes.includes(selectedFile.type)) {
-        showSnackbar("Only PDF or image files are allowed", "error");
-        setIsTaskFileDragging(false);
-        return;
-      }
-      setFile(selectedFile);
-      setFileName(selectedFile.name);
-    }
-  };
-
-  const handleFileChange = (e) => {
-    handleTaskFileSelect(e.target.files[0]);
-    e.target.value = "";
-  };
-
-  const handleTaskFileDrop = (e) => {
-    e.preventDefault();
-    setIsTaskFileDragging(false);
-    handleTaskFileSelect(e.dataTransfer.files[0]);
-  };
-
-  const handleRemarkImageSelect = (taskId, selectedFile) => {
-    if (!selectedFile) return;
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"];
-    if (!allowedTypes.includes(selectedFile.type)) {
-      showSnackbar("Only image files are allowed for remarks", "error");
-      return;
-    }
-
-    setTasks(prev => prev.map(task =>
-      task._id === taskId
-        ? { ...task, _newRemarkImage: selectedFile, _newRemarkImageName: selectedFile.name }
-        : task
-    ));
-  };
-
-  const clearRemarkImage = (taskId) => {
-    setTasks(prev => prev.map(task =>
-      task._id === taskId
-        ? { ...task, _newRemarkImage: null, _newRemarkImageName: "" }
-        : task
-    ));
-  };
-
-  const showSnackbar = (message, severity) => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
   };
 
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
-      case "high": return "#EF5350";
-      case "medium": return "#FFA726";
-      case "low": return "#66BB6A";
-      default: return "#9E9E9E";
+      case "high":
+        return "#EF5350";
+      case "medium":
+        return "#FFA726";
+      case "low":
+        return "#66BB6A";
+      default:
+        return "#9E9E9E";
     }
   };
 
   const getStatusColor = (status) => {
-    switch (normalizeTaskStatus(status)) {
-      case "completed": return "#66BB6A";
-      case "in progress": return "#29B6F6";
-      case "pending": return "#FFA726";
-      case "overdue": return "#D32F2F";
-      case "cancelled": return "#EF5350";
-      case "on hold": return "#AB47BC";
-      default: return "#9E9E9E";
+    switch (String(status || "").trim().toLowerCase()) {
+      case "completed":
+        return "#66BB6A";
+      case "in progress":
+      case "active":
+        return "#29B6F6";
+      case "pending":
+        return "#FFA726";
+      case "overdue":
+        return "#D32F2F";
+      case "cancelled":
+        return "#EF5350";
+      case "on hold":
+        return "#AB47BC";
+      default:
+        return "#9E9E9E";
     }
   };
 
-  const getTaskProgress = () => {
-    if (tasks.length === 0) return 0;
-    const completed = tasks.filter(t => normalizeTaskStatus(t.status) === "completed").length;
-    return Math.round((completed / tasks.length) * 100);
-  };
+  // Overall projects stats
+  const projectStats = useMemo(() => {
+    const total = projects.length;
+    const active = projects.filter((p) => {
+      const s = String(p.status || "").toLowerCase();
+      return ["active", "in progress", "ongoing"].includes(s);
+    }).length;
+    const completed = projects.filter((p) => {
+      const s = String(p.status || "").toLowerCase();
+      return ["completed", "done", "finished"].includes(s);
+    }).length;
+    const highPriority = projects.filter(
+      (p) => String(p.priority || "").toLowerCase() === "high"
+    ).length;
+    const totalTasks = projects.reduce(
+      (acc, p) => acc + (p.taskCount ?? p.tasks?.length ?? 0),
+      0
+    );
 
+<<<<<<< HEAD
+    return { total, active, completed, highPriority, totalTasks };
+  }, [projects]);
+=======
   const highPriorityTasks = sortTasksByCreatedAt(
     tasks.filter(task => String(task?.priority || "").trim().toLowerCase() === "high")
   );
@@ -1214,87 +621,61 @@ const EmployeeProject = () => {
       ? filteredTasks.filter(task => getTaskAssignedUserIds(task).length === 0)
       : filteredTasks.filter(task => getTaskAssignedUserIds(task).includes(taskAssigneeFilter));
   const displayedTasks = assigneeFilteredTasks;
-  const taskDocCount = (tasks || []).filter(t => t.pdfFile?.path || t.pdfFile?.url).length;
-  const documentCount = (projectDetails?.pdfFile?.path || projectDetails?.pdfFile?.url ? 1 : 0) + (SHOW_TASK_DOCUMENTS ? taskDocCount : 0);
+  const documentCount = projectDetails?.pdfFile?.path || projectDetails?.pdfFile?.url ? 1 : 0;
+>>>>>>> 4a955e08a5df6ac82b52d668712f88fc530c795c
 
-  const taskAssigneeOptions = [
-    { value: "all", label: "All assignees" },
-    ...projectUsers
-      .map(user => ({
-        value: getUserId(user),
-        label: user?.name || user?.email || "Unnamed user"
-      }))
-      .filter(option => option.value),
-    { value: "unassigned", label: "Unassigned" }
-  ];
+  // Filtering projects
+  const filteredProjects = useMemo(() => {
+    let result = projects;
 
-  const selectedAssigneeLabel = taskAssigneeOptions.find(option => option.value === taskAssigneeFilter)?.label || "";
+    if (statusFilter !== "all") {
+      result = result.filter((p) => {
+        const s = String(p.status || "").toLowerCase();
+        if (statusFilter === "active")
+          return ["active", "in progress", "ongoing"].includes(s);
+        if (statusFilter === "completed")
+          return ["completed", "done", "finished"].includes(s);
+        if (statusFilter === "high priority")
+          return String(p.priority || "").toLowerCase() === "high";
+        return s === statusFilter;
+      });
+    }
 
-  const normalizedProjectSearch = projectSearchTerm.trim().toLowerCase();
-  const filteredProjects = normalizedProjectSearch
-    ? projects.filter(project => {
+    const q = projectSearchTerm.trim().toLowerCase();
+    if (q) {
+      result = result.filter((project) => {
         const searchableText = [
           project.projectName,
           project.title,
           project.name,
           project.description,
           project.status,
-          project.priority
+          project.priority,
         ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
 
-        return searchableText.includes(normalizedProjectSearch);
-      })
-    : projects;
+        return searchableText.includes(q);
+      });
+    }
 
-  const detailTask = detailTaskId
-    ? tasks.find(task => task._id === detailTaskId)
-    : null;
+    return result;
+  }, [projects, statusFilter, projectSearchTerm]);
 
-  const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
-
-  const StatCard = ({ icon, value, label, color, subtext, trend, filter, active, tabTarget = 0, className = "" }) => (
-    <button
-      type="button"
-      className={`EmployeeProject-stat-card EmployeeProject-stat-card-clickable ${active ? 'EmployeeProject-stat-card-active' : ''} ${className}`}
-      style={{ borderLeftColor: color }}
-      onClick={() => {
-        if (filter) {
-          setTaskFilter(filter);
-        }
-        setTabValue(tabTarget);
-      }}
-    >
-      <div className="EmployeeProject-stat-content">
-        <div className="EmployeeProject-stat-text">
-          <h3 className="EmployeeProject-stat-value" style={{ color }}>{value}</h3>
-          <p className="EmployeeProject-stat-label">{label}</p>
-          {subtext && (
-            <p className="EmployeeProject-stat-subtext">{subtext}</p>
-          )}
-        </div>
-        <div className="EmployeeProject-stat-icon" style={{ backgroundColor: `${color}20` }}>
-          {icon}
-        </div>
-      </div>
-      {trend && (
-        <div className="EmployeeProject-stat-trend">
-          <Icons.TrendingUp />
-          <span style={{ color }}>{trend}</span>
-        </div>
-      )}
-    </button>
-  );
+  // Navigate to separate Project Details / Tasks page
+  const handleProjectClick = (project) => {
+    navigate(`/ciisUser/project/${project._id}`, { state: { project } });
+  };
 
   const Chip = ({ label, color, icon, variant = "default" }) => (
-    <span 
+    <span
       className={`EmployeeProject-chip EmployeeProject-chip-${variant}`}
-      style={{ 
-        backgroundColor: variant === "outlined" ? "transparent" : `${color}15`,
+      style={{
+        backgroundColor:
+          variant === "outlined" ? "transparent" : `${color}15`,
         color: color,
-        borderColor: `${color}30`
+        borderColor: `${color}30`,
       }}
     >
       {icon && <span className="EmployeeProject-chip-icon">{icon}</span>}
@@ -1302,57 +683,45 @@ const EmployeeProject = () => {
     </span>
   );
 
-  const Avatar = ({ children, size = "medium" }) => (
-    <div className={`EmployeeProject-avatar EmployeeProject-avatar-${size}`}>
-      {children}
-    </div>
-  );
-
-  const Badge = ({ children, badgeContent, color = "error" }) => (
-    <div className="EmployeeProject-badge">
-      {children}
-      {badgeContent > 0 && (
-        <span className={`EmployeeProject-badge-content EmployeeProject-badge-${color}`}>
-          {badgeContent > 99 ? "99+" : badgeContent}
-        </span>
-      )}
-    </div>
-  );
-
-  const Tooltip = ({ title, children }) => (
-    <div className="EmployeeProject-tooltip">
-      {children}
-      <span className="EmployeeProject-tooltip-text">{title}</span>
-    </div>
-  );
-
-  const Alert = ({ severity, children, onClose }) => (
-    <div className={`EmployeeProject-alert EmployeeProject-alert-${severity}`}>
-      <div className="EmployeeProject-alert-content">
-        {children}
-      </div>
-      {onClose && (
-        <button className="EmployeeProject-alert-close" onClick={onClose}>
-          <Icons.Close />
-        </button>
-      )}
-    </div>
-  );
-
-  const LinearProgress = ({ value, variant = "determinate" }) => (
-    <div className="EmployeeProject-linear-progress">
-      <div 
-        className="EmployeeProject-linear-progress-bar" 
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  );
-
-  const CircularProgress = ({ size = 40, thickness = 3.6 }) => (
-    <div 
-      className="EmployeeProject-circular-progress" 
-      style={{ width: size, height: size }}
+  const StatCard = ({
+    icon,
+    value,
+    label,
+    color,
+    subtext,
+    active,
+    onClick,
+  }) => (
+    <button
+      type="button"
+      className={`EmployeeProject-stat-card EmployeeProject-stat-card-clickable ${
+        active ? "EmployeeProject-stat-card-active" : ""
+      }`}
+      style={{ borderLeftColor: color }}
+      onClick={onClick}
     >
+      <div className="EmployeeProject-stat-content">
+        <div className="EmployeeProject-stat-text">
+          <h3 className="EmployeeProject-stat-value" style={{ color }}>
+            {value}
+          </h3>
+          <p className="EmployeeProject-stat-label">{label}</p>
+          {subtext && (
+            <p className="EmployeeProject-stat-subtext">{subtext}</p>
+          )}
+        </div>
+        <div
+          className="EmployeeProject-stat-icon"
+          style={{ backgroundColor: `${color}20` }}
+        >
+          {icon}
+        </div>
+      </div>
+    </button>
+  );
+
+  const CircularProgress = () => (
+    <div className="EmployeeProject-circular-progress">
       <svg className="EmployeeProject-circular-progress-svg" viewBox="22 22 44 44">
         <circle
           className="EmployeeProject-circular-progress-circle"
@@ -1360,57 +729,23 @@ const EmployeeProject = () => {
           cy="44"
           r="20.2"
           fill="none"
-          strokeWidth={thickness}
+          strokeWidth={3.6}
         />
       </svg>
     </div>
   );
 
-  const renderTaskList = (taskItems, { emptyTitle, emptyMessage, showCreateButton = false } = {}) => {
-    if (loading.tasks) {
-      return (
-        <div className="EmployeeProject-loading">
-          <CircularProgress />
-        </div>
-      );
-    }
-
-    if (taskItems.length === 0) {
-      return (
-        <div className="EmployeeProject-empty-state">
-          <Icons.Task />
-          <h3>{emptyTitle}</h3>
-          <p>{emptyMessage}</p>
-          {showCreateButton && (
-            <button
-              className="EmployeeProject-button EmployeeProject-button-primary"
-              onClick={handleOpenCreateTaskDialog}
-            >
-              <Icons.Add />
-              Create First Task
-            </button>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="EmployeeProject-tasks-list">
-        {taskItems.map((t) => (
+  return (
+    <div className="EmployeeProject-container">
+      {snackbar.open && (
+        <div className="EmployeeProject-snackbar">
           <div
-            className="EmployeeProject-task-card"
-            key={t._id}
-            style={{ borderLeftColor: getStatusColor(t.status) }}
-            onClick={() => setDetailTaskId(t._id)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setDetailTaskId(t._id);
-              }
-            }}
+            className={`EmployeeProject-alert EmployeeProject-alert-${snackbar.severity}`}
           >
+<<<<<<< HEAD
+            <div className="EmployeeProject-alert-content">
+              {snackbar.message}
+=======
             <div className="EmployeeProject-task-content">
               <div className="EmployeeProject-task-header">
                 <div className="EmployeeProject-task-title-section">
@@ -1488,52 +823,46 @@ const EmployeeProject = () => {
                 </div>
               </div>
 
-              {SHOW_TASK_DOCUMENTS && (
-                <div className={`EmployeeProject-task-attachment ${!(t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url) ? 'EmployeeProject-task-attachment-empty' : ''}`}>
-                  {(t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url) ? (
-                    <>
-                    <div className="EmployeeProject-task-attachment-main">
-                      {isImagePath(t.pdfFile) ? (
-                        <img
-                          src={getUploadUrl(t.pdfFile.path)}
-                          alt={getTaskDocumentDisplayName(t, projectDetails)}
-                          className="EmployeeProject-task-attachment-thumbnail"
-                          onError={(event) => {
-                            const fallbackUrl = getLiveUploadUrl(t.pdfFile.path);
-                            if (fallbackUrl && event.currentTarget.src !== fallbackUrl) event.currentTarget.src = fallbackUrl;
-                          }}
-                        />
-                      ) : <Icons.InsertDriveFile />}
-                      <span>{getTaskDocumentDisplayName(t, projectDetails)}</span>
-                    </div>
-                    <div className="EmployeeProject-task-pdf-actions">
-                      <button
-                        type="button"
-                        className="EmployeeProject-icon-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          viewPdf(t.pdfFile?.path, getTaskDocumentDisplayName(t, projectDetails), { projectId: selectedProject, taskId: t._id });
+              {(t.pdfFile?.path || t.pdfFile?.url) && (
+                <div className="EmployeeProject-task-attachment">
+                  <div className="EmployeeProject-task-attachment-main">
+                    {isImagePath(t.pdfFile) ? (
+                      <img
+                        src={getUploadUrl(t.pdfFile.path)}
+                        alt={getTaskDocumentDisplayName(t, projectDetails)}
+                        className="EmployeeProject-task-attachment-thumbnail"
+                        onError={(event) => {
+                          const fallbackUrl = getLiveUploadUrl(t.pdfFile.path);
+                          if (fallbackUrl && event.currentTarget.src !== fallbackUrl) event.currentTarget.src = fallbackUrl;
                         }}
-                        aria-label="Preview task attachment"
-                      >
-                        <Icons.Visibility />
-                      </button>
-                      <button
-                        type="button"
-                        className="EmployeeProject-icon-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          downloadPdf(t.pdfFile?.path, getTaskDocumentDisplayName(t, projectDetails), { projectId: selectedProject, taskId: t._id });
-                        }}
-                        aria-label="Download task attachment"
-                      >
-                        <Icons.Download />
-                      </button>
-                    </div>
-                    </>
-                  ) : (
-                    <span className="EmployeeProject-task-attachment-placeholder">No attachment</span>
-                  )}
+                      />
+                    ) : <Icons.InsertDriveFile />}
+                    <span>{getTaskDocumentDisplayName(t, projectDetails)}</span>
+                  </div>
+                  <div className="EmployeeProject-task-pdf-actions">
+                    <button
+                      type="button"
+                      className="EmployeeProject-icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        viewPdf(t.pdfFile?.path, getTaskDocumentDisplayName(t, projectDetails), { projectId: selectedProject, taskId: t._id });
+                      }}
+                      aria-label="Preview task attachment"
+                    >
+                      <Icons.Visibility />
+                    </button>
+                    <button
+                      type="button"
+                      className="EmployeeProject-icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadPdf(t.pdfFile?.path, getTaskDocumentDisplayName(t, projectDetails), { projectId: selectedProject, taskId: t._id });
+                      }}
+                      aria-label="Download task attachment"
+                    >
+                      <Icons.Download />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1544,207 +873,89 @@ const EmployeeProject = () => {
                   {getTaskRemarkCount(t)} remarks
                 </span>
               </div>
+>>>>>>> 4a955e08a5df6ac82b52d668712f88fc530c795c
             </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  
-  if (imagePreview) {
-    return (
-      <div className="EmployeeProject-image-preview-screen">
-        <div className="EmployeeProject-image-preview-shell">
-          <div className="EmployeeProject-image-preview-header">
-            <div className="EmployeeProject-image-preview-title">
-              <Icons.Image />
-              <h3>{imagePreview.name}</h3>
-            </div>
-            <button className="EmployeeProject-image-preview-close" onClick={closeImagePreview} aria-label="Close image preview">
+            <button
+              className="EmployeeProject-alert-close"
+              onClick={() => setSnackbar({ ...snackbar, open: false })}
+            >
               <Icons.Close />
             </button>
           </div>
-          <div className="EmployeeProject-image-preview-body">
-            <div className="EmployeeProject-image-preview-frame">
-              <img
-                src={imagePreview.url}
-                alt={imagePreview.name || "Attachment preview"}
-                className="EmployeeProject-image-preview-full"
-                onError={(event) => {
-                  const fallbackUrl = getLiveUploadUrl(imagePreview.path);
-                  if (fallbackUrl && event.currentTarget.src !== fallbackUrl) {
-                    event.currentTarget.src = fallbackUrl;
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <div className="EmployeeProject-image-preview-footer">
-            <button
-              className="EmployeeProject-button EmployeeProject-button-primary"
-              onClick={() => downloadPdf(imagePreview.path, imagePreview.name)}
-            >
-              <Icons.Download />
-              Download
-            </button>
-            <button
-              className="EmployeeProject-button EmployeeProject-button-outline"
-              onClick={closeImagePreview}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (openPdfDialog) {
-    return (
-      <div className="EmployeeProject-container">
-        {snackbar.open && (
-          <div className="EmployeeProject-snackbar">
-            <Alert severity={snackbar.severity} onClose={handleCloseSnackbar}>
-              {snackbar.message}
-            </Alert>
-          </div>
-        )}
-
-        {createPortal(
-          <div className="EmployeeProject-modal EmployeeProject-pdf-modal">
-            <div className="EmployeeProject-modal-backdrop" onClick={closePdfPreview} />
-            <div className="EmployeeProject-modal-content">
-              <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">
-                <div className="EmployeeProject-modal-header-content">
-                  <Icons.PictureAsPdf />
-                  <h3>{selectedPdfName}</h3>
-                </div>
-                <button className="EmployeeProject-modal-close" onClick={closePdfPreview}>
-                  <Icons.Close />
-                </button>
-              </div>
-              <div className="EmployeeProject-modal-body EmployeeProject-pdf-viewer">
-                {isImagePath(selectedPdfName || selectedPdfUrl) ? (
-                  <img
-                    src={selectedPdfUrl}
-                    alt={selectedPdfName || "Attachment preview"}
-                    className="EmployeeProject-file-preview-image"
-                    onError={handlePreviewImageError}
-                  />
-                ) : pdfLoading ? (
-                  <div
-                    className="EmployeeProject-pdf-loading"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      minHeight: "350px",
-                      gap: "16px",
-                      padding: "40px 20px"
-                    }}
-                  >
-                    <CircularProgress size={44} />
-                    <p style={{ margin: 0, color: "#64748b", fontSize: "14px", fontWeight: 500 }}>
-                      Loading document preview...
-                    </p>
-                  </div>
-                ) : (pdfBlobUrl || selectedPdfUrl) ? (
-                  <iframe
-                    src={pdfBlobUrl || selectedPdfUrl}
-                    title={selectedPdfName || "File Viewer"}
-                    className="EmployeeProject-pdf-frame"
-                  />
-                ) : (
-                  <div
-                    className="EmployeeProject-pdf-error"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      minHeight: "300px",
-                      padding: "32px 20px",
-                      textAlign: "center",
-                      gap: "12px"
-                    }}
-                  >
-                    <p style={{ color: "#e11d48", fontWeight: 600, fontSize: "15px", margin: 0 }}>
-                      {pdfError || "Document preview is unavailable"}
-                    </p>
-                    <p style={{ color: "#64748b", fontSize: "13px", maxWidth: "420px", margin: 0 }}>
-                      You can download or open the document directly to view it on your device.
-                    </p>
-                    <button
-                      type="button"
-                      className="EmployeeProject-button EmployeeProject-button-primary"
-                      style={{ marginTop: "8px" }}
-                      onClick={() => downloadPdf(selectedPdfPath, selectedPdfName)}
-                    >
-                      <Icons.Download />
-                      Download Document
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="EmployeeProject-modal-footer">
-                {(pdfBlobUrl || selectedPdfUrl) && (
-                  <button
-                    type="button"
-                    className="EmployeeProject-button EmployeeProject-button-outline"
-                    onClick={() => window.open(pdfBlobUrl || selectedPdfUrl, "_blank", "noopener,noreferrer")}
-                  >
-                    <Icons.Visibility />
-                    Open in New Tab
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="EmployeeProject-button EmployeeProject-button-primary"
-                  onClick={() => downloadPdf(selectedPdfPath, selectedPdfName)}
-                  disabled={!selectedPdfPath && !selectedPdfUrl}
-                >
-                  <Icons.Download />
-                  Download
-                </button>
-                <button
-                  type="button"
-                  className="EmployeeProject-button EmployeeProject-button-outline"
-                  onClick={closePdfPreview}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="EmployeeProject-container">
-      
-      {snackbar.open && (
-        <div className="EmployeeProject-snackbar">
-          <Alert severity={snackbar.severity} onClose={handleCloseSnackbar}>
-            {snackbar.message}
-          </Alert>
         </div>
       )}
 
+      {/* Page Header */}
       <div className="EmployeeProject-header">
         <div className="EmployeeProject-header-content">
           <div className="EmployeeProject-header-text">
             <h1 className="EmployeeProject-title">My Projects</h1>
-            <p className="EmployeeProject-subtitle">View assigned projects and update your tasks</p>
+            <p className="EmployeeProject-subtitle">
+              Select a project to view its details, team members, and all tasks
+            </p>
           </div>
         </div>
 
+        {/* Project Overview Stats */}
+        <div className="EmployeeProject-stats-grid">
+          <div className="EmployeeProject-stat-item">
+            <StatCard
+              icon={<Icons.Dashboard />}
+              value={projectStats.total}
+              label="Total Projects"
+              color="#667eea"
+              subtext="Assigned to you"
+              active={statusFilter === "all"}
+              onClick={() => setStatusFilter("all")}
+            />
+          </div>
+          <div className="EmployeeProject-stat-item">
+            <StatCard
+              icon={<Icons.Update />}
+              value={projectStats.active}
+              label="Active / In Progress"
+              color="#29B6F6"
+              subtext="Ongoing projects"
+              active={statusFilter === "active"}
+              onClick={() =>
+                setStatusFilter(statusFilter === "active" ? "all" : "active")
+              }
+            />
+          </div>
+          <div className="EmployeeProject-stat-item">
+            <StatCard
+              icon={<Icons.CheckCircle />}
+              value={projectStats.completed}
+              label="Completed"
+              color="#66BB6A"
+              subtext="Finished projects"
+              active={statusFilter === "completed"}
+              onClick={() =>
+                setStatusFilter(
+                  statusFilter === "completed" ? "all" : "completed"
+                )
+              }
+            />
+          </div>
+          <div className="EmployeeProject-stat-item">
+            <StatCard
+              icon={<Icons.PriorityHigh />}
+              value={projectStats.highPriority}
+              label="High Priority"
+              color="#EF5350"
+              subtext="Urgent projects"
+              active={statusFilter === "high priority"}
+              onClick={() =>
+                setStatusFilter(
+                  statusFilter === "high priority" ? "all" : "high priority"
+                )
+              }
+            />
+          </div>
+        </div>
 
-        <div className="EmployeeProject-search-row">
+        {/* Search Row */}
+        <div className="EmployeeProject-search-row" style={{ marginTop: "1.5rem" }}>
           <div className="EmployeeProject-search-box">
             <Icons.Search />
             <input
@@ -1752,7 +963,7 @@ const EmployeeProject = () => {
               className="EmployeeProject-search-input"
               value={projectSearchTerm}
               onChange={(e) => setProjectSearchTerm(e.target.value)}
-              placeholder="Search by project name or title"
+              placeholder="Search by project name or description..."
               aria-label="Search projects by name or title"
             />
             {projectSearchTerm && (
@@ -1768,108 +979,13 @@ const EmployeeProject = () => {
           </div>
           <span className="EmployeeProject-search-count">
             {filteredProjects.length} of {projects.length} projects
+            {statusFilter !== "all" ? ` (${statusFilter})` : ""}
           </span>
         </div>
-
-        
-        {selectedProject && (
-          <div className="EmployeeProject-stats-grid">
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.Dashboard />}
-                value={stats.totalTasks}
-                label="Total Tasks"
-                color="#667eea"
-                subtext="This project"
-                filter="all"
-                active={taskFilter === "all"}
-              />
-            </div>
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.CheckCircle />}
-                value={stats.completedTasks}
-                label="Completed"
-                color="#66BB6A"
-                trend={`${getTaskProgress()}% of total`}
-                filter="completed"
-                active={taskFilter === "completed"}
-              />
-            </div>
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.PriorityHigh />}
-                value={`${completedHighPriorityTasks}/${highPriorityTasks.length}`}
-                label="High Priority"
-                color="#EF5350"
-                subtext="Completed / total"
-                trend={`${highPriorityProgress}% of high`}
-                filter="high priority"
-                active={taskFilter === "high priority"}
-                className="EmployeeProject-stat-card-high-priority"
-              />
-            </div>
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.Update />}
-                value={stats.inProgressTasks}
-                label="In Progress"
-                color="#29B6F6"
-                filter="in progress"
-                active={taskFilter === "in progress"}
-              />
-            </div>
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.Bolt />}
-                value={stats.overdueTasks}
-                label="Overdue"
-                color="#D32F2F"
-                subtext="Past due tasks"
-                filter="overdue"
-                active={taskFilter === "overdue"}
-              />
-            </div>
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.Schedule />}
-                value={stats.pendingTasks}
-                label="Pending"
-                color="#FFA726"
-                filter="pending"
-                active={taskFilter === "pending"}
-              />
-            </div>
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.Pause />}
-                value={stats.onHoldTasks}
-                label="On Hold"
-                color="#AB47BC"
-                filter="on hold"
-                active={taskFilter === "on hold"}
-              />
-            </div>
-            <div className="EmployeeProject-stat-item">
-              <StatCard
-                icon={<Icons.Cancel />}
-                value={stats.cancelledTasks}
-                label="Cancelled"
-                color="#EF5350"
-                filter="cancelled"
-                active={taskFilter === "cancelled"}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
-      {loading.projects && (
-        <LinearProgress />
-      )}
-
-      
-      {loading.projects && projects.length === 0 ? (
+      {/* Loading state */}
+      {loading && projects.length === 0 ? (
         <div className="EmployeeProject-loading" aria-label="Loading projects">
           <CircularProgress />
           <span>Loading projects...</span>
@@ -1880,16 +996,15 @@ const EmployeeProject = () => {
             <div className="EmployeeProject-no-projects-icon">
               <Icons.NoProjects />
             </div>
-            <h2 className="EmployeeProject-no-projects-title">No Projects Found</h2>
+            <h2 className="EmployeeProject-no-projects-title">
+              No Projects Found
+            </h2>
             <p className="EmployeeProject-no-projects-message">
               You haven't been assigned to any projects yet.
             </p>
             <p className="EmployeeProject-no-projects-submessage">
               Once you're assigned to a project, it will appear here.
             </p>
-            <div className="EmployeeProject-no-projects-illustration">
-              
-            </div>
           </div>
         </div>
       ) : filteredProjects.length === 0 ? (
@@ -1898,83 +1013,108 @@ const EmployeeProject = () => {
             <div className="EmployeeProject-no-projects-icon">
               <Icons.Search />
             </div>
-            <h2 className="EmployeeProject-no-projects-title">No Matching Projects</h2>
+            <h2 className="EmployeeProject-no-projects-title">
+              No Matching Projects
+            </h2>
             <p className="EmployeeProject-no-projects-message">
-              No projects match "{projectSearchTerm}".
+              No projects match your current filters.
             </p>
             <p className="EmployeeProject-no-projects-submessage">
-              Try searching with another project name or title.
+              Try adjusting your search term or status filter.
             </p>
           </div>
         </div>
       ) : (
+        /* Projects Grid - Clicking any card navigates to separate project details/tasks page */
         <div className="EmployeeProject-grid">
           {filteredProjects.map((p) => (
             <div className="EmployeeProject-grid-item" key={p._id}>
               <div
-                className={`EmployeeProject-card ${selectedProject === p._id ? 'EmployeeProject-card-selected' : ''}`}
-                onClick={() => handleSelectProject(p._id)}
+                className="EmployeeProject-card"
+                onClick={() => handleProjectClick(p)}
+                style={{ cursor: "pointer" }}
+                title="Click to view project details and all tasks"
               >
                 <div className="EmployeeProject-card-highlight" />
-                
+
                 <div className="EmployeeProject-card-content">
                   <div className="EmployeeProject-card-header">
                     <div className="EmployeeProject-card-title-section">
                       <div className="EmployeeProject-card-title-row">
                         <Icons.Folder />
-                        <h3 className="EmployeeProject-card-title">{p.projectName}</h3>
+                        <h3 className="EmployeeProject-card-title">
+                          {p.projectName}
+                        </h3>
                       </div>
                       <Chip
-                        label={p.status}
+                        label={p.status || "Active"}
                         color={getStatusColor(p.status)}
                       />
                     </div>
                   </div>
-                  
+
                   <div className="EmployeeProject-chip-container">
                     <Chip
-                      label={p.priority}
+                      label={p.priority || "Medium"}
                       color={getPriorityColor(p.priority)}
                     />
                     <Chip
                       icon={<Icons.Group />}
-                      label={`${p.userCount ?? p.users?.length ?? 0}`}
+                      label={`${p.userCount ?? p.users?.length ?? 0} members`}
                       variant="outlined"
                     />
-	                    <Chip
-	                      icon={<Icons.Task />}
-	                      label={`${p.taskCount ?? p.tasks?.length ?? 0}`}
-	                      variant="outlined"
-	                    />
+                    <Chip
+                      icon={<Icons.Task />}
+                      label={`${p.taskCount ?? p.tasks?.length ?? 0} tasks`}
+                      variant="outlined"
+                    />
                   </div>
-                  
+
                   {p.description && (
                     <p className="EmployeeProject-card-description">
-                      {p.description.length > 120 
-                        ? `${p.description.substring(0, 120)}...` 
+                      {p.description.length > 120
+                        ? `${p.description.substring(0, 120)}...`
                         : p.description}
                     </p>
                   )}
-                  
+
                   <div className="EmployeeProject-card-footer">
                     <div className="EmployeeProject-card-date">
                       <Icons.CalendarToday />
-                      <span>{p.startDate ? new Date(p.startDate).toLocaleDateString() : 'No date'}</span>
+                      <span>
+                        {p.startDate
+                          ? new Date(p.startDate).toLocaleDateString()
+                          : "No date"}
+                      </span>
                     </div>
                     <button
-                      className={`EmployeeProject-button EmployeeProject-button-sm ${selectedProject === p._id ? 'EmployeeProject-button-primary' : 'EmployeeProject-button-outline'}`}
+                      type="button"
+                      className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleProjectClick(p);
+                      }}
                     >
-                      View
+                      View Tasks
                       <Icons.ArrowForward />
                     </button>
                   </div>
+<<<<<<< HEAD
+
+                  {(p.pdfFile?.path ||
+                    p.pdfFile?.filename ||
+                    p.pdfFile?.url) && (
+=======
                   
                   
                   {(p.pdfFile?.path || p.pdfFile?.url) && (
+>>>>>>> 4a955e08a5df6ac82b52d668712f88fc530c795c
                     <div className="EmployeeProject-card-pdf">
                       <div className="EmployeeProject-pdf-info">
                         <Icons.PictureAsPdf />
-                        <span className="EmployeeProject-pdf-text">Document attached</span>
+                        <span className="EmployeeProject-pdf-text">
+                          Document attached
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1984,6 +1124,8 @@ const EmployeeProject = () => {
           ))}
         </div>
       )}
+<<<<<<< HEAD
+=======
 
       
       {selectedProject && projectDetails && (
@@ -2126,60 +1268,6 @@ const EmployeeProject = () => {
                   <Alert severity="info">No project document uploaded</Alert>
                 )}
 
-                
-                {SHOW_TASK_DOCUMENTS && (
-                <>
-                <h3 className="EmployeeProject-task-documents-title">
-                  Task Documents ({tasks.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length})
-                </h3>
-                {tasks.filter(t => t.pdfFile?.path || t.pdfFile?.filename || t.pdfFile?.url).length > 0 ? (
-                  <div className="EmployeeProject-task-documents-grid">
-                    {tasks
-                      .filter(task => task.pdfFile?.path || task.pdfFile?.filename || task.pdfFile?.url)
-                      .map((task) => (
-                        <div className="EmployeeProject-task-document-card" key={task._id}>
-                          <div className="EmployeeProject-task-document-content">
-                            <div className="EmployeeProject-task-document-header">
-                              <div className="EmployeeProject-task-document-info">
-                                {isImagePath(task.pdfFile) ? <Icons.Image /> : <Icons.InsertDriveFile />}
-                                <div className="EmployeeProject-task-document-text">
-                                  <h5>{getTaskDocumentDisplayName(task, projectDetails)}</h5>
-                                  <p>From: {task.title}</p>
-                                  <p>
-                                    Assigned to: {getTaskAssigneeNames(task)} • Status: 
-                                    <Chip
-                                      label={task.status}
-                                      color={getStatusColor(task.status)}
-                                    />
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="EmployeeProject-task-document-buttons">
-                                <button
-                                  className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
-                                  onClick={() => viewPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, projectDetails), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
-                                >
-                                  <Icons.Visibility />
-                                  Preview
-                                </button>
-                                <button
-                                  className="EmployeeProject-button EmployeeProject-button-outline EmployeeProject-button-sm"
-                                  onClick={() => downloadPdf(task.pdfFile?.path, getTaskDocumentDisplayName(task, projectDetails), { projectId: selectedProject || projectDetails._id, taskId: task._id })}
-                                >
-                                  <Icons.Download />
-                                  Download
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                ) : (
-                  <Alert severity="info">No task documents available</Alert>
-                )}
-                </>
-                )}
               </div>
             )}
 
@@ -2378,7 +1466,7 @@ const EmployeeProject = () => {
                 </div>
               )}
 
-              {SHOW_TASK_DOCUMENTS && (detailTask.pdfFile?.path || detailTask.pdfFile?.filename || detailTask.pdfFile?.url) && (
+              {(detailTask.pdfFile?.path || detailTask.pdfFile?.url) && (
                 <div className="EmployeeProject-task-detail-section">
                   <h4>Attachment</h4>
                   <div className="EmployeeProject-detail-attachment">
@@ -3059,6 +2147,7 @@ const EmployeeProject = () => {
           </div>
         </div>
       )}
+>>>>>>> 4a955e08a5df6ac82b52d668712f88fc530c795c
     </div>
   );
 };

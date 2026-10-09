@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/ProjectDetailsPage.css";
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings, normalizeReminderSettings } from '../components/TaskReminderControl';
 
 const SHOW_TASK_DOCUMENTS = false;
 
@@ -252,6 +253,7 @@ const ProjectDetailsPage = () => {
     priority: "Medium",
     status: "pending",
     checkpoints: [],
+    reminderSettings: createDefaultReminderSettings(),
   });
 
   const [taskErrors, setTaskErrors] = useState({});
@@ -577,6 +579,7 @@ const ProjectDetailsPage = () => {
       priority: "Medium",
       status: "pending",
       checkpoints: [],
+      reminderSettings: createDefaultReminderSettings(),
     });
     setFile(null);
     setFileName("");
@@ -610,6 +613,7 @@ const ProjectDetailsPage = () => {
       priority: getPriorityInputValue(task?.priority),
       status: normalizeTaskStatus(task?.status),
       checkpoints: getCleanCheckpoints(task?.checkpoints),
+      reminderSettings: normalizeReminderSettings(task?.reminderSettings),
     });
     setFile(null);
     setFileName("");
@@ -728,6 +732,8 @@ const ProjectDetailsPage = () => {
           );
         } else if (key === "dueDate") {
           formData.append("dueDate", toDueDateISOString(newTask.dueDate));
+        } else if (key === "reminderSettings") {
+          formData.append("reminderSettings", JSON.stringify(buildReminderPayload(newTask.reminderSettings)));
         } else {
           formData.append(key, newTask[key]);
         }
@@ -781,6 +787,7 @@ const ProjectDetailsPage = () => {
         priority: newTask.priority,
         status: newTask.status,
         checkpoints: getCleanCheckpoints(newTask.checkpoints),
+        reminderSettings: buildReminderPayload(newTask.reminderSettings),
       };
 
       await axios.patch(
@@ -3529,6 +3536,13 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
                 ) : null}
+
+                <TaskReminderControl
+                  settings={newTask.reminderSettings}
+                  dueDateTime={newTask.dueDate}
+                  onChange={(nextSettings) => setNewTask({ ...newTask, reminderSettings: nextSettings })}
+                  taskTitle={newTask.title || 'Task'}
+                />
               </div>
             </div>
             <div className="pdp-modal-footer">

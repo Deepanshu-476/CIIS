@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../../components/TaskReminderControl';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import TaskDetailsModal from "../../components/TaskDetailsModal";
@@ -674,6 +675,7 @@ const CompanyAllTaskTasks = () => {
     newCheckpointText: "",
     submitting: false,
     error: "",
+    reminderSettings: createDefaultReminderSettings(),
   });
 
   // Live Timer Interactive State
@@ -1193,6 +1195,7 @@ const CompanyAllTaskTasks = () => {
       newCheckpointText: "",
       submitting: false,
       error: "",
+      reminderSettings: createDefaultReminderSettings(),
     });
   };
 
@@ -1238,6 +1241,7 @@ const CompanyAllTaskTasks = () => {
         priority: assignModal.priority || "medium",
         dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
         checkpoints: assignModal.checkpoints.map((c) => ({ title: c.title })),
+        reminderSettings: buildReminderPayload(assignModal.reminderSettings),
       };
 
       await axios.post("/task/create-for-others", payload);
@@ -3857,6 +3861,13 @@ const CompanyAllTaskTasks = () => {
                     </div>
                   </div>
                 </div>
+
+                <TaskReminderControl
+                  settings={assignModal.reminderSettings}
+                  dueDateTime={assignModal.dueDateTime}
+                  onChange={(nextSettings) => setAssignModal((prev) => ({ ...prev, reminderSettings: nextSettings }))}
+                  taskTitle={assignModal.title || 'Task'}
+                />
 
                 <div className="modal-footer">
                   <button

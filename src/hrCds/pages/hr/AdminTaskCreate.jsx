@@ -35,6 +35,85 @@ const getCleanCheckpoints = (checkpoints = []) => (
     : []
 );
 
+const REMINDER_OPTIONS = [
+  { value: 'hourly', label: 'Every 1 hour' },
+  { value: 'halfHourly', label: 'Every 30 minutes' },
+  { value: 'oneHourBefore', label: '1 hour before due time' },
+];
+
+const createDefaultReminderSettings = () => ({
+  enabled: false,
+  options: [],
+  reminderTime: null,
+  customTime: '',
+  repeatIntervalMinutes: '',
+  minutesBeforeDue: '',
+});
+
+const normalizeReminderSettings = (settings = {}) => {
+  const options = Array.isArray(settings?.options) ? settings.options.filter(Boolean) : [];
+  const reminderTime = settings?.reminderTime || null;
+  const customTime = settings?.customTime || (reminderTime ? new Date(reminderTime).toISOString().slice(0, 16) : '');
+  const repeatIntervalMinutes = settings?.repeatIntervalMinutes ? Number(settings.repeatIntervalMinutes) : null;
+  const minutesBeforeDue = settings?.minutesBeforeDue ? Number(settings.minutesBeforeDue) : null;
+  const hasOptionsOrCustom = options.length > 0 || Boolean(reminderTime || customTime || repeatIntervalMinutes || minutesBeforeDue);
+  return {
+    enabled: Boolean(settings?.enabled) && hasOptionsOrCustom,
+    options,
+    reminderTime,
+    customTime,
+    repeatIntervalMinutes: repeatIntervalMinutes || '',
+    minutesBeforeDue: minutesBeforeDue || '',
+  };
+};
+
+const format12HourTime = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+const format12HourDateTime = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '';
+  const dateStr = d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const timeStr = d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${dateStr}, ${timeStr}`;
+};
+
+const formatReminderPreviewTime = (dueDateTime, option) => {
+  if (!dueDateTime) return '';
+  const dueDate = new Date(dueDateTime);
+  if (Number.isNaN(dueDate.getTime())) return '';
+  const dueTime12h = format12HourTime(dueDate);
+
+  if (option === 'oneHourBefore') {
+    const preview = new Date(dueDate.getTime() - 60 * 60 * 1000);
+    return `Scheduled: ${format12HourDateTime(preview)} (Due Time: ${dueTime12h})`;
+  }
+  if (option === 'hourly') {
+    return `Notification & popup every 1 hour before due time (${dueTime12h})`;
+  }
+  if (option === 'halfHourly') {
+    return `Notification & popup every 30 minutes before due time (${dueTime12h})`;
+  }
+  return '';
+};
+
 const AdminTaskManagement = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -131,6 +210,7 @@ const AdminTaskManagement = () => {
     title: '',
     description: '',
     dueDateTime: '',
+    reminderSettings: createDefaultReminderSettings(),
     assignedUsers: [],
     assignedGroups: [],
     priorityDays: '1',
@@ -150,6 +230,7 @@ const AdminTaskManagement = () => {
     title: '',
     description: '',
     dueDateTime: '',
+    reminderSettings: createDefaultReminderSettings(),
     assignedUsers: [],
     assignedGroups: [],
     priorityDays: '1',
@@ -1230,6 +1311,7 @@ const AdminTaskManagement = () => {
       formData.append('assignedUsers', JSON.stringify(newTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups));
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
+      formData.append('reminderSettings', JSON.stringify(normalizeReminderSettings(newTask.reminderSettings)));
 
       const effectiveCreateBranchId = selectedCreateBranch && selectedCreateBranch !== 'all'
         ? selectedCreateBranch
@@ -1302,6 +1384,7 @@ const AdminTaskManagement = () => {
       formData.append('priority', editTask.priority);
       formData.append('assignedUsers', JSON.stringify(editTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(editTask.assignedGroups));
+      formData.append('reminderSettings', JSON.stringify(normalizeReminderSettings(editTask.reminderSettings)));
 
       await apiCall('put', `/task/${selectedTask._id}`, formData);
       
@@ -2854,6 +2937,253 @@ const AdminTaskManagement = () => {
   }, []);
 
   
+    const toggleReminderOption = (currentSettings, option) => {
+    const currentOptions = Array.isArray(currentSettings.options) ? currentSettings.options : [];
+    const options = currentOptions.includes(option)
+      ? currentOptions.filter(item => item !== option)
+      : [...currentOptions, option];
+    const hasTriggers = options.length > 0 || Boolean(currentSettings.customTime || currentSettings.reminderTime || currentSettings.repeatIntervalMinutes || currentSettings.minutesBeforeDue);
+    return {
+      ...currentSettings,
+      enabled: hasTriggers,
+      options,
+    };
+  };
+
+  const renderReminderSettings = (settings, dueDateTime, onChange, taskTitle = 'Task') => {
+    const normalized = normalizeReminderSettings(settings);
+    return (
+      <div className="AdminTaskManagement-form-group AdminTaskManagement-reminder-group" style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: normalized.enabled ? '12px' : 0 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0, fontWeight: 600, color: '#1e293b' }}>
+            <FiBell style={{ color: normalized.enabled ? '#2563eb' : '#64748b' }} />
+            <span>Reminder Settings</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+            <input
+              type="checkbox"
+              checked={normalized.enabled}
+              onChange={(e) => {
+                const isChecked = e.target.checked;
+                const hasExisting = normalized.options.length > 0 || Boolean(normalized.repeatIntervalMinutes || normalized.minutesBeforeDue || normalized.customTime);
+                const nextOptions = isChecked ? (hasExisting ? normalized.options : ['oneHourBefore']) : [];
+                onChange({
+                  ...normalized,
+                  enabled: isChecked,
+                  options: nextOptions,
+                });
+              }}
+            />
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#2563eb' }}>Reminder ON</span>
+          </label>
+        </div>
+        {normalized.enabled && (
+          <div style={{ display: 'grid', gap: '10px' }}>
+            {REMINDER_OPTIONS.map(option => {
+              const checked = normalized.options.includes(option.value);
+              const preview = formatReminderPreviewTime(dueDateTime, option.value);
+              return (
+                <label key={option.value} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onChange(toggleReminderOption(normalized, option.value))}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#0f172a' }}>{option.label}</div>
+                    {preview && (
+                      <div style={{ fontSize: '11.5px', color: '#0369a1', marginTop: '3px', background: '#f0f9ff', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
+                        ⏰ {preview}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+
+            {/* Recurring interval in minutes */}
+            <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                🔁 Repeat Reminder Every (Interval in Minutes):
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="1440"
+                  placeholder="e.g. 15, 30, 45"
+                  className="AdminTaskManagement-form-input"
+                  style={{ width: '90px', fontSize: '13px', padding: '4px 8px' }}
+                  value={normalized.repeatIntervalMinutes || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const num = val ? Math.max(1, parseInt(val, 10)) : '';
+                    onChange({
+                      ...normalized,
+                      enabled: Boolean(num || normalized.options.length || normalized.reminderTime || normalized.minutesBeforeDue),
+                      repeatIntervalMinutes: num,
+                    });
+                  }}
+                />
+                <span style={{ fontSize: '12px', color: '#64748b' }}>min</span>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {[10, 15, 30, 45, 60].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      style={{
+                        padding: '3px 7px',
+                        fontSize: '11.5px',
+                        background: Number(normalized.repeatIntervalMinutes) === mins ? '#2563eb' : '#f1f5f9',
+                        color: Number(normalized.repeatIntervalMinutes) === mins ? '#ffffff' : '#475569',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => onChange({ ...normalized, enabled: true, repeatIntervalMinutes: mins })}
+                    >
+                      {mins}m
+                    </button>
+                  ))}
+                </div>
+                {normalized.repeatIntervalMinutes && (
+                  <button
+                    type="button"
+                    style={{ padding: '3px 7px', fontSize: '11px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', color: '#64748b' }}
+                    onClick={() => onChange({ ...normalized, repeatIntervalMinutes: '' })}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {normalized.repeatIntervalMinutes && (
+                <div style={{ marginTop: '6px', fontSize: '11.5px', color: '#0369a1', background: '#f0f9ff', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
+                  🔁 Repeats every <strong>{normalized.repeatIntervalMinutes} minutes</strong> until due time {dueDateTime ? `(${format12HourTime(dueDateTime)})` : ''}
+                </div>
+              )}
+            </div>
+
+            {/* Minutes before due time */}
+            <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                ⏳ Remind Before Due Time (Minutes Before Due):
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="10080"
+                  placeholder="e.g. 15, 30, 60"
+                  className="AdminTaskManagement-form-input"
+                  style={{ width: '90px', fontSize: '13px', padding: '4px 8px' }}
+                  value={normalized.minutesBeforeDue || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const num = val ? Math.max(1, parseInt(val, 10)) : '';
+                    onChange({
+                      ...normalized,
+                      enabled: Boolean(num || normalized.options.length || normalized.reminderTime || normalized.repeatIntervalMinutes),
+                      minutesBeforeDue: num,
+                    });
+                  }}
+                />
+                <span style={{ fontSize: '12px', color: '#64748b' }}>min</span>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {[15, 30, 45, 60, 120].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      style={{
+                        padding: '3px 7px',
+                        fontSize: '11.5px',
+                        background: Number(normalized.minutesBeforeDue) === mins ? '#2563eb' : '#f1f5f9',
+                        color: Number(normalized.minutesBeforeDue) === mins ? '#ffffff' : '#475569',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => onChange({ ...normalized, enabled: true, minutesBeforeDue: mins })}
+                    >
+                      {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                    </button>
+                  ))}
+                </div>
+                {normalized.minutesBeforeDue && (
+                  <button
+                    type="button"
+                    style={{ padding: '3px 7px', fontSize: '11px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', color: '#64748b' }}
+                    onClick={() => onChange({ ...normalized, minutesBeforeDue: '' })}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {normalized.minutesBeforeDue && (
+                <div style={{ marginTop: '6px', fontSize: '11.5px', color: '#0369a1', background: '#f0f9ff', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
+                  {dueDateTime && !Number.isNaN(new Date(dueDateTime).getTime()) ? (
+                    <>
+                      ⏰ Scheduled at: <strong>{format12HourDateTime(new Date(new Date(dueDateTime).getTime() - Number(normalized.minutesBeforeDue) * 60 * 1000))}</strong> ({normalized.minutesBeforeDue} minutes before due time)
+                    </>
+                  ) : (
+                    <>⏰ Remind <strong>{normalized.minutesBeforeDue} minutes</strong> before task due time</>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* One-time specific custom reminder time */}
+            <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                📅 Set One-Time Specific Reminder Date & Time:
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="datetime-local"
+                  className="AdminTaskManagement-form-input"
+                  style={{ fontSize: '13px', padding: '6px 10px', flex: 1, minWidth: '220px' }}
+                  value={normalized.customTime || ''}
+                  max={dueDateTime ? new Date(dueDateTime).toISOString().slice(0, 16) : undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      onChange({ ...normalized, customTime: '', reminderTime: null });
+                      return;
+                    }
+                    if (dueDateTime && new Date(val).getTime() >= new Date(dueDateTime).getTime()) {
+                      showSnackbar('Reminder time must be before the due date!', 'warning');
+                      return;
+                    }
+                    onChange({
+                      ...normalized,
+                      enabled: true,
+                      customTime: val,
+                      reminderTime: new Date(val).toISOString(),
+                    });
+                  }}
+                />
+                {normalized.customTime && (
+                  <button
+                    type="button"
+                    style={{ padding: '6px 10px', fontSize: '12px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', color: '#64748b' }}
+                    onClick={() => onChange({ ...normalized, customTime: '', reminderTime: null })}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {normalized.customTime && (
+                <div style={{ marginTop: '6px', fontSize: '12px', color: '#166534', fontWeight: 500 }}>
+                  ⏰ Scheduled (12-Hour): <strong>{format12HourDateTime(normalized.customTime)}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderCreateTaskDialog = () => (
     <div
       className={`AdminTaskManagement-modal AdminTaskManagement-create-task-modal ${openCreateDialog ? 'AdminTaskManagement-modal-open' : ''}`}
@@ -3362,6 +3692,8 @@ const AdminTaskManagement = () => {
                 }}
               />
             </div>
+
+            {renderReminderSettings(editTask.reminderSettings, editTask.dueDateTime, (next) => setEditTask({ ...editTask, reminderSettings: next }), editTask.title)}
 
             <div className="AdminTaskManagement-form-row">
               <div className="AdminTaskManagement-form-group">

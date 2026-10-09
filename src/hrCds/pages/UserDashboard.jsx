@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { ToastContainer, toast } from 'react-toastify';
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
 import 'react-toastify/dist/ReactToastify.css';
 import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
@@ -2170,6 +2171,7 @@ const UserDashboard = () => {
             body.append('dueDateTime', dueDate.toISOString());
             body.append('priority', quickForm.priority || 'medium');
             body.append('priorityDays', '1');
+            body.append('reminderSettings', JSON.stringify(buildReminderPayload(quickForm.reminderSettings)));
             await axios.post('/tasks/self/create', body, { headers: { 'Content-Type': 'multipart/form-data' } });
           } else if (quickTaskType === 'client') {
             const client = quickClients.find(item => String(item._id || item.id) === String(quickForm.clientId));
@@ -2185,7 +2187,8 @@ const UserDashboard = () => {
               priority: (() => {
                 const value = String(quickForm.priority || 'medium').trim().toLowerCase();
                 return value === 'high' ? 'High' : value === 'low' ? 'Low' : 'Medium';
-              })()
+              })(),
+              reminderSettings: buildReminderPayload(quickForm.reminderSettings),
             });
           } else {
             if (!canAssignQuickTasks) throw new Error('You do not have permission to assign tasks');
@@ -2202,6 +2205,7 @@ const UserDashboard = () => {
             body.append('assignedUsers', JSON.stringify([assignee._id || assignee.id]));
             body.append('assignedGroups', JSON.stringify([]));
             body.append('branchId', quickForm.branchId);
+            body.append('reminderSettings', JSON.stringify(buildReminderPayload(quickForm.reminderSettings)));
             await axios.post('/tasks/assigned/create', body, { headers: { 'Content-Type': 'multipart/form-data' } });
           }
           break;
@@ -2445,6 +2449,14 @@ const UserDashboard = () => {
                     }} /></label>
                     <label><span>Priority</span><select value={quickForm.priority || 'medium'} onChange={e => setQuickForm(current => ({ ...current, priority: e.target.value }))}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label className="wide"><span>Description</span><textarea value={quickForm.description || ''} onChange={e => setQuickForm(current => ({ ...current, description: e.target.value }))} rows="3" /></label>
+                    <div className="wide">
+                      <TaskReminderControl
+                        settings={quickForm.reminderSettings}
+                        dueDateTime={quickForm.dueDateTime}
+                        onChange={(nextSettings) => setQuickForm(current => ({ ...current, reminderSettings: nextSettings }))}
+                        taskTitle={quickForm.title || 'Task'}
+                      />
+                    </div>
                   </div>
                 </>
               ) : activeQuickAction.label === 'Apply Leave' ? (

@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "./EmpAllTask.css";
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../../components/TaskReminderControl';
 import { getCurrentUserId, getStoredUser, loadPagePermission, getUserPageScope } from "../../../utils/pageAccess";
 
 const getRecordId = (value) => {
@@ -913,6 +914,7 @@ const TaskDetails = () => {
     newCheckpointText: '',
     submitting: false,
     error: '',
+    reminderSettings: createDefaultReminderSettings(),
   });
 
   const openAssignModal = (targetUser) => {
@@ -933,6 +935,7 @@ const TaskDetails = () => {
       newCheckpointText: '',
       submitting: false,
       error: '',
+      reminderSettings: createDefaultReminderSettings(),
     });
   };
 
@@ -997,6 +1000,8 @@ const TaskDetails = () => {
         formData.append('branchId', String(branchId));
         formData.append('branch', String(branchId));
       }
+
+      formData.append('reminderSettings', JSON.stringify(buildReminderPayload(assignModal.reminderSettings)));
 
       await axios.post('/task/create-for-others', formData);
 
@@ -1184,6 +1189,13 @@ const TaskDetails = () => {
                 </div>
               )}
             </div>
+
+            <TaskReminderControl
+              settings={assignModal.reminderSettings}
+              dueDateTime={assignModal.dueDateTime}
+              onChange={(nextSettings) => setAssignModal(prev => ({ ...prev, reminderSettings: nextSettings }))}
+              taskTitle={assignModal.title || 'Task'}
+            />
 
             <div className="new-modal-footer">
               <button

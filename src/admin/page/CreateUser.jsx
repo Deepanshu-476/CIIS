@@ -1151,11 +1151,21 @@ const CreateUser = () => {
                     id="phone"
                     name="phone"
                     value={form.phone}
+                    onKeyDown={(e) => {
+                      if (
+                        !/[0-9]/.test(e.key) &&
+                        !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                        !e.ctrlKey && !e.metaKey
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
                     onChange={handleTextChange}
                     className="CreateUser-input"
                     placeholder="Enter 10 digit number"
-                    maxLength="10"
-                    
+                    maxLength={10}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                   />
                 </div>
                 <small className="CreateUser-helper-text">10 digits only</small>

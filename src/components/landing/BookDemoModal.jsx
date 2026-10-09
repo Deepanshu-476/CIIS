@@ -239,8 +239,19 @@ const BookDemoModal = ({ open, onClose }) => {
                       name="phone"
                       type="tel"
                       maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       placeholder="Enter 10-digit phone number"
                       value={formData.phone}
+                      onKeyDown={(e) => {
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                          !e.ctrlKey && !e.metaKey
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
                       onChange={handleChange}
                     />
                   </div>

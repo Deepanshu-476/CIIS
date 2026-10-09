@@ -576,18 +576,50 @@ const ActiveClientsOverview = () => {
     }
   };
 
-  const getDocumentFileName = doc => doc?.name || doc?.originalName || 'document';
+  const getDocumentFileName = doc => (
+    doc?.name ||
+    doc?.originalName ||
+    doc?.storedName ||
+    'document'
+  );
 
-  const getDocumentMimeType = (doc, response) => (
-    response?.headers?.['content-type'] ||
-    doc?.type ||
-    response?.data?.type ||
-    'application/octet-stream'
-  ).split(';')[0].trim().toLowerCase();
+  const getDocumentMimeType = (doc, response) => {
+    const fileName = String(getDocumentFileName(doc)).toLowerCase();
+
+    if (fileName.endsWith('.pdf')) return 'application/pdf';
+    if (fileName.endsWith('.png')) return 'image/png';
+    if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) return 'image/jpeg';
+    if (fileName.endsWith('.webp')) return 'image/webp';
+    if (fileName.endsWith('.gif')) return 'image/gif';
+    if (fileName.endsWith('.svg')) return 'image/svg+xml';
+    if (fileName.endsWith('.txt')) return 'text/plain';
+    if (fileName.endsWith('.html') || fileName.endsWith('.htm')) return 'text/html';
+    if (fileName.endsWith('.csv')) return 'text/csv';
+
+    const headerType = (
+      response?.headers?.['content-type'] ||
+      doc?.mimeType ||
+      doc?.type ||
+      response?.data?.type ||
+      ''
+    ).split(';')[0].trim().toLowerCase();
+
+    if (headerType && headerType !== 'application/octet-stream') {
+      return headerType;
+    }
+
+    return 'application/pdf';
+  };
 
   const canPreviewDocument = mimeType => {
     const type = String(mimeType || '').toLowerCase();
-    return type.startsWith('image/') || type === 'application/pdf' || type.startsWith('text/');
+    return (
+      type === 'application/pdf' ||
+      type.startsWith('image/') ||
+      type.startsWith('text/') ||
+      type === 'text/html' ||
+      type === 'text/csv'
+    );
   };
 
   const escapeHtml = value => String(value || '')
@@ -600,62 +632,121 @@ const ActiveClientsOverview = () => {
   const handleOpenDocument = async doc => {
     if (!doc?._id) return;
 
+    let previewWindow = null;
+    try {
+      previewWindow = window.open('about:blank', '_blank');
+      if (previewWindow && previewWindow.document) {
+        previewWindow.document.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <title>Opening ${escapeHtml(getDocumentFileName(doc))}...</title>
+              <style>
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                  display: flex; align-items: center; justify-content: center;
+                  height: 100vh; margin: 0; background: #0f172a; color: #f8fafc;
+                }
+                .box { text-align: center; padding: 28px 36px; border-radius: 12px; background: #1e293b; border: 1px solid #334155; }
+                .spinner { width: 36px; height: 36px; border: 3px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                p { margin: 0; font-size: 14px; color: #94a3b8; }
+              </style>
+            </head>
+            <body>
+              <div class="box">
+                <div class="spinner"></div>
+                <p>Opening ${escapeHtml(getDocumentFileName(doc))}...</p>
+              </div>
+            </body>
+          </html>
+        `);
+        previewWindow.document.close();
+      }
+    } catch {
+      // popup blocker handled
+    }
+
     try {
       setError('');
-      const previewWindow = window.open('', '_blank');
-      if (previewWindow) {
-        previewWindow.document.write('<p style="font-family: Arial, sans-serif; padding: 24px;">Opening document...</p>');
+      let response;
+      try {
+        response = await clientDocumentsApi.get(`/${doc._id}/view`, {
+          responseType: 'blob',
+        });
+      } catch (viewErr) {
+        // Fallback to /download endpoint if /view returns 404 or fails
+        console.warn('View endpoint failed, falling back to download endpoint:', viewErr.message);
+        response = await clientDocumentsApi.get(`/${doc._id}/download`, {
+          responseType: 'blob',
+        });
       }
 
-      const response = await clientDocumentsApi.get(`/${doc._id}/view`, {
-        responseType: 'blob',
-      });
       const mimeType = getDocumentMimeType(doc, response);
       const blob = new Blob([response.data], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
       const fileName = getDocumentFileName(doc);
 
       if (!canPreviewDocument(mimeType)) {
-        if (previewWindow) previewWindow.close();
+        if (previewWindow && !previewWindow.closed) {
+          previewWindow.close();
+        }
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
         link.remove();
-        window.URL.revokeObjectURL(url);
+        setTimeout(() => window.URL.revokeObjectURL(url), 60000);
         return;
       }
 
-      if (previewWindow) {
-        previewWindow.document.open();
-        previewWindow.document.write(`
-          <!doctype html>
-          <html>
-            <head>
-              <title>${escapeHtml(fileName)}</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <style>
-                html, body { margin: 0; width: 100%; height: 100%; background: #f8fafc; font-family: Arial, sans-serif; }
-                iframe, object { width: 100%; height: 100%; border: 0; display: block; }
-                .image-wrap { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
-                img { max-width: 100%; max-height: calc(100vh - 48px); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16); background: white; }
-              </style>
-            </head>
-            <body>
-              ${mimeType.startsWith('image/')
-                ? `<div class="image-wrap"><img src="${url}" alt="${escapeHtml(fileName)}" /></div>`
-                : `<iframe src="${url}" title="${escapeHtml(fileName)}"></iframe>`}
-            </body>
-          </html>
-        `);
-        previewWindow.document.close();
-      } else {
-        window.open(url, '_blank');
+      let navigated = false;
+      if (previewWindow && !previewWindow.closed) {
+        try {
+          previewWindow.location.replace(url);
+          navigated = true;
+        } catch {
+          try {
+            previewWindow.location.href = url;
+            navigated = true;
+          } catch {
+            navigated = false;
+          }
+        }
       }
+
+      if (!navigated) {
+        const opened = window.open(url, '_blank');
+        if (!opened && previewWindow && !previewWindow.closed) {
+          try {
+            previewWindow.location.href = url;
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      setTimeout(() => window.URL.revokeObjectURL(url), 180000);
     } catch (err) {
       console.error('Document open failed', err);
-      setError(err.response?.data?.message || 'Document open failed');
+      if (previewWindow && !previewWindow.closed) {
+        previewWindow.close();
+      }
+      let errMsg = 'Document open failed';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const parsed = JSON.parse(await err.response.data.text());
+          errMsg = parsed.message || errMsg;
+        } catch {
+          // keep fallback errMsg
+        }
+      } else if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+      setError(errMsg);
     }
   };
 

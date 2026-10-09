@@ -638,7 +638,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 0.85rem 1.25rem;
   background: #f8fafc;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
@@ -651,7 +651,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
+  min-height: 38px;
   font-size: 0.9rem;
   color: #475569;
 }
@@ -671,17 +671,29 @@
   margin-left: auto;
 }
 
+.pdp-task-filter-controls .pdp-form-group,
+.pdp-task-filter-select-wrap,
+.pdp-task-assignee-filter,
+.pdp-task-status-filter {
+  margin: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+}
+
 .pdp-task-search-wrapper,
 .pdp-search-wrapper {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
 }
 
 .pdp-task-search-input,
 .pdp-search-input {
   width: 210px;
-  padding: 8px 30px 8px 12px;
+  height: 38px;
+  padding: 0 32px 0 12px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   font-size: 0.88rem;
@@ -690,18 +702,21 @@
   outline: none;
   transition: all 0.2s ease;
   box-sizing: border-box;
+  line-height: 36px;
 }
 
 .pdp-task-search-input:focus,
 .pdp-search-input:focus {
   border-color: #4f46e5;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-  width: 250px;
+  width: 240px;
 }
 
 .pdp-search-clear {
   position: absolute;
-  right: 6px;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
@@ -710,14 +725,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
 }
 
 .pdp-search-clear:hover {
   color: #ef4444;
 }
 
+.pdp-task-filter-controls .pdp-select,
 .pdp-select {
-  padding: 8px 12px;
+  height: 38px;
+  padding: 0 28px 0 12px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   font-size: 0.88rem;
@@ -726,6 +744,9 @@
   outline: none;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
+  line-height: 36px;
+  margin: 0;
 }
 
 .pdp-select:focus {
@@ -733,9 +754,18 @@
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
-.pdp-task-assignee-filter,
-.pdp-task-status-filter {
-  margin: 0;
+.pdp-task-filter-controls .pdp-button-sm {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -1516,87 +1546,129 @@
 /* Assignee Member Checkboxes in Modal */
 .pdp-user-tabs {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  max-height: 190px;
+  max-height: 200px;
   overflow-y: auto;
   border: 1px solid #e2e8f0;
   padding: 10px;
   border-radius: 8px;
   background: #ffffff;
+  box-sizing: border-box;
+}
+
+@media (max-width: 560px) {
+  .pdp-user-tabs {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pdp-user-tabs-error {
   border-color: #ef4444;
 }
 
+.pdp-form-group .pdp-user-tabs label.pdp-user-tab,
+.pdp-user-tabs .pdp-user-tab,
 .pdp-user-tab {
-  display: grid;
-  grid-template-columns: 16px 32px minmax(0, 1fr);
-  align-items: center;
-  gap: 9px;
-  min-height: 62px;
-  padding: 10px 12px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 12px;
+  margin: 0 !important;
+  margin-bottom: 0 !important;
   background: #f8fafc;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   border: 1px solid #e2e8f0;
   transition: all 0.15s ease;
+  box-sizing: border-box;
+  font-weight: normal !important;
 }
 
+.pdp-user-tabs .pdp-user-tab input[type="checkbox"],
 .pdp-user-tab input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  align-self: start;
-  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  margin: 0 !important;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: #4f46e5;
+  align-self: center !important;
 }
 
+.pdp-user-tabs .pdp-user-tab:hover,
 .pdp-user-tab:hover {
   background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
+.pdp-user-tabs .pdp-user-tab.pdp-user-tab-selected,
 .pdp-user-tab-selected {
-  background: #eef2ff;
-  border-color: #c7d2fe;
+  background: #eef2ff !important;
+  border-color: #a5b4fc !important;
 }
 
+.pdp-user-tabs .pdp-user-tab .pdp-user-avatar,
 .pdp-user-avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #6366f1;
   color: #ffffff;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 700;
   flex-shrink: 0;
 }
 
+.pdp-user-tabs .pdp-user-tab:nth-child(4n + 2) .pdp-user-avatar {
+  background: #3b82f6;
+}
+
+.pdp-user-tabs .pdp-user-tab:nth-child(4n + 3) .pdp-user-avatar {
+  background: #8b5cf6;
+}
+
+.pdp-user-tabs .pdp-user-tab:nth-child(4n) .pdp-user-avatar {
+  background: #0ea5e9;
+}
+
+.pdp-user-tabs .pdp-user-tab .pdp-user-tab-copy,
 .pdp-user-tab-copy {
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   justify-content: center;
   min-width: 0;
+  flex: 1;
   overflow: hidden;
 }
 
+.pdp-user-tabs .pdp-user-tab .pdp-user-tab-copy strong,
 .pdp-user-tab-copy strong {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.25;
 }
 
+.pdp-user-tabs .pdp-user-tab .pdp-user-tab-copy small,
 .pdp-user-tab-copy small {
   font-size: 0.76rem;
+  font-weight: 400;
   color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.25;
+  margin-top: 2px;
 }
 
 /* File Dropzone */

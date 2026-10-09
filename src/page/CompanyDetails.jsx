@@ -469,9 +469,13 @@ const CompanyDetails = () => {
   
   const handleInputChange = (e) => {
     const { name, value, checked } = e.target;
+    let finalValue = name === 'isActive' ? checked : value;
+    if (name === 'phone' || name === 'companyPhone' || name === 'emergencyPhone') {
+      finalValue = String(value || '').replace(/\D/g, '').slice(0, 10);
+    }
     setEditFormData(prev => ({
       ...prev,
-      [name]: name === 'isActive' ? checked : value
+      [name]: finalValue
     }));
   };
 
@@ -1068,6 +1072,16 @@ const CompanyDetails = () => {
                     name="phone"
                     value={editFormData.phone}
                     onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                      if (
+                        !/[0-9]/.test(e.key) &&
+                        !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                        !e.ctrlKey && !e.metaKey
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
+                    inputProps={{ maxLength: 10, inputMode: 'numeric', pattern: '[0-9]*' }}
                     variant="outlined"
                     size="small"
                   />

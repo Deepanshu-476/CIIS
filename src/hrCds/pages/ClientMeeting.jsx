@@ -254,7 +254,11 @@ export default function ClientMeeting() {
   // Handle Form Change
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    let finalValue = value;
+    if (name === 'phone') {
+      finalValue = String(value || '').replace(/\D/g, '').slice(0, 10);
+    }
+    setForm((prev) => ({ ...prev, [name]: finalValue }));
     if (formErrors[name]) {
       setFormErrors((prev) => ({ ...prev, [name]: null }));
     }
@@ -1654,11 +1658,23 @@ export default function ClientMeeting() {
                 <div className="cm-form-group">
                   <label className="cm-form-label">Phone / WhatsApp</label>
                   <input
-                    type="text"
+                    type="tel"
                     name="phone"
+                    maxLength={10}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={form.phone}
+                    onKeyDown={(e) => {
+                      if (
+                        !/[0-9]/.test(e.key) &&
+                        !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                        !e.ctrlKey && !e.metaKey
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
                     onChange={handleInputChange}
-                    placeholder="+91 98765 43210"
+                    placeholder="Enter 10-digit phone"
                     className="cm-form-input"
                   />
                 </div>

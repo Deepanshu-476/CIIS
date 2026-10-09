@@ -2223,7 +2223,7 @@ const ProjectDetailsPage = () => {
                   </div>
 
                   {/* Assigned to Dropdown */}
-                  <div className="pdp-form-group pdp-task-assignee-filter">
+                  <div className="pdp-task-filter-select-wrap pdp-task-assignee-filter">
                     <select
                       className="pdp-select"
                       value={taskAssigneeFilter}
@@ -2240,7 +2240,7 @@ const ProjectDetailsPage = () => {
                   </div>
 
                   {/* Status Dropdown */}
-                  <div className="pdp-form-group pdp-task-status-filter">
+                  <div className="pdp-task-filter-select-wrap pdp-task-status-filter">
                     <select
                       className="pdp-select"
                       value={taskFilter}

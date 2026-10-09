@@ -467,7 +467,7 @@ const SuperAdminModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose 
           </h2>
 
           <p className="ciis-sa-subtitle">
-            {view === 'login' && 'Enter master credentials to access platform governance and multi-tenant control.'}
+            {view === 'login' && 'Enter credentials to access platform governance and multi-tenant control.'}
             {view === 'otp' && 'Two-factor authentication is active. Enter the 6-digit code sent to your email.'}
             {view === 'forgot_email' && 'Enter your registered super admin email to receive a recovery OTP.'}
             {view === 'forgot_reset' && 'Enter the 6-digit recovery code and your new master password.'}
@@ -490,7 +490,7 @@ const SuperAdminModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose 
             {/* Master Email */}
             <div className="ciis-sa-field">
               <label className="ciis-sa-label" htmlFor="sa-email">
-                Master Email Address
+              Email Address
               </label>
               <div className={`ciis-sa-input-wrap ${errors.email ? 'has-error' : ''}`}>
                 <span className="ciis-sa-field-icon" style={{ fontFamily: "'Material Symbols Rounded'" }}>
@@ -515,7 +515,7 @@ const SuperAdminModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose 
             {/* Master Password */}
             <div className="ciis-sa-field">
               <div className="ciis-sa-label">
-                <label htmlFor="sa-password">Master Password</label>
+                <label htmlFor="sa-password">Password</label>
                 <button
                   type="button"
                   className="ciis-sa-forgot-link"

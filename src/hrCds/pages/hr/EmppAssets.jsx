@@ -7,7 +7,7 @@ import {
   FiAlertCircle,
   FiUsers, FiLock, FiEyeOff,
   FiShield, FiHome, FiUpload, FiImage, FiX,
-  FiEye, FiSend, FiSave, FiPaperclip, FiTrash2 as FiDelete, FiFileText,
+  FiEye, FiSend, FiPaperclip, FiTrash2 as FiDelete, FiFileText,
   FiSearch, FiFilter, FiDownload, FiRefreshCw, FiMoreVertical, FiCalendar
 } from 'react-icons/fi';
 import './EmpAssets.css';
@@ -1588,7 +1588,6 @@ const EmpAssets = () => {
             <div className="EmpAssets-dialog-footer">
               <button className="EmpAssets-btn EmpAssets-btn-cancel" onClick={closeCommentDialog} disabled={actionLoading}>Cancel</button>
               <div>
-                <button className="EmpAssets-btn EmpAssets-btn-draft" onClick={handleSaveCommentDraft} disabled={actionLoading || !commentText.trim()}><FiSave /> Save Draft</button>
                 <button className="EmpAssets-btn EmpAssets-btn-save" onClick={handleCommentUpdate} disabled={actionLoading || (!commentText.trim() && !commentImages.length)}>{actionLoading ? 'Uploading...' : commentText.trim() && commentImages.length ? 'Upload Images With Comment' : 'Save Comment & Notify Employee'} <FiSend /></button>
               </div>
             </div>

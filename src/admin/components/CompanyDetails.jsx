@@ -1415,6 +1415,8 @@ const CompanyDetails = () => {
       ...prev,
       [name]: name === "companyCode"
         ? value.toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 10)
+        : name === "companyPhone"
+        ? value.replace(/\D/g, "").slice(0, 10)
         : value
     }));
   };
@@ -1625,9 +1627,13 @@ const CompanyDetails = () => {
   
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let finalValue = type === 'checkbox' ? checked : value;
+    if (name === 'phone' || name === 'companyPhone' || name === 'emergencyPhone') {
+      finalValue = String(value || '').replace(/\D/g, '').slice(0, 10);
+    }
     setEditFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: finalValue
     }));
     
     if (formErrors[name]) {
@@ -3089,12 +3095,24 @@ const CompanyDetails = () => {
                           </svg>
                         </span>
                         <input
-                          type="text"
+                          type="tel"
                           name="companyPhone"
+                          maxLength={10}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={companyEditFormData.companyPhone}
+                          onKeyDown={(e) => {
+                            if (
+                              !/[0-9]/.test(e.key) &&
+                              !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                              !e.ctrlKey && !e.metaKey
+                            ) {
+                              e.preventDefault();
+                            }
+                          }}
                           onChange={handleCompanyInputChange}
                           className="CompanyDetails-form-input"
-                          placeholder="Enter company phone"
+                          placeholder="Enter 10-digit company phone"
                         />
                       </div>
                     </div>
@@ -3453,12 +3471,24 @@ const CompanyDetails = () => {
                       </svg>
                     </span>
                     <input
-                      type="text"
+                      type="tel"
                       name="phone"
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={editFormData.phone}
+                      onKeyDown={(e) => {
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                          !e.ctrlKey && !e.metaKey
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
                       onChange={handleInputChange}
                       className="CompanyDetails-form-input"
-                      placeholder="Enter phone number"
+                      placeholder="Enter 10-digit phone number"
                     />
                   </div>
                 </div>

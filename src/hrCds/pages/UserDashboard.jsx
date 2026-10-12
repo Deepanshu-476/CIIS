@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { ToastContainer, toast } from 'react-toastify';
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
 import 'react-toastify/dist/ReactToastify.css';
 import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
@@ -2191,6 +2192,7 @@ const UserDashboard = () => {
             body.append('dueDateTime', dueDate.toISOString());
             body.append('priority', quickForm.priority || 'medium');
             body.append('priorityDays', '1');
+            body.append('reminderSettings', JSON.stringify(buildReminderPayload(quickForm.reminderSettings)));
             await axios.post('/tasks/self/create', body, { headers: { 'Content-Type': 'multipart/form-data' } });
           } else if (quickTaskType === 'client') {
             const client = quickClients.find(item => String(item._id || item.id) === String(quickForm.clientId));
@@ -2206,7 +2208,8 @@ const UserDashboard = () => {
               priority: (() => {
                 const value = String(quickForm.priority || 'medium').trim().toLowerCase();
                 return value === 'high' ? 'High' : value === 'low' ? 'Low' : 'Medium';
-              })()
+              })(),
+              reminderSettings: buildReminderPayload(quickForm.reminderSettings),
             });
           } else {
             if (!canAssignQuickTasks) throw new Error('You do not have permission to assign tasks');
@@ -2223,6 +2226,7 @@ const UserDashboard = () => {
             body.append('assignedUsers', JSON.stringify([assignee._id || assignee.id]));
             body.append('assignedGroups', JSON.stringify([]));
             body.append('branchId', quickForm.branchId);
+            body.append('reminderSettings', JSON.stringify(buildReminderPayload(quickForm.reminderSettings)));
             await axios.post('/tasks/assigned/create', body, { headers: { 'Content-Type': 'multipart/form-data' } });
           }
           break;
@@ -2466,6 +2470,14 @@ const UserDashboard = () => {
                     }} /></label>
                     <label><span>Priority</span><select value={quickForm.priority || 'medium'} onChange={e => setQuickForm(current => ({ ...current, priority: e.target.value }))}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label className="wide"><span>Description</span><textarea value={quickForm.description || ''} onChange={e => setQuickForm(current => ({ ...current, description: e.target.value }))} rows="3" /></label>
+                    <div className="wide">
+                      <TaskReminderControl
+                        settings={quickForm.reminderSettings}
+                        dueDateTime={quickForm.dueDateTime}
+                        onChange={(nextSettings) => setQuickForm(current => ({ ...current, reminderSettings: nextSettings }))}
+                        taskTitle={quickForm.title || 'Task'}
+                      />
+                    </div>
                   </div>
                 </>
               ) : activeQuickAction.label === 'Apply Leave' ? (
@@ -2560,7 +2572,7 @@ const UserDashboard = () => {
                     <label><span>City *</span><input type="text" value={quickForm.city || ''} onChange={e => setQuickForm(current => ({ ...current, city: e.target.value }))} placeholder="Client city" /></label>
                     <label><span>Project manager *</span><select value={quickForm.projectManagerId || ''} disabled={quickTeamLoading} onChange={e => setQuickForm(current => ({ ...current, projectManagerId: e.target.value }))}><option value="">{quickTeamLoading ? 'Loading team…' : 'Select team member'}</option>{quickTeamMembers.map(member => <option key={member._id || member.id} value={member._id || member.id}>{member.name}{member.email ? ` · ${member.email}` : ''}</option>)}</select></label>
                     <label><span>Email</span><input type="email" value={quickForm.email || ''} onChange={e => setQuickForm(current => ({ ...current, email: e.target.value }))} placeholder="client@company.com" /></label>
-                    <label><span>Phone</span><input type="tel" value={quickForm.phone || ''} onChange={e => setQuickForm(current => ({ ...current, phone: e.target.value }))} placeholder="Contact number" /></label>
+                    <label><span>Phone</span><input type="tel" maxLength={10} inputMode="numeric" pattern="[0-9]*" value={quickForm.phone || ''} onKeyDown={e => { if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) && !e.ctrlKey && !e.metaKey) { e.preventDefault(); } }} onChange={e => setQuickForm(current => ({ ...current, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="10-digit contact number" /></label>
                     <label className="wide"><span>Address</span><input type="text" value={quickForm.address || ''} onChange={e => setQuickForm(current => ({ ...current, address: e.target.value }))} placeholder="Office address (optional)" /></label>
                     <label className="wide"><span>Notes</span><textarea value={quickForm.notes || ''} onChange={e => setQuickForm(current => ({ ...current, notes: e.target.value }))} rows="2" placeholder="Additional information (optional)" /></label>
                   </div>

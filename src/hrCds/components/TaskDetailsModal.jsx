@@ -142,12 +142,10 @@ const TaskDetailsModal = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [howTrackingOpen, setHowTrackingOpen] = useState(false);
   const [remarkText, setRemarkText] = useState('');
-  const [remarkFiles, setRemarkFiles] = useState([]);
   const [isSubmittingRemark, setIsSubmittingRemark] = useState(false);
   const [openStatusMenu, setOpenStatusMenu] = useState(null); // 'header' | 'footer' | null
   const [liveSessionSeconds, setLiveSessionSeconds] = useState(0);
 
-  const fileInputRef = useRef(null);
   const remarkInputRef = useRef(null);
   const statusMenuRef = useRef(null);
   const footerStatusMenuRef = useRef(null);
@@ -793,12 +791,12 @@ const TaskDetailsModal = ({
   const handleAddRemarkSubmit = async (e) => {
     if (e) e.preventDefault();
     const text = remarkText.trim();
-    if (!text && remarkFiles.length === 0) return;
+    if (!text) return;
 
     setIsSubmittingRemark(true);
     try {
       if (onRemarkAdded) {
-        await onRemarkAdded(task, text, remarkFiles);
+        await onRemarkAdded(task, text, []);
       } else {
         const source = task.taskFor === 'self' || task.isSelfTask ? 'self' : task.source || 'task';
         const endpoint = source === 'client'
@@ -810,7 +808,6 @@ const TaskDetailsModal = ({
         await axios.post(endpoint, { text, remark: text });
       }
       setRemarkText('');
-      setRemarkFiles([]);
     } catch (err) {
       console.error('Failed to submit remark:', err);
     } finally {
@@ -1436,26 +1433,8 @@ const TaskDetailsModal = ({
                     />
                     <div className="remark-action-btns">
                       <button
-                        type="button"
-                        className="remark-tool-btn"
-                        onClick={() => fileInputRef.current?.click()}
-                        title="Attach file"
-                      >
-                        <FiPaperclip size={15} />
-                      </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        hidden
-                        onChange={(e) => {
-                          if (e.target.files?.[0]) {
-                            setRemarkFiles([e.target.files[0]]);
-                          }
-                        }}
-                      />
-                      <button
                         type="submit"
-                        disabled={isSubmittingRemark || (!remarkText.trim() && remarkFiles.length === 0)}
+                        disabled={isSubmittingRemark || !remarkText.trim()}
                         className="remark-send-btn"
                         title="Send Remark"
                       >

@@ -929,7 +929,22 @@ const BranchManagement = () => {
                 />
               </Grid>
               <Grid item xs={12}>
-                <TextField fullWidth label="Phone Number" value={formData.phone} onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))} />
+                <TextField
+                  fullWidth
+                  label="Phone Number"
+                  value={formData.phone}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  onKeyDown={(e) => {
+                    if (
+                      !/[0-9]/.test(e.key) &&
+                      !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                      !e.ctrlKey && !e.metaKey
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  inputProps={{ maxLength: 10, inputMode: 'numeric', pattern: '[0-9]*' }}
+                />
               </Grid>
               <Grid item xs={12}>
                 <TextField

@@ -85,6 +85,75 @@ const getIdList = (value) => {
   return [...new Set(input.map(getValueId).filter(Boolean))];
 };
 
+const getArrayFromApiResponse = (data, keys = []) => {
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    const value = key.split('.').reduce((acc, part) => acc?.[part], data);
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+};
+
+const getPaginationFromApiResponse = (data) => (
+  data?.message?.pagination ||
+  data?.pagination ||
+  data?.data?.pagination ||
+  null
+);
+
+const getNormalizedMimeType = value => String(value || '').split(';')[0].trim().toLowerCase();
+
+const canPreviewMimeType = mimeType => {
+  const type = getNormalizedMimeType(mimeType);
+  return type.startsWith('image/') || type === 'application/pdf' || type.startsWith('text/') || type === 'image/svg+xml';
+};
+
+const normalizeEmployeeUpdatePayload = (data = {}) => {
+  const payload = { ...data };
+  const objectIdFields = ['department', 'branch', 'reportingManager'];
+  const textFields = [
+    'name', 'email', 'phone', 'address', 'city', 'state', 'country', 'pinCode',
+    'gender', 'maritalStatus', 'employeeType', 'companyRole', 'propertyOwned',
+    'aadharCard', 'panCard', 'accountNumber', 'ifsc', 'bankName', 'bankHolderName',
+    'fatherName', 'motherName', 'emergencyName', 'emergencyPhone',
+    'emergencyRelation', 'emergencyAddress', 'profileImage', 'shiftId',
+    'shiftName', 'shiftType', 'jobRole'
+  ];
+
+  objectIdFields.forEach(field => {
+    if (payload[field] && typeof payload[field] === 'object') {
+      payload[field] = getValueId(payload[field]);
+    }
+    if (!payload[field]) delete payload[field];
+  });
+
+  textFields.forEach(field => {
+    if (payload[field] === undefined || payload[field] === null) return;
+    if (typeof payload[field] === 'object') {
+      payload[field] = getRecordName(payload[field]) || getValueId(payload[field]);
+    }
+    payload[field] = String(payload[field]).trim();
+  });
+
+  if (payload.phone !== undefined) payload.phone = payload.phone.replace(/\D/g, '').slice(0, 10);
+  if (payload.emergencyPhone !== undefined) payload.emergencyPhone = payload.emergencyPhone.replace(/\D/g, '').slice(0, 10);
+  if (payload.pinCode !== undefined) payload.pinCode = payload.pinCode.replace(/\D/g, '');
+  if (payload.ifsc) payload.ifsc = payload.ifsc.toUpperCase();
+
+  if (payload.salary === '' || payload.salary === null || payload.salary === undefined) {
+    delete payload.salary;
+  } else {
+    payload.salary = Number(payload.salary);
+  }
+
+  payload.assignedBranches = getIdList(payload.assignedBranches);
+  payload.properties = Array.isArray(payload.properties)
+    ? payload.properties.map(item => String(item || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  return payload;
+};
+
 const getRoleShiftOptions = (role = {}) => {
   const shifts = Array.isArray(role.shifts) && role.shifts.length > 0
     ? role.shifts
@@ -174,7 +243,7 @@ const useUser = () => {
   const getCurrentUserCompanyId = useCallback(() => {
     const user = getCurrentUser();
     const company = user?.company;
-    return company?._id || company?.id || company || user?.companyId || user?.companyDetails?._id || null;
+    return getValueId(company) || getValueId(user?.companyId) || getValueId(user?.companyDetails?._id) || null;
   }, [getCurrentUser]);
   
   const getCurrentUserCompanyCode = useCallback(() => {
@@ -193,7 +262,7 @@ const useUser = () => {
   
   const getCurrentUserDepartmentId = useCallback(() => {
     const user = getCurrentUser();
-    return user?.department || user?.departmentId || null;
+    return getValueId(user?.department) || getValueId(user?.departmentId) || null;
   }, [getCurrentUser]);
   
   const getCurrentUserCompanyRole = useCallback(() => {
@@ -859,9 +928,21 @@ const EmergencyContactForm = ({ formData, onInputChange, isReadOnly = false }) =
             type="tel"
             className="EmployeeDirectory-form-input"
             value={formData.emergencyPhone || ''}
-            onChange={(e) => onInputChange('emergencyPhone', e.target.value)}
+            onChange={(e) => onInputChange('emergencyPhone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+            onKeyDown={(e) => {
+              if (
+                !/[0-9]/.test(e.key) &&
+                !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                !e.ctrlKey && !e.metaKey
+              ) {
+                e.preventDefault();
+              }
+            }}
+            maxLength={10}
+            inputMode="numeric"
+            pattern="[0-9]*"
             disabled={isReadOnly}
-            placeholder="Enter emergency phone number"
+            placeholder="Enter 10-digit emergency phone number"
           />
         </div>
         
@@ -1277,9 +1358,21 @@ const PersonalInfoForm = ({ formData, onInputChange, isReadOnly = false }) => {
             type="tel"
             className="EmployeeDirectory-form-input"
             value={formData.phone || ''}
-            onChange={(e) => onInputChange('phone', e.target.value)}
+            onChange={(e) => onInputChange('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+            onKeyDown={(e) => {
+              if (
+                !/[0-9]/.test(e.key) &&
+                !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                !e.ctrlKey && !e.metaKey
+              ) {
+                e.preventDefault();
+              }
+            }}
+            maxLength={10}
+            inputMode="numeric"
+            pattern="[0-9]*"
             disabled={isReadOnly}
-            placeholder="Enter phone number"
+            placeholder="Enter 10-digit phone number"
           />
         </div>
         
@@ -1513,6 +1606,12 @@ const EmployeeDocuments = ({
 
   useEffect(() => {
     let active = true;
+    if (!userId) {
+      setDocuments([]);
+      setLoading(false);
+      setError('Employee ID is missing. Please reopen the employee form.');
+      return () => { active = false; };
+    }
     setLoading(true);
     setError('');
     axios.get(`/users/${userId}/documents`)
@@ -1549,6 +1648,16 @@ const EmployeeDocuments = ({
 
   const openDocument = async (document, download) => {
     try {
+      if (!document?.downloadUrl && !document?.viewUrl && !document?.externalUrl) {
+        setError('Document link is missing. Please refresh and try again.');
+        return;
+      }
+
+      if (document.externalUrl && !download) {
+        window.open(document.externalUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
       const { data, headers } = await axios.get(
         download ? document.downloadUrl : document.viewUrl,
         { responseType: 'blob' }
@@ -1561,13 +1670,23 @@ const EmployeeDocuments = ({
         link.click();
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       } else {
+        const mimeType = getNormalizedMimeType(data.type || headers['content-type'] || document.type || '');
+        if (!canPreviewMimeType(mimeType)) {
+          const link = window.document.createElement('a');
+          link.href = blobUrl;
+          link.download = document.name || 'document';
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          setError('This document type cannot be previewed in the browser. It has been downloaded instead.');
+          return;
+        }
         if (previewDocument?.url) {
           URL.revokeObjectURL(previewDocument.url);
         }
         setPreviewDocument({
           url: blobUrl,
           name: document.name,
-          type: data.type || headers['content-type'] || document.type || ''
+          type: mimeType
         });
       }
     } catch (err) {
@@ -1938,6 +2057,46 @@ const EmployeeDirectory = () => {
       return [];
     }
   }, [currentUserCompanyId, user.getAuthToken]);
+
+  const fetchAllEmployeesFromEndpoint = useCallback(async (url, params, config) => {
+    const firstResponse = await axios.get(url, {
+      ...config,
+      params: { ...params, page: 1, limit: 100 }
+    });
+    const firstData = firstResponse.data || {};
+    const firstUsers = getArrayFromApiResponse(firstData, [
+      'message.users',
+      'users',
+      'message',
+      'data'
+    ]);
+    const pagination = getPaginationFromApiResponse(firstData);
+    const totalPages = Number(pagination?.pages || pagination?.totalPages || 1);
+
+    if (!pagination || totalPages <= 1) {
+      return firstUsers;
+    }
+
+    const remainingResponses = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, index) => axios.get(url, {
+        ...config,
+        params: { ...params, page: index + 2, limit: 100 }
+      }).catch(error => ({ error })))
+    );
+
+    return remainingResponses.reduce((allUsers, response) => {
+      if (response.error) {
+        console.error('Failed to load employee page:', response.error);
+        return allUsers;
+      }
+      return allUsers.concat(getArrayFromApiResponse(response.data || {}, [
+        'message.users',
+        'users',
+        'message',
+        'data'
+      ]));
+    }, [...firstUsers]);
+  }, []);
   
   // Helper function to get job role name by ID
   const getJobRoleName = useCallback((jobRoleId) => {
@@ -2083,45 +2242,21 @@ const EmployeeDirectory = () => {
         }
       };
       
-      let usersRes;
-      
-      if (canSeeAllCompanyUsers) {
-        void 0;
-        usersRes = await axios.get('/users/company-users', {
-          ...config,
-          params: {
-            companyId: currentUserCompanyId,
-            includeInactive: true
-          }
-        });
-      } else {
-        void 0;
-        usersRes = await axios.get('/users/department-users', {
-          ...config,
-          params: {
-            department: currentUserDepartmentId,
-            includeInactive: true
-          }
-        });
-      }
-      
       let employeesData = [];
       
-      if (usersRes.data && usersRes.data.success) {
-        if (usersRes.data.message && usersRes.data.message.users) {
-          employeesData = usersRes.data.message.users;
-        } else if (usersRes.data.users) {
-          employeesData = usersRes.data.users;
-        } else if (usersRes.data.message && Array.isArray(usersRes.data.message)) {
-          employeesData = usersRes.data.message;
-        } else if (usersRes.data.data && Array.isArray(usersRes.data.data)) {
-          employeesData = usersRes.data.data;
-        }
-        
-        setEmployees(employeesData);
+      if (canSeeAllCompanyUsers) {
+        employeesData = await fetchAllEmployeesFromEndpoint('/users/company-users', {
+          companyId: currentUserCompanyId,
+          includeInactive: true
+        }, config);
       } else {
-        setEmployees([]);
+        employeesData = await fetchAllEmployeesFromEndpoint('/users/department-users', {
+          department: currentUserDepartmentId,
+          includeInactive: true
+        }, config);
       }
+
+      setEmployees(employeesData);
       
       const deptRes = await axios.get("/departments", config);
       
@@ -2157,7 +2292,8 @@ const EmployeeDirectory = () => {
     showSnackbar, 
     user.getAuthToken,
     fetchJobRoles,
-    fetchBranches
+    fetchBranches,
+    fetchAllEmployeesFromEndpoint
   ]);
   
   // Initial data fetch
@@ -2310,7 +2446,11 @@ const EmployeeDirectory = () => {
 
   const handleEditInputChange = useCallback((field, value) => {
     if (editFormErrors.length) setEditFormErrors([]);
-    handleInputChange(field, value);
+    let sanitizedValue = value;
+    if (field === 'phone' || field === 'emergencyPhone') {
+      sanitizedValue = String(value || '').replace(/\D/g, '').slice(0, 10);
+    }
+    handleInputChange(field, sanitizedValue);
   }, [editFormErrors.length, handleInputChange]);
   
   // Handle save
@@ -2331,21 +2471,22 @@ const EmployeeDirectory = () => {
         return;
       }
       
-      const updateData = { ...editFormData };
+      const updateData = normalizeEmployeeUpdatePayload(editFormData);
       updateData.userId = userId;
       updateData.targetUserId = userId;
-      
-      if (updateData.department && typeof updateData.department === 'object') {
-        updateData.department = updateData.department._id;
+
+      if (updateData.phone && updateData.phone.length !== 10) {
+        setEditFormErrors(['Phone Number must be exactly 10 digits.']);
+        showSnackbar('Phone number must be exactly 10 digits', 'error');
+        setSaving(false);
+        return;
       }
-      if (updateData.branch && typeof updateData.branch === 'object') {
-        updateData.branch = getValueId(updateData.branch);
+      if (updateData.emergencyPhone && updateData.emergencyPhone.length !== 10) {
+        setEditFormErrors(['Emergency Phone Number must be exactly 10 digits.']);
+        showSnackbar('Emergency phone number must be exactly 10 digits', 'error');
+        setSaving(false);
+        return;
       }
-      if (updateData.reportingManager && typeof updateData.reportingManager === 'object') {
-        updateData.reportingManager = getValueId(updateData.reportingManager);
-      }
-      if (!updateData.branch) delete updateData.branch;
-      if (!updateData.reportingManager) delete updateData.reportingManager;
       
       const selectedRoleForShift = jobRoles.find(r =>
         r._id === updateData.jobRole ||
@@ -2421,7 +2562,7 @@ const EmployeeDirectory = () => {
       
       const updateUrls = isSelfEdit && !canEditOtherEmployees
         ? ['/users/me', `/users/profile-update/${userId}`]
-        : [`/users/admin-update/${userId}`, '/users/admin-update-by-email', `/users/${userId}`];
+        : [`/users/admin-update/${userId}`, '/users/admin-update-by-email'];
       
       void 0;
       void 0;

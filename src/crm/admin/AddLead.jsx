@@ -64,7 +64,7 @@ export default function AddLead() {
     const { name, value } = e.target;
     if (name === 'phone') {
       const digits = value.replace(/\D/g, '');
-      const onlyDigits = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+      const onlyDigits = (digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits).slice(0, 10);
       setForm(prev => ({ ...prev, phone: onlyDigits }));
       if (errors.phone) {
         setErrors(prev => ({ ...prev, phone: '' }));
@@ -206,8 +206,17 @@ export default function AddLead() {
                   name="phone"
                   value={form.phone}
                   onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if (
+                      !/[0-9]/.test(e.key) &&
+                      !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                      !e.ctrlKey && !e.metaKey
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
                   placeholder="Enter 10-digit mobile number"
-                  maxLength={30}
+                  maxLength={10}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   className={errors.phone ? 'is-invalid' : ''}

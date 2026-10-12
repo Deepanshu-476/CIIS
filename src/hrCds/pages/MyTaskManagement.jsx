@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import axios from '../../utils/axiosConfig';
 import { API_URL_IMG } from '../../config';
 import '../Css/MyTaskManagement.css';
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
 
 const createEmptyCheckpoint = () => ({ title: '', completed: false });
 
@@ -51,7 +52,8 @@ const MyTaskManagement = () => {
     voiceNote: null,
     repeatPattern: 'none',
     repeatDays: [],
-    checkpoints: []
+    checkpoints: [],
+    reminderSettings: createDefaultReminderSettings(),
   });
   const [newGroup, setNewGroup] = useState({
     name: '', description: '', members: []
@@ -650,6 +652,8 @@ const MyTaskManagement = () => {
         formData.append('voiceNote', newTask.voiceNote);
       }
 
+      formData.append('reminderSettings', JSON.stringify(buildReminderPayload(newTask.reminderSettings)));
+
       const isSelfTask = finalAssignedUsers.length === 1 && finalAssignedUsers[0] === userId;
       const endpoint = isSelfTask ? '/tasks/self/create' : '/tasks/assigned/create';
 
@@ -684,7 +688,8 @@ const MyTaskManagement = () => {
         voiceNote: null,
         repeatPattern: 'none',
         repeatDays: [],
-        checkpoints: []
+        checkpoints: [],
+        reminderSettings: createDefaultReminderSettings(),
       });
 
     } catch (err) {
@@ -1876,6 +1881,15 @@ const MyTaskManagement = () => {
                 })}
               </div>
             </div>
+          </div>
+
+          <div className="MyTaskManagement-create-task-section">
+            <TaskReminderControl
+              settings={newTask.reminderSettings}
+              dueDateTime={newTask.dueDateTime}
+              onChange={(nextSettings) => setNewTask({ ...newTask, reminderSettings: nextSettings })}
+              taskTitle={newTask.title || 'Task'}
+            />
           </div>
         </div>
 

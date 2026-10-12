@@ -697,11 +697,11 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
             />
           </Box>
 
-          
-          <Box sx={{ flex: 1, textAlign: "center" }}>
-            {isDashboard && !isMobile ? (
+          <Box sx={{ flex: 1, textAlign: "center", display: { xs: "none", sm: "flex" }, alignItems: "center", justifyContent: "center" }}>
+            {!isMobile && (
               <Typography
                 variant="subtitle1"
+                noWrap
                 sx={{
                   fontWeight: 500,
                   color: theme.palette.text.secondary,
@@ -709,31 +709,6 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 1
-                }}
-              >
-                Welcome, {user?.name || "User"}
-              </Typography>
-            ) : !isMobile ? (
-              <Typography 
-                variant="subtitle1" 
-                sx={{ 
-                  fontWeight: 500, 
-                  color: theme.palette.text.secondary,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1
-                }}
-              >
-                Welcome, {user?.name || "User"}
-        
-              </Typography>
-            ) : (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontWeight: 500, 
-                  color: theme.palette.text.secondary 
                 }}
               >
                 Welcome, {user?.name || "User"}

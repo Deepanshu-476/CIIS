@@ -206,27 +206,25 @@ const LocationMeta = ({ location, label = "Location", compact = false }) => {
   const accuracy = Number(location.accuracy);
 
   return (
-    <span style={{ fontSize: compact ? '0.72rem' : '0.8rem', color: '#666', display: 'block', marginTop: compact ? '2px' : '4px', lineHeight: 1.35 }}>
+    <span style={{ fontSize: compact ? '0.72rem' : '0.8rem', color: '#666', display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: compact ? '2px' : '4px', lineHeight: 1.35 }}>
       {distance !== null && (
-        <>
-          {compact ? 'Dist' : `${label} distance`}: <strong>{distance}m</strong>
-          <br />
-        </>
+        <span style={{ background: '#f1f5f9', color: '#334155', padding: '1px 6px', borderRadius: '999px', fontWeight: 600 }}>
+          {compact ? `${distance}m` : `${label} distance: ${distance}m`}
+        </span>
       )}
-      {Number.isFinite(accuracy) && (
-        <>
+      {!compact && Number.isFinite(accuracy) && (
+        <span>
           Accuracy: <strong>{Math.round(accuracy)}m</strong>
-          <br />
-        </>
+        </span>
       )}
       <a
         href={getMapsUrl(location)}
         target="_blank"
         rel="noreferrer"
-        style={{ color: '#2563eb', textDecoration: 'none' }}
-        title={`Open ${formatLocation(location)} in Google Maps`}
+        style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}
+        title={`Coordinates: ${formatLocation(location)}`}
       >
-        {compact ? 'Map' : 'Current location'}: {formatLocation(location)}
+        View on map
       </a>
     </span>
   );
@@ -247,7 +245,7 @@ const getClockOutModeLabel = (record = {}) => {
   return 'Manual Clock Out';
 };
 
-const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply, onClear }) => {
+const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChange, onApply }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -318,12 +316,6 @@ const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChang
         >
           <FiRangeCalendar size={16} />
           <span>Apply</span>
-        </button>
-        <button 
-          className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm"
-          onClick={onClear}
-        >
-          <FiRefreshCw size={16} />
         </button>
         <button 
           className="EmppAttendence-btn EmppAttendence-btn-outlined EmppAttendence-btn-sm EmppAttendence-quick-select-btn"
@@ -1163,6 +1155,8 @@ const getStatusClass = (status) => {
   if (normalizedStatus === "absent") return "EmppAttendence-status-absent";
   if (normalizedStatus === "uninformedleave") return "EmppAttendence-status-absent";
   if (normalizedStatus === "holiday") return "EmppAttendence-status-halfday";
+  if (normalizedStatus === "weekend") return "EmppAttendence-status-halfday";
+  if (normalizedStatus === "leave") return "EmppAttendence-status-halfday";
   if (normalizedStatus === "halfday") return "EmppAttendence-status-halfday";
   if (normalizedStatus === "late") return "EmppAttendence-status-late";
   return "";
@@ -1184,6 +1178,8 @@ const getRowClass = (status) => {
   if (normalizedStatus === "absent") return "EmppAttendence-row-absent";
   if (normalizedStatus === "uninformedleave") return "EmppAttendence-row-absent";
   if (normalizedStatus === "holiday") return "EmppAttendence-row-halfday";
+  if (normalizedStatus === "weekend") return "";
+  if (normalizedStatus === "leave") return "";
   if (normalizedStatus === "halfday") return "EmppAttendence-row-halfday";
   if (normalizedStatus === "late") return "EmppAttendence-row-late";
   return "";
@@ -1201,7 +1197,8 @@ const normalizeAttendanceStatus = (status) => {
   if (normalized === "absent") return "absent";
   if (normalized === "uninformedleave") return "uninformedleave";
   if (normalized === "holiday") return "holiday";
-  if (normalized === "weekend") return "absent";
+  if (normalized === "weekend" || normalized === "weeklyoff") return "weekend";
+  if (normalized === "leave" || normalized === "onleave") return "leave";
   return normalized || "absent";
 };
 
@@ -1214,6 +1211,8 @@ const getStatusFilterLabel = (statusFilter) => {
     absent: "ABSENT",
     uninformedleave: "UNINFORMED LEAVE",
     holiday: "HOLIDAY",
+    weekend: "WEEKLY OFF",
+    leave: "ON LEAVE",
     ontime: "ON TIME",
   };
   return labels[statusFilter] || String(statusFilter || "").toUpperCase();
@@ -1230,6 +1229,8 @@ const getStatusExplanation = (status) => {
   if (normalizedStatus === 'absent') return 'No attendance recorded';
   if (normalizedStatus === 'uninformedleave') return 'Uninformed leave - one day salary will be deducted';
   if (normalizedStatus === 'holiday') return 'Holiday - paid day';
+  if (normalizedStatus === 'weekend') return 'Scheduled weekly off';
+  if (normalizedStatus === 'leave') return 'Approved leave';
   return '';
 };
 
@@ -2082,6 +2083,10 @@ const EmployeeAttendance = () => {
 
     return filtered;
   }, [records, selectedEmployeeType, selectedDepartment, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    calculateStats(filteredRecords);
+  }, [filteredRecords]);
 
   
   
@@ -3201,9 +3206,9 @@ const EmployeeAttendance = () => {
             title="Manage Employee Overtime Requests"
             style={{
               marginRight: '8px',
-              background: '#7c3aed',
-              color: '#ffffff',
-              border: 'none',
+              background: '#ffffff',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
               fontWeight: 600
             }}
           >
@@ -3215,7 +3220,13 @@ const EmployeeAttendance = () => {
             className="EmppAttendence-date-chip"
             onClick={handleAddRecord}
             title="Add Attendance Record"
-            style={{ marginRight: '8px' }}
+            style={{
+              marginRight: '8px',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: '1px solid #2563eb',
+              fontWeight: 600
+            }}
             disabled={!canEditAttendance}
           >
             <FiPlus size={16} />
@@ -3229,6 +3240,12 @@ const EmployeeAttendance = () => {
               onClick={() => setExportMenuOpen(!exportMenuOpen)}
               title="Export Report"
               disabled={loading}
+              style={{
+                background: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                fontWeight: 600
+              }}
             >
               <FiDownload size={16} />
               <span>Export</span>
@@ -3257,18 +3274,6 @@ const EmployeeAttendance = () => {
                 </button>
               </div>
             )}
-          </div>
-
-          <div className="EmppAttendence-date-chip">
-            <FiCalendar size={16} />
-            {dateRangeMode 
-              ? `${new Date(selectedStartDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(selectedEndDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-              : new Date(selectedDate).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })
-            }
           </div>
         </div>
       </div>
@@ -3342,10 +3347,10 @@ const EmployeeAttendance = () => {
               onClick={clearFilters}
               disabled={loading}
             >
-              Clear Filters
+              Reset Filters
             </button>
             <button 
-              className="EmppAttendence-btn EmppAttendence-btn-contained"
+              className="EmppAttendence-btn EmppAttendence-btn-outlined"
               onClick={() => dateRangeMode 
                 ? fetchAttendanceDataRange(selectedStartDate, selectedEndDate)
                 : fetchAttendanceData(selectedDate)
@@ -3511,7 +3516,7 @@ const EmployeeAttendance = () => {
               {dateRangeMode ? 'Attendance Records by Date' : 'Attendance Records by Department'}
             </h3>
             <div className="EmppAttendence-table-count">
-              {filteredRecords.length} records found • 
+              {filteredRecords.length} {filteredRecords.length === 1 ? 'record' : 'records'} found • 
               <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>
                 {dateRangeMode 
                   ? `Period: ${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
@@ -3670,15 +3675,25 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-hours">
-                            <span className={`EmppAttendence-time-chip ${
-                              rec.totalHours >= 9
-                                ? 'EmppAttendence-time-full'
-                                : rec.totalHours >= 5
-                                ? 'EmppAttendence-time-half'
-                                : 'EmppAttendence-time-low'
-                            }`}>
-                              {rec.hoursWorked || "00:00:00"}
-                            </span>
+                            {(() => {
+                              const normStat = normalizeAttendanceStatus(rec.status);
+                              const isNonWorking = ['absent', 'uninformedleave', 'leave', 'weekend', 'holiday'].includes(normStat);
+                              const noHours = !rec.inTime || !rec.totalHours || rec.totalHours <= 0 || !rec.hoursWorked || rec.hoursWorked === "00:00:00";
+                              if (isNonWorking || noHours) {
+                                return <span style={{ color: '#94a3b8' }}>—</span>;
+                              }
+                              return (
+                                <span className={`EmppAttendence-time-chip ${
+                                  rec.totalHours >= 9
+                                    ? 'EmppAttendence-time-full'
+                                    : rec.totalHours >= 5
+                                    ? 'EmppAttendence-time-half'
+                                    : 'EmppAttendence-time-low'
+                                }`}>
+                                  {rec.hoursWorked}
+                                </span>
+                              );
+                            })()}
                           </td>
 
                           <td className="EmppAttendence-col-login">
@@ -3711,9 +3726,13 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-late">
-                            <span className="EmppAttendence-late-chip">
-                              {rec.lateBy || "00:00:00"}
-                            </span>
+                            {rec.lateBy && rec.lateBy !== "00:00:00" && rec.lateBy !== "-" ? (
+                              <span className="EmppAttendence-late-chip">
+                                {rec.lateBy}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>—</span>
+                            )}
                           </td>
 
                           {!bulkEditMode && (
@@ -3842,15 +3861,25 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-hours">
-                            <span className={`EmppAttendence-time-chip ${
-                              rec.totalHours >= 9
-                                ? 'EmppAttendence-time-full'
-                                : rec.totalHours >= 5
-                                ? 'EmppAttendence-time-half'
-                                : 'EmppAttendence-time-low'
-                            }`}>
-                              {rec.hoursWorked || "00:00:00"}
-                            </span>
+                            {(() => {
+                              const normStat = normalizeAttendanceStatus(rec.status);
+                              const isNonWorking = ['absent', 'uninformedleave', 'leave', 'weekend', 'holiday'].includes(normStat);
+                              const noHours = !rec.inTime || !rec.totalHours || rec.totalHours <= 0 || !rec.hoursWorked || rec.hoursWorked === "00:00:00";
+                              if (isNonWorking || noHours) {
+                                return <span style={{ color: '#94a3b8' }}>—</span>;
+                              }
+                              return (
+                                <span className={`EmppAttendence-time-chip ${
+                                  rec.totalHours >= 9
+                                    ? 'EmppAttendence-time-full'
+                                    : rec.totalHours >= 5
+                                    ? 'EmppAttendence-time-half'
+                                    : 'EmppAttendence-time-low'
+                                }`}>
+                                  {rec.hoursWorked}
+                                </span>
+                              );
+                            })()}
                           </td>
 
                           <td className="EmppAttendence-col-login">
@@ -3883,9 +3912,13 @@ const EmployeeAttendance = () => {
                           </td>
 
                           <td className="EmppAttendence-col-late">
-                            <span className="EmppAttendence-late-chip">
-                              {rec.lateBy || "00:00:00"}
-                            </span>
+                            {rec.lateBy && rec.lateBy !== "00:00:00" && rec.lateBy !== "-" ? (
+                              <span className="EmppAttendence-late-chip">
+                                {rec.lateBy}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>—</span>
+                            )}
                           </td>
 
                           {!bulkEditMode && (

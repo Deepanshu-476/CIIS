@@ -86,6 +86,7 @@ import {
 import Swal from "sweetalert2";
 import { handleAppLogout } from '../utils/logoutModal';
 import axiosInstance from '../utils/axiosConfig';
+import { sanitizeUserForStorage } from '../context/AuthContext';
 import { isCrmPage, requiresPageAccess, hasPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
 import { CRM_PAGES } from '../config/crmPages';
@@ -304,10 +305,24 @@ const isTelecallerPath = (path = '') => {
   return normalized.includes('/telecaller');
 };
 
+const formatRoleDisplayLabel = value => {
+  const text = String(value || '').trim();
+  if (!text || isMongoId(text)) return '';
+  const normalized = text.toLowerCase().replace(/[\s_-]+/g, '_');
+  if (normalized === 'super_admin' || normalized === 'superadmin') return 'Super Admin';
+  if (normalized === 'company_owner' || normalized === 'companyowner') return 'Company Owner';
+  if (normalized === 'company_admin' || normalized === 'companyadmin') return 'Company Admin';
+  if (normalized === 'taskmanger' || normalized === 'task_manger') return 'TaskManager';
+  return text
+    .replace(/TaskManger/gi, 'TaskManager')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+};
+
 const getRecordDisplayName = value => {
   if (!value) return '';
   if (typeof value === 'object') {
-    return (
+    const raw = (
       value.name ||
       value.roleName ||
       value.departmentName ||
@@ -317,14 +332,10 @@ const getRecordDisplayName = value => {
       value.label ||
       ''
     );
+    return formatRoleDisplayLabel(raw);
   }
 
-  const text = String(value).trim();
-  if (!text || isMongoId(text)) return '';
-
-  return text
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase());
+  return formatRoleDisplayLabel(value);
 };
 
 const getJobRoleNameFromList = (roles, roleId) => {
@@ -1045,7 +1056,7 @@ const allPagesItems = [
   },
   {
     id: 'employee-leaves',
-    name: 'Employee Leaves',
+    name: 'Leave Management',
     icon: 'Event',
     path: '/ciisUser/emp-leaves',
     category: 'administration',
@@ -1520,6 +1531,8 @@ const getPathFromName = (name) => {
     'Employee Details': '/ciisUser/emp-details',
     'Sidebar Management': '/ciisUser/SidebarManagement',
     'Employee Leaves': '/ciisUser/emp-leaves',
+    'Team Leaves': '/ciisUser/emp-leaves',
+    'Leave Management': '/ciisUser/emp-leaves',
     'Leave Policy Master': '/ciisUser/leave-policy-master',
     'Leave Policy': '/ciisUser/leave-policy',
     'Employee Assets': '/ciisUser/emp-assets',
@@ -1604,6 +1617,7 @@ const getMenuDisplayName = (name) => {
   if (name === 'Projects') return 'My Projects';
   if (name === 'Admin Projects' || name === 'Admin Project') return 'Manage Projects';
   if (name === 'Salary Assignment') return 'Employee Salary';
+  if (name === 'Employee Leaves') return 'Leave Management';
   return name;
 };
 
@@ -1614,6 +1628,20 @@ const normalizeSidebarRouteValue = value => String(value || '')
   .replace(/\/+$/, '');
 
 const canonicalSidebarItems = [
+  {
+    id: 'my-leaves',
+    name: 'My Leaves',
+    icon: 'Event',
+    path: '/ciisUser/my-leaves',
+    category: 'work'
+  },
+  {
+    id: 'emp-leaves',
+    name: 'Leave Management',
+    icon: 'Event',
+    path: '/ciisUser/emp-leaves',
+    category: 'admin'
+  },
   {
     id: 'client-management',
     name: 'Client Management',
@@ -1654,6 +1682,11 @@ const canonicalSidebarItemByKey = canonicalSidebarItems.reduce((map, item) => {
 }, new Map());
 
 const getCanonicalSidebarItem = item => {
+  const itemId = String(item?.id || '').trim().toLowerCase();
+  const itemName = String(item?.name || '').trim().toLowerCase();
+  if (itemId === 'my-leaves' || itemName === 'my leaves') {
+    return canonicalSidebarItems[0];
+  }
   const keys = [item?.id, item?.path, item?.name]
     .map(key => normalizeSidebarRouteValue(key).replace(/^\/+/, ''))
     .filter(Boolean);
@@ -2155,15 +2188,15 @@ const addCompanyAccessFallbackItems = (items, companyData, isPageAccessAdmin = f
 const categoryLabels = {
   'main': 'Main',
   'work': 'Work',
-  'payroll': 'Payroll',
-  'communication': 'Communication',
-  'admin': 'Admin',
-  'settings': 'Settings',
-  'administration': 'Administration',
-  'tasks': 'Tasks',
-  'projects': 'Projects',
-  'meetings': 'Meetings',
   'clients': 'Clients',
+  'communication': 'Communication',
+  'payroll': 'Payroll',
+  'admin': 'Administration',
+  'settings': 'Administration',
+  'administration': 'Administration',
+  'tasks': 'Work',
+  'projects': 'Work',
+  'meetings': 'Communication',
   'crm': 'Admin CRM',
   'admin-telecaller': 'Admin Telecaller'
 };
@@ -2355,7 +2388,7 @@ const Sidebar = ({
               const profileResponse = await axiosInstance.get(`/users/profile/${parsedUserId}`);
               const latestProfile = profileResponse.data?.user || profileResponse.data?.data || profileResponse.data;
               if (latestProfile && typeof latestProfile === 'object') {
-                parsedUser = { ...parsedUser, ...latestProfile };
+                parsedUser = sanitizeUserForStorage({ ...parsedUser, ...latestProfile });
                 setUserData(parsedUser);
                 localStorage.setItem('user', JSON.stringify(parsedUser));
               }
@@ -2948,16 +2981,32 @@ const Sidebar = ({
             page.id === item.id ||
             page.path.toLowerCase() === String(item.path || '').toLowerCase().replace(/\/+$/, '')
           ));
+          const resolvedId = canonicalItem?.id || crmPage?.id || item.id || item._id || Math.random().toString(36).substr(2, 9);
+          const rawName = canonicalItem?.name || crmPage?.name || item.name || 'Unnamed Item';
+          const isMyLeavesItem = String(resolvedId).toLowerCase() === 'my-leaves'
+            || String(item.id || '').toLowerCase() === 'my-leaves'
+            || String(item.name || '').trim().toLowerCase() === 'my leaves';
+          const isAdminLeavesItem = ['employee-leaves', 'emp-leaves'].includes(String(resolvedId).toLowerCase())
+            || String(item.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/emp-leaves';
+
           const processedItem = {
-            id: canonicalItem?.id || crmPage?.id || item.id || item._id || Math.random().toString(36).substr(2, 9),
+            id: isMyLeavesItem ? 'my-leaves' : (isAdminLeavesItem ? 'employee-leaves' : resolvedId),
             // CRM entries always use the canonical page label. Older saved
             // configs sometimes persisted the page id in `name`, which made
             // raw ids flash in the sidebar after a refresh.
-            name: getMenuDisplayName(canonicalItem?.name || crmPage?.name || item.name || 'Unnamed Item'),
+            name: isMyLeavesItem
+              ? 'My Leaves'
+              : isAdminLeavesItem
+                ? 'Leave Management'
+                : getMenuDisplayName(rawName),
             icon: canonicalItem?.icon || crmPage?.icon || item.icon || 'Dashboard',
             category: canonicalItem?.category || crmPage?.category || item.category || 'main',
             order: Number.isFinite(Number(item.order)) && Number(item.order) !== 99 ? Number(item.order) : (index + 1),
-            path: canonicalItem?.path || crmPage?.path || item.path || getPathFromName(item.name),
+            path: isMyLeavesItem
+              ? '/ciisUser/my-leaves'
+              : isAdminLeavesItem
+                ? '/ciisUser/emp-leaves'
+                : (canonicalItem?.path || crmPage?.path || item.path || getPathFromName(item.name)),
             disabled: item.disabled || false,
             visible: item.visible !== false
           };
@@ -3081,14 +3130,14 @@ const Sidebar = ({
     if (!userData) return 'Employee';
     if (isClientUser) return 'Client Portal';
 
-    return (
+    return formatRoleDisplayLabel(
       resolvedJobRoleName ||
       getRecordDisplayName(userData.jobRole) ||
       getRecordDisplayName(userData.role) ||
       getRecordDisplayName(userData.roleId) ||
       getRecordDisplayName(userData.companyRole) ||
       'Employee'
-    );
+    ) || 'Employee';
   }, [userData, isClientUser, resolvedJobRoleName]);
 
   useEffect(() => {
@@ -3194,6 +3243,8 @@ const Sidebar = ({
           <StyledListItemButton
             selected={selected}
             isCollapsed={false}
+            aria-label={item.name}
+            title={item.name}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
@@ -3237,6 +3288,8 @@ const Sidebar = ({
           <StyledListItemButton
             selected={selected}
             isCollapsed={true}
+            aria-label={item.name}
+            title={item.name}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
@@ -3294,6 +3347,8 @@ const Sidebar = ({
       <StyledListItemButton
         selected={isTelecallerActive}
         isCollapsed={!isSidebarOpen}
+        aria-label="Admin Telecaller"
+        title="Admin Telecaller"
         onClick={toggleTelecaller}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3393,6 +3448,7 @@ const Sidebar = ({
                       selected={selected}
                       isCollapsed={!isSidebarOpen}
                       aria-label="Call Workspace"
+                      title="Call Workspace"
                       aria-expanded={isSidebarOpen && telecallerWorkspaceOpen}
                       aria-controls={submenuId}
                       onClick={() => setTelecallerWorkspaceOpen(open => !open)}
@@ -3482,6 +3538,8 @@ const Sidebar = ({
       <StyledListItemButton
         selected={isCrmActive}
         isCollapsed={!isSidebarOpen}
+        aria-label="Admin CRM"
+        title="Admin CRM"
         onClick={toggleCrm}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3590,6 +3648,8 @@ const Sidebar = ({
                 <StyledListItemButton
                   selected={hasSelectedChild}
                   isCollapsed={!isSidebarOpen}
+                  aria-label={group.name}
+                  title={group.name}
                   onClick={() => toggleGroup(group.id)}
                   sx={{
                     justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3692,6 +3752,8 @@ const Sidebar = ({
       <StyledListItemButton
         selected={isPayrollActive}
         isCollapsed={!isSidebarOpen}
+        aria-label="Payroll"
+        title="Payroll"
         onClick={togglePayroll}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3911,6 +3973,8 @@ const Sidebar = ({
       <StyledListItemButton
         selected={isActive}
         isCollapsed={!isSidebarOpen}
+        aria-label={label}
+        title={label}
         onClick={handleSectionClick}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -4011,6 +4075,19 @@ const Sidebar = ({
   };
 
 
+  const normalizeConsolidatedCategory = (rawCat) => {
+    const key = String(rawCat || '').trim().toLowerCase();
+    if (!key || key === 'main' || key === 'dashboard' || key === 'home') return 'main';
+    if (['work', 'tasks', 'task', 'projects', 'project', 'attendance', 'leaves'].includes(key)) return 'work';
+    if (['communication', 'meetings', 'meeting', 'chat', 'messages'].includes(key)) return 'communication';
+    if (['clients', 'client', 'client portal'].includes(key)) return 'clients';
+    if (['payroll', 'salary'].includes(key)) return 'payroll';
+    if (['crm', 'admin crm'].includes(key)) return 'crm';
+    if (['admin-telecaller', 'telecaller', 'admin telecaller'].includes(key)) return 'admin-telecaller';
+    if (['admin', 'administration', 'settings', 'setting'].includes(key)) return 'admin';
+    return rawCat;
+  };
+
   const getWebsiteCategory = (item) => {
     const id = String(item?.id || '').toLowerCase();
     const name = String(item?.name || '').toLowerCase();
@@ -4019,47 +4096,45 @@ const Sidebar = ({
     if (id === 'dashboard' || name === 'dashboard') return 'main';
     if (id === 'alerts' || name === 'alerts' || name === 'notifications' || id === 'notifications') return 'main';
 
-    // Work
+    // Work (includes Tasks & Projects)
     if (id === 'attendance' || name === 'attendance') return 'work';
     if (id === 'my-leaves' || name === 'my leaves') return 'work';
     if (id === 'my-assets' || name === 'my assets') return 'work';
     if (id === 'create-task' || id === 'task-management' || name === 'create task' || name === 'task management') return 'work';
+    if (id === 'project' || name === 'project' || name === 'projects') return 'work';
 
-    // Communication
+    // Communication (includes Meetings)
     if (id === 'chat' || name === 'chat') return 'communication';
-    if (id === 'employee-meeting' || name === 'employee meeting' || name === 'meeting') return 'communication';
+    if (id === 'employee-meeting' || id === 'meeting' || name === 'employee meeting' || name === 'meeting') return 'communication';
     if (id === 'client-meeting' || name === 'client meeting') return 'communication';
 
-    // Admin
+    // Clients
+    if (item?.category === 'clients' || String(item?.path || '').toLowerCase().includes('/client')) return 'clients';
+
+    // Administration (merges Admin, Settings, and Administration into a single unified section)
     if (id === 'create-user' || name === 'create user') return 'admin';
     if (id === 'register-request' || name === 'register request') return 'admin';
     if (id === 'employee-details' || id === 'emp-details' || name === 'employee details') return 'admin';
     if (id === 'admin-projects' || id === 'adminproject' || name === 'admin projects') return 'admin';
     if (id === 'manage-groups' || name === 'manage groups') return 'admin';
-
-    // Settings
-    if (id === 'profile' || name === 'profile' || name === 'my profile') return 'settings';
-    if (id === 'change-password' || name === 'change password') return 'settings';
-    if (id === 'logout' || name === 'logout') return 'settings';
+    if (id === 'profile' || name === 'profile' || name === 'my profile') return 'admin';
+    if (id === 'change-password' || name === 'change password') return 'admin';
+    if (id === 'logout' || name === 'logout') return 'admin';
 
     // Payroll
     if (isPayrollItem(item)) return 'payroll';
 
-    // Keep original database category if not matching the targeted 15 items!
-    return item.category || 'main';
+    return normalizeConsolidatedCategory(item.category || 'main');
   };
 
   const groupedItems = useMemo(() => {
     const groups = {};
-    const categoryOrder = ['main', 'work', 'communication', 'admin', 'settings', 'administration', 'tasks', 'projects', 'meetings', 'clients', 'payroll'];
+    // Consolidated top-level navigation (at most 8 groups total including CRM & Telecaller, with Clients near the top)
+    const categoryOrder = ['main', 'work', 'clients', 'communication', 'payroll', 'admin', 'crm', 'admin-telecaller'];
     // Keep CRM sections below ordinary and custom sidebar sections.
     const crmSectionOrder = category => category === 'crm' ? 1 : category === 'admin-telecaller' ? 2 : 0;
     const customRanges = sidebarConfig && Array.isArray(sidebarConfig.ranges) ? sidebarConfig.ranges : [];
     const hasCustomRanges = customRanges.length > 0;
-    // Custom range headings retain the spelling entered in Sidebar Management
-    // (for example, "Main"). The built-in Dashboard category is "main".
-    // Without this lookup the two case variants become separate groups, which
-    // renders two identical Main sections when Dashboard falls outside a range.
     const customHeadingByNormalizedName = new Map(
       customRanges
         .map(range => String(range?.heading || '').trim())
@@ -4079,17 +4154,21 @@ const Sidebar = ({
         const orderVal = Number(item.order);
         const matchedRange = customRanges.find(r => orderVal >= r.min && orderVal <= r.max);
         if (matchedRange) {
-          category = matchedRange.heading;
+          category = normalizeConsolidatedCategory(matchedRange.heading);
         }
       }
 
       if (!category) {
         category = getWebsiteCategory(item);
+      } else {
+        category = normalizeConsolidatedCategory(category);
       }
 
       // Keep default categories with the matching custom heading in one
-      // section. This puts Dashboard back in the existing Main dropdown.
-      category = customHeadingByNormalizedName.get(String(category).trim().toLowerCase()) || category;
+      // section, except admin/settings/administration which always unify under 'admin' ('Administration').
+      if (category !== 'admin') {
+        category = customHeadingByNormalizedName.get(String(category).trim().toLowerCase()) || category;
+      }
 
       if (!groups[category]) {
         groups[category] = [];
@@ -4113,25 +4192,14 @@ const Sidebar = ({
       });
     });
 
-    if (hasCustomRanges) {
-      const rangeHeadingMap = new Map(customRanges.map(r => [r.heading, r.min]));
-      return Object.fromEntries(
-        Object.entries(groups).sort(([categoryA], [categoryB]) => {
-          const sectionDifference = crmSectionOrder(categoryA) - crmSectionOrder(categoryB);
-          if (sectionDifference) return sectionDifference;
-          const minA = rangeHeadingMap.has(categoryA) ? rangeHeadingMap.get(categoryA) : 9999;
-          const minB = rangeHeadingMap.has(categoryB) ? rangeHeadingMap.get(categoryB) : 9999;
-          return minA - minB;
-        })
-      );
-    }
-
     return Object.fromEntries(
       Object.entries(groups).sort(([categoryA], [categoryB]) => {
         const sectionDifference = crmSectionOrder(categoryA) - crmSectionOrder(categoryB);
         if (sectionDifference) return sectionDifference;
-        const indexA = categoryOrder.indexOf(categoryA);
-        const indexB = categoryOrder.indexOf(categoryB);
+        const normA = normalizeConsolidatedCategory(categoryA);
+        const normB = normalizeConsolidatedCategory(categoryB);
+        const indexA = categoryOrder.indexOf(normA);
+        const indexB = categoryOrder.indexOf(normB);
         const orderA = indexA === -1 ? 99 : indexA;
         const orderB = indexB === -1 ? 99 : indexB;
         return orderA - orderB;
@@ -4549,6 +4617,8 @@ const Sidebar = ({
             <StyledListItemButton
               onClick={handleLogout}
               isCollapsed={!isSidebarOpen}
+              aria-label="Logout"
+              title="Logout"
               sx={{
                 color: 'error.main',
                 justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -5025,6 +5095,8 @@ const Sidebar = ({
           <StyledListItemButton
             onClick={handleLogout}
             isCollapsed={!isSidebarOpen}
+            aria-label="Logout"
+            title="Logout"
             sx={{
               color: 'error.main',
               justifyContent: isSidebarOpen ? 'flex-start' : 'center',

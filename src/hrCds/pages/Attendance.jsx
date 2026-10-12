@@ -799,15 +799,24 @@ const Attendance = () => {
     let absent = 0;
     let total = 0;
 
-    attendance.forEach((rec) => {
+    const hasActiveFilters =
+      Boolean(search.trim()) ||
+      statusFilter !== "ALL" ||
+      Boolean(selectedCalendarDate) ||
+      timeRange !== "MONTH";
+
+    const sourceRecords = hasActiveFilters ? filteredRecords : attendance;
+
+    sourceRecords.forEach((rec) => {
       if (isBeforeJoinDate(rec.date)) return;
       const recDate = new Date(rec.date);
       if (isNaN(recDate.getTime())) return;
 
-      // Stats follow current selected month
+      // When no custom filter is active, scope to current selected month
       if (
-        recDate.getFullYear() === currentYear &&
-        recDate.getMonth() === currentMonth
+        hasActiveFilters ||
+        (recDate.getFullYear() === currentYear &&
+          recDate.getMonth() === currentMonth)
       ) {
         total++;
         const s = getNormalizedStatus(rec.status, rec.date, rec);
@@ -837,7 +846,18 @@ const Attendance = () => {
       halfDayPct,
       absentPct,
     };
-  }, [attendance, isBeforeJoinDate, currentYear, currentMonth]);
+  }, [
+    attendance,
+    filteredRecords,
+    search,
+    statusFilter,
+    selectedCalendarDate,
+    timeRange,
+    isBeforeJoinDate,
+    currentYear,
+    currentMonth,
+    getNormalizedStatus,
+  ]);
 
   // ----------------------------------------------------
   // 10b. Hero Summary Cards Configuration (Matching Image 1)
@@ -1423,7 +1443,17 @@ const Attendance = () => {
                             )}
                           </td>
                           <td style={{ fontWeight: 600, color: "#1e293b" }}>
-                            {item.totalTime || item.workingHours || "00:00:00"}
+                            {isSpecialDay ||
+                            normStatus === "ABSENT" ||
+                            !displayLogin ||
+                            displayLogin === "-" ||
+                            displayLogin === "--" ||
+                            !(item.totalTime || item.workingHours) ||
+                            (item.totalTime || item.workingHours) === "00:00:00" ? (
+                              <span style={{ color: "#94a3b8", fontWeight: 400 }}>—</span>
+                            ) : (
+                              item.totalTime || item.workingHours
+                            )}
                           </td>
                           <td>
                             {(() => {

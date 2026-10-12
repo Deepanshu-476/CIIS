@@ -1043,30 +1043,56 @@ const AdminTaskManagement = () => {
       const totalCount = tasksResult.total || tasksResult.totalCount || (tasksResult.pagination && tasksResult.pagination.total) || tasksArray.length;
       setTotalTasks(totalCount);
 
+      const normalizeMutuallyExclusiveStats = (rawStats, fallbackTasks = [], fallbackTotal = 0) => {
+        const total = typeof rawStats.total === 'number' ? rawStats.total : fallbackTotal;
+        const completed = Number(rawStats.completed) || 0;
+        const rejected = Number(rawStats.rejected) || 0;
+        const overdue = Number(rawStats.overdue) || 0;
+        let pending = Number(rawStats.pending) || 0;
+        let inProgress = Number(rawStats.inProgress) || 0;
+
+        // If backend counts overdue tasks inside pending/inProgress, deduct overdue so cards are mutually exclusive and sum to total
+        if (overdue > 0 && (pending + inProgress + completed + rejected + overdue > total)) {
+          const overdueInWait = fallbackTasks.filter(t => isOverdue(t) && getTaskStatus(t) === 'pending').length;
+          const overdueInProg = fallbackTasks.filter(t => isOverdue(t) && getTaskStatus(t) === 'in-progress').length;
+          if (overdueInWait + overdueInProg === overdue) {
+            pending = Math.max(0, pending - overdueInWait);
+            inProgress = Math.max(0, inProgress - overdueInProg);
+          } else {
+            const deductFromPending = Math.min(pending, overdue);
+            const remainingOverdue = overdue - deductFromPending;
+            pending = Math.max(0, pending - deductFromPending);
+            inProgress = Math.max(0, inProgress - remainingOverdue);
+          }
+        }
+
+        return { total, pending, inProgress, completed, rejected, overdue };
+      };
+
       const statsSource = tasksResult.overallStats || tasksResult.summaryStats;
       if (statsSource) {
-        setFilteredStats({
+        setFilteredStats(normalizeMutuallyExclusiveStats({
           total: typeof statsSource.total === 'number' ? statsSource.total : totalCount,
           pending: Number(statsSource.pending) || 0,
           inProgress: Number(statsSource.inProgress) || 0,
           completed: Number(statsSource.completed) || 0,
           rejected: Number(statsSource.rejected) || 0,
           overdue: Number(statsSource.overdue) || 0
-        });
+        }, tasksArray, totalCount));
       } else if (tasksResult.stats) {
         const getCount = (val) => {
           if (typeof val === 'number') return val;
           if (val && typeof val.count === 'number') return val.count;
           return 0;
         };
-        setFilteredStats({
+        setFilteredStats(normalizeMutuallyExclusiveStats({
           total: typeof tasksResult.stats.total === 'number' ? tasksResult.stats.total : totalCount,
           pending: getCount(tasksResult.stats.pending),
           inProgress: getCount(tasksResult.stats.inProgress || tasksResult.stats['in-progress']),
           completed: getCount(tasksResult.stats.completed) + getCount(tasksResult.stats.approved),
           rejected: getCount(tasksResult.stats.rejected),
           overdue: getCount(tasksResult.stats.overdue)
-        });
+        }, tasksArray, totalCount));
       } else {
         calculateFilteredStats(tasksArray, totalCount);
       }
@@ -1097,8 +1123,8 @@ const AdminTaskManagement = () => {
   const calculateFilteredStats = (tasksArray, totalCount) => {
     const stats = {
       total: totalCount !== undefined ? totalCount : tasksArray.length,
-      pending: tasksArray.filter(t => getTaskStatus(t) === 'pending').length,
-      inProgress: tasksArray.filter(t => getTaskStatus(t) === 'in-progress').length,
+      pending: tasksArray.filter(t => getTaskStatus(t) === 'pending' && !isOverdue(t)).length,
+      inProgress: tasksArray.filter(t => getTaskStatus(t) === 'in-progress' && !isOverdue(t)).length,
       completed: tasksArray.filter(t => getTaskStatus(t) === 'completed').length,
       rejected: tasksArray.filter(t => getTaskStatus(t) === 'rejected').length,
       overdue: tasksArray.filter(t => isOverdue(t)).length
@@ -1344,7 +1370,6 @@ const AdminTaskManagement = () => {
       setDateRange({ startDate: null, endDate: null });
       setPage(0);
       await fetchTasks(0, rowsPerPage, {});
-      await fetchTasks(0, rowsPerPage, getCurrentFilters());
       fetchSupportingData();
     } catch (error) {
       console.error('Error creating task:', error);
@@ -1725,7 +1750,6 @@ const AdminTaskManagement = () => {
       endDate: null
     });
     setPage(0);
-    fetchTasks(0, rowsPerPage, {});
     const resetFilterParams = {};
     if (defaultBranch !== 'all') resetFilterParams.branch = defaultBranch;
     if (defaultDept !== 'all') resetFilterParams.department = defaultDept;
@@ -2427,13 +2451,16 @@ const AdminTaskManagement = () => {
     }
 
     // Status cards: pending, in-progress, completed, rejected
-    if (statusFilter === cardKey && !overdueFilter) {
+    const isNonOverdueStatusCard = cardKey === 'pending' || cardKey === 'in-progress';
+    const nextOverdueFilter = isNonOverdueStatusCard ? 'false' : '';
+    if (statusFilter === cardKey && overdueFilter === nextOverdueFilter) {
       setStatusFilter('');
+      setOverdueFilter('');
       fetchTasks(0, rowsPerPage, { ...baseFilters, status: '', overdue: '' });
     } else {
       setStatusFilter(cardKey);
-      setOverdueFilter('');
-      fetchTasks(0, rowsPerPage, { ...baseFilters, status: cardKey, overdue: '' });
+      setOverdueFilter(nextOverdueFilter);
+      fetchTasks(0, rowsPerPage, { ...baseFilters, status: cardKey, overdue: nextOverdueFilter });
     }
   };
 
@@ -2458,7 +2485,7 @@ const AdminTaskManagement = () => {
         color: "warning",
         icon: FiClock,
         active: statusFilter === 'pending' && !isOverdueActive,
-        title: statusFilter === 'pending' ? "Click to clear filter" : "Click to view Pending tasks"
+        title: statusFilter === 'pending' ? "Click to clear filter" : "Click to view on-track Pending tasks (excludes Overdue)"
       },
       {
         key: "in-progress",
@@ -2467,7 +2494,7 @@ const AdminTaskManagement = () => {
         color: "info",
         icon: FiAlertCircle,
         active: statusFilter === 'in-progress' && !isOverdueActive,
-        title: statusFilter === 'in-progress' ? "Click to clear filter" : "Click to view In Progress tasks"
+        title: statusFilter === 'in-progress' ? "Click to clear filter" : "Click to view on-track In Progress tasks (excludes Overdue)"
       },
       {
         key: "completed",

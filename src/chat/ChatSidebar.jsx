@@ -500,7 +500,7 @@ const ChatSidebar = ({
 
                 <div className="chat-encryption-note">
                     <Lock size={13} />
-                    <span>Your personal messages are <strong>end-to-end encrypted</strong></span>
+                    <span>Messages are <strong>encrypted in transit and at rest</strong></span>
                 </div>
             </section>
 

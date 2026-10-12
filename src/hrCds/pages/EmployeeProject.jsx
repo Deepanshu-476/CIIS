@@ -1,5 +1,21 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  FiFolder,
+  FiCalendar,
+  FiArrowRight,
+  FiUsers,
+  FiCheckSquare,
+  FiFileText,
+  FiSearch,
+  FiX,
+  FiInbox,
+  FiGrid,
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiRefreshCw,
+  FiTrendingUp
+} from "react-icons/fi";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 
@@ -68,23 +84,81 @@ const getProjectCompanyCode = (project) =>
       ""
   ).trim();
 
-const Icons = {
-  Folder: () => <span className="EmployeeProject-icon">📁</span>,
-  CalendarToday: () => <span className="EmployeeProject-icon">📅</span>,
-  ArrowForward: () => <span className="EmployeeProject-icon">→</span>,
-  Group: () => <span className="EmployeeProject-icon">👥</span>,
-  Task: () => <span className="EmployeeProject-icon">✅</span>,
-  PictureAsPdf: () => <span className="EmployeeProject-icon">📄</span>,
-  Search: () => <span className="EmployeeProject-icon">🔍</span>,
-  Close: () => <span className="EmployeeProject-icon">✕</span>,
-  NoProjects: () => <span className="EmployeeProject-icon">📭</span>,
-  Dashboard: () => <span className="EmployeeProject-icon">📊</span>,
-  CheckCircle: () => <span className="EmployeeProject-icon">✅</span>,
-  PriorityHigh: () => <span className="EmployeeProject-icon">⚠️</span>,
-  Update: () => <span className="EmployeeProject-icon">🔄</span>,
-  TrendingUp: () => <span className="EmployeeProject-icon">📈</span>,
+const formatProjectDate = (value, fallback = "Not set") => {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return parsed.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
 };
 
+<<<<<<< HEAD
+=======
+const getProjectTaskTotal = (project) => {
+  if (typeof project?.taskCount === "number") return project.taskCount;
+  if (typeof project?.totalTasks === "number") return project.totalTasks;
+  if (Array.isArray(project?.tasks)) return project.tasks.length;
+  return 0;
+};
+
+const getProjectProgressPercent = (project) => {
+  if (!project) return 0;
+  const total = getProjectTaskTotal(project);
+  if (!total) return 0;
+
+  const explicitPct = Number(
+    project.taskProgress ?? project.progressPercentage ?? project.progress ?? NaN
+  );
+  if (!Number.isNaN(explicitPct) && explicitPct > 0) {
+    return Math.max(0, Math.min(100, Math.round(explicitPct)));
+  }
+
+  const completed =
+    typeof project.completedTaskCount === "number"
+      ? project.completedTaskCount
+      : typeof project.completedTasks === "number"
+        ? project.completedTasks
+        : Array.isArray(project.tasks)
+          ? project.tasks.filter(
+              (t) => String(t?.status || "").trim().toLowerCase() === "completed"
+            ).length
+          : 0;
+
+  return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
+};
+
+const getEffectiveProjectStatus = (project) => {
+  if (!project) return "Active";
+  const raw = String(project.status || "").trim();
+  const lower = raw.toLowerCase();
+  if (["completed", "done", "finished"].includes(lower)) return "Completed";
+  if (getProjectTaskTotal(project) > 0 && getProjectProgressPercent(project) >= 100) {
+    return "Completed";
+  }
+  return raw || "Active";
+};
+
+const Icons = {
+  Folder: () => <FiFolder className="EmployeeProject-icon" />,
+  CalendarToday: () => <FiCalendar className="EmployeeProject-icon" />,
+  ArrowForward: () => <FiArrowRight className="EmployeeProject-icon" />,
+  Group: () => <FiUsers className="EmployeeProject-icon" />,
+  Task: () => <FiCheckSquare className="EmployeeProject-icon" />,
+  PictureAsPdf: () => <FiFileText className="EmployeeProject-icon" />,
+  Search: () => <FiSearch className="EmployeeProject-icon" />,
+  Close: () => <FiX className="EmployeeProject-icon" />,
+  NoProjects: () => <FiInbox className="EmployeeProject-icon" />,
+  Dashboard: () => <FiGrid className="EmployeeProject-icon" />,
+  CheckCircle: () => <FiCheckCircle className="EmployeeProject-icon" />,
+  PriorityHigh: () => <FiAlertTriangle className="EmployeeProject-icon" />,
+  Update: () => <FiRefreshCw className="EmployeeProject-icon" />,
+  TrendingUp: () => <FiTrendingUp className="EmployeeProject-icon" />,
+};
+
+>>>>>>> 566a03a8892a30f54712bf026add027f52dff73c
 const EmployeeProject = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
@@ -177,18 +251,18 @@ const EmployeeProject = () => {
   const projectStats = useMemo(() => {
     const total = projects.length;
     const active = projects.filter((p) => {
-      const s = String(p.status || "").toLowerCase();
+      const s = getEffectiveProjectStatus(p).toLowerCase();
       return ["active", "in progress", "ongoing"].includes(s);
     }).length;
     const completed = projects.filter((p) => {
-      const s = String(p.status || "").toLowerCase();
+      const s = getEffectiveProjectStatus(p).toLowerCase();
       return ["completed", "done", "finished"].includes(s);
     }).length;
     const highPriority = projects.filter(
       (p) => String(p.priority || "").toLowerCase() === "high"
     ).length;
     const totalTasks = projects.reduce(
-      (acc, p) => acc + (p.taskCount ?? p.tasks?.length ?? 0),
+      (acc, p) => acc + getProjectTaskTotal(p),
       0
     );
 
@@ -201,7 +275,7 @@ const EmployeeProject = () => {
 
     if (statusFilter !== "all") {
       result = result.filter((p) => {
-        const s = String(p.status || "").toLowerCase();
+        const s = getEffectiveProjectStatus(p).toLowerCase();
         if (statusFilter === "active")
           return ["active", "in progress", "ongoing"].includes(s);
         if (statusFilter === "completed")
@@ -220,7 +294,7 @@ const EmployeeProject = () => {
           project.title,
           project.name,
           project.description,
-          project.status,
+          getEffectiveProjectStatus(project),
           project.priority,
         ]
           .filter(Boolean)
@@ -283,7 +357,7 @@ const EmployeeProject = () => {
         </div>
         <div
           className="EmployeeProject-stat-icon"
-          style={{ backgroundColor: `${color}20` }}
+          style={{ backgroundColor: `${color}20`, color }}
         >
           {icon}
         </div>
@@ -370,6 +444,8 @@ const EmployeeProject = () => {
             <button
               className="EmployeeProject-alert-close"
               onClick={() => setSnackbar({ ...snackbar, open: false })}
+              title="Close notification"
+              aria-label="Close notification"
             >
               <Icons.Close />
             </button>
@@ -463,6 +539,7 @@ const EmployeeProject = () => {
                 type="button"
                 className="EmployeeProject-search-clear"
                 onClick={() => setProjectSearchTerm("")}
+                title="Clear search"
                 aria-label="Clear project search"
               >
                 <Icons.Close />
@@ -516,49 +593,60 @@ const EmployeeProject = () => {
       ) : (
         /* Projects Grid - Clicking any card navigates to separate project details/tasks page */
         <div className="EmployeeProject-grid">
-          {filteredProjects.map((p) => (
-            <div className="EmployeeProject-grid-item" key={p._id}>
-              <div
-                className="EmployeeProject-card"
-                onClick={() => handleProjectClick(p)}
-                style={{ cursor: "pointer" }}
-                title="Click to view project details and all tasks"
-              >
-                <div className="EmployeeProject-card-highlight" />
+          {filteredProjects.map((p) => {
+            const effectiveStatus = getEffectiveProjectStatus(p);
+            return (
+              <div className="EmployeeProject-grid-item" key={p._id}>
+                <div
+                  className="EmployeeProject-card"
+                  onClick={() => handleProjectClick(p)}
+                  style={{ cursor: "pointer" }}
+                  title="Click to view project details and all tasks"
+                >
+                  <div className="EmployeeProject-card-highlight" />
 
-                <div className="EmployeeProject-card-content">
-                  <div className="EmployeeProject-card-header">
-                    <div className="EmployeeProject-card-title-section">
-                      <div className="EmployeeProject-card-title-row">
-                        <Icons.Folder />
-                        <h3 className="EmployeeProject-card-title">
-                          {p.projectName}
-                        </h3>
+                  <div className="EmployeeProject-card-content">
+                    <div className="EmployeeProject-card-header">
+                      <div className="EmployeeProject-card-title-section">
+                        <div className="EmployeeProject-card-title-row">
+                          <Icons.Folder />
+                          <h3 className="EmployeeProject-card-title">
+                            {p.projectName}
+                          </h3>
+                        </div>
+                        <Chip
+                          label={effectiveStatus}
+                          color={getStatusColor(effectiveStatus)}
+                        />
                       </div>
+                    </div>
+
+                    <div className="EmployeeProject-chip-container">
                       <Chip
-                        label={p.status || "Active"}
-                        color={getStatusColor(p.status)}
+                        label={`Priority: ${p.priority || "Medium"}`}
+                        color={getPriorityColor(p.priority)}
+                      />
+                      <Chip
+                        icon={<Icons.Group />}
+                        label={`${p.userCount ?? p.users?.length ?? 0} members`}
+                        variant="outlined"
+                      />
+                      <Chip
+                        icon={<Icons.Task />}
+                        label={`${getProjectTaskTotal(p)} tasks`}
+                        variant="outlined"
                       />
                     </div>
-                  </div>
 
-                  <div className="EmployeeProject-chip-container">
-                    <Chip
-                      label={p.priority || "Medium"}
-                      color={getPriorityColor(p.priority)}
-                    />
-                    <Chip
-                      icon={<Icons.Group />}
-                      label={`${p.userCount ?? p.users?.length ?? 0} members`}
-                      variant="outlined"
-                    />
-                    <Chip
-                      icon={<Icons.Task />}
-                      label={`${p.taskCount ?? p.tasks?.length ?? 0} tasks`}
-                      variant="outlined"
-                    />
-                  </div>
+                    {p.description && (
+                      <p className="EmployeeProject-card-description">
+                        {p.description.length > 120
+                          ? `${p.description.substring(0, 120)}...`
+                          : p.description}
+                      </p>
+                    )}
 
+<<<<<<< HEAD
                   {p.description && (
                     <p className="EmployeeProject-card-description">
                       {p.description.length > 120
@@ -605,6 +693,49 @@ const EmployeeProject = () => {
               </div>
             </div>
           ))}
+=======
+                    <div className="EmployeeProject-card-footer">
+                      <div className="EmployeeProject-card-date" title="Project timeline">
+                        <Icons.CalendarToday />
+                        <span>
+                          {p.startDate
+                            ? `Start: ${formatProjectDate(p.startDate)}`
+                            : "Start: Not set"}
+                          {p.endDate ? ` • Due: ${formatProjectDate(p.endDate)}` : ""}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-primary"
+                        title="Open project details and tasks"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleProjectClick(p);
+                        }}
+                      >
+                        View Tasks
+                        <Icons.ArrowForward />
+                      </button>
+                    </div>
+
+                    {(p.pdfFile?.path ||
+                      p.pdfFile?.filename ||
+                      p.pdfFile?.url) && (
+                      <div className="EmployeeProject-card-pdf" title="Project PDF attached">
+                        <div className="EmployeeProject-pdf-info">
+                          <Icons.PictureAsPdf />
+                          <span className="EmployeeProject-pdf-text">
+                            Document attached
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+>>>>>>> 566a03a8892a30f54712bf026add027f52dff73c
         </div>
       )}
     </div>

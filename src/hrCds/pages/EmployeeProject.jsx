@@ -88,7 +88,7 @@ const Icons = {
 const EmployeeProject = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [snackbar, setSnackbar] = useState({
@@ -291,18 +291,69 @@ const EmployeeProject = () => {
     </button>
   );
 
-  const CircularProgress = () => (
-    <div className="EmployeeProject-circular-progress">
-      <svg className="EmployeeProject-circular-progress-svg" viewBox="22 22 44 44">
+  const CircularProgress = ({ size = 46 }) => (
+    <div className="EmployeeProject-spinner-container" style={{ width: size, height: size }}>
+      <svg className="EmployeeProject-modern-spinner" viewBox="0 0 50 50">
         <circle
-          className="EmployeeProject-circular-progress-circle"
-          cx="44"
-          cy="44"
-          r="20.2"
+          className="EmployeeProject-spinner-track"
+          cx="25"
+          cy="25"
+          r="20"
           fill="none"
-          strokeWidth={3.6}
+          strokeWidth="4"
+        />
+        <circle
+          className="EmployeeProject-spinner-arc"
+          cx="25"
+          cy="25"
+          r="20"
+          fill="none"
+          strokeWidth="4"
         />
       </svg>
+      <div className="EmployeeProject-spinner-pulse" />
+    </div>
+  );
+
+  const ProjectLoader = () => (
+    <div className="EmployeeProject-loading-wrapper" aria-label="Loading projects" role="status">
+      <div className="EmployeeProject-loading-card">
+        <CircularProgress size={50} />
+        <div className="EmployeeProject-loading-text-group">
+          <h3 className="EmployeeProject-loading-title">Loading Projects</h3>
+          <p className="EmployeeProject-loading-subtitle">
+            Fetching your workspace and assigned projects
+            <span className="EmployeeProject-loading-dots">
+              <span>.</span><span>.</span><span>.</span>
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* Modern Skeleton Cards Preview */}
+      <div className="EmployeeProject-skeleton-grid" aria-hidden="true">
+        {[1, 2, 3, 4, 5, 6].map((idx) => (
+          <div className="EmployeeProject-skeleton-card" key={idx}>
+            <div className="EmployeeProject-skeleton-header">
+              <div className="EmployeeProject-skeleton-pill EmployeeProject-skeleton-pill-title" />
+              <div className="EmployeeProject-skeleton-pill EmployeeProject-skeleton-pill-badge" />
+            </div>
+            <div className="EmployeeProject-skeleton-chips">
+              <div className="EmployeeProject-skeleton-pill EmployeeProject-skeleton-pill-chip" />
+              <div className="EmployeeProject-skeleton-pill EmployeeProject-skeleton-pill-chip" />
+              <div className="EmployeeProject-skeleton-pill EmployeeProject-skeleton-pill-chip" />
+            </div>
+            <div className="EmployeeProject-skeleton-lines">
+              <div className="EmployeeProject-skeleton-line" style={{ width: '92%' }} />
+              <div className="EmployeeProject-skeleton-line" style={{ width: '68%' }} />
+            </div>
+            <div className="EmployeeProject-skeleton-footer">
+              <div className="EmployeeProject-skeleton-pill EmployeeProject-skeleton-pill-date" />
+              <div className="EmployeeProject-skeleton-pill EmployeeProject-skeleton-pill-btn" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
@@ -342,7 +393,7 @@ const EmployeeProject = () => {
           <div className="EmployeeProject-stat-item">
             <StatCard
               icon={<Icons.Dashboard />}
-              value={projectStats.total}
+              value={loading && projects.length === 0 ? "..." : projectStats.total}
               label="Total Projects"
               color="#667eea"
               subtext="Assigned to you"
@@ -353,7 +404,7 @@ const EmployeeProject = () => {
           <div className="EmployeeProject-stat-item">
             <StatCard
               icon={<Icons.Update />}
-              value={projectStats.active}
+              value={loading && projects.length === 0 ? "..." : projectStats.active}
               label="Active / In Progress"
               color="#29B6F6"
               subtext="Ongoing projects"
@@ -366,7 +417,7 @@ const EmployeeProject = () => {
           <div className="EmployeeProject-stat-item">
             <StatCard
               icon={<Icons.CheckCircle />}
-              value={projectStats.completed}
+              value={loading && projects.length === 0 ? "..." : projectStats.completed}
               label="Completed"
               color="#66BB6A"
               subtext="Finished projects"
@@ -381,7 +432,7 @@ const EmployeeProject = () => {
           <div className="EmployeeProject-stat-item">
             <StatCard
               icon={<Icons.PriorityHigh />}
-              value={projectStats.highPriority}
+              value={loading && projects.length === 0 ? "..." : projectStats.highPriority}
               label="High Priority"
               color="#EF5350"
               subtext="Urgent projects"
@@ -427,10 +478,7 @@ const EmployeeProject = () => {
 
       {/* Loading state */}
       {loading && projects.length === 0 ? (
-        <div className="EmployeeProject-loading" aria-label="Loading projects">
-          <CircularProgress />
-          <span>Loading projects...</span>
-        </div>
+        <ProjectLoader />
       ) : projects.length === 0 ? (
         <div className="EmployeeProject-no-projects">
           <div className="EmployeeProject-no-projects-content">

@@ -2421,10 +2421,19 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 350px;
+  min-height: 320px;
+  padding: 3rem 1.5rem;
   gap: 16px;
   color: #64748b;
   font-weight: 500;
+  text-align: center;
+}
+
+.pdp-loading span {
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .pdp-empty-state {

@@ -893,71 +893,148 @@
   font-size: 13px;
 }
 
+/* ==========================================================================
+   Ultra-Professional Customer Support Chat Widget
+   ========================================================================== */
 .portal-chat-widget {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: min(305px, calc(100vw - 28px));
-  height: min(410px, calc(100vh - 104px));
-  z-index: 1500;
-  border-radius: 14px;
+  right: 24px;
+  bottom: 24px;
+  width: min(375px, calc(100vw - 28px));
+  height: min(560px, calc(100vh - 80px));
+  z-index: 1520;
+  border-radius: 18px;
   background: #ffffff;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+  box-shadow: 0 24px 60px -8px rgba(15, 23, 42, 0.24), 0 0 0 1px rgba(226, 232, 240, 0.8);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: inherit;
+  animation: portal-chat-slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@keyframes portal-chat-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
 .portal-chat-header {
-  height: 46px;
-  padding: 0 10px;
+  height: 58px;
+  padding: 0 14px;
   color: #ffffff;
-  background: linear-gradient(135deg, #1458cf, #2563eb);
-  border-radius: 14px 14px 0 0;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex: 0 0 auto;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
 }
 
-.portal-chat-header strong {
-  flex: 1;
+.portal-chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0;
+  flex: 1;
+}
+
+.portal-chat-header-avatar {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.portal-chat-status-ring {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #1e40af;
+}
+
+.portal-chat-header-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.portal-chat-header-text strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.portal-chat-header-sub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.portal-chat-status-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.35);
+  animation: portal-status-glow 2s infinite;
+}
+
+@keyframes portal-status-glow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.15); }
+}
+
 .portal-chat-header-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 0 0 auto;
 }
 
-.portal-chat-icon-btn,
-.portal-chat-inputbar button {
+.portal-chat-icon-btn {
   border: 0;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.12);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.portal-chat-icon-btn {
   color: #ffffff;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  transition: all 0.18s ease;
 }
 
 .portal-chat-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
 }
 
 .portal-chat-menu-wrap {
@@ -969,448 +1046,398 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 5;
-  min-width: 148px;
+  z-index: 20;
+  min-width: 156px;
   padding: 6px;
   border-radius: 12px;
   background: #ffffff;
-  border: 1px solid #dbe4f0;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.18);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+  animation: portal-menu-pop 0.18s ease-out;
+}
+
+@keyframes portal-menu-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .portal-chat-menu button {
   width: 100%;
   min-height: 34px;
-  padding: 7px 8px;
+  padding: 7px 10px;
   border: 0;
-  border-radius: 9px;
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  border-radius: 8px;
+  display: flex;
   align-items: center;
   gap: 8px;
   color: #1e293b;
   background: transparent;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 12.5px;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .portal-chat-menu button:hover {
   background: #eff6ff;
-  color: #1458cf;
+  color: #2563eb;
 }
 
 .portal-chat-menu span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
 }
 
 .portal-chat-menu em {
-  min-width: 20px;
-  height: 20px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 6px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #1458cf;
+  color: #2563eb;
   background: #dbeafe;
-  font-size: 10px;
+  font-size: 10.5px;
   font-style: normal;
-  font-weight: 900;
+  font-weight: 700;
 }
 
+/* Chat Body */
 .portal-chat-body {
   position: relative;
   flex: 1;
   overflow-y: auto;
-  padding: 0 11px 38px;
-  background: #ffffff;
-  scrollbar-color: #9ca3af transparent;
+  padding: 14px 13px;
+  background: #f8fafc;
+  scrollbar-color: #cbd5e1 transparent;
   scrollbar-width: thin;
 }
 
 .portal-chat-body::-webkit-scrollbar {
-  width: 7px;
+  width: 5px;
 }
 
 .portal-chat-body::-webkit-scrollbar-thumb {
-  background: #9ca3af;
+  background: #cbd5e1;
   border-radius: 999px;
 }
 
-.portal-ticket-list {
+.portal-chat-body-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 0 14px;
+  gap: 12px;
 }
 
-.portal-ticket-summary {
+/* Welcome Card */
+.portal-chat-welcome-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 13px 14px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.portal-chat-welcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.portal-chat-welcome-card h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.portal-chat-welcome-card p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+/* Department Active Indicator Bar */
+.portal-chat-selected-dept-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 11px;
-  border: 1px solid #dbe7ff;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #f8fbff, #eef5ff);
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 8px 11px;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.06);
 }
 
-.portal-ticket-summary span,
-.portal-ticket-summary em {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 750;
-  font-style: normal;
+.portal-chat-selected-dept-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.portal-ticket-summary strong {
-  display: block;
-  margin-top: 2px;
-  color: #0f172a;
-  font-size: 15px;
-  line-height: 1.15;
-}
-
-.portal-ticket-summary em {
-  padding: 5px 8px;
-  border-radius: 999px;
-  color: #1458cf;
-  background: #dbeafe;
-}
-
-.portal-new-support-chat {
-  min-height: 36px;
-  border: 1px solid #c7dcff;
-  border-radius: 10px;
-  display: inline-flex;
+.portal-chat-selected-icon-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  color: #1458cf;
-  background: #ffffff;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.portal-new-support-chat:hover {
-  transform: translateY(-1px);
-  border-color: #1458cf;
-  box-shadow: 0 10px 24px rgba(20, 88, 207, 0.14);
-}
-
-.portal-ticket-item {
-  width: 100%;
-  min-height: 70px;
-  padding: 10px 11px;
-  border: 1px solid #e1e8f5;
-  border-radius: 11px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  color: #162033;
-  background: #ffffff;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.portal-ticket-item:hover {
-  transform: translateY(-1px);
-  border-color: #b8ceff;
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
-}
-
-.portal-ticket-item > span:first-child {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.portal-ticket-item strong {
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 850;
-  line-height: 1.28;
-  overflow-wrap: anywhere;
-}
-
-.portal-ticket-item small {
-  color: #5d6b82;
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-.portal-ticket-item > .support-badge {
-  align-self: center;
-  justify-self: end;
-  white-space: nowrap;
-}
-
-.portal-ticket-empty {
-  min-height: 92px;
-  padding: 16px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  color: #64748b;
-  background: #f8fafc;
-  font-size: 14px;
-  font-weight: 750;
-  text-align: center;
-}
-
-.portal-chat-spacer {
-  height: 12px;
-}
-
-.portal-chat-agent-label {
-  margin-left: 38px;
-  margin-bottom: 6px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.portal-chat-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.portal-chat-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #334155;
-  background: #eef2f7;
-  border: 4px solid #f8fafc;
   flex: 0 0 auto;
 }
 
-.portal-chat-greeting {
-  max-width: 190px;
-  padding: 8px 10px;
-  color: #ffffff;
-  background: #075fff;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-.portal-chat-query-card {
-  margin: 0 auto;
-  width: 100%;
-  padding: 8px 10px;
-  min-height: 42px;
+.portal-chat-selected-dept-labels {
   display: flex;
-  align-items: center;
-  color: #0b55cf;
-  background: #ffffff;
-  border: 1px solid #2563eb;
-  border-radius: 10px;
-  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.08);
-  font-size: 12px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.portal-chat-selected-kicker {
+  font-size: 9.5px;
   font-weight: 700;
-  line-height: 1.35;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.portal-chat-status-card {
-  margin: 0 auto;
-  width: calc(100% - 24px);
-  padding: 11px 12px;
-  color: #172033;
-  background: #ffffff;
-  border: 1.5px solid #075fff;
-  border-radius: 10px;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.1);
-}
-
-.portal-chat-status-card strong,
-.portal-chat-status-card small,
-.portal-chat-status-card p {
-  display: block;
-}
-
-.portal-chat-status-card strong {
-  margin-top: 9px;
+.portal-chat-selected-dept-labels strong {
+  font-size: 12.5px;
+  font-weight: 700;
   color: #0f172a;
-  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.portal-chat-status-card small {
-  margin-top: 5px;
-  color: #64748b;
+.portal-chat-dept-change-btn {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
   font-weight: 700;
-}
-
-.portal-chat-status-card p {
-  margin: 9px 0 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.portal-chat-mini-thread {
-  display: grid;
-  gap: 7px;
-  margin: 10px 0 0 38px;
-  padding-bottom: 30px;
-}
-
-.portal-ticket-thread-head {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  margin: 0 -18px;
-  padding: 11px 14px 10px;
-  display: grid;
-  gap: 5px;
-  color: #172033;
-  background: rgba(255, 255, 255, 0.97);
-  border-bottom: 1px solid #e8edf5;
-}
-
-.portal-ticket-thread-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.portal-ticket-thread-head > strong {
-  font-size: 14px;
-  line-height: 1.3;
-}
-
-.portal-ticket-thread-head > small {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.portal-ticket-info {
+  padding: 4px 8px;
+  border-radius: 7px;
+  cursor: pointer;
   display: inline-flex;
-  color: #64748b;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.16s ease;
 }
 
-.portal-chat-mini-thread.portal-full-thread {
+.portal-chat-dept-change-btn:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+/* Flow Thread Messages */
+.portal-chat-flow-thread {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin: 0;
-  padding: 14px 0 64px;
+  gap: 9px;
+  padding: 4px 0;
 }
 
-.portal-ticket-message {
+.portal-chat-msg-row {
   display: flex;
-  flex-direction: column;
-  max-width: 78%;
+  gap: 7px;
+  max-width: 86%;
 }
 
-.portal-ticket-message.user {
+.portal-chat-msg-row.user {
   align-self: flex-end;
+  justify-content: flex-end;
+}
+
+.portal-chat-msg-row.bot {
+  align-self: flex-start;
   align-items: flex-end;
 }
 
-.portal-ticket-message.bot {
-  align-self: flex-start;
-  align-items: flex-start;
-}
-
-.portal-ticket-message .portal-chat-mini-bubble {
-  width: fit-content;
-  max-width: 100%;
-  padding: 8px 11px;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-  line-height: 1.4;
-  border-radius: 14px;
-}
-
-.portal-ticket-message.user .portal-chat-mini-bubble {
-  border-bottom-right-radius: 4px;
-}
-
-.portal-ticket-message.bot .portal-chat-mini-bubble {
-  border-bottom-left-radius: 4px;
-}
-
-.portal-ticket-message-meta {
-  min-height: 17px;
-  margin-top: 4px;
+.portal-chat-msg-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: #8490a1;
-  font-size: 11px;
-  line-height: 1;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-bottom: 2px;
 }
 
-.portal-chat-mini-bubble {
-  padding: 8px 11px;
-  border-radius: 10px;
-  font-size: 12px;
-  line-height: 1.4;
+.portal-chat-bubble {
+  padding: 9px 12px;
+  border-radius: 13px;
+  font-size: 12.5px;
+  line-height: 1.42;
+  word-break: break-word;
 }
 
-.portal-chat-mini-bubble.bot {
-  color: #334155;
-  background: #f1f5f9;
+.portal-chat-bubble.bot {
+  background: #ffffff;
+  color: #1e293b;
   border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
 }
 
-.portal-chat-mini-bubble.user {
-  justify-self: end;
+.portal-chat-bubble.user {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
   color: #ffffff;
-  background: #075fff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.2);
 }
 
-.portal-chat-departments {
+/* ==========================================================================
+   Professional Department Selector (Tile Cards)
+   ========================================================================== */
+.portal-chat-dept-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.portal-chat-dept-container-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.portal-chat-dept-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.portal-chat-dept-counter {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.portal-chat-dept-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 8px;
 }
 
-.portal-chat-departments button {
+.portal-chat-dept-tile {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  padding: 9px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.portal-chat-dept-tile:hover {
+  border-color: #2563eb;
+  background: #f8fafc;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 14px -2px rgba(37, 99, 235, 0.1);
+}
+
+.portal-chat-dept-tile:hover .portal-chat-dept-tile-arrow {
+  color: #2563eb;
+  transform: translateX(2px);
+}
+
+.portal-chat-dept-tile-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.portal-chat-dept-tile-text {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  padding: 8px 9px;
-  border-radius: 9px;
+  flex: 1;
+}
+
+.portal-chat-dept-tile-title {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.25;
+}
+
+.portal-chat-dept-tile-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #64748b;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.portal-chat-dept-tile-arrow {
+  color: #cbd5e1;
+  flex: 0 0 auto;
+  transition: all 0.16s ease;
+}
+
+/* Bottom Input Dock & Non-overlapping Brand */
+.portal-chat-bottom-dock {
+  background: #ffffff;
+  border-top: 1px solid #edf2f7;
+  padding: 9px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 0 0 auto;
 }
 
 .portal-chat-inputbar {
-  height: 46px;
-  padding: 0 9px 0 11px;
-  border-top: 1px solid #edf2f7;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 4px 5px 4px 11px;
+  transition: all 0.18s ease;
+}
+
+.portal-chat-inputbar:focus-within {
+  border-color: #2563eb;
   background: #ffffff;
-  border-radius: 0 0 14px 14px;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .portal-chat-inputbar input {
@@ -1418,91 +1445,238 @@
   min-width: 0;
   border: 0;
   outline: 0;
-  color: #1f2937;
-  font-size: 12px;
+  background: transparent;
+  color: #0f172a;
+  font-size: 12.5px;
+  font-family: inherit;
 }
 
 .portal-chat-inputbar input::placeholder {
-  color: #7b7f86;
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .portal-chat-inputbar button {
-  width: 31px;
-  height: 31px;
-  color: #ffffff;
-  background: #1458cf;
-  border-radius: 10px;
-  flex: 0 0 auto;
-}
-
-.portal-chat-powered {
-  position: absolute;
-  left: 50%;
-  right: auto;
-  bottom: 51px;
-  transform: translateX(-50%);
-  min-width: 104px;
-  min-height: 21px;
+  width: 32px;
+  height: 32px;
   border: 0;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #5f6368;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
-  font-size: 10px;
-  font-weight: 800;
-  opacity: 0.94;
-  pointer-events: none;
+  border-radius: 9px;
+  background: #94a3b8;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: all 0.18s ease;
 }
 
-.portal-chat-powered::before {
-  content: "✦";
-  color: #16a34a;
-  margin-right: 8px;
+.portal-chat-inputbar button.active,
+.portal-chat-inputbar button:not(:disabled) {
+  background: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
 }
 
-.portal-chat-powered::before {
-  content: "";
+.portal-chat-inputbar button:not(:disabled):hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.portal-chat-inputbar button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Footer Branding - Perfectly Integrated (Zero Overlap) */
+.portal-chat-footer-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #94a3b8;
+  padding-bottom: 2px;
+  user-select: none;
+}
+
+.portal-chat-brand-dot {
   width: 6px;
   height: 6px;
-  display: inline-block;
-  border-radius: 999px;
-  background: #16a34a;
-  margin-right: 7px;
-}
-
-.portal-chat-launcher {
-  position: absolute;
-  right: 5px;
-  bottom: -97px;
-  width: 46px;
-  height: 46px;
-  border: 0;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  background: #1458cf;
-  box-shadow: 0 14px 34px rgba(20, 88, 207, 0.36);
-  cursor: pointer;
+  background: #10b981;
 }
 
-.portal-chat-minimize {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.16);
+.portal-chat-footer-brand strong {
+  font-weight: 700;
+  color: #64748b;
 }
 
-.portal-chat-minimize svg {
-  width: 20px;
-  height: 20px;
-}
-
+/* Floating Launcher Button */
 .portal-chat-launcher {
   position: fixed;
-  right: 30px;
+  right: 28px;
   bottom: 28px;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 1500;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.portal-chat-launcher:hover {
+  transform: scale(1.07) translateY(-2px);
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.48);
+}
+
+.portal-chat-launcher-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-chat-launcher-ping {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #ffffff;
+}
+
+/* Status & Ticket Cards */
+.portal-chat-status-card {
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 11px 12px;
+  color: #0f172a;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.16s ease;
+}
+
+.portal-chat-status-card:hover {
+  border-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.portal-chat-status-card strong {
+  display: block;
+  font-size: 13px;
+  color: #0f172a;
+  margin-top: 6px;
+}
+
+.portal-chat-status-card small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.portal-chat-status-card p {
+  margin: 7px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.portal-ticket-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.portal-ticket-item:hover {
+  border-color: #2563eb;
+  background: #f8fafc;
+}
+
+.portal-ticket-item strong {
+  display: block;
+  font-size: 12.5px;
+  color: #0f172a;
+}
+
+.portal-ticket-item small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.portal-new-support-chat {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.24);
+  transition: all 0.16s ease;
+}
+
+.portal-new-support-chat:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.32);
+}
+
+.portal-ticket-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 2px 8px;
+  font-size: 12px;
+}
+
+.portal-ticket-summary span {
+  color: #64748b;
+  font-size: 11px;
+  display: block;
+}
+
+.portal-ticket-summary strong {
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.portal-ticket-summary em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 3px 8px;
+  border-radius: 999px;
 }
 
 @media (max-width: 1180px) {
@@ -1567,6 +1741,8 @@
   }
 
   .portal-chat-launcher {
+    right: 20px;
+    bottom: 20px;
     width: 50px;
     height: 50px;
   }

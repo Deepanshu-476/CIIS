@@ -29,23 +29,17 @@ const LayoutContainer = styled(Box)({
 
 const MainContent = styled('main', {
   shouldForwardProp: (prop) => prop !== 'isMobile' && prop !== 'isSidebarHovered',
-})(({ theme, isMobile, isSidebarHovered }) => ({
+})(({ isMobile }) => ({
   flexGrow: 1,
   padding: 0,
   minHeight: 'calc(100dvh - 64px)',
   width: '100%',
   overflow: 'auto',
   backgroundColor: '#f8faff',
-  transition: `margin ${SIDEBAR_TRANSITION}, width ${SIDEBAR_TRANSITION}`,
 
   ...(!isMobile && {
     marginLeft: `${drawerWidthClosed}px`,
     width: `calc(100% - ${drawerWidthClosed}px)`,
-
-    ...(isSidebarHovered && {
-      marginLeft: `${drawerWidthOpen}px`,
-      width: `calc(100% - ${drawerWidthOpen}px)`,
-    }),
   }),
 
   ...(isMobile && {
@@ -137,7 +131,8 @@ const UserLayout = () => {
             top: 64,
             height: 'calc(100vh - 64px)',
             width: isSidebarHovered ? drawerWidthOpen : drawerWidthClosed,
-            transition: `width ${SIDEBAR_TRANSITION}`,
+            transition: `width ${SIDEBAR_TRANSITION}, box-shadow ${SIDEBAR_TRANSITION}`,
+            boxShadow: isSidebarHovered ? '8px 0 24px rgba(15, 23, 42, 0.14)' : 'none',
             zIndex: theme.zIndex.drawer,
           }}
         >
@@ -197,7 +192,7 @@ const UserLayout = () => {
               overflow: 'visible',
               boxSizing: 'border-box',
               backgroundColor: '#f8faff',
-              padding: { xs: '10px 12px', sm: '14px 18px 18px' },
+              padding: { xs: '10px 12px 96px', sm: '14px 18px 96px' },
               '& > *': {
                 minHeight: '100%',
                 padding: '0 !important',

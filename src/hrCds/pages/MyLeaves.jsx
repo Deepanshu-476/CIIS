@@ -714,15 +714,29 @@ const MyLeaves = () => {
 
   // Approvers rendering component
   const ApproversCell = ({ leave }) => {
-    if (hasApprovalWorkflow(leave)) {
+    const requesterId = String(
+      leave?.user?._id || leave?.user?.id || leave?.user || user?._id || user?.id || ""
+    );
+    const visibleApprovalSteps = hasApprovalWorkflow(leave)
+      ? leave.approvalSteps.filter((step) => {
+          const stepUser = step?.user || {};
+          const stepUserId = String(stepUser?._id || stepUser?.id || stepUser || "");
+          return !requesterId || stepUserId !== requesterId;
+        })
+      : [];
+
+    if (visibleApprovalSteps.length > 0) {
+      const isFinalized = ["Approved", "Rejected"].includes(leave?.status);
       return (
         <div className="MyLeaves-approvers-stack">
-          {leave.approvalSteps.map((step, index) => {
+          {visibleApprovalSteps.map((step, index) => {
             const approverUser = step?.user || {};
             const approverName = approverUser?.name || "Approver";
-            const status = step?.status || "Pending";
+            const rawStatus = step?.status || "Pending";
+            const isSupersededPending = isFinalized && rawStatus === "Pending";
+            const displayStatus = isSupersededPending ? "Not required" : rawStatus;
             const initials = getInitials(approverName);
-            const statusLower = status.toLowerCase();
+            const statusLower = isSupersededPending ? "neutral" : rawStatus.toLowerCase();
 
             return (
               <div
@@ -732,7 +746,16 @@ const MyLeaves = () => {
                 <div className="MyLeaves-approver-avatar">{initials}</div>
                 <div className="MyLeaves-approver-details">
                   <span className="MyLeaves-approver-name">{approverName}</span>
-                  <span className={`MyLeaves-approver-pill ${statusLower}`}>{status}</span>
+                  <span
+                    className={`MyLeaves-approver-pill ${statusLower}`}
+                    style={
+                      isSupersededPending
+                        ? { background: "#f1f5f9", color: "#64748b", borderColor: "#e2e8f0" }
+                        : undefined
+                    }
+                  >
+                    {displayStatus}
+                  </span>
                 </div>
               </div>
             );
@@ -2074,7 +2097,15 @@ const MyLeaves = () => {
                     type="button"
                     className="MyLeaves-form-submit"
                     onClick={applyLeave}
-                    disabled={loading || leaveTypesLoading}
+                    disabled={!canSubmitLeave}
+                    title={
+                      !canSubmitLeave
+                        ? policyValidationMessage ||
+                          (!form.type
+                            ? "Please select an applicable leave type"
+                            : "Complete all required fields (minimum 20 characters reason)")
+                        : "Submit leave request"
+                    }
                   >
                     {loading ? (
                       "Applying..."

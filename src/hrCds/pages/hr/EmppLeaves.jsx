@@ -560,17 +560,26 @@ const EmployeeLeaves = () => {
     return String(user?._id || user?.id || user || "");
   };
 
+  const getLeaveUserId = (leave) =>
+    String(leave?.user?._id || leave?.user?.id || leave?.user || "");
+
   const hasApprovalWorkflow = (leave) => Array.isArray(leave?.approvalSteps) && leave.approvalSteps.length > 0;
 
   const isCurrentUserPendingApprover = (leave) => {
     if (!hasApprovalWorkflow(leave)) return false;
+    if (getLeaveUserId(leave) === String(currentUserId)) return false;
     return leave.approvalSteps.some((step) =>
       getApprovalUserId(step) === String(currentUserId) && (step.status || "Pending") === "Pending"
     );
   };
 
   const ApprovalWorkflow = ({ leave }) => {
-    if (!hasApprovalWorkflow(leave)) {
+    const requesterId = getLeaveUserId(leave);
+    const visibleSteps = hasApprovalWorkflow(leave)
+      ? leave.approvalSteps.filter((step) => !requesterId || getApprovalUserId(step) !== requesterId)
+      : [];
+
+    if (visibleSteps.length === 0) {
       if (leave?.status === 'Cancelled') {
         return (
           <div className="EmppLeaves-cancelled-by-employee">
@@ -592,19 +601,37 @@ const EmployeeLeaves = () => {
       );
     }
 
+    const isFinalized = ['Approved', 'Rejected'].includes(leave.status);
+
     return (
       <div className="EmppLeaves-approval-flow">
-        {leave.approvalSteps.map((step, index) => {
+        {visibleSteps.map((step, index) => {
           const user = getApprovalUser(step);
-          const status = step.status || "Pending";
+          const rawStatus = step.status || "Pending";
+          const isSupersededPending = isFinalized && rawStatus === "Pending";
+          const displayStatus = isSupersededPending ? "Not required" : rawStatus;
+          const stepClass = isSupersededPending ? "neutral" : rawStatus.toLowerCase();
           return (
-            <div className={`EmppLeaves-approval-step EmppLeaves-approval-step-${status.toLowerCase()}`} key={getApprovalUserId(step) || index}>
+            <div
+              className={`EmppLeaves-approval-step EmppLeaves-approval-step-${stepClass}`}
+              key={getApprovalUserId(step) || index}
+              style={
+                isSupersededPending
+                  ? { background: '#f8fafc', borderColor: '#e2e8f0', color: '#64748b' }
+                  : undefined
+              }
+            >
               <span className="EmppLeaves-approval-name">{user?.name || "User"}</span>
-              <span className="EmppLeaves-approval-status">{status}</span>
+              <span
+                className="EmppLeaves-approval-status"
+                style={isSupersededPending ? { color: '#64748b' } : undefined}
+              >
+                {displayStatus}
+              </span>
             </div>
           );
         })}
-        {['Approved', 'Rejected'].includes(leave.status) && (
+        {isFinalized && (
           <div className="EmppLeaves-approval-note">
             This leave is finalized after the first approval or rejection.
           </div>
@@ -642,6 +669,10 @@ const EmployeeLeaves = () => {
   }, [deletePermissionUserIds, currentUserId, isOwner, isAdmin, isHR, isManager]);
 
   const canApproveLeave = useCallback((leave = null) => {
+    if (leave && getLeaveUserId(leave) === String(currentUserId)) {
+      return false;
+    }
+
     if (leave && hasApprovalWorkflow(leave)) {
       return isCurrentUserPendingApprover(leave);
     }
@@ -1135,13 +1166,13 @@ const EmployeeLeaves = () => {
   }, [configuredLeaveTypes, leaves]);
 
   const pendingLeaves = useMemo(() =>
-    filteredLeaves.filter(leave => leave?.status === 'Pending' && canApproveLeave(leave)),
-    [filteredLeaves, canApproveLeave]
+    filteredLeaves.filter(leave => leave?.status === 'Pending'),
+    [filteredLeaves]
   );
 
   const otherLeaves = useMemo(() =>
-    filteredLeaves.filter(leave => !(leave?.status === 'Pending' && canApproveLeave(leave))),
-    [filteredLeaves, canApproveLeave]
+    filteredLeaves.filter(leave => leave?.status !== 'Pending'),
+    [filteredLeaves]
   );
 
   const leavePendingDelete = useMemo(() => {
@@ -1894,6 +1925,29 @@ const EmployeeLeaves = () => {
                           <FiClock size={12} />
                           {days} {days > 1 ? 'days' : 'day'}
                         </span>
+                        {leave.status === 'Pending' &&
+                          leave.startDate &&
+                          new Date(leave.startDate).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0) && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                padding: '2px 7px',
+                                borderRadius: '999px',
+                                background: '#fef2f2',
+                                color: '#dc2626',
+                                border: '1px solid #fecaca',
+                                marginTop: '4px',
+                                width: 'fit-content'
+                              }}
+                            >
+                              <FiAlertCircle size={11} />
+                              Overdue Approval
+                            </span>
+                          )}
                         <div className="EmppLeaves-date-range-inline">
                           <span>
                             <FiCalendar size={12} />
@@ -1952,11 +2006,21 @@ const EmployeeLeaves = () => {
                             <span>History</span>
                           </button>
 
-                          {canApproveThisLeave && (
+                          {leave.status === 'Pending' && (
                             <>
                               <button
                                 className="EmppLeaves-action-menu-item EmppLeaves-approve"
+                                disabled={!canApproveThisLeave}
+                                style={!canApproveThisLeave ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                                title={
+                                  !canApproveThisLeave
+                                    ? isOwnLeave
+                                      ? "You cannot approve your own leave request"
+                                      : "You are not an assigned approver for this leave"
+                                    : "Approve leave request"
+                                }
                                 onClick={() => {
+                                  if (!canApproveThisLeave) return;
                                   setOpenActionMenuId(null);
                                   openStatusDialog(
                                     leave._id,
@@ -1975,7 +2039,17 @@ const EmployeeLeaves = () => {
                               </button>
                               <button
                                 className="EmppLeaves-action-menu-item EmppLeaves-reject"
+                                disabled={!canApproveThisLeave}
+                                style={!canApproveThisLeave ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                                title={
+                                  !canApproveThisLeave
+                                    ? isOwnLeave
+                                      ? "You cannot reject your own leave request"
+                                      : "You are not an assigned approver for this leave"
+                                    : "Reject leave request"
+                                }
                                 onClick={() => {
+                                  if (!canApproveThisLeave) return;
                                   setOpenActionMenuId(null);
                                   openStatusDialog(
                                     leave._id,

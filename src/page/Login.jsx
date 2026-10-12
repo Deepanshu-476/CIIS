@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../utils/axiosConfig';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import { sanitizeUserForStorage } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Login.css'; 
 
@@ -227,7 +228,7 @@ const Login = () => {
       }
 
       if (res.data.user) {
-        const userData = res.data.user;
+        const userData = sanitizeUserForStorage(res.data.user);
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         setIsAuthenticated(true);
@@ -358,7 +359,7 @@ const Login = () => {
         }
 
         if (response.data.user) {
-          const userData = response.data.user;
+          const userData = sanitizeUserForStorage(response.data.user);
           localStorage.setItem('user', JSON.stringify(userData));
           setUser(userData);
           setIsAuthenticated(true);

@@ -9,6 +9,7 @@ import { renderMarketingRoutes } from "./marketing";
 import ProtectedRoute from "./admin/components/ProtectedRoute";
 import ProtectedSuperAdminRoute from "./utils/ProtectedSuperAdminRoute.jsx";
 import ThemeContextProvider from "./Theme/ThemeContext";
+import { PageStatusCard } from "./hrCds/components/PageAccessGate.jsx";
 
 const Login = lazy(() => import("./page/Login"));
 const SelfRegister = lazy(() => import("./page/SelfRegister.jsx"));
@@ -293,7 +294,15 @@ function App() {
           />
           <Route path="dashboard-1" element={<DashboardOverview />} />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
+          <Route path="client-dashboard" element={<ClientDashboardPage />} />
+          <Route path="client-my-services" element={<MyServicesPage />} />
+          <Route path="client-payments" element={<PaymentsInvoicesPage />} />
+          <Route path="client-documents" element={<DocumentsPage />} />
+          <Route path="client-support-tickets" element={<SupportTicketsPage />} />
+          <Route path="client-marketplace" element={<ServiceMarketplacePage />} />
+          <Route path="client-tasks-updates" element={<ClientTasksUpdatesPage />} />
           <Route path="project" element={<EmployeeProject />} />
+          <Route path="project-details" element={<Navigate to="/ciisUser/project" replace />} />
           <Route
             path="project/:projectId"
             element={(
@@ -325,6 +334,8 @@ function App() {
           <Route path="department" element={<Department />} />
           <Route path="department/branch/:branchId" element={<Department />} />
           <Route path="JobRoleManagement" element={<JobRoleManagement />} />
+          <Route path="jobrolemanagement" element={<Navigate to="/ciisUser/JobRoleManagement" replace />} />
+          <Route path="job-role-management" element={<Navigate to="/ciisUser/JobRoleManagement" replace />} />
           <Route path="SidebarManagement" element={<SidebarManagement />} />
           <Route path="create-alert" element={<CreateAlerts />} />
           <Route path="user-profile" element={<UserProfile/>} />
@@ -434,6 +445,7 @@ function App() {
           <Route path="crm/reports/funnel" element={<Navigate to="/ciisUser/crm/reports/conversion-funnel" replace />} />
           <Route path="crm/reports/user-activity" element={<LiveCrmReport type="user-activity" title="User Activity" />} />
           <Route path="crm/reports" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
+          <Route path="*" element={<PageStatusCard status={404} reason="not_found" />} />
         </Route>
         <Route
           path="/client/*"

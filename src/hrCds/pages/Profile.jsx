@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import CIISLoader from "../../Loader/CIISLoader";
-import { getProfileCompletion } from "../utils/profileCompletion";
+import { getProfileCompletion, getFirstIncompleteProfileSection } from "../utils/profileCompletion";
 import "./Profile.css";
 import {
   FiBriefcase,
@@ -76,6 +76,50 @@ const buildInitialForm = (user = {}) => ({
 });
 
 const displayValue = (value) => value || "Not provided";
+
+const formatEnumLabel = (value) => {
+  if (!value) return "";
+  const raw = String(value).trim().replace(/TaskManger/gi, "TaskManager");
+  if (!raw) return "";
+  const lower = raw.toLowerCase();
+  const knownMap = {
+    super_admin: "Super Admin",
+    company_admin: "Company Admin",
+    sub_admin: "Sub Admin",
+    hr_admin: "HR Admin",
+    "full-time": "Full Time",
+    "part-time": "Part Time",
+    "non-technical": "Non Technical",
+    male: "Male",
+    female: "Female",
+    other: "Other",
+    single: "Single",
+    married: "Married",
+    divorced: "Divorced",
+    widowed: "Widowed",
+    active: "Active",
+    inactive: "Inactive",
+  };
+  if (knownMap[lower]) return knownMap[lower];
+  if (/^[a-z0-9]+([_-][a-z0-9]+)+$/i.test(raw)) {
+    return raw
+      .split(/[_-]+/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  }
+  return raw;
+};
+
+const formatProfileDate = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 const maskAccountNumber = (value) => {
   const accountNumber = String(value || "");
@@ -895,7 +939,7 @@ const Profile = () => {
   }
 
   const completion = getProfileCompletion(profile);
-  const role = resolveReferenceName(getProfileValue(profile, "designation", "jobTitle", "jobRole", "role"));
+  const role = formatEnumLabel(resolveReferenceName(getProfileValue(profile, "designation", "jobTitle", "jobRole", "role")));
   const department = resolveReferenceName(getProfileValue(profile, "department", "departmentName"));
   const employeeId = getProfileValue(profile, "employeeId", "empId", "employeeCode");
   const joiningDate = getProfileValue(profile, "joiningDate", "dateOfJoining");
@@ -1003,13 +1047,13 @@ const Profile = () => {
           />
         </div>
         <div className="UserDetails-profile-summary">
-          <div className="UserDetails-name-row"><h2>{displayValue(profile?.name)}</h2><span className={`UserDetails-status ${String(profile?.status || "active").toLowerCase() === "active" ? "active" : "inactive"}`}>{profile?.status || "Active"}</span></div>
+          <div className="UserDetails-name-row"><h2>{displayValue(profile?.name)}</h2><span className={`UserDetails-status ${String(profile?.status || "active").toLowerCase() === "active" ? "active" : "inactive"}`}>{formatEnumLabel(profile?.status) || "Active"}</span></div>
           <p><FiMail /> {displayValue(profile?.email)}</p>
           <p><FiPhone /> {displayValue(profile?.phone || profile?.mobile)}</p>
         </div>
         <div className="UserDetails-employment-summary">
           <div><FiFileText /><span>Employee ID</span><strong>{displayValue(employeeId)}</strong></div>
-          <div><FiCalendar /><span>Joining Date</span><strong>{joiningDate ? new Date(joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Not provided"}</strong></div>
+          <div><FiCalendar /><span>Joining Date</span><strong>{joiningDate ? formatProfileDate(joiningDate) : "Not provided"}</strong></div>
           <div><FiBriefcase /><span>Job Role</span><strong>{displayValue(role)}</strong></div>
           <div><FiUsers /><span>Reporting Manager</span><strong>{displayValue(manager)}</strong></div>
         </div>
@@ -1019,7 +1063,7 @@ const Profile = () => {
           <div className="UserDetails-progress"><span style={{ width: `${completion}%` }} /></div>
           <p>{completion === 100 ? "Your profile details are complete." : "Add the remaining details to complete your profile."}</p>
           {completion < 100 ? (
-            <button type="button" disabled>Complete Profile</button>
+            <button type="button" onClick={() => openEdit(getFirstIncompleteProfileSection(profile))}>Complete Profile</button>
           ) : (
             <span className="UserDetails-completed-status"><FiCheckCircle /> Completed</span>
           )}
@@ -1170,8 +1214,8 @@ const Profile = () => {
             <div className="UserDetails-info-grid">
               <InfoItem label="Full Name" value={profile?.name} required />
               <InfoItem label="Email Address" value={profile?.email} required />
-              <InfoItem label="Date of Birth" value={profile?.dob ? new Date(profile.dob).toLocaleDateString("en-IN") : ""} />
-              <InfoItem label="Gender" value={profile?.gender} />
+              <InfoItem label="Date of Birth" value={profile?.dob ? formatProfileDate(profile.dob) : ""} />
+              <InfoItem label="Gender" value={formatEnumLabel(profile?.gender)} />
               <InfoItem label="Mobile Number" value={profile?.phone || profile?.mobile} required />
             </div>
             <div className="UserDetails-info-grid">
@@ -1188,17 +1232,17 @@ const Profile = () => {
           <div className="UserDetails-section-heading"><h3><FiBriefcase /> Employment Information</h3></div>
           <div className="UserDetails-info-columns">
             <div className="UserDetails-info-grid">
-              <InfoItem label="Employee Type" value={getProfileValue(profile, "employeeType", "employmentType")} />
+              <InfoItem label="Employee Type" value={formatEnumLabel(getProfileValue(profile, "employeeType", "employmentType"))} />
               <InfoItem label="Work Location" value={location} />
               <InfoItem label="Monthly Gross Salary" value={profile?.salary} />
-              <InfoItem label="Employment Status" value={profile?.status} />
+              <InfoItem label="Employment Status" value={formatEnumLabel(profile?.status)} />
               <InfoItem label="Notice Period" value={getProfileValue(profile, "noticePeriod", "notice_period")} />
             </div>
             <div className="UserDetails-info-grid">
               <InfoItem label="Shift" value={getProfileValue(profile, "shift", "shiftName")} />
               <InfoItem label="Designation" value={role} />
               <InfoItem label="Department" value={department} />
-              <InfoItem label="Joining Date" value={joiningDate ? new Date(joiningDate).toLocaleDateString("en-IN") : ""} />
+              <InfoItem label="Joining Date" value={joiningDate ? formatProfileDate(joiningDate) : ""} />
               <InfoItem label="Reporting Manager" value={manager} />
             </div>
           </div>
@@ -1251,7 +1295,7 @@ const Profile = () => {
         <section className="UserDetails-section-card UserDetails-section-third">
           <div className="UserDetails-section-heading"><h3><FiHeart /> Family & Emergency</h3><button type="button" onClick={() => openEdit("family")}><FiEdit /> Edit</button></div>
           <div className="UserDetails-info-grid three">
-            <InfoItem label="Marital Status" value={profile?.maritalStatus} />
+            <InfoItem label="Marital Status" value={formatEnumLabel(profile?.maritalStatus)} />
             <InfoItem label="Father's Name" value={profile?.fatherName} required />
             <InfoItem label="Mother's Name" value={profile?.motherName} required />
             {String(profile?.maritalStatus || "").toLowerCase() === "married" && (

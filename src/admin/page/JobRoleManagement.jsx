@@ -423,7 +423,27 @@ const JobRoleManagement = () => {
       void 0;
       
       const response = await axios.get('/job-roles', { params });
-      const roles = response.data.jobRoles || [];
+      const hiddenTestRoles = new Set(['telecaller qa test', 'hr test']);
+      const normalizeRoleDisplayName = (value) => {
+        const text = String(value || '').trim();
+        if (text.toLowerCase() === 'taskmanger') return 'TaskManager';
+        if (['super_admin', 'super-admin', 'superadmin'].includes(text.toLowerCase())) return 'Super Admin';
+        return text;
+      };
+      const rawRoles = response.data.jobRoles || [];
+      const roles = rawRoles
+        .filter(role => {
+          const rawName = String(role?.name || '').trim().toLowerCase();
+          const assignedCount = Number(role?.employeeCount || role?.userCount || role?.employees?.length || 0);
+          if (hiddenTestRoles.has(rawName) && assignedCount === 0) {
+            return false;
+          }
+          return true;
+        })
+        .map(role => ({
+          ...role,
+          name: normalizeRoleDisplayName(role?.name)
+        }));
       setJobRoles(roles);
       
       
@@ -598,7 +618,12 @@ const JobRoleManagement = () => {
       return;
     }
     const jobRole = jobRoles.find(j => j._id === id);
-    if (!window.confirm(`Are you sure you want to delete "${jobRole?.name}"?`)) return;
+    const assignedEmployees = Number(jobRole?.employeeCount || jobRole?.userCount || jobRole?.employees?.length || 0);
+    if (assignedEmployees > 0) {
+      toast.error(`Cannot delete "${jobRole?.name}" while ${assignedEmployees} employee(s) are assigned to it.`);
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to permanently delete the job role "${jobRole?.name || 'this role'}"? This action cannot be undone.`)) return;
 
     try {
       setLoading(true);
@@ -933,7 +958,11 @@ const JobRoleManagement = () => {
                     {userInfo.name}
                   </span>
                   <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
-                    {userInfo.role}
+                    {['super_admin', 'super-admin', 'superadmin'].includes(String(userInfo.role || '').trim().toLowerCase())
+                      ? 'Super Admin'
+                      : String(userInfo.role || '').trim().toLowerCase() === 'taskmanger'
+                        ? 'TaskManager'
+                        : userInfo.role}
                   </span>
                   {userInfo.companyCode && (
                     <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">

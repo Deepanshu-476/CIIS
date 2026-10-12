@@ -312,6 +312,20 @@ const LeavePolicy = () => {
     const target = leaveTypesList.find((lt) => (lt._id || lt.id) === id);
     if (!target) return;
 
+    const targetNameLower = String(target.name || '').trim().toLowerCase();
+    const policiesUsingType = policies.filter(
+      (p) => String(p?.leaveType || '').trim().toLowerCase() === targetNameLower
+    );
+
+    if (policiesUsingType.length > 0) {
+      toast.error(
+        `Cannot delete: ${policiesUsingType.length} ${
+          policiesUsingType.length === 1 ? 'policy uses' : 'policies use'
+        } this leave type`
+      );
+      return;
+    }
+
     if (window.confirm(`Delete leave type "${target.name}"?`)) {
       try {
         if (target._id) {
@@ -415,9 +429,21 @@ const LeavePolicy = () => {
     ? `Select Job Roles for ${selectedDepartmentLabels.join(', ')}...`
     : 'Select Job Roles...';
 
+  const visibleLeaveTypesList = useMemo(() => {
+    const usedTypes = new Set(
+      policies.map((p) => String(p?.leaveType || '').trim().toLowerCase()).filter(Boolean)
+    );
+    return leaveTypesList.filter((lt) => {
+      const nameLower = String(lt?.name || '').trim().toLowerCase();
+      if (!nameLower) return false;
+      if (nameLower === 'test' && !usedTypes.has('test')) return false;
+      return true;
+    });
+  }, [leaveTypesList, policies]);
+
   const activeLeaveTypes = useMemo(() => {
     const unique = new Map();
-    leaveTypesList
+    visibleLeaveTypesList
       .filter((leaveType) => leaveType?.status === 'Active')
       .sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
       .forEach((leaveType) => {
@@ -425,7 +451,7 @@ const LeavePolicy = () => {
         if (name && !unique.has(name.toLowerCase())) unique.set(name.toLowerCase(), leaveType);
       });
     return [...unique.values()];
-  }, [leaveTypesList]);
+  }, [visibleLeaveTypesList]);
 
   // Toggle job role selection (Multi-Select)
   const toggleJobRole = (roleName) => {
@@ -765,11 +791,11 @@ const LeavePolicy = () => {
         </form>
 
         {/* Configured Leave Types Pill Bar */}
-        {leaveTypesList.length > 0 && (
+        {visibleLeaveTypesList.length > 0 && (
           <div className="lpm-leave-types-chip-bar">
             <span className="chip-bar-label">Configured Leave Types:</span>
             <div className="chip-bar-flex">
-              {leaveTypesList.map((lt) => (
+              {visibleLeaveTypesList.map((lt) => (
                 <span key={lt._id || lt.id || lt.name} className={`lpm-type-badge ${lt.status}`}>
                   <strong>{lt.name}</strong>
                   {pageAccess.canDelete && (

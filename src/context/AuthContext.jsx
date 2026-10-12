@@ -1,9 +1,40 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { clearAllCaches } from '../utils/axiosConfig';
+import axiosInstance, { clearAllCaches } from '../utils/axiosConfig';
 
 
 export const AuthContext = createContext(null);
 const AUTH_SYNC_EVENT = 'ciis-auth-changed';
+const SENSITIVE_USER_PII_FIELDS = [
+  'aadhaar',
+  'aadhar',
+  'aadharCard',
+  'pan',
+  'panCard',
+  'accountNumber',
+  'bankName',
+  'ifsc',
+  'bankHolderName',
+  'salary',
+  'dob',
+  'fatherName',
+  'motherName',
+  'documents',
+  'permanentAddress',
+  'presentAddress',
+];
+
+export const sanitizeUserForStorage = (user) => {
+  if (!user || typeof user !== 'object') return user;
+  const sanitized = { ...user };
+  SENSITIVE_USER_PII_FIELDS.forEach((field) => {
+    delete sanitized[field];
+  });
+  if (sanitized.user && typeof sanitized.user === 'object') {
+    sanitized.user = sanitizeUserForStorage(sanitized.user);
+  }
+  return sanitized;
+};
+
 const AUTH_STORAGE_KEYS = [
   'token',
   'user',
@@ -20,6 +51,7 @@ const AUTH_STORAGE_KEYS = [
 const APP_CACHE_PREFIXES = [
   'ciis-task-management-cache:',
   'ciis-api-cache:',
+  'ciis-user-dashboard:',
   'ciis-sidebar-badges-cache:',
   'ciis-sidebar-badges-seen:',
   'ciis_user_avatar:',
@@ -47,8 +79,14 @@ const readStoredAuth = () => {
   }
 
   try {
+    const parsedUser = JSON.parse(storedUser);
+    const sanitizedUser = sanitizeUserForStorage(parsedUser);
+    const sanitizedSerialized = JSON.stringify(sanitizedUser);
+    if (sanitizedSerialized !== storedUser) {
+      localStorage.setItem('user', sanitizedSerialized);
+    }
     return {
-      user: JSON.parse(storedUser),
+      user: sanitizedUser,
       token: storedToken,
       isAuthenticated: true,
     };
@@ -98,8 +136,15 @@ export const AuthProvider = ({ children }) => {
   }, [syncAuthState]);
 
   const logout = useCallback(() => {
+    axiosInstance.post('/auth/logout', {}, { _skipErrorNotify: true }).catch(() => {});
     clearStorageKeys(localStorage);
     clearStorageKeys(sessionStorage);
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {
+      // Ignore storage errors in restricted browser environments.
+    }
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
@@ -109,16 +154,6 @@ export const AuthProvider = ({ children }) => {
       window.dispatchEvent(new Event(AUTH_SYNC_EVENT));
     }
   }, []);
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
 
   return (
     <AuthContext.Provider value={{ user, setUser, token, setToken, isAuthenticated, setIsAuthenticated, logout, syncAuthState }}>

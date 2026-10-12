@@ -673,20 +673,21 @@ export const useClientPortalData = () => {
 
       const allClients = clientsResponse.data.data || [];
       const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
+      const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
       const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const currentClient = (
         storedClientId
-          ? matchingClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
+          ? effectiveClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
           : null
-      ) || matchingClients[0];
+      ) || effectiveClients.find(item => String(item?.status || 'Active').toLowerCase() === 'active') || effectiveClients[0] || null;
       if (!currentClient) {
         setClient(null);
         setAvailableClients([]);
         setServices([]);
         setTasks([]);
         setProjectManagers([]);
-        setError('No client data found for this login.');
+        setError('No client records found in this company workspace.');
         return;
       }
 
@@ -696,7 +697,7 @@ export const useClientPortalData = () => {
 
       if (isMounted.current) {
         setClient(currentClient);
-        setAvailableClients(matchingClients);
+        setAvailableClients(effectiveClients);
         localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
         localStorage.setItem('client', JSON.stringify(currentClient));
         setServices(serviceList);

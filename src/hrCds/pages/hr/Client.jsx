@@ -3505,7 +3505,9 @@ const ClientManagement = () => {
   };
 
   const formatCurrency = (amount) => {
-    return `Rs ${Number(amount || 0).toLocaleString('en-IN')}`;
+    const numericAmount = Number(amount || 0);
+    if (!numericAmount || numericAmount <= 0) return '—';
+    return `₹${numericAmount.toLocaleString('en-IN')}`;
   };
 
   const getClientRevenue = (client) => {
@@ -3542,25 +3544,54 @@ const ClientManagement = () => {
     const groups = new Map();
 
     clientRows.forEach((companyClient) => {
-      const key = String(companyClient.parentClientId || companyClient.parentClientName || companyClient.client || companyClient._id);
+      const rawClientName = String(companyClient.parentClientName || companyClient.client || '').trim();
+      const rawCompanyName = String(companyClient.company || companyClient.businessName || '').trim();
+      const displayBusinessName = rawCompanyName || rawClientName || 'Unnamed Client';
+      const normalizedKey = String(
+        companyClient.parentClientId ||
+        (rawClientName || rawCompanyName).toLowerCase().replace(/\s+/g, ' ') ||
+        companyClient._id
+      );
       const subscriptionInfo = getLatestSubscriptionInfo(companyClient);
       const isExpired = subscriptionInfo.isExpired || companyClient.status !== 'Active';
+      const derivedClientCode =
+        companyClient.clientCode ||
+        companyClient.code ||
+        `CL-${String(companyClient._id || '').slice(-4).toUpperCase()}`;
 
-      if (!groups.has(key)) {
-        groups.set(key, {
+      if (!groups.has(normalizedKey)) {
+        groups.set(normalizedKey, {
           _id: companyClient.parentClientId || companyClient._id,
-          client: companyClient.parentClientName || companyClient.client || 'Unnamed Client',
+          client: rawClientName || displayBusinessName,
+          businessName: displayBusinessName,
+          contactPerson: rawClientName && rawCompanyName && rawClientName.toLowerCase() !== rawCompanyName.toLowerCase()
+            ? rawClientName
+            : (companyClient.contactPerson || ''),
+          clientCode: derivedClientCode,
           companyCode: companyClient.companyCode,
           totalCompanies: 0,
           activeCompanies: 0,
           expiredCompanies: 0,
           totalRevenue: 0,
           statusCounts: {},
-          companies: []
+          companies: [],
+          _seenCompanyKeys: new Set()
         });
       }
 
-      const group = groups.get(key);
+      const group = groups.get(normalizedKey);
+      const companyDedupKey = String(
+        (rawCompanyName || rawClientName).toLowerCase().replace(/\s+/g, ' ') || companyClient._id
+      );
+
+      if (group._seenCompanyKeys.has(companyDedupKey)) {
+        return;
+      }
+      group._seenCompanyKeys.add(companyDedupKey);
+
+      if (rawCompanyName && (!group.businessName || group.businessName === group.client)) {
+        group.businessName = rawCompanyName;
+      }
       const companyStatus = getCompanyStatusMeta(companyClient.status).label;
       group.totalCompanies += 1;
       group.activeCompanies += companyClient.status === 'Active' && !isExpired ? 1 : 0;
@@ -3705,17 +3736,9 @@ const ClientManagement = () => {
 
       setProjectManagers(formattedManagers);
 
-      if (formattedManagers.length > 0) {
-        setSuccess(`Loaded ${formattedManagers.length} users`);
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError('No users found');
-      }
-
     } catch (error) {
       console.error('Error fetching users:', error);
       setProjectManagers([]);
-      setError('Failed to load users');
     }
   };
 
@@ -3784,24 +3807,23 @@ const ClientManagement = () => {
           ...client,
           projectManagers: Array.isArray(client.projectManagers) ? client.projectManagers : []
         }));
+
+        const portfolioGroups = getClientPortfolioGroups(enhancedClients);
+        const deduplicatedClients = portfolioGroups.flatMap(group => group.companies);
         
-        setClients(enhancedClients);
+        setClients(deduplicatedClients);
         
         const pagination = clientsRes.data.pagination || {};
-        setTotalItems(pagination.totalItems || enhancedClients.length);
+        setTotalItems(portfolioGroups.length);
         setTotalPages(pagination.totalPages || 1);
+        setTotalClientsCount(portfolioGroups.length);
+        setActiveClientsCount(portfolioGroups.filter(group => group.activeCompanies > 0).length);
       } else {
         setClients([]);
         setTotalItems(0);
         setTotalPages(1);
-      }
-
-      if (statsRes.data?.success) {
-        setTotalClientsCount(statsRes.data.data?.total || 0);
-        setActiveClientsCount(statsRes.data.data?.active || 0);
-      } else {
-        setTotalClientsCount(clientsRes.data.pagination?.totalItems || 0);
-        setActiveClientsCount(0);
+        setTotalClientsCount(statsRes.data?.data?.total || 0);
+        setActiveClientsCount(statsRes.data?.data?.active || 0);
       }
 
       if (enquiriesRes.data?.success) {
@@ -3862,8 +3884,11 @@ const ClientManagement = () => {
         return;
       }
       try {
+        const uniqueClients = Array.from(
+          new Map(clients.filter(c => c?._id).map(c => [String(c._id), c])).values()
+        );
         const response = await tasksApi.get('/summary/bulk', {
-          params: { clientIds: clients.map(client => client._id).join(',') }
+          params: { clientIds: uniqueClients.map(client => client._id).join(',') }
         });
         if (cancelled) return;
         const summaries = response.data?.data || {};
@@ -3871,7 +3896,7 @@ const ClientManagement = () => {
         let overdueTasks = 0;
         const overdueClientsData = [];
         const counts = {};
-        clients.forEach(client => {
+        uniqueClients.forEach(client => {
           const summary = summaries[client._id] || {};
           counts[client._id] = {
             total: summary.total || 0,
@@ -3883,8 +3908,8 @@ const ClientManagement = () => {
           if (summary.overdue) {
             overdueClientsData.push({
               _id: client._id,
-              client: client.client,
-              company: client.company,
+              client: client.company || client.businessName || client.client,
+              company: client.company || client.businessName || client.client,
               overdueTasksCount: summary.overdue,
               overdueTaskNames: summary.overdueTaskNames || []
             });
@@ -4561,15 +4586,19 @@ const ClientManagement = () => {
                   </thead>
                   <tbody>
                     {clientPortfolioGroups.map((clientGroup) => {
+                      const primaryDisplayName = clientGroup.businessName || clientGroup.client || 'N/A';
+                      const secondaryContact = clientGroup.contactPerson || (
+                        clientGroup.client && clientGroup.client !== primaryDisplayName ? clientGroup.client : ''
+                      );
                       return (
                         <tr key={clientGroup._id}>
                           <td>
                             <div className="ClientManagement-client-cell">
                               <div>
-                                <p className="ClientManagement-font-bold">{clientGroup.client || 'N/A'}</p>
+                                <p className="ClientManagement-font-bold">{primaryDisplayName}</p>
                                 <small className="ClientManagement-text-muted ClientManagement-client-cell-secondary">
-                                  ID: {String(clientGroup._id || '').slice(-6)}
-                                  {clientGroup.companyCode && ` - Code: ${clientGroup.companyCode}`}
+                                  {secondaryContact ? `${secondaryContact} • ` : ''}
+                                  Code: {clientGroup.clientCode || `CL-${String(clientGroup._id || '').slice(-4).toUpperCase()}`}
                                 </small>
                                 <small className="ClientManagement-text-muted ClientManagement-client-cell-mobile">
                                   {clientGroup.totalCompanies} companies
@@ -4710,9 +4739,9 @@ const ClientManagement = () => {
           <div className="ClientManagement-modal ClientManagement-company-drawer" onClick={e => e.stopPropagation()}>
             <div className="ClientManagement-modal__header">
               <div>
-                <h3>{companiesDrawer.clientGroup.client}</h3>
+                <h3>{companiesDrawer.clientGroup.businessName || companiesDrawer.clientGroup.client}</h3>
                 <p className="ClientManagement-text-muted">
-                  {companiesDrawer.clientGroup.totalCompanies} companies - {formatCurrency(companiesDrawer.clientGroup.totalRevenue)} revenue
+                  {companiesDrawer.clientGroup.totalCompanies} companies • {companiesDrawer.clientGroup.totalRevenue > 0 ? `${formatCurrency(companiesDrawer.clientGroup.totalRevenue)} revenue` : 'No billed revenue yet'}
                 </p>
               </div>
               <button

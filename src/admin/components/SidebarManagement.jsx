@@ -11,7 +11,7 @@ import { TELECALLER_PAGES } from "../../crm/telecaller/telecallerPages";
 
 const APP_ROUTES = [
   { path: 'emp-details', name: 'Employee Details', icon: 'Person', category: 'administration' },
-  { path: 'emp-leaves', name: 'Employee Leaves', icon: 'EventNote', category: 'administration' },
+  { path: 'emp-leaves', name: 'Leave Management', icon: 'EventNote', category: 'administration' },
   { path: 'leave-policy', name: 'Leave Policy', icon: 'Assignment', category: 'administration' },
   { path: 'emp-assets', name: 'Employee Assets', icon: 'Computer', category: 'administration' },
   { path: 'company-assets', name: 'Asset Management', icon: 'Computer', category: 'administration' },

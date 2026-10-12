@@ -163,10 +163,15 @@ const normalizeRoleValue = value => String(
   typeof value === 'object' ? value?.name || value?.role || value?.code || '' : value || ''
 ).trim().toLowerCase().replace(/[\s-]+/g, '_');
 
+const dashboardMemoryCache = new Map();
+
 const getDashboardCacheKey = () => {
   try {
     const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
     const userId = getCurrentUserId(storedUser);
+    if (userId) {
+      localStorage.removeItem(`ciis-user-dashboard:${userId}`);
+    }
     return userId ? `ciis-user-dashboard:${userId}` : '';
   } catch {
     return '';
@@ -176,22 +181,59 @@ const getDashboardCacheKey = () => {
 const readDashboardCache = () => {
   const key = getDashboardCacheKey();
   if (!key) return {};
-  try {
-    return JSON.parse(localStorage.getItem(key) || '{}');
-  } catch {
-    return {};
-  }
+  return dashboardMemoryCache.get(key) || {};
 };
 
 const writeDashboardCache = patch => {
   const key = getDashboardCacheKey();
   if (!key) return;
-  try {
-    const current = readDashboardCache();
-    localStorage.setItem(key, JSON.stringify({ ...current, ...patch, updatedAt: Date.now() }));
-  } catch {
-    // Storage may be disabled or full; live dashboard data still works normally.
-  }
+  const current = readDashboardCache();
+  dashboardMemoryCache.set(key, { ...current, ...patch, updatedAt: Date.now() });
+};
+
+const formatActivityStatusLabel = status => {
+  const raw = String(status || '').trim();
+  if (!raw) return 'Pending';
+  const key = raw.toLowerCase().replace(/[\s-]+/g, '_');
+  const labelMap = {
+    status_updated: 'Status Updated',
+    task_completed: 'Completed',
+    completed: 'Completed',
+    in_progress: 'In Progress',
+    inprogress: 'In Progress',
+    on_hold: 'On Hold',
+    onhold: 'On Hold',
+    pending: 'Pending',
+    overdue: 'Overdue',
+    task_created: 'Created',
+    created: 'Created',
+    assigned: 'Assigned',
+    reassigned: 'Reassigned',
+    comment_added: 'Commented',
+    present: 'Present',
+    late: 'Late',
+    half_day: 'Half Day',
+    halfday: 'Half Day',
+    absent: 'Absent',
+    holiday: 'Holiday',
+    leave: 'Leave',
+    missed_punch: 'Missed Punch',
+  };
+  if (labelMap[key]) return labelMap[key];
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+};
+
+const formatActivityDateLabel = dateValue => {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 };
 
 const getIndiaDateKey = value => {
@@ -380,6 +422,7 @@ const UserDashboard = () => {
 
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
 
   const [attendanceData, setAttendanceData] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
@@ -426,7 +469,7 @@ const UserDashboard = () => {
     }
     return { loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 };
   });
-  const [dashboardTaskStats, setDashboardTaskStats] = useState({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
+  const [dashboardTaskStats, setDashboardTaskStats] = useState({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0, onHold: 0 });
   const [hoveredProductivityDay, setHoveredProductivityDay] = useState(null);
   const [productivityPeriod, setProductivityPeriod] = useState('weekly');
   const [productivityDates, setProductivityDates] = useState(() => {
@@ -1011,7 +1054,7 @@ const UserDashboard = () => {
     const userId = getCurrentUserId(user);
     if (!userId || !isUserInCurrentCompany) {
       setFocusStats({ loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 });
-      setDashboardTaskStats({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0 });
+      setDashboardTaskStats({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0, onHold: 0 });
       return;
     }
 
@@ -1024,12 +1067,19 @@ const UserDashboard = () => {
       const today = todayResponse.data?.statusCounts || {};
       const all = allResponse.data?.statusCounts || {};
       const apiTotal = Number(all.total) || 0;
+      const completed = Number(all.completed?.count) || 0;
+      const inProgress = Number(all.inProgress?.count) || 0;
+      const pending = Number(all.pending?.count) || 0;
+      const overdue = Number(all.overdue?.count) || 0;
+      const explicitOnHold = Number(all.onHold?.count ?? all.on_hold?.count ?? all.onHold ?? all.on_hold ?? 0) || 0;
+      const onHold = explicitOnHold || Math.max(0, apiTotal - (completed + inProgress + pending + overdue));
       const resolvedCounts = {
-        total: apiTotal,
-        completed: Number(all.completed?.count) || 0,
-        inProgress: Number(all.inProgress?.count) || 0,
-        pending: Number(all.pending?.count) || 0,
-        overdue: Number(all.overdue?.count) || 0
+        total: Math.max(apiTotal, completed + inProgress + pending + overdue + onHold),
+        completed,
+        inProgress,
+        pending,
+        overdue,
+        onHold
       };
       const dueToday = Number(today.total) || 0;
       const completedToday = Number(today.completed?.count) || 0;
@@ -1124,8 +1174,21 @@ const UserDashboard = () => {
     }).forEach(record => {
       const clockIn = record.inTime || record.checkInTime || record.clockIn || record.punchIn;
       const clockOut = record.outTime || record.checkOutTime || record.clockOut || record.punchOut;
+      const isAutoOut = Boolean(
+        record.clockOutMode === 'AUTO' ||
+        record.isAutoClockOut ||
+        record.autoClockout ||
+        /auto/i.test(String(record.notes || record.remarks || record.outNote || ''))
+      );
       if (clockIn) allActivities.push({ ...record, type: 'clock-in', date: clockIn, title: 'Clock In', subtitle: 'Checked in from Web', status: 'PRESENT' });
-      if (clockOut) allActivities.push({ ...record, type: 'clock-out', date: clockOut, title: 'Clock Out', subtitle: 'Checked out from Web', status: 'PRESENT' });
+      if (clockOut) allActivities.push({
+        ...record,
+        type: 'clock-out',
+        date: clockOut,
+        title: isAutoOut ? 'Auto Clock Out' : 'Clock Out',
+        subtitle: isAutoOut ? 'Auto (System)' : 'Checked out from Web',
+        status: isAutoOut ? 'MISSED PUNCH' : 'PRESENT'
+      });
       if (!clockIn && !clockOut) allActivities.push({ ...record, type: 'attendance', date: record.date, status: record.status, displayDate: new Date(record.date) });
     });
 
@@ -1156,14 +1219,7 @@ const UserDashboard = () => {
     });
 
 
-    allActivities.sort((a, b) => {
-      const aDate = new Date(a.date);
-      const bDate = new Date(b.date);
-      const aDay = new Date(aDate).setHours(0, 0, 0, 0);
-      const bDay = new Date(bDate).setHours(0, 0, 0, 0);
-      if (aDay !== bDay) return bDay - aDay;
-      return bDate - aDate;
-    });
+    allActivities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     let hasClockIn = false;
     const deduplicatedActivities = allActivities.filter(activity => {
@@ -1331,7 +1387,6 @@ const UserDashboard = () => {
 
     const timers = [];
     const idleHandle = runWhenIdle(() => {
-      fetchFocusStats();
       timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
       timers.push(window.setTimeout(fetchDashboardProjects, 1200));
       timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
@@ -1344,7 +1399,6 @@ const UserDashboard = () => {
   }, [
     initialLoadDone,
     isUserInCurrentCompany,
-    fetchFocusStats,
     fetchUpcomingMeetings,
     fetchDashboardProjects,
     fetchRecentTaskActivity
@@ -1512,64 +1566,64 @@ const UserDashboard = () => {
     return map;
   }, [holidays]);
 
+  const resolveDayStatus = useCallback((year, month, day) => {
+    if (!day) return null;
+
+    const dateObj = new Date(year, month, day);
+    const key = `${year}-${month}-${day}`;
+    const isWeekend = isConfiguredWeekend(dateObj, getDepartmentSettings(dashboardUser, user));
+
+    if (holidayDateSet.has(key)) return "holiday";
+    if (isBeforeJoinDate(dateObj)) return "before-join";
+    if (weekendDates.includes(key) || (isWeekend && !lateDates.includes(key) && !halfDayDates.includes(key) && !markedDates.includes(key))) return "weekend";
+    if (leaveDateSet.has(key)) return "leave";
+    if (lateDates.includes(key)) return "late";
+    if (halfDayDates.includes(key)) return "halfday";
+    if (markedDates.includes(key)) return "present";
+    if (absentDateSet.has(key)) return "absent";
+
+    const todayStart = new Date(currentDate);
+    todayStart.setHours(0, 0, 0, 0);
+    if (dateObj < todayStart) return "absent";
+
+    return null;
+  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
+
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
-    const calculateMonth = (year, month) => {
-      const records = filteredAttendanceData.filter(record => {
-        const date = new Date(record.date);
-        return !Number.isNaN(date.getTime()) && date.getMonth() === month && date.getFullYear() === year;
-      });
-      const toDateKey = record => {
-        const date = new Date(record.date);
-        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-      };
-      const attendanceKeys = new Set(records.map(toDateKey));
-      const explicitAbsentKeys = new Set(
-        records
-          .filter(record => {
-            const key = toDateKey(record);
-            return record.status === 'ABSENT' && !leaveDateSet.has(key) && !holidayDateSet.has(key);
-          })
-          .map(toDateKey)
-      );
-
-      const inferredAbsentKeys = new Set();
+    const calculateMonth = (year, month, maxDay = null) => {
       const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const todayStart = new Date(currentDate);
-      todayStart.setHours(0, 0, 0, 0);
+      const limitDay = maxDay ? Math.min(daysInMonth, maxDay) : daysInMonth;
+      let presentDays = 0;
+      let lateDays = 0;
+      let halfDays = 0;
+      let absentDays = 0;
+      let leavesTaken = 0;
 
-      for (let day = 1; day <= daysInMonth; day += 1) {
-        const date = new Date(year, month, day);
-        const key = `${year}-${month}-${day}`;
-        if (
-          date >= todayStart ||
-          isBeforeJoinDate(date) ||
-          holidayDates.includes(key) ||
-          leaveDateSet.has(key) ||
-          attendanceKeys.has(key) ||
-          isConfiguredWeekend(date, getDepartmentSettings(dashboardUser, user))
-        ) continue;
-        inferredAbsentKeys.add(key);
+      for (let day = 1; day <= limitDay; day += 1) {
+        const status = resolveDayStatus(year, month, day);
+        if (status === 'present') presentDays += 1;
+        else if (status === 'late') lateDays += 1;
+        else if (status === 'halfday') halfDays += 1;
+        else if (status === 'leave') leavesTaken += 1;
+        else if (status === 'absent') absentDays += 1;
       }
 
       return {
-        presentDays: records.filter(record => record.status === 'PRESENT').length,
-        lateDays: records.filter(record => record.status === 'LATE').length,
-        halfDays: records.filter(record => record.status === 'HALF DAY').length,
-        absentDays: new Set([...explicitAbsentKeys, ...inferredAbsentKeys]).size,
-        leavesTaken: leaveDates.filter(dateStr => {
-          const [leaveYear, leaveMonth] = dateStr.split('-').map(Number);
-          return leaveYear === year && leaveMonth === month;
-        }).length
+        presentDays,
+        lateDays,
+        halfDays,
+        absentDays,
+        leavesTaken
       };
     };
 
     const previousDate = new Date(currentYear, currentMonth - 1, 1);
     return {
       monthlyStats: calculateMonth(currentYear, currentMonth),
-      previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth()),
+      previousMonthlyStats: calculateMonth(previousDate.getFullYear(), previousDate.getMonth(), currentDate.getDate()),
       previousMonthLabel: previousDate.toLocaleDateString('en-US', { month: 'short' })
     };
-  }, [filteredAttendanceData, leaveDates, leaveDateSet, holidayDateSet, holidayDates, currentMonth, currentYear, currentDate, isBeforeJoinDate, dashboardUser, user]);
+  }, [resolveDayStatus, currentMonth, currentYear, currentDate]);
 
   const getMonthlyChange = useCallback((currentValue, previousValue) => {
     if (!previousValue) return currentValue ? 100 : 0;
@@ -1578,36 +1632,21 @@ const UserDashboard = () => {
 
 
   const getDayStatus = useCallback((day) => {
-    if (!day) return null;
-
-    const dateObj = new Date(calendarYear, calendarMonth, day);
-    const key = `${calendarYear}-${calendarMonth}-${day}`;
-    const isWeekend = isConfiguredWeekend(dateObj, getDepartmentSettings(dashboardUser, user));
-
-
-    if (holidayDates.includes(key)) return "holiday";
-
-    if (isBeforeJoinDate(dateObj)) return "before-join";
-    if (leaveDateSet.has(key)) return "leave";
-    if (lateDates.includes(key)) return "late";
-    if (halfDayDates.includes(key)) return "halfday";
-    if (markedDates.includes(key)) return "present";
-    if (weekendDates.includes(key)) return "weekend";
-    if (isWeekend) return "weekend";
-    if (absentDateSet.has(key)) return "absent";
-
-    const todayStart = new Date(currentDate);
-    todayStart.setHours(0, 0, 0, 0);
-    if (dateObj < todayStart) return "absent";
-
-    return null;
-  }, [calendarYear, calendarMonth, currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDates, weekendDates, dashboardUser, user]);
+    return resolveDayStatus(calendarYear, calendarMonth, day);
+  }, [resolveDayStatus, calendarYear, calendarMonth]);
 
   const isToday = useCallback((day) => {
     return day === currentDate.getDate() &&
       calendarMonth === currentDate.getMonth() &&
       calendarYear === currentDate.getFullYear();
   }, [currentDate, calendarMonth, calendarYear]);
+
+  const isSelectedDay = useCallback((day) => {
+    if (!day || !selectedCalendarDate) return false;
+    return day === selectedCalendarDate.getDate() &&
+      calendarMonth === selectedCalendarDate.getMonth() &&
+      calendarYear === selectedCalendarDate.getFullYear();
+  }, [selectedCalendarDate, calendarMonth, calendarYear]);
 
 
   const getDayIcon = useCallback((day) => {
@@ -1867,6 +1906,7 @@ const UserDashboard = () => {
   const resetToCurrentMonth = useCallback(() => {
     setCalendarMonth(currentDate.getMonth());
     setCalendarYear(currentDate.getFullYear());
+    setSelectedCalendarDate(new Date(currentDate));
   }, [currentDate]);
 
   const handleRefresh = useCallback(() => {
@@ -1898,13 +1938,35 @@ const UserDashboard = () => {
     : '';
   const userJobRoleDisplay = getJobRoleDisplayName();
 
-  const taskSummary = useMemo(() => ({
-    total: dashboardTaskStats.total,
-    completed: dashboardTaskStats.completed,
-    inProgress: dashboardTaskStats.inProgress,
-    pending: dashboardTaskStats.pending,
-    overdue: dashboardTaskStats.overdue
-  }), [dashboardTaskStats]);
+  const taskSummary = useMemo(() => {
+    const completed = Number(dashboardTaskStats.completed) || 0;
+    const inProgress = Number(dashboardTaskStats.inProgress) || 0;
+    const pending = Number(dashboardTaskStats.pending) || 0;
+    const overdue = Number(dashboardTaskStats.overdue) || 0;
+    const rawOnHold = Number(dashboardTaskStats.onHold ?? dashboardTaskStats.on_hold ?? 0) || 0;
+    const apiTotal = Number(dashboardTaskStats.total) || 0;
+    const onHold = rawOnHold || Math.max(0, apiTotal - (completed + inProgress + pending + overdue));
+    const total = Math.max(apiTotal, completed + inProgress + pending + overdue + onHold);
+    return {
+      total,
+      completed,
+      inProgress,
+      pending,
+      overdue,
+      onHold
+    };
+  }, [dashboardTaskStats]);
+
+  const taskDonutGradient = useMemo(() => {
+    if (!taskSummary.total) {
+      return 'conic-gradient(#edf0f6 0deg 360deg)';
+    }
+    const doneDeg = (taskSummary.completed / taskSummary.total) * 360;
+    const inProgressDeg = doneDeg + (taskSummary.inProgress / taskSummary.total) * 360;
+    const pendingDeg = inProgressDeg + (taskSummary.pending / taskSummary.total) * 360;
+    const onHoldDeg = pendingDeg + (taskSummary.onHold / taskSummary.total) * 360;
+    return `conic-gradient(#19b978 0deg ${doneDeg}deg, #4b8ff0 ${doneDeg}deg ${inProgressDeg}deg, #f6aa2c ${inProgressDeg}deg ${pendingDeg}deg, #8b5cf6 ${pendingDeg}deg ${onHoldDeg}deg, #ef496d ${onHoldDeg}deg 360deg)`;
+  }, [taskSummary]);
 
   const productivityScore = productivityData.score || 0;
   const productivityLabel = productivityData.label || 'Poor';
@@ -1919,21 +1981,66 @@ const UserDashboard = () => {
     }) || null;
   }, [attendanceData, loading.attendance, currentDate]);
 
+  const isClockedOutToday = Boolean(todayAttendance?.outTime && (todayAttendance?.inTime || todayAttendance?.checkIn));
+  const isWorkingToday = Boolean(isRunning || (todayAttendance?.inTime && !todayAttendance?.outTime));
+  const todayCalendarStatus = resolveDayStatus(currentYear, currentMonth, currentDate.getDate());
+  const isWeekendOrHolidayToday = Boolean(
+    holidayDateSet.has(`${currentYear}-${currentMonth}-${currentDate.getDate()}`) ||
+    ['weekend', 'holiday', 'leave'].includes(todayCalendarStatus)
+  );
   const hasTodayAttendance = Boolean(todayAttendance);
   const totalWorkingDisplay = isRunning
     ? formatTime(timer)
     : formatTotalTimeValue(todayAttendance?.totalTime) || '00:00:00';
   const displayTimer = isRunning ? timer : getTotalTimeSeconds(todayAttendance?.totalTime);
 
-  const productivityTrend = useMemo(() => (productivityData.series || []).map((item, index, series) => ({
-    ...item,
-    date: new Date(item.date),
-    total: item.counts?.tasks || 0,
-    completed: item.counts?.completed || 0,
-    attendanceScore: item.breakdown?.attendance,
-    x: series.length === 1 ? 170 : 12 + index * (316 / (series.length - 1)),
-    y: 105 - ((item.score || 0) * 0.75)
-  })), [productivityData.series]);
+  const isSelectedDateToday = useMemo(
+    () => getIndiaDateKey(selectedCalendarDate) === getIndiaDateKey(currentDate),
+    [selectedCalendarDate, currentDate]
+  );
+
+  const selectedDateAttendance = useMemo(() => {
+    if (loading.attendance || !selectedCalendarDate) return null;
+    const targetKey = getIndiaDateKey(selectedCalendarDate);
+    return attendanceData.find(record => {
+      const value = record.date || record.inTime || record.createdAt;
+      return value && getIndiaDateKey(value) === targetKey;
+    }) || null;
+  }, [attendanceData, loading.attendance, selectedCalendarDate]);
+
+  const selectedDateStatusMeta = useMemo(() => {
+    if (loading.attendance) return { label: 'Loading…', className: 'pending' };
+    if (!selectedCalendarDate) return getAttendanceStatusMeta(todayAttendance?.status);
+    const resolved = resolveDayStatus(
+      selectedCalendarDate.getFullYear(),
+      selectedCalendarDate.getMonth(),
+      selectedCalendarDate.getDate()
+    );
+    const statusFromDay = {
+      holiday: 'HOLIDAY',
+      'before-join': 'BEFORE JOINING',
+      weekend: 'WEEKEND',
+      leave: 'LEAVE',
+      late: 'LATE',
+      halfday: 'HALF DAY',
+      present: 'PRESENT',
+      absent: 'ABSENT'
+    }[resolved];
+    return getAttendanceStatusMeta(statusFromDay || selectedDateAttendance?.status);
+  }, [loading.attendance, selectedCalendarDate, resolveDayStatus, selectedDateAttendance, todayAttendance]);
+
+  const productivityTrend = useMemo(() => (productivityData.series || []).map((item, index, series) => {
+    const scoreVal = Number(item.score) || 0;
+    return {
+      ...item,
+      date: new Date(item.date),
+      total: item.counts?.tasks || 0,
+      completed: item.counts?.completed || 0,
+      attendanceScore: item.breakdown?.attendance,
+      x: series.length === 1 ? 170 : 12 + index * (316 / (series.length - 1)),
+      y: scoreVal === 0 ? 116 : Math.round(116 - (scoreVal * 1.04))
+    };
+  }), [productivityData.series]);
 
   const productivityAxisLabels = useMemo(() => {
     if (productivityData.granularity === 'monthly') return productivityTrend;
@@ -1967,14 +2074,19 @@ const UserDashboard = () => {
     { label: 'Add Client', icon: <UserPlus />, tone: 'blue', fields: [['client', 'Client name', 'text'], ['company', 'Company', 'text'], ['email', 'Email', 'email'], ['phone', 'Phone', 'tel']] },
     { label: 'New Project', icon: <Folder />, tone: 'purple', fields: [['projectName', 'Project name', 'text'], ['description', 'Description', 'textarea'], ['startDate', 'Start date', 'date'], ['endDate', 'End date', 'date']] },
     { label: 'Meetings', icon: <CalendarDays />, tone: 'red', fields: [] },
+    { label: 'My Attendance', icon: <ClipboardCheck />, tone: 'green', route: '/ciisUser/attendance', fields: [] },
     { label: 'My Notes', icon: <NotebookPen />, tone: 'blue', fields: null },
     { label: 'Timesheet', icon: <Clock3 />, tone: 'green', fields: null },
   ];
 
-  const enabledQuickActionLabels = ['New Task', 'Apply Leave', 'Request Asset', 'Meetings', 'My Notes'];
+  const enabledQuickActionLabels = ['New Task', 'Apply Leave', 'Request Asset', 'Meetings', 'My Attendance', 'My Notes'];
   const visibleQuickActions = quickActions.filter(action => enabledQuickActionLabels.includes(action.label));
 
   const openQuickAction = action => {
+    if (action.route) {
+      navigate(action.route);
+      return;
+    }
     setActiveQuickAction(action);
     setQuickLeaveReasonError('');
     if (action.label === 'New Task') {
@@ -2387,13 +2499,13 @@ const UserDashboard = () => {
             <div className="activity-modal-list">
               {recentActivity.map((item, index) => {
                 const itemDate = new Date(item.date || Date.now());
-                const title = item.title || (item.type === 'attendance' ? `${item.status || 'Attendance'} recorded` : 'Activity');
+                const title = item.title || (item.type === 'attendance' ? `${formatActivityStatusLabel(item.status || 'Attendance')} recorded` : 'Activity');
                 const subtitle = item.subtitle || item.assignedTo || item.totalTime || 'Your workspace';
                 return <article className={`activity-modal-row activity-type-${item.type}`} key={item._id || item.id || `${item.type}-${index}`}>
-                  <time><strong>{item.displayTime || (Number.isNaN(itemDate.getTime()) ? '--:--' : itemDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</strong><span>{Number.isNaN(itemDate.getTime()) ? '' : itemDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}</span></time>
+                  <time><strong>{item.displayTime || (Number.isNaN(itemDate.getTime()) ? '--:--' : itemDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</strong><span>{formatActivityDateLabel(item.date)}</span></time>
                   <i aria-hidden="true" />
                   <div><strong>{title}</strong><span>{subtitle}</span></div>
-                  <em>{item.status || item.type}</em>
+                  <em>{formatActivityStatusLabel(item.status || item.type)}</em>
                 </article>;
               })}
               {!recentActivity.some(item => {
@@ -2598,8 +2710,8 @@ const UserDashboard = () => {
               <span className="MobileDashV2-eyebrow">
                 {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}
               </span>
-              <span className={`MobileDashV2-live ${isRunning ? 'is-active' : ''}`}>
-                <i /> {isRunning ? 'Working' : 'Ready'}
+              <span className={`MobileDashV2-live ${isWorkingToday ? 'is-active' : ''}`}>
+                <i /> {isWorkingToday ? 'Live' : isClockedOutToday ? 'Completed' : isWeekendOrHolidayToday ? 'Weekly Off' : 'Not Clocked In'}
               </span>
             </div>
             <h1>{displayUser?.name || 'Welcome back'}</h1>
@@ -2629,16 +2741,16 @@ const UserDashboard = () => {
             <div>
               <span>Work session</span>
               <strong>{formatTime(displayTimer)}</strong>
-              <small>{isRunning ? 'Timer is running' : 'Start when you’re ready'}</small>
+              <small>{isWorkingToday ? 'Timer is running' : isClockedOutToday ? 'Session completed for today' : 'Start when you’re ready'}</small>
             </div>
             <button
               type="button"
-              className={isRunning ? 'is-stop' : ''}
-              onClick={() => isRunning ? setShowClockOutConfirm(true) : handleActionClick('in')}
-              disabled={loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+              className={isRunning ? 'is-stop' : isClockedOutToday ? 'btn-disabled' : ''}
+              onClick={() => isRunning ? setShowClockOutConfirm(true) : (!isClockedOutToday && handleActionClick('in'))}
+              disabled={isClockedOutToday || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
             >
-              {isRunning ? <FiSquare /> : <FiPlay />}
-              {isRunning ? 'Clock out' : 'Clock in'}
+              {isRunning ? <FiSquare /> : isClockedOutToday ? <FiCheckCircle /> : <FiPlay />}
+              {isRunning ? 'Clock out' : isClockedOutToday ? 'Completed' : 'Clock in'}
             </button>
           </section>
 
@@ -2647,7 +2759,7 @@ const UserDashboard = () => {
             <div>
               <article><i className="violet"><FiCheckCircle /></i><span><strong>{focusStats.dueToday}</strong><small>Due today</small></span></article>
               <article><i className="blue"><FiActivity /></i><span><strong>{focusStats.inProgress}</strong><small>In progress</small></span></article>
-              <article><i className="green"><FiClock /></i><span><strong>{loading.attendance ? 'Loading…' : hasTodayAttendance ? 'Done' : 'Pending'}</strong><small>Attendance</small></span></article>
+              <article><i className="green"><FiClock /></i><span><strong>{loading.attendance ? 'Loading…' : isClockedOutToday ? 'Done' : isWorkingToday ? 'In Progress' : isWeekendOrHolidayToday ? 'Weekly Off' : 'Clock In Pending'}</strong><small>Attendance</small></span></article>
             </div>
           </section>
 
@@ -2683,7 +2795,8 @@ const UserDashboard = () => {
               {calendarDays.flat().map((day, index) => (
                 <span
                   key={`${day || 'empty'}-${index}`}
-                  className={day ? `${getDayStatus(day) || 'empty'} ${isToday(day) ? 'today' : ''}` : 'blank'}
+                  onClick={() => day && setSelectedCalendarDate(new Date(calendarYear, calendarMonth, day))}
+                  className={day ? `${getDayStatus(day) || 'empty'} ${isToday(day) ? 'today' : ''} ${isSelectedDay(day) ? 'day-selected' : ''}` : 'blank'}
                 >
                   {day || ''}
                 </span>
@@ -2709,7 +2822,7 @@ const UserDashboard = () => {
                   <article key={item._id || item.id || `${item.type}-${index}`}>
                     <time>{Number.isNaN(itemDate.getTime()) ? '--:--' : itemDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
                     <i className={`type-${item.type || 'default'}`}><FiCheckCircle /></i>
-                    <span><strong>{item.title || `${item.status || 'Activity'} recorded`}</strong><small>{item.subtitle || item.assignedTo || item.totalTime || 'Your workspace'}</small></span>
+                    <span><strong>{item.title || `${formatActivityStatusLabel(item.status || 'Activity')} recorded`}</strong><small>{item.subtitle || item.assignedTo || item.totalTime || 'Your workspace'}</small></span>
                   </article>
                 );
               })}
@@ -2728,6 +2841,7 @@ const UserDashboard = () => {
                 ['Completed', taskSummary.completed, 'green'],
                 ['In progress', taskSummary.inProgress, 'blue'],
                 ['Pending', taskSummary.pending, 'amber'],
+                ['On hold', taskSummary.onHold, 'violet'],
                 ['Overdue', taskSummary.overdue, 'red']
               ].map(([label, value, tone]) => (
                 <div key={label}><span>{label}<b>{value}</b></span><i><em className={tone} style={{ width: `${taskSummary.total ? value / taskSummary.total * 100 : 0}%` }} /></i></div>
@@ -2802,7 +2916,7 @@ const UserDashboard = () => {
               <div className="dashboard-focus-card">
                 <strong>Today's Focus</strong>
                 <span><FiCheckCircle /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.dueToday} Tasks Due Today`}</span>
-                <span><FiCheckCircle /> Attendance {loading.attendance ? 'Loading…' : hasTodayAttendance ? 'Completed' : 'Pending'}</span>
+                <span><FiCheckCircle /> {loading.attendance ? 'Attendance Loading…' : isClockedOutToday ? 'Attendance Completed' : isWorkingToday ? 'In Progress' : isWeekendOrHolidayToday ? 'Weekly Off / Holiday' : 'Clock In Pending'}</span>
                 <span><FiCalendar /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.inProgress} Tasks In Progress`}</span>
               </div>
 
@@ -2822,18 +2936,18 @@ const UserDashboard = () => {
               <div className="dashboard-clock-section dashboard-clock-inline">
                 <div className="dashboard-timer-display">
                   <div className="dashboard-timer-value">{formatTime(displayTimer)}</div>
-                  <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
-                    <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
-                    {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
+                  <div className={`dashboard-timer-status ${isWorkingToday ? 'status-active-text' : 'status-inactive-text'}`}>
+                    <div className={`dashboard-timer-dot ${isWorkingToday ? 'dot-active' : 'dot-inactive'}`}></div>
+                    {isWorkingToday ? 'Active Timer • Live' : isClockedOutToday ? 'Attendance Completed' : 'Timer Stopped'}
                   </div>
                 </div>
                 <div className="dashboard-clock-buttons">
                   <button
                     onClick={() => handleActionClick('in')}
-                    disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
-                    className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}
+                    disabled={isRunning || isClockedOutToday || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                    className={`dashboard-btn dashboard-btn-clockin ${(isRunning || isClockedOutToday) ? 'btn-disabled' : ''}`}
                   >
-                    <FiPlay size={20} /> Clock In
+                    {isClockedOutToday ? <><FiCheckCircle size={20} /> Completed</> : <><FiPlay size={20} /> Clock In</>}
                   </button>
                   <button
                     onClick={() => setShowClockOutConfirm(true)}
@@ -2860,7 +2974,7 @@ const UserDashboard = () => {
                 <FiTrendingUp className="stat-trend-icon" />
                 <span className="stat-month-text">{getMonthlyChange(monthlyStats.presentDays, previousMonthlyStats.presentDays)}% vs {previousMonthLabel}</span>
               </div>
-              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,22 14,10 28,18 42,7 56,20 70,12 84,23 100,5 120,16" /></svg>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points={monthlyStats.presentDays > 0 ? "0,22 14,10 28,18 42,7 56,20 70,12 84,23 100,5 120,16" : "0,24 120,24"} /></svg>
             </div>
 
             <div className="dashboard-stat-card stat-card-late">
@@ -2871,10 +2985,16 @@ const UserDashboard = () => {
               <div className="stat-value">{String(monthlyStats.lateDays).padStart(2, '0')} <small>Days</small></div>
               <div className="stat-label">Late</div>
               <div className="stat-footer">
-                <FiAlertTriangle className="stat-trend-icon" />
-                <span className="stat-month-text">{getMonthlyChange(monthlyStats.lateDays, previousMonthlyStats.lateDays)}% vs {previousMonthLabel}</span>
+                {monthlyStats.lateDays === 0 || getMonthlyChange(monthlyStats.lateDays, previousMonthlyStats.lateDays) <= 0 ? (
+                  <FiCheckCircle className="stat-trend-icon" style={{ color: '#10b981' }} />
+                ) : (
+                  <FiAlertTriangle className="stat-trend-icon" />
+                )}
+                <span className="stat-month-text">
+                  {monthlyStats.lateDays === 0 ? '0 Days — On time' : `${getMonthlyChange(monthlyStats.lateDays, previousMonthlyStats.lateDays)}% vs ${previousMonthLabel}`}
+                </span>
               </div>
-              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,8 14,23 28,14 42,19 56,10 70,21 84,13 100,24 120,7" /></svg>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points={monthlyStats.lateDays > 0 ? "0,8 14,23 28,14 42,19 56,10 70,21 84,13 100,24 120,7" : "0,24 120,24"} /></svg>
             </div>
 
             <div className="dashboard-stat-card stat-card-halfday">
@@ -2888,7 +3008,7 @@ const UserDashboard = () => {
                 <FiActivity className="stat-trend-icon" />
                 <span className="stat-month-text">{getMonthlyChange(monthlyStats.halfDays, previousMonthlyStats.halfDays)}% vs {previousMonthLabel}</span>
               </div>
-              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,19 14,7 28,13 42,9 56,22 70,15 84,20 100,10 120,12" /></svg>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points={monthlyStats.halfDays > 0 ? "0,19 14,7 28,13 42,9 56,22 70,15 84,20 100,10 120,12" : "0,24 120,24"} /></svg>
             </div>
 
             <div className="dashboard-stat-card stat-card-leave">
@@ -2902,7 +3022,7 @@ const UserDashboard = () => {
                 <FiCheckCircle className="stat-trend-icon" />
                 <span className="stat-month-text">{getMonthlyChange(monthlyStats.leavesTaken, previousMonthlyStats.leavesTaken)}% vs {previousMonthLabel}</span>
               </div>
-              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,6 14,8 28,22 42,13 56,24 70,11 84,20 100,9 120,18" /></svg>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points={monthlyStats.leavesTaken > 0 ? "0,6 14,8 28,22 42,13 56,24 70,11 84,20 100,9 120,18" : "0,24 120,24"} /></svg>
             </div>
 
             <div className="dashboard-stat-card stat-card-absent">
@@ -2913,10 +3033,16 @@ const UserDashboard = () => {
               <div className="stat-value">{String(monthlyStats.absentDays).padStart(2, '0')} <small>Days</small></div>
               <div className="stat-label">Absent</div>
               <div className="stat-footer">
-                <FiAlertCircle className="stat-trend-icon" />
-                <span className="stat-month-text">{getMonthlyChange(monthlyStats.absentDays, previousMonthlyStats.absentDays)}% vs {previousMonthLabel}</span>
+                {monthlyStats.absentDays === 0 || getMonthlyChange(monthlyStats.absentDays, previousMonthlyStats.absentDays) <= 0 ? (
+                  <FiCheckCircle className="stat-trend-icon" style={{ color: '#10b981' }} />
+                ) : (
+                  <FiAlertCircle className="stat-trend-icon" />
+                )}
+                <span className="stat-month-text">
+                  {monthlyStats.absentDays === 0 ? '0 Days — No absences' : `${getMonthlyChange(monthlyStats.absentDays, previousMonthlyStats.absentDays)}% vs ${previousMonthLabel}`}
+                </span>
               </div>
-              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points="0,7 14,9 28,24 42,19 56,22 70,11 84,25 100,18 120,20" /></svg>
+              <svg className="dashboard-mini-spark" viewBox="0 0 120 28"><polyline points={monthlyStats.absentDays > 0 ? "0,7 14,9 28,24 42,19 56,22 70,11 84,25 100,18 120,20" : "0,24 120,24"} /></svg>
             </div>
           </div>
 
@@ -2961,7 +3087,8 @@ const UserDashboard = () => {
                           {day ? (
                             <div className="calendar-day-container">
                               <div
-                                className={`calendar-day ${getDayStatus(day) || 'empty'} ${isToday(day) ? 'day-today' : ''}`}
+                                onClick={() => setSelectedCalendarDate(new Date(calendarYear, calendarMonth, day))}
+                                className={`calendar-day ${getDayStatus(day) || 'empty'} ${isToday(day) ? 'day-today' : ''} ${isSelectedDay(day) ? 'day-selected' : ''}`}
                                 title={
                                   getDayStatus(day) === 'holiday'
                                     ? `🎉 Holiday: ${holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] || 'Holiday'}`
@@ -2986,25 +3113,18 @@ const UserDashboard = () => {
 
               <div className="attendance-day-summary">
                 <div className="attendance-summary-head">
-                  <strong>{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
-                  {(() => {
-                    const statusMeta = loading.attendance
-                      ? { label: 'Loading…', className: 'pending' }
-                      : getAttendanceStatusMeta(todayAttendance?.status);
-                    return (
-                      <span className={`attendance-summary-status attendance-summary-status--${statusMeta.className}`}>
-                        {statusMeta.label}
-                      </span>
-                    );
-                  })()}
+                  <strong>{(selectedCalendarDate || currentDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                  <span className={`attendance-summary-status attendance-summary-status--${selectedDateStatusMeta.className}`}>
+                    {selectedDateStatusMeta.label}
+                  </span>
                 </div>
                 <dl>
-                  <div><dt>Check In</dt><dd>{formatClockTime(todayAttendance?.inTime)}</dd></div>
-                  <div><dt>Check Out</dt><dd>{isRunning ? 'In progress' : formatClockTime(todayAttendance?.outTime)}</dd></div>
-                  <div><dt>Total Working</dt><dd>{totalWorkingDisplay}</dd></div>
-                  <div><dt>Late</dt><dd>{todayAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(todayAttendance.status)) ? `Yes${todayAttendance.lateBy && todayAttendance.lateBy !== '00:00:00' ? ` (${todayAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
-                  <div><dt>Break Time</dt><dd>{getTrackedBreakTime(todayAttendance)}</dd></div>
-                  <div><dt>Tasks Completed</dt><dd>{focusStats.loading ? '—' : focusStats.completedToday}</dd></div>
+                  <div><dt>Check In</dt><dd>{formatClockTime(selectedDateAttendance?.inTime)}</dd></div>
+                  <div><dt>Check Out</dt><dd>{isSelectedDateToday && isRunning ? 'In progress' : formatClockTime(selectedDateAttendance?.outTime)}</dd></div>
+                  <div><dt>Total Working</dt><dd>{isSelectedDateToday ? totalWorkingDisplay : (formatTotalTimeValue(selectedDateAttendance?.totalTime) || (selectedDateAttendance?.inTime ? '00:00:00' : '—'))}</dd></div>
+                  <div><dt>Late</dt><dd>{selectedDateAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(selectedDateAttendance.status)) ? `Yes${selectedDateAttendance.lateBy && selectedDateAttendance.lateBy !== '00:00:00' ? ` (${selectedDateAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
+                  <div><dt>Break Time</dt><dd>{getTrackedBreakTime(selectedDateAttendance)}</dd></div>
+                  <div><dt>Tasks Completed</dt><dd>{isSelectedDateToday ? (focusStats.loading ? '—' : focusStats.completedToday) : taskActivity.filter(t => getIndiaDateKey(t.date) === getIndiaDateKey(selectedCalendarDate) && String(t.status || '').toLowerCase().includes('complete')).length}</dd></div>
                 </dl>
                 <button onClick={() => navigate('/ciisUser/attendance')}>View Full Attendance</button>
               </div>
@@ -3043,11 +3163,15 @@ const UserDashboard = () => {
                     const date = new Date(item.date);
                     return (
                       <div key={`${item.type}-${index}`} className={`activity-item timeline-activity activity-type-${item.type}`}>
-                        <time className="activity-timeline-time">{item.displayTime || (Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>
+                        <time className="activity-timeline-time">
+                          {item.displayTime || (Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
+                          <small style={{ display: 'block', fontSize: '7.5px', color: '#8b96aa', fontWeight: 600 }}>{formatActivityDateLabel(item.date)}</small>
+                        </time>
                         <div className="activity-item-content">
                           <div className="activity-status-icon status-default"><span className="timeline-css-icon" /></div>
                           <div className="activity-details"><div className="activity-title">{item.title}</div><div className="activity-time">{item.subtitle}</div></div>
                         </div>
+                        <div className={`activity-status ${item.status === 'MISSED PUNCH' ? 'status-absent' : 'status-present'}`}>{formatActivityStatusLabel(item.status || 'PRESENT')}</div>
                       </div>
                     );
                   }
@@ -3068,7 +3192,7 @@ const UserDashboard = () => {
                             <div className="activity-title">{item.title}</div>
                           </div>
                         </div>
-                        <div className="activity-status status-holiday">HOLIDAY</div>
+                        <div className="activity-status status-holiday">Holiday</div>
                       </div>
                     );
                   }
@@ -3077,7 +3201,10 @@ const UserDashboard = () => {
                     const date = new Date(item.date);
                     return (
                       <div key={`task-${index}`} className="activity-item timeline-activity activity-type-task">
-                        <time className="activity-timeline-time">{Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                        <time className="activity-timeline-time">
+                          {Number.isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <small style={{ display: 'block', fontSize: '7.5px', color: '#8b96aa', fontWeight: 600 }}>{formatActivityDateLabel(item.date)}</small>
+                        </time>
                         <div className="activity-item-content">
                           <div className="activity-status-icon status-default">
                             <span className="timeline-css-icon" />
@@ -3091,7 +3218,7 @@ const UserDashboard = () => {
                             )}
                           </div>
                         </div>
-                        <div className="activity-status status-default">{item.status || 'pending'}</div>
+                        <div className="activity-status status-default">{formatActivityStatusLabel(item.status || 'pending')}</div>
                       </div>
                     );
                   }
@@ -3117,7 +3244,7 @@ const UserDashboard = () => {
                           </div>
                         </div>
                       </div>
-                      <div className={`activity-status ${getStatusColor(item.status)}`}>{item.status}</div>
+                      <div className={`activity-status ${getStatusColor(item.status)}`}>{formatActivityStatusLabel(item.status)}</div>
                     </div>
                   );
                 })}
@@ -3159,11 +3286,12 @@ const UserDashboard = () => {
             <article className="dashboard-insight-card dashboard-task-overview">
               <div className="dashboard-section-heading"><strong>Task Overview</strong><button onClick={() => navigate('/ciisUser/task-management')}>View all</button></div>
               {dashboardTaskStats.loading ? <div className="dashboard-empty-schedule">Loading task overview...</div> : <div className="task-overview-body">
-                <div className="task-donut" style={{ '--done': `${taskSummary.total ? (taskSummary.completed / taskSummary.total) * 360 : 0}deg` }}><span><b>{taskSummary.total}</b>Total Tasks</span></div>
+                <div className="task-donut" style={{ background: taskDonutGradient }}><span><b>{taskSummary.total}</b>Total Tasks</span></div>
                 <div className="task-legend">
                   <span><i className="green" />Completed <b>{taskSummary.completed} ({taskSummary.total ? Math.round(taskSummary.completed / taskSummary.total * 100) : 0}%)</b></span>
                   <span><i className="blue" />In Progress <b>{taskSummary.inProgress} ({taskSummary.total ? Math.round(taskSummary.inProgress / taskSummary.total * 100) : 0}%)</b></span>
                   <span><i className="orange" />Pending <b>{taskSummary.pending} ({taskSummary.total ? Math.round(taskSummary.pending / taskSummary.total * 100) : 0}%)</b></span>
+                  <span><i className="purple" />On Hold <b>{taskSummary.onHold} ({taskSummary.total ? Math.round(taskSummary.onHold / taskSummary.total * 100) : 0}%)</b></span>
                   <span><i className="red" />Overdue <b>{taskSummary.overdue} ({taskSummary.total ? Math.round(taskSummary.overdue / taskSummary.total * 100) : 0}%)</b></span>
                 </div>
               </div>}
@@ -3182,9 +3310,11 @@ const UserDashboard = () => {
                 <div className={`productivity-chart ${productivityData.refreshing ? 'is-refreshing' : ''}`}>
                   <div className="productivity-axis"><span>100</span><span>50</span><span>0</span></div>
                   <svg viewBox="0 0 340 120" preserveAspectRatio="none">
-                    <polyline points={productivityTrend.length === 1
-                      ? `12,${productivityTrend[0].y} 328,${productivityTrend[0].y}`
-                      : productivityTrend.map(day => `${day.x},${day.y}`).join(' ')} />
+                    <polyline points={productivityScore === 0 && productivityTrend.every(d => (d.score || 0) === 0)
+                      ? '12,116 328,116'
+                      : productivityTrend.length === 1
+                        ? `12,${productivityTrend[0].y} 328,${productivityTrend[0].y}`
+                        : productivityTrend.map(day => `${day.x},${day.y}`).join(' ')} />
                     <g>{productivityTrend.map((day, index) => <circle
                       key={`${day.date.toISOString()}-${day.label || 'point'}-${index}`}
                       cx={day.x}
@@ -3241,31 +3371,20 @@ const UserDashboard = () => {
 
         <aside className="dashboard-right-rail">
           <section className="dashboard-clock-section dashboard-clock-rail">
-            <div className="dashboard-live-label"><i /> {isRunning ? 'Live' : 'Ready'}</div>
+            <div className="dashboard-live-label"><i /> {isWorkingToday ? 'Live' : isClockedOutToday ? 'Completed' : isWeekendOrHolidayToday ? 'Weekly Off' : 'Not Clocked In'}</div>
             <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value">{formatTime(displayTimer)} <small>{new Date().getHours() >= 12 ? 'PM' : 'AM'}</small></div>
+              <div className="dashboard-timer-value">{formatTime(displayTimer)} <small>hrs</small></div>
               <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
             </div>
             <div className="dashboard-clock-buttons">
-              <button onClick={() => handleActionClick('in')} disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockin ${isRunning ? 'btn-disabled' : ''}`}><FiPlay size={17} /> Clock In</button>
+              <button
+                onClick={() => handleActionClick('in')}
+                disabled={isRunning || isClockedOutToday || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                className={`dashboard-btn dashboard-btn-clockin ${(isRunning || isClockedOutToday) ? 'btn-disabled' : ''}`}
+              >
+                {isClockedOutToday ? <><FiCheckCircle size={17} /> Completed</> : <><FiPlay size={17} /> Clock In</>}
+              </button>
               <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
-            </div>
-          </section>
-          <section className="dashboard-ai-card">
-            <div className="dashboard-section-heading"><strong><FiZap /> AI Assistant</strong><span>Coming Soon</span></div>
-            <div className="dashboard-ai-summary dashboard-ai-coming-soon">
-              <div className="ai-coming-soon-visual">
-                <div className="ai-orb"><Sparkles /></div>
-                <i className="ai-orbit-dot ai-orbit-dot-one" />
-                <i className="ai-orbit-dot ai-orbit-dot-two" />
-              </div>
-              <p>Your smart work assistant is on the way</p>
-              <small>Get personalized insights, task suggestions and instant answers from your workspace.</small>
-              <div className="ai-feature-pills">
-                <span>Smart insights</span>
-                <span>Task help</span>
-                <span>Quick answers</span>
-              </div>
             </div>
           </section>
 

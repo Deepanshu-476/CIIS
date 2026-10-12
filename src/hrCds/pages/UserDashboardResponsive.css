@@ -711,7 +711,9 @@
   }
 
   html .dashboard-container .dashboard-content-grid {
-    height: 355px !important;
+    min-height: 368px !important;
+    height: auto !important;
+    align-items: stretch !important;
     grid-template-columns: minmax(0, 1.8fr) minmax(200px, .75fr) !important;
     gap: 12px !important;
     margin-bottom: 14px !important;
@@ -719,13 +721,16 @@
 
   html .dashboard-container .dashboard-calendar-card,
   html .dashboard-container .dashboard-activity-card {
-    height: 355px !important;
-    min-height: 355px !important;
+    min-height: 368px !important;
+    height: 100% !important;
     overflow: hidden !important;
   }
 
   html .dashboard-container .dashboard-calendar-card {
     position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
     padding: 14px calc(33% + 14px) 12px 14px !important;
   }
 
@@ -751,8 +756,8 @@
   html .dashboard-container .dashboard-calendar-card .calendar-day {
     width: 100% !important;
     max-width: 33px !important;
-    height: 29px !important;
-    min-height: 26px !important;
+    height: 33px !important;
+    min-height: 30px !important;
     margin: 0 auto !important;
   }
 
@@ -765,10 +770,22 @@
     margin-top: 14px !important;
   }
 
+  html .dashboard-container .dashboard-insights-row:has(.dashboard-productivity-card.has-custom-range) {
+    height: auto !important;
+    min-height: 245px !important;
+    grid-auto-rows: auto !important;
+  }
+
   html .dashboard-container .dashboard-insights-row > .dashboard-insight-card {
     height: 205px !important;
     min-height: 205px !important;
     max-height: 205px !important;
+  }
+
+  html .dashboard-container .dashboard-insights-row > .dashboard-productivity-card.has-custom-range {
+    height: auto !important;
+    min-height: 245px !important;
+    max-height: none !important;
   }
 
   html .dashboard-container .dashboard-clock-rail {
@@ -792,10 +809,6 @@
     grid-column: span 2 !important;
     min-height: 64px !important;
     padding: 8px 4px !important;
-  }
-
-  html .dashboard-container .dashboard-quick-grid button:nth-child(4) {
-    grid-column: 2 / span 2 !important;
   }
 }
 
@@ -877,8 +890,8 @@
   .ClientDashboard-sidebar-open .dashboard-container .dashboard-calendar-card .calendar-day {
     width: 100% !important;
     max-width: 29px !important;
-    height: 27px !important;
-    min-height: 25px !important;
+    height: 31px !important;
+    min-height: 28px !important;
     margin: 0 auto !important;
   }
 

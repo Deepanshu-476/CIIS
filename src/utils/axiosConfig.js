@@ -96,40 +96,26 @@ const reviveCachedResponse = (entry, config = {}) => ({
   __fromPersistentCache: true,
 });
 
-const readPersistentGetCache = (cacheKey, config = {}) => {
-  if (typeof localStorage === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(getPersistentCacheStorageKey(cacheKey));
-    if (!raw) return null;
-    const entry = JSON.parse(raw);
-    if (!entry?.response || Date.now() - Number(entry.createdAt || 0) > persistentRequestCacheMaxAgeMs) {
-      localStorage.removeItem(getPersistentCacheStorageKey(cacheKey));
-      return null;
-    }
-    return reviveCachedResponse(entry, config);
-  } catch {
-    return null;
-  }
-};
+const readPersistentGetCache = () => null;
 
-const writePersistentGetCache = (cacheKey, response) => {
-  if (typeof localStorage === "undefined" || !isCacheableResponseData(response?.data)) return;
-  try {
-    localStorage.setItem(getPersistentCacheStorageKey(cacheKey), JSON.stringify({
-      createdAt: Date.now(),
-      response: serializeCacheableResponse(response),
-    }));
-  } catch {
-    // Persistent cache is best-effort. Memory cache still protects hot requests.
-  }
+const writePersistentGetCache = () => {
+  // API responses are kept in memory only (never persisted to localStorage).
 };
 
 const clearPersistentGetCache = () => {
   if (typeof localStorage === "undefined") return;
-  Object.keys(localStorage).forEach(key => {
-    if (key.startsWith(persistentCachePrefix)) localStorage.removeItem(key);
-  });
+  try {
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith(persistentCachePrefix) || key.startsWith("ciis-user-dashboard:")) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch {
+    // Ignore storage access errors in restricted browser environments.
+  }
 };
+
+clearPersistentGetCache();
 
 const emitPersistentCacheUpdate = (url, cacheKey, response) => {
   if (typeof window === "undefined") return;
@@ -258,6 +244,8 @@ const getRequestCacheTtlMs = (url) => {
 
   return defaultRequestCacheTtlMs;
 };
+
+axios.defaults.withCredentials = true;
 
 const axiosInstance = axios.create({
   baseURL: resolvedApiUrl,

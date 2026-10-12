@@ -623,15 +623,16 @@ const Dashboard = () => {
       if (response.data?.success && isMounted.current) {
         const allClients = response.data.data || [];
         const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
-        setAvailableClients(matchingClients);
+        const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
+        setAvailableClients(effectiveClients);
         const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
         const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
         
         const currentClient = (
           storedClientId
-            ? matchingClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
+            ? effectiveClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
             : null
-        ) || matchingClients[0];
+        ) || effectiveClients.find(item => String(item?.status || 'Active').toLowerCase() === 'active') || effectiveClients[0] || null;
         
         if (currentClient) {
           setClient(currentClient);
@@ -640,10 +641,18 @@ const Dashboard = () => {
           setProjectManagers(collectProjectMembers(currentClient, companyUsers));
           fetchSupportTickets();
           
-          if (currentClient && currentClient.services) {
-            setServices(currentClient.services);
-            await fetchAllServicesTasks(currentClient, currentClient.services);
+          const clientServices = Array.isArray(currentClient.services) ? currentClient.services : [];
+          setServices(clientServices);
+          if (clientServices.length > 0) {
+            await fetchAllServicesTasks(currentClient, clientServices);
+          } else {
+            setServiceTasks([]);
           }
+        } else {
+          setClient(null);
+          setServices([]);
+          setServiceTasks([]);
+          setProjectManagers([]);
         }
       }
     } catch {
@@ -672,8 +681,15 @@ const Dashboard = () => {
   const taskStats = calculateTaskStats(serviceTasks);
   const paymentSummary = calculatePaymentSummary(client);
   const openTasksCalculated = taskStats.pendingTasks + taskStats.overdueTasks + taskStats.inProgressTasks;
-  const openTasksCount = openTasksCalculated > 0 ? openTasksCalculated : 500;
-  const activeServicesCount = services.length > 0 ? services.length : 14;
+  const openTasksCount = openTasksCalculated;
+  const activeServicesCount = services.length;
+  const totalTasksCount = taskStats.totalTasks || 0;
+  const completedTasksPct = totalTasksCount > 0 ? Math.round(((taskStats.completedTasks || 0) / totalTasksCount) * 100) : 0;
+  const inProgressTasksPct = totalTasksCount > 0 ? Math.round(((taskStats.inProgressTasks || 0) / totalTasksCount) * 100) : 0;
+  const pendingTasksPct = totalTasksCount > 0 ? Math.round(((taskStats.pendingTasks || 0) / totalTasksCount) * 100) : 0;
+  const overdueTasksPct = totalTasksCount > 0 ? Math.round(((taskStats.overdueTasks || 0) / totalTasksCount) * 100) : 0;
+  const notStartedTasksCount = (taskStats.pendingTasks || 0) + (taskStats.overdueTasks || 0);
+  const notStartedTasksPct = totalTasksCount > 0 ? Math.round((notStartedTasksCount / totalTasksCount) * 100) : 0;
 
   const taskMatchesFilter = (task, filter) => {
     if (filter === 'completed-tasks') return task.completed === true;
@@ -689,14 +705,6 @@ const Dashboard = () => {
     return true;
   };
 
-  // Default active services rows matching screenshot exactly
-  const defaultServicesList = [
-    { name: 'app development', team: 'Assigned Team', start: 'Sep 3, 2026', deadline: 'Oct 3, 2026', progress: 0, status: 'In Progress' },
-    { name: 'Meesho account & listing', team: 'Assigned Team', start: 'Sep 3, 2026', deadline: 'Oct 3, 2026', progress: 0, status: 'In Progress' },
-    { name: 'amazon account & listing', team: 'Assigned Team', start: 'Sep 3, 2026', deadline: 'Oct 3, 2026', progress: 0, status: 'In Progress' },
-    { name: 'creative production', team: 'Assigned Team', start: 'Sep 3, 2026', deadline: 'Oct 3, 2026', progress: 0, status: 'In Progress' }
-  ];
-
   const dynamicServiceRows = services.map(serviceName => {
     const tasks = serviceTasks.filter(task => task.serviceName === serviceName);
     const completed = tasks.filter(task => task.completed === true).length;
@@ -705,8 +713,8 @@ const Dashboard = () => {
     return {
       name: serviceName,
       team: projectManagers[0]?.role || projectManagers[0]?.name || 'Assigned Team',
-      start: formatDate(client?.subscription?.[0]?.startDate || client?.subscriptionStartDate || client?.createdAt || '2026-09-03'),
-      deadline: formatDate(latestSub?.endDate || client?.subscriptionEndDate || '2026-10-03'),
+      start: formatDate(client?.subscription?.[0]?.startDate || client?.subscriptionStartDate || client?.createdAt),
+      deadline: formatDate(latestSub?.endDate || client?.subscriptionEndDate),
       progress: percent,
       status: tasks.length && percent === 100 ? 'Completed' : 'In Progress'
     };
@@ -721,32 +729,21 @@ const Dashboard = () => {
 
   const displayServiceRows = filteredServiceRows.length > 0
     ? filteredServiceRows.slice(0, 4)
-    : dynamicServiceRows.length > 0
-      ? dynamicServiceRows.slice(0, 4)
-      : defaultServicesList;
-
-  // Support Tickets
-  const defaultTickets = [
-    { id: 'SUP-1041', subject: 'Meeting request from Sarla Rani', status: 'Open' },
-    { id: 'SUP-1040', subject: 'Meeting request from Sarla Rani', status: 'Open' },
-    { id: 'SUP-1039', subject: 'Meeting request from Sarla Rani', status: 'Open' }
-  ];
+    : dynamicServiceRows.slice(0, 4);
 
   const supportTickets = supportTicketsData
     .slice()
     .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
     .map(mapSupportTicketRow);
 
-  const displayTickets = supportTickets.length > 0
-    ? supportTickets.slice(0, 3).map(t => ({ id: t[0], subject: t[1], status: t[2], fullId: t[4] }))
-    : defaultTickets;
+  const displayTickets = supportTickets.slice(0, 3).map(t => ({ id: t[0], subject: t[1], status: t[2], fullId: t[4] }));
 
-  const openSupportTicketCount = supportTicketsData.length > 0
-    ? supportTicketsData.filter(ticket => !closedTicketStatuses.has(String(ticket.status || '').toLowerCase())).length
-    : 3;
-  const resolvedSupportTicketCount = supportTicketsData.length > 0
-    ? supportTicketsData.filter(ticket => closedTicketStatuses.has(String(ticket.status || '').toLowerCase())).length
-    : 25;
+  const openSupportTicketCount = supportTicketsData.filter(
+    ticket => !closedTicketStatuses.has(String(ticket.status || '').toLowerCase())
+  ).length;
+  const resolvedSupportTicketCount = supportTicketsData.filter(
+    ticket => closedTicketStatuses.has(String(ticket.status || '').toLowerCase())
+  ).length;
 
   const openSupportTickets = () => {
     setSupportTicketTab('all');
@@ -754,40 +751,16 @@ const Dashboard = () => {
     setDetailsModal('support');
   };
 
-  const clientName = client?.client || client?.name || 'Sarla';
-  const clientEmail = client?.email || 'bloomandblushmarketing@gmail.com';
-  const clientPhone = client?.phone || '9888624302';
-  const clientLocation = client?.city || client?.address || 'Zirakpur';
-  const clientFormattedId = (client && formatPublicId('CLT', client)) || 'CIIS-CLT-260307-2UDI9P';
-  const clientAccountManager = projectManagers[0]?.name || 'Pallavi Kanwar';
-
-  // Company cards list with exact UI matching
-  const defaultCompanyCards = [
-    {
-      id: 'comp-1',
-      companyName: 'Lavish Looks',
-      serviceCount: 6,
-      taskCount: 0,
-      status: 'Active',
-      initial: 'L',
-      bgType: 'blue',
-      isActive: true
-    },
-    {
-      id: 'comp-2',
-      companyName: 'Bloom And Blush',
-      serviceCount: 14,
-      taskCount: 0,
-      status: 'Active',
-      initial: 'B',
-      bgType: 'purple',
-      isActive: false
-    }
-  ];
+  const clientName = client?.company || client?.businessName || client?.client || client?.name || 'No Client Selected';
+  const clientEmail = client?.email || '—';
+  const clientPhone = client?.phone || '—';
+  const clientLocation = client?.city || client?.address || '—';
+  const clientFormattedId = (client && formatPublicId('CLT', client)) || '—';
+  const clientAccountManager = projectManagers[0]?.name || 'Unassigned';
 
   const dynamicCompanyCards = availableClients.map((item, idx) => {
-    const companyName = item.company || item.companyName || item.client || 'Company';
-    const serviceCount = Array.isArray(item.services) ? item.services.length : (idx === 0 ? 6 : 14);
+    const companyName = item.company || item.businessName || item.companyName || item.client || 'Company';
+    const serviceCount = Array.isArray(item.services) ? item.services.length : 0;
     const taskCount = Array.isArray(item.tasks) ? item.tasks.length : 0;
     const status = item.status || item.accountStatus || 'Active';
     const id = normalizeMatchValue(item?._id || item?.id);
@@ -805,7 +778,7 @@ const Dashboard = () => {
     };
   });
 
-  const displayCompanyCards = dynamicCompanyCards.length > 0 ? dynamicCompanyCards : defaultCompanyCards;
+  const displayCompanyCards = dynamicCompanyCards;
 
   return (
     <div className="ClientDashboard-client-dashboard">
@@ -1033,7 +1006,7 @@ const Dashboard = () => {
         </div>
 
         <div className="ClientDashboard-companies-grid">
-          {displayCompanyCards.map((company) => (
+          {displayCompanyCards.length > 0 ? displayCompanyCards.map((company) => (
             <div
               key={company.id}
               className={`ClientDashboard-company-box ${company.isActive ? 'active' : ''}`}
@@ -1063,7 +1036,11 @@ const Dashboard = () => {
                 <FiChevronRight className="ClientDashboard-company-chevron" />
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="ClientDashboard-modal-empty" style={{ padding: '16px', gridColumn: '1 / -1' }}>
+              No client companies found in this workspace.
+            </div>
+          )}
         </div>
       </section>
 
@@ -1087,7 +1064,7 @@ const Dashboard = () => {
           <div className="ClientDashboard-kpi-visual">
             <MiniBarSparkline color="#3b82f6" heights={[30, 60, 45, 80, 100]} />
             <span className="ClientDashboard-kpi-percent positive">
-              <FiArrowUp /> 12%
+              <FiArrowUp /> {activeServicesCount > 0 ? '100%' : '0%'}
             </span>
           </div>
         </div>
@@ -1110,7 +1087,7 @@ const Dashboard = () => {
           <div className="ClientDashboard-kpi-visual">
             <MiniBarSparkline color="#10b981" heights={[35, 50, 40, 75, 95]} />
             <span className="ClientDashboard-kpi-percent positive">
-              <FiArrowUp /> 0%
+              <FiArrowUp /> {completedTasksPct}%
             </span>
           </div>
         </div>
@@ -1127,13 +1104,13 @@ const Dashboard = () => {
           </div>
           <div className="ClientDashboard-kpi-data">
             <span className="ClientDashboard-kpi-title">Pending Tasks</span>
-            <span className="ClientDashboard-kpi-number">{taskStats.pendingTasks || 500}</span>
+            <span className="ClientDashboard-kpi-number">{taskStats.pendingTasks || 0}</span>
             <small className="ClientDashboard-kpi-sub">Live data from client portal</small>
           </div>
           <div className="ClientDashboard-kpi-visual">
             <MiniBarSparkline color="#f97316" heights={[40, 55, 70, 85, 100]} />
             <span className="ClientDashboard-kpi-percent warning">
-              <FiArrowUp /> 8%
+              <FiArrowUp /> {pendingTasksPct}%
             </span>
           </div>
         </div>
@@ -1156,7 +1133,7 @@ const Dashboard = () => {
           <div className="ClientDashboard-kpi-visual">
             <MiniBarSparkline color="#8b5cf6" heights={[30, 45, 60, 90, 75]} />
             <span className="ClientDashboard-kpi-percent danger">
-              <FiArrowUp /> 5%
+              <FiArrowUp /> {overdueTasksPct}%
             </span>
           </div>
         </div>
@@ -1181,8 +1158,8 @@ const Dashboard = () => {
           </div>
 
           <div className="ClientDashboard-progress-donut-area">
-            <DonutRing percent={0} color="#3b82f6" trackColor="#e2e8f0">
-              <span className="ClientDashboard-donut-main-number">0%</span>
+            <DonutRing percent={completedTasksPct} color="#3b82f6" trackColor="#e2e8f0">
+              <span className="ClientDashboard-donut-main-number">{completedTasksPct}%</span>
               <span className="ClientDashboard-donut-sub-text">Overall Progress</span>
             </DonutRing>
           </div>
@@ -1193,7 +1170,7 @@ const Dashboard = () => {
                 <span className="ClientDashboard-color-dot green"></span>
                 <span>Completed</span>
               </div>
-              <span className="ClientDashboard-legend-count">0 (0%)</span>
+              <span className="ClientDashboard-legend-count">{taskStats.completedTasks || 0} ({completedTasksPct}%)</span>
             </div>
 
             <div className="ClientDashboard-legend-line">
@@ -1201,7 +1178,7 @@ const Dashboard = () => {
                 <span className="ClientDashboard-color-dot blue"></span>
                 <span>In Progress</span>
               </div>
-              <span className="ClientDashboard-legend-count">0 (0%)</span>
+              <span className="ClientDashboard-legend-count">{taskStats.inProgressTasks || 0} ({inProgressTasksPct}%)</span>
             </div>
 
             <div className="ClientDashboard-legend-line">
@@ -1209,7 +1186,7 @@ const Dashboard = () => {
                 <span className="ClientDashboard-color-dot orange"></span>
                 <span>Not Started</span>
               </div>
-              <span className="ClientDashboard-legend-count">500 (100%)</span>
+              <span className="ClientDashboard-legend-count">{notStartedTasksCount} ({notStartedTasksPct}%)</span>
             </div>
           </div>
         </article>
@@ -1243,7 +1220,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {displayServiceRows.map((row, idx) => (
+                {displayServiceRows.length > 0 ? displayServiceRows.map((row, idx) => (
                   <tr key={idx}>
                     <td className="ClientDashboard-cell-service-name">
                       <span>{row.name}</span>
@@ -1268,7 +1245,13 @@ const Dashboard = () => {
                       </span>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                      No active services assigned for this client.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -1291,10 +1274,10 @@ const Dashboard = () => {
           </div>
 
           <div className="ClientDashboard-progress-donut-area">
-            <DonutRing percent={0} color="#f59e0b" trackColor="#fef3c7">
-              <span className="ClientDashboard-donut-main-number">0%</span>
+            <DonutRing percent={completedTasksPct} color="#f59e0b" trackColor="#fef3c7">
+              <span className="ClientDashboard-donut-main-number">{completedTasksPct}%</span>
               <span className="ClientDashboard-donut-sub-text">Total Tasks</span>
-              <span className="ClientDashboard-donut-tasks-count">{openTasksCount}</span>
+              <span className="ClientDashboard-donut-tasks-count">{totalTasksCount}</span>
             </DonutRing>
           </div>
 
@@ -1304,7 +1287,7 @@ const Dashboard = () => {
                 <span className="ClientDashboard-color-dot green"></span>
                 <span>Completed</span>
               </div>
-              <span className="ClientDashboard-legend-count">0 (0%)</span>
+              <span className="ClientDashboard-legend-count">{taskStats.completedTasks || 0} ({completedTasksPct}%)</span>
             </div>
 
             <div className="ClientDashboard-legend-line">
@@ -1312,7 +1295,7 @@ const Dashboard = () => {
                 <span className="ClientDashboard-color-dot blue"></span>
                 <span>In Progress</span>
               </div>
-              <span className="ClientDashboard-legend-count">0 (0%)</span>
+              <span className="ClientDashboard-legend-count">{taskStats.inProgressTasks || 0} ({inProgressTasksPct}%)</span>
             </div>
 
             <div className="ClientDashboard-legend-line">
@@ -1320,7 +1303,7 @@ const Dashboard = () => {
                 <span className="ClientDashboard-color-dot orange"></span>
                 <span>Pending</span>
               </div>
-              <span className="ClientDashboard-legend-count">500 (100%)</span>
+              <span className="ClientDashboard-legend-count">{taskStats.pendingTasks || 0} ({pendingTasksPct}%)</span>
             </div>
 
             <div className="ClientDashboard-legend-line">
@@ -1328,7 +1311,7 @@ const Dashboard = () => {
                 <span className="ClientDashboard-color-dot red"></span>
                 <span>Overdue</span>
               </div>
-              <span className="ClientDashboard-legend-count">0 (0%)</span>
+              <span className="ClientDashboard-legend-count">{taskStats.overdueTasks || 0} ({overdueTasksPct}%)</span>
             </div>
           </div>
         </article>
@@ -1358,7 +1341,7 @@ const Dashboard = () => {
                 <FiFileText className="ClientDashboard-pay-row-icon" />
                 <span>Total Due</span>
               </div>
-              <span className="ClientDashboard-pay-amount blue">₹0</span>
+              <span className="ClientDashboard-pay-amount blue">₹{(paymentSummary.totalDue || 0).toLocaleString('en-IN')}</span>
             </div>
 
             <div className="ClientDashboard-payment-row">
@@ -1366,7 +1349,7 @@ const Dashboard = () => {
                 <FiCalendar className="ClientDashboard-pay-row-icon" />
                 <span>Next Due Date</span>
               </div>
-              <span className="ClientDashboard-pay-due-date">Oct 3, 2026</span>
+              <span className="ClientDashboard-pay-due-date">{paymentSummary.nextDueDate ? formatDate(paymentSummary.nextDueDate) : '—'}</span>
             </div>
 
             {/* Peach Plan Box */}
@@ -1374,14 +1357,14 @@ const Dashboard = () => {
               <div className="ClientDashboard-peach-top">
                 <div className="ClientDashboard-peach-badge-col">
                   <div className="ClientDashboard-peach-n-badge">
-                    N
+                    {(paymentSummary.activePlanName || 'N').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h5 className="ClientDashboard-peach-heading">No Due</h5>
-                    <p className="ClientDashboard-peach-sub">Active Plan</p>
+                    <h5 className="ClientDashboard-peach-heading">{paymentSummary.activePlanName || 'No Active Plan'}</h5>
+                    <p className="ClientDashboard-peach-sub">{paymentSummary.hasActiveSubscription ? 'Active Plan' : 'Subscription Status'}</p>
                   </div>
                 </div>
-                <span className="ClientDashboard-peach-val">₹0</span>
+                <span className="ClientDashboard-peach-val">₹{(paymentSummary.totalDue || 0).toLocaleString('en-IN')}</span>
               </div>
 
               <button
@@ -1419,7 +1402,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <span className="ClientDashboard-metric-title">Open Tickets</span>
-                  <span className="ClientDashboard-metric-num">{openSupportTicketCount || 3}</span>
+                  <span className="ClientDashboard-metric-num">{openSupportTicketCount}</span>
                 </div>
               </div>
 
@@ -1429,7 +1412,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <span className="ClientDashboard-metric-title">Resolved Tickets</span>
-                  <span className="ClientDashboard-metric-num">{resolvedSupportTicketCount || 25}</span>
+                  <span className="ClientDashboard-metric-num">{resolvedSupportTicketCount}</span>
                 </div>
               </div>
             </div>
@@ -1437,7 +1420,7 @@ const Dashboard = () => {
             <div className="ClientDashboard-support-recent-column">
               <h5 className="ClientDashboard-recent-tickets-title">Recent Tickets</h5>
               <div className="ClientDashboard-recent-tickets-list">
-                {displayTickets.map((ticket, idx) => (
+                {displayTickets.length > 0 ? displayTickets.map((ticket, idx) => (
                   <div
                     key={ticket.id || idx}
                     className="ClientDashboard-recent-ticket-item"
@@ -1454,7 +1437,11 @@ const Dashboard = () => {
                       {ticket.status}
                     </span>
                   </div>
-                ))}
+                )) : (
+                  <p className="ClientDashboard-modal-empty" style={{ margin: '12px 0', fontSize: '0.85rem' }}>
+                    No recent support tickets.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1589,7 +1576,7 @@ const Dashboard = () => {
                       className={supportTicketTab === 'all' ? 'active' : ''}
                       onClick={() => setSupportTicketTab('all')}
                     >
-                      All Tickets <span>{supportTickets.length || 3}</span>
+                      All Tickets <span>{supportTickets.length}</span>
                     </button>
                     <button
                       type="button"
@@ -1619,7 +1606,10 @@ const Dashboard = () => {
                 <div className="ClientDashboard-support-ticket-scroll">
                   {supportTicketsLoading && <p className="ClientDashboard-modal-empty">Loading support tickets...</p>}
                   {!supportTicketsLoading && supportTicketsError && <p className="ClientDashboard-modal-empty">{supportTicketsError}</p>}
-                  {!supportTicketsLoading && !supportTicketsError && (supportTickets.length ? supportTickets : defaultTickets.map(t => [t.id, t.subject, t.status, new Date().toISOString(), t.id])).map(ticket => (
+                  {!supportTicketsLoading && !supportTicketsError && supportTickets.length === 0 && (
+                    <p className="ClientDashboard-modal-empty">No support tickets found.</p>
+                  )}
+                  {!supportTicketsLoading && !supportTicketsError && supportTickets.map(ticket => (
                     <button
                       type="button"
                       className="ClientDashboard-support-ticket-row"

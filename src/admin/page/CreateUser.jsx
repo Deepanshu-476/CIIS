@@ -306,8 +306,6 @@ const CreateUser = () => {
 
       if (branchDepartments.length === 0) {
         toast.warning('No departments found for this branch');
-      } else {
-        toast.success(`${branchDepartments.length} departments loaded`);
       }
 
     } catch (err) {
@@ -483,9 +481,28 @@ const CreateUser = () => {
         }
       }
       
-      void 0;
-      const departmentJobRoles = jobRolesData.filter(role => roleBelongsToDepartment(role, departmentId));
-      void 0;
+      const hiddenTestRoles = new Set(['telecaller qa test', 'hr test']);
+      const normalizeRoleLabel = (value) => {
+        const text = String(value || '').trim();
+        if (text.toLowerCase() === 'taskmanger') return 'TaskManager';
+        if (text.toLowerCase() === 'super_admin') return 'Super Admin';
+        return text;
+      };
+      const departmentJobRoles = jobRolesData
+        .filter(role => roleBelongsToDepartment(role, departmentId))
+        .filter(role => {
+          const rawRoleName = String(role?.name || role?.title || role?.roleName || '').trim().toLowerCase();
+          return !hiddenTestRoles.has(rawRoleName);
+        })
+        .map(role => {
+          const normalizedName = normalizeRoleLabel(role?.name || role?.title || role?.roleName);
+          return {
+            ...role,
+            name: normalizedName || role?.name,
+            title: normalizedName || role?.title,
+            roleName: normalizedName || role?.roleName
+          };
+        });
       setJobRoles(departmentJobRoles);
       
       if (departmentJobRoles.length === 0) {
@@ -599,6 +616,15 @@ const CreateUser = () => {
       toast.error('Please select a shift');
       return false;
     }
+    if (form.dob) {
+      const selectedDob = new Date(form.dob);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (selectedDob > today) {
+        toast.error('Date of Birth cannot be in the future');
+        return false;
+      }
+    }
     if (!companyId && !companyCode) {
       toast.error('Company information is missing');
       return false;
@@ -654,24 +680,10 @@ const CreateUser = () => {
     }
   };
 
-  const getUserDisplayName = () => {
-    if (currentUser?.name) {
-      return currentUser.name.toUpperCase();
-    }
-    return 'USER';
-  };
-
   const selectedJobRole = jobRoles.find(role => getId(role) === form.jobRole);
   const shiftOptions = selectedJobRole ? getRoleShiftOptions(selectedJobRole) : [];
   const selectedShift = shiftOptions.find(shift => String(shift.shiftId) === String(form.shiftId));
   const selectedAssignedBranches = branches.filter(branch => form.assignedBranches.includes(getId(branch)));
-
-  
-  void 0;
-  void 0;
-  void 0;
-  void 0;
-  void 0;
 
   
   if (pageLoading) {
@@ -692,24 +704,6 @@ const CreateUser = () => {
             </p>
           </div>
         </div>
-
-        
-        {currentUser && (
-          <div className="CreateUser-company-info-box">
-            <h3 className="CreateUser-company-name">
-              {getUserDisplayName()}
-            </h3>
-            <p className="CreateUser-company-details">
-              Created by: {currentUser.name || currentUser.email || 'Admin'} ({currentUser.jobRole || 'super_admin'})
-            </p>
-            <p className="CreateUser-company-details">
-              Company ID: {companyId || 'Loading...'}
-            </p>
-            <p className="CreateUser-company-details CreateUser-company-details-highlight">
-              Branches Loaded: {branches.length} | Departments Loaded: {departments.length}
-            </p>
-          </div>
-        )}
 
         <p className="CreateUser-required-text">
           <span className="CreateUser-required-star">*</span> All marked fields are required
@@ -1057,7 +1051,7 @@ const CreateUser = () => {
                       </option>
                     ))}
                   </select>
-                  <span className="CreateUser-select-arrow">â–¼</span>
+                  <span className="CreateUser-select-arrow">▼</span>
                 </div>
                 {form.jobRole && shiftOptions.length === 0 && (
                   <small className="CreateUser-helper-text CreateUser-helper-text-error">
@@ -1133,6 +1127,7 @@ const CreateUser = () => {
                     id="dob"
                     name="dob"
                     value={form.dob}
+                    max={new Date().toISOString().split('T')[0]}
                     onChange={handleTextChange}
                     className="CreateUser-input"
                     
@@ -1221,8 +1216,6 @@ const CreateUser = () => {
           {form.branch && departments.length === 0 && (companyId || companyCode) && !loadingDepartments && (
             <div className="CreateUser-info-message CreateUser-warning-message">
               ⚠️ No departments found for selected branch. Please create departments first before adding users.
-              <br />
-              <small>Company ID: {companyId || 'Not found'} | Code: {companyCode || 'Not found'}</small>
             </div>
           )}
         </form>

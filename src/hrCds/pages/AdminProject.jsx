@@ -1,51 +1,94 @@
 
 import React, { useState, useEffect } from "react";
+import {
+  FiPlus,
+  FiUploadCloud,
+  FiCalendar,
+  FiUser,
+  FiFileText,
+  FiTrash2,
+  FiEdit2,
+  FiPaperclip,
+  FiCheckCircle,
+  FiPauseCircle,
+  FiDownload,
+  FiEye,
+  FiFile,
+  FiFolder,
+  FiX,
+  FiCheckSquare,
+  FiGrid,
+  FiTrendingUp,
+  FiArrowUp,
+  FiArrowDown,
+  FiMoreVertical,
+  FiFilter,
+  FiSearch,
+  FiUsers,
+  FiZap,
+  FiBarChart2,
+  FiPlay,
+  FiSquare,
+  FiFlag,
+  FiSettings,
+  FiSend
+} from "react-icons/fi";
 import axios from "../../utils/axiosConfig";
 import "../Css/AdminProject.css";
 import CIISLoader from "../../Loader/CIISLoader"; 
 import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
 
-
 const Icons = {
-  Add: () => <span>+</span>,
-  Upload: () => <span>📤</span>,
-  Schedule: () => <span>📅</span>,
-  Person: () => <span>👤</span>,
-  Description: () => <span>📝</span>,
-  Delete: () => <span>🗑️</span>,
-  Edit: () => <span>✏️</span>,
-  AttachFile: () => <span>📎</span>,
-  CheckCircle: () => <span>✅</span>,
-  Pause: () => <span>⏸️</span>,
-  Download: () => <span>⬇️</span>,
-  Visibility: () => <span>👁️</span>,
-  Pdf: () => <span>📄</span>,
-  File: () => <span>📁</span>,
-  Close: () => <span>✕</span>,
-  Task: () => <span>✓</span>,
-  Dashboard: () => <span>📊</span>,
-  TrendingUp: () => <span>📈</span>,
-  ArrowUpward: () => <span>↑</span>,
-  ArrowDownward: () => <span>↓</span>,
-  MoreVert: () => <span>⋮</span>,
-  Filter: () => <span>🔍</span>,
-  Search: () => <span>🔍</span>,
-  Sort: () => <span>⇅</span>,
-  Calendar: () => <span>📅</span>,
-  Group: () => <span>👥</span>,
-  Bolt: () => <span>⚡</span>,
-  Timeline: () => <span>📈</span>,
-  BarChart: () => <span>📊</span>,
-  Folder: () => <span>📁</span>,
-  CloudDownload: () => <span>⬇️</span>,
-  PlayArrow: () => <span>▶️</span>,
-  Stop: () => <span>⏹️</span>,
-  Flag: () => <span>🚩</span>,
-  DateRange: () => <span>📅</span>,
-  DescriptionOutlined: () => <span>📝</span>,
-  AdminPanelSettings: () => <span>⚙️</span>,
-  RocketLaunch: () => <span>🚀</span>,
-  CloudUpload: () => <span>📤</span>,
+  Add: (props) => <FiPlus {...props} />,
+  Upload: (props) => <FiUploadCloud {...props} />,
+  Schedule: (props) => <FiCalendar {...props} />,
+  Person: (props) => <FiUser {...props} />,
+  Description: (props) => <FiFileText {...props} />,
+  Delete: (props) => <FiTrash2 {...props} />,
+  Edit: (props) => <FiEdit2 {...props} />,
+  AttachFile: (props) => <FiPaperclip {...props} />,
+  CheckCircle: (props) => <FiCheckCircle {...props} />,
+  Pause: (props) => <FiPauseCircle {...props} />,
+  Download: (props) => <FiDownload {...props} />,
+  Visibility: (props) => <FiEye {...props} />,
+  Pdf: (props) => <FiFileText {...props} />,
+  File: (props) => <FiFile {...props} />,
+  Close: (props) => <FiX {...props} />,
+  Task: (props) => <FiCheckSquare {...props} />,
+  Dashboard: (props) => <FiGrid {...props} />,
+  TrendingUp: (props) => <FiTrendingUp {...props} />,
+  ArrowUpward: (props) => <FiArrowUp {...props} />,
+  ArrowDownward: (props) => <FiArrowDown {...props} />,
+  MoreVert: (props) => <FiMoreVertical {...props} />,
+  Filter: (props) => <FiFilter {...props} />,
+  Search: (props) => <FiSearch {...props} />,
+  Sort: (props) => <FiFilter {...props} />,
+  Calendar: (props) => <FiCalendar {...props} />,
+  Group: (props) => <FiUsers {...props} />,
+  Bolt: (props) => <FiZap {...props} />,
+  Timeline: (props) => <FiTrendingUp {...props} />,
+  BarChart: (props) => <FiBarChart2 {...props} />,
+  Folder: (props) => <FiFolder {...props} />,
+  CloudDownload: (props) => <FiDownload {...props} />,
+  PlayArrow: (props) => <FiPlay {...props} />,
+  Stop: (props) => <FiSquare {...props} />,
+  Flag: (props) => <FiFlag {...props} />,
+  DateRange: (props) => <FiCalendar {...props} />,
+  DescriptionOutlined: (props) => <FiFileText {...props} />,
+  AdminPanelSettings: (props) => <FiSettings {...props} />,
+  RocketLaunch: (props) => <FiSend {...props} />,
+  CloudUpload: (props) => <FiUploadCloud {...props} />,
+};
+
+const formatProjectDate = (value, fallback = "Not set") => {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return parsed.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
 };
 
 const getUserId = (user) => user?._id || user?.id;
@@ -302,9 +345,22 @@ export const AdminProject = () => {
   }, [branchQueryParams.branchId]);
 
   useEffect(() => {
-    const active = projects.filter(p => p.status?.toLowerCase() === "active").length;
-    const completed = projects.filter(p => p.status?.toLowerCase() === "completed").length;
-    const onHold = projects.filter(p => p.status?.toLowerCase() === "on hold" || p.status?.toLowerCase() === "onhold").length;
+    const getStatusNormalized = (p) => {
+      const rawStatus = (p?.status || "").toLowerCase();
+      if (rawStatus === "completed") return "completed";
+      const total = getProjectTaskCount(p);
+      if (total > 0) {
+        const pct = toNumber(p.taskProgress, p.progressPercentage, p.progress) || Math.round((getCompletedTaskCount(p) / total) * 100);
+        if (pct >= 100) return "completed";
+      }
+      return rawStatus || "active";
+    };
+    const active = projects.filter(p => getStatusNormalized(p) === "active").length;
+    const completed = projects.filter(p => getStatusNormalized(p) === "completed").length;
+    const onHold = projects.filter(p => {
+      const s = getStatusNormalized(p);
+      return s === "on hold" || s === "onhold";
+    }).length;
     const highPriority = projects.filter(p => p.priority?.toLowerCase() === "high").length;
     setStats({ total: projects.length, active, completed, onHold, highPriority });
   }, [projects]);
@@ -911,6 +967,16 @@ export const AdminProject = () => {
     return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
   };
 
+  const getEffectiveProjectStatus = (project) => {
+    if (!project) return "Not set";
+    const rawStatus = (project.status || "").trim();
+    if (rawStatus.toLowerCase() === "completed") return "Completed";
+    if (getProjectTaskCount(project) > 0 && getTaskProgress(project) >= 100) {
+      return "Completed";
+    }
+    return rawStatus || "Active";
+  };
+
   const StatCard = ({ icon, value, label, color, trend, subtext }) => (
     <div className="ap-stat-card">
       <div className="ap-stat-content">
@@ -1112,7 +1178,7 @@ export const AdminProject = () => {
                       <div className="ap-detail-list">
                         <div className="ap-detail-item">
                           <span>Status</span>
-                          <span className="ap-detail-value">{selectedProject.status || "Not set"}</span>
+                          <span className="ap-detail-value">{getEffectiveProjectStatus(selectedProject)}</span>
                         </div>
                         <div className="ap-detail-item">
                           <span>Priority</span>
@@ -1120,15 +1186,15 @@ export const AdminProject = () => {
                         </div>
                         <div className="ap-detail-item">
                           <span>Start Date</span>
-                          <span className="ap-detail-value">{selectedProject.startDate ? new Date(selectedProject.startDate).toLocaleDateString() : "Not set"}</span>
+                          <span className="ap-detail-value">{formatProjectDate(selectedProject.startDate)}</span>
                         </div>
                         <div className="ap-detail-item">
                           <span>End Date</span>
-                          <span className="ap-detail-value">{selectedProject.endDate ? new Date(selectedProject.endDate).toLocaleDateString() : "Not set"}</span>
+                          <span className="ap-detail-value">{formatProjectDate(selectedProject.endDate)}</span>
                         </div>
                         <div className="ap-detail-item">
                           <span>Created On</span>
-                          <span className="ap-detail-value">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : "Not set"}</span>
+                          <span className="ap-detail-value">{formatProjectDate(selectedProject.createdAt)}</span>
                         </div>
                       </div>  
                     </div>
@@ -1619,10 +1685,11 @@ export const AdminProject = () => {
               {filteredProjects.map((p, index) => {
                 const projectId = getProjectId(p);
                 const taskProgress = getTaskProgress(p);
+                const effectiveStatus = getEffectiveProjectStatus(p);
                 return (
                   <div key={`${projectId || 'project'}-${index}`} className="ap-project-card">
                     <div className="ap-project-top-bar" style={{
-                      background: `linear-gradient(90deg, ${getStatusColor(p.status)} 0%, ${getPriorityColor(p.priority)} 100%)`
+                      background: `linear-gradient(90deg, ${getStatusColor(effectiveStatus)} 0%, ${getPriorityColor(p.priority)} 100%)`
                     }} />
                     
                     <div className="ap-project-content">
@@ -1634,8 +1701,8 @@ export const AdminProject = () => {
                       </div>
                       
                       <div className="ap-project-badges">
-                        <span className="ap-badge ap-badge-status" style={{ backgroundColor: getStatusColor(p.status) + '20', color: getStatusColor(p.status) }}>
-                          {p.status || "Not set"}
+                        <span className="ap-badge ap-badge-status" style={{ backgroundColor: getStatusColor(effectiveStatus) + '20', color: getStatusColor(effectiveStatus) }}>
+                          {effectiveStatus}
                         </span>
                         <span className="ap-badge ap-badge-priority" style={{ backgroundColor: getPriorityColor(p.priority) + '20', color: getPriorityColor(p.priority) }}>
                           {p.priority || "Not set"}
@@ -1655,13 +1722,16 @@ export const AdminProject = () => {
                       </div>
                       
                       <div className="ap-project-meta">
-                        <div className="ap-meta-item">
+                        <div className="ap-meta-item" title="Project timeline">
                           <Icons.Calendar />
-                          <span>{p.startDate ? new Date(p.startDate).toLocaleDateString() : "No start"}</span>
+                          <span>
+                            {p.startDate ? `Start: ${formatProjectDate(p.startDate)}` : "Start: Not set"}
+                            {p.endDate ? ` • Due: ${formatProjectDate(p.endDate)}` : ""}
+                          </span>
                         </div>
                         <div className="ap-meta-group">
-                          <span className="ap-meta-badge"><Icons.Group /> {p.users?.length || 0}</span>
-                          <span className="ap-meta-badge"><Icons.Task /> {getProjectTaskCount(p)}</span>
+                          <span className="ap-meta-badge" title="Assigned team members"><Icons.Group /> {p.users?.length || 0}</span>
+                          <span className="ap-meta-badge" title="Total tasks"><Icons.Task /> {getProjectTaskCount(p)}</span>
                         </div>
                       </div>
                       
@@ -1671,10 +1741,20 @@ export const AdminProject = () => {
                         <div className="ap-pdf-actions">
                           {(p.pdfFile?.path || p.pdfFile?.url) ? (
                             <>
-                              <button className="ap-icon-btn" onClick={() => viewPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })} title="View PDF">
-                                <Icons.Visibility />
+                              <button
+                                className="ap-icon-btn"
+                                onClick={() => viewPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })}
+                                title="Preview Project PDF"
+                                aria-label="Preview Project PDF"
+                              >
+                                <Icons.Pdf />
                               </button>
-                              <button className="ap-icon-btn ap-icon-btn-success" onClick={() => downloadPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })} title="Download PDF">
+                              <button
+                                className="ap-icon-btn ap-icon-btn-success"
+                                onClick={() => downloadPdf(p.pdfFile?.path, getProjectDocumentDisplayName(p), { projectId: p._id })}
+                                title="Download Project PDF"
+                                aria-label="Download Project PDF"
+                              >
                                 <Icons.Download />
                               </button>
                             </>
@@ -1684,13 +1764,28 @@ export const AdminProject = () => {
                         </div>
                         
                         <div className="ap-action-buttons">
-                          <button className="ap-icon-btn" onClick={() => viewProjectDetails(p)} title="View Details">
+                          <button
+                            className="ap-icon-btn"
+                            onClick={() => viewProjectDetails(p)}
+                            title="View Project Details"
+                            aria-label="View Project Details"
+                          >
                             <Icons.Visibility />
                           </button>
-                          <button className="ap-icon-btn" onClick={() => editProject(p)} title="Edit">
+                          <button
+                            className="ap-icon-btn"
+                            onClick={() => editProject(p)}
+                            title="Edit Project"
+                            aria-label="Edit Project"
+                          >
                             <Icons.Edit />
                           </button>
-                          <button className="ap-icon-btn ap-icon-btn-danger" onClick={() => deleteProject(projectId, p.projectName || "Unnamed Project")} title="Delete">
+                          <button
+                            className="ap-icon-btn ap-icon-btn-danger"
+                            onClick={() => deleteProject(projectId, p.projectName || "Unnamed Project")}
+                            title="Delete Project"
+                            aria-label="Delete Project"
+                          >
                             <Icons.Delete />
                           </button>
                         </div>

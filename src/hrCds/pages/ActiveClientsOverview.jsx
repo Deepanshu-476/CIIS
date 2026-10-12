@@ -306,9 +306,37 @@ const ActiveClientsOverview = () => {
 
   const isClientUser = String(user?.companyRole || user?.role || '').toLowerCase() === 'client';
 
-  const activeClients = useMemo(() => (
-    clients.filter(client => String(client.status || 'Active').toLowerCase() === 'active')
-  ), [clients]);
+  const getClientPrimaryName = client => (
+    String(client?.company || client?.businessName || getClientDisplayName(client) || 'Client').trim()
+  );
+
+  const getClientSubtitle = client => {
+    if (!client) return 'Active Client';
+    const primary = getClientPrimaryName(client);
+    const contact = String(client.client || client.contactPerson || '').trim();
+    const code = client.clientCode || client.code || `CL-${String(client._id || '').slice(-4).toUpperCase()}`;
+    if (contact && contact.toLowerCase() !== primary.toLowerCase()) {
+      return `${contact} • ${code}`;
+    }
+    if (client.city) {
+      return `${client.city} • ${code}`;
+    }
+    return code;
+  };
+
+  const activeClients = useMemo(() => {
+    const activeOnly = clients.filter(client => String(client.status || 'Active').toLowerCase() === 'active');
+    const seen = new Map();
+    activeOnly.forEach(client => {
+      const normKey = String(
+        client.company || client.businessName || client.client || client._id || ''
+      ).trim().toLowerCase().replace(/\s+/g, ' ');
+      if (!seen.has(normKey)) {
+        seen.set(normKey, client);
+      }
+    });
+    return Array.from(seen.values());
+  }, [clients]);
 
   const enrichedClients = useMemo(() => (
     activeClients.map(client => {
@@ -327,9 +355,10 @@ const ActiveClientsOverview = () => {
 
     return enrichedClients.filter(({ client, services }) => {
       const haystack = [
+        getClientPrimaryName(client),
         getClientDisplayName(client),
         client.company,
-        client.companyCode,
+        client.clientCode,
         ...services,
       ].filter(Boolean).join(' ').toLowerCase();
 
@@ -360,7 +389,7 @@ const ActiveClientsOverview = () => {
   const selectedStats = selectedClient?.stats || {};
   const selectedTasks = selectedClient?.tasks || [];
   const selectedDocuments = selectedClient?.documents || [];
-  const selectedName = selectedClient ? getClientDisplayName(selectedClient.client) : '';
+  const selectedName = selectedClient ? getClientPrimaryName(selectedClient.client) : '';
   const selectedInitials = getInitials(selectedName);
   const selectedServices = selectedClient?.services || [];
   const filteredSelectedTasks = useMemo(() => (
@@ -648,33 +677,52 @@ const ActiveClientsOverview = () => {
         return;
       }
 
-      const { clients: loadedClients, pagination } = await fetchActiveClients(companyCode);
-      const active = loadedClients.filter(client => String(client.status || 'Active').toLowerCase() === 'active');
-      const taskResults = await mapWithConcurrency(
-        active,
-        RELATED_FETCH_CONCURRENCY,
-        async client => [client._id, await fetchClientTasks(client)]
-      );
-      const statsResults = await mapWithConcurrency(
-        active,
-        RELATED_FETCH_CONCURRENCY,
-        async client => [client._id, await fetchClientStats(client)]
-      );
-      const documentResults = await mapWithConcurrency(
-        active,
-        RELATED_FETCH_CONCURRENCY,
-        async client => [client._id, await fetchClientDocuments(client)]
-      );
+      const { clients: loadedClients } = await fetchActiveClients(companyCode);
+      const activeRaw = loadedClients.filter(client => String(client.status || 'Active').toLowerCase() === 'active');
+      const seenActive = new Map();
+      activeRaw.forEach(client => {
+        const normKey = String(
+          client.company || client.businessName || client.client || client._id || ''
+        ).trim().toLowerCase().replace(/\s+/g, ' ');
+        if (!seenActive.has(normKey)) {
+          seenActive.set(normKey, client);
+        }
+      });
+      const active = Array.from(seenActive.values());
+
+      let bulkStatsMap = {};
+      if (active.length > 0) {
+        try {
+          const bulkRes = await clientTasksApi.get('/summary/bulk', {
+            params: { clientIds: active.map(c => c._id).join(',') }
+          });
+          const summaries = bulkRes.data?.data || {};
+          bulkStatsMap = Object.fromEntries(
+            active.map(client => {
+              const s = summaries[client._id] || {};
+              const total = Number(s.total || 0);
+              const completed = Number(s.completed || 0);
+              return [
+                client._id,
+                {
+                  totalTasks: total,
+                  completedTasks: completed,
+                  pendingTasks: Number(s.pending || 0),
+                  overdueTasks: Number(s.overdue || 0),
+                  inProgressTasks: Number(s.inProgress || 0),
+                  completionRate: total ? Math.round((completed / total) * 100) : 0,
+                }
+              ];
+            })
+          );
+        } catch {
+          bulkStatsMap = {};
+        }
+      }
 
       setClients(loadedClients);
-      setClientTaskMap(Object.fromEntries(taskResults.map(([clientId, result]) => [clientId, result.tasks])));
-      setClientStatsMap(Object.fromEntries(
-        statsResults
-          .filter(([, stats]) => stats)
-          .map(([clientId, stats]) => [clientId, stats])
-      ));
-      setClientDocumentMap(Object.fromEntries(documentResults));
-      setApiInfo({ totalItems: pagination.totalItems || active.length, companyCode });
+      setClientStatsMap(bulkStatsMap);
+      setApiInfo({ totalItems: active.length, companyCode });
       setSelectedClientId(current => (
         active.some(client => client._id === current) ? current : active[0]?._id || ''
       ));
@@ -689,6 +737,34 @@ const ActiveClientsOverview = () => {
   useEffect(() => {
     loadData();
   }, [branchQueryParams.branchId]);
+
+  useEffect(() => {
+    const clientObj = selectedClient?.client;
+    if (!clientObj?._id) return undefined;
+    let cancelled = false;
+    const clientId = clientObj._id;
+
+    const loadSelectedClientDetails = async () => {
+      try {
+        const [taskResult, statsResult, docsResult] = await Promise.all([
+          fetchClientTasks(clientObj),
+          fetchClientStats(clientObj),
+          fetchClientDocuments(clientObj),
+        ]);
+        if (cancelled) return;
+        setClientTaskMap(prev => ({ ...prev, [clientId]: taskResult.tasks }));
+        if (statsResult) {
+          setClientStatsMap(prev => ({ ...prev, [clientId]: statsResult }));
+        }
+        setClientDocumentMap(prev => ({ ...prev, [clientId]: docsResult }));
+      } catch (err) {
+        if (!cancelled) console.error('Failed to lazy-load selected client details', err);
+      }
+    };
+
+    loadSelectedClientDetails();
+    return () => { cancelled = true; };
+  }, [selectedClient?.client?._id]);
 
   if (isClientUser) {
     return (
@@ -723,7 +799,7 @@ const ActiveClientsOverview = () => {
           <aside className="ActiveClientsOverview-clientList">
             <div className="ActiveClientsOverview-listTitle">
               <span><FiUsers /></span>
-              <strong>Active Clients ({apiInfo.totalItems || activeClients.length})</strong>
+              <strong>Active Clients ({activeClients.length})</strong>
             </div>
 
             <div className="ActiveClientsOverview-clientRows">
@@ -734,7 +810,7 @@ const ActiveClientsOverview = () => {
                   <p>Active clients will appear here once they are added in client management.</p>
                 </div>
               ) : filteredClients.map(({ client }) => {
-                const name = getClientDisplayName(client);
+                const name = getClientPrimaryName(client);
                 return (
                   <button
                     key={client._id}
@@ -749,7 +825,7 @@ const ActiveClientsOverview = () => {
                     <span className="ActiveClientsOverview-avatar">{getInitials(name)}</span>
                     <span className="ActiveClientsOverview-clientText">
                       <strong>{name}</strong>
-                      <small>{client.clientCode || client.code || client.companyCode || 'CLIENT'}</small>
+                      <small>{getClientSubtitle(client)}</small>
                     </span>
                     <em>Active</em>
                     <FiChevronRight />
@@ -775,7 +851,7 @@ const ActiveClientsOverview = () => {
                         <span>Active</span>
                       </div>
                       <p>
-                        {selectedClient.client.clientCode || selectedClient.client.code || selectedClient.client.companyCode || 'CLIENT'}
+                        {getClientSubtitle(selectedClient.client)}
                       </p>
                       <div className="ActiveClientsOverview-serviceLine">
                         <small>Services:</small>
@@ -1026,7 +1102,7 @@ const ActiveClientsOverview = () => {
                 <span className="ActiveClientsOverview-profileAvatar">{selectedInitials}</span>
                 <div>
                   <h2>{selectedName}</h2>
-                  <p>{selectedClient.client.clientCode || selectedClient.client.code || selectedClient.client.companyCode || 'CLIENT'}</p>
+                  <p>{getClientSubtitle(selectedClient.client)}</p>
                 </div>
               </div>
               <button type="button" aria-label="Close profile" onClick={() => setShowProfileModal(false)}><FiX /></button>

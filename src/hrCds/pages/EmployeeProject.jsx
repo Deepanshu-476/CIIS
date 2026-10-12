@@ -96,7 +96,10 @@ const formatProjectDate = (value, fallback = "Not set") => {
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
 const getProjectTaskTotal = (project) => {
   if (typeof project?.taskCount === "number") return project.taskCount;
   if (typeof project?.totalTasks === "number") return project.totalTasks;
@@ -158,7 +161,10 @@ const Icons = {
   TrendingUp: () => <FiTrendingUp className="EmployeeProject-icon" />,
 };
 
+<<<<<<< HEAD
 >>>>>>> 566a03a8892a30f54712bf026add027f52dff73c
+=======
+>>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
 const EmployeeProject = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
@@ -647,6 +653,7 @@ const EmployeeProject = () => {
                     )}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
                   {p.description && (
                     <p className="EmployeeProject-card-description">
                       {p.description.length > 120
@@ -694,6 +701,8 @@ const EmployeeProject = () => {
             </div>
           ))}
 =======
+=======
+>>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
                     <div className="EmployeeProject-card-footer">
                       <div className="EmployeeProject-card-date" title="Project timeline">
                         <Icons.CalendarToday />
@@ -735,7 +744,10 @@ const EmployeeProject = () => {
               </div>
             );
           })}
+<<<<<<< HEAD
 >>>>>>> 566a03a8892a30f54712bf026add027f52dff73c
+=======
+>>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
         </div>
       )}
     </div>

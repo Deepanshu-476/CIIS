@@ -5,7 +5,7 @@ import axios from "../../utils/axiosConfig";
 import "../Css/ProjectDetailsPage.css";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings, normalizeReminderSettings } from '../components/TaskReminderControl';
 
-const SHOW_TASK_DOCUMENTS = false;
+const SHOW_TASK_DOCUMENTS = true;
 
 const parseStoredJson = (key) => {
   try {
@@ -1307,7 +1307,8 @@ const ProjectDetailsPage = () => {
     });
   }, [taskSearchTerm, assigneeFilteredTasks]);
 
-  const documentCount = hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0;
+  const taskDocumentCount = tasks.filter((task) => hasAttachmentFile(task?.pdfFile)).length;
+  const documentCount = (hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0) + taskDocumentCount;
 
   const taskAssigneeOptions = useMemo(
     () => [
@@ -2384,30 +2385,13 @@ const ProjectDetailsPage = () => {
                 <>
                   <h3 className="pdp-task-documents-title">
                     Task Attachments (
-                    {
-                      tasks.filter(
-                        (t) =>
-                          t.pdfFile?.path ||
-                          t.pdfFile?.filename ||
-                          t.pdfFile?.url
-                      ).length
-                    }
+                    {taskDocumentCount}
                     )
                   </h3>
-                  {tasks.filter(
-                    (task) =>
-                      task.pdfFile?.path ||
-                      task.pdfFile?.filename ||
-                      task.pdfFile?.url
-                  ).length > 0 ? (
+                  {taskDocumentCount > 0 ? (
                     <div className="pdp-task-documents-grid">
                       {tasks
-                        .filter(
-                          (task) =>
-                            task.pdfFile?.path ||
-                            task.pdfFile?.filename ||
-                            task.pdfFile?.url
-                        )
+                        .filter((task) => hasAttachmentFile(task?.pdfFile))
                         .map((task) => (
                           <div
                             className="pdp-task-document-card"

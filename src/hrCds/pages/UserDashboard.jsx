@@ -2129,11 +2129,26 @@ const UserDashboard = () => {
     const loadAssets = async () => {
       setQuickAssetsLoading(true);
       try {
-        const response = await axios.get('/company-assets', { headers: { Authorization: `Bearer ${token}` } });
-        const rows = Array.isArray(response.data?.assets) ? response.data.assets
-          : Array.isArray(response.data?.data) ? response.data.data
-            : Array.isArray(response.data) ? response.data : [];
-        if (active) setQuickAssets(rows.filter(asset => Number(asset.quantity) > 0));
+        let response;
+        try {
+          response = await axios.get('/asset-requests/available', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+        } catch (err) {
+          if (err.response?.status === 404 || err.response?.status === 403) {
+            response = await axios.get('/company-assets', {
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+          } else {
+            throw err;
+          }
+        }
+        const rows = Array.isArray(response?.data?.assets) ? response.data.assets
+          : Array.isArray(response?.data?.data) ? response.data.data
+            : Array.isArray(response?.data) ? response.data : [];
+        if (active) {
+          setQuickAssets(rows.filter(asset => asset.quantity === undefined || asset.quantity === null || Number(asset.quantity) > 0 || String(asset.status || '').toLowerCase() === 'available'));
+        }
       } catch (error) {
         console.error('Failed to load company assets:', error);
         if (active) {
@@ -3385,6 +3400,24 @@ const UserDashboard = () => {
                 {isClockedOutToday ? <><FiCheckCircle size={17} /> Completed</> : <><FiPlay size={17} /> Clock In</>}
               </button>
               <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
+            </div>
+          </section>
+
+          <section className="dashboard-ai-card">
+            <div className="dashboard-section-heading"><strong><FiZap /> AI Assistant</strong><span>Coming Soon</span></div>
+            <div className="dashboard-ai-summary dashboard-ai-coming-soon">
+              <div className="ai-coming-soon-visual">
+                <div className="ai-orb"><Sparkles /></div>
+                <i className="ai-orbit-dot ai-orbit-dot-one" />
+                <i className="ai-orbit-dot ai-orbit-dot-two" />
+              </div>
+              <p>Your smart work assistant is on the way</p>
+              <small>Get personalized insights, task suggestions and instant answers from your workspace.</small>
+              <div className="ai-feature-pills">
+                <span>Smart insights</span>
+                <span>Task help</span>
+                <span>Quick answers</span>
+              </div>
             </div>
           </section>
 

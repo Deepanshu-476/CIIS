@@ -1308,6 +1308,7 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  overflow-y: auto;
   animation: EmppAttendence-fadeIn 0.3s ease-out;
 }
 
@@ -1322,7 +1323,7 @@
   box-shadow: var(--shadow-xl);
   width: 100%;
   max-width: 700px;
-  max-height: 80vh !important;
+  max-height: calc(100vh - 40px) !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1381,7 +1382,8 @@
 
 .EmppAttendence-modal-body {
   padding: 28px;
-  overflow-y: auto;
+  overflow-y: auto !important;
+  min-height: 0;
   flex: 1;
 }
 
@@ -2361,7 +2363,7 @@ textarea.EmppAttendence-form-input {
 .EmppAttendence-monthly-weekdays span { padding:10px 0 5px; text-align:center; color:#718096; font-size:11px; font-weight:800; }
 .EmppAttendence-monthly-day,.EmppAttendence-monthly-calendar .empty { min-height:66px; padding:7px; border:1px solid #e7ebf2; border-radius:8px; background:#f8fafc; }
 .EmppAttendence-monthly-day { display:flex; flex-direction:column; justify-content:space-between; color:#334155; }.EmppAttendence-monthly-day b { font-size:12px; }.EmppAttendence-monthly-day span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; font-weight:800; text-transform:uppercase; }
-.EmppAttendence-monthly-day.present { background:#ecfdf5; border-color:#a7f3d0; color:#047857; }.EmppAttendence-monthly-day.absent,.EmppAttendence-monthly-day.no-record { background:#fff1f2; border-color:#fecdd3; color:#be123c; }.EmppAttendence-monthly-day.late { background:#fffbeb; border-color:#fde68a; color:#b45309; }.EmppAttendence-monthly-day.half-day,.EmppAttendence-monthly-day.halfday { background:#f0f9ff; border-color:#bae6fd; color:#0369a1; }.EmppAttendence-monthly-day.leave { background:#f5f3ff; border-color:#c4b5fd; color:#6d28d9; }.EmppAttendence-monthly-day.weekend,.EmppAttendence-monthly-day.upcoming { color:#94a3b8; }
+.EmppAttendence-monthly-day.present { background:#ecfdf5; border-color:#a7f3d0; color:#047857; }.EmppAttendence-monthly-day.absent,.EmppAttendence-monthly-day.no-record { background:#fff1f2; border-color:#fecdd3; color:#be123c; }.EmppAttendence-monthly-day.late { background:#fffbeb; border-color:#fde68a; color:#b45309; }.EmppAttendence-monthly-day.half-day,.EmppAttendence-monthly-day.halfday { background:#f0f9ff; border-color:#bae6fd; color:#0369a1; }.EmppAttendence-monthly-day.leave { background:#f5f3ff; border-color:#c4b5fd; color:#6d28d9; }.EmppAttendence-monthly-day.holiday { background:#f5f3ff; border-color:#c4b5fd; color:#6d28d9; }.EmppAttendence-monthly-day.weekend,.EmppAttendence-monthly-day.upcoming { background:#f8fafc; border-color:#e2e8f0; color:#94a3b8; }
 .EmppAttendence-monthly-legend { display:flex; flex-wrap:wrap; gap:12px; padding-top:11px; color:#64748b; font-size:10px; font-weight:700; }.EmppAttendence-monthly-legend span::before { content:''; display:inline-block; width:8px; height:8px; margin-right:5px; border-radius:3px; background:#94a3b8; }.EmppAttendence-monthly-legend .present::before{background:#10b981}.EmppAttendence-monthly-legend .absent::before{background:#ef4444}.EmppAttendence-monthly-legend .late::before{background:#f59e0b}.EmppAttendence-monthly-legend .half-day::before{background:#0ea5e9}.EmppAttendence-monthly-legend .leave::before{background:#8b5cf6}
 @media(max-width:760px){.EmppAttendence-monthly-stats{grid-template-columns:repeat(2,1fr)}.EmppAttendence-monthly-day,.EmppAttendence-monthly-calendar .empty{min-height:52px;padding:4px}.EmppAttendence-monthly-meta{display:none!important}.EmppAttendence-monthly-overlay{padding:8px}}
 

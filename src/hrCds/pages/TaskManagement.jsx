@@ -1030,6 +1030,7 @@ const UserCreateTask = () => {
   const activityRequestRef = useRef(0);
   const allTasksRefreshTimerRef = useRef(null);
   const allTasksRequestRef = useRef(0);
+  const allTasksAbortRef = useRef(null);
   // Prevent an older list request from replacing a task status that the user
   // has just changed optimistically.
   const lastTaskStatusMutationAtRef = useRef(0);
@@ -3476,8 +3477,11 @@ const UserCreateTask = () => {
     try {
       const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
       const query = params.toString();
-      const res = await axios.get(`/tasks/all?${query}`);
-      let responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
+      if (allTasksAbortRef.current) allTasksAbortRef.current.abort();
+      const controller = new AbortController();
+      allTasksAbortRef.current = controller;
+      const responseData = (await axios.get(`/tasks/all?${query}`, { signal: controller.signal })).data;
+      let responseTasks = Array.isArray(responseData?.tasks) ? responseData.tasks : extractTasksFromResponse(responseData);
       const fallbackSource = viewOverride === 'self' || viewOverride === 'client' || viewOverride === 'project' || viewOverride === 'assigned'
         ? viewOverride
         : null;
@@ -3502,17 +3506,17 @@ const UserCreateTask = () => {
       setAssignedToMeTasksGrouped(assignedGrouped);
       setClientTasksGrouped(clientGrouped);
       setProjectTasksGrouped(projectGrouped);
-      setAllTaskStats(res.data?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
+      setAllTaskStats(responseData?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
       calculateStatsFromTasks(selfGrouped);
       calculateAssignedStatsFromTasks(assignedGrouped);
       calculateClientStatsFromTasks(clientGrouped);
       calculateProjectStatsFromTasks(projectGrouped);
       allTasksStatsLoadedRef.current = true;
-      const pagination = res.data?.pagination || {};
+      const pagination = responseData?.pagination || {};
       const nextPagination = {
         page: Number(pagination.page || targetPage),
         limit: Number(pagination.limit || TASK_PAGE_LIMIT),
-        total: Number(pagination.total ?? res.data?.total ?? tasksArray.length),
+        total: Number(pagination.total ?? responseData?.total ?? tasksArray.length),
         pages: Number(pagination.pages || 1),
         hasNext: Boolean(pagination.hasNext),
         hasPrev: Boolean(pagination.hasPrev)
@@ -3532,27 +3536,35 @@ const UserCreateTask = () => {
       };
       persistTaskManagementCache(taskManagementMemoryCache);
     } catch (err) {
-      console.error('❌ Error in fetchAllTasks:', err);
-      if (allTasksRequestRef.current !== requestId) return;
-      // Preserve already-rendered tasks if only a background refresh fails.
-      if (shouldShowLoader) {
-        setAllTasksGrouped({});
-        setAllTasksStatsGrouped({});
-        allTasksStatsLoadedRef.current = false;
-        setAllTaskStats(emptyExternalStats());
-        setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
+      const requestWasCanceled = err.name === 'CanceledError' || err.code === 'ERR_CANCELED';
+      if (requestWasCanceled) {
+        return;
       }
-      // A background reconciliation failure must not interrupt the user when
-      // task data is already rendered. Show this only when the initial load
-      // itself fails and there is no usable task list on screen.
-      if (shouldShowLoader && err.response?.status !== 404) {
-        showSnackbar('Failed to load all tasks', 'error');
+
+      console.error('❌ Error in fetchAllTasks:', err);
+      if (allTasksRequestRef.current === requestId) {
+        // Preserve already-rendered tasks if only a background refresh fails.
+        if (shouldShowLoader) {
+          setAllTasksGrouped({});
+          setAllTasksStatsGrouped({});
+          allTasksStatsLoadedRef.current = false;
+          setAllTaskStats(emptyExternalStats());
+          setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
+        }
+        // A background reconciliation failure must not interrupt the user when
+        // task data is already rendered. Show this only when the initial load
+        // itself fails and there is no usable task list on screen.
+        if (shouldShowLoader && err.response?.status !== 404) {
+          showSnackbar('Failed to load all tasks', 'error');
+        }
       }
     } finally {
-      if (allTasksRequestRef.current !== requestId) return;
-      setLoadingAllTasks(false);
-      allTasksLoadedRef.current = true;
-      setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
+      if (allTasksRequestRef.current === requestId) {
+        allTasksAbortRef.current = null;
+        setLoadingAllTasks(false);
+        allTasksLoadedRef.current = true;
+        setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
+      }
     }
   }, [authError, userId, buildTaskQueryParams, taskViewMode, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 

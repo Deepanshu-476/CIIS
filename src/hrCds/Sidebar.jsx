@@ -3244,7 +3244,6 @@ const Sidebar = ({
             selected={selected}
             isCollapsed={false}
             aria-label={item.name}
-            title={item.name}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
@@ -3289,7 +3288,6 @@ const Sidebar = ({
             selected={selected}
             isCollapsed={true}
             aria-label={item.name}
-            title={item.name}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
@@ -3348,7 +3346,6 @@ const Sidebar = ({
         selected={isTelecallerActive}
         isCollapsed={!isSidebarOpen}
         aria-label="Admin Telecaller"
-        title="Admin Telecaller"
         onClick={toggleTelecaller}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3448,7 +3445,6 @@ const Sidebar = ({
                       selected={selected}
                       isCollapsed={!isSidebarOpen}
                       aria-label="Call Workspace"
-                      title="Call Workspace"
                       aria-expanded={isSidebarOpen && telecallerWorkspaceOpen}
                       aria-controls={submenuId}
                       onClick={() => setTelecallerWorkspaceOpen(open => !open)}
@@ -3539,7 +3535,6 @@ const Sidebar = ({
         selected={isCrmActive}
         isCollapsed={!isSidebarOpen}
         aria-label="Admin CRM"
-        title="Admin CRM"
         onClick={toggleCrm}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3649,7 +3644,6 @@ const Sidebar = ({
                   selected={hasSelectedChild}
                   isCollapsed={!isSidebarOpen}
                   aria-label={group.name}
-                  title={group.name}
                   onClick={() => toggleGroup(group.id)}
                   sx={{
                     justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3753,7 +3747,6 @@ const Sidebar = ({
         selected={isPayrollActive}
         isCollapsed={!isSidebarOpen}
         aria-label="Payroll"
-        title="Payroll"
         onClick={togglePayroll}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3974,7 +3967,6 @@ const Sidebar = ({
         selected={isActive}
         isCollapsed={!isSidebarOpen}
         aria-label={label}
-        title={label}
         onClick={handleSectionClick}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -4618,7 +4610,6 @@ const Sidebar = ({
               onClick={handleLogout}
               isCollapsed={!isSidebarOpen}
               aria-label="Logout"
-              title="Logout"
               sx={{
                 color: 'error.main',
                 justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -5096,7 +5087,6 @@ const Sidebar = ({
             onClick={handleLogout}
             isCollapsed={!isSidebarOpen}
             aria-label="Logout"
-            title="Logout"
             sx={{
               color: 'error.main',
               justifyContent: isSidebarOpen ? 'flex-start' : 'center',

@@ -11,10 +11,11 @@ const hasProfileValue = (value) => {
 export const getProfileCompletion = (profile) => {
   if (!profile || typeof profile !== 'object') return 0;
 
+  // Count only the profile details an employee can edit from the Profile page.
+  // Admin-managed fields such as employee ID, job role, department, joining date,
+  // and reporting manager are intentionally excluded from self-completion.
   const fields = [
-    // Personal
     profile.name,
-    profile.email,
     profile.phone || profile.mobile,
     profile.dob,
     profile.gender,
@@ -23,25 +24,18 @@ export const getProfileCompletion = (profile) => {
     profile.state,
     profile.pinCode || profile.zipCode,
     profile.country,
-    // Employment (visible on Profile.jsx)
-    profile.employeeType || profile.employmentType,
-    profile.workLocation || profile.location || profile.officeLocation || profile.branch,
-    profile.designation || profile.jobTitle || profile.jobRole || profile.role,
-    profile.department || profile.departmentName,
-    profile.joiningDate || profile.dateOfJoining,
-    // Identity
     profile.aadhaar || profile.aadhar || profile.aadharCard,
     profile.panCard || profile.pan,
-    // Bank (visible on Profile.jsx)
+    profile.bankHolderName,
     profile.accountNumber,
     profile.ifsc,
     profile.bankName,
-    // Family & Emergency
     profile.maritalStatus,
     profile.fatherName,
     profile.motherName,
     profile.emergencyName,
     profile.emergencyPhone,
+    profile.emergencyRelation,
     profile.emergencyAddress,
   ];
 
@@ -58,7 +52,6 @@ export const getFirstIncompleteProfileSection = (profile) => {
 
   const personalComplete = [
     profile.name,
-    profile.email,
     profile.phone || profile.mobile,
     profile.dob,
     profile.gender,
@@ -77,6 +70,7 @@ export const getFirstIncompleteProfileSection = (profile) => {
   if (!identityComplete) return 'identity';
 
   const bankComplete = [
+    profile.bankHolderName,
     profile.accountNumber,
     profile.ifsc,
     profile.bankName,
@@ -89,6 +83,7 @@ export const getFirstIncompleteProfileSection = (profile) => {
     profile.motherName,
     profile.emergencyName,
     profile.emergencyPhone,
+    profile.emergencyRelation,
     profile.emergencyAddress,
   ];
   if (String(profile.maritalStatus || '').trim().toLowerCase() === 'married') {

@@ -8,12 +8,14 @@ import {
   changeMyPassword,
   createCompanyGroup,
   createGroupConversation,
+  deleteCompanyGroup,
   getCompanyGroups,
   getCompanyUsers,
   getConversations,
   getMyProfile,
   getNotificationPreferences,
   updateMyProfile,
+  updateCompanyGroup,
   updateNotificationPreferences,
   getStatuses,
   createStatus,
@@ -1172,6 +1174,9 @@ const ChatPage = () => {
     return {
       ...group,
       isGroup: true,
+      groupImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",
+      profileImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",
+      avatar: group.avatar || group.profileImage || group.image || conversation?.groupImage || "",
       conversation,
       unreadCount: unreadOverride ?? conversation?.unreadCount ?? 0,
       lastMessage: conversation?.lastMessage,
@@ -1232,8 +1237,8 @@ const ChatPage = () => {
     }
   };
 
-  const handleCreateGroup = async ({ name, members }) => {
-    const response = await createCompanyGroup({ name, members });
+  const handleCreateGroup = async ({ name, members, avatar }) => {
+    const response = await createCompanyGroup({ name, members, avatar });
     const group = response.data.group || response.data.data || response.data;
     await fetchGroups();
 
@@ -1243,6 +1248,36 @@ const ChatPage = () => {
       setSelectedUser({ ...group, isGroup: true });
       setActiveView("chats");
     }
+  };
+
+  const handleDeleteGroup = async (group) => {
+    const groupId = (group?._id || group?.id || group?.groupId || "").toString();
+    if (!groupId) return;
+    await deleteCompanyGroup(groupId);
+    setGroups(prev => prev.filter(item => (item._id || item.id || "").toString() !== groupId));
+    setConversations(prev => prev.filter(item => (
+      (item.groupId?._id || item.groupId || "").toString() !== groupId
+    )));
+    setSelectedUser(prev => {
+      const selectedId = (prev?._id || prev?.id || prev?.groupId || "").toString();
+      return selectedId === groupId ? null : prev;
+    });
+    await Promise.allSettled([fetchGroups(), fetchConversations()]);
+  };
+
+  const handleUpdateGroup = async (group, payload) => {
+    const groupId = (group?._id || group?.id || group?.groupId || "").toString();
+    if (!groupId) return null;
+    const response = await updateCompanyGroup(groupId, payload);
+    const updatedGroup = response.data.group || response.data.data || response.data;
+    await Promise.allSettled([fetchGroups(), fetchConversations()]);
+    if (updatedGroup?._id || updatedGroup?.id) {
+      setSelectedUser(prev => {
+        const selectedId = (prev?._id || prev?.id || prev?.groupId || "").toString();
+        return selectedId === groupId ? { ...prev, ...updatedGroup, isGroup: true } : prev;
+      });
+    }
+    return updatedGroup;
   };
 
   const fetchStatuses = async ({ quiet = false } = {}) => {
@@ -1444,14 +1479,14 @@ const ChatPage = () => {
                       }}
                     />
                   ) : null}
-                  <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                  <span className="chat-rail-avatar-initial" style={{ display: avatarSrc ? "none" : "inline-flex" }}>
                     {(currentUser?.name || "U").charAt(0).toUpperCase()}
                   </span>
                 </>
               );
             })()}
           </div>
-          <span />
+          <span className="chat-rail-status-dot" />
         </div>
         <nav className="chat-rail-nav" aria-label="Chat navigation">
           <button type="button" className={activeView === "chats" ? "active" : ""} onClick={() => setActiveView("chats")} title="Chats"><MessageCircle size={20} /><span>Chats</span></button>
@@ -1578,6 +1613,8 @@ const ChatPage = () => {
           socket={socket}
           onlineUsers={onlineUsers}
           onConversationChange={fetchConversations}
+          onDeleteGroup={handleDeleteGroup}
+          onUpdateGroup={handleUpdateGroup}
           onBack={() => setSelectedUser(null)}
           chatSettings={effectiveChatSettings}
         />

@@ -1031,6 +1031,7 @@ const UserCreateTask = () => {
   const allTasksRefreshTimerRef = useRef(null);
   const allTasksRequestRef = useRef(0);
   const allTasksAbortRef = useRef(null);
+  const lastLongLivedRefreshRef = useRef(0);
   // Prevent an older list request from replacing a task status that the user
   // has just changed optimistically.
   const lastTaskStatusMutationAtRef = useRef(0);
@@ -2951,8 +2952,10 @@ const UserCreateTask = () => {
         
       } else {
         void 0;
-        setAssignedToMeTasksGrouped({});
-        calculateAssignedStatsFromTasks({});
+        if (countGroupedTasks(assignedToMeTasksGrouped) === 0) {
+          setAssignedToMeTasksGrouped({});
+          calculateAssignedStatsFromTasks({});
+        }
       }
 
     } catch (err) {
@@ -2970,8 +2973,10 @@ const UserCreateTask = () => {
         } else if (err.response.status === 404) {
           console.warn('⚠️ Assigned tasks API endpoint not found (404)');
           showSnackbar('Assigned tasks feature is not available', 'warning');
-          setAssignedToMeTasksGrouped({});
-          calculateAssignedStatsFromTasks({});
+          if (countGroupedTasks(assignedToMeTasksGrouped) === 0) {
+            setAssignedToMeTasksGrouped({});
+            calculateAssignedStatsFromTasks({});
+          }
         } else {
           showSnackbar(`Failed to load assigned tasks: ${err.response.data?.message || err.response.status}`, 'error');
         }
@@ -2983,15 +2988,17 @@ const UserCreateTask = () => {
         showSnackbar('Failed to load assigned tasks', 'error');
       }
       
-      setAssignedToMeTasksGrouped({});
-      calculateAssignedStatsFromTasks({});
+      if (countGroupedTasks(assignedToMeTasksGrouped) === 0) {
+        setAssignedToMeTasksGrouped({});
+        calculateAssignedStatsFromTasks({});
+      }
       
     } finally {
       setLoadingAssigned(false);
       setTaskViewsLoaded(prev => ({ ...prev, assigned: true }));
       void 0;
     }
-  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
+  }, [authError, userId, assignedToMeTasksGrouped, countGroupedTasks, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchClientTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -3017,8 +3024,10 @@ const UserCreateTask = () => {
       calculateClientStatsFromTasks(groupedTasks);
     } catch (err) {
       console.error('❌ Error in fetchClientTasks:', err);
-      setClientTasksGrouped({});
-      calculateClientStatsFromTasks({});
+      if (countGroupedTasks(clientTasksGrouped) === 0) {
+        setClientTasksGrouped({});
+        calculateClientStatsFromTasks({});
+      }
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load client tasks', 'error');
       }
@@ -3026,7 +3035,7 @@ const UserCreateTask = () => {
       setLoadingClientTasks(false);
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
     }
-  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
+  }, [authError, userId, clientTasksGrouped, countGroupedTasks, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchClients = useCallback(async () => {
     if (authError || !userId) return;
@@ -3457,8 +3466,10 @@ const UserCreateTask = () => {
       calculateProjectStatsFromTasks(groupedTasks);
     } catch (err) {
       console.error('❌ Error in fetchProjectTasks:', err);
-      setProjectTasksGrouped({});
-      calculateProjectStatsFromTasks({});
+      if (countGroupedTasks(projectTasksGrouped) === 0) {
+        setProjectTasksGrouped({});
+        calculateProjectStatsFromTasks({});
+      }
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load project tasks', 'error');
       }
@@ -3466,7 +3477,7 @@ const UserCreateTask = () => {
       setLoadingProjectTasks(false);
       setTaskViewsLoaded(prev => ({ ...prev, project: true }));
     }
-  }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
+  }, [authError, userId, projectTasksGrouped, countGroupedTasks, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchAllTasks = useCallback(async (targetPage = 1, viewOverride = taskViewMode) => {
     if (authError || !userId) return;
@@ -3726,12 +3737,16 @@ const UserCreateTask = () => {
         showSnackbar('Session expired. Please log in again.', 'error');
       } else {
         showSnackbar('Failed to load tasks', 'error');
+        if (countGroupedTasks(myTasksGrouped) === 0) {
+          setMyTasksGrouped({});
+          calculateStatsFromTasks({});
+        }
       }
     } finally {
       setLoading(false);
       setTaskViewsLoaded(prev => ({ ...prev, self: true }));
     }
-  }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod, syncOverdueTaskStatuses]);
+  }, [authError, userId, myTasksGrouped, countGroupedTasks, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod, syncOverdueTaskStatuses]);
 
   
   const fetchOverdueTasks = useCallback(async () => {
@@ -3757,19 +3772,17 @@ const UserCreateTask = () => {
 
   
   const handleViewModeChange = (mode) => {
+    if (mode === taskViewMode) {
+      fetchAllTasks(allTasksPagination.page || 1, mode);
+      if (mode === 'client' && (!clientsLoadAttemptedRef.current || clients.length === 0)) {
+        fetchClients();
+      }
+      return;
+    }
+
     setTaskViewMode(mode);
     setStatusFilter('');
-    setLoadingAllTasks(true);
-    setTaskViewsLoaded(prev => ({ ...prev, [mode]: false }));
-    setAllTaskStats(emptyExternalStats());
-    setAllTasksGrouped({});
-    setAllTasksStatsGrouped({});
-    setMyTasksGrouped({});
-    setAssignedToMeTasksGrouped({});
-    setClientTasksGrouped({});
-    setProjectTasksGrouped({});
     setAllTasksPagination(prev => ({ ...prev, page: 1, total: 0, pages: 1, hasNext: false, hasPrev: false }));
-    fetchAllTasks(1, mode);
     if (mode === 'client') {
       if (!clientsLoadAttemptedRef.current || clients.length === 0) {
         fetchClients();
@@ -4630,6 +4643,35 @@ const UserCreateTask = () => {
       await fetchAssignedToMeTasks();
     }
   };
+
+  useEffect(() => {
+    if (!userId || authError) return undefined;
+
+    const refreshIfVisible = (force = false) => {
+      if (document.visibilityState === 'hidden') return;
+
+      const now = Date.now();
+      if (!force && now - lastLongLivedRefreshRef.current < 5 * 60 * 1000) return;
+
+      lastLongLivedRefreshRef.current = now;
+      void refreshCurrentTaskView(taskViewMode);
+    };
+
+    const handleVisibilityChange = () => refreshIfVisible(false);
+    const handleWindowFocus = () => refreshIfVisible(false);
+    const intervalId = window.setInterval(() => refreshIfVisible(false), 10 * 60 * 1000);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('online', handleWindowFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('online', handleWindowFocus);
+    };
+  }, [authError, userId, taskViewMode, refreshCurrentTaskView]);
 
   const handleCheckpointToggle = async (task, checkpoint) => {
     const taskId = task?._id || task?.id;

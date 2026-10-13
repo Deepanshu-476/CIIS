@@ -121,6 +121,12 @@ const getIconHtml = (iconName) => {
 
 const getRouteKey = (path = '') => String(path).split('/').filter(Boolean).pop();
 
+const normalizeAccessKey = (value = '') => String(value || '')
+  .trim()
+  .replace(/^\/+/, '')
+  .replace(/\/+$/, '')
+  .toLowerCase();
+
 const getRouteAccessKeys = (route) => {
   const rawPath = String(route?.path || '').trim();
   const cleanPath = rawPath.replace(/^\/+/, '');
@@ -156,9 +162,9 @@ const isRouteAllowedForCompany = (route, company) => {
   const allowedPages = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
   if (allowedPages.length === 0) return true;
 
-  const allowedSet = new Set(allowedPages.map(item => String(item).trim()).filter(Boolean));
-  const routeKeys = getRouteAccessKeys(route);
-  return [...allowedSet].some(page => routeKeys.has(page) || routeKeys.has(page.replace(/^\/+/, '')));
+  const allowedSet = new Set(allowedPages.map(normalizeAccessKey).filter(Boolean));
+  const routeKeys = new Set([...getRouteAccessKeys(route)].map(normalizeAccessKey).filter(Boolean));
+  return [...routeKeys].some(key => allowedSet.has(key));
 };
 
 const getNormalizedUserRoles = (user = {}) => {
@@ -381,10 +387,11 @@ const SidebarManagement = () => {
   }, []);
 
   const initializePages = (companyOverride = company) => {
-    const pages = APP_ROUTES.map(route => {
+    const pages = APP_ROUTES.filter(route => isRouteAllowedForCompany(route, companyOverride)).map(route => {
       const isClientPath = route.path.startsWith('client-');
       return {
         id: route.path,
+        accessId: route.id || route.path,
         name: route.name,
         path: isClientPath ? `/client/${route.path.substring(7)}` : `/ciisUser/${route.path}`,
         icon: route.icon,

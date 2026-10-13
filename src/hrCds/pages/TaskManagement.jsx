@@ -3191,6 +3191,7 @@ const UserCreateTask = () => {
   }, []);
 
   const handleUpdateAndAssignClientTask = useCallback(async () => {
+    if (isCreatingClientTask) return;
     if (!clientTaskForm._id) return;
     
     const assigneeToUse = selectedAssignee || currentLoggedInAssignee;
@@ -3294,9 +3295,10 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [clientTaskForm, currentLoggedInAssignee, servicePendingTasks, selectedAssignee, groupTasksByDate, calculateClientStatsFromTasks, selectedClient, userId, fetchClientTasks, showSnackbar]);
+  }, [clientTaskForm, currentLoggedInAssignee, servicePendingTasks, selectedAssignee, groupTasksByDate, calculateClientStatsFromTasks, selectedClient, userId, fetchClientTasks, showSnackbar, isCreatingClientTask]);
 
   const handleCreateClientTask = useCallback(async () => {
+    if (isCreatingClientTask) return;
     if (!selectedClient) {
       showSnackbar('Please select a client', 'error');
       return;
@@ -3399,7 +3401,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient, userId, showSnackbar]);
+  }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient, userId, showSnackbar, isCreatingClientTask]);
 
   useEffect(() => {
     if (!selectedProjectId) return;
@@ -3580,6 +3582,7 @@ const UserCreateTask = () => {
   }, [allTasksPagination.page, fetchAllTasks]);
 
   const handleCreateProjectTask = useCallback(async () => {
+    if (isCreatingProjectTask) return;
     if (!selectedProject) {
       showSnackbar('Please select a project', 'error');
       return;
@@ -3628,6 +3631,38 @@ const UserCreateTask = () => {
         throw new Error(response.data?.message || 'Project task creation failed');
       }
 
+      const responseTask = response.data?.task || response.data?.data || {};
+      const createdTask = {
+        ...responseTask,
+        title: responseTask.title || payload.title,
+        description: responseTask.description || payload.description,
+        dueDate: responseTask.dueDate || dueDateIso,
+        priority: responseTask.priority || payload.priority,
+        status: normalizeStatus(responseTask.status || 'pending'),
+        projectId: selectedProject._id || selectedProject.id,
+        projectName: selectedProject.projectName,
+        __taskSource: 'project',
+        taskSource: 'project',
+        createdAt: responseTask.createdAt || new Date().toISOString()
+      };
+
+      setProjectTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
+        calculateProjectStatsFromTasks(updatedGrouped);
+        return updatedGrouped;
+      });
+
+      setAllTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        return groupTasksByDate([createdTask, ...existingTasks]);
+      });
+
+      setAllTasksStatsGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        return groupTasksByDate([createdTask, ...existingTasks]);
+      });
+
       setProjectTaskForm({
         title: '',
         description: '',
@@ -3640,10 +3675,10 @@ const UserCreateTask = () => {
       setOpenProjectTaskDialog(false);
       setTaskViewsLoaded(prev => ({ ...prev, project: true }));
 
-      await Promise.allSettled([
+      Promise.allSettled([
         fetchProjectTasks(),
         fetchAllTasks(allTasksPagination.page || 1)
-      ]);
+      ]).catch(() => {});
 
       showSnackbar(`Project task created in ${selectedProject.projectName || 'project'}`, 'success');
     } catch (err) {
@@ -3652,7 +3687,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingProjectTask(false);
     }
-  }, [allTasksPagination.page, fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar]);
+  }, [allTasksPagination.page, fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar, isCreatingProjectTask, groupTasksByDate, calculateProjectStatsFromTasks]);
 
   
   const fetchMyTasks = useCallback(async () => {
@@ -4927,6 +4962,7 @@ const UserCreateTask = () => {
 
   
   const handleCreateTask = async () => {
+    if (isCreatingTask) return;
     if (authError || !userId) {
       showSnackbar('Please log in to create tasks', 'error');
       return;

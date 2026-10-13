@@ -400,6 +400,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [availableClients, setAvailableClients] = useState([]);
+  const [companyTaskCounts, setCompanyTaskCounts] = useState({});
   const [services, setServices] = useState([]);
   const [projectManagers, setProjectManagers] = useState([]);
   const [serviceTasks, setServiceTasks] = useState([]);
@@ -455,6 +456,26 @@ const Dashboard = () => {
   addAuthInterceptor(tasksApi);
   addAuthInterceptor(usersApi);
   addAuthInterceptor(supportApi);
+
+  const fetchCompaniesTaskSummary = async (clientsList) => {
+    const clientIds = [...new Set(
+      (clientsList || [])
+        .map(c => String(c?._id || c?.id || '').trim())
+        .filter(Boolean)
+    )];
+    if (!clientIds.length) return;
+    try {
+      const res = await tasksApi.get('/summary/bulk', {
+        params: { clientIds: clientIds.join(',') }
+      });
+      const summaries = res.data?.data || {};
+      if (isMounted.current && summaries && typeof summaries === 'object') {
+        setCompanyTaskCounts(prev => ({ ...prev, ...summaries }));
+      }
+    } catch {
+      // ignore fallback error
+    }
+  };
 
   useEffect(() => {
     isMounted.current = true;
@@ -570,6 +591,7 @@ const Dashboard = () => {
       const matchingClients = overview.availableClients || [];
       const currentClient = overview.client || null;
       setAvailableClients(matchingClients);
+      fetchCompaniesTaskSummary(matchingClients);
 
       if (currentClient) {
         setClient(currentClient);
@@ -625,6 +647,7 @@ const Dashboard = () => {
         const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
         const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
         setAvailableClients(effectiveClients);
+        fetchCompaniesTaskSummary(effectiveClients);
         const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
         const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
         
@@ -761,10 +784,20 @@ const Dashboard = () => {
   const dynamicCompanyCards = availableClients.map((item, idx) => {
     const companyName = item.company || item.businessName || item.companyName || item.client || 'Company';
     const serviceCount = Array.isArray(item.services) ? item.services.length : 0;
-    const taskCount = Array.isArray(item.tasks) ? item.tasks.length : 0;
-    const status = item.status || item.accountStatus || 'Active';
     const id = normalizeMatchValue(item?._id || item?.id);
     const selectedClientId = normalizeMatchValue(client?._id || client?.id);
+    const isActive = Boolean(id && id === selectedClientId);
+    const rawId = String(item?._id || item?.id || '');
+    const summaryTotal = companyTaskCounts[rawId]?.total ?? companyTaskCounts[id]?.total;
+    const fallbackCount = Number(item.totalTasks ?? item.taskCount ?? (Array.isArray(item.tasks) ? item.tasks.length : 0));
+    const taskCount = isActive && totalTasksCount > 0
+      ? totalTasksCount
+      : Number.isFinite(summaryTotal) && summaryTotal > 0
+        ? summaryTotal
+        : Number.isFinite(fallbackCount) && fallbackCount > 0
+          ? fallbackCount
+          : (Number.isFinite(summaryTotal) ? summaryTotal : 0);
+    const status = item.status || item.accountStatus || 'Active';
     return {
       client: item,
       id: id || `comp-${idx}`,
@@ -772,7 +805,7 @@ const Dashboard = () => {
       serviceCount,
       taskCount,
       status,
-      isActive: id && id === selectedClientId,
+      isActive,
       initial: companyName.charAt(0).toUpperCase(),
       bgType: idx % 2 === 0 ? 'blue' : 'purple'
     };

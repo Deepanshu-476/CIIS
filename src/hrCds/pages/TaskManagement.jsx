@@ -860,12 +860,16 @@ const AnimatedStatValue = ({ value }) => {
 
 const UserCreateTask = () => {
   const storedTaskUser = useMemo(() => getStoredTaskUser(), []);
+  const initialTaskPeriod = 'today';
   const cachedTaskData = useMemo(() => {
     const availableCache =
       taskManagementMemoryCache ||
       getTaskManagementSessionCache() ||
       getTaskManagementPersistentCache(storedTaskUser?.id);
     if (!availableCache || availableCache.userId !== storedTaskUser?.id) {
+      return null;
+    }
+    if (availableCache.period !== initialTaskPeriod) {
       return null;
     }
     taskManagementMemoryCache = availableCache;
@@ -1010,7 +1014,7 @@ const UserCreateTask = () => {
 
   const [allTaskStats, setAllTaskStats] = useState(emptyExternalStats());
 
-  const [timeFilter, setTimeFilter] = useState("all");
+  const [timeFilter, setTimeFilter] = useState(initialTaskPeriod);
   const [trendHoverIndex, setTrendHoverIndex] = useState(null);
   const [trendPeriod, setTrendPeriod] = useState('weekly');
   const [notifications, setNotifications] = useState([]);
@@ -2883,8 +2887,9 @@ const UserCreateTask = () => {
   }, [dateFilterType, dateRange.end, dateRange.start, debouncedSearchTerm, selectedDate, showOverdueOnly, statusFilter, taskViewMode, timeFilter]);
 
   const getUserTaskApiPeriod = useCallback(() => {
-    return 'all';
-  }, []);
+    if (selectedDate || dateRange.start || dateRange.end) return 'all';
+    return timeFilter || initialTaskPeriod;
+  }, [dateRange.end, dateRange.start, selectedDate, timeFilter]);
 
   const buildUserTaskQueryParams = useCallback((period = 'all') => {
     const params = new URLSearchParams();
@@ -3545,7 +3550,8 @@ const UserCreateTask = () => {
         clientTasksGrouped: clientGrouped,
         projectTasksGrouped: projectGrouped,
         allTasksPagination: nextPagination,
-        taskViewsLoaded: { all: true, self: true, assigned: true, client: true, project: true }
+        taskViewsLoaded: { all: true, self: true, assigned: true, client: true, project: true },
+        period: timeFilter || initialTaskPeriod
       };
       persistTaskManagementCache(taskManagementMemoryCache);
     } catch (err) {
@@ -3620,6 +3626,58 @@ const UserCreateTask = () => {
     }
 
     setIsCreatingProjectTask(true);
+    const previousProjectTaskForm = projectTaskForm;
+    const tempTaskId = `temp-project-task-${Date.now()}`;
+    const optimisticTask = {
+      _id: tempTaskId,
+      projectTaskId: tempTaskId,
+      projectId: selectedProject._id || selectedProject.id,
+      title: projectTaskForm.title.trim(),
+      description: projectTaskForm.description.trim(),
+      dueDate: dueDateIso,
+      dueDateTime: dueDateIso,
+      priority: String(projectTaskForm.priority || 'medium').toLowerCase(),
+      status: 'pending',
+      userStatus: 'pending',
+      projectName: selectedProject.projectName,
+      assignedTo: assignedToId || null,
+      assignedUsers: assignedToId ? [assignedToId] : [],
+      checkpoints: getCleanCheckpoints(projectTaskForm.checkpoints),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      __taskSource: 'project',
+      taskSource: 'project',
+      source: 'project',
+      isOptimistic: true
+    };
+
+    setOpenProjectTaskDialog(false);
+    setProjectTaskForm({
+      title: '',
+      description: '',
+      dueDateTime: '',
+      priority: 'medium',
+      assignedTo: '',
+      checkpoints: [],
+      reminderSettings: createDefaultReminderSettings()
+    });
+    setTaskViewsLoaded(prev => ({ ...prev, project: true }));
+    setProjectTasksGrouped(prev => {
+      const existingTasks = Object.values(prev || {}).flat();
+      const updatedGrouped = groupTasksByDate([optimisticTask, ...existingTasks]);
+      calculateProjectStatsFromTasks(updatedGrouped);
+      return updatedGrouped;
+    });
+    setAllTasksGrouped(prev => {
+      const existingTasks = Object.values(prev || {}).flat();
+      return groupTasksByDate([optimisticTask, ...existingTasks]);
+    });
+    setAllTasksStatsGrouped(prev => {
+      const existingTasks = Object.values(prev || {}).flat();
+      return groupTasksByDate([optimisticTask, ...existingTasks]);
+    });
+    showSnackbar('Creating project task...', 'success');
+
     try {
       const payload = {
         title: projectTaskForm.title.trim(),
@@ -3657,34 +3715,21 @@ const UserCreateTask = () => {
         createdAt: responseTask.createdAt || new Date().toISOString()
       };
 
-      setProjectTasksGrouped(prev => {
+      const replaceOptimisticTask = (prev) => {
         const existingTasks = Object.values(prev || {}).flat();
-        const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
+        const withoutTemp = existingTasks.filter(task => String(task._id || task.projectTaskId) !== tempTaskId);
+        return groupTasksByDate([createdTask, ...withoutTemp]);
+      };
+
+      setProjectTasksGrouped(prev => {
+        const updatedGrouped = replaceOptimisticTask(prev);
         calculateProjectStatsFromTasks(updatedGrouped);
         return updatedGrouped;
       });
 
-      setAllTasksGrouped(prev => {
-        const existingTasks = Object.values(prev || {}).flat();
-        return groupTasksByDate([createdTask, ...existingTasks]);
-      });
+      setAllTasksGrouped(replaceOptimisticTask);
 
-      setAllTasksStatsGrouped(prev => {
-        const existingTasks = Object.values(prev || {}).flat();
-        return groupTasksByDate([createdTask, ...existingTasks]);
-      });
-
-      setProjectTaskForm({
-        title: '',
-        description: '',
-        dueDateTime: '',
-        priority: 'medium',
-        assignedTo: '',
-        checkpoints: [],
-        reminderSettings: createDefaultReminderSettings()
-      });
-      setOpenProjectTaskDialog(false);
-      setTaskViewsLoaded(prev => ({ ...prev, project: true }));
+      setAllTasksStatsGrouped(replaceOptimisticTask);
 
       Promise.allSettled([
         fetchProjectTasks(),
@@ -3694,6 +3739,17 @@ const UserCreateTask = () => {
       showSnackbar(`Project task created in ${selectedProject.projectName || 'project'}`, 'success');
     } catch (err) {
       console.error('Error creating project task:', err);
+      const removeOptimisticTask = (prev) => groupTasksByDate(
+        Object.values(prev || {}).flat().filter(task => String(task._id || task.projectTaskId) !== tempTaskId)
+      );
+      setProjectTasksGrouped(prev => {
+        const updatedGrouped = removeOptimisticTask(prev);
+        calculateProjectStatsFromTasks(updatedGrouped);
+        return updatedGrouped;
+      });
+      setAllTasksGrouped(removeOptimisticTask);
+      setAllTasksStatsGrouped(removeOptimisticTask);
+      setProjectTaskForm(previousProjectTaskForm);
       showSnackbar(err.response?.data?.message || err.message || 'Project task creation failed', 'error');
     } finally {
       setIsCreatingProjectTask(false);
@@ -4144,16 +4200,20 @@ const UserCreateTask = () => {
       const statusToApply = pendingStatusChange.status;
       const statusTaskId = pendingStatusChange.taskId || taskId;
       const hasRemarkContent = Boolean(newRemark.trim() || remarkImages.length > 0);
+
+      if (!hasRemarkContent && !statusToApply) {
+        setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
+        return;
+      }
+
+      setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
+      if (statusToApply) {
+        setPendingStatusChange({ taskId: null, status: "", source: null });
+      }
+
       const remarkAdded = hasRemarkContent ? await addRemark(taskId, activeRemarkSource) : false;
 
       if (hasRemarkContent && !remarkAdded) return;
-
-      if (!hasRemarkContent) {
-        if (!statusToApply) {
-          setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
-          return;
-        }
-      }
 
       if (statusToApply) {
         const statusSource = pendingStatusChange.source || taskViewMode;
@@ -4190,7 +4250,6 @@ const UserCreateTask = () => {
           );
         }
         if (!statusUpdated) return;
-        setPendingStatusChange({ taskId: null, status: "", source: null });
       }
 
       setNewRemark("");
@@ -4204,8 +4263,6 @@ const UserCreateTask = () => {
       } else if (hasRemarkContent) {
         showSnackbar('Remark added successfully', 'success');
       }
-      setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
-      
     } catch (error) {
       console.error("Error saving remark:", error);
       showSnackbar('Failed to save remark', 'error');

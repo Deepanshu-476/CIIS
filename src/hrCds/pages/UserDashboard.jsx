@@ -1614,13 +1614,14 @@ const UserDashboard = () => {
     if (markedDates.includes(key)) return "present";
     if (leaveDateSet.has(key)) return "leave";
     if (absentDateSet.has(key)) return "absent";
+    if (loading.attendance) return null;
 
     const todayStart = new Date(currentDate);
     todayStart.setHours(0, 0, 0, 0);
     if (dateObj < todayStart) return "absent";
 
     return null;
-  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
+  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user, loading.attendance]);
 
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
     const calculateMonth = (year, month, maxDay = null) => {

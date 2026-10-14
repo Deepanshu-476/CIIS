@@ -481,6 +481,7 @@ const UserDashboard = () => {
   });
   const [productivityData, setProductivityData] = useState({ loading: true, refreshing: false, error: '', score: 0, label: 'Poor', tone: 'danger', series: [] });
   const productivityRequestRef = useRef(0);
+  const summaryProductivityHydratedRef = useRef(false);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
   const [dashboardUser, setDashboardUser] = useState(null);
@@ -573,7 +574,10 @@ const UserDashboard = () => {
   }, [productivityDates, productivityPeriod, token]);
 
   useEffect(() => {
-    if (productivityPeriod !== 'custom') fetchProductivity(productivityPeriod, productivityDates);
+    if (!initialLoadDone) return;
+    if (productivityPeriod === 'custom') return;
+    if (summaryProductivityHydratedRef.current && productivityPeriod === 'weekly') return;
+    fetchProductivity(productivityPeriod, productivityDates);
   }, [fetchProductivity, productivityDates, productivityPeriod]);
 
   const companyDetails = useMemo(() => {
@@ -1283,6 +1287,33 @@ const UserDashboard = () => {
         setDashboardUser(summary.currentUser);
       }
 
+      if (summary.focusStats) {
+        const nextFocusStats = { loading: false, ...summary.focusStats };
+        setFocusStats(nextFocusStats);
+        writeDashboardCache({ focusStats: nextFocusStats });
+      }
+
+      if (summary.taskStats) {
+        setDashboardTaskStats({ loading: false, ...summary.taskStats });
+      }
+
+      if (summary.productivity) {
+        summaryProductivityHydratedRef.current = true;
+        setProductivityData({ ...summary.productivity, loading: false, refreshing: false, error: '' });
+      }
+
+      if (Array.isArray(summary.upcomingMeetings)) {
+        setUpcomingMeetings(summary.upcomingMeetings.map(meeting => ({
+          ...meeting,
+          scheduledAt: new Date(meeting.scheduledAt || `${meeting.date}T${meeting.time || '00:00'}`)
+        })));
+      }
+
+      if (Array.isArray(summary.projects)) {
+        setDashboardProjects(summary.projects);
+        writeDashboardCache({ projects: summary.projects });
+      }
+
       let holidaysData = summary.holidays || [];
       if (userJoinDate) {
         holidaysData = holidaysData.filter(holiday => !isBeforeJoinDate(new Date(holiday.date)));
@@ -1321,6 +1352,7 @@ const UserDashboard = () => {
         .slice(0, 8)
         .map(mapTaskToActivity);
       setTaskActivity(tasks);
+      setRecentTaskEvents(tasks);
       updateRecentActivity(
         attendanceRecords.filter(record => record.inTime || record.outTime || record.isClockedIn),
         holidaysData,
@@ -1351,17 +1383,10 @@ const UserDashboard = () => {
       cancelPendingRequests();
 
       try {
-        // Attendance status is intentionally fetched independently of the larger
-        // dashboard summary so a clock-in made on another device is shown at once.
-        fetchCurrentStatus();
-        fetchFocusStats();
         const summaryLoaded = await fetchDashboardSummary();
-        if (summaryLoaded) {
-          // The summary contains only persisted attendance records, while the
-          // attendance list also fills missing weekdays as ABSENT. Refresh the
-          // calendar from the list so both dashboard and full attendance agree.
-          fetchAttendanceData(true);
-        } else {
+        if (!summaryLoaded) {
+          fetchCurrentStatus();
+          fetchFocusStats();
           await Promise.allSettled([
             fetchDashboardConfig(),
             fetchJobRoles(),
@@ -1387,9 +1412,9 @@ const UserDashboard = () => {
 
     const timers = [];
     const idleHandle = runWhenIdle(() => {
-      timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
-      timers.push(window.setTimeout(fetchDashboardProjects, 1200));
-      timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
+      if (!upcomingMeetings.length) timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
+      if (!dashboardProjects.length) timers.push(window.setTimeout(fetchDashboardProjects, 1200));
+      if (!recentTaskEvents.length) timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
     });
 
     return () => {
@@ -1401,7 +1426,10 @@ const UserDashboard = () => {
     isUserInCurrentCompany,
     fetchUpcomingMeetings,
     fetchDashboardProjects,
-    fetchRecentTaskActivity
+    fetchRecentTaskActivity,
+    upcomingMeetings.length,
+    dashboardProjects.length,
+    recentTaskEvents.length
   ]);
 
 
@@ -1523,12 +1551,13 @@ const UserDashboard = () => {
       .map(record => `${new Date(record.date).getFullYear()}-${new Date(record.date).getMonth()}-${new Date(record.date).getDate()}`);
   }, [filteredAttendanceData]);
 
-  const { approvedLeaveDates, unapprovedLeaveDates } = useMemo(() => {
+  const approvedLeaveDates = useMemo(() => {
     const approved = [];
-    const unapproved = [];
 
     filteredLeaveData.forEach(leave => {
       const leaveStatus = String(leave.status || '').trim().toUpperCase();
+      if (leaveStatus !== 'APPROVED') return;
+
       const start = new Date(leave.startDate);
       const end = new Date(leave.endDate);
       start.setHours(0, 0, 0, 0);
@@ -1538,26 +1567,16 @@ const UserDashboard = () => {
       while (current <= end) {
         if (!isBeforeJoinDate(current)) {
           const key = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
-          if (leaveStatus === 'APPROVED') {
-            approved.push(key);
-          } else {
-            // Unapproved leave: e.g. PENDING, REJECTED, CANCELLED
-            unapproved.push(key);
-          }
+          approved.push(key);
         }
         current.setDate(current.getDate() + 1);
       }
     });
 
-    const approvedSet = new Set(approved);
-    return {
-      approvedLeaveDates: [...approvedSet],
-      unapprovedLeaveDates: [...new Set(unapproved.filter(k => !approvedSet.has(k)))]
-    };
+    return [...new Set(approved)];
   }, [filteredLeaveData, isBeforeJoinDate]);
 
   const leaveDateSet = useMemo(() => new Set(approvedLeaveDates), [approvedLeaveDates]);
-  const unapprovedLeaveDateSet = useMemo(() => new Set(unapprovedLeaveDates), [unapprovedLeaveDates]);
   const absentDateSet = useMemo(() => new Set(absentDates), [absentDates]);
 
 
@@ -1594,7 +1613,6 @@ const UserDashboard = () => {
     if (halfDayDates.includes(key)) return "halfday";
     if (markedDates.includes(key)) return "present";
     if (leaveDateSet.has(key)) return "leave";
-    if (unapprovedLeaveDateSet.has(key)) return "absent";
     if (absentDateSet.has(key)) return "absent";
 
     const todayStart = new Date(currentDate);
@@ -1602,7 +1620,7 @@ const UserDashboard = () => {
     if (dateObj < todayStart) return "absent";
 
     return null;
-  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, unapprovedLeaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
+  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
 
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
     const calculateMonth = (year, month, maxDay = null) => {

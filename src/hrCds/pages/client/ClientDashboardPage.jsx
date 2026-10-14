@@ -841,6 +841,10 @@ const Dashboard = () => {
     };
   });
 
+  const displayCompanyCards = dynamicCompanyCards
+    .slice()
+    .sort((a, b) => Number(b.isActive) - Number(a.isActive));
+
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
 
   useEffect(() => {

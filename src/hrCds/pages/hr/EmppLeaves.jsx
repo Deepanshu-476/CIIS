@@ -194,6 +194,19 @@ const ApprovedLeaveAttendanceModal = ({ dialog, onClose }) => {
 
 
 
+const getEffectiveLeaveStatus = (leave) => {
+  const status = leave?.status || 'Pending';
+  if (status !== 'Pending' || !Array.isArray(leave?.approvalSteps)) return status;
+  if (leave.approvalSteps.some(step => step?.status === 'Rejected')) return 'Rejected';
+  if (leave.approvalSteps.some(step => step?.status === 'Approved')) return 'Approved';
+  return status;
+};
+
+const normalizeLeaveStatusForDisplay = (leave) => ({
+  ...leave,
+  status: getEffectiveLeaveStatus(leave),
+});
+
 const StatusFilter = ({ selected, onChange }) => {
   const options = [
     { value: 'All', label: 'All Statuses' },
@@ -962,8 +975,9 @@ const EmployeeLeaves = () => {
         });
       }
       
-      setLeaves(data);
-      updateStats(data);
+      const normalizedData = data.map(normalizeLeaveStatusForDisplay);
+      setLeaves(normalizedData);
+      updateStats(normalizedData);
       
     } catch (err) {
       console.error("Failed to load leaves", err);

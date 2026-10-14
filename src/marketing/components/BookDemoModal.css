@@ -39,6 +39,8 @@
 /* Modal Card */
 .ciis-demo-modal-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 580px;
   background: #ffffff;
@@ -53,17 +55,8 @@
   font-family: inherit;
   animation: ciisDemoScaleUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   max-height: calc(100vh - 36px);
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE / Edge */
-}
-
-.ciis-demo-modal-card::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-  width: 0;
-  height: 0;
 }
 
 @keyframes ciisDemoScaleUp {
@@ -105,6 +98,7 @@
 
 /* Header Section */
 .ciis-demo-header {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -154,6 +148,7 @@
 
 /* Alert Message */
 .ciis-demo-alert {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -185,7 +180,26 @@
 .ciis-demo-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  flex: 1 1 auto;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ciis-demo-form-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-right: 2px;
+}
+
+.ciis-demo-form-body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .ciis-demo-grid {
@@ -379,6 +393,16 @@
 }
 
 /* Submit Button */
+.ciis-demo-action-footer {
+  flex: 0 0 auto;
+  margin: 16px -34px -28px;
+  padding: 16px 34px 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, #ffffff 22%);
+  border-radius: 0 0 26px 26px;
+  box-shadow: 0 -16px 28px -24px rgba(15, 23, 42, 0.65);
+  z-index: 2;
+}
+
 .ciis-demo-submit-btn {
   position: relative;
   display: flex;
@@ -397,7 +421,7 @@
   box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.5);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .ciis-demo-submit-btn:hover:not(:disabled) {
@@ -424,6 +448,7 @@
   color: #64748b;
   text-align: center;
   flex-wrap: wrap;
+  margin-top: 12px;
 }
 
 .ciis-demo-footer-item {
@@ -519,6 +544,11 @@
   .ciis-demo-modal-card {
     padding: 26px 20px 22px;
     border-radius: 20px;
+  }
+  .ciis-demo-action-footer {
+    margin: 14px -20px -22px;
+    padding: 14px 20px 16px;
+    border-radius: 0 0 20px 20px;
   }
   .ciis-demo-grid {
     grid-template-columns: 1fr;

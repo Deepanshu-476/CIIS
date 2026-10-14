@@ -1,41 +1,36 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Video, VideoOff } from "lucide-react";
-import API_URL, { API_URL_IMG, TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } from "../config";
+import API_URL, { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
 import "../Pages/Chat/chat.css";
 
 const getFallbackIceServers = () => {
-    const servers = [
+    return [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:openrelay.metered.ca:80" },
-        {
-            urls: "turn:openrelay.metered.ca:80",
-            username: "openrelayproject",
-            credential: "openrelayproject",   
-        },
-        {
-            urls: "turn:openrelay.metered.ca:443",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-        },
-        {
-            urls: "turn:openrelay.metered.ca:443?transport=tcp",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-        },
     ];
-
-    if (TURN_URL) {
-        const turnServer = { urls: TURN_URL };
-        if (TURN_USERNAME) turnServer.username = TURN_USERNAME;
-        if (TURN_CREDENTIAL) turnServer.credential = TURN_CREDENTIAL;
-        servers.push(turnServer);
-    }
-
-    return servers;
 };
-const logCall = (...args) => void 0;
+const isCallDebugEnabled = () => (
+    import.meta.env.DEV ||
+    import.meta.env.VITE_WEBRTC_DEBUG === "true" ||
+    localStorage.getItem("ciis_webrtc_debug") === "true"
+);
+
+const logCall = (...args) => {
+    if (!isCallDebugEnabled()) return;
+    console.info("[CIIS WebRTC]", ...args);
+};
+
+const summarizeCandidate = (candidate) => {
+    const raw = candidate?.candidate || "";
+    const type = raw.match(/\btyp\s+(\w+)/)?.[1] || "";
+    const protocol = raw.match(/\b(udp|tcp)\b/i)?.[1] || "";
+    return {
+        type,
+        protocol: protocol.toLowerCase(),
+        addressFamily: raw.includes(" raddr ") ? "server-reflexive/relay" : "host-or-masked",
+    };
+};
     
 const getUserId = (user) => {
     if (!user) return ""; 
@@ -222,6 +217,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const audioContextRef = useRef(null);
     const ringtoneTimerRef = useRef(null);
     const callTimeoutRef = useRef(null);
+    const statsTimerRef = useRef(null);
     const iceServersRef = useRef(getFallbackIceServers());
     const iceServersLoadedAtRef = useRef(0);
     const currentUserId = getUserId(currentUser) || getUserId(getStoredUser());
@@ -249,9 +245,13 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
             iceServersRef.current = iceServers;
             iceServersLoadedAtRef.current = Date.now();
+            logCall("Loaded ICE servers", iceServers.map(server => ({
+                urls: Array.isArray(server.urls) ? server.urls : [server.urls],
+                hasUsername: Boolean(server.username),
+            })));
             return iceServers;
         } catch (turnError) {
-            logCall("Using STUN fallback; TURN credentials unavailable", turnError);
+            logCall("Using STUN-only fallback; self-hosted TURN credentials unavailable", turnError.message || turnError);
             iceServersRef.current = getFallbackIceServers();
             return iceServersRef.current;
         }
@@ -271,6 +271,63 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 console.warn("Failed to suspend ringtone audio context", error);
             }
         }
+    };
+
+    const stopStatsLogging = () => {
+        if (statsTimerRef.current) {
+            window.clearInterval(statsTimerRef.current);
+            statsTimerRef.current = null;
+        }
+    };
+
+    const startStatsLogging = () => {
+        if (!isCallDebugEnabled() || statsTimerRef.current) return;
+
+        statsTimerRef.current = window.setInterval(async () => {
+            for (const [peerUserId, peerConnection] of peerConnectionsRef.current.entries()) {
+                try {
+                    const stats = await peerConnection.getStats();
+                    const summary = {
+                        peerUserId,
+                        inbound: [],
+                        outbound: [],
+                        selectedPair: null,
+                    };
+
+                    stats.forEach(report => {
+                        if (report.type === "inbound-rtp" && !report.isRemote) {
+                            summary.inbound.push({
+                                kind: report.kind || report.mediaType,
+                                bytesReceived: report.bytesReceived,
+                                packetsReceived: report.packetsReceived,
+                                packetsLost: report.packetsLost,
+                                jitter: report.jitter,
+                            });
+                        }
+                        if (report.type === "outbound-rtp" && !report.isRemote) {
+                            summary.outbound.push({
+                                kind: report.kind || report.mediaType,
+                                bytesSent: report.bytesSent,
+                                packetsSent: report.packetsSent,
+                            });
+                        }
+                        if (report.type === "candidate-pair" && report.selected) {
+                            summary.selectedPair = {
+                                state: report.state,
+                                nominated: report.nominated,
+                                bytesSent: report.bytesSent,
+                                bytesReceived: report.bytesReceived,
+                                currentRoundTripTime: report.currentRoundTripTime,
+                            };
+                        }
+                    });
+
+                    logCall("Stats snapshot", summary);
+                } catch (error) {
+                    logCall("Stats snapshot failed", { peerUserId, error: error.message || error });
+                }
+            }
+        }, 5000);
     };
 
     const startRingtone = () => {
@@ -356,6 +413,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         stopRingtone();
         window.clearTimeout(callTimeoutRef.current);
         callTimeoutRef.current = null;
+        stopStatsLogging();
         resetPeers();
         stopStreams();
         activeCallRef.current = null;
@@ -401,14 +459,36 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }
 
         const peerConnection = new RTCPeerConnection({ iceServers: iceServersRef.current });
+        logCall("PeerConnection created", { peerUserId, iceServerCount: iceServersRef.current.length });
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
+                logCall("Local ICE candidate", { peerUserId, ...summarizeCandidate(event.candidate) });
                 emitToPeer(peerUserId, "call:ice-candidate", { candidate: event.candidate });
+            } else {
+                logCall("ICE gathering complete", { peerUserId });
             }
         };
 
+        peerConnection.onicegatheringstatechange = () => {
+            logCall("iceGatheringState", { peerUserId, state: peerConnection.iceGatheringState });
+        };
+
+        peerConnection.oniceconnectionstatechange = () => {
+            logCall("iceConnectionState", { peerUserId, state: peerConnection.iceConnectionState });
+        };
+
+        peerConnection.onsignalingstatechange = () => {
+            logCall("signalingState", { peerUserId, state: peerConnection.signalingState });
+        };
+
         peerConnection.ontrack = (event) => {
+            logCall("Remote track received", {
+                peerUserId,
+                kind: event.track?.kind,
+                readyState: event.track?.readyState,
+                streamCount: event.streams?.length || 0,
+            });
             const [stream] = event.streams;
             if (stream) {
                 upsertRemoteParticipant(peerUserId, {
@@ -419,6 +499,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         };
 
         peerConnection.onconnectionstatechange = () => {
+            logCall("connectionState", { peerUserId, state: peerConnection.connectionState });
             if (["failed", "closed"].includes(peerConnection.connectionState)) {
                 setRemoteParticipants(prev => prev.filter(participant => participant.userId !== peerUserId));
             }
@@ -468,7 +549,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         candidateQueuesRef.current.set(peerUserId, []);
 
         await Promise.all(queuedCandidates.map(candidate => (
-            peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {})
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
+                logCall("Queued ICE candidate rejected", { peerUserId, error: error.message || error });
+            })
         )));
     };
 
@@ -723,6 +806,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             setCall(activeNextCall);
             emitCallEvent(activeNextCall, { status: "answered" });
             stopRingtone();
+            startStatsLogging();
 
             (data.participants || []).forEach(participant => {
                 upsertRemoteParticipant(participant.userId, { user: participant.user });
@@ -743,6 +827,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 setCall(activeNextCall);
                 emitCallEvent(activeNextCall, { status: "answered" });
                 stopRingtone();
+                startStatsLogging();
                 window.clearTimeout(callTimeoutRef.current);
                 callTimeoutRef.current = null;
                 upsertRemoteParticipant(data.fromUserId, { user: data.fromUser });
@@ -773,6 +858,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 activeCallRef.current = activeNextCall;
                 setCall(activeNextCall);
                 emitCallEvent(activeNextCall, { status: "answered" });
+                startStatsLogging();
 
                 emitToPeer(data.fromUserId, "call:answer", { answer });
             } catch (error) {
@@ -795,6 +881,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 setCall(activeNextCall);
                 emitCallEvent(activeNextCall, { status: "answered" });
                 stopRingtone();
+                startStatsLogging();
             } catch (error) {
                 logCall("call:answer failed", error);
                 setError("Unable to connect the call.");
@@ -810,9 +897,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             if (!peerConnection?.remoteDescription) {
                 const queue = candidateQueuesRef.current.get(peerUserId) || [];
                 candidateQueuesRef.current.set(peerUserId, [...queue, data.candidate]);
+                logCall("Remote ICE candidate queued", { peerUserId, ...summarizeCandidate(data.candidate) });
                 return;
             }
 
+            logCall("Remote ICE candidate add", { peerUserId, ...summarizeCandidate(data.candidate) });
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(error => {
                 logCall("Failed to add ICE candidate", error);
             });
@@ -854,7 +943,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.off("call:rejected", handleCallClosed);
             socket.off("call:ended", handleCallClosed);
         };
-    }, [socket, currentUserId, remoteParticipants, onCallEvent]);
+    }, [socket, currentUserId, currentUser, onCallEvent]);
 
     useEffect(() => {
         if (!socket || !currentUserId) return;

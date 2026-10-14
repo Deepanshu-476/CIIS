@@ -379,7 +379,8 @@ const BookDemoModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose })
             )}
 
             <form className="ciis-demo-form" onSubmit={handleSubmit} noValidate>
-              <div className="ciis-demo-grid">
+              <div className="ciis-demo-form-body">
+                <div className="ciis-demo-grid">
                 {/* Full Name */}
                 <div className="ciis-demo-field">
                   <label className="ciis-demo-label" htmlFor="demo-name">
@@ -637,72 +638,75 @@ const BookDemoModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose })
                     />
                   </div>
                 </div>
+                </div>
               </div>
 
-              {/* Submit CTA */}
-              <button
-                type="submit"
-                className="ciis-demo-submit-btn"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="ciis-demo-spinner" />
-                    <span>Booking Walkthrough...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Confirm Live Demo Request</span>
+              <div className="ciis-demo-action-footer">
+                {/* Submit CTA */}
+                <button
+                  type="submit"
+                  className="ciis-demo-submit-btn"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="ciis-demo-spinner" />
+                      <span>Booking Walkthrough...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Confirm Live Demo Request</span>
+                      <span
+                        style={{
+                          fontFamily: "'Material Symbols Rounded'",
+                          fontSize: '18px',
+                          lineHeight: 1
+                        }}
+                      >
+                        arrow_forward
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                <div className="ciis-demo-footer-note">
+                  <span className="ciis-demo-footer-item">
                     <span
                       style={{
                         fontFamily: "'Material Symbols Rounded'",
-                        fontSize: '18px',
-                        lineHeight: 1
+                        color: '#10b981',
+                        fontSize: '15px'
                       }}
                     >
-                      arrow_forward
+                      check_circle
                     </span>
-                  </>
-                )}
-              </button>
-
-              <div className="ciis-demo-footer-note">
-                <span className="ciis-demo-footer-item">
-                  <span
-                    style={{
-                      fontFamily: "'Material Symbols Rounded'",
-                      color: '#10b981',
-                      fontSize: '15px'
-                    }}
-                  >
-                    check_circle
+                    No credit card required
                   </span>
-                  No credit card required
-                </span>
-                <span className="ciis-demo-footer-item">
-                  <span
-                    style={{
-                      fontFamily: "'Material Symbols Rounded'",
-                      color: '#10b981',
-                      fontSize: '15px'
-                    }}
-                  >
-                    schedule
+                  <span className="ciis-demo-footer-item">
+                    <span
+                      style={{
+                        fontFamily: "'Material Symbols Rounded'",
+                        color: '#10b981',
+                        fontSize: '15px'
+                      }}
+                    >
+                      schedule
+                    </span>
+                    30-min focused session
                   </span>
-                  30-min focused session
-                </span>
-                <span className="ciis-demo-footer-item">
-                  <span
-                    style={{
-                      fontFamily: "'Material Symbols Rounded'",
-                      color: '#10b981',
-                      fontSize: '15px'
-                    }}
-                  >
-                    lock
+                  <span className="ciis-demo-footer-item">
+                    <span
+                      style={{
+                        fontFamily: "'Material Symbols Rounded'",
+                        color: '#10b981',
+                        fontSize: '15px'
+                      }}
+                    >
+                      lock
+                    </span>
+                    100% Privacy guaranteed
                   </span>
-                  100% Privacy guaranteed
-                </span>
+                </div>
               </div>
             </form>
           </>

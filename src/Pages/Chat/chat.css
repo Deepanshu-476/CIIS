@@ -3622,7 +3622,22 @@ body.chat-route-active main > .MuiBox-root {
     object-fit: cover;
 }
 
-.chat-rail-profile span {
+.chat-rail-avatar-initial {
+    position: static;
+    width: 100%;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+    font-weight: 900;
+}
+
+.chat-rail-profile .chat-rail-status-dot {
     position: absolute;
     right: 1px;
     bottom: 4px;
@@ -3749,6 +3764,7 @@ body.chat-route-active main > .MuiBox-root {
 
 .chat-search-icon {
     left: 27px;
+    top: 15.5px;
     color: #7a8ba4;
 }
 
@@ -3756,9 +3772,11 @@ body.chat-route-active main > .MuiBox-root {
     display: flex;
     gap: 7px;
     padding: 1px 14px 13px;
+    min-width: 0;
 }
 
 .chat-filter-tabs button {
+    min-width: 0;
     height: 24px;
     border: 0;
     border-radius: 999px;
@@ -3768,6 +3786,14 @@ body.chat-route-active main > .MuiBox-root {
     font-size: 10px;
     font-weight: 600;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1;
+    white-space: nowrap;
+    box-sizing: border-box;
+    overflow: visible;
 }
 
 .chat-filter-tabs button.active {
@@ -4100,14 +4126,62 @@ body.chat-route-active main > .MuiBox-root {
 }
 
 .chat-group-avatar-preview {
+    position: relative;
     width: 74px;
     height: 74px;
     display: grid;
     place-items: center;
     justify-self: center;
     border-radius: 50%;
+    overflow: hidden;
     color: #0d63f3;
     background: #dbe7f6;
+    cursor: pointer;
+}
+
+.chat-group-avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.chat-group-avatar-preview input {
+    display: none;
+}
+
+.chat-group-avatar-preview span {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    color: #ffffff;
+    background: #0d63f3;
+}
+
+.chat-channel-photo-btn {
+    margin-top: 8px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #cfe0ff;
+    border-radius: 999px;
+    padding: 0 12px;
+    color: #0d63f3;
+    background: #f5f9ff;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.chat-channel-photo-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .chat-group-details input {
@@ -6663,7 +6737,7 @@ body.chat-contact-resizing * {
         font-size: 18px;
     }
 
-    .chat-rail-profile span {
+    .chat-rail-profile .chat-rail-status-dot {
         right: 0;
         bottom: 3px;
         width: 10px;
@@ -6778,6 +6852,7 @@ body.chat-contact-resizing * {
 
     .chat-search-icon {
         left: 28px;
+        top: 25px;
         color: #5c7193;
     }
 
@@ -6802,10 +6877,13 @@ body.chat-contact-resizing * {
         border: 1px solid #dce5f1;
         border-radius: 10px;
         background: #f8fafc;
+        align-items: center;
+        overflow: visible;
     }
 
     .chat-filter-tabs button {
         flex: 1 1 0;
+        min-width: 0;
         height: 36px;
         gap: 6px;
         padding: 0 11px;
@@ -6818,7 +6896,11 @@ body.chat-contact-resizing * {
     }
 
     .chat-filter-tabs button span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         min-width: 19px;
+        min-height: 19px;
         padding: 1px 5px;
         border-radius: 10px;
         color: #4a5f80;
@@ -7303,9 +7385,9 @@ body.chat-sidebar-resizing * {
         padding: 0;
         border: 0;
         background: transparent;
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow: visible;
         scrollbar-width: none;
+        align-items: center;
     }
 
     .chat-page.view-chats .chat-filter-tabs::-webkit-scrollbar {
@@ -7313,10 +7395,11 @@ body.chat-sidebar-resizing * {
     }
 
     .chat-page.view-chats .chat-filter-tabs button {
-        flex: 0 0 auto;
-        height: 29px;
-        padding: 0 13px;
-        border-radius: 16px;
+        flex: 1 1 0;
+        min-width: 0;
+        height: 36px;
+        padding: 0 10px;
+        border-radius: 999px;
         background: #f0f3f7;
     }
 
@@ -7398,8 +7481,19 @@ body.chat-sidebar-resizing * {
     color: #111b21;
     background: #ffffff;
 }
-.chat-page .message-top-row { position: static; height: 0; margin: 0; }
-.chat-page .message-sender { display: none; }
+.chat-page .message-top-row { position: static; height: auto; min-height: 16px; margin: 0 22px 2px 0; }
+.chat-page .message-row.own .message-top-row { height: 0; min-height: 0; margin: 0; }
+.chat-page .message-sender {
+    display: inline-block;
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #176bcb;
+    font-size: 11px;
+    font-weight: 800;
+}
+.chat-page .message-row.own .message-sender { display: none; }
 .chat-page .message-status { display: none; }
 .chat-page .message-bubble:not(.voice-message-bubble) > .message-top-row .message-menu-btn {
     position: absolute;
@@ -7613,6 +7707,7 @@ body.chat-sidebar-resizing * {
     border-radius: 10px;
     box-shadow: 0 12px 32px rgba(15, 34, 61, 0.18);
     overscroll-behavior: contain;
+    z-index: 300;
 }
 
 .chat-header-actions {
@@ -7621,7 +7716,7 @@ body.chat-sidebar-resizing * {
 
 .chat-profile-menu {
     position: absolute;
-    z-index: 90;
+    z-index: 320;
     top: calc(100% + 9px);
     right: 0;
     width: 235px;
@@ -7631,6 +7726,121 @@ body.chat-sidebar-resizing * {
     color: #17243a;
     background: #ffffff;
     box-shadow: 0 15px 38px rgba(15, 34, 61, 0.19);
+}
+
+.chat-group-members-section .chat-contact-section-head strong {
+    color: #52627a;
+    font-size: 11px;
+}
+
+.chat-group-members-list {
+    display: grid;
+    gap: 8px;
+}
+
+.chat-group-member-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+}
+
+.chat-group-member-avatar {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    overflow: hidden;
+    color: #0d63f3;
+    background: #eaf3ff;
+    font-size: 13px;
+    font-weight: 850;
+}
+
+.chat-group-member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.chat-group-member-row strong,
+.chat-group-member-row small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chat-group-member-row strong {
+    color: #12213a;
+    font-size: 12px;
+}
+
+.chat-group-member-row small {
+    margin-top: 2px;
+    color: #68778d;
+    font-size: 10px;
+}
+
+.chat-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.38);
+}
+
+.chat-confirm-modal {
+    width: min(360px, 100%);
+    padding: 20px;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.chat-confirm-modal strong {
+    display: block;
+    color: #101828;
+    font-size: 17px;
+}
+
+.chat-confirm-modal p {
+    margin: 8px 0 18px;
+    color: #52627a;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.chat-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.chat-confirm-actions button {
+    min-width: 82px;
+    min-height: 38px;
+    border: 1px solid #d7e1ef;
+    border-radius: 9px;
+    color: #17243a;
+    background: #fff;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.chat-confirm-actions button.danger {
+    border-color: #ef4444;
+    color: #fff;
+    background: #ef4444;
+}
+
+.chat-confirm-actions button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
 }
 
 .chat-profile-menu button {

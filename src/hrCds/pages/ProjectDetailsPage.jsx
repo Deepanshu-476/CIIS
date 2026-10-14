@@ -5,7 +5,7 @@ import axios from "../../utils/axiosConfig";
 import "../Css/ProjectDetailsPage.css";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings, normalizeReminderSettings } from '../components/TaskReminderControl';
 
-const SHOW_TASK_DOCUMENTS = false;
+const SHOW_TASK_DOCUMENTS = true;
 
 const parseStoredJson = (key) => {
   try {
@@ -219,6 +219,7 @@ const ProjectDetailsPage = () => {
   const [openTaskDialog, setOpenTaskDialog] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
   const [openActivityDrawer, setOpenActivityDrawer] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [statusRemark, setStatusRemark] = useState("");
@@ -740,19 +741,35 @@ const ProjectDetailsPage = () => {
   };
 
   const handleLoadActivityLogs = async (taskId) => {
+    const task = tasks.find((t) => t._id === taskId);
+    setSelectedTask({
+      ...task,
+      activityLogs: Array.isArray(task?.activityLogs) ? task.activityLogs : [],
+    });
+    setOpenActivityDrawer(true);
+    setActivityLoading(true);
+
     try {
       const res = await axios.get(
         `/projects/${projectId}/tasks/${taskId}/activity`
       );
-      const task = tasks.find((t) => t._id === taskId);
+      const activityLogs = res.data.activityLogs || [];
       setSelectedTask({
         ...task,
-        activityLogs: res.data.activityLogs || [],
+        activityLogs,
       });
-      setOpenActivityDrawer(true);
+      setTasks((currentTasks) =>
+        sortTasksByCreatedAt(
+          currentTasks.map((item) =>
+            item._id === taskId ? { ...item, activityLogs } : item
+          )
+        )
+      );
     } catch (error) {
       console.error("Error loading activity logs:", error);
       showSnackbar("Error loading activity logs", "error");
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -1350,7 +1367,8 @@ const ProjectDetailsPage = () => {
     });
   }, [taskSearchTerm, assigneeFilteredTasks, tasks]);
 
-  const documentCount = hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0;
+  const taskDocumentCount = tasks.filter((task) => hasAttachmentFile(task?.pdfFile)).length;
+  const documentCount = (hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0) + taskDocumentCount;
 
   const taskAssigneeOptions = useMemo(
     () => [
@@ -2517,30 +2535,13 @@ const ProjectDetailsPage = () => {
                 <>
                   <h3 className="pdp-task-documents-title">
                     Task Attachments (
-                    {
-                      tasks.filter(
-                        (t) =>
-                          t.pdfFile?.path ||
-                          t.pdfFile?.filename ||
-                          t.pdfFile?.url
-                      ).length
-                    }
+                    {taskDocumentCount}
                     )
                   </h3>
-                  {tasks.filter(
-                    (task) =>
-                      task.pdfFile?.path ||
-                      task.pdfFile?.filename ||
-                      task.pdfFile?.url
-                  ).length > 0 ? (
+                  {taskDocumentCount > 0 ? (
                     <div className="pdp-task-documents-grid">
                       {tasks
-                        .filter(
-                          (task) =>
-                            task.pdfFile?.path ||
-                            task.pdfFile?.filename ||
-                            task.pdfFile?.url
-                        )
+                        .filter((task) => hasAttachmentFile(task?.pdfFile))
                         .map((task) => (
                           <div
                             className="pdp-task-document-card"
@@ -3276,7 +3277,13 @@ const ProjectDetailsPage = () => {
               <div className="pdp-divider" />
 
               <div className="pdp-activity-list">
-                {selectedTask?.activityLogs?.map((log, index) => (
+                {activityLoading && (
+                  <div className="pdp-empty-activity">
+                    <CircularProgress />
+                    <p>Loading activity logs...</p>
+                  </div>
+                )}
+                {!activityLoading && selectedTask?.activityLogs?.map((log, index) => (
                   <div className="pdp-activity-item" key={index}>
                     <div className="pdp-activity-icon">
                       <Icons.History />
@@ -3305,7 +3312,7 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
                 ))}
-                {(!selectedTask?.activityLogs ||
+                {!activityLoading && (!selectedTask?.activityLogs ||
                   selectedTask.activityLogs.length === 0) && (
                   <div className="pdp-empty-activity">
                     <Icons.History />

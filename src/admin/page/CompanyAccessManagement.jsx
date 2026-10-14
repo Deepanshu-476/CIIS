@@ -158,22 +158,27 @@ const getRouteAccessKeys = route => {
   return keys;
 };
 
+const normalizeAccessKey = value => String(value || "")
+  .trim()
+  .replace(/^\/+/, "")
+  .replace(/\/+$/, "")
+  .toLowerCase();
+
 const normalizeAllowedPages = pages => {
   if (!Array.isArray(pages)) return [];
 
   const routeByAccessKey = new Map();
   APP_ROUTES.forEach(route => {
     getRouteAccessKeys(route).forEach(key => {
-      routeByAccessKey.set(String(key).trim(), route.id);
-      routeByAccessKey.set(String(key).trim().replace(/^\/+/, ""), route.id);
+      routeByAccessKey.set(normalizeAccessKey(key), route.id);
     });
   });
 
   return [...new Set(
     pages
       .map(page => {
-        const cleanPage = String(page || "").trim();
-        return routeByAccessKey.get(cleanPage) || routeByAccessKey.get(cleanPage.replace(/^\/+/, "")) || cleanPage;
+        const cleanPage = normalizeAccessKey(page);
+        return routeByAccessKey.get(cleanPage) || String(page || "").trim();
       })
       .filter(Boolean)
   )];

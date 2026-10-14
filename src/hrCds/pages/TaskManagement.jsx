@@ -1030,6 +1030,8 @@ const UserCreateTask = () => {
   const activityRequestRef = useRef(0);
   const allTasksRefreshTimerRef = useRef(null);
   const allTasksRequestRef = useRef(0);
+  const allTasksAbortRef = useRef(null);
+  const lastLongLivedRefreshRef = useRef(0);
   // Prevent an older list request from replacing a task status that the user
   // has just changed optimistically.
   const lastTaskStatusMutationAtRef = useRef(0);
@@ -2950,8 +2952,10 @@ const UserCreateTask = () => {
         
       } else {
         void 0;
-        setAssignedToMeTasksGrouped({});
-        calculateAssignedStatsFromTasks({});
+        if (countGroupedTasks(assignedToMeTasksGrouped) === 0) {
+          setAssignedToMeTasksGrouped({});
+          calculateAssignedStatsFromTasks({});
+        }
       }
 
     } catch (err) {
@@ -2969,8 +2973,10 @@ const UserCreateTask = () => {
         } else if (err.response.status === 404) {
           console.warn('⚠️ Assigned tasks API endpoint not found (404)');
           showSnackbar('Assigned tasks feature is not available', 'warning');
-          setAssignedToMeTasksGrouped({});
-          calculateAssignedStatsFromTasks({});
+          if (countGroupedTasks(assignedToMeTasksGrouped) === 0) {
+            setAssignedToMeTasksGrouped({});
+            calculateAssignedStatsFromTasks({});
+          }
         } else {
           showSnackbar(`Failed to load assigned tasks: ${err.response.data?.message || err.response.status}`, 'error');
         }
@@ -2982,15 +2988,17 @@ const UserCreateTask = () => {
         showSnackbar('Failed to load assigned tasks', 'error');
       }
       
-      setAssignedToMeTasksGrouped({});
-      calculateAssignedStatsFromTasks({});
+      if (countGroupedTasks(assignedToMeTasksGrouped) === 0) {
+        setAssignedToMeTasksGrouped({});
+        calculateAssignedStatsFromTasks({});
+      }
       
     } finally {
       setLoadingAssigned(false);
       setTaskViewsLoaded(prev => ({ ...prev, assigned: true }));
       void 0;
     }
-  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
+  }, [authError, userId, assignedToMeTasksGrouped, countGroupedTasks, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateAssignedStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchClientTasks = useCallback(async () => {
     if (authError || !userId) return;
@@ -3016,8 +3024,10 @@ const UserCreateTask = () => {
       calculateClientStatsFromTasks(groupedTasks);
     } catch (err) {
       console.error('❌ Error in fetchClientTasks:', err);
-      setClientTasksGrouped({});
-      calculateClientStatsFromTasks({});
+      if (countGroupedTasks(clientTasksGrouped) === 0) {
+        setClientTasksGrouped({});
+        calculateClientStatsFromTasks({});
+      }
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load client tasks', 'error');
       }
@@ -3025,7 +3035,7 @@ const UserCreateTask = () => {
       setLoadingClientTasks(false);
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
     }
-  }, [authError, userId, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
+  }, [authError, userId, clientTasksGrouped, countGroupedTasks, enrichAssignedTasks, extractTasksFromResponse, groupTasksByDate, calculateClientStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchClients = useCallback(async () => {
     if (authError || !userId) return;
@@ -3190,6 +3200,7 @@ const UserCreateTask = () => {
   }, []);
 
   const handleUpdateAndAssignClientTask = useCallback(async () => {
+    if (isCreatingClientTask) return;
     if (!clientTaskForm._id) return;
     
     const assigneeToUse = selectedAssignee || currentLoggedInAssignee;
@@ -3293,9 +3304,10 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [clientTaskForm, currentLoggedInAssignee, servicePendingTasks, selectedAssignee, groupTasksByDate, calculateClientStatsFromTasks, selectedClient, userId, fetchClientTasks, showSnackbar]);
+  }, [clientTaskForm, currentLoggedInAssignee, servicePendingTasks, selectedAssignee, groupTasksByDate, calculateClientStatsFromTasks, selectedClient, userId, fetchClientTasks, showSnackbar, isCreatingClientTask]);
 
   const handleCreateClientTask = useCallback(async () => {
+    if (isCreatingClientTask) return;
     if (!selectedClient) {
       showSnackbar('Please select a client', 'error');
       return;
@@ -3398,7 +3410,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingClientTask(false);
     }
-  }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient, userId, showSnackbar]);
+  }, [calculateClientStatsFromTasks, clientTaskForm, currentLoggedInAssignee, groupTasksByDate, selectedAssignee, selectedClient, userId, showSnackbar, isCreatingClientTask]);
 
   useEffect(() => {
     if (!selectedProjectId) return;
@@ -3454,8 +3466,10 @@ const UserCreateTask = () => {
       calculateProjectStatsFromTasks(groupedTasks);
     } catch (err) {
       console.error('❌ Error in fetchProjectTasks:', err);
-      setProjectTasksGrouped({});
-      calculateProjectStatsFromTasks({});
+      if (countGroupedTasks(projectTasksGrouped) === 0) {
+        setProjectTasksGrouped({});
+        calculateProjectStatsFromTasks({});
+      }
       if (err.response?.status !== 404) {
         showSnackbar('Failed to load project tasks', 'error');
       }
@@ -3463,7 +3477,7 @@ const UserCreateTask = () => {
       setLoadingProjectTasks(false);
       setTaskViewsLoaded(prev => ({ ...prev, project: true }));
     }
-  }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
+  }, [authError, userId, projectTasksGrouped, countGroupedTasks, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
   const fetchAllTasks = useCallback(async (targetPage = 1, viewOverride = taskViewMode) => {
     if (authError || !userId) return;
@@ -3476,8 +3490,11 @@ const UserCreateTask = () => {
     try {
       const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
       const query = params.toString();
-      const res = await axios.get(`/tasks/all?${query}`);
-      let responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
+      if (allTasksAbortRef.current) allTasksAbortRef.current.abort();
+      const controller = new AbortController();
+      allTasksAbortRef.current = controller;
+      const responseData = (await axios.get(`/tasks/all?${query}`, { signal: controller.signal })).data;
+      let responseTasks = Array.isArray(responseData?.tasks) ? responseData.tasks : extractTasksFromResponse(responseData);
       const fallbackSource = viewOverride === 'self' || viewOverride === 'client' || viewOverride === 'project' || viewOverride === 'assigned'
         ? viewOverride
         : null;
@@ -3502,17 +3519,17 @@ const UserCreateTask = () => {
       setAssignedToMeTasksGrouped(assignedGrouped);
       setClientTasksGrouped(clientGrouped);
       setProjectTasksGrouped(projectGrouped);
-      setAllTaskStats(res.data?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
+      setAllTaskStats(responseData?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
       calculateStatsFromTasks(selfGrouped);
       calculateAssignedStatsFromTasks(assignedGrouped);
       calculateClientStatsFromTasks(clientGrouped);
       calculateProjectStatsFromTasks(projectGrouped);
       allTasksStatsLoadedRef.current = true;
-      const pagination = res.data?.pagination || {};
+      const pagination = responseData?.pagination || {};
       const nextPagination = {
         page: Number(pagination.page || targetPage),
         limit: Number(pagination.limit || TASK_PAGE_LIMIT),
-        total: Number(pagination.total ?? res.data?.total ?? tasksArray.length),
+        total: Number(pagination.total ?? responseData?.total ?? tasksArray.length),
         pages: Number(pagination.pages || 1),
         hasNext: Boolean(pagination.hasNext),
         hasPrev: Boolean(pagination.hasPrev)
@@ -3532,27 +3549,35 @@ const UserCreateTask = () => {
       };
       persistTaskManagementCache(taskManagementMemoryCache);
     } catch (err) {
-      console.error('❌ Error in fetchAllTasks:', err);
-      if (allTasksRequestRef.current !== requestId) return;
-      // Preserve already-rendered tasks if only a background refresh fails.
-      if (shouldShowLoader) {
-        setAllTasksGrouped({});
-        setAllTasksStatsGrouped({});
-        allTasksStatsLoadedRef.current = false;
-        setAllTaskStats(emptyExternalStats());
-        setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
+      const requestWasCanceled = err.name === 'CanceledError' || err.code === 'ERR_CANCELED';
+      if (requestWasCanceled) {
+        return;
       }
-      // A background reconciliation failure must not interrupt the user when
-      // task data is already rendered. Show this only when the initial load
-      // itself fails and there is no usable task list on screen.
-      if (shouldShowLoader && err.response?.status !== 404) {
-        showSnackbar('Failed to load all tasks', 'error');
+
+      console.error('❌ Error in fetchAllTasks:', err);
+      if (allTasksRequestRef.current === requestId) {
+        // Preserve already-rendered tasks if only a background refresh fails.
+        if (shouldShowLoader) {
+          setAllTasksGrouped({});
+          setAllTasksStatsGrouped({});
+          allTasksStatsLoadedRef.current = false;
+          setAllTaskStats(emptyExternalStats());
+          setAllTasksPagination(prev => ({ ...prev, total: 0, pages: 1, hasNext: false, hasPrev: false }));
+        }
+        // A background reconciliation failure must not interrupt the user when
+        // task data is already rendered. Show this only when the initial load
+        // itself fails and there is no usable task list on screen.
+        if (shouldShowLoader && err.response?.status !== 404) {
+          showSnackbar('Failed to load all tasks', 'error');
+        }
       }
     } finally {
-      if (allTasksRequestRef.current !== requestId) return;
-      setLoadingAllTasks(false);
-      allTasksLoadedRef.current = true;
-      setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
+      if (allTasksRequestRef.current === requestId) {
+        allTasksAbortRef.current = null;
+        setLoadingAllTasks(false);
+        allTasksLoadedRef.current = true;
+        setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
+      }
     }
   }, [authError, userId, buildTaskQueryParams, taskViewMode, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 
@@ -3568,6 +3593,7 @@ const UserCreateTask = () => {
   }, [allTasksPagination.page, fetchAllTasks]);
 
   const handleCreateProjectTask = useCallback(async () => {
+    if (isCreatingProjectTask) return;
     if (!selectedProject) {
       showSnackbar('Please select a project', 'error');
       return;
@@ -3616,6 +3642,38 @@ const UserCreateTask = () => {
         throw new Error(response.data?.message || 'Project task creation failed');
       }
 
+      const responseTask = response.data?.task || response.data?.data || {};
+      const createdTask = {
+        ...responseTask,
+        title: responseTask.title || payload.title,
+        description: responseTask.description || payload.description,
+        dueDate: responseTask.dueDate || dueDateIso,
+        priority: responseTask.priority || payload.priority,
+        status: normalizeStatus(responseTask.status || 'pending'),
+        projectId: selectedProject._id || selectedProject.id,
+        projectName: selectedProject.projectName,
+        __taskSource: 'project',
+        taskSource: 'project',
+        createdAt: responseTask.createdAt || new Date().toISOString()
+      };
+
+      setProjectTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
+        calculateProjectStatsFromTasks(updatedGrouped);
+        return updatedGrouped;
+      });
+
+      setAllTasksGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        return groupTasksByDate([createdTask, ...existingTasks]);
+      });
+
+      setAllTasksStatsGrouped(prev => {
+        const existingTasks = Object.values(prev || {}).flat();
+        return groupTasksByDate([createdTask, ...existingTasks]);
+      });
+
       setProjectTaskForm({
         title: '',
         description: '',
@@ -3628,10 +3686,10 @@ const UserCreateTask = () => {
       setOpenProjectTaskDialog(false);
       setTaskViewsLoaded(prev => ({ ...prev, project: true }));
 
-      await Promise.allSettled([
+      Promise.allSettled([
         fetchProjectTasks(),
         fetchAllTasks(allTasksPagination.page || 1)
-      ]);
+      ]).catch(() => {});
 
       showSnackbar(`Project task created in ${selectedProject.projectName || 'project'}`, 'success');
     } catch (err) {
@@ -3640,7 +3698,7 @@ const UserCreateTask = () => {
     } finally {
       setIsCreatingProjectTask(false);
     }
-  }, [allTasksPagination.page, fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar]);
+  }, [allTasksPagination.page, fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar, isCreatingProjectTask, groupTasksByDate, calculateProjectStatsFromTasks]);
 
   
   const fetchMyTasks = useCallback(async () => {
@@ -3679,12 +3737,16 @@ const UserCreateTask = () => {
         showSnackbar('Session expired. Please log in again.', 'error');
       } else {
         showSnackbar('Failed to load tasks', 'error');
+        if (countGroupedTasks(myTasksGrouped) === 0) {
+          setMyTasksGrouped({});
+          calculateStatsFromTasks({});
+        }
       }
     } finally {
       setLoading(false);
       setTaskViewsLoaded(prev => ({ ...prev, self: true }));
     }
-  }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod, syncOverdueTaskStatuses]);
+  }, [authError, userId, myTasksGrouped, countGroupedTasks, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod, syncOverdueTaskStatuses]);
 
   
   const fetchOverdueTasks = useCallback(async () => {
@@ -3710,19 +3772,17 @@ const UserCreateTask = () => {
 
   
   const handleViewModeChange = (mode) => {
+    if (mode === taskViewMode) {
+      fetchAllTasks(allTasksPagination.page || 1, mode);
+      if (mode === 'client' && (!clientsLoadAttemptedRef.current || clients.length === 0)) {
+        fetchClients();
+      }
+      return;
+    }
+
     setTaskViewMode(mode);
     setStatusFilter('');
-    setLoadingAllTasks(true);
-    setTaskViewsLoaded(prev => ({ ...prev, [mode]: false }));
-    setAllTaskStats(emptyExternalStats());
-    setAllTasksGrouped({});
-    setAllTasksStatsGrouped({});
-    setMyTasksGrouped({});
-    setAssignedToMeTasksGrouped({});
-    setClientTasksGrouped({});
-    setProjectTasksGrouped({});
     setAllTasksPagination(prev => ({ ...prev, page: 1, total: 0, pages: 1, hasNext: false, hasPrev: false }));
-    fetchAllTasks(1, mode);
     if (mode === 'client') {
       if (!clientsLoadAttemptedRef.current || clients.length === 0) {
         fetchClients();
@@ -4584,6 +4644,35 @@ const UserCreateTask = () => {
     }
   };
 
+  useEffect(() => {
+    if (!userId || authError) return undefined;
+
+    const refreshIfVisible = (force = false) => {
+      if (document.visibilityState === 'hidden') return;
+
+      const now = Date.now();
+      if (!force && now - lastLongLivedRefreshRef.current < 5 * 60 * 1000) return;
+
+      lastLongLivedRefreshRef.current = now;
+      void refreshCurrentTaskView(taskViewMode);
+    };
+
+    const handleVisibilityChange = () => refreshIfVisible(false);
+    const handleWindowFocus = () => refreshIfVisible(false);
+    const intervalId = window.setInterval(() => refreshIfVisible(false), 10 * 60 * 1000);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('online', handleWindowFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('online', handleWindowFocus);
+    };
+  }, [authError, userId, taskViewMode, refreshCurrentTaskView]);
+
   const handleCheckpointToggle = async (task, checkpoint) => {
     const taskId = task?._id || task?.id;
     const checkpointId = checkpoint?._id || checkpoint?.id;
@@ -4915,6 +5004,7 @@ const UserCreateTask = () => {
 
   
   const handleCreateTask = async () => {
+    if (isCreatingTask) return;
     if (authError || !userId) {
       showSnackbar('Please log in to create tasks', 'error');
       return;

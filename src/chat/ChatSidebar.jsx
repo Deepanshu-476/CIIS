@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BellOff, Check, Edit, Lock, Search, SlidersHorizontal, Users, X } from "lucide-react";
+import { ArrowLeft, BellOff, Camera, Check, Edit, Lock, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
 
@@ -22,6 +22,8 @@ const ChatSidebar = ({
     const [groupStep, setGroupStep] = useState("members");
     const [groupSearch, setGroupSearch] = useState("");
     const [groupName, setGroupName] = useState("");
+    const [groupAvatar, setGroupAvatar] = useState(null);
+    const [groupAvatarPreview, setGroupAvatarPreview] = useState("");
     const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState([]);
     const [groupError, setGroupError] = useState("");
     const [activeFilter, setActiveFilter] = useState("all");
@@ -254,8 +256,16 @@ const ChatSidebar = ({
         setGroupStep("members");
         setGroupSearch("");
         setGroupName("");
+        setGroupAvatar(null);
+        setGroupAvatarPreview("");
         setSelectedGroupMemberIds([]);
         setGroupError("");
+    };
+
+    const handleGroupAvatarChange = event => {
+        const file = event.target.files?.[0] || null;
+        setGroupAvatar(file);
+        setGroupAvatarPreview(file ? URL.createObjectURL(file) : "");
     };
 
     const openNewChatPanel = () => {
@@ -304,7 +314,7 @@ const ChatSidebar = ({
 
         try {
             setGroupError("");
-            await onCreateGroup?.({ name, members });
+            await onCreateGroup?.({ name, members, avatar: groupAvatar });
             closeGroupPanel();
         } catch (error) {
             setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Channel create failed");
@@ -346,7 +356,9 @@ const ChatSidebar = ({
                     <button type="button" className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All <span>{conversationStats.all}</span></button>
                     <button type="button" className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread <span>{conversationStats.unread}</span></button>
                     <button type="button" className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Channels <span>{conversationStats.groups}</span></button>
-                    <button type="button" className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Favourites <span>{conversationStats.favourites}</span></button>
+                    {(conversationStats.favourites > 0 || activeFilter === "favourites") && (
+                        <button type="button" className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Fav <span>{conversationStats.favourites}</span></button>
+                    )}
                 </div>
 
                 <div className="chat-list-heading">
@@ -428,7 +440,7 @@ const ChatSidebar = ({
                     {filteredGroups.map((group, index) => {
                         const groupId = (group._id || group.id || "").toString();
                         const isSelected = (selectedUser?._id || selectedUser?.id || "").toString() === groupId;
-                        const avatarSrc = getAvatarSrc(group.avatar || group.profileImage || group.image);
+                        const avatarSrc = getAvatarSrc(group.groupImage || group.profileImage || group.avatar || group.image);
                         const groupInitial = (getGroupName(group) || "C").charAt(0).toUpperCase();
 
                         return (
@@ -689,9 +701,17 @@ const ChatSidebar = ({
                         </>
                     ) : (
                         <div className="chat-group-details">
-                            <div className="chat-group-avatar-preview">
-                                <Users size={30} />
-                            </div>
+                            <label className="chat-group-avatar-preview" title="Add channel picture">
+                                {groupAvatarPreview ? (
+                                    <img src={groupAvatarPreview} alt="Channel preview" />
+                                ) : (
+                                    <>
+                                        <Users size={30} />
+                                        <span><Camera size={13} /></span>
+                                    </>
+                                )}
+                                <input type="file" accept="image/*" onChange={handleGroupAvatarChange} />
+                            </label>
                             <input
                                 type="text"
                                 value={groupName}

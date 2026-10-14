@@ -236,8 +236,13 @@ const Login = () => {
 
       if (res.data.client) {
         localStorage.setItem('client', JSON.stringify(res.data.client));
+        const clientId = String(res.data.client._id || res.data.client.id || res.data.client.clientId || '');
+        if (clientId) {
+          localStorage.setItem('client_portal_selected_client_id', clientId);
+        }
       } else {
         localStorage.removeItem('client');
+        localStorage.removeItem('client_portal_selected_client_id');
       }
 
       if (activeCompanyIdentifier) {
@@ -367,8 +372,13 @@ const Login = () => {
 
         if (response.data.client) {
           localStorage.setItem('client', JSON.stringify(response.data.client));
+          const clientId = String(response.data.client._id || response.data.client.id || response.data.client.clientId || '');
+          if (clientId) {
+            localStorage.setItem('client_portal_selected_client_id', clientId);
+          }
         } else {
           localStorage.removeItem('client');
+          localStorage.removeItem('client_portal_selected_client_id');
         }
 
         

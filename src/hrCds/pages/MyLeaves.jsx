@@ -1565,29 +1565,6 @@ const MyLeaves = () => {
         </div>
       </div>
 
-      {/* 5. BOTTOM CTA BANNER */}
-      <div className="MyLeaves-cta-banner">
-        <div className="MyLeaves-cta-left">
-          <div className="MyLeaves-cta-icon-box">
-            <FiCalendar size={24} />
-          </div>
-          <div className="MyLeaves-cta-text">
-            <h2 className="MyLeaves-cta-title">Need to apply for leave?</h2>
-            <p className="MyLeaves-cta-desc">
-              Click on the "Apply Leave" button to submit a new leave request.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="MyLeaves-cta-btn"
-          onClick={openApplyLeaveModal}
-        >
-          <FiPlus size={16} />
-          <span>Apply Leave</span>
-        </button>
-      </div>
 
       {/* 6. MODALS & DIALOGS */}
 

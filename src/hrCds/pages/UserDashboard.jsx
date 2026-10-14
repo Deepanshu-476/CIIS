@@ -1523,27 +1523,41 @@ const UserDashboard = () => {
       .map(record => `${new Date(record.date).getFullYear()}-${new Date(record.date).getMonth()}-${new Date(record.date).getDate()}`);
   }, [filteredAttendanceData]);
 
-  const leaveDates = useMemo(() => {
-    const dates = [];
+  const { approvedLeaveDates, unapprovedLeaveDates } = useMemo(() => {
+    const approved = [];
+    const unapproved = [];
+
     filteredLeaveData.forEach(leave => {
       const leaveStatus = String(leave.status || '').trim().toUpperCase();
-      if (['PENDING', 'APPROVED'].includes(leaveStatus)) {
-        const start = new Date(leave.startDate);
-        const end = new Date(leave.endDate);
-        const current = new Date(start);
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      const current = new Date(start);
 
-        while (current <= end) {
-          if (!isBeforeJoinDate(current)) {
-            dates.push(`${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`);
+      while (current <= end) {
+        if (!isBeforeJoinDate(current)) {
+          const key = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
+          if (leaveStatus === 'APPROVED') {
+            approved.push(key);
+          } else {
+            // Unapproved leave: e.g. PENDING, REJECTED, CANCELLED
+            unapproved.push(key);
           }
-          current.setDate(current.getDate() + 1);
         }
+        current.setDate(current.getDate() + 1);
       }
     });
-    return [...new Set(dates)];
+
+    const approvedSet = new Set(approved);
+    return {
+      approvedLeaveDates: [...approvedSet],
+      unapprovedLeaveDates: [...new Set(unapproved.filter(k => !approvedSet.has(k)))]
+    };
   }, [filteredLeaveData, isBeforeJoinDate]);
 
-  const leaveDateSet = useMemo(() => new Set(leaveDates), [leaveDates]);
+  const leaveDateSet = useMemo(() => new Set(approvedLeaveDates), [approvedLeaveDates]);
+  const unapprovedLeaveDateSet = useMemo(() => new Set(unapprovedLeaveDates), [unapprovedLeaveDates]);
   const absentDateSet = useMemo(() => new Set(absentDates), [absentDates]);
 
 
@@ -1576,10 +1590,11 @@ const UserDashboard = () => {
     if (holidayDateSet.has(key)) return "holiday";
     if (isBeforeJoinDate(dateObj)) return "before-join";
     if (weekendDates.includes(key) || (isWeekend && !lateDates.includes(key) && !halfDayDates.includes(key) && !markedDates.includes(key))) return "weekend";
-    if (leaveDateSet.has(key)) return "leave";
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
     if (markedDates.includes(key)) return "present";
+    if (leaveDateSet.has(key)) return "leave";
+    if (unapprovedLeaveDateSet.has(key)) return "absent";
     if (absentDateSet.has(key)) return "absent";
 
     const todayStart = new Date(currentDate);
@@ -1587,7 +1602,7 @@ const UserDashboard = () => {
     if (dateObj < todayStart) return "absent";
 
     return null;
-  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
+  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, unapprovedLeaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
 
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
     const calculateMonth = (year, month, maxDay = null) => {
@@ -2537,7 +2552,8 @@ const UserDashboard = () => {
           <section className="quick-modal" onMouseDown={event => event.stopPropagation()} role="dialog" aria-modal="true">
             <header><div className={`quick-modal-icon ${activeQuickAction.tone}`}>{activeQuickAction.icon}</div><div><span>Quick action</span><h2>{activeQuickAction.label}</h2></div><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}><FiX /></button></header>
             <form onSubmit={submitQuickAction}>
-              {activeQuickAction.label === 'Meetings' ? (
+              <div className="quick-modal-body">
+                {activeQuickAction.label === 'Meetings' ? (
                 <div className="quick-meetings-view">
                   <div className="quick-meetings-summary"><div><strong>Upcoming meetings</strong><span>Your scheduled meetings in chronological order.</span></div><em>{upcomingMeetings.length}</em></div>
                   {upcomingMeetings.length ? <div className="quick-meetings-list">
@@ -2712,6 +2728,7 @@ const UserDashboard = () => {
                   </label>)}
                 </div>
               )}
+              </div>
               {['Meetings', 'My Notes'].includes(activeQuickAction.label) ? <footer><button type="button" onClick={() => setActiveQuickAction(null)}>Close</button></footer> : <footer><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}>Cancel</button><button type="submit" disabled={quickSubmitting}>{quickSubmitting ? 'Saving…' : activeQuickAction.label === 'New Task' ? `Create ${quickTaskType === 'personal' ? 'Personal' : quickTaskType === 'client' ? 'Client' : 'Assigned'} Task` : activeQuickAction.label === 'Add Client' ? 'Create Client' : `Save ${activeQuickAction.label}`}</button></footer>}
             </form>
           </section>

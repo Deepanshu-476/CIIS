@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import RouteBoundaryLoader from "./components/RouteBoundaryLoader.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 import { renderMarketingRoutes } from "./marketing";
 
@@ -130,8 +131,9 @@ const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 function App() {
   return (
     <>
-      <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
-        <Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
+          <Routes>
 
         {renderMarketingRoutes()}
         <Route path="/about" element={<Navigate to="/product" replace />} />
@@ -484,7 +486,8 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-    </Suspense>
+        </Suspense>
+      </ErrorBoundary>
 
     <SpeechToTextControl />
     <ToastContainer position="top-right" autoClose={3000} />

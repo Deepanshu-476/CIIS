@@ -133,6 +133,7 @@ const DocumentsPage = () => {
   const [documentError, setDocumentError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [documentActionId, setDocumentActionId] = useState("");
+  const [selectedDocIds, setSelectedDocIds] = useState([]);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const documents = useMemo(() => uploadedDocuments.map(formatUploadedDocument), [uploadedDocuments]);
@@ -203,7 +204,33 @@ const DocumentsPage = () => {
     return () => { documentRequest.current += 1; };
   }, [client?._id]);
 
-  useEffect(() => { setPage(1); }, [search, activeTab, client?._id]);
+  useEffect(() => {
+    setPage(1);
+    setSelectedDocIds([]);
+  }, [search, activeTab, client?._id]);
+
+  const allVisibleSelected =
+    visibleDocuments.length > 0 &&
+    visibleDocuments.every(doc => selectedDocIds.includes(doc._id || doc.name));
+
+  const someVisibleSelected =
+    visibleDocuments.some(doc => selectedDocIds.includes(doc._id || doc.name));
+
+  const handleSelectAll = e => {
+    if (e.target.checked) {
+      const visibleIds = visibleDocuments.map(doc => doc._id || doc.name);
+      setSelectedDocIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+    } else {
+      const visibleIds = new Set(visibleDocuments.map(doc => doc._id || doc.name));
+      setSelectedDocIds(prev => prev.filter(id => !visibleIds.has(id)));
+    }
+  };
+
+  const handleToggleSelectDoc = docId => {
+    setSelectedDocIds(prev =>
+      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+    );
+  };
 
   const handleUploadDocument = async event => {
     const file = event.target.files?.[0];
@@ -231,35 +258,37 @@ const DocumentsPage = () => {
 
       let response;
       try {
-        response = await clientDocumentsApi.post("/", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        // Let browser / axios set the Content-Type with boundary automatically
+        response = await clientDocumentsApi.post("/", formData);
       } catch (uploadError) {
-        if (uploadError.response?.status !== 413) throw uploadError;
+        // If direct upload fails (e.g. proxy limit, payload too large, or boundary error), fallback to chunked upload
+        try {
+          const startResponse = await clientDocumentsApi.post("/chunk/start", {
+            clientId: client._id,
+            category: "Client Upload",
+            fileName: file.name || "document",
+            mimeType: file.type || "application/octet-stream",
+            size: file.size,
+            totalChunks: Math.ceil(file.size / DEFAULT_CHUNK_SIZE_BYTES),
+          });
+          const uploadId = startResponse.data?.uploadId;
+          const chunkSize = Number(startResponse.data?.chunkSize || DEFAULT_CHUNK_SIZE_BYTES);
+          const totalChunks = Number(startResponse.data?.totalChunks || Math.ceil(file.size / chunkSize));
+          if (!uploadId) {
+            throw uploadError;
+          }
 
-        const startResponse = await clientDocumentsApi.post("/chunk/start", {
-          clientId: client._id,
-          category: "Client Upload",
-          fileName: file.name || "document",
-          mimeType: file.type || "application/octet-stream",
-          size: file.size,
-          totalChunks: Math.ceil(file.size / DEFAULT_CHUNK_SIZE_BYTES),
-        });
-        const uploadId = startResponse.data?.uploadId;
-        const chunkSize = Number(startResponse.data?.chunkSize || DEFAULT_CHUNK_SIZE_BYTES);
-        const totalChunks = Number(startResponse.data?.totalChunks || Math.ceil(file.size / chunkSize));
-        if (!uploadId) {
-          throw new Error("Unable to prepare chunked upload");
+          for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+            const start = chunkIndex * chunkSize;
+            const chunk = file.slice(start, Math.min(file.size, start + chunkSize));
+            const chunkData = await blobToBase64(chunk);
+            await clientDocumentsApi.post(`/chunk/${uploadId}`, { chunkIndex, chunkData });
+          }
+
+          response = await clientDocumentsApi.post(`/chunk/${uploadId}/complete`);
+        } catch {
+          throw uploadError;
         }
-
-        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
-          const start = chunkIndex * chunkSize;
-          const chunk = file.slice(start, Math.min(file.size, start + chunkSize));
-          const chunkData = await blobToBase64(chunk);
-          await clientDocumentsApi.post(`/chunk/${uploadId}`, { chunkIndex, chunkData });
-        }
-
-        response = await clientDocumentsApi.post(`/chunk/${uploadId}/complete`);
       }
 
       if (response.data?.data) {
@@ -268,7 +297,7 @@ const DocumentsPage = () => {
       }
     } catch (err) {
       console.error("Document upload failed", err);
-      setDocumentError(err.response?.data?.message || "Document upload failed");
+      setDocumentError(err.response?.data?.message || err.message || "Document upload failed");
     } finally {
       setUploading(false);
     }
@@ -462,11 +491,44 @@ const DocumentsPage = () => {
           </div>
         )}
 
+        {selectedDocIds.length > 0 && (
+          <div className="DocumentsPage-inlineNotice" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>
+              <strong>{selectedDocIds.length}</strong> {selectedDocIds.length === 1 ? "document" : "documents"} selected
+            </span>
+            <button
+              type="button"
+              style={{
+                background: "none",
+                border: "none",
+                color: "inherit",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "12px",
+              }}
+              onClick={() => setSelectedDocIds([])}
+            >
+              Clear Selection
+            </button>
+          </div>
+        )}
+
         <div className="DocumentsPage-tableWrap">
           <table>
             <thead>
               <tr>
-                <th><input type="checkbox" aria-label="Select all documents" /></th>
+                <th>
+                  <input
+                    type="checkbox"
+                    aria-label="Select all documents"
+                    checked={allVisibleSelected}
+                    ref={el => {
+                      if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected;
+                    }}
+                    onChange={handleSelectAll}
+                  />
+                </th>
                 <th>Document Name <span>↑</span></th>
                 <th>Type</th>
                 <th>Category</th>
@@ -479,7 +541,14 @@ const DocumentsPage = () => {
             <tbody>
               {visibleDocuments.map(doc => (
                 <tr key={doc._id || doc.name}>
-                  <td data-label="Select"><input type="checkbox" aria-label={`Select ${doc.name}`} /></td>
+                  <td data-label="Select">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${doc.name}`}
+                      checked={selectedDocIds.includes(doc._id || doc.name)}
+                      onChange={() => handleToggleSelectDoc(doc._id || doc.name)}
+                    />
+                  </td>
                   <td data-label="Document Name">
                     <div className="DocumentsPage-nameCell">
                       {iconMap[doc.icon] || <FiFile />}

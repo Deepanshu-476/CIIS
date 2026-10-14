@@ -19,6 +19,8 @@ import './ClientDashboardPage.css';
 
 import {
   FiSun,
+  FiMoon,
+  FiSunset,
   FiCalendar,
   FiPackage,
   FiFileText,
@@ -398,18 +400,40 @@ const AvatarStack = ({ count = 2 }) => (
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [client, setClient] = useState(null);
-  const [availableClients, setAvailableClients] = useState([]);
-  const [services, setServices] = useState([]);
+  const [client, setClient] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('client') || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [availableClients, setAvailableClients] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('client_available_clients') || '[]');
+      if (Array.isArray(stored) && stored.length > 0) return stored;
+      const current = JSON.parse(localStorage.getItem('client') || 'null');
+      return current ? [current] : [];
+    } catch {
+      return [];
+    }
+  });
+  const [services, setServices] = useState(() => {
+    try {
+      const current = JSON.parse(localStorage.getItem('client') || 'null');
+      return Array.isArray(current?.services) ? current.services : [];
+    } catch {
+      return [];
+    }
+  });
   const [projectManagers, setProjectManagers] = useState([]);
   const [serviceTasks, setServiceTasks] = useState([]);
   const [supportTicketsData, setSupportTicketsData] = useState([]);
   const [supportTicketsLoading, setSupportTicketsLoading] = useState(false);
   const [supportTicketsError, setSupportTicketsError] = useState('');
-  const [companyInfo, setCompanyInfo] = useState({
-    companyCode: '',
-    companyIdentifier: ''
+  const [isDashboardLoading, setIsDashboardLoading] = useState(() => {
+    return !localStorage.getItem('client');
   });
+  const [companyInfo, setCompanyInfo] = useState(() => getClientPortalCompanyContext());
   const [dashboardFilter, setDashboardFilter] = useState('active-services');
   const [detailsModal, setDetailsModal] = useState(null);
   const [supportTicketTab, setSupportTicketTab] = useState('all');
@@ -417,50 +441,33 @@ const Dashboard = () => {
 
   const isMounted = useRef(true);
   const initialFetchDone = useRef(false);
+  const isFetchingRef = useRef(false);
 
-  const api = axios.create({
-    baseURL: `${API_URL}/clientsservice`,
-    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
-  });
-
-  const tasksApi = axios.create({
-    baseURL: `${API_URL}/tasks/client-tasks`,
-    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
-  });
-
-  const usersApi = axios.create({
-    baseURL: `${API_URL}/users`,
-    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
-  });
-
-  const supportApi = axios.create({
-    baseURL: API_URL,
-    timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS,
-  });
-
-  const addAuthInterceptor = (axiosInstance) => {
-    axiosInstance.interceptors.request.use(
-      (config) => {
+  const { api, tasksApi, usersApi, supportApi } = React.useMemo(() => {
+    const attachAuth = (instance) => {
+      instance.interceptors.request.use((config) => {
         const token = getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
-      },
-      (error) => Promise.reject(error)
-    );
-  };
+      }, (err) => Promise.reject(err));
+      return instance;
+    };
 
-  addAuthInterceptor(api);
-  addAuthInterceptor(tasksApi);
-  addAuthInterceptor(usersApi);
-  addAuthInterceptor(supportApi);
+    return {
+      api: attachAuth(axios.create({ baseURL: `${API_URL}/clientsservice`, timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS })),
+      tasksApi: attachAuth(axios.create({ baseURL: `${API_URL}/tasks/client-tasks`, timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS })),
+      usersApi: attachAuth(axios.create({ baseURL: `${API_URL}/users`, timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS })),
+      supportApi: attachAuth(axios.create({ baseURL: API_URL, timeout: CLIENT_PORTAL_REQUEST_TIMEOUT_MS })),
+    };
+  }, []);
 
   useEffect(() => {
     isMounted.current = true;
     const handleSelectionChange = () => {
       initialFetchDone.current = true;
-      fetchClientData();
+      fetchClientData(false);
     };
     window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     return () => {
@@ -470,10 +477,7 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const fetchCompanyInfo = () => {
-      setCompanyInfo(getClientPortalCompanyContext());
-    };
-    fetchCompanyInfo();
+    setCompanyInfo(getClientPortalCompanyContext());
   }, []);
 
   const fetchServiceTasks = async (clientId, serviceName) => {
@@ -515,14 +519,19 @@ const Dashboard = () => {
   };
 
   const fetchAllServicesTasks = async (currentClient, servicesList) => {
-    const collectedTasks = [];
-    for (const service of servicesList) {
-      const tasks = await fetchServiceTasks(currentClient._id, service);
-      collectedTasks.push(...tasks.map(task => ({ ...task, serviceName: service })));
-    }
+    try {
+      const taskResults = await Promise.all(
+        servicesList.map(async (service) => {
+          const tasks = await fetchServiceTasks(currentClient._id, service);
+          return tasks.map(task => ({ ...task, serviceName: service }));
+        })
+      );
 
-    if (isMounted.current) {
-      setServiceTasks(applyClientSubscriptionDueDates(collectedTasks, currentClient));
+      if (isMounted.current) {
+        setServiceTasks(applyClientSubscriptionDueDates(taskResults.flat(), currentClient));
+      }
+    } catch {
+      if (isMounted.current) setServiceTasks([]);
     }
   };
 
@@ -570,6 +579,9 @@ const Dashboard = () => {
       const matchingClients = overview.availableClients || [];
       const currentClient = overview.client || null;
       setAvailableClients(matchingClients);
+      if (matchingClients.length > 0) {
+        localStorage.setItem('client_available_clients', JSON.stringify(matchingClients));
+      }
 
       if (currentClient) {
         setClient(currentClient);
@@ -579,8 +591,9 @@ const Dashboard = () => {
         setProjectManagers(overview.projectManagers || []);
         setServiceTasks(applyClientSubscriptionDueDates(overview.serviceTasks || [], currentClient));
         setSupportTicketsData(Array.isArray(overview.supportTickets) ? overview.supportTickets : []);
+        return true;
       }
-      return true;
+      return false;
     } catch {
       return false;
     } finally {
@@ -590,12 +603,19 @@ const Dashboard = () => {
     }
   };
 
-  const fetchClientData = async () => {
+  const fetchClientData = async (forceSpinner = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       if (!isMounted.current) return;
+      if (forceSpinner) {
+        setIsDashboardLoading(true);
+      }
       
       const userStr = localStorage.getItem('user');
-      if (!userStr) return;
+      if (!userStr) {
+        return;
+      }
 
       const user = JSON.parse(userStr);
       const storedClient = (() => {
@@ -606,25 +626,55 @@ const Dashboard = () => {
         }
       })();
       const overviewLoaded = await fetchDashboardOverview(user, storedClient);
-      if (overviewLoaded) return;
+      if (overviewLoaded) {
+        return;
+      }
 
-      const companyUsers = await fetchCompanyUsers(user);
       const requestCompanyInfo = getClientPortalCompanyContext(user, storedClient);
-
-      if (!requestCompanyInfo.companyCode) return;
+      if (!requestCompanyInfo.companyCode) {
+        return;
+      }
       
-      const response = await api.get('/', {
-        params: {
-          ...getCompanyScopedClientParams(requestCompanyInfo),
-          limit: 1000
-        }
-      });
+      const [companyUsers, response] = await Promise.all([
+        fetchCompanyUsers(user),
+        api.get('/', {
+          params: {
+            ...getCompanyScopedClientParams(requestCompanyInfo),
+            limit: 1000
+          }
+        })
+      ]);
 
       if (response.data?.success && isMounted.current) {
         const allClients = response.data.data || [];
-        const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
+        const userAssignedClientId = normalizeMatchValue(
+          parseAdditionalDetails(user?.additionalDetails)?.clientId || user?.clientId
+        );
+        const userEmail = normalizeMatchValue(user?.email);
+
+        const matchingClients = allClients
+          .filter(item => isClientForLoggedInUser(item, user))
+          .sort((a, b) => {
+            const aId = normalizeMatchValue(a?._id || a?.id || a?.clientId);
+            const bId = normalizeMatchValue(b?._id || b?.id || b?.clientId);
+            const aEmail = normalizeMatchValue(a?.email || a?.clientEmail);
+            const bEmail = normalizeMatchValue(b?.email || b?.clientEmail);
+
+            if (userAssignedClientId) {
+              if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
+              if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
+            }
+            if (userEmail) {
+              if (aEmail === userEmail && bEmail !== userEmail) return -1;
+              if (bEmail === userEmail && aEmail !== userEmail) return 1;
+            }
+            return 0;
+          });
         const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
         setAvailableClients(effectiveClients);
+        if (effectiveClients.length > 0) {
+          localStorage.setItem('client_available_clients', JSON.stringify(effectiveClients));
+        }
         const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
         const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
         
@@ -657,13 +707,18 @@ const Dashboard = () => {
       }
     } catch {
       // Graceful fallback to default state
+    } finally {
+      isFetchingRef.current = false;
+      if (isMounted.current) {
+        setIsDashboardLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     if ((companyInfo.companyCode || companyInfo.companyIdentifier) && !initialFetchDone.current) {
       initialFetchDone.current = true;
-      fetchClientData();
+      fetchClientData(false);
     }
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
 
@@ -751,10 +806,18 @@ const Dashboard = () => {
     setDetailsModal('support');
   };
 
-  const clientName = client?.company || client?.businessName || client?.client || client?.name || 'No Client Selected';
-  const clientEmail = client?.email || '—';
-  const clientPhone = client?.phone || '—';
-  const clientLocation = client?.city || client?.address || '—';
+  const user = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const clientName = client?.company || client?.businessName || client?.client || client?.name || user?.name || user?.fullName || 'Client';
+  const clientEmail = client?.email || user?.email || '—';
+  const clientPhone = client?.phone || user?.phone || '—';
+  const clientLocation = client?.city || client?.address || user?.city || user?.address || '—';
   const clientFormattedId = (client && formatPublicId('CLT', client)) || '—';
   const clientAccountManager = projectManagers[0]?.name || 'Unassigned';
 
@@ -778,7 +841,72 @@ const Dashboard = () => {
     };
   });
 
-  const displayCompanyCards = dynamicCompanyCards;
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const greetingData = React.useMemo(() => {
+    const hour = currentDateTime.getHours();
+    if (hour >= 5 && hour < 12) {
+      return { text: 'Good Morning,', icon: 'morning' };
+    } else if (hour >= 12 && hour < 17) {
+      return { text: 'Good Afternoon,', icon: 'afternoon' };
+    } else if (hour >= 17 && hour < 21) {
+      return { text: 'Good Evening,', icon: 'evening' };
+    } else {
+      return { text: 'Good Night,', icon: 'night' };
+    }
+  }, [currentDateTime]);
+
+  const currentDateTimeFormatted = React.useMemo(() => {
+    return {
+      date: currentDateTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+      time: currentDateTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+    };
+  }, [currentDateTime]);
+
+  if (isDashboardLoading && !client) {
+    return (
+      <div className="ClientDashboard-client-dashboard ClientDashboard-loading-state">
+        <div className="ClientDashboard-top-row">
+          <div className="ClientDashboard-skeleton-card ClientDashboard-hero-skeleton" style={{ flex: 1 }}>
+            <div className="ClientDashboard-skeleton" style={{ height: '32px', width: '240px', marginBottom: '12px' }} />
+            <div className="ClientDashboard-skeleton" style={{ height: '20px', width: '340px', marginBottom: '24px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+              {[1, 2, 3, 4].map(k => (
+                <div key={k} className="ClientDashboard-skeleton" style={{ height: '90px', borderRadius: '12px' }} />
+              ))}
+            </div>
+          </div>
+          <div className="ClientDashboard-skeleton-card" style={{ width: '320px', minWidth: '280px', height: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
+            <div className="ClientDashboard-skeleton" style={{ height: '64px', width: '64px', borderRadius: '50%' }} />
+            <div className="ClientDashboard-skeleton" style={{ height: '22px', width: '180px' }} />
+            <div className="ClientDashboard-skeleton" style={{ height: '16px', width: '140px' }} />
+          </div>
+        </div>
+
+        <div className="ClientDashboard-skeleton-card" style={{ marginTop: '20px' }}>
+          <div className="ClientDashboard-skeleton" style={{ height: '20px', width: '160px', marginBottom: '16px' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+            {[1, 2].map(k => (
+              <div key={k} className="ClientDashboard-skeleton" style={{ height: '76px', borderRadius: '12px' }} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '20px' }}>
+          {[1, 2, 3, 4].map(k => (
+            <div key={k} className="ClientDashboard-skeleton" style={{ height: '100px', borderRadius: '14px' }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ClientDashboard-client-dashboard">
@@ -819,10 +947,16 @@ const Dashboard = () => {
           <div className="ClientDashboard-hero-top">
             <div className="ClientDashboard-hero-greeting">
               <div className="ClientDashboard-sun-icon" aria-hidden="true">
-                <FiSun />
+                {greetingData.icon === 'night' ? (
+                  <FiMoon />
+                ) : greetingData.icon === 'evening' ? (
+                  <FiSunset />
+                ) : (
+                  <FiSun />
+                )}
               </div>
               <div className="ClientDashboard-greeting-text">
-                <h2>Good Morning,</h2>
+                <h2>{greetingData.text}</h2>
                 <h1>{clientName}! <span className="ClientDashboard-wave-emoji">👋</span></h1>
                 <p>Stay on top of your services, tasks, and payments.</p>
               </div>
@@ -832,8 +966,8 @@ const Dashboard = () => {
               <div className="ClientDashboard-date-pill">
                 <FiCalendar className="ClientDashboard-pill-cal-icon" />
                 <div className="ClientDashboard-pill-datetime">
-                  <span className="ClientDashboard-pill-date">Mon, Sep 29, 2026</span>
-                  <span className="ClientDashboard-pill-time">09:42 AM</span>
+                  <span className="ClientDashboard-pill-date">{currentDateTimeFormatted.date}</span>
+                  <span className="ClientDashboard-pill-time">{currentDateTimeFormatted.time}</span>
                 </div>
               </div>
             </div>

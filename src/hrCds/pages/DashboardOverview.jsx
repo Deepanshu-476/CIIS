@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
 import axios from '../../utils/axiosConfig';
 import {
   FiCalendar,
@@ -547,7 +548,8 @@ export default function DashboardOverview() {
     assigneeId: '',
     priority: 'Medium',
     dueDate: '',
-    description: ''
+    description: '',
+    reminderSettings: createDefaultReminderSettings(),
   });
 
   const handleAssignTaskSubmit = async (e) => {
@@ -571,7 +573,8 @@ export default function DashboardOverview() {
         assignedUsers: [targetUserId],
         assignedGroups: [],
         priority: String(taskForm.priority || 'Medium').toLowerCase(),
-        dueDateTime: taskForm.dueDate || ''
+        dueDateTime: taskForm.dueDate || '',
+        reminderSettings: buildReminderPayload(taskForm.reminderSettings),
       });
       toast.success(`Task "${taskForm.title}" assigned to ${assigneeName} successfully!`);
       setShowAssignTaskModal(false);
@@ -580,7 +583,8 @@ export default function DashboardOverview() {
         assigneeId: presentUsersList[0]?.id || '',
         priority: 'Medium',
         dueDate: '',
-        description: ''
+        description: '',
+        reminderSettings: createDefaultReminderSettings(),
       });
       await load();
     } catch (error) {
@@ -2466,6 +2470,13 @@ export default function DashboardOverview() {
                   className="v2-form-textarea"
                 />
               </div>
+
+              <TaskReminderControl
+                settings={taskForm.reminderSettings}
+                dueDateTime={taskForm.dueDate}
+                onChange={(nextSettings) => setTaskForm({ ...taskForm, reminderSettings: nextSettings })}
+                taskTitle={taskForm.title || 'Task'}
+              />
 
               <div className="v2-modal-footer is-form-footer">
                 <button

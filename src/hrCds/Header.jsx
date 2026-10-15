@@ -1087,7 +1087,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
                       }
                     }}
                   >
-                    Mark all read
+                    Mark all   read
                   </Button>
                 </Box>
               )}

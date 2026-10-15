@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../../../utils/axiosConfig';
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../../components/TaskReminderControl';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow,
   TableCell, Paper, TableContainer, Chip, CircularProgress,
@@ -151,7 +152,8 @@ const EmmpTask = () => {
   const [groups, setGroups] = useState([]);
   const [newTask, setNewTask] = useState({
     title: '', description: '', dueDate: null, assignedUsers: [],
-    assignedGroups: [], priorityDays: '', priority: 'medium', files: null, voiceNote: null
+    assignedGroups: [], priorityDays: '', priority: 'medium', files: null, voiceNote: null,
+    reminderSettings: createDefaultReminderSettings()
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [stats, setStats] = useState({
@@ -497,6 +499,8 @@ const EmmpTask = () => {
       formData.append('voiceNote', newTask.voiceNote);
     }
 
+    formData.append('reminderSettings', JSON.stringify(buildReminderPayload(newTask.reminderSettings)));
+
     try {
       await axios.post('/task/create', formData);
       fetchAssignedTasks();
@@ -505,7 +509,8 @@ const EmmpTask = () => {
       setSnackbar({ open: true, message: 'Task created successfully', severity: 'success' });
       setNewTask({
         title: '', description: '', dueDate: null, assignedUsers: [],
-        assignedGroups: [], priorityDays: '', priority: 'medium', files: null, voiceNote: null
+        assignedGroups: [], priorityDays: '', priority: 'medium', files: null, voiceNote: null,
+        reminderSettings: createDefaultReminderSettings()
       });
     } catch (err) {
       console.error('Error creating task:', err);
@@ -1224,6 +1229,13 @@ const EmmpTask = () => {
                     </Typography>
                   </Box>
                 )}
+
+                <TaskReminderControl
+                  settings={newTask.reminderSettings}
+                  dueDateTime={newTask.dueDate}
+                  onChange={(nextSettings) => setNewTask({ ...newTask, reminderSettings: nextSettings })}
+                  taskTitle={newTask.title || 'Task'}
+                />
               </Stack>
             </DialogContent>
             <DialogActions sx={{ p: 3 }}>

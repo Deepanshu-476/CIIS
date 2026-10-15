@@ -11,6 +11,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import SupportChatWidget from './pages/SupportChatWidget';
+import MessengerDropdown from './components/MessengerDropdown';
 import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate from './components/PageAccessGate';
@@ -211,6 +212,7 @@ const UserLayout = () => {
       </MainContent>
       <FeedbackQuestionnairePopup />
       <SupportChatWidget />
+      <MessengerDropdown />
     </LayoutContainer>
   );
 };

@@ -16,6 +16,7 @@ import "../Css/TaskManagement.css";
 import TaskDetailsModal from '../components/TaskDetailsModal';
 import API_URL from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
+import { useSocket } from '../../context/SocketContext';
 
 
 const getImageUrl = (imagePath) => {
@@ -95,6 +96,146 @@ const getCleanCheckpoints = (checkpoints = []) => (
         .filter(item => item.title)
     : []
 );
+
+const REMINDER_OPTIONS = [
+  { value: 'hourly', label: 'Every 1 hour' },
+  { value: 'halfHourly', label: 'Every 30 minutes' },
+  { value: 'oneHourBefore', label: '1 hour before due time' },
+];
+
+const createDefaultReminderSettings = () => ({
+  enabled: false,
+  options: [],
+  reminderTime: null,
+  customTime: '',
+  repeatIntervalMinutes: '',
+  minutesBeforeDue: '',
+});
+
+const normalizeReminderSettings = (settings = {}) => {
+  const options = Array.isArray(settings?.options) ? settings.options.filter(Boolean) : [];
+  const reminderTime = settings?.reminderTime || null;
+  const customTime = settings?.customTime || (reminderTime ? new Date(reminderTime).toISOString().slice(0, 16) : '');
+  const repeatIntervalMinutes = settings?.repeatIntervalMinutes ? Number(settings.repeatIntervalMinutes) : null;
+  const minutesBeforeDue = settings?.minutesBeforeDue ? Number(settings.minutesBeforeDue) : null;
+  const hasOptionsOrCustom = options.length > 0 || Boolean(reminderTime || customTime || repeatIntervalMinutes || minutesBeforeDue);
+  return {
+    enabled: Boolean(settings?.enabled) && hasOptionsOrCustom,
+    options,
+    reminderTime,
+    customTime,
+    repeatIntervalMinutes: repeatIntervalMinutes || '',
+    minutesBeforeDue: minutesBeforeDue || '',
+  };
+};
+
+const formatActiveReminderLabels = (settings) => {
+  if (!settings || !settings.enabled) return 'None';
+  const labels = [];
+  if (Array.isArray(settings.options)) {
+    settings.options.forEach(opt => {
+      const found = REMINDER_OPTIONS.find(o => o.value === opt);
+      if (found) labels.push(found.label);
+    });
+  }
+  if (settings.repeatIntervalMinutes) {
+    labels.push(`Repeats every ${settings.repeatIntervalMinutes} min`);
+  }
+  if (settings.minutesBeforeDue) {
+    labels.push(`${settings.minutesBeforeDue} min before due`);
+  }
+  if (settings.customTime) {
+    labels.push(`One-time: ${format12HourDateTime(settings.customTime)}`);
+  }
+  return labels.length ? labels.join(' • ') : 'Enabled';
+};
+
+const format12HourTime = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+const format12HourDateTime = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '';
+  const dateStr = d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const timeStr = d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${dateStr}, ${timeStr}`;
+};
+
+const formatReminderPreviewTime = (dueDateTime, option) => {
+  if (!dueDateTime) return '';
+  const dueDate = new Date(dueDateTime);
+  if (Number.isNaN(dueDate.getTime())) return '';
+  const dueTime12h = format12HourTime(dueDate);
+
+  if (option === 'oneHourBefore') {
+    const preview = new Date(dueDate.getTime() - 60 * 60 * 1000);
+    return `Reminder: ${format12HourDateTime(preview)} (Due time: ${dueTime12h})`;
+  }
+  if (option === 'hourly') {
+    return `Popup & notification every 1 hour before due time (${dueTime12h})`;
+  }
+  if (option === 'halfHourly') {
+    return `Popup & notification every 30 minutes before due time (${dueTime12h})`;
+  }
+  return '';
+};
+
+const playReminderChime = () => {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(587.33, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    osc.start(now);
+    osc.stop(now + 0.5);
+  } catch (e) {
+    // Ignore audio restrictions
+  }
+};
+
+const triggerBrowserNotification = async (title, body) => {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' });
+      return;
+    }
+    if (Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        new Notification(title, { body, icon: '/favicon.ico' });
+      }
+    }
+  } catch (e) {
+    // Ignore notification error
+  }
+};
 
 const getAttachmentName = (file) => {
   if (!file) return 'Attachment';
@@ -775,7 +916,8 @@ const UserCreateTask = () => {
     service: '',
     dueDateTime: '',
     priority: 'Medium',
-    checkpoints: []
+    checkpoints: [],
+    reminderSettings: createDefaultReminderSettings()
   });
   const [servicePendingTasks, setServicePendingTasks] = useState([]);
   const [loadingServiceTasks, setLoadingServiceTasks] = useState(false);
@@ -790,7 +932,8 @@ const UserCreateTask = () => {
     dueDateTime: '',
     priority: 'medium',
     assignedTo: '',
-    checkpoints: []
+    checkpoints: [],
+    reminderSettings: createDefaultReminderSettings()
   });
   const [projectTasksGrouped, setProjectTasksGrouped] = useState(cachedTaskData?.projectTasksGrouped || {});
   const [allTasksGrouped, setAllTasksGrouped] = useState(cachedTaskData?.allTasksGrouped || {});
@@ -886,12 +1029,36 @@ const UserCreateTask = () => {
   const remarksRequestRef = useRef(0);
   const activityRequestRef = useRef(0);
   const allTasksRefreshTimerRef = useRef(null);
+  const allTasksRequestRef = useRef(0);
   // Prevent an older list request from replacing a task status that the user
   // has just changed optimistically.
   const lastTaskStatusMutationAtRef = useRef(0);
   
   const [zoomImage, setZoomImage] = useState(null);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
+  const [taskReminderModal, setTaskReminderModal] = useState({
+    open: false,
+    task: null,
+    settings: createDefaultReminderSettings(),
+    saving: false,
+  });
+  const [reminderConfirmPopup, setReminderConfirmPopup] = useState({
+    open: false,
+    title: '',
+    message: '',
+    optionLabel: '',
+    time12h: '',
+    taskTitle: '',
+  });
+  const [reminderAlertModal, setReminderAlertModal] = useState({
+    open: false,
+    task: null,
+    title: '',
+    message: '',
+    taskType: '',
+    dueTime12h: '',
+    reminderTime12h: '',
+  });
   const [newCheckpointTitle, setNewCheckpointTitle] = useState('');
   const [isAddingCheckpoint, setIsAddingCheckpoint] = useState(false);
   const [deletingCheckpointId, setDeletingCheckpointId] = useState(null);
@@ -917,6 +1084,7 @@ const UserCreateTask = () => {
     repeatPattern: 'none',
     repeatDays: [],
     recurrenceEndDate: '',
+    reminderSettings: createDefaultReminderSettings(),
   });
 
   const [pendingStatusChange, setPendingStatusChange] = useState({ taskId: null, status: '', source: null });
@@ -933,6 +1101,7 @@ const UserCreateTask = () => {
   const [loadingOverdue, setLoadingOverdue] = useState(false);
 
   const navigate = useNavigate();
+  const socketContext = useSocket();
   const snackbarTimerRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
@@ -1084,6 +1253,467 @@ const UserCreateTask = () => {
       setSnackbar(prev => ({ ...prev, open: false }));
     }, 3000);
   };
+
+  const buildReminderPayload = (settings = {}) => {
+    const normalized = normalizeReminderSettings(settings);
+    return {
+      enabled: normalized.enabled,
+      options: normalized.options,
+      reminderTime: normalized.reminderTime,
+      customTime: normalized.customTime || null,
+      repeatIntervalMinutes: normalized.repeatIntervalMinutes ? Number(normalized.repeatIntervalMinutes) : null,
+      minutesBeforeDue: normalized.minutesBeforeDue ? Number(normalized.minutesBeforeDue) : null,
+    };
+  };
+
+  const toggleReminderOption = (settings = {}, option) => {
+    const currentOptions = Array.isArray(settings.options) ? settings.options : [];
+    const options = currentOptions.includes(option)
+      ? currentOptions.filter(item => item !== option)
+      : [...currentOptions, option];
+    const hasTriggers = options.length > 0 || Boolean(settings.reminderTime || settings.customTime || settings.repeatIntervalMinutes || settings.minutesBeforeDue);
+    return {
+      ...settings,
+      enabled: hasTriggers,
+      options,
+    };
+  };
+
+  const handleReminderOptionSelection = useCallback((optionLabel, scheduledTime, taskTitle, dueDateTime) => {
+    setReminderConfirmPopup({
+      open: true,
+      title: 'Reminder Option Selected',
+      message: `"${optionLabel}" reminder option has been selected.`,
+      optionLabel,
+      time12h: scheduledTime,
+      taskTitle: taskTitle || 'Task',
+    });
+
+    triggerBrowserNotification(
+      'Task Reminder Selected',
+      `"${optionLabel}" selected (${scheduledTime})`
+    );
+
+    playReminderChime();
+    showSnackbar(`Reminder selected: ${optionLabel} (${scheduledTime})`, 'success');
+  }, [showSnackbar]);
+
+  const renderReminderSettings = (settings, dueDateTime, onChange, taskTitle = 'Task') => {
+    const normalized = normalizeReminderSettings(settings);
+    return (
+      <div className="user-create-task-form-control task-reminder-settings">
+        <div className="task-reminder-header">
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FiBell style={{ color: normalized.enabled ? '#2563eb' : '#64748b' }} />
+            <span>Reminder Settings</span>
+          </label>
+          <label className="task-reminder-switch">
+            <input
+              type="checkbox"
+              checked={normalized.enabled}
+              onChange={(event) => {
+                const isChecked = event.target.checked;
+                const hasExisting = normalized.options.length > 0 || Boolean(normalized.repeatIntervalMinutes || normalized.minutesBeforeDue || normalized.customTime);
+                const nextOptions = isChecked ? (hasExisting ? normalized.options : ['oneHourBefore']) : [];
+                onChange({
+                  ...normalized,
+                  enabled: isChecked,
+                  options: nextOptions,
+                });
+                if (isChecked) {
+                  const firstOpt = nextOptions[0] || 'oneHourBefore';
+                  const label = REMINDER_OPTIONS.find(o => o.value === firstOpt)?.label || '1 hour before due time';
+                  const preview = formatReminderPreviewTime(dueDateTime, firstOpt);
+                  handleReminderOptionSelection(label, preview || 'Reminder ON', taskTitle, dueDateTime);
+                }
+              }}
+            />
+            <span>Reminder ON</span>
+          </label>
+        </div>
+        {normalized.enabled && (
+          <div className="task-reminder-options">
+            {REMINDER_OPTIONS.map(option => {
+              const checked = normalized.options.includes(option.value);
+              const preview = formatReminderPreviewTime(dueDateTime, option.value);
+              return (
+                <label key={option.value} className="task-reminder-option">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      const next = toggleReminderOption(normalized, option.value);
+                      onChange(next);
+                      if (!checked) {
+                        handleReminderOptionSelection(
+                          option.label,
+                          preview || 'Reminder Set',
+                          taskTitle,
+                          dueDateTime
+                        );
+                      }
+                    }}
+                  />
+                  <span>{option.label}</span>
+                  {preview && (
+                    <small className="task-reminder-preview-12h">{preview}</small>
+                  )}
+                </label>
+              );
+            })}
+
+            {/* Recurring interval option */}
+            <div className="task-reminder-field-block">
+              <label className="task-reminder-field-label">
+                🔁 Repeat Reminder Every (Interval in Minutes):
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1440"
+                    placeholder="e.g. 15, 30, 45"
+                    className="user-create-task-input task-reminder-num-input"
+                    value={normalized.repeatIntervalMinutes || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const num = val ? Math.max(1, parseInt(val, 10)) : '';
+                      const next = {
+                        ...normalized,
+                        enabled: Boolean(num || normalized.options.length || normalized.reminderTime || normalized.minutesBeforeDue),
+                        repeatIntervalMinutes: num,
+                      };
+                      onChange(next);
+                      if (num) {
+                        const due12 = dueDateTime ? format12HourTime(dueDateTime) : '';
+                        handleReminderOptionSelection(
+                          `Every ${num} minutes`,
+                          due12 ? `Repeats every ${num} minutes until ${due12}` : `Repeats every ${num} minutes`,
+                          taskTitle,
+                          dueDateTime
+                        );
+                      }
+                    }}
+                  />
+                  <span className="task-reminder-unit-tag">min</span>
+                </div>
+                <div className="task-reminder-preset-chips">
+                  {[10, 15, 30, 45, 60].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      className={`task-reminder-chip ${Number(normalized.repeatIntervalMinutes) === mins ? 'active' : ''}`}
+                      onClick={() => {
+                        const next = {
+                          ...normalized,
+                          enabled: true,
+                          repeatIntervalMinutes: mins,
+                        };
+                        onChange(next);
+                        const due12 = dueDateTime ? format12HourTime(dueDateTime) : '';
+                        handleReminderOptionSelection(
+                          `Every ${mins} minutes`,
+                          due12 ? `Repeats every ${mins} minutes until ${due12}` : `Repeats every ${mins} minutes`,
+                          taskTitle,
+                          dueDateTime
+                        );
+                      }}
+                    >
+                      {mins}m
+                    </button>
+                  ))}
+                </div>
+                {normalized.repeatIntervalMinutes && (
+                  <button
+                    type="button"
+                    className="user-create-task-button user-create-task-button-outlined"
+                    style={{ padding: '4px 8px', fontSize: '11px', height: '32px' }}
+                    onClick={() => {
+                      onChange({ ...normalized, repeatIntervalMinutes: '' });
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {normalized.repeatIntervalMinutes && (
+                <div className="task-reminder-preview-12h" style={{ marginTop: '6px' }}>
+                  🔁 Repeats every <strong>{normalized.repeatIntervalMinutes} minutes</strong> until due time {dueDateTime ? `(${format12HourTime(dueDateTime)})` : ''}
+                </div>
+              )}
+            </div>
+
+            {/* Minutes before due time option */}
+            <div className="task-reminder-field-block">
+              <label className="task-reminder-field-label">
+                ⏳ Remind Before Due Time (Minutes Before Due):
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10080"
+                    placeholder="e.g. 15, 30, 60"
+                    className="user-create-task-input task-reminder-num-input"
+                    value={normalized.minutesBeforeDue || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const num = val ? Math.max(1, parseInt(val, 10)) : '';
+                      const next = {
+                        ...normalized,
+                        enabled: Boolean(num || normalized.options.length || normalized.reminderTime || normalized.repeatIntervalMinutes),
+                        minutesBeforeDue: num,
+                      };
+                      onChange(next);
+                      if (num && dueDateTime) {
+                        const dueDate = new Date(dueDateTime);
+                        if (!Number.isNaN(dueDate.getTime())) {
+                          const targetTime = new Date(dueDate.getTime() - num * 60 * 1000);
+                          handleReminderOptionSelection(
+                            `${num} minutes before due time`,
+                            `${format12HourDateTime(targetTime)} (${num} mins before due)`,
+                            taskTitle,
+                            dueDateTime
+                          );
+                        }
+                      }
+                    }}
+                  />
+                  <span className="task-reminder-unit-tag">min</span>
+                </div>
+                <div className="task-reminder-preset-chips">
+                  {[15, 30, 45, 60, 120].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      className={`task-reminder-chip ${Number(normalized.minutesBeforeDue) === mins ? 'active' : ''}`}
+                      onClick={() => {
+                        const next = {
+                          ...normalized,
+                          enabled: true,
+                          minutesBeforeDue: mins,
+                        };
+                        onChange(next);
+                        if (dueDateTime) {
+                          const dueDate = new Date(dueDateTime);
+                          if (!Number.isNaN(dueDate.getTime())) {
+                            const targetTime = new Date(dueDate.getTime() - mins * 60 * 1000);
+                            handleReminderOptionSelection(
+                              `${mins} minutes before due time`,
+                              `${format12HourDateTime(targetTime)} (${mins} mins before due)`,
+                              taskTitle,
+                              dueDateTime
+                            );
+                          }
+                        }
+                      }}
+                    >
+                      {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                    </button>
+                  ))}
+                </div>
+                {normalized.minutesBeforeDue && (
+                  <button
+                    type="button"
+                    className="user-create-task-button user-create-task-button-outlined"
+                    style={{ padding: '4px 8px', fontSize: '11px', height: '32px' }}
+                    onClick={() => {
+                      onChange({ ...normalized, minutesBeforeDue: '' });
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {normalized.minutesBeforeDue && (
+                <div className="task-reminder-preview-12h" style={{ marginTop: '6px' }}>
+                  {dueDateTime && !Number.isNaN(new Date(dueDateTime).getTime()) ? (
+                    <>
+                      ⏰ Scheduled at: <strong>{format12HourDateTime(new Date(new Date(dueDateTime).getTime() - Number(normalized.minutesBeforeDue) * 60 * 1000))}</strong> ({normalized.minutesBeforeDue} minutes before due time)
+                    </>
+                  ) : (
+                    <>⏰ Remind <strong>{normalized.minutesBeforeDue} minutes</strong> before task due time</>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* One-time specific date & time */}
+            <div className="task-custom-reminder-block">
+              <label className="task-custom-reminder-label">
+                📅 Set One-Time Specific Reminder Date & Time:
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="datetime-local"
+                  className="user-create-task-input"
+                  style={{ flex: 1, minWidth: '220px', fontSize: '13px', padding: '6px 10px' }}
+                  value={normalized.customTime || ''}
+                  max={dueDateTime ? new Date(dueDateTime).toISOString().slice(0, 16) : undefined}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      onChange({ ...normalized, customTime: '', reminderTime: null });
+                      return;
+                    }
+                    if (dueDateTime && new Date(val).getTime() >= new Date(dueDateTime).getTime()) {
+                      showSnackbar('Reminder time must be before the due date!', 'warning');
+                      return;
+                    }
+                    const updated = {
+                      ...normalized,
+                      enabled: true,
+                      customTime: val,
+                      reminderTime: new Date(val).toISOString(),
+                    };
+                    onChange(updated);
+                    handleReminderOptionSelection(
+                      'One-Time Specific Reminder',
+                      format12HourDateTime(val),
+                      taskTitle,
+                      dueDateTime
+                    );
+                  }}
+                />
+                {normalized.customTime && (
+                  <button
+                    type="button"
+                    className="user-create-task-button user-create-task-button-outlined"
+                    style={{ padding: '6px 10px', fontSize: '12px' }}
+                    onClick={() => {
+                      onChange({ ...normalized, customTime: '', reminderTime: null });
+                      showSnackbar('One-time reminder removed', 'info');
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {normalized.customTime && (
+                <div style={{ marginTop: '6px', fontSize: '12px', color: '#166534', fontWeight: 500 }}>
+                  ⏰ Scheduled (12-Hour): <strong>{format12HourDateTime(normalized.customTime)}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const openTaskReminderModal = useCallback((task) => {
+    if (!task) return;
+    const existing = normalizeReminderSettings(task.reminderSettings);
+    setTaskReminderModal({
+      open: true,
+      task,
+      settings: existing,
+      saving: false,
+    });
+  }, []);
+
+  const handleSaveTaskReminder = async () => {
+    if (!taskReminderModal.task) return;
+    const task = taskReminderModal.task;
+    const taskId = task._id || task.id;
+    const source = getTaskSource(task);
+    const projectId = task.projectId || task.project?._id || task.project;
+
+    setTaskReminderModal(prev => ({ ...prev, saving: true }));
+    try {
+      const payload = {
+        reminderSettings: buildReminderPayload(taskReminderModal.settings),
+        reminderEnabled: taskReminderModal.settings.enabled,
+        reminderOptions: taskReminderModal.settings.options,
+        reminderTime: taskReminderModal.settings.reminderTime || null,
+        customTime: taskReminderModal.settings.customTime || null,
+        repeatIntervalMinutes: taskReminderModal.settings.repeatIntervalMinutes ? Number(taskReminderModal.settings.repeatIntervalMinutes) : null,
+        minutesBeforeDue: taskReminderModal.settings.minutesBeforeDue ? Number(taskReminderModal.settings.minutesBeforeDue) : null,
+      };
+
+      let res;
+      if (source === 'self') {
+        res = await axios.patch(`/tasks/self/${taskId}/reminder`, payload);
+      } else if (source === 'client') {
+        res = await axios.patch(`/tasks/client-tasks/${taskId}/reminder`, payload);
+      } else if (source === 'project') {
+        res = await axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/reminder`, payload);
+      } else {
+        res = await axios.patch(`/tasks/${taskId}/reminder`, payload);
+      }
+
+      const updatedSettings = res?.data?.reminderSettings || res?.data?.data?.reminderSettings || payload.reminderSettings;
+      const updater = t => {
+        if (String(t._id || t.id) === String(taskId)) {
+          return { ...t, reminderSettings: updatedSettings };
+        }
+        return t;
+      };
+
+      setMyTasksGrouped(prev => patchGroupedTasksById(prev, taskId, updater));
+      setAssignedToMeTasksGrouped(prev => patchGroupedTasksById(prev, taskId, updater));
+      setClientTasksGrouped(prev => patchGroupedTasksById(prev, taskId, updater));
+      setProjectTasksGrouped(prev => patchGroupedTasksById(prev, taskId, updater));
+      setAllTasksGrouped(prev => patchGroupedTasksById(prev, taskId, updater));
+
+      if (selectedTaskDetails && String(selectedTaskDetails._id || selectedTaskDetails.id) === String(taskId)) {
+        setSelectedTaskDetails(prev => ({ ...prev, reminderSettings: updatedSettings }));
+      }
+
+      setTaskReminderModal({ open: false, task: null, settings: createDefaultReminderSettings(), saving: false });
+      
+      const dueTime12h = format12HourDateTime(getDueDateForTask(task));
+      setReminderConfirmPopup({
+        open: true,
+        title: 'Reminder Saved Successfully',
+        message: updatedSettings.enabled
+          ? `Reminder enabled for task "${task.title || task.name}".`
+          : `Reminder disabled for task "${task.title || task.name}".`,
+        optionLabel: formatActiveReminderLabels(updatedSettings),
+        time12h: dueTime12h,
+        taskTitle: task.title || task.name,
+      });
+
+      triggerBrowserNotification(
+        'Reminder Updated',
+        `Task "${task.title || task.name}" reminder settings have been updated successfully.`
+      );
+      showSnackbar('Reminder settings saved successfully!', 'success');
+      playReminderChime();
+    } catch (err) {
+      console.error('Failed to update task reminder:', err);
+      showSnackbar(err.response?.data?.message || 'Failed to save reminder settings', 'error');
+      setTaskReminderModal(prev => ({ ...prev, saving: false }));
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = socketContext?.onNewNotification?.((notification = {}) => {
+      if (notification.type !== 'task_due_reminder') return;
+
+      playReminderChime();
+      triggerBrowserNotification(
+        notification.title || 'Task Due Reminder',
+        notification.message || 'Your task reminder has been triggered'
+      );
+      showSnackbar(notification.message || notification.title || 'Task Due Reminder', 'warning');
+
+      setReminderAlertModal({
+        open: true,
+        task: notification.task || null,
+        title: notification.title || '⏰ Task Due Reminder!',
+        message: notification.message || 'Your task is approaching its due time!',
+        taskType: notification.taskType || 'Task',
+        dueTime12h: notification.dueDate ? format12HourDateTime(notification.dueDate) : '',
+        reminderTime12h: format12HourTime(new Date()),
+      });
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [socketContext, showSnackbar]);
 
   
   const fetchUserData = useCallback(() => {
@@ -1260,9 +1890,27 @@ const UserCreateTask = () => {
   
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
-    // Project and client tasks stay anchored to their due date so the list matches the
-    // delivery day. Completion timestamps are reserved for time-based stats.
+    const getTaskCompletionDate = task => {
+      if (task?.completedAt || task?.completionDate) return task.completedAt || task.completionDate;
+      const statusHistory = Array.isArray(task?.statusHistory) ? task.statusHistory : [];
+      const historyDate = statusHistory
+        .filter(entry => normalizeStatus(entry?.status || entry?.newValue || entry?.newValues?.status) === 'completed')
+        .map(entry => entry.changedAt || entry.createdAt || entry.updatedAt)
+        .filter(Boolean)
+        .sort((a, b) => new Date(b) - new Date(a))[0];
+      if (historyDate) return historyDate;
+      const activityLogs = Array.isArray(task?.activityLogs) ? task.activityLogs : [];
+      return activityLogs
+        .filter(entry => normalizeStatus(entry?.newValue || entry?.newValues?.status || entry?.status) === 'completed')
+        .map(entry => entry.performedAt || entry.changedAt || entry.createdAt || entry.updatedAt)
+        .filter(Boolean)
+        .sort((a, b) => new Date(b) - new Date(a))[0];
+    };
     const getTaskGroupDate = task => {
+      const status = normalizeStatus(task?.userStatus || task?.status || task?.overallStatus);
+      if (status === 'completed') {
+        return getTaskCompletionDate(task) || task?.updatedAt || task?.dueDateTime || task?.dueDate || task?.createdAt || task?.createdDate || task?.created_on;
+      }
       const source = task?.__taskSource || task?.taskSource || task?.source;
       if (source === 'project') {
         return getProjectTaskDueDate(task) || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on;
@@ -1724,22 +2372,8 @@ const UserCreateTask = () => {
   }, [searchTerm]);
 
   const applyLocalFilters = useCallback((tasks, { includeStatus = true } = {}) => {
-    const filtered = {};
-
-    Object.entries(tasks || {}).forEach(([dateKey, dateTasks]) => {
-      const filteredDateTasks = dateTasks.filter(task => (
-        matchesTimeFilter(task) &&
-        (!includeStatus || matchesStatusFilter(task)) &&
-        matchesSearchFilter(task)
-      ));
-
-      if (filteredDateTasks.length > 0) {
-        filtered[dateKey] = filteredDateTasks;
-      }
-    });
-
-    return filtered;
-  }, [matchesTimeFilter, matchesStatusFilter, matchesSearchFilter]);
+    return tasks || {};
+  }, []);
 
   const calculateUnifiedStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
@@ -2223,13 +2857,28 @@ const UserCreateTask = () => {
     ));
   }, [userId]);
 
-  const buildTaskQueryParams = useCallback(({ includeAll = true, page = 1 } = {}) => {
+  const buildTaskQueryParams = useCallback(({ includeAll = true, page = 1, view = taskViewMode } = {}) => {
     const params = new URLSearchParams();
     params.append('page', String(page));
     params.append('limit', String(TASK_PAGE_LIMIT));
     if (includeAll) params.append('all', 'true');
+    params.append('view', view);
+    params.append('taskType', view);
+    if (statusFilter) params.append('status', statusFilter);
+    if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
+    if (showOverdueOnly) params.append('overdue', 'true');
+    params.append('dateField', dateFilterType === 'createdAt' ? 'createdAt' : 'reportDate');
+    if (selectedDate) {
+      params.append('fromDate', selectedDate);
+      params.append('toDate', selectedDate);
+    } else if (dateRange.start || dateRange.end) {
+      if (dateRange.start) params.append('fromDate', dateRange.start);
+      if (dateRange.end) params.append('toDate', dateRange.end);
+    } else if (timeFilter && timeFilter !== 'all') {
+      params.append('period', timeFilter);
+    }
     return params.toString();
-  }, []);
+  }, [dateFilterType, dateRange.end, dateRange.start, debouncedSearchTerm, selectedDate, showOverdueOnly, statusFilter, taskViewMode, timeFilter]);
 
   const getUserTaskApiPeriod = useCallback(() => {
     return 'all';
@@ -2535,7 +3184,8 @@ const UserCreateTask = () => {
       description: task.description || '',
       dueDateTime: formattedDate,
       priority: task.priority || 'Medium',
-      checkpoints: task.checkpoints || []
+      checkpoints: task.checkpoints || [],
+      reminderSettings: normalizeReminderSettings(task.reminderSettings || createDefaultReminderSettings())
     }));
   }, []);
 
@@ -2568,6 +3218,7 @@ const UserCreateTask = () => {
         dueDateTime: dueDateIso,
         priority: clientTaskForm.priority,
         checkpoints: getCleanCheckpoints(clientTaskForm.checkpoints),
+        reminderSettings: buildReminderPayload(clientTaskForm.reminderSettings),
         assignee: assigneeToUse.name || assigneeToUse.email || String(assigneeToUse._id || assigneeToUse.id),
         assigneeId: String(assigneeToUse._id || assigneeToUse.id),
       };
@@ -2628,7 +3279,8 @@ const UserCreateTask = () => {
         description: '',
         dueDateTime: '',
         priority: 'Medium',
-        checkpoints: []
+        checkpoints: [],
+        reminderSettings: createDefaultReminderSettings()
       }));
       setSelectedAssigneeId(userId || '');
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
@@ -2681,7 +3333,8 @@ const UserCreateTask = () => {
         assignee: assigneeToUse.name || assigneeToUse.email || String(assigneeToUse._id || assigneeToUse.id),
         assigneeId: String(assigneeToUse._id || assigneeToUse.id),
         priority: clientTaskForm.priority,
-        checkpoints: getCleanCheckpoints(clientTaskForm.checkpoints)
+        checkpoints: getCleanCheckpoints(clientTaskForm.checkpoints),
+        reminderSettings: buildReminderPayload(clientTaskForm.reminderSettings)
       };
 
       const encodedService = encodeURIComponent(clientTaskForm.service);
@@ -2732,7 +3385,8 @@ const UserCreateTask = () => {
         description: '',
         dueDateTime: '',
         priority: 'Medium',
-        checkpoints: []
+        checkpoints: [],
+        reminderSettings: createDefaultReminderSettings()
       }));
       setSelectedAssigneeId(userId || '');
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
@@ -2811,23 +3465,25 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, extractTasksFromResponse, extractProjectsFromResponse, extractAssignedProjectTasksFromProjects, groupTasksByDate, calculateProjectStatsFromTasks, tagTasksWithSource, buildTaskQueryParams, syncOverdueTaskStatuses]);
 
-  const fetchAllTasks = useCallback(async (targetPage = 1) => {
+  const fetchAllTasks = useCallback(async (targetPage = 1, viewOverride = taskViewMode) => {
     if (authError || !userId) return;
 
+    const requestId = allTasksRequestRef.current + 1;
+    allTasksRequestRef.current = requestId;
     const requestStartedAt = Date.now();
     const shouldShowLoader = !allTasksLoadedRef.current;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
-      const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage }));
-      if (statusFilter) params.set('status', statusFilter);
-      if (debouncedSearchTerm.trim()) params.set('search', debouncedSearchTerm.trim());
-      if (timeFilter && timeFilter !== 'all') params.set('period', timeFilter);
+      const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
       const query = params.toString();
       const res = await axios.get(`/tasks/all?${query}`);
       let responseTasks = Array.isArray(res.data?.tasks) ? res.data.tasks : extractTasksFromResponse(res.data);
+      const fallbackSource = viewOverride === 'self' || viewOverride === 'client' || viewOverride === 'project' || viewOverride === 'assigned'
+        ? viewOverride
+        : null;
       const tasksArray = responseTasks.map(task => ({
         ...task,
-        __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
+        __taskSource: task.__taskSource || task.taskSource || fallbackSource || (task.clientId ? 'client' : 'assigned')
       }));
       const groupedTasks = groupTasksByDate(tasksArray);
       const selfGrouped = groupTasksByDate(tasksArray.filter(task => task.__taskSource === 'self'));
@@ -2837,6 +3493,7 @@ const UserCreateTask = () => {
 
       // This response was requested before a local status change. Applying it
       // would briefly put a completed task back into its previous status.
+      if (allTasksRequestRef.current !== requestId) return;
       if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
 
       setAllTasksGrouped(groupedTasks);
@@ -2876,6 +3533,7 @@ const UserCreateTask = () => {
       persistTaskManagementCache(taskManagementMemoryCache);
     } catch (err) {
       console.error('❌ Error in fetchAllTasks:', err);
+      if (allTasksRequestRef.current !== requestId) return;
       // Preserve already-rendered tasks if only a background refresh fails.
       if (shouldShowLoader) {
         setAllTasksGrouped({});
@@ -2891,11 +3549,12 @@ const UserCreateTask = () => {
         showSnackbar('Failed to load all tasks', 'error');
       }
     } finally {
-      if (shouldShowLoader) setLoadingAllTasks(false);
+      if (allTasksRequestRef.current !== requestId) return;
+      setLoadingAllTasks(false);
       allTasksLoadedRef.current = true;
       setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
     }
-  }, [authError, userId, buildTaskQueryParams, statusFilter, debouncedSearchTerm, timeFilter, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
+  }, [authError, userId, buildTaskQueryParams, taskViewMode, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 
   const scheduleAllTasksRefresh = useCallback((delay = 350) => {
     if (allTasksRefreshTimerRef.current) {
@@ -2942,7 +3601,8 @@ const UserCreateTask = () => {
         dueDate: dueDateIso,
         priority: projectTaskForm.priority,
         status: 'pending',
-        checkpoints: getCleanCheckpoints(projectTaskForm.checkpoints)
+        checkpoints: getCleanCheckpoints(projectTaskForm.checkpoints),
+        reminderSettings: buildReminderPayload(projectTaskForm.reminderSettings)
       };
 
       if (assignedToId) {
@@ -2962,7 +3622,8 @@ const UserCreateTask = () => {
         dueDateTime: '',
         priority: 'medium',
         assignedTo: '',
-        checkpoints: []
+        checkpoints: [],
+        reminderSettings: createDefaultReminderSettings()
       });
       setOpenProjectTaskDialog(false);
       setTaskViewsLoaded(prev => ({ ...prev, project: true }));
@@ -3051,13 +3712,21 @@ const UserCreateTask = () => {
   const handleViewModeChange = (mode) => {
     setTaskViewMode(mode);
     setStatusFilter('');
-    if (mode === 'all') {
-      setAllTasksPagination(prev => ({ ...prev, page: 1 }));
-    } else if (mode === 'client') {
+    setLoadingAllTasks(true);
+    setTaskViewsLoaded(prev => ({ ...prev, [mode]: false }));
+    setAllTaskStats(emptyExternalStats());
+    setAllTasksGrouped({});
+    setAllTasksStatsGrouped({});
+    setMyTasksGrouped({});
+    setAssignedToMeTasksGrouped({});
+    setClientTasksGrouped({});
+    setProjectTasksGrouped({});
+    setAllTasksPagination(prev => ({ ...prev, page: 1, total: 0, pages: 1, hasNext: false, hasPrev: false }));
+    fetchAllTasks(1, mode);
+    if (mode === 'client') {
       if (!clientsLoadAttemptedRef.current || clients.length === 0) {
         fetchClients();
       }
-      fetchClientTasks();
     }
   };
 
@@ -3557,47 +4226,8 @@ const UserCreateTask = () => {
 
   
   const applyDateFilter = useCallback((tasks) => {
-    if (!selectedDate && !dateRange.start && !dateRange.end) {
-      return tasks;
-    }
-
-    const filteredTasks = {};
-
-    Object.entries(tasks).forEach(([dateKey, dateTasks]) => {
-      const filteredDateTasks = dateTasks.filter(task => {
-        let rawTaskDate;
-        
-        if (dateFilterType === 'dueDate') {
-          rawTaskDate = getDueDateForTask(task);
-        } else {
-          rawTaskDate = task.createdAt || task.createdDate || null;
-        }
-
-        const taskDate = getLocalDateStart(rawTaskDate);
-        if (!taskDate) return false;
-
-        if (selectedDate && !dateRange.start && !dateRange.end) {
-          const selected = parseLocalDateInput(selectedDate);
-          return selected ? taskDate.getTime() === selected.getTime() : false;
-        }
-
-        if (dateRange.start || dateRange.end) {
-          const start = parseLocalDateInput(dateRange.start);
-          const end = parseLocalDateInput(dateRange.end);
-
-          return (!start || taskDate >= start) && (!end || taskDate <= end);
-        }
-
-        return true;
-      });
-
-      if (filteredDateTasks.length > 0) {
-        filteredTasks[dateKey] = filteredDateTasks;
-      }
-    });
-
-    return filteredTasks;
-  }, [selectedDate, dateRange, dateFilterType, getDueDateForTask]);
+    return tasks || {};
+  }, []);
 
   
   const clearDateFilter = () => {
@@ -4349,6 +4979,7 @@ const UserCreateTask = () => {
       formData.append('repeatDays', JSON.stringify(newTask.repeatDays || []));
       formData.append('recurrenceEndDate', recurrenceEndDate);
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
+      formData.append('reminderSettings', JSON.stringify(buildReminderPayload(newTask.reminderSettings)));
 
       if (newTask.files) {
         for (let i = 0; i < newTask.files.length; i++) {
@@ -4427,6 +5058,7 @@ const UserCreateTask = () => {
         repeatPattern: 'none',
         repeatDays: [],
         recurrenceEndDate: '',
+        reminderSettings: createDefaultReminderSettings(),
       });
 
       window.setTimeout(() => void refreshCurrentTaskView('self'), 1800);
@@ -4563,10 +5195,23 @@ const UserCreateTask = () => {
   }, [openDialog, storedTaskUser]);
 
   useEffect(() => {
-    if (taskViewMode !== 'all' || !userId || authError) return;
+    if (!userId || authError) return;
     setAllTasksPagination(prev => ({ ...prev, page: 1 }));
     fetchAllTasks(1);
-  }, [taskViewMode, statusFilter, debouncedSearchTerm, timeFilter, userId, authError, fetchAllTasks]);
+  }, [
+    taskViewMode,
+    statusFilter,
+    debouncedSearchTerm,
+    timeFilter,
+    selectedDate,
+    dateRange.start,
+    dateRange.end,
+    dateFilterType,
+    showOverdueOnly,
+    userId,
+    authError,
+    fetchAllTasks
+  ]);
 
   useEffect(() => {
     if (taskViewMode === 'client' && clients.length === 0 && !loadingClients && !clientsLoadAttemptedRef.current) {
@@ -4617,7 +5262,7 @@ const UserCreateTask = () => {
     );
   }
 
-  const activeStats = filteredTaskStats;
+  const activeStats = allTaskStats || filteredTaskStats;
   const statusChartItems = [
     { label: 'Completed', value: activeStats.completed?.count || 0, color: '#22a95c' },
     { label: 'In Progress', value: activeStats.inProgress?.count || 0, color: '#3478e5' },
@@ -4834,8 +5479,8 @@ const UserCreateTask = () => {
             >
               <FiGlobe size={16} />
               All Tasks
-              {taskViewMode === 'all' && countGroupedTasks(visibleAllTasksGrouped) > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(visibleAllTasksGrouped)}</span>
+              {taskViewMode === 'all' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             <button
@@ -4844,8 +5489,8 @@ const UserCreateTask = () => {
             >
               <FiUser size={16} />
               My Personal Tasks
-              {taskViewMode === 'self' && Object.keys(myTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(myTasksGrouped)}</span>
+              {taskViewMode === 'self' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             <button
@@ -4854,8 +5499,8 @@ const UserCreateTask = () => {
             >
               <FiUsers size={16} />
               Assigned to Me
-              {taskViewMode === 'assigned' && Object.keys(assignedToMeTasksGrouped).length > 0 && (
-                <span className="view-toggle-count">{countGroupedTasks(assignedToMeTasksGrouped)}</span>
+              {taskViewMode === 'assigned' && allTasksPagination.total > 0 && (
+                <span className="view-toggle-count">{allTasksPagination.total}</span>
               )}
             </button>
             {taskFeatureAccess.client && (
@@ -4865,8 +5510,8 @@ const UserCreateTask = () => {
               >
                 <FiUsers size={16} />
                 Client Tasks
-                {taskViewMode === 'client' && Object.keys(visibleClientTasksGrouped).length > 0 && (
-                  <span className="view-toggle-count">{countGroupedTasks(visibleClientTasksGrouped)}</span>
+                {taskViewMode === 'client' && allTasksPagination.total > 0 && (
+                  <span className="view-toggle-count">{allTasksPagination.total}</span>
                 )}
               </button>
             )}
@@ -4877,8 +5522,8 @@ const UserCreateTask = () => {
               >
                 <FiTarget size={16} />
                 Project Tasks
-                {taskViewMode === 'project' && Object.keys(visibleProjectTasksGrouped).length > 0 && (
-                  <span className="view-toggle-count">{countGroupedTasks(visibleProjectTasksGrouped)}</span>
+                {taskViewMode === 'project' && allTasksPagination.total > 0 && (
+                  <span className="view-toggle-count">{allTasksPagination.total}</span>
                 )}
               </button>
             )}
@@ -5607,6 +6252,12 @@ const UserCreateTask = () => {
                 </div>
               </div>
 
+              {renderReminderSettings(
+                clientTaskForm.reminderSettings,
+                clientTaskForm.dueDateTime,
+                (nextSettings) => setClientTaskForm(prev => ({ ...prev, reminderSettings: nextSettings }))
+              )}
+
               <div className="user-create-task-form-control">
                 <div className="task-checkpoint-header">
                   <label>Checkpoints (Optional)</label>
@@ -5701,7 +6352,8 @@ const UserCreateTask = () => {
                     dueDateTime: '',
                     priority: 'medium',
                     assignedTo: '',
-                    checkpoints: []
+                    checkpoints: [],
+                    reminderSettings: createDefaultReminderSettings()
                   });
                 }}
                 aria-label="Close dialog"
@@ -5797,6 +6449,12 @@ const UserCreateTask = () => {
                   </div>
                 </div>
 
+                {renderReminderSettings(
+                  projectTaskForm.reminderSettings,
+                  projectTaskForm.dueDateTime,
+                  (nextSettings) => setProjectTaskForm(prev => ({ ...prev, reminderSettings: nextSettings }))
+                )}
+
                 <div className="user-create-task-form-control">
                   <label>Assign To</label>
                   <select
@@ -5869,7 +6527,8 @@ const UserCreateTask = () => {
                     dueDateTime: '',
                     priority: 'medium',
                     assignedTo: '',
-                    checkpoints: []
+                    checkpoints: [],
+                    reminderSettings: createDefaultReminderSettings()
                   });
                 }}
                 style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
@@ -6222,6 +6881,17 @@ const UserCreateTask = () => {
                                 <div className="user-create-task-mobile-card-actions">
                                   <div className="user-create-task-flex user-create-task-gap-1">
                                     <button 
+                                      className={`user-create-task-action-button task-reminder-action-btn ${task.reminderSettings?.enabled ? 'active-reminder' : ''}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openTaskReminderModal(task);
+                                      }}
+                                      title={task.reminderSettings?.enabled ? "Reminder Active - Click to edit" : "Set Reminder"}
+                                    >
+                                      <FiBell size={14} />
+                                      {task.reminderSettings?.enabled && <span className="reminder-dot-badge" />}
+                                    </button>
+                                    <button 
                                       className="user-create-task-action-button"
                                       onClick={() => fetchTaskRemarks(taskSource === 'project' ? task : task._id, taskSource)}
                                       title="View Remarks"
@@ -6538,6 +7208,17 @@ const UserCreateTask = () => {
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <div className="user-create-task-action-buttons">
                                   <button 
+                                    className={`user-create-task-action-button task-reminder-action-btn ${task.reminderSettings?.enabled ? 'active-reminder' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openTaskReminderModal(task);
+                                    }}
+                                    title={task.reminderSettings?.enabled ? "Reminder Active - Click to edit" : "Set Reminder"}
+                                  >
+                                    <FiBell size={isMobile ? 14 : 16} />
+                                    {task.reminderSettings?.enabled && <span className="reminder-dot-badge" />}
+                                  </button>
+                                  <button 
                                     className="user-create-task-action-button"
                                     onClick={() => fetchTaskRemarks(taskSource === 'project' ? task : task._id, taskSource)}
                                     title="View Remarks"
@@ -6623,7 +7304,7 @@ const UserCreateTask = () => {
             })()
           )}
 
-          {taskViewMode === 'all' && allTasksPagination.total > allTasksPagination.limit && (
+          {allTasksPagination.total > allTasksPagination.limit && (
             <div className="user-create-task-pagination">
               <button
                 className="user-create-task-button user-create-task-button-outlined"
@@ -6764,6 +7445,12 @@ const UserCreateTask = () => {
                   </div>
                 </div>
               </div>
+
+              {renderReminderSettings(
+                newTask.reminderSettings,
+                newTask.dueDateTime,
+                (nextSettings) => setNewTask(prev => ({ ...prev, reminderSettings: nextSettings }))
+              )}
 
               <div className="user-create-task-form-control">
                 <label>Priority Days</label>
@@ -7235,6 +7922,27 @@ const UserCreateTask = () => {
                 <div className="task-details-description">
                   <span>Description</span>
                   <p>{selectedTaskDetails.description || 'No description provided.'}</p>
+                </div>
+
+                <div className="task-details-description task-details-reminder-section">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FiBell /> Reminder settings</span>
+                    <button
+                      type="button"
+                      className="user-create-task-button user-create-task-button-outlined"
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                      onClick={() => openTaskReminderModal(selectedTaskDetails)}
+                    >
+                      <FiBell size={12} /> {selectedTaskDetails.reminderSettings?.enabled ? 'Edit Reminder' : 'Set Reminder'}
+                    </button>
+                  </div>
+                  {selectedTaskDetails.reminderSettings?.enabled ? (
+                    <div style={{ marginTop: '8px', fontSize: '13px', color: '#166534', background: '#f0fdf4', padding: '8px 12px', borderRadius: '6px' }}>
+                      🔔 <strong>Active:</strong> {formatActiveReminderLabels(selectedTaskDetails.reminderSettings)}
+                    </div>
+                  ) : (
+                    <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: '13px' }}>Reminder is OFF</p>
+                  )}
                 </div>
 
                 <div className="task-details-grid">
@@ -7956,6 +8664,154 @@ const UserCreateTask = () => {
                 console.error('Zoom image failed to load:', e.target.src);
               }}
             />
+          </div>
+        </div>
+      )}
+      {/* Reminder Confirmation Popup Modal */}
+      {reminderConfirmPopup.open && (
+        <div className="user-create-task-dialog-overlay task-reminder-overlay" style={{ zIndex: 99999 }}>
+          <div className="user-create-task-dialog task-reminder-confirm-dialog" style={{ maxWidth: '440px', width: '90%', textAlign: 'center', padding: '24px' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px' }}>
+              ⏰
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>
+              {reminderConfirmPopup.title}
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '14px', color: '#475569', lineHeight: 1.5 }}>
+              {reminderConfirmPopup.message}
+            </p>
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '20px', textAlign: 'left', fontSize: '13px' }}>
+              <div style={{ marginBottom: '6px' }}>
+                <strong style={{ color: '#334155' }}>Task:</strong> {reminderConfirmPopup.taskTitle || 'Current task'}
+              </div>
+              <div style={{ marginBottom: '6px' }}>
+                <strong style={{ color: '#334155' }}>Selected option:</strong> <span style={{ color: '#2563eb', fontWeight: 600 }}>{reminderConfirmPopup.optionLabel}</span>
+              </div>
+              <div>
+                <strong style={{ color: '#334155' }}>12-hour time:</strong> <span style={{ color: '#059669', fontWeight: 600 }}>{reminderConfirmPopup.time12h}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="user-create-task-button user-create-task-button-contained"
+              style={{ width: '100%', padding: '10px 0', fontSize: '14px' }}
+              onClick={() => setReminderConfirmPopup(prev => ({ ...prev, open: false }))}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reminder Alert / Alarm Trigger Popup Modal */}
+      {reminderAlertModal.open && (
+        <div className="user-create-task-dialog-overlay task-reminder-overlay" style={{ zIndex: 99999 }}>
+          <div className="user-create-task-dialog task-reminder-alert-dialog" style={{ maxWidth: '480px', width: '92%', padding: '24px', borderTop: '4px solid #f59e0b' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
+                🔔
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1e293b' }}>
+                  {reminderAlertModal.title || 'Task reminder alert'}
+                </h3>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+                  Type: {reminderAlertModal.taskType}
+                </span>
+              </div>
+            </div>
+            <p style={{ margin: '0 0 16px', fontSize: '15px', color: '#334155', lineHeight: 1.5 }}>
+              {reminderAlertModal.message}
+            </p>
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '20px', fontSize: '13px' }}>
+              <div style={{ marginBottom: '6px' }}>
+                <strong style={{ color: '#475569' }}>Task:</strong> {reminderAlertModal.task?.title || reminderAlertModal.task?.name || 'Task'}
+              </div>
+              {reminderAlertModal.dueTime12h && (
+                <div>
+                  <strong style={{ color: '#475569' }}>Due time:</strong> <span style={{ color: '#dc2626', fontWeight: 600 }}>{reminderAlertModal.dueTime12h}</span>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={() => setReminderAlertModal(prev => ({ ...prev, open: false }))}
+              >
+                Dismiss
+              </button>
+              {reminderAlertModal.task && (
+                <button
+                  type="button"
+                  className="user-create-task-button user-create-task-button-contained"
+                  onClick={() => {
+                    const target = reminderAlertModal.task;
+                    setReminderAlertModal(prev => ({ ...prev, open: false }));
+                    openTaskDetails(target);
+                  }}
+                >
+                  View Task Details
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Task Reminder Configuration Modal for ANY task */}
+      {taskReminderModal.open && taskReminderModal.task && (
+        <div className="user-create-task-dialog-overlay task-reminder-overlay" style={{ zIndex: 99998 }}>
+          <div className="user-create-task-dialog task-reminder-modal" style={{ maxWidth: '520px', width: '92%', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FiBell style={{ color: '#2563eb', fontSize: '20px' }} />
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Set Task Reminder</h3>
+              </div>
+              <button
+                type="button"
+                className="personal-task-close"
+                onClick={() => setTaskReminderModal({ open: false, task: null, settings: createDefaultReminderSettings(), saving: false })}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '13px' }}>
+              <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '4px' }}>
+                {taskReminderModal.task.title || taskReminderModal.task.name || 'Untitled task'}
+              </div>
+              <div style={{ color: '#64748b', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <span><strong>Type:</strong> {getTaskSource(taskReminderModal.task)}</span>
+                <span><strong>Due:</strong> {format12HourDateTime(getDueDateForTask(taskReminderModal.task)) || 'No due date'}</span>
+              </div>
+            </div>
+
+            {renderReminderSettings(
+              taskReminderModal.settings,
+              getDueDateForTask(taskReminderModal.task),
+              (nextSettings) => setTaskReminderModal(prev => ({ ...prev, settings: nextSettings })),
+              taskReminderModal.task.title || taskReminderModal.task.name
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button
+                type="button"
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={() => setTaskReminderModal({ open: false, task: null, settings: createDefaultReminderSettings(), saving: false })}
+                disabled={taskReminderModal.saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={handleSaveTaskReminder}
+                disabled={taskReminderModal.saving}
+              >
+                {taskReminderModal.saving ? 'Saving...' : 'Save Reminder'}
+              </button>
+            </div>
           </div>
         </div>
       )}

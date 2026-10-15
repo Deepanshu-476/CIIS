@@ -520,10 +520,21 @@ export default function CompanyRegister() {
                 type="tel"
                 name="companyPhone"
                 value={form.companyPhone}
+                onKeyDown={(e) => {
+                  if (
+                    !/[0-9]/.test(e.key) &&
+                    !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                    !e.ctrlKey && !e.metaKey
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
                 onChange={updateField}
                 className="company-form-input"
                 placeholder="10-digit mobile number"
                 maxLength={10}
+                inputMode="numeric"
+                pattern="[0-9]*"
                 autoComplete="off"
               />
               {fieldErrors.companyPhone && (

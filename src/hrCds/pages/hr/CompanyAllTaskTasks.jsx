@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import axios from "../../../utils/axiosConfig";
+import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../../components/TaskReminderControl';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import TaskDetailsModal from "../../components/TaskDetailsModal";
@@ -577,8 +578,8 @@ const CompanyAllTaskTasks = () => {
   const effectiveUserId = userId || searchParams.get("userId") || locationStateEmployee?._id || locationStateEmployee?.id || "";
 
   const todayStr = useMemo(() => getDateInputValue(), []);
-  const initialStartDate = searchParams.get("startDate") || todayStr;
-  const initialEndDate = searchParams.get("endDate") || todayStr;
+  const initialStartDate = searchParams.get("startDate") || "";
+  const initialEndDate = searchParams.get("endDate") || "";
   const locationStateSnapshot = location.state?.taskSnapshot || null;
 
   const initialCacheKey = buildCompanyTaskCacheKey({
@@ -674,6 +675,7 @@ const CompanyAllTaskTasks = () => {
     newCheckpointText: "",
     submitting: false,
     error: "",
+    reminderSettings: createDefaultReminderSettings(),
   });
 
   // Live Timer Interactive State
@@ -868,7 +870,7 @@ const CompanyAllTaskTasks = () => {
       setWorkSummary(data.workSummary || null);
       setPerformanceMetrics(data.performance || null);
       setTotal(data.pagination?.total || data.total || fetchedTasks.length);
-      setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
+      setTotalPages(data.pagination?.totalPages || data.pagination?.pages || data.totalPages || 1);
 
       const apiEmployee = data.employee || data.user;
       if (apiEmployee) {
@@ -1193,6 +1195,7 @@ const CompanyAllTaskTasks = () => {
       newCheckpointText: "",
       submitting: false,
       error: "",
+      reminderSettings: createDefaultReminderSettings(),
     });
   };
 
@@ -1238,6 +1241,7 @@ const CompanyAllTaskTasks = () => {
         priority: assignModal.priority || "medium",
         dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
         checkpoints: assignModal.checkpoints.map((c) => ({ title: c.title })),
+        reminderSettings: buildReminderPayload(assignModal.reminderSettings),
       };
 
       await axios.post("/task/create-for-others", payload);
@@ -2543,6 +2547,23 @@ const CompanyAllTaskTasks = () => {
 
               <div className="company-task-filter-group">
                 {/* Date range picker */}
+                <div className="quick-date-toggle-group">
+                  <button
+                    type="button"
+                    className={`btn-date-toggle ${isAllDatesFilterActive ? "active" : ""}`}
+                    onClick={handleSetAllDatesFilter}
+                  >
+                    All Dates
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-date-toggle ${isTodayFilterActive ? "active" : ""}`}
+                    onClick={handleSetTodayFilter}
+                  >
+                    Today
+                  </button>
+                </div>
+
                 <div className="company-task-date-inputs">
                   <FiCalendar size={13} className="date-icon" />
                   <input
@@ -2842,11 +2863,6 @@ const CompanyAllTaskTasks = () => {
                                       <span className={`badge-pill priority ${typeof task.priority === "string" ? task.priority.toLowerCase() : "medium"}`}>
                                         <span className="pri-dot" /> {resolveDisplayString(task.priority, "Medium")}
                                       </span>
-                                       {task.lastEditedByName && (
-                                         <span className="badge-pill edited" title={`Edited by ${resolveDisplayString(task.lastEditedByName, '')}${task.lastEditChanges ? ': ' + task.lastEditChanges : ''}`}>
-                                           <FiEdit2 size={11} /> Edited by {resolveDisplayString(task.lastEditedByName, 'User')}
-                                         </span>
-                                       )}
                                     </div>
                                   </div>
                                 </div>
@@ -2911,16 +2927,6 @@ const CompanyAllTaskTasks = () => {
                               <div className="task-row-bottom-split">
                                 <div className="task-row-bottom-left">
                                   <p className="task-desc">{task.description || task.title || "—"}</p>
-                                   {task.lastEditedByName && (
-                                     <div className="task-last-edit-info">
-                                       <FiEdit2 size={12} className="edit-info-icon" />
-                                      <span className="edit-info-text">
-                                        <strong>Edited by {resolveDisplayString(task.lastEditedByName, 'User')}</strong>
-                                        {task.lastEditedAt && ` on ${formatDateTime(task.lastEditedAt)}`}
-                                        {task.lastEditChanges && `: ${task.lastEditChanges}`}
-                                      </span>
-                                     </div>
-                                   )}
                                 </div>
 
                                 <div className="task-row-bottom-right">
@@ -3855,6 +3861,13 @@ const CompanyAllTaskTasks = () => {
                     </div>
                   </div>
                 </div>
+
+                <TaskReminderControl
+                  settings={assignModal.reminderSettings}
+                  dueDateTime={assignModal.dueDateTime}
+                  onChange={(nextSettings) => setAssignModal((prev) => ({ ...prev, reminderSettings: nextSettings }))}
+                  taskTitle={assignModal.title || 'Task'}
+                />
 
                 <div className="modal-footer">
                   <button

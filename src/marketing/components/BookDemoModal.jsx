@@ -449,9 +449,21 @@ const BookDemoModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose })
                       id="demo-phone"
                       name="phone"
                       type="tel"
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       className="ciis-demo-input"
                       placeholder="9876543210"
                       value={form.phone}
+                      onKeyDown={(e) => {
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                          !e.ctrlKey && !e.metaKey
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
                       onChange={handleChange}
                       disabled={isSubmitting}
                     />

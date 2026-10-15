@@ -3402,7 +3402,9 @@
 }
 
 body.chat-route-active .portal-chat-launcher,
-body.chat-route-active .portal-chat-widget {
+body.chat-route-active .portal-chat-widget,
+body.chat-route-active .portal-messenger-launcher,
+body.chat-route-active .fb-messenger-dropdown {
     display: none !important;
 }
 

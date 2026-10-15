@@ -37,15 +37,23 @@ const getStoredUser = () => {
 };
 
 const getUserId = (user) => user?._id || user?.id || null;
+const digitsOnly = (value) => String(value || "").replace(/\D/g, "");
+const lettersOnly = (value) => String(value || "").replace(/[^A-Za-z\s.'-]/g, "").replace(/\s{2,}/g, " ");
+const panInput = (value) => String(value || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 10);
+const ifscInput = (value) => String(value || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 11);
+const aadhaarInput = (value) => digitsOnly(value).slice(0, 12);
+const pinInput = (value) => digitsOnly(value).slice(0, 6);
+const phoneInput = (value) => digitsOnly(value).slice(0, 10);
+const accountInput = (value) => digitsOnly(value).slice(0, 18);
 
 const buildInitialForm = (user = {}) => ({
   name: user.name || "",
-  phone: user.phone || user.mobile || "",
+  phone: digitsOnly(user.phone || user.mobile),
   dob: user.dob || "",
   gender: user.gender || "",
   maritalStatus: user.maritalStatus || "",
   emergencyName: user.emergencyName || "",
-  emergencyPhone: user.emergencyPhone || "",
+  emergencyPhone: digitsOnly(user.emergencyPhone),
   emergencyRelation: user.emergencyRelation || "",
   emergencyAddress: user.emergencyAddress || "",
   address: user.address || "",
@@ -725,6 +733,14 @@ const Profile = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const validateLetters = (field, label, required = false) => {
+    const value = String(formData[field] || "").trim();
+    if (required && !value) return `${label} is required.`;
+    if (value && !/^[A-Za-z][A-Za-z\s.'-]*$/.test(value)) return `${label} should contain letters only.`;
+    return "";
+  };
+  const isEditingSection = (...sections) => editSection === "all" || sections.includes(editSection);
+
   const openEdit = (section = "all") => {
     setFormData(buildInitialForm(profile));
     setEditSection(section);
@@ -776,6 +792,39 @@ const Profile = () => {
   const handleSave = async (event) => {
     event.preventDefault();
 
+    const textValidationErrors = [
+      isEditingSection("personal") && validateLetters("name", "Full Name", true),
+      isEditingSection("personal") && validateLetters("city", "City"),
+      isEditingSection("personal") && validateLetters("state", "State"),
+      isEditingSection("personal") && validateLetters("country", "Country"),
+      isEditingSection("bank") && validateLetters("bankHolderName", "Account Holder Name", true),
+      isEditingSection("bank") && validateLetters("bankName", "Bank Name", true),
+      isEditingSection("family") && validateLetters("fatherName", "Father's Name", true),
+      isEditingSection("family") && validateLetters("motherName", "Mother's Name", true),
+      isEditingSection("family") && validateLetters("spouseName", "Spouse Name"),
+      isEditingSection("family") && validateLetters("emergencyName", "Emergency Contact Name"),
+      isEditingSection("family") && validateLetters("emergencyRelation", "Emergency Relation"),
+    ].find(Boolean);
+    if (textValidationErrors) {
+      setMessage({ type: "error", text: textValidationErrors });
+      return;
+    }
+
+    if ((editSection === "all" || editSection === "personal") && formData.phone.trim() && !/^\d{10}$/.test(formData.phone.trim())) {
+      setMessage({ type: "error", text: "Mobile Number must contain exactly 10 digits." });
+      return;
+    }
+
+    if ((editSection === "all" || editSection === "family") && formData.emergencyPhone.trim() && !/^\d{10}$/.test(formData.emergencyPhone.trim())) {
+      setMessage({ type: "error", text: "Emergency Contact Number must contain exactly 10 digits." });
+      return;
+    }
+
+    if ((editSection === "all" || editSection === "personal") && formData.pinCode.trim() && !/^\d{6}$/.test(formData.pinCode.trim())) {
+      setMessage({ type: "error", text: "PIN Code must contain exactly 6 digits." });
+      return;
+    }
+
     if ((editSection === "all" || editSection === "identity") && formData.aadhaar.trim() && !/^\d{12}$/.test(formData.aadhaar.trim())) {
       setMessage({ type: "error", text: "Aadhaar Number must contain exactly 12 digits." });
       return;
@@ -813,12 +862,12 @@ const Profile = () => {
 
     const allUpdateData = {
       name: formData.name.trim(),
-      phone: formData.phone.trim(),
+      phone: digitsOnly(formData.phone),
       dob: formData.dob || undefined,
       gender: formData.gender,
       maritalStatus: formData.maritalStatus,
       emergencyName: formData.emergencyName.trim(),
-      emergencyPhone: formData.emergencyPhone.trim(),
+      emergencyPhone: digitsOnly(formData.emergencyPhone),
       emergencyRelation: formData.emergencyRelation.trim(),
       emergencyAddress: formData.emergencyAddress.trim(),
       address: formData.address.trim(),
@@ -834,12 +883,12 @@ const Profile = () => {
       fatherName: formData.fatherName.trim(),
       motherName: formData.motherName.trim(),
       spouseName: formData.spouseName.trim(),
-      aadhaar: formData.aadhaar.trim(),
+      aadharCard: formData.aadhaar.trim(),
       panCard: normalizedPan,
     };
     const sectionFields = {
       personal: ["name", "phone", "dob", "gender", "address", "city", "state", "pinCode", "country"],
-      identity: ["aadhaar", "panCard"],
+      identity: ["aadharCard", "panCard"],
       bank: ["bankHolderName", "accountNumber", "confirmAccountNumber", "ifsc", "bankName"],
       family: ["maritalStatus", "fatherName", "motherName", "spouseName", "emergencyName", "emergencyPhone", "emergencyRelation", "emergencyAddress"],
     };
@@ -1404,15 +1453,27 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(event) => handleChange("name", event.target.value)}
+                      onChange={(event) => handleChange("name", lettersOnly(event.target.value))}
                     />
                   </label>
                   <label>
                     Mobile Number
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
                       value={formData.phone}
-                      onChange={(event) => handleChange("phone", event.target.value)}
+                      onKeyDown={(e) => {
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                          !e.ctrlKey && !e.metaKey
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onChange={(event) => handleChange("phone", phoneInput(event.target.value))}
                     />
                   </label>
                 </div>
@@ -1430,7 +1491,7 @@ const Profile = () => {
                       pattern="[0-9]{12}"
                       placeholder="12-digit Aadhaar number"
                       value={formData.aadhaar}
-                      onChange={(event) => handleChange("aadhaar", event.target.value.replace(/\D/g, ""))}
+                      onChange={(event) => handleChange("aadhaar", aadhaarInput(event.target.value))}
                     />
                   </label>}
                   {(editSection === "all" || editSection === "personal") && <>
@@ -1450,19 +1511,19 @@ const Profile = () => {
                   </label>
                   <label>
                     City
-                    <input type="text" value={formData.city} onChange={(event) => handleChange("city", event.target.value)} placeholder="City" />
+                    <input type="text" value={formData.city} onChange={(event) => handleChange("city", lettersOnly(event.target.value))} placeholder="City" />
                   </label>
                   <label>
                     State
-                    <input type="text" value={formData.state} onChange={(event) => handleChange("state", event.target.value)} placeholder="State" />
+                    <input type="text" value={formData.state} onChange={(event) => handleChange("state", lettersOnly(event.target.value))} placeholder="State" />
                   </label>
                   <label>
                     PIN Code
-                    <input type="text" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={formData.pinCode} onChange={(event) => handleChange("pinCode", event.target.value.replace(/\D/g, ""))} placeholder="6-digit PIN code" />
+                    <input type="text" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={formData.pinCode} onChange={(event) => handleChange("pinCode", pinInput(event.target.value))} placeholder="6-digit PIN code" />
                   </label>
                   <label>
                     Country
-                    <input type="text" value={formData.country} onChange={(event) => handleChange("country", event.target.value)} placeholder="Country" />
+                    <input type="text" value={formData.country} onChange={(event) => handleChange("country", lettersOnly(event.target.value))} placeholder="Country" />
                   </label>
                   </>}
                   {(editSection === "all" || editSection === "identity") && <label>
@@ -1473,7 +1534,7 @@ const Profile = () => {
                       pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}"
                       placeholder="ABCDE1234F"
                       value={formData.panCard}
-                      onChange={(event) => handleChange("panCard", event.target.value.toUpperCase())}
+                      onChange={(event) => handleChange("panCard", panInput(event.target.value))}
                     />
                   </label>}
                 </div>
@@ -1487,7 +1548,7 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.bankHolderName}
-                      onChange={(event) => handleChange("bankHolderName", event.target.value)}
+                      onChange={(event) => handleChange("bankHolderName", lettersOnly(event.target.value))}
                     />
                   </label>
                   <label>
@@ -1500,7 +1561,7 @@ const Profile = () => {
                       pattern="[0-9]{9,18}"
                       placeholder="9 to 18-digit account number"
                       value={formData.accountNumber}
-                      onChange={(event) => handleChange("accountNumber", event.target.value.replace(/\D/g, ""))}
+                      onChange={(event) => handleChange("accountNumber", accountInput(event.target.value))}
                     />
                   </label>
                   <label>
@@ -1513,7 +1574,7 @@ const Profile = () => {
                       pattern="[0-9]{9,18}"
                       placeholder="Re-enter account number"
                       value={formData.confirmAccountNumber}
-                      onChange={(event) => handleChange("confirmAccountNumber", event.target.value.replace(/\D/g, ""))}
+                      onChange={(event) => handleChange("confirmAccountNumber", accountInput(event.target.value))}
                     />
                   </label>
                   <label>
@@ -1524,7 +1585,7 @@ const Profile = () => {
                       pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}"
                       placeholder="SBIN0001234"
                       value={formData.ifsc}
-                      onChange={(event) => handleChange("ifsc", event.target.value.toUpperCase())}
+                      onChange={(event) => handleChange("ifsc", ifscInput(event.target.value))}
                     />
                   </label>
                   <label>
@@ -1532,7 +1593,7 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.bankName}
-                      onChange={(event) => handleChange("bankName", event.target.value)}
+                      onChange={(event) => handleChange("bankName", lettersOnly(event.target.value))}
                     />
                   </label>
                 </div>
@@ -1552,7 +1613,7 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.fatherName}
-                      onChange={(event) => handleChange("fatherName", event.target.value)}
+                      onChange={(event) => handleChange("fatherName", lettersOnly(event.target.value))}
                     />
                   </label>
                   <label>
@@ -1560,7 +1621,7 @@ const Profile = () => {
                     <input
                       type="text"
                       value={formData.motherName}
-                      onChange={(event) => handleChange("motherName", event.target.value)}
+                      onChange={(event) => handleChange("motherName", lettersOnly(event.target.value))}
                     />
                   </label>
                   {String(formData.maritalStatus || "").toLowerCase() === "married" && (
@@ -1569,17 +1630,33 @@ const Profile = () => {
                       <input
                         type="text"
                         value={formData.spouseName}
-                        onChange={(event) => handleChange("spouseName", event.target.value)}
+                        onChange={(event) => handleChange("spouseName", lettersOnly(event.target.value))}
                       />
                     </label>
                   )}
                   <label>
                     Emergency Contact Name
-                    <input type="text" value={formData.emergencyName} onChange={(event) => handleChange("emergencyName", event.target.value)} />
+                    <input type="text" value={formData.emergencyName} onChange={(event) => handleChange("emergencyName", lettersOnly(event.target.value))} />
                   </label>
                   <label>
                     Emergency Contact Number
-                    <input type="tel" value={formData.emergencyPhone} onChange={(event) => handleChange("emergencyPhone", event.target.value)} />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      value={formData.emergencyPhone}
+                      onKeyDown={(e) => {
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                          !e.ctrlKey && !e.metaKey
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onChange={(event) => handleChange("emergencyPhone", phoneInput(event.target.value))}
+                    />
                   </label>
                   <label className="UserDetails-form-full">
                     Emergency Address

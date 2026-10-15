@@ -276,9 +276,13 @@ const UserProfile = () => {
 
   
   const handleEditChange = (field, value) => {
+    let finalValue = value;
+    if (field === 'phone' || field === 'emergencyPhone') {
+      finalValue = String(value || '').replace(/\D/g, '').slice(0, 10);
+    }
     setEditedData(prev => ({
       ...prev,
-      [field]: value
+      [field]: finalValue
     }));
   };
 
@@ -504,7 +508,19 @@ const UserProfile = () => {
                       className="UserProfile-detail-input"
                       value={editedData?.phone || ''}
                       onChange={(e) => handleEditChange('phone', e.target.value)}
-                      placeholder="Enter your phone number"
+                      onKeyDown={(e) => {
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                          !e.ctrlKey && !e.metaKey
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder="Enter 10-digit phone number"
                     />
                   ) : (
                     <div className="UserProfile-detail-value">{userData?.phone || 'Not specified'}</div>
@@ -625,7 +641,19 @@ const UserProfile = () => {
                       className="UserProfile-detail-input"
                       value={editedData?.emergencyPhone || ''}
                       onChange={(e) => handleEditChange('emergencyPhone', e.target.value)}
-                      placeholder="Emergency contact phone"
+                      onKeyDown={(e) => {
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+                          !e.ctrlKey && !e.metaKey
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder="Enter 10-digit emergency phone"
                     />
                   ) : (
                     <div className="UserProfile-detail-value">{userData?.emergencyPhone || 'Not specified'}</div>

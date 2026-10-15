@@ -798,7 +798,24 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
         <div className="chat-settings-form">
           <input value={profileName} onChange={event => setProfileName(event.target.value)} placeholder="Your name" />
           <input value={email} onChange={event => setEmail(event.target.value)} placeholder="Email" />
-          <input value={phone} onChange={event => setPhone(event.target.value)} placeholder="Phone" />
+          <input
+            type="tel"
+            maxLength={10}
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={phone}
+            onKeyDown={event => {
+              if (
+                !/[0-9]/.test(event.key) &&
+                !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(event.key) &&
+                !event.ctrlKey && !event.metaKey
+              ) {
+                event.preventDefault();
+              }
+            }}
+            onChange={event => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
+            placeholder="10-digit Phone"
+          />
           <textarea value={about} onChange={event => setAbout(event.target.value)} placeholder="About" rows={3} />
           <button type="button" onClick={() => saveUserSettings()} disabled={saving}>Save profile</button>
         </div>

@@ -262,6 +262,15 @@ function SelfRegister() {
         type={type}
         value={form[name]}
         onChange={updateField}
+        onKeyDown={(name === 'phone' || name === 'emergencyPhone') ? (e => {
+          if (
+            !/[0-9]/.test(e.key) &&
+            !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End'].includes(e.key) &&
+            !e.ctrlKey && !e.metaKey
+          ) {
+            e.preventDefault();
+          }
+        }) : undefined}
         className="CreateUser-input"
         placeholder={placeholder}
         required={required}

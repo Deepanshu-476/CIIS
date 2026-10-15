@@ -361,9 +361,6 @@ const BookDemoModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose })
               <h2 id="ciis-demo-title" className="ciis-demo-title">
                 Book a <span>Live Demo</span>
               </h2>
-              <p className="ciis-demo-subtitle">
-                See CIIS running for a company like yours with live data, GPS attendance, payroll & task visibility.
-              </p>
             </div>
 
             {alertError && (
@@ -668,45 +665,6 @@ const BookDemoModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose })
                     </>
                   )}
                 </button>
-
-                <div className="ciis-demo-footer-note">
-                  <span className="ciis-demo-footer-item">
-                    <span
-                      style={{
-                        fontFamily: "'Material Symbols Rounded'",
-                        color: '#10b981',
-                        fontSize: '15px'
-                      }}
-                    >
-                      check_circle
-                    </span>
-                    No credit card required
-                  </span>
-                  <span className="ciis-demo-footer-item">
-                    <span
-                      style={{
-                        fontFamily: "'Material Symbols Rounded'",
-                        color: '#10b981',
-                        fontSize: '15px'
-                      }}
-                    >
-                      schedule
-                    </span>
-                    30-min focused session
-                  </span>
-                  <span className="ciis-demo-footer-item">
-                    <span
-                      style={{
-                        fontFamily: "'Material Symbols Rounded'",
-                        color: '#10b981',
-                        fontSize: '15px'
-                      }}
-                    >
-                      lock
-                    </span>
-                    100% Privacy guaranteed
-                  </span>
-                </div>
               </div>
             </form>
           </>

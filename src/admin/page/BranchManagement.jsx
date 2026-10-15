@@ -189,8 +189,12 @@ const BranchManagement = () => {
       toast: true,
       position: "top-end",
       showConfirmButton: false,
-      timer: 3000,
+      timer: 3500,
       timerProgressBar: true,
+      customClass: {
+        container: "branch-toast-container",
+        popup: "branch-toast-popup",
+      },
     });
   };
 

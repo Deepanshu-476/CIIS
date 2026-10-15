@@ -3,12 +3,24 @@ import { BrowserRouter, useLocation } from 'react-router-dom';
 import './index.css';
 import './utils/axiosConfig';
 import App from './App.jsx';
-
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { NotificationProvider } from './context/NotificationContext.jsx';
 import './App.css';
+
+// Automatically recover from stale Vite chunk failures after deploys or network dips
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    const lastReload = sessionStorage.getItem('vite_preload_reload');
+    const now = Date.now();
+    if (!lastReload || now - parseInt(lastReload, 10) > 8000) {
+      sessionStorage.setItem('vite_preload_reload', String(now));
+      window.location.reload();
+    }
+  });
+}
 
 const RealtimePortalProviders = ({ children }) => {
   const { pathname } = useLocation();
@@ -40,10 +52,12 @@ const RealtimePortalProviders = ({ children }) => {
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter>
-    <AuthProvider>
-      <RealtimePortalProviders>
-        <App />
-      </RealtimePortalProviders>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <RealtimePortalProviders>
+          <App />
+        </RealtimePortalProviders>
+      </AuthProvider>
+    </ErrorBoundary>
   </BrowserRouter>
 );  

@@ -860,12 +860,16 @@ const AnimatedStatValue = ({ value }) => {
 
 const UserCreateTask = () => {
   const storedTaskUser = useMemo(() => getStoredTaskUser(), []);
+  const initialTaskPeriod = 'today';
   const cachedTaskData = useMemo(() => {
     const availableCache =
       taskManagementMemoryCache ||
       getTaskManagementSessionCache() ||
       getTaskManagementPersistentCache(storedTaskUser?.id);
     if (!availableCache || availableCache.userId !== storedTaskUser?.id) {
+      return null;
+    }
+    if (availableCache.period !== initialTaskPeriod) {
       return null;
     }
     taskManagementMemoryCache = availableCache;
@@ -1010,7 +1014,7 @@ const UserCreateTask = () => {
 
   const [allTaskStats, setAllTaskStats] = useState(emptyExternalStats());
 
-  const [timeFilter, setTimeFilter] = useState("all");
+  const [timeFilter, setTimeFilter] = useState(initialTaskPeriod);
   const [trendHoverIndex, setTrendHoverIndex] = useState(null);
   const [trendPeriod, setTrendPeriod] = useState('weekly');
   const [notifications, setNotifications] = useState([]);
@@ -1030,7 +1034,12 @@ const UserCreateTask = () => {
   const activityRequestRef = useRef(0);
   const allTasksRefreshTimerRef = useRef(null);
   const allTasksRequestRef = useRef(0);
+  const allTaskCountsRequestRef = useRef(0);
+  const allTaskCountsAbortRef = useRef(null);
   const allTasksAbortRef = useRef(null);
+  const allTasksPageCacheRef = useRef(new Map());
+  const allTasksPrefetchAbortRef = useRef(null);
+  const allTasksPrefetchKeyRef = useRef('');
   const lastLongLivedRefreshRef = useRef(0);
   // Prevent an older list request from replacing a task status that the user
   // has just changed optimistically.
@@ -2882,9 +2891,43 @@ const UserCreateTask = () => {
     return params.toString();
   }, [dateFilterType, dateRange.end, dateRange.start, debouncedSearchTerm, selectedDate, showOverdueOnly, statusFilter, taskViewMode, timeFilter]);
 
+  const getAllTasksPageCacheKey = useCallback((page = 1, view = taskViewMode) => {
+    return buildTaskQueryParams({ includeAll: false, page, view });
+  }, [buildTaskQueryParams, taskViewMode]);
+
   const getUserTaskApiPeriod = useCallback(() => {
-    return 'all';
-  }, []);
+    if (selectedDate || dateRange.start || dateRange.end) return 'all';
+    return timeFilter || initialTaskPeriod;
+  }, [dateRange.end, dateRange.start, selectedDate, timeFilter]);
+
+  const fetchAllTaskCounts = useCallback(async (viewOverride = taskViewMode) => {
+    if (authError || !userId) return;
+
+    const requestId = allTaskCountsRequestRef.current + 1;
+    allTaskCountsRequestRef.current = requestId;
+
+    try {
+      const query = buildTaskQueryParams({ includeAll: false, page: 1, view: viewOverride });
+      if (allTaskCountsAbortRef.current) allTaskCountsAbortRef.current.abort();
+      const controller = new AbortController();
+      allTaskCountsAbortRef.current = controller;
+      const responseData = (await axios.get(`/tasks/counts?${query}`, { signal: controller.signal })).data;
+
+      if (allTaskCountsRequestRef.current !== requestId) return;
+
+      setAllTaskStats(responseData?.stats || emptyExternalStats());
+      allTasksStatsLoadedRef.current = true;
+    } catch (err) {
+      const requestWasCanceled = err.name === 'CanceledError' || err.code === 'ERR_CANCELED';
+      if (!requestWasCanceled) {
+        console.error('❌ Error in fetchAllTaskCounts:', err);
+      }
+    } finally {
+      if (allTaskCountsRequestRef.current === requestId) {
+        allTaskCountsAbortRef.current = null;
+      }
+    }
+  }, [authError, userId, buildTaskQueryParams, taskViewMode]);
 
   const buildUserTaskQueryParams = useCallback((period = 'all') => {
     const params = new URLSearchParams();
@@ -3490,10 +3533,16 @@ const UserCreateTask = () => {
     try {
       const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
       const query = params.toString();
-      if (allTasksAbortRef.current) allTasksAbortRef.current.abort();
-      const controller = new AbortController();
-      allTasksAbortRef.current = controller;
-      const responseData = (await axios.get(`/tasks/all?${query}`, { signal: controller.signal })).data;
+      const cachedPage = allTasksPageCacheRef.current.get(query);
+      let responseData = cachedPage?.data;
+
+      if (!responseData) {
+        if (allTasksAbortRef.current) allTasksAbortRef.current.abort();
+        const controller = new AbortController();
+        allTasksAbortRef.current = controller;
+        responseData = (await axios.get(`/tasks/all?${query}`, { signal: controller.signal })).data;
+        allTasksPageCacheRef.current.set(query, { data: responseData, cachedAt: Date.now() });
+      }
       let responseTasks = Array.isArray(responseData?.tasks) ? responseData.tasks : extractTasksFromResponse(responseData);
       const fallbackSource = viewOverride === 'self' || viewOverride === 'client' || viewOverride === 'project' || viewOverride === 'assigned'
         ? viewOverride
@@ -3519,12 +3568,10 @@ const UserCreateTask = () => {
       setAssignedToMeTasksGrouped(assignedGrouped);
       setClientTasksGrouped(clientGrouped);
       setProjectTasksGrouped(projectGrouped);
-      setAllTaskStats(responseData?.stats || calculateUnifiedStatsFromTasks(groupedTasks));
       calculateStatsFromTasks(selfGrouped);
       calculateAssignedStatsFromTasks(assignedGrouped);
       calculateClientStatsFromTasks(clientGrouped);
       calculateProjectStatsFromTasks(projectGrouped);
-      allTasksStatsLoadedRef.current = true;
       const pagination = responseData?.pagination || {};
       const nextPagination = {
         page: Number(pagination.page || targetPage),
@@ -3545,9 +3592,37 @@ const UserCreateTask = () => {
         clientTasksGrouped: clientGrouped,
         projectTasksGrouped: projectGrouped,
         allTasksPagination: nextPagination,
-        taskViewsLoaded: { all: true, self: true, assigned: true, client: true, project: true }
+        taskViewsLoaded: { all: true, self: true, assigned: true, client: true, project: true },
+        period: timeFilter || initialTaskPeriod
       };
       persistTaskManagementCache(taskManagementMemoryCache);
+
+      if (nextPagination.hasNext) {
+        const nextPage = nextPagination.page + 1;
+        const nextQuery = buildTaskQueryParams({ includeAll: false, page: nextPage, view: viewOverride });
+        if (!allTasksPageCacheRef.current.has(nextQuery) && allTasksPrefetchKeyRef.current !== nextQuery) {
+          if (allTasksPrefetchAbortRef.current) allTasksPrefetchAbortRef.current.abort();
+          const prefetchController = new AbortController();
+          allTasksPrefetchAbortRef.current = prefetchController;
+          allTasksPrefetchKeyRef.current = nextQuery;
+          axios.get(`/tasks/all?${nextQuery}`, { signal: prefetchController.signal })
+            .then(res => {
+              allTasksPageCacheRef.current.set(nextQuery, { data: res.data, cachedAt: Date.now() });
+            })
+            .catch(err => {
+              const requestWasCanceled = err.name === 'CanceledError' || err.code === 'ERR_CANCELED';
+              if (!requestWasCanceled) {
+                console.warn('Could not prefetch next task page:', err);
+              }
+            })
+            .finally(() => {
+              if (allTasksPrefetchKeyRef.current === nextQuery) {
+                allTasksPrefetchKeyRef.current = '';
+                allTasksPrefetchAbortRef.current = null;
+              }
+            });
+        }
+      }
     } catch (err) {
       const requestWasCanceled = err.name === 'CanceledError' || err.code === 'ERR_CANCELED';
       if (requestWasCanceled) {
@@ -3579,7 +3654,7 @@ const UserCreateTask = () => {
         setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
       }
     }
-  }, [authError, userId, buildTaskQueryParams, taskViewMode, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateUnifiedStatsFromTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
+  }, [authError, userId, buildTaskQueryParams, taskViewMode, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
 
   const scheduleAllTasksRefresh = useCallback((delay = 350) => {
     if (allTasksRefreshTimerRef.current) {
@@ -3589,8 +3664,9 @@ const UserCreateTask = () => {
     allTasksRefreshTimerRef.current = setTimeout(() => {
       allTasksRefreshTimerRef.current = null;
       void fetchAllTasks(allTasksPagination.page || 1);
+      void fetchAllTaskCounts(taskViewMode);
     }, delay);
-  }, [allTasksPagination.page, fetchAllTasks]);
+  }, [allTasksPagination.page, fetchAllTaskCounts, fetchAllTasks, taskViewMode]);
 
   const handleCreateProjectTask = useCallback(async () => {
     if (isCreatingProjectTask) return;
@@ -3620,6 +3696,58 @@ const UserCreateTask = () => {
     }
 
     setIsCreatingProjectTask(true);
+    const previousProjectTaskForm = projectTaskForm;
+    const tempTaskId = `temp-project-task-${Date.now()}`;
+    const optimisticTask = {
+      _id: tempTaskId,
+      projectTaskId: tempTaskId,
+      projectId: selectedProject._id || selectedProject.id,
+      title: projectTaskForm.title.trim(),
+      description: projectTaskForm.description.trim(),
+      dueDate: dueDateIso,
+      dueDateTime: dueDateIso,
+      priority: String(projectTaskForm.priority || 'medium').toLowerCase(),
+      status: 'pending',
+      userStatus: 'pending',
+      projectName: selectedProject.projectName,
+      assignedTo: assignedToId || null,
+      assignedUsers: assignedToId ? [assignedToId] : [],
+      checkpoints: getCleanCheckpoints(projectTaskForm.checkpoints),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      __taskSource: 'project',
+      taskSource: 'project',
+      source: 'project',
+      isOptimistic: true
+    };
+
+    setOpenProjectTaskDialog(false);
+    setProjectTaskForm({
+      title: '',
+      description: '',
+      dueDateTime: '',
+      priority: 'medium',
+      assignedTo: '',
+      checkpoints: [],
+      reminderSettings: createDefaultReminderSettings()
+    });
+    setTaskViewsLoaded(prev => ({ ...prev, project: true }));
+    setProjectTasksGrouped(prev => {
+      const existingTasks = Object.values(prev || {}).flat();
+      const updatedGrouped = groupTasksByDate([optimisticTask, ...existingTasks]);
+      calculateProjectStatsFromTasks(updatedGrouped);
+      return updatedGrouped;
+    });
+    setAllTasksGrouped(prev => {
+      const existingTasks = Object.values(prev || {}).flat();
+      return groupTasksByDate([optimisticTask, ...existingTasks]);
+    });
+    setAllTasksStatsGrouped(prev => {
+      const existingTasks = Object.values(prev || {}).flat();
+      return groupTasksByDate([optimisticTask, ...existingTasks]);
+    });
+    showSnackbar('Creating project task...', 'success');
+
     try {
       const payload = {
         title: projectTaskForm.title.trim(),
@@ -3657,34 +3785,21 @@ const UserCreateTask = () => {
         createdAt: responseTask.createdAt || new Date().toISOString()
       };
 
-      setProjectTasksGrouped(prev => {
+      const replaceOptimisticTask = (prev) => {
         const existingTasks = Object.values(prev || {}).flat();
-        const updatedGrouped = groupTasksByDate([createdTask, ...existingTasks]);
+        const withoutTemp = existingTasks.filter(task => String(task._id || task.projectTaskId) !== tempTaskId);
+        return groupTasksByDate([createdTask, ...withoutTemp]);
+      };
+
+      setProjectTasksGrouped(prev => {
+        const updatedGrouped = replaceOptimisticTask(prev);
         calculateProjectStatsFromTasks(updatedGrouped);
         return updatedGrouped;
       });
 
-      setAllTasksGrouped(prev => {
-        const existingTasks = Object.values(prev || {}).flat();
-        return groupTasksByDate([createdTask, ...existingTasks]);
-      });
+      setAllTasksGrouped(replaceOptimisticTask);
 
-      setAllTasksStatsGrouped(prev => {
-        const existingTasks = Object.values(prev || {}).flat();
-        return groupTasksByDate([createdTask, ...existingTasks]);
-      });
-
-      setProjectTaskForm({
-        title: '',
-        description: '',
-        dueDateTime: '',
-        priority: 'medium',
-        assignedTo: '',
-        checkpoints: [],
-        reminderSettings: createDefaultReminderSettings()
-      });
-      setOpenProjectTaskDialog(false);
-      setTaskViewsLoaded(prev => ({ ...prev, project: true }));
+      setAllTasksStatsGrouped(replaceOptimisticTask);
 
       Promise.allSettled([
         fetchProjectTasks(),
@@ -3694,6 +3809,17 @@ const UserCreateTask = () => {
       showSnackbar(`Project task created in ${selectedProject.projectName || 'project'}`, 'success');
     } catch (err) {
       console.error('Error creating project task:', err);
+      const removeOptimisticTask = (prev) => groupTasksByDate(
+        Object.values(prev || {}).flat().filter(task => String(task._id || task.projectTaskId) !== tempTaskId)
+      );
+      setProjectTasksGrouped(prev => {
+        const updatedGrouped = removeOptimisticTask(prev);
+        calculateProjectStatsFromTasks(updatedGrouped);
+        return updatedGrouped;
+      });
+      setAllTasksGrouped(removeOptimisticTask);
+      setAllTasksStatsGrouped(removeOptimisticTask);
+      setProjectTaskForm(previousProjectTaskForm);
       showSnackbar(err.response?.data?.message || err.message || 'Project task creation failed', 'error');
     } finally {
       setIsCreatingProjectTask(false);
@@ -3774,6 +3900,7 @@ const UserCreateTask = () => {
   const handleViewModeChange = (mode) => {
     if (mode === taskViewMode) {
       fetchAllTasks(allTasksPagination.page || 1, mode);
+      fetchAllTaskCounts(mode);
       if (mode === 'client' && (!clientsLoadAttemptedRef.current || clients.length === 0)) {
         fetchClients();
       }
@@ -4144,16 +4271,20 @@ const UserCreateTask = () => {
       const statusToApply = pendingStatusChange.status;
       const statusTaskId = pendingStatusChange.taskId || taskId;
       const hasRemarkContent = Boolean(newRemark.trim() || remarkImages.length > 0);
+
+      if (!hasRemarkContent && !statusToApply) {
+        setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
+        return;
+      }
+
+      setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
+      if (statusToApply) {
+        setPendingStatusChange({ taskId: null, status: "", source: null });
+      }
+
       const remarkAdded = hasRemarkContent ? await addRemark(taskId, activeRemarkSource) : false;
 
       if (hasRemarkContent && !remarkAdded) return;
-
-      if (!hasRemarkContent) {
-        if (!statusToApply) {
-          setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
-          return;
-        }
-      }
 
       if (statusToApply) {
         const statusSource = pendingStatusChange.source || taskViewMode;
@@ -4190,7 +4321,6 @@ const UserCreateTask = () => {
           );
         }
         if (!statusUpdated) return;
-        setPendingStatusChange({ taskId: null, status: "", source: null });
       }
 
       setNewRemark("");
@@ -4204,8 +4334,6 @@ const UserCreateTask = () => {
       } else if (hasRemarkContent) {
         showSnackbar('Remark added successfully', 'success');
       }
-      setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
-      
     } catch (error) {
       console.error("Error saving remark:", error);
       showSnackbar('Failed to save remark', 'error');
@@ -4629,20 +4757,13 @@ const UserCreateTask = () => {
       }
   };
 
-  const refreshCurrentTaskView = async (source = taskViewMode) => {
-    if (taskViewMode === 'all') {
-      await fetchAllTasks(allTasksPagination.page || 1);
-    }
-    if (source === 'self' || taskViewMode === 'self') {
-      await fetchMyTasks();
-    } else if (source === 'client' || taskViewMode === 'client') {
-      await fetchClientTasks();
-    } else if (source === 'project' || taskViewMode === 'project') {
-      await fetchProjectTasks();
-    } else {
-      await fetchAssignedToMeTasks();
-    }
-  };
+  const refreshCurrentTaskView = useCallback(async (source = taskViewMode) => {
+    const viewToRefresh = taskViewMode || source || 'all';
+    await Promise.all([
+      fetchAllTasks(allTasksPagination.page || 1, viewToRefresh),
+      fetchAllTaskCounts(viewToRefresh)
+    ]);
+  }, [allTasksPagination.page, fetchAllTaskCounts, fetchAllTasks, taskViewMode]);
 
   useEffect(() => {
     if (!userId || authError) return undefined;
@@ -5286,6 +5407,12 @@ const UserCreateTask = () => {
 
   useEffect(() => {
     if (!userId || authError) return;
+    allTasksPageCacheRef.current.clear();
+    allTasksPrefetchKeyRef.current = '';
+    if (allTasksPrefetchAbortRef.current) {
+      allTasksPrefetchAbortRef.current.abort();
+      allTasksPrefetchAbortRef.current = null;
+    }
     setAllTasksPagination(prev => ({ ...prev, page: 1 }));
     fetchAllTasks(1);
   }, [
@@ -5304,6 +5431,24 @@ const UserCreateTask = () => {
   ]);
 
   useEffect(() => {
+    if (!userId || authError) return;
+    fetchAllTaskCounts(taskViewMode);
+  }, [
+    taskViewMode,
+    statusFilter,
+    debouncedSearchTerm,
+    timeFilter,
+    selectedDate,
+    dateRange.start,
+    dateRange.end,
+    dateFilterType,
+    showOverdueOnly,
+    userId,
+    authError,
+    fetchAllTaskCounts
+  ]);
+
+  useEffect(() => {
     if (taskViewMode === 'client' && clients.length === 0 && !loadingClients && !clientsLoadAttemptedRef.current) {
       fetchClients();
     }
@@ -5317,6 +5462,15 @@ const UserCreateTask = () => {
       }
       if (allTasksRefreshTimerRef.current) {
         clearTimeout(allTasksRefreshTimerRef.current);
+      }
+      if (allTasksAbortRef.current) {
+        allTasksAbortRef.current.abort();
+      }
+      if (allTaskCountsAbortRef.current) {
+        allTaskCountsAbortRef.current.abort();
+      }
+      if (allTasksPrefetchAbortRef.current) {
+        allTasksPrefetchAbortRef.current.abort();
       }
       
       remarkImages.forEach(image => {
@@ -6720,17 +6874,8 @@ const UserCreateTask = () => {
                 <button
                   className="user-create-task-action-button"
                   onClick={() => {
-                    if (taskViewMode === 'all') {
-                      fetchAllTasks(allTasksPagination.page || 1);
-                    } else if (taskViewMode === 'self') {
-                      fetchMyTasks();
-                    } else if (taskViewMode === 'client') {
-                      fetchClientTasks();
-                    } else if (taskViewMode === 'project') {
-                      fetchProjectTasks();
-                    } else {
-                      fetchAssignedToMeTasks();
-                    }
+                    fetchAllTasks(allTasksPagination.page || 1, taskViewMode);
+                    fetchAllTaskCounts(taskViewMode);
                   }}
                 >
                   <FiRefreshCw size={isMobile ? 14 : 16} />

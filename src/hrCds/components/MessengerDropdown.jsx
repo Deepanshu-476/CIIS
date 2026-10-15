@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
 import {
   Search,
   MoreHorizontal,
@@ -14,8 +15,16 @@ import {
   Check,
   Smile,
   Sparkles,
-  ChevronDown,
   MessageCircle,
+  Phone,
+  Video,
+  Mic,
+  Camera,
+  FileText,
+  Images,
+  Paperclip,
+  MoreVertical,
+  Trash2,
 } from "lucide-react";
 import {
   getConversations,
@@ -26,10 +35,13 @@ import {
   getMessages,
   sendMessage,
   markMessageSeen,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
 } from "../../services/chatService";
 import { resolveAvatarUrl } from "../../chat/messageUtils";
 import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/useAuth";
+import { useCall } from "../../context/CallContext";
 import "./MessengerDropdown.css";
 
 const formatRelativeTime = (timestamp) => {
@@ -68,12 +80,77 @@ const getEntityId = (value) => {
   return value.toString();
 };
 
+const getConversationId = (value) => (
+  value?.conversationId || value?.conversation?._id || value?._id || value?.id || ""
+).toString();
+
+const getMessageSenderId = (message) => getEntityId(message?.sender || message?.senderId);
+
+const getMessagePreview = (message) => {
+  if (!message) return "Start conversation";
+  if (message.deletedForEveryone) return "This message was deleted";
+  if (message.text) return message.text;
+  if (message.file) {
+    if (String(message.fileType || "").startsWith("image/")) return "Photo";
+    if (String(message.fileType || "").startsWith("video/")) return "Video";
+    if (String(message.fileType || "").startsWith("audio/")) return "Voice message";
+    return "Attachment";
+  }
+  return "New message";
+};
+
+const sortConversationItems = (items = []) => [...items].sort((first, second) => {
+  const firstTime = new Date(first?.lastMessage?.createdAt || first?.updatedAt || first?.createdAt || 0).getTime();
+  const secondTime = new Date(second?.lastMessage?.createdAt || second?.updatedAt || second?.createdAt || 0).getTime();
+  if (secondTime !== firstTime) return secondTime - firstTime;
+  return getConversationId(first).localeCompare(getConversationId(second));
+});
+
+const MAX_WIDGET_FILE_SIZE = 50 * 1024 * 1024;
+const CHAT_EMOJI_CATEGORIES = [
+  { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
+  { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
+  { category: Categories.FOOD_DRINK, name: "Food & Drink" },
+  { category: Categories.ACTIVITIES, name: "Activities" },
+  { category: Categories.TRAVEL_PLACES, name: "Travel" },
+  { category: Categories.OBJECTS, name: "Objects" },
+  { category: Categories.SYMBOLS, name: "Symbols" },
+  { category: Categories.FLAGS, name: "Flags" },
+];
+
+const getAttachmentKind = (file) => {
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "").toLowerCase();
+  if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(name)) return "image";
+  if (type.startsWith("video/") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(name)) return "video";
+  if (type.startsWith("audio/") || /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i.test(name)) return "audio";
+  return "document";
+};
+
+const formatFileSize = (bytes = 0) => {
+  const size = Number(bytes) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { socket } = useSocket();
+  const { startCall } = useCall();
 
   const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
+
+  const isClientUser = useMemo(() => {
+    const rawRole = currentUser?.companyRole || currentUser?.role || currentUser?.jobRoleName || currentUser?.jobRole || currentUser?.designation || '';
+    const roleName = typeof rawRole === 'object' ? (rawRole.roleName || rawRole.name || rawRole.title || '') : String(rawRole);
+    return (
+      roleName.trim().toLowerCase() === 'client' ||
+      String(currentUser?.companyRole || '').trim().toLowerCase() === 'client' ||
+      window.location.pathname.startsWith('/client')
+    );
+  }, [currentUser]);
 
   // Controlled or internal open state
   const [isOpenInternal, setIsOpenInternal] = useState(false);
@@ -97,14 +174,37 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const [activeTab, setActiveTab] = useState("all"); // "all" | "unread" | "groups" | "colleagues"
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [openMessageMenuId, setOpenMessageMenuId] = useState("");
+  const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(null);
+  const [pendingAttachment, setPendingAttachment] = useState(null);
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState("");
+  const [attachmentError, setAttachmentError] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Input & Sending
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const sendingRef = useRef(false);
 
   const messagesEndRef = useRef(null);
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
+  const documentInputRef = useRef(null);
+  const mediaInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const audioInputRef = useRef(null);
+  const receivedMessageIdsRef = useRef(new Set());
+
+  useEffect(() => {
+    if (!pendingAttachment?.file) {
+      setAttachmentPreviewUrl("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(pendingAttachment.file);
+    setAttachmentPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingAttachment]);
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = (smooth = true) => {
@@ -119,6 +219,24 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const handleCloseWidget = () => {
     if (onClose) onClose();
     setIsOpenInternal(false);
+  };
+
+  const getSelectedChatTarget = () => {
+    if (!selectedChat) return null;
+    if (selectedChat.targetUser) return selectedChat.targetUser;
+    if (selectedChat.conversation) {
+      if (selectedChat.conversation.isGroup || selectedChat.isGroup) return selectedChat.conversation;
+      return (selectedChat.conversation.members || []).find((member) => (
+        getEntityId(member) !== currentUserId
+      )) || selectedChat.conversation;
+    }
+    if (selectedChat.isGroup) return selectedChat;
+    if (Array.isArray(selectedChat.members)) {
+      return selectedChat.members.find((member) => (
+        getEntityId(member) !== currentUserId
+      )) || selectedChat;
+    }
+    return selectedChat;
   };
 
   useEffect(() => {
@@ -164,7 +282,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       const usersList = usersRes.data?.users || [];
       const groupsList = groupsRes.data?.groups || groupsRes.data?.data || [];
 
-      setConversations(convList);
+      setConversations(sortConversationItems(convList));
       setCompanyUsers(usersList);
       setCompanyGroups(groupsList);
 
@@ -199,13 +317,38 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       if (uid) setOnlineUserIds((prev) => prev.filter((id) => id !== uid));
     };
 
+    const updateConversationFromMessage = (msg) => {
+      const msgConvId = getConversationId(msg);
+      if (!msgConvId) return;
+      const messageId = (msg?._id || msg?.id || "").toString();
+      const alreadyHandled = messageId && receivedMessageIdsRef.current.has(messageId);
+      if (messageId) receivedMessageIdsRef.current.add(messageId);
+      const isIncoming = getMessageSenderId(msg) !== currentUserId;
+      const isViewing = activeConversationId && msgConvId === activeConversationId;
+
+      setConversations(prev => sortConversationItems(prev.map(conv => (
+        getConversationId(conv) === msgConvId
+          ? {
+              ...conv,
+              lastMessage: msg,
+              updatedAt: msg.createdAt || conv.updatedAt,
+              unreadCount: isIncoming && !isViewing && !alreadyHandled
+                ? (Number(conv.unreadCount) || 0) + 1
+                : (isViewing ? 0 : conv.unreadCount),
+            }
+          : conv
+      ))));
+    };
+
     const handleReceiveMessage = (msg) => {
       const msgConvId = (msg?.conversationId || msg?.conversation?._id || "").toString();
+      updateConversationFromMessage(msg);
 
       // If viewing this conversation currently
       if (activeConversationId && msgConvId === activeConversationId) {
+        const incomingId = String(msg?._id || msg?.id || "");
         setMessages((prev) => {
-          if (prev.some((m) => (m._id || m.id) === (msg._id || msg.id))) return prev;
+          if (incomingId && prev.some((m) => String(m._id || m.id || "") === incomingId)) return prev;
           return [...prev, msg];
         });
         setTimeout(() => scrollToBottom(true), 50);
@@ -220,12 +363,19 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         }
       }
 
-      // Refresh conversations list to update last message & unread badge
-      loadChatData();
     };
 
-    const handleUnreadUpdate = () => {
-      loadChatData();
+    const handleUnreadUpdate = (data = {}) => {
+      const conversationId = data.conversationId?.toString();
+      if (!conversationId) {
+        loadChatData();
+        return;
+      }
+      setConversations(prev => sortConversationItems(prev.map(conv => (
+        getConversationId(conv) === conversationId
+          ? { ...conv, unreadCount: Number(data.count) || 0 }
+          : conv
+      ))));
     };
 
     socket.on("chat:online-users", handleOnline);
@@ -233,6 +383,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     socket.on("chat:user-offline", handleUserOffline);
     socket.on("chat:receive-message", handleReceiveMessage);
     socket.on("chat:unread-update", handleUnreadUpdate);
+    socket.on("chat:conversation-updated", loadChatData);
 
     if (socket.connected) {
       socket.emit("chat:get-online-users", handleOnline);
@@ -244,8 +395,13 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       socket.off("chat:user-offline", handleUserOffline);
       socket.off("chat:receive-message", handleReceiveMessage);
       socket.off("chat:unread-update", handleUnreadUpdate);
+      socket.off("chat:conversation-updated", loadChatData);
     };
   }, [socket, activeConversationId, currentUserId]);
+
+  useEffect(() => {
+    onUnreadChange?.(totalUnread);
+  }, [totalUnread, onUnreadChange]);
 
   // Handle opening a chat (conversation or colleague)
   const handleSelectChat = async (target) => {
@@ -253,6 +409,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     setActiveView("chat");
     setLoadingMessages(true);
     setInputText("");
+    setShowReactions(false);
+    setShowAttachmentMenu(false);
 
     try {
       let convId = target?.conversation?._id || (target?.members ? target?._id : null);
@@ -302,14 +460,17 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     setActiveView("list");
     setSelectedChat(null);
     setActiveConversationId(null);
+    setShowReactions(false);
+    setShowAttachmentMenu(false);
     loadChatData();
   };
 
   // Handle sending a message
   const handleSendMessage = async (textToSend = inputText) => {
     const text = String(textToSend || "").trim();
-    if (!text || !activeConversationId || isSending) return;
+    if (!text || !activeConversationId || isSending || sendingRef.current) return;
 
+    sendingRef.current = true;
     setIsSending(true);
     setInputText("");
 
@@ -321,19 +482,14 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       const res = await sendMessage(formData);
       const sentMsg = res.data?.message || res.data;
 
-      // Add to local state immediately
-      setMessages((prev) => [...prev, sentMsg]);
-
-      // Emit on socket for peer
-      if (socket) {
-        const receiverId = selectedChat?.isGroup
-          ? undefined
-          : getEntityId(selectedChat);
-
-        socket.emit("chat:send-message", {
-          conversationId: activeConversationId,
-          receiverId,
-          ...sentMsg,
+      // Add to local state only if not already received via socket
+      if (sentMsg) {
+        const sentId = String(sentMsg._id || sentMsg.id || "");
+        setMessages((prev) => {
+          if (sentId && prev.some((m) => String(m._id || m.id || "") === sentId)) {
+            return prev;
+          }
+          return [...prev, sentMsg];
         });
       }
 
@@ -343,22 +499,129 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       console.warn("Failed to send message:", err);
     } finally {
       setIsSending(false);
+      sendingRef.current = false;
       inputRef.current?.focus();
     }
   };
 
+  const validateAndPreviewFile = (file) => {
+    setAttachmentError("");
+    if (!file) return;
+    if (file.size > MAX_WIDGET_FILE_SIZE) {
+      setAttachmentError(`File size must be ${formatFileSize(MAX_WIDGET_FILE_SIZE)} or less.`);
+      return;
+    }
+    setPendingAttachment({
+      file,
+      kind: getAttachmentKind(file),
+    });
+    setShowAttachmentMenu(false);
+  };
+
+  const handleSendFile = async () => {
+    const file = pendingAttachment?.file;
+    if (!file || !activeConversationId || isSending || sendingRef.current) return;
+
+    sendingRef.current = true;
+    setIsSending(true);
+    setShowAttachmentMenu(false);
+    try {
+      const formData = new FormData();
+      formData.append("conversationId", activeConversationId);
+      formData.append("file", file);
+      formData.append("fileType", file.type || "application/octet-stream");
+      formData.append("fileName", file.name || `attachment-${Date.now()}`);
+
+      const res = await sendMessage(formData);
+      const sentMsg = res.data?.message || res.data;
+      if (sentMsg) {
+        const sentId = String(sentMsg._id || sentMsg.id || "");
+        setMessages((prev) => (
+          (sentId && prev.some((message) => String(message._id || message.id || "") === sentId))
+            ? prev
+            : [...prev, sentMsg]
+        ));
+      }
+      setTimeout(() => scrollToBottom(true), 50);
+      loadChatData();
+      setPendingAttachment(null);
+    } catch (err) {
+      console.warn("Failed to send attachment:", err);
+      setAttachmentError("Unable to send attachment. Please try again.");
+    } finally {
+      setIsSending(false);
+      sendingRef.current = false;
+      inputRef.current?.focus();
+    }
+  };
+
+  const handleFileInputChange = (event) => {
+    const [file] = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (file) validateAndPreviewFile(file);
+  };
+
   // Quick reaction emoji click
-  const handleReactionClick = (emoji) => {
-    handleSendMessage(emoji);
+  const handleReactionClick = (emojiData) => {
+    const emoji = emojiData?.emoji || "";
+    if (!emoji) return;
+    const input = inputRef.current;
+    const start = typeof input?.selectionStart === "number" ? input.selectionStart : inputText.length;
+    const end = typeof input?.selectionEnd === "number" ? input.selectionEnd : start;
+    const nextText = `${inputText.slice(0, start)}${emoji}${inputText.slice(end)}`;
+    setInputText(nextText);
     setShowReactions(false);
+    requestAnimationFrame(() => {
+      input?.focus();
+      const nextCursor = start + emoji.length;
+      input?.setSelectionRange?.(nextCursor, nextCursor);
+    });
+  };
+
+  const handleDeleteForMe = async (message) => {
+    if (!message?._id || isSending) return;
+    setIsSending(true);
+    try {
+      await deleteMessageForMe(message._id);
+      setMessages((prev) => prev.filter((item) => item._id !== message._id));
+      socket?.emit("chat:delete-for-me", { messageId: message._id, conversationId: activeConversationId });
+      loadChatData();
+    } finally {
+      setOpenMessageMenuId("");
+      setIsSending(false);
+    }
+  };
+
+  const confirmDeleteForEveryone = async () => {
+    const message = confirmDeleteMessage;
+    if (!message?._id || isSending) return;
+    setIsSending(true);
+    try {
+      await deleteMessageForEveryone(message._id);
+      setMessages((prev) => prev.map((item) => (
+        item._id === message._id ? { ...item, deletedForEveryone: true, text: "" } : item
+      )));
+      socket?.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: activeConversationId });
+      loadChatData();
+    } finally {
+      setConfirmDeleteMessage(null);
+      setOpenMessageMenuId("");
+      setIsSending(false);
+    }
   };
 
   // Navigate to full chat page
   const handleOpenFullPage = () => {
-    onClose();
+    handleCloseWidget();
     if (selectedChat) {
-      const uid = getEntityId(selectedChat);
-      navigate("/ciisUser/chat", { state: { selectedUserId: uid } });
+      const target = getSelectedChatTarget();
+      const uid = getEntityId(target || selectedChat);
+      navigate("/ciisUser/chat", {
+        state: {
+          selectedUserId: uid,
+          selectedConversationId: activeConversationId || selectedChat.conversation?._id || selectedChat._id,
+        },
+      });
     } else {
       navigate("/ciisUser/chat");
     }
@@ -377,6 +640,14 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     if (!item) return false;
     const uid = getEntityId(item);
     return onlineUserIds.includes(uid) || Boolean(item.isOnline);
+  };
+
+  const startWidgetCall = (callType) => {
+    const target = getSelectedChatTarget();
+    if (!target) return;
+    setShowReactions(false);
+    setShowAttachmentMenu(false);
+    startCall(callType, target);
   };
 
   // Filtered lists for the "list" view
@@ -467,6 +738,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     });
   }, [conversations, companyUsers, searchQuery, activeTab, currentUserId]);
 
+  if (isClientUser) {
+    return null;
+  }
+
   if (!isWidgetOpen) {
     return (
       <button
@@ -531,14 +806,6 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <SquarePen size={17} />
                 </button>
 
-                <button
-                  type="button"
-                  className="fb-messenger-icon-btn"
-                  title="Minimize"
-                  onClick={handleCloseWidget}
-                >
-                  <ChevronDown size={19} />
-                </button>
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
@@ -644,7 +911,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                       key={item.key}
                       type="button"
                       className={`fb-messenger-item ${item.unread > 0 ? "unread" : ""}`}
-                      onClick={() => handleSelectChat(item.targetUser || item.conversation || item)}
+                      onClick={() => handleSelectChat(item)}
                     >
                       <div className="fb-messenger-avatar-wrap">
                         <div className={`fb-messenger-avatar ${item.isGroup ? "group" : ""}`}>
@@ -755,18 +1022,26 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
-                  title="Open full page"
-                  onClick={handleOpenFullPage}
+                  title="Audio call"
+                  onClick={() => startWidgetCall("audio")}
                 >
-                  <Maximize2 size={16} />
+                  <Phone size={16} />
                 </button>
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
-                  title="Minimize"
-                  onClick={handleCloseWidget}
+                  title="Video call"
+                  onClick={() => startWidgetCall("video")}
                 >
-                  <ChevronDown size={18} />
+                  <Video size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="fb-messenger-icon-btn"
+                  title="Open full page"
+                  onClick={handleOpenFullPage}
+                >
+                  <Maximize2 size={16} />
                 </button>
                 <button
                   type="button"
@@ -780,7 +1055,25 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
             </div>
 
             {/* Messages Body */}
-            <div className="fb-chat-body">
+            <div
+              className={`fb-chat-body ${isDragOver ? "drag-over" : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setIsDragOver(false);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragOver(false);
+                const [file] = Array.from(event.dataTransfer.files || []);
+                if (file) validateAndPreviewFile(file);
+              }}
+            >
+              {isDragOver && <div className="fb-chat-drop-hint">Drop file to preview</div>}
               {loadingMessages ? (
                 <div className="fb-chat-empty-thread">
                   <span>Loading messages...</span>
@@ -790,15 +1083,105 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   const isMe =
                     getEntityId(msg.sender) === currentUserId ||
                     (typeof msg.sender === "string" && msg.sender === currentUserId);
+                  const messageId = msg._id || msg.id || index;
+                  const fileUrl = msg.file || msg.fileUrl || msg.attachmentUrl || msg.url || "";
+                  const fileType = String(msg.fileType || "").toLowerCase();
+                  const fileName = msg.fileName || msg.originalName || "Attachment";
+                  const fileKind = fileUrl
+                    ? fileType.startsWith("image/")
+                      ? "image"
+                      : fileType.startsWith("video/")
+                      ? "video"
+                      : fileType.startsWith("audio/")
+                      ? "audio"
+                      : "document"
+                    : "";
+                  const isDeleted = Boolean(msg.deletedForEveryone);
+                  const seenBy = Array.isArray(msg.seenBy) ? msg.seenBy : [];
+                  const isSeen = isMe && seenBy.some((entry) => getEntityId(entry) !== currentUserId);
+                  const showDelivered = isMe && !isSeen && !selectedChat?.isGroup && isUserOnline(getSelectedChatTarget());
 
                   return (
                     <div
-                      key={msg._id || index}
+                      key={messageId}
                       className={`fb-chat-message-row ${isMe ? "me" : "peer"}`}
                     >
-                      <div className="fb-chat-bubble">{msg.text}</div>
-                      <span className="fb-chat-time">
+                      <div className="fb-chat-bubble-wrap">
+                        <div className={`fb-chat-bubble ${isDeleted ? "deleted" : ""}`}>
+                          {isDeleted ? (
+                            <em>This message was deleted</em>
+                          ) : (
+                            <>
+                              {msg.text && <span>{msg.text}</span>}
+                              {fileKind === "image" && (
+                                <img className="fb-chat-message-image" src={fileUrl} alt={fileName} />
+                              )}
+                              {fileKind === "video" && (
+                                <video className="fb-chat-message-video" src={fileUrl} controls />
+                              )}
+                              {fileKind === "audio" && (
+                                <audio className="fb-chat-message-audio" src={fileUrl} controls />
+                              )}
+                              {fileKind === "document" && (
+                                <a
+                                  className="fb-chat-message-file"
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <FileText size={16} />
+                                  <span>{fileName}</span>
+                                </a>
+                              )}
+                              {!msg.text && !fileKind && getMessagePreview(msg)}
+                            </>
+                          )}
+                        </div>
+                        {!isDeleted && (
+                          <button
+                            type="button"
+                            className="fb-chat-message-menu-btn"
+                            title="Message options"
+                            onClick={() => setOpenMessageMenuId((prev) => (
+                              prev === messageId ? "" : messageId
+                            ))}
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                        )}
+                        {openMessageMenuId === messageId && !isDeleted && (
+                          <div className="fb-chat-message-menu">
+                            <button type="button" onClick={() => handleDeleteForMe(msg)}>
+                              <Trash2 size={14} /> Delete
+                            </button>
+                            {isMe && (
+                              <button
+                                type="button"
+                                className="danger"
+                                onClick={() => setConfirmDeleteMessage(msg)}
+                              >
+                                <Trash2 size={14} /> Delete for everyone
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`fb-chat-time ${isSeen ? "seen" : ""}`}>
                         {formatMessageTime(msg.createdAt)}
+                        {isMe && (
+                          <span
+                            className={`fb-chat-seen-mark ${
+                              isSeen ? "seen" : showDelivered ? "delivered" : "sent"
+                            }`}
+                            title={isSeen ? "Seen" : showDelivered ? "Delivered" : "Sent"}
+                          >
+                            {isSeen || showDelivered ? (
+                              <CheckCheck size={13} strokeWidth={3} />
+                            ) : (
+                              <Check size={13} strokeWidth={3} />
+                            )}
+                          </span>
+                        )}
                       </span>
                     </div>
                   );
@@ -817,22 +1200,52 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
             {/* Input Bar */}
             <div className="fb-chat-input-area">
+              {showAttachmentMenu && (
+                <div className="fb-chat-attachment-menu">
+                  <button type="button" onClick={() => documentInputRef.current?.click()}>
+                    <FileText size={18} /> Document
+                  </button>
+                  <button type="button" onClick={() => mediaInputRef.current?.click()}>
+                    <Images size={18} /> Photos & videos
+                  </button>
+                  <button type="button" onClick={() => cameraInputRef.current?.click()}>
+                    <Camera size={18} /> Camera
+                  </button>
+                  <button type="button" onClick={() => audioInputRef.current?.click()}>
+                    <Mic size={18} /> Audio
+                  </button>
+                </div>
+              )}
               {showReactions && (
-                <div className="fb-chat-quick-reactions">
-                  {["👍", "❤️", "😂", "🔥", "🎉", "👏", "💯", "🙏"].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className="fb-chat-reaction-btn"
-                      onClick={() => handleReactionClick(emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                <div className="fb-chat-emoji-menu">
+                  <EmojiPicker
+                    colorScheme={Theme.LIGHT}
+                    emojiStyle={EmojiStyle.NATIVE}
+                    categories={CHAT_EMOJI_CATEGORIES}
+                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
+                    searchPlaceHolder="Search emoji"
+                    lazyLoadEmojis
+                    width="100%"
+                    height={330}
+                    previewConfig={{ showPreview: false }}
+                    onEmojiClick={handleReactionClick}
+                  />
                 </div>
               )}
 
               <div className="fb-chat-inputbar">
+                <button
+                  type="button"
+                  className="fb-chat-attachment-btn"
+                  title="Attach"
+                  onClick={() => {
+                    setShowAttachmentMenu((prev) => !prev);
+                    setShowReactions(false);
+                  }}
+                  disabled={isSending}
+                >
+                  <Paperclip size={18} />
+                </button>
                 <button
                   type="button"
                   className="fb-messenger-search-clear"
@@ -867,7 +1280,111 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <Send size={15} />
                 </button>
               </div>
+              <input
+                ref={documentInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                onChange={handleFileInputChange}
+              />
+              <input
+                ref={mediaInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                accept="image/*,video/*"
+                onChange={handleFileInputChange}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileInputChange}
+              />
+              <input
+                ref={audioInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                accept="audio/*"
+                onChange={handleFileInputChange}
+              />
             </div>
+
+            {attachmentError && (
+              <div className="fb-chat-attachment-error">{attachmentError}</div>
+            )}
+
+            {pendingAttachment && (
+              <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
+                <div className="fb-chat-preview-modal">
+                  <button
+                    type="button"
+                    className="fb-chat-preview-close"
+                    title="Close preview"
+                    onClick={() => setPendingAttachment(null)}
+                  >
+                    <X size={18} />
+                  </button>
+                  <strong>Preview attachment</strong>
+                  <div className="fb-chat-preview-body">
+                    {pendingAttachment.kind === "image" && (
+                      <img src={attachmentPreviewUrl} alt={pendingAttachment.file.name} />
+                    )}
+                    {pendingAttachment.kind === "video" && (
+                      <video src={attachmentPreviewUrl} controls />
+                    )}
+                    {pendingAttachment.kind === "audio" && (
+                      <audio src={attachmentPreviewUrl} controls />
+                    )}
+                    {pendingAttachment.kind === "document" && (
+                      <div className="fb-chat-document-preview">
+                        <FileText size={28} />
+                        <span>{pendingAttachment.file.name}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="fb-chat-preview-meta">
+                    <span>{pendingAttachment.file.name}</span>
+                    <span>{formatFileSize(pendingAttachment.file.size)}</span>
+                  </div>
+                  <div className="fb-chat-preview-actions">
+                    <button type="button" onClick={() => setPendingAttachment(null)}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleSendFile}
+                      disabled={isSending}
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {confirmDeleteMessage && (
+              <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
+                <div className="fb-chat-confirm-modal">
+                  <strong>Delete for everyone?</strong>
+                  <p>This message will be removed from this conversation for all members.</p>
+                  <div className="fb-chat-preview-actions">
+                    <button type="button" onClick={() => setConfirmDeleteMessage(null)}>
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={confirmDeleteForEveryone}
+                      disabled={isSending}
+                    >
+                      Yes, delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

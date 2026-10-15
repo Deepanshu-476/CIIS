@@ -481,6 +481,7 @@ const UserDashboard = () => {
   });
   const [productivityData, setProductivityData] = useState({ loading: true, refreshing: false, error: '', score: 0, label: 'Poor', tone: 'danger', series: [] });
   const productivityRequestRef = useRef(0);
+  const summaryProductivityHydratedRef = useRef(false);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
   const [dashboardUser, setDashboardUser] = useState(null);
@@ -573,7 +574,10 @@ const UserDashboard = () => {
   }, [productivityDates, productivityPeriod, token]);
 
   useEffect(() => {
-    if (productivityPeriod !== 'custom') fetchProductivity(productivityPeriod, productivityDates);
+    if (!initialLoadDone) return;
+    if (productivityPeriod === 'custom') return;
+    if (summaryProductivityHydratedRef.current && productivityPeriod === 'weekly') return;
+    fetchProductivity(productivityPeriod, productivityDates);
   }, [fetchProductivity, productivityDates, productivityPeriod]);
 
   const companyDetails = useMemo(() => {
@@ -1283,6 +1287,33 @@ const UserDashboard = () => {
         setDashboardUser(summary.currentUser);
       }
 
+      if (summary.focusStats) {
+        const nextFocusStats = { loading: false, ...summary.focusStats };
+        setFocusStats(nextFocusStats);
+        writeDashboardCache({ focusStats: nextFocusStats });
+      }
+
+      if (summary.taskStats) {
+        setDashboardTaskStats({ loading: false, ...summary.taskStats });
+      }
+
+      if (summary.productivity) {
+        summaryProductivityHydratedRef.current = true;
+        setProductivityData({ ...summary.productivity, loading: false, refreshing: false, error: '' });
+      }
+
+      if (Array.isArray(summary.upcomingMeetings)) {
+        setUpcomingMeetings(summary.upcomingMeetings.map(meeting => ({
+          ...meeting,
+          scheduledAt: new Date(meeting.scheduledAt || `${meeting.date}T${meeting.time || '00:00'}`)
+        })));
+      }
+
+      if (Array.isArray(summary.projects)) {
+        setDashboardProjects(summary.projects);
+        writeDashboardCache({ projects: summary.projects });
+      }
+
       let holidaysData = summary.holidays || [];
       if (userJoinDate) {
         holidaysData = holidaysData.filter(holiday => !isBeforeJoinDate(new Date(holiday.date)));
@@ -1321,6 +1352,7 @@ const UserDashboard = () => {
         .slice(0, 8)
         .map(mapTaskToActivity);
       setTaskActivity(tasks);
+      setRecentTaskEvents(tasks);
       updateRecentActivity(
         attendanceRecords.filter(record => record.inTime || record.outTime || record.isClockedIn),
         holidaysData,
@@ -1351,17 +1383,10 @@ const UserDashboard = () => {
       cancelPendingRequests();
 
       try {
-        // Attendance status is intentionally fetched independently of the larger
-        // dashboard summary so a clock-in made on another device is shown at once.
-        fetchCurrentStatus();
-        fetchFocusStats();
         const summaryLoaded = await fetchDashboardSummary();
-        if (summaryLoaded) {
-          // The summary contains only persisted attendance records, while the
-          // attendance list also fills missing weekdays as ABSENT. Refresh the
-          // calendar from the list so both dashboard and full attendance agree.
-          fetchAttendanceData(true);
-        } else {
+        if (!summaryLoaded) {
+          fetchCurrentStatus();
+          fetchFocusStats();
           await Promise.allSettled([
             fetchDashboardConfig(),
             fetchJobRoles(),
@@ -1387,9 +1412,9 @@ const UserDashboard = () => {
 
     const timers = [];
     const idleHandle = runWhenIdle(() => {
-      timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
-      timers.push(window.setTimeout(fetchDashboardProjects, 1200));
-      timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
+      if (!upcomingMeetings.length) timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
+      if (!dashboardProjects.length) timers.push(window.setTimeout(fetchDashboardProjects, 1200));
+      if (!recentTaskEvents.length) timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
     });
 
     return () => {
@@ -1401,7 +1426,10 @@ const UserDashboard = () => {
     isUserInCurrentCompany,
     fetchUpcomingMeetings,
     fetchDashboardProjects,
-    fetchRecentTaskActivity
+    fetchRecentTaskActivity,
+    upcomingMeetings.length,
+    dashboardProjects.length,
+    recentTaskEvents.length
   ]);
 
 
@@ -1523,27 +1551,32 @@ const UserDashboard = () => {
       .map(record => `${new Date(record.date).getFullYear()}-${new Date(record.date).getMonth()}-${new Date(record.date).getDate()}`);
   }, [filteredAttendanceData]);
 
-  const leaveDates = useMemo(() => {
-    const dates = [];
+  const approvedLeaveDates = useMemo(() => {
+    const approved = [];
+
     filteredLeaveData.forEach(leave => {
       const leaveStatus = String(leave.status || '').trim().toUpperCase();
-      if (['PENDING', 'APPROVED'].includes(leaveStatus)) {
-        const start = new Date(leave.startDate);
-        const end = new Date(leave.endDate);
-        const current = new Date(start);
+      if (leaveStatus !== 'APPROVED') return;
 
-        while (current <= end) {
-          if (!isBeforeJoinDate(current)) {
-            dates.push(`${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`);
-          }
-          current.setDate(current.getDate() + 1);
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      const current = new Date(start);
+
+      while (current <= end) {
+        if (!isBeforeJoinDate(current)) {
+          const key = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
+          approved.push(key);
         }
+        current.setDate(current.getDate() + 1);
       }
     });
-    return [...new Set(dates)];
+
+    return [...new Set(approved)];
   }, [filteredLeaveData, isBeforeJoinDate]);
 
-  const leaveDateSet = useMemo(() => new Set(leaveDates), [leaveDates]);
+  const leaveDateSet = useMemo(() => new Set(approvedLeaveDates), [approvedLeaveDates]);
   const absentDateSet = useMemo(() => new Set(absentDates), [absentDates]);
 
 
@@ -1576,18 +1609,19 @@ const UserDashboard = () => {
     if (holidayDateSet.has(key)) return "holiday";
     if (isBeforeJoinDate(dateObj)) return "before-join";
     if (weekendDates.includes(key) || (isWeekend && !lateDates.includes(key) && !halfDayDates.includes(key) && !markedDates.includes(key))) return "weekend";
-    if (leaveDateSet.has(key)) return "leave";
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
     if (markedDates.includes(key)) return "present";
+    if (leaveDateSet.has(key)) return "leave";
     if (absentDateSet.has(key)) return "absent";
+    if (loading.attendance) return null;
 
     const todayStart = new Date(currentDate);
     todayStart.setHours(0, 0, 0, 0);
     if (dateObj < todayStart) return "absent";
 
     return null;
-  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
+  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user, loading.attendance]);
 
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
     const calculateMonth = (year, month, maxDay = null) => {
@@ -2537,7 +2571,8 @@ const UserDashboard = () => {
           <section className="quick-modal" onMouseDown={event => event.stopPropagation()} role="dialog" aria-modal="true">
             <header><div className={`quick-modal-icon ${activeQuickAction.tone}`}>{activeQuickAction.icon}</div><div><span>Quick action</span><h2>{activeQuickAction.label}</h2></div><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}><FiX /></button></header>
             <form onSubmit={submitQuickAction}>
-              {activeQuickAction.label === 'Meetings' ? (
+              <div className="quick-modal-body">
+                {activeQuickAction.label === 'Meetings' ? (
                 <div className="quick-meetings-view">
                   <div className="quick-meetings-summary"><div><strong>Upcoming meetings</strong><span>Your scheduled meetings in chronological order.</span></div><em>{upcomingMeetings.length}</em></div>
                   {upcomingMeetings.length ? <div className="quick-meetings-list">
@@ -2712,6 +2747,7 @@ const UserDashboard = () => {
                   </label>)}
                 </div>
               )}
+              </div>
               {['Meetings', 'My Notes'].includes(activeQuickAction.label) ? <footer><button type="button" onClick={() => setActiveQuickAction(null)}>Close</button></footer> : <footer><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}>Cancel</button><button type="submit" disabled={quickSubmitting}>{quickSubmitting ? 'Saving…' : activeQuickAction.label === 'New Task' ? `Create ${quickTaskType === 'personal' ? 'Personal' : quickTaskType === 'client' ? 'Client' : 'Assigned'} Task` : activeQuickAction.label === 'Add Client' ? 'Create Client' : `Save ${activeQuickAction.label}`}</button></footer>}
             </form>
           </section>

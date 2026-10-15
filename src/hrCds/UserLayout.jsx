@@ -16,6 +16,7 @@ import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
+import { useAuth } from '../context/useAuth';
 
 const drawerWidthOpen = 236;
 const drawerWidthClosed = 70;
@@ -56,6 +57,7 @@ const MainContent = styled('main', {
 }));
 
 const UserLayout = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const normalizedPath = location.pathname.replace(/\/+$/, '');
   const isDashboard = ['/ciisUser/user-dashboard', '/ciisUser/dashboard-1'].includes(normalizedPath);
@@ -63,6 +65,16 @@ const UserLayout = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const isClientUser = React.useMemo(() => {
+    const rawRole = user?.companyRole || user?.role || user?.jobRoleName || user?.jobRole || user?.designation || '';
+    const roleName = typeof rawRole === 'object' ? (rawRole.roleName || rawRole.name || rawRole.title || '') : String(rawRole);
+    return (
+      roleName.trim().toLowerCase() === 'client' ||
+      String(user?.companyRole || '').trim().toLowerCase() === 'client' ||
+      location.pathname.startsWith('/client')
+    );
+  }, [user, location.pathname]);
 
   const leaveTimerRef = React.useRef(null);
 
@@ -217,8 +229,8 @@ const UserLayout = () => {
         </CallProvider>
       </MainContent>
       <FeedbackQuestionnairePopup />
-      <SupportChatWidget />
-      <MessengerDropdown />
+      {!isClientUser && <SupportChatWidget />}
+      {!isClientUser && <MessengerDropdown />}
     </LayoutContainer>
   );
 };

@@ -307,13 +307,15 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
 
     if (data.client) {
       localStorage.setItem('client', JSON.stringify(data.client));
+      const clientId = String(data.client._id || data.client.id || data.client.clientId || '');
+      if (clientId) {
+        localStorage.setItem('client_portal_selected_client_id', clientId);
+      }
     }
 
     if (activeCompanyCode) {
-      if (form.rememberCompanyCode) {
-        localStorage.setItem('companyCode', activeCompanyCode);
-        localStorage.setItem('companyIdentifier', activeCompanyCode);
-      }
+      localStorage.setItem('companyCode', activeCompanyCode);
+      localStorage.setItem('companyIdentifier', activeCompanyCode);
     }
 
     if (data.companyDetails) {
@@ -698,6 +700,20 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
             </form>
 
             <div className="ciis-modal-footer">
+              <p className="ciis-modal-footer-text">
+                New employee?
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleModalClose();
+                    const code = form.companyCode?.trim();
+                    navigate(code ? `/company/${encodeURIComponent(code)}/register` : '/self-register');
+                  }}
+                  className="ciis-modal-register-link"
+                >
+                  Self Register
+                </button>
+              </p>
               <p className="ciis-modal-footer-text">
                 Don't have a company account?
                 <button

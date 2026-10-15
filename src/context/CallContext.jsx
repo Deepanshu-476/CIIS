@@ -53,6 +53,17 @@ const writeSavedCallHistory = (user, history) => {
   });
 };
 
+const formatCallDuration = (seconds = 0) => {
+  const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const remainingSeconds = safeSeconds % 60;
+  const two = value => value.toString().padStart(2, "0");
+  return hours > 0
+    ? `${two(hours)}:${two(minutes)}:${two(remainingSeconds)}`
+    : `${two(minutes)}:${two(remainingSeconds)}`;
+};
+
 export const CallProvider = ({ children }) => {
   const callOverlayRef = useRef(null);
   const [callHistory, setCallHistory] = useState([]);
@@ -86,7 +97,15 @@ export const CallProvider = ({ children }) => {
       if (existing) {
         return prev.map(item => (
           item.callId === event.callId
-            ? { ...item, ...event, updatedAt: now }
+            ? {
+                ...item,
+                ...event,
+                durationSeconds: event.durationSeconds ?? item.durationSeconds,
+                durationLabel: event.durationLabel || (
+                  event.durationSeconds !== undefined ? formatCallDuration(event.durationSeconds) : item.durationLabel
+                ),
+                updatedAt: now,
+              }
             : item
         ));
       }
@@ -103,6 +122,10 @@ export const CallProvider = ({ children }) => {
         isGroupCall: Boolean(event.isGroupCall),
         participantCount: event.participantCount || event.participantIds?.length || 1,
         startedAt: event.startedAt || now,
+        connectedAt: event.connectedAt || "",
+        endedAt: event.endedAt || "",
+        durationSeconds: event.durationSeconds || 0,
+        durationLabel: event.durationLabel || "",
         updatedAt: now,
       }, ...prev];
     });

@@ -88,10 +88,49 @@ export const updateNotificationPreferences = async (notificationPreferences) => 
     );
 };
 
-export const createCompanyGroup = async ({ name, description = "", members = [] }) => {
+const buildGroupPayload = ({ name, description = "", members = [], avatar = null }) => {
+    if (!avatar) return { name, description, members };
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("description", description);
+    members.forEach(memberId => formData.append("members[]", memberId));
+    formData.append("avatar", avatar);
+    return formData;
+};
+
+export const createCompanyGroup = async ({ name, description = "", members = [], avatar = null }) => {
+    const payload = buildGroupPayload({ name, description, members, avatar });
     return axios.post(
         `${API_URL}/groups`,
-        { name, description, members },
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const updateCompanyGroup = async (groupId, { name, description = "", members, avatar = null }) => {
+    const payload = buildGroupPayload({ name, description, members: members || [], avatar });
+    if (!avatar && members === undefined) {
+        delete payload.members;
+    }
+    return axios.put(
+        `${API_URL}/groups/${groupId}`,
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${getToken()}`
+            }
+        }
+    );
+};
+
+export const deleteCompanyGroup = async (groupId) => {
+    return axios.delete(
+        `${API_URL}/groups/${groupId}`,
         {
             headers: {
                 Authorization: `Bearer ${getToken()}`

@@ -30,17 +30,23 @@ const LayoutContainer = styled(Box)({
 
 const MainContent = styled('main', {
   shouldForwardProp: (prop) => prop !== 'isMobile' && prop !== 'isSidebarHovered',
-})(({ isMobile }) => ({
+})(({ isMobile, isSidebarHovered }) => ({
   flexGrow: 1,
   padding: 0,
   minHeight: 'calc(100dvh - 64px)',
   width: '100%',
   overflow: 'auto',
   backgroundColor: '#f8faff',
+  transition: `margin ${SIDEBAR_TRANSITION}, width ${SIDEBAR_TRANSITION}`,
 
   ...(!isMobile && {
     marginLeft: `${drawerWidthClosed}px`,
     width: `calc(100% - ${drawerWidthClosed}px)`,
+
+    ...(isSidebarHovered && {
+      marginLeft: `${drawerWidthOpen}px`,
+      width: `calc(100% - ${drawerWidthOpen}px)`,
+    }),
   }),
 
   ...(isMobile && {

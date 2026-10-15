@@ -307,14 +307,18 @@ const ActiveClientsOverview = () => {
   const isClientUser = String(user?.companyRole || user?.role || '').toLowerCase() === 'client';
 
   const getClientPrimaryName = client => (
-    String(client?.company || client?.businessName || getClientDisplayName(client) || 'Client').trim()
+    String(client?.client || client?.name || client?.clientName || client?.contactPerson || client?.company || client?.businessName || 'Client').trim()
   );
 
   const getClientSubtitle = client => {
     if (!client) return 'Active Client';
     const primary = getClientPrimaryName(client);
-    const contact = String(client.client || client.contactPerson || '').trim();
+    const company = String(client.company || client.businessName || '').trim();
     const code = client.clientCode || client.code || `CL-${String(client._id || '').slice(-4).toUpperCase()}`;
+    if (company && company.toLowerCase() !== primary.toLowerCase()) {
+      return `${company} • ${code}`;
+    }
+    const contact = String(client.client || client.contactPerson || '').trim();
     if (contact && contact.toLowerCase() !== primary.toLowerCase()) {
       return `${contact} • ${code}`;
     }

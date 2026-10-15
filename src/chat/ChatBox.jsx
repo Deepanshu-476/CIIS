@@ -46,7 +46,7 @@ const shouldAutoCompress = (file) => {
 const chooseCompressionMode = (file) => {
     const mediaType = getMediaCompressionType(file);
     if (!mediaType || shouldAutoCompress(file)) return "normal";
-    return window.confirm(`${file.name}\n\nHD me send karni hai?\nOK = HD, Cancel = Normal`)
+    return window.confirm(`${file.name}\n\nSend this file in HD quality?\nOK = HD, Cancel = Normal`)
         ? "hd"
         : "normal";
 };
@@ -221,6 +221,8 @@ const ChatBox = ({
     socket,
     onlineUsers = [],
     onConversationChange,
+    onDeleteGroup,
+    onUpdateGroup,
     onBack,
     chatSettings = {}
 }) => {
@@ -266,6 +268,7 @@ const ChatBox = ({
     const documentInputRef = useRef(null);
     const photosVideosInputRef = useRef(null);
     const audioInputRef = useRef(null);
+    const groupImageInputRef = useRef(null);
     const headerMenuRef = useRef(null);
     const chatBoxRef = useRef(null);
     const chatInputRef = useRef(null);
@@ -287,6 +290,7 @@ const ChatBox = ({
     const [showContactInfo, setShowContactInfo] = useState(false);
     const [contactPanelView, setContactPanelView] = useState("info");
     const [contactMediaTab, setContactMediaTab] = useState("media");
+    const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(null);
     const [contactSidebarWidth, setContactSidebarWidth] = useState(() => {
         const savedWidth = Number(localStorage.getItem("ciis-chat-contact-sidebar-width"));
         return Number.isFinite(savedWidth) && savedWidth >= 280 ? savedWidth : 360;
@@ -1347,6 +1351,15 @@ useEffect(() => {
     };
 
     const handleDeleteForEveryone = async (message) => {
+        setConfirmDeleteMessage(message);
+    };
+
+    const confirmDeleteForEveryone = async () => {
+        const message = confirmDeleteMessage;
+        if (!message?._id) {
+            setConfirmDeleteMessage(null);
+            return;
+        }
         try {
             setIsSendingAction(true);
             await deleteMessageForEveryone(message._id);
@@ -1359,6 +1372,7 @@ useEffect(() => {
             void 0;
         } finally {
             setIsSendingAction(false);
+            setConfirmDeleteMessage(null);
         }
     };
 
@@ -1591,8 +1605,8 @@ useEffect(() => {
                 }}
                 title={item.name}
             >
-                {canPreviewImage && item.message?.localPreviewUrl ? (
-                    <img src={item.message.localPreviewUrl} alt={item.name} />
+                {canPreviewImage ? (
+                    <img src={item.message?.localPreviewUrl || item.url} alt={item.name} />
                 ) : item.kind === "video" ? (
                     <><Video size={22} /><span className="chat-contact-play"><Play size={15} fill="currentColor" /></span></>
                 ) : item.kind === "audio" ? (
@@ -1789,7 +1803,21 @@ useEffect(() => {
                 <div className="chat-contact-profile">
                     <div className="chat-contact-avatar">
                         {selectedUser?.isGroup ? (
-                            selectedName?.charAt(0).toUpperCase() || "G"
+                            <>
+                                {selectedAvatar ? (
+                                    <img
+                                        src={selectedAvatar}
+                                        alt={selectedName}
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = "none";
+                                            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                                        }}
+                                    />
+                                ) : null}
+                                <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                    {selectedName?.charAt(0).toUpperCase() || "G"}
+                                </span>
+                            </>
                         ) : (
                             <>
                                 {selectedAvatar ? (
@@ -1812,6 +1840,25 @@ useEffect(() => {
                     </div>
                     <h2>{selectedName}</h2>
                     <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
+                    {selectedUser.isGroup && (
+                        <>
+                            <button
+                                type="button"
+                                className="chat-channel-photo-btn"
+                                onClick={() => groupImageInputRef.current?.click()}
+                                disabled={isSendingAction}
+                            >
+                                <Camera size={14} /> Change picture
+                            </button>
+                            <input
+                                ref={groupImageInputRef}
+                                type="file"
+                                accept="image/*"
+                                hidden
+                                onChange={updateCurrentChannelImage}
+                            />
+                        </>
+                    )}
                 </div>
                 <div className="chat-contact-actions">
                     <button
@@ -1842,6 +1889,39 @@ useEffect(() => {
                     <h3>About</h3>
                     <p>{selectedUser?.bio || selectedUser?.about || selectedUser?.companyRole || "Work hard in silence, let success make the noise."}</p>
                 </div>
+                {selectedUser?.isGroup && (
+                    <div className="chat-contact-section chat-group-members-section">
+                        <div className="chat-contact-section-head">
+                            <span>Members</span>
+                            <strong>{groupMemberCount}</strong>
+                        </div>
+                        <div className="chat-group-members-list">
+                            {(Array.isArray(groupMembers) ? groupMembers : []).map((member) => {
+                                const memberId = getMemberId(member);
+                                const memberName = typeof member === "object"
+                                    ? (member.name || member.fullName || member.email || "Member")
+                                    : (users || []).find(user => getEntityId(user) === memberId)?.name || "Member";
+                                const memberAvatar = typeof member === "object"
+                                    ? getAvatarSrc(member.profileImage || member.avatar || member.image || member.photo)
+                                    : "";
+                                return (
+                                    <div className="chat-group-member-row" key={memberId || memberName}>
+                                        <span className="chat-group-member-avatar">
+                                            {memberAvatar ? <img src={memberAvatar} alt={memberName} /> : memberName.charAt(0).toUpperCase()}
+                                        </span>
+                                        <span>
+                                            <strong>{memberId === currentUserId ? "You" : memberName}</strong>
+                                            <small>{isIdOnline(memberId) ? "Online" : "Offline"}</small>
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {(!Array.isArray(groupMembers) || groupMembers.length === 0) && (
+                                <p className="chat-contact-empty">No members found</p>
+                            )}
+                        </div>
+                    </div>
+                )}
                 <div className="chat-contact-section">
                     <div className="chat-contact-section-head">
                         <span>Media, links and docs</span>
@@ -2018,8 +2098,43 @@ useEffect(() => {
             setIsSendingAction(false);
         }
     };
+    const deleteCurrentChannel = async () => {
+        if (!selectedUser?.isGroup || isSendingAction) return;
+        if (!window.confirm("Delete this channel for everyone?")) return;
+        setShowHeaderMenu(false);
+        setIsSendingAction(true);
+        try {
+            await onDeleteGroup?.(selectedUser);
+            showToast?.("Channel deleted successfully.", "success");
+        } catch (error) {
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to delete channel.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const updateCurrentChannelImage = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file || !selectedUser?.isGroup || isSendingAction) return;
+        setIsSendingAction(true);
+        try {
+            await onUpdateGroup?.(selectedUser, {
+                name: getGroupName(selectedUser),
+                description: selectedUser.description || "",
+                members: (groupMembers || []).map(getMemberId).filter(Boolean),
+                avatar: file,
+            });
+            showToast?.("Channel picture updated.", "success");
+        } catch (error) {
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to update channel picture.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
     const selectedAvatar = selectedUser?.isGroup
-        ? null
+        ? getAvatarSrc(selectedUser.groupImage || selectedUser.profileImage || selectedUser.avatar || selectedUser.image)
         : getAvatarSrc(selectedUser);
     const selectedName = selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.name;
 
@@ -2050,7 +2165,21 @@ useEffect(() => {
                         <span className="chat-avatar">
                             {
                                 selectedUser.isGroup ? (
-                                    selectedName?.charAt(0).toUpperCase() || "G"
+                                    <>
+                                        {selectedAvatar ? (
+                                            <img
+                                                src={selectedAvatar}
+                                                alt={selectedName}
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = "none";
+                                                    if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                                                }}
+                                            />
+                                        ) : null}
+                                        <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                            {selectedName?.charAt(0).toUpperCase() || "G"}
+                                        </span>
+                                    </>
                                 ) : (
                                     <>
                                         {selectedAvatar ? (
@@ -2136,6 +2265,12 @@ useEffect(() => {
                                 <Trash2 size={17} />
                                 Clear chat
                             </button>
+                            {selectedUser.isGroup && (
+                                <button type="button" className="danger" onClick={deleteCurrentChannel} disabled={isSendingAction}>
+                                    <Trash2 size={17} />
+                                    Delete channel
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -2590,6 +2725,21 @@ useEffect(() => {
             >
                 <span />
             </div>
+            )}
+
+            {confirmDeleteMessage && (
+                <div className="chat-confirm-overlay" role="dialog" aria-modal="true">
+                    <div className="chat-confirm-modal">
+                        <strong>Delete message for everyone?</strong>
+                        <p>This message will be deleted for all members in this chat.</p>
+                        <div className="chat-confirm-actions">
+                            <button type="button" onClick={() => setConfirmDeleteMessage(null)} disabled={isSendingAction}>No</button>
+                            <button type="button" className="danger" onClick={confirmDeleteForEveryone} disabled={isSendingAction}>
+                                {isSendingAction ? "Deleting..." : "Yes, delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {showContactInfo && (

@@ -356,6 +356,7 @@ const Profile = () => {
       setProfile(mergedUser);
       setFormData(buildInitialForm(mergedUser));
       localStorage.setItem("user", JSON.stringify(mergedUser));
+      window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
     } catch (error) {
       console.error("Failed to load profile:", error);
       setProfile(storedUser);

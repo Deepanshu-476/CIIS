@@ -267,6 +267,16 @@ const getAlertAuthorRole = (alert) => {
   return "";
 };
 
+const getAlertAuthorDepartment = (alert) => {
+  const department = alert?.createdBy?.departmentName || alert?.createdBy?.department;
+  if (!department) return "";
+  if (typeof department === "object") {
+    return department.name || department.departmentName || department.title || "";
+  }
+  const value = String(department).trim();
+  return /^[0-9a-fA-F]{24}$/.test(value) ? "" : value;
+};
+
 const Alerts = () => {
   const [alerts, setAlerts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -1116,7 +1126,7 @@ const Alerts = () => {
                     )}
                   </div>
                   <span className="AlertsSenderMeta">
-                    {selectedAlert?.createdBy?.department ? `${selectedAlert.createdBy.department} • ` : ""}
+                    {getAlertAuthorDepartment(selectedAlert) ? `${getAlertAuthorDepartment(selectedAlert)} • ` : ""}
                     Posted on {formatDetailDate(selectedAlert.createdAt)}
                   </span>
                 </div>

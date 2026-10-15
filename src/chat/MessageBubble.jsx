@@ -76,6 +76,19 @@ const MessageBubble = ({
         setSelectedReaction(getCurrentUserReaction());
     }, [message.reactions, message.reaction, currentUser?._id, currentUser?.id]);
 
+    const updateAudioDuration = (audio) => {
+        const duration = Number(audio?.duration || 0);
+        if (Number.isFinite(duration) && duration > 0) {
+            setAudioDuration(duration);
+            return;
+        }
+
+        const fallbackDuration = Number(message.duration || message.audioDuration || message.fileDuration || 0);
+        if (Number.isFinite(fallbackDuration) && fallbackDuration > 0) {
+            setAudioDuration(fallbackDuration);
+        }
+    };
+
     useEffect(() => {
         const closeOtherMenu = event => {
             if (event.detail !== menuInstanceIdRef.current) setShowMenu(false);
@@ -135,7 +148,11 @@ const MessageBubble = ({
             : "sent";
     const renderDeliveryTick = () => {
         if (!isOwn) return null;
-        return deliveryState === "sent" ? <Check size={14} /> : <CheckCheck size={14} />;
+        return (
+            <span className={deliveryState === "seen" ? "delivery-tick seen" : "delivery-tick"}>
+                {deliveryState === "sent" ? <Check size={14} /> : <CheckCheck size={14} />}
+            </span>
+        );
     };
     const formattedTime = new Date(message.createdAt || Date.now()).toLocaleTimeString([], {
         hour: "2-digit",
@@ -586,7 +603,8 @@ const MessageBubble = ({
                 src={localMediaUrl || ""}
                 preload="metadata"
                 controls
-                onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration || 0)}
+                onLoadedMetadata={(event) => updateAudioDuration(event.currentTarget)}
+                onDurationChange={(event) => updateAudioDuration(event.currentTarget)}
                 onTimeUpdate={(event) => setAudioCurrentTime(event.currentTarget.currentTime || 0)}
                 onPlay={() => {
                     audioUserPausedRef.current = false;
@@ -594,10 +612,7 @@ const MessageBubble = ({
                     setIsAudioPlaying(true);
                 }}
                 onPause={(event) => {
-                    if (!audioUserPausedRef.current && !audioEndedRef.current) {
-                        event.currentTarget.play().catch(() => {});
-                        return;
-                    }
+                    if (audioEndedRef.current) event.currentTarget.currentTime = 0;
                     setIsAudioPlaying(false);
                 }}
                 onEnded={() => {
@@ -625,7 +640,7 @@ const MessageBubble = ({
             <div className="voice-note-body">
                 {renderAudioWaveform()}
                 <div className="voice-note-meta">
-                    <span>{formatAudioTime(audioDuration || audioCurrentTime)}</span>
+                    <span>{formatAudioTime(isAudioPlaying ? audioCurrentTime : audioDuration || audioCurrentTime)}</span>
                     <span>
                         {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {renderDeliveryTick()}

@@ -5,7 +5,7 @@ import axios from "../../utils/axiosConfig";
 import "../Css/ProjectDetailsPage.css";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings, normalizeReminderSettings } from '../components/TaskReminderControl';
 
-const SHOW_TASK_DOCUMENTS = false;
+const SHOW_TASK_DOCUMENTS = true;
 
 const parseStoredJson = (key) => {
   try {
@@ -200,6 +200,11 @@ const ProjectDetailsPage = () => {
   const [tasks, setTasks] = useState(
     sortTasksByCreatedAt(location.state?.project?.tasks || [])
   );
+  const [taskPage, setTaskPage] = useState(1);
+  const [taskLimit, setTaskLimit] = useState(10);
+  const [taskPagination, setTaskPagination] = useState({ total: 0, totalPages: 1 });
+  const serverStatsRef = useRef(null);
+  const isSearchMountedRef = useRef(false);
   const [loading, setLoading] = useState({ project: true, tasks: false });
   const [tabValue, setTabValue] = useState(0); // 0: Tasks, 1: Documents, 2: Project Info
   const [taskFilter, setTaskFilter] = useState("all");
@@ -214,6 +219,7 @@ const ProjectDetailsPage = () => {
   const [openTaskDialog, setOpenTaskDialog] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
   const [openActivityDrawer, setOpenActivityDrawer] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [statusRemark, setStatusRemark] = useState("");
@@ -292,8 +298,23 @@ const ProjectDetailsPage = () => {
     loadProjectDetails(projectId);
   }, [projectId]);
 
-  // Update task stats whenever tasks change
+  // Debounced search for tasks
   useEffect(() => {
+    if (!isSearchMountedRef.current) {
+      isSearchMountedRef.current = true;
+      return;
+    }
+    if (!projectId) return;
+    const timer = setTimeout(() => {
+      setTaskPage(1);
+      loadProjectDetails(projectId, 1, taskLimit, { taskSearchTerm });
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [taskSearchTerm]);
+
+  // Update task stats whenever tasks change (fallback if server stats not provided)
+  useEffect(() => {
+    if (serverStatsRef.current) return;
     const completed = tasks.filter(
       (t) => normalizeTaskStatus(t.status) === "completed"
     ).length;
@@ -322,19 +343,41 @@ const ProjectDetailsPage = () => {
     });
   }, [tasks]);
 
-  const loadProjectDetails = async (id) => {
+  const loadProjectDetails = async (id, page = taskPage, limit = taskLimit, filterOverrides = {}) => {
     const requestId = projectRequestRef.current + 1;
     projectRequestRef.current = requestId;
     setLoading((prev) => ({ ...prev, project: true, tasks: true }));
 
     try {
-      const res = await axios.get(`/projects/${id}`);
+      const activeFilter = filterOverrides.taskFilter !== undefined ? filterOverrides.taskFilter : taskFilter;
+      const activeAssignee = filterOverrides.taskAssigneeFilter !== undefined ? filterOverrides.taskAssigneeFilter : taskAssigneeFilter;
+      const activeSearch = filterOverrides.taskSearchTerm !== undefined ? filterOverrides.taskSearchTerm : taskSearchTerm;
+
+      const params = {
+        page,
+        limit,
+      };
+      if (activeFilter && activeFilter !== "all") params.status = activeFilter;
+      if (activeAssignee && activeAssignee !== "all") params.assignee = activeAssignee;
+      if (activeSearch && activeSearch.trim()) params.search = activeSearch.trim();
+
+      const res = await axios.get(`/projects/${id}`, { params });
       if (projectRequestRef.current !== requestId) return;
 
       const sortedTasks = sortTasksByCreatedAt(res.data.tasks || []);
       setProjectDetails({ ...res.data, tasks: sortedTasks });
       setProjectUsers(res.data.users || []);
       setTasks(sortedTasks);
+
+      if (res.data.stats) {
+        serverStatsRef.current = res.data.stats;
+        setStats(res.data.stats);
+      }
+      if (res.data.pagination) {
+        setTaskPagination(res.data.pagination);
+        setTaskPage(res.data.pagination.page || page);
+        setTaskLimit(res.data.pagination.limit || limit);
+      }
     } catch (error) {
       if (projectRequestRef.current !== requestId) return;
       console.error("Error loading project details:", error);
@@ -698,19 +741,35 @@ const ProjectDetailsPage = () => {
   };
 
   const handleLoadActivityLogs = async (taskId) => {
+    const task = tasks.find((t) => t._id === taskId);
+    setSelectedTask({
+      ...task,
+      activityLogs: Array.isArray(task?.activityLogs) ? task.activityLogs : [],
+    });
+    setOpenActivityDrawer(true);
+    setActivityLoading(true);
+
     try {
       const res = await axios.get(
         `/projects/${projectId}/tasks/${taskId}/activity`
       );
-      const task = tasks.find((t) => t._id === taskId);
+      const activityLogs = res.data.activityLogs || [];
       setSelectedTask({
         ...task,
-        activityLogs: res.data.activityLogs || [],
+        activityLogs,
       });
-      setOpenActivityDrawer(true);
+      setTasks((currentTasks) =>
+        sortTasksByCreatedAt(
+          currentTasks.map((item) =>
+            item._id === taskId ? { ...item, activityLogs } : item
+          )
+        )
+      );
     } catch (error) {
       console.error("Error loading activity logs:", error);
       showSnackbar("Error loading activity logs", "error");
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -757,11 +816,8 @@ const ProjectDetailsPage = () => {
 
       resetTaskForm();
       setOpenTaskDialog(false);
-      setTasks((currentTasks) => {
-        const nextTasks = sortTasksByCreatedAt([createdTask, ...currentTasks]);
-        setProjectDetails((prev) => prev ? { ...prev, tasks: nextTasks } : prev);
-        return nextTasks;
-      });
+      setTaskPage(1);
+      await loadProjectDetails(projectId, 1, taskLimit);
       showSnackbar("Task added successfully!", "success");
     } catch (error) {
       console.error("Error adding task:", error);
@@ -1236,6 +1292,9 @@ const ProjectDetailsPage = () => {
   };
 
   const getTaskProgress = () => {
+    if (stats.totalTasks > 0) {
+      return Math.round(((stats.completedTasks || 0) / stats.totalTasks) * 100);
+    }
     if (tasks.length === 0) return 0;
     const completed = tasks.filter(
       (t) => normalizeTaskStatus(t.status) === "completed"
@@ -1295,6 +1354,7 @@ const ProjectDetailsPage = () => {
   }, [taskAssigneeFilter, filteredTasks]);
 
   const displayedTasks = useMemo(() => {
+    if (serverStatsRef.current) return tasks;
     const q = taskSearchTerm.trim().toLowerCase();
     if (!q) return assigneeFilteredTasks;
     return assigneeFilteredTasks.filter((task) => {
@@ -1305,9 +1365,10 @@ const ProjectDetailsPage = () => {
         .includes(q);
       return matchTitle || matchDesc || matchAssignees;
     });
-  }, [taskSearchTerm, assigneeFilteredTasks]);
+  }, [taskSearchTerm, assigneeFilteredTasks, tasks]);
 
-  const documentCount = hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0;
+  const taskDocumentCount = tasks.filter((task) => hasAttachmentFile(task?.pdfFile)).length;
+  const documentCount = (hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0) + taskDocumentCount;
 
   const taskAssigneeOptions = useMemo(
     () => [
@@ -1352,7 +1413,11 @@ const ProjectDetailsPage = () => {
       } ${className}`}
       style={{ borderLeftColor: color }}
       onClick={() => {
-        if (filter) setTaskFilter(filter);
+        if (filter) {
+          setTaskFilter(filter);
+          setTaskPage(1);
+          loadProjectDetails(projectId, 1, taskLimit, { taskFilter: filter });
+        }
         setTabValue(tabTarget);
       }}
     >
@@ -2199,7 +2264,7 @@ const ProjectDetailsPage = () => {
                 <div className="pdp-task-filter-copy">
                   <strong>Tasks Filter</strong>
                   <span>
-                    {displayedTasks.length} of {tasks.length} tasks
+                    Showing {displayedTasks.length} of {taskPagination.total || stats.totalTasks} tasks
                     {selectedAssigneeLabel &&
                     taskAssigneeFilter !== "all"
                       ? ` • Assigned: ${selectedAssigneeLabel}`
@@ -2222,7 +2287,11 @@ const ProjectDetailsPage = () => {
                       <button
                         type="button"
                         className="pdp-search-clear"
-                        onClick={() => setTaskSearchTerm("")}
+                        onClick={() => {
+                          setTaskSearchTerm("");
+                          setTaskPage(1);
+                          loadProjectDetails(projectId, 1, taskLimit, { taskSearchTerm: "" });
+                        }}
                       >
                         <Icons.Close />
                       </button>
@@ -2234,9 +2303,12 @@ const ProjectDetailsPage = () => {
                     <select
                       className="pdp-select"
                       value={taskAssigneeFilter}
-                      onChange={(event) =>
-                        setTaskAssigneeFilter(event.target.value)
-                      }
+                      onChange={(event) => {
+                        const nextAssignee = event.target.value;
+                        setTaskAssigneeFilter(nextAssignee);
+                        setTaskPage(1);
+                        loadProjectDetails(projectId, 1, taskLimit, { taskAssigneeFilter: nextAssignee });
+                      }}
                     >
                       {taskAssigneeOptions.map((option) => (
                         <option value={option.value} key={option.value}>
@@ -2251,7 +2323,12 @@ const ProjectDetailsPage = () => {
                     <select
                       className="pdp-select"
                       value={taskFilter}
-                      onChange={(e) => setTaskFilter(e.target.value)}
+                      onChange={(e) => {
+                        const nextFilter = e.target.value;
+                        setTaskFilter(nextFilter);
+                        setTaskPage(1);
+                        loadProjectDetails(projectId, 1, taskLimit, { taskFilter: nextFilter });
+                      }}
                     >
                       <option value="all">All Statuses</option>
                       <option value="pending">Pending</option>
@@ -2275,6 +2352,12 @@ const ProjectDetailsPage = () => {
                         setTaskFilter("all");
                         setTaskAssigneeFilter("all");
                         setTaskSearchTerm("");
+                        setTaskPage(1);
+                        loadProjectDetails(projectId, 1, taskLimit, {
+                          taskFilter: "all",
+                          taskAssigneeFilter: "all",
+                          taskSearchTerm: "",
+                        });
                       }}
                     >
                       Reset
@@ -2306,11 +2389,79 @@ const ProjectDetailsPage = () => {
                   showCreateButton: true,
                 })
               ) : (
-                renderTaskList(displayedTasks, {
-                  emptyTitle: "No tasks match your filters",
-                  emptyMessage:
-                    "Change the status filter, assignee, or search term to view tasks.",
-                })
+                <>
+                  {renderTaskList(displayedTasks, {
+                    emptyTitle: "No tasks match your filters",
+                    emptyMessage:
+                      "Change the status filter, assignee, or search term to view tasks.",
+                  })}
+
+                  {/* Web Pagination Toolbar */}
+                  <div className="pdp-pagination-container">
+                    <div className="pdp-pagination-limit-wrap">
+                      <span className="pdp-pagination-label">Tasks per page:</span>
+                      <select
+                        className="pdp-select pdp-pagination-limit-select"
+                        value={taskLimit}
+                        onChange={(e) => {
+                          const newLimit = parseInt(e.target.value, 10) || 10;
+                          setTaskLimit(newLimit);
+                          setTaskPage(1);
+                          loadProjectDetails(projectId, 1, newLimit);
+                        }}
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+
+                    <div className="pdp-pagination-info">
+                      {(() => {
+                        const totalCount = typeof taskPagination?.total === "number" && taskPagination.total > 0
+                          ? taskPagination.total
+                          : stats.totalTasks;
+                        const startNum = totalCount === 0 ? 0 : (taskPage - 1) * taskLimit + 1;
+                        const endNum = Math.min(taskPage * taskLimit, totalCount);
+                        return `Showing ${startNum} - ${endNum} of ${totalCount} tasks`;
+                      })()}
+                    </div>
+
+                    <div className="pdp-pagination-actions">
+                      <button
+                        type="button"
+                        className="pdp-button pdp-button-sm pdp-button-outline"
+                        disabled={taskPage <= 1 || loading.tasks}
+                        onClick={() => {
+                          const prevPage = taskPage - 1;
+                          setTaskPage(prevPage);
+                          loadProjectDetails(projectId, prevPage, taskLimit);
+                        }}
+                      >
+                        Previous
+                      </button>
+                      <span className="pdp-pagination-page-indicator">
+                        Page {taskPage} of {Math.max(1, taskPagination?.totalPages || Math.ceil((taskPagination?.total || stats.totalTasks) / taskLimit) || 1)}
+                      </span>
+                      <button
+                        type="button"
+                        className="pdp-button pdp-button-sm pdp-button-outline"
+                        disabled={
+                          taskPage >= (taskPagination?.totalPages || Math.ceil((taskPagination?.total || stats.totalTasks) / taskLimit) || 1) ||
+                          loading.tasks
+                        }
+                        onClick={() => {
+                          const nextPage = taskPage + 1;
+                          setTaskPage(nextPage);
+                          loadProjectDetails(projectId, nextPage, taskLimit);
+                        }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </>
           )}
@@ -2384,30 +2535,13 @@ const ProjectDetailsPage = () => {
                 <>
                   <h3 className="pdp-task-documents-title">
                     Task Attachments (
-                    {
-                      tasks.filter(
-                        (t) =>
-                          t.pdfFile?.path ||
-                          t.pdfFile?.filename ||
-                          t.pdfFile?.url
-                      ).length
-                    }
+                    {taskDocumentCount}
                     )
                   </h3>
-                  {tasks.filter(
-                    (task) =>
-                      task.pdfFile?.path ||
-                      task.pdfFile?.filename ||
-                      task.pdfFile?.url
-                  ).length > 0 ? (
+                  {taskDocumentCount > 0 ? (
                     <div className="pdp-task-documents-grid">
                       {tasks
-                        .filter(
-                          (task) =>
-                            task.pdfFile?.path ||
-                            task.pdfFile?.filename ||
-                            task.pdfFile?.url
-                        )
+                        .filter((task) => hasAttachmentFile(task?.pdfFile))
                         .map((task) => (
                           <div
                             className="pdp-task-document-card"
@@ -3143,7 +3277,13 @@ const ProjectDetailsPage = () => {
               <div className="pdp-divider" />
 
               <div className="pdp-activity-list">
-                {selectedTask?.activityLogs?.map((log, index) => (
+                {activityLoading && (
+                  <div className="pdp-empty-activity">
+                    <CircularProgress />
+                    <p>Loading activity logs...</p>
+                  </div>
+                )}
+                {!activityLoading && selectedTask?.activityLogs?.map((log, index) => (
                   <div className="pdp-activity-item" key={index}>
                     <div className="pdp-activity-icon">
                       <Icons.History />
@@ -3172,7 +3312,7 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
                 ))}
-                {(!selectedTask?.activityLogs ||
+                {!activityLoading && (!selectedTask?.activityLogs ||
                   selectedTask.activityLogs.length === 0) && (
                   <div className="pdp-empty-activity">
                     <Icons.History />

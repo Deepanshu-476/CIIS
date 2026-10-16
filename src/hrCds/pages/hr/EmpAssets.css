@@ -1403,6 +1403,173 @@
   background: #0f172a;
 }
 
+.EmpAssets-lightbox-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.EmpAssets-lightbox-header-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #334155 !important;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.EmpAssets-lightbox-header-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a !important;
+}
+
+.EmpAssets-lightbox-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.EmpAssets-lightbox-pdf {
+  width: 100%;
+  height: calc(82vh - 60px);
+  min-height: 520px;
+}
+
+.EmpAssets-pdf-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+.EmpAssets-lightbox-doc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  min-height: 360px;
+}
+
+.EmpAssets-doc-preview-card {
+  max-width: 440px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 24px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+}
+
+.EmpAssets-doc-icon-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+}
+
+.EmpAssets-doc-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -6px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.EmpAssets-doc-preview-card h3 {
+  margin: 0 0 8px;
+  color: #1e293b;
+  font-size: 15px;
+  word-break: break-word;
+}
+
+.EmpAssets-doc-preview-card p {
+  margin: 0 0 24px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.EmpAssets-doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  width: 100%;
+}
+
+.EmpAssets-btn-doc-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #2563eb;
+  color: #fff !important;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.EmpAssets-btn-doc-download:hover {
+  background: #1d4ed8;
+}
+
+.EmpAssets-btn-doc-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f1f5f9;
+  color: #334155 !important;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid #cbd5e1;
+  transition: all 0.15s ease;
+}
+
+.EmpAssets-btn-doc-open:hover {
+  background: #e2e8f0;
+  color: #0f172a !important;
+}
+
+body .EmpAssets-lightbox.has-document > div {
+  width: min(940px, calc(100vw - 32px));
+  height: min(84vh, 780px);
+}
+
+.EmpAssets-document-tile {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.EmpAssets-document-tile:hover {
+  transform: scale(1.04);
+}
+
+
 .EmpAssets-dialog-footer { flex: 0 0 auto; padding: 14px 20px; justify-content: space-between; background: #fff; }
 .EmpAssets-dialog-footer > div { display: flex; gap: 12px; }
 .EmpAssets-btn-draft { color: #2563eb; border: 1px solid #a5b4fc; background: #eef2ff; }

@@ -1,9 +1,88 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiBarChart2, FiCalendar, FiChevronRight, FiCreditCard, FiEye, FiFileText, FiLayers, FiRefreshCw, FiTrendingDown, FiTrendingUp, FiUsers } from "react-icons/fi";
+import { FiBarChart2, FiCalendar, FiChevronRight, FiCreditCard, FiEye, FiFileText, FiLayers, FiRefreshCw, FiTrendingDown, FiTrendingUp, FiUsers, FiChevronDown, FiCheck } from "react-icons/fi";
 import axiosInstance from "../../utils/axiosConfig";
 import "../styles/PayrollReports.css";
 import "../styles/PayrollReportInsights.css";
 import "../styles/PayrollReportCards.css";
+
+function CustomReportSelect({ label, value, options, onChange, icon }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    const handleDismiss = () => {
+      setIsOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("resize", handleDismiss);
+    window.addEventListener("scroll", handleDismiss, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("resize", handleDismiss);
+      window.removeEventListener("scroll", handleDismiss, true);
+    };
+  }, []);
+
+  const displayLabel = useMemo(() => {
+    if (!options || !options.length) return value || "Select";
+    const found = options.find(opt => {
+      const optVal = typeof opt === "object" ? opt.value : opt;
+      return String(optVal) === String(value);
+    });
+    if (!found) return value || "Select";
+    return typeof found === "object" ? found.label : found;
+  }, [options, value]);
+
+  return (
+    <div className="pr-custom-select-wrap" ref={containerRef}>
+      <span className="pr-select-label">{label}</span>
+      <button
+        type="button"
+        className={`pr-custom-select-trigger ${isOpen ? "open" : ""}`}
+        onClick={() => setIsOpen(prev => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span className="pr-select-value">
+          {icon && <span className="pr-select-icon">{icon}</span>}
+          {displayLabel}
+        </span>
+        <FiChevronDown className={`pr-select-chevron ${isOpen ? "rotate" : ""}`} />
+      </button>
+
+      {isOpen && (
+        <ul className="pr-custom-select-menu" role="listbox">
+          {options.map((opt) => {
+            const optVal = typeof opt === "object" ? opt.value : opt;
+            const optLabel = typeof opt === "object" ? opt.label : opt;
+            const isSelected = String(optVal) === String(value);
+            return (
+              <li
+                key={String(optVal)}
+                className={`pr-custom-select-item ${isSelected ? "selected" : ""}`}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(optVal);
+                  setIsOpen(false);
+                }}
+              >
+                <span>{optLabel}</span>
+                {isSelected && <FiCheck className="pr-select-check" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const REPORTS = ["Payroll Summary", "Employee Payroll Report", "Earnings Report", "Deductions Report", "Bank Transfer Report"];
 const REPORT_DESCRIPTIONS = {
@@ -116,13 +195,57 @@ export default function PayrollReports() {
       </div>
     </header>
     <section className="pr-filters pr-no-print">
-      <label>Report Type<select value={filters.reportType} onChange={event => setFilters({ ...filters, reportType: event.target.value })}>{REPORTS.map(item => <option key={item}>{item}</option>)}</select></label>
-      <label>Payroll Month<span className="pr-date-input"><FiCalendar /><input type="month" value={filters.month} onChange={event => setFilters({ ...filters, month: event.target.value })} /></span></label>
-      <label>Pay Frequency<select value={filters.payGroup} onChange={event => setFilters({ ...filters, payGroup: event.target.value })}><option>All</option>{payGroups.map(item => <option key={item}>{item}</option>)}</select></label>
-      <label>Department<select value={filters.department} onChange={event => setFilters({ ...filters, department: event.target.value })}><option>All</option>{departments.map(item => <option key={item}>{item}</option>)}</select></label>
-      <label>Employee<select value={filters.employee} onChange={event => setFilters({ ...filters, employee: event.target.value })}><option value="All">All Employees</option>{sourceEmployees.map(item => <option key={employeeKey(item)} value={employeeKey(item)}>{employeeName(item)} ({employeeCode(item)})</option>)}</select></label>
-      <label>Status<select value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}><option>All</option><option>Approved</option><option>Locked</option></select></label>
-      <div className="pr-filter-actions"><button onClick={reset}><FiRefreshCw />Reset</button><button className="primary" onClick={() => setApplied(filters)}><FiEye />View Report</button></div>
+      <CustomReportSelect
+        label="Report Type"
+        value={filters.reportType}
+        options={REPORTS}
+        onChange={(val) => setFilters(prev => ({ ...prev, reportType: val }))}
+      />
+      <label>
+        Payroll Month
+        <span className="pr-date-input">
+          <FiCalendar />
+          <input
+            type="month"
+            value={filters.month}
+            onChange={event => setFilters(prev => ({ ...prev, month: event.target.value }))}
+          />
+        </span>
+      </label>
+      <CustomReportSelect
+        label="Pay Frequency"
+        value={filters.payGroup}
+        options={["All", ...payGroups]}
+        onChange={(val) => setFilters(prev => ({ ...prev, payGroup: val }))}
+      />
+      <CustomReportSelect
+        label="Department"
+        value={filters.department}
+        options={["All", ...departments]}
+        onChange={(val) => setFilters(prev => ({ ...prev, department: val }))}
+      />
+      <CustomReportSelect
+        label="Employee"
+        value={filters.employee}
+        options={[
+          { value: "All", label: "All Employees" },
+          ...sourceEmployees.map(item => ({
+            value: employeeKey(item),
+            label: `${employeeName(item)} (${employeeCode(item)})`
+          }))
+        ]}
+        onChange={(val) => setFilters(prev => ({ ...prev, employee: val }))}
+      />
+      <CustomReportSelect
+        label="Status"
+        value={filters.status}
+        options={["All", "Approved", "Locked"]}
+        onChange={(val) => setFilters(prev => ({ ...prev, status: val }))}
+      />
+      <div className="pr-filter-actions">
+        <button type="button" onClick={reset}><FiRefreshCw />Reset</button>
+        <button type="button" className="primary" onClick={() => setApplied(filters)}><FiEye />View Report</button>
+      </div>
     </section>
     {loading && <section className="pr-state">Loading approved payroll report...</section>}
     {!loading && error && <section className="pr-alert pr-no-print">{error}</section>}

@@ -1896,6 +1896,18 @@ body.ciis-modal-open {
   box-shadow: none !important;
 }
 
-
-
-
+/* Toast alignment for Branch Management page (positioned cleanly below header, avoiding profile avatar overlap) */
+.swal2-container.branch-toast-container {
+  padding-top: 80px !important;
+  padding-right: 24px !important;
+  z-index: 99999 !important;
+  pointer-events: none;
+}
+.swal2-container.branch-toast-container .swal2-popup.branch-toast-popup {
+  pointer-events: auto;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  border-radius: 12px !important;
+  padding: 10px 16px !important;
+  font-size: 13px !important;
+}

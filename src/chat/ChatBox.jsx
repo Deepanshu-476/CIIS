@@ -4,6 +4,7 @@ import React, {
     useState
 } from "react";
 import "../Pages/Chat/chat.css";
+import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
 import { ArrowLeft, Bell, Camera, ChevronRight, Download, ExternalLink, FileText, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
@@ -25,6 +26,16 @@ const CHAT_FILE_ACCEPT = [
 const VOICE_RECORDING_MAX_SECONDS = 5 * 60;
 const AUTO_COMPRESS_IMAGE_BYTES = 10 * 1024 * 1024;
 const AUTO_COMPRESS_VIDEO_BYTES = 200 * 1024 * 1024;
+const CHAT_EMOJI_CATEGORIES = [
+    { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
+    { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
+    { category: Categories.FOOD_DRINK, name: "Food & Drink" },
+    { category: Categories.ACTIVITIES, name: "Activities" },
+    { category: Categories.TRAVEL_PLACES, name: "Travel" },
+    { category: Categories.OBJECTS, name: "Objects" },
+    { category: Categories.SYMBOLS, name: "Symbols" },
+    { category: Categories.FLAGS, name: "Flags" },
+];
 
 const getUploadFile = (item) => item?.file || item;
 
@@ -313,42 +324,6 @@ const ChatBox = ({
         "Any keyword updates?",
         "Thank you!"
     ];
-    const emojiGroups = [
-        {
-            label: "Smileys",
-            emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😍", "🥰", "😘", "😗", "😋", "😜", "🤪", "😎", "🤩", "🥳", "😏", "😒", "😔", "😢", "😭", "😤", "😡", "🤯", "😳", "🥺", "😴", "🤒", "🤕", "🤐", "🤫", "🤔", "🫡"]
-        },
-        {
-            label: "Gestures",
-            emojis: ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👋", "🤚", "🖐️", "✋", "👏", "🙌", "🫶", "🙏", "🤝", "💪", "👀", "🧠", "🗣️", "👑"]
-        },
-        {
-            label: "Hearts",
-            emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💯", "🔥", "✨", "⭐"]
-        },
-        {
-            label: "Work",
-            emojis: ["✅", "❌", "⚠️", "📌", "📍", "📎", "📄", "📁", "📊", "📈", "📉", "📝", "💼", "💻", "⌨️", "🖥️", "📱", "☎️", "📧", "📅", "⏰", "⏳", "🚀", "🎯"]
-        },
-        {
-            label: "Objects",
-            emojis: ["🎉", "🎊", "🎁", "🏆", "🥇", "🔔", "🔒", "🔓", "🔑", "💡", "🔎", "📢", "📣", "💰", "💳", "🧾", "🛠️", "⚙️", "🔧", "🧰", "🧲", "🪄"]
-        },
-        {
-            label: "Food",
-            emojis: ["☕", "🍵", "🥤", "🍰", "🍫", "🍪", "🍕", "🍔", "🍟", "🌮", "🍜", "🍱", "🍎", "🍌", "🍇", "🍓", "🥭", "🍉"]
-        },
-        {
-            label: "Travel",
-            emojis: ["🚗", "🚕", "🚌", "🚆", "✈️", "🚁", "🚲", "🏢", "🏠", "🏥", "🏦", "🗺️", "🌍", "🌙", "☀️", "⛅", "🌧️", "🌈"]
-        },
-        {
-            label: "Flags",
-            emojis: ["🇮🇳", "🇺🇸", "🇬🇧", "🇦🇪", "🇨🇦", "🇦🇺", "🇸🇬", "🇯🇵", "🇩🇪", "🇫🇷", "🇮🇹", "🇪🇸"]
-        }
-    ];
-
-
     const [currentConversationId, setCurrentConversationId] =
         useState(null);
     const selectedUserKey = selectedUser
@@ -493,6 +468,8 @@ const ChatBox = ({
         setReplyingTo(null);
         setPendingRecording(null);
         setShowCaptureMenu(false);
+        setShowEmojiPicker(false);
+        setShowAttachmentMenu(false);
         setShowContactInfo(false);
         startConversation();  
     }, [selectedUserKey]);
@@ -956,15 +933,9 @@ useEffect(() => {
         queueScrollToLatestMessage("smooth");
     };
 
-    const emitSentMessage = (newMessage) => {
-        socket?.emit(
-            "chat:send-message",
-            {
-                ...newMessage,
-                conversationId:
-                    conversation._id
-            }
-        );
+    const emitSentMessage = () => {
+        // Message delivery is emitted by the backend after database persistence.
+        // Keeping this as a no-op prevents duplicate socket events and unread bumps.
     };
 
     const stopRecordingTracks = () => {
@@ -1405,9 +1376,20 @@ useEffect(() => {
         window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1400);
     };
 
-    const handleEmojiSelect = (emoji) => {
-        setText((prev) => `${prev}${emoji}`);
-        chatInputRef.current?.focus();
+    const handleEmojiSelect = (emojiData) => {
+        const emoji = emojiData?.emoji || "";
+        if (!emoji) return;
+        const input = chatInputRef.current;
+        const start = typeof input?.selectionStart === "number" ? input.selectionStart : text.length;
+        const end = typeof input?.selectionEnd === "number" ? input.selectionEnd : start;
+        const nextText = `${text.slice(0, start)}${emoji}${text.slice(end)}`;
+        setText(nextText);
+        setShowEmojiPicker(false);
+        requestAnimationFrame(() => {
+            input?.focus();
+            const nextCursor = start + emoji.length;
+            input?.setSelectionRange?.(nextCursor, nextCursor);
+        });
     };
 
     const clearSelectedFiles = () => {
@@ -2663,24 +2645,18 @@ useEffect(() => {
                         </button>
                         {showEmojiPicker && (
                             <div className="emoji-picker-panel">
-                                {emojiGroups.map((group) => (
-                                    <div className="emoji-picker-section" key={group.label}>
-                                        <div className="emoji-picker-title">{group.label}</div>
-                                        <div className="emoji-picker-grid">
-                                            {group.emojis.map((emoji) => (
-                                                <button
-                                                    type="button"
-                                                    key={`${group.label}-${emoji}`}
-                                                    className="emoji-picker-item"
-                                                    onClick={() => handleEmojiSelect(emoji)}
-                                                    aria-label={`Add ${emoji}`}
-                                                >
-                                                    {emoji}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                                <EmojiPicker
+                                    colorScheme={Theme.DARK}
+                                    emojiStyle={EmojiStyle.NATIVE}
+                                    categories={CHAT_EMOJI_CATEGORIES}
+                                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
+                                    searchPlaceHolder="Search emoji"
+                                    lazyLoadEmojis
+                                    width="100%"
+                                    height={420}
+                                    previewConfig={{ showPreview: false }}
+                                    onEmojiClick={handleEmojiSelect}
+                                />
                             </div>
                         )}
                     </div>

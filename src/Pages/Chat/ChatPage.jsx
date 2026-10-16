@@ -106,8 +106,9 @@ const getCallLabel = call => {
   const type = call.type === "video" ? "video" : "voice";
   if (call.status === "missed") return `Missed ${type} call`;
   if (call.status === "declined") return `Declined ${type} call`;
+  if (call.status === "cancelled") return `Cancelled ${type} call`;
   if (call.status === "failed") return `Failed ${type} call`;
-  return `${direction} ${type} call`;
+  return `${direction} ${type} call${call.durationLabel ? ` · ${call.durationLabel}` : ""}`;
 };
 
 const ChatChannelsPanel = ({
@@ -499,7 +500,9 @@ const ChatCallsPanel = ({
                 <strong>{call.title || "User"}</strong>
                 <small className={isMissed ? "missed" : ""}>
                   {icon}
-                  {directionLabel}{call.repeatCount > 1 ? ` (${call.repeatCount})` : ""}
+                  {directionLabel}
+                  {call.durationLabel && !isMissed ? ` · ${call.durationLabel}` : ""}
+                  {call.repeatCount > 1 ? ` (${call.repeatCount})` : ""}
                 </small>
               </span>
               <span className="chat-call-time">{callTime}</span>
@@ -557,6 +560,7 @@ const ChatCallsDetail = ({ call, users, groups, startCall }) => {
           <span>Time</span><strong>{getCallTime(call.startedAt || call.updatedAt)}</strong>
           <span>Direction</span><strong>{call.direction === "incoming" ? "Incoming" : "Outgoing"}</strong>
           <span>Status</span><strong>{call.status || "ended"}</strong>
+          <span>Duration</span><strong>{call.durationLabel || (["missed", "declined", "cancelled", "failed"].includes(call.status) ? "-" : "00:00")}</strong>
           <span>Participants</span><strong>{call.participantCount || 1}</strong>
         </div>
         <div className="chat-call-detail-actions">

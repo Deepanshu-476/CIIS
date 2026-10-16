@@ -254,6 +254,11 @@ const hasCompanyPlanAccess = pagePath => {
     const normalizedPath = normalizePlanKey(pagePath);
     if (PLAN_FREE_PATHS.has(normalizedPath)) return true;
 
+    const currentUser = getStoredUser();
+    if (String(currentUser?.companyRole || '').toLowerCase() === 'client' && normalizedPath.startsWith('client/')) {
+      return true;
+    }
+
     const keys = new Set(allowed.map(normalizePlanKey));
     if (/^crm\/(admin|marketing|reports)\//i.test(normalizedPath)) {
       if (keys.has('crm') || keys.has('admin-crm')) return true;

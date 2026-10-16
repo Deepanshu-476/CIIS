@@ -2251,6 +2251,10 @@ const Sidebar = ({
   ));
   const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
   const [seenBadgeCounts, setSeenBadgeCounts] = useState({});
+  const [profileCompletionOverride, setProfileCompletionOverride] = useState(() => {
+    const savedValue = Number(userData?.profileCompletion);
+    return Number.isFinite(savedValue) ? savedValue : null;
+  });
   const sidebarRef = useRef(null);
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
@@ -2316,8 +2320,31 @@ const Sidebar = ({
           params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 }
         });
         const allClients = response.data?.data || response.data?.clients || [];
+        const parsedDetails = typeof userData?.additionalDetails === 'object' && userData?.additionalDetails
+          ? userData.additionalDetails
+          : (() => { try { return JSON.parse(userData?.additionalDetails || '{}'); } catch { return {}; } })();
+        const userAssignedClientId = String(parsedDetails?.clientId || userData?.clientId || '').trim().toLowerCase();
+        const userEmail = String(userData?.email || '').trim().toLowerCase();
+
         const matchingClients = Array.isArray(allClients)
-          ? allClients.filter(item => isClientForLoggedInUser(item, userData))
+          ? allClients
+              .filter(item => isClientForLoggedInUser(item, userData))
+              .sort((a, b) => {
+                const aId = String(a?._id || a?.id || a?.clientId || '').trim().toLowerCase();
+                const bId = String(b?._id || b?.id || b?.clientId || '').trim().toLowerCase();
+                const aEmail = String(a?.email || a?.clientEmail || '').trim().toLowerCase();
+                const bEmail = String(b?.email || b?.clientEmail || '').trim().toLowerCase();
+
+                if (userAssignedClientId) {
+                  if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
+                  if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
+                }
+                if (userEmail) {
+                  if (aEmail === userEmail && bEmail !== userEmail) return -1;
+                  if (bEmail === userEmail && aEmail !== userEmail) return 1;
+                }
+                return 0;
+              })
           : [];
         const companies = matchingClients.length ? matchingClients : (storedClient ? [storedClient] : []);
         const selectedId =
@@ -2388,7 +2415,13 @@ const Sidebar = ({
               const profileResponse = await axiosInstance.get(`/users/profile/${parsedUserId}`);
               const latestProfile = profileResponse.data?.user || profileResponse.data?.data || profileResponse.data;
               if (latestProfile && typeof latestProfile === 'object') {
-                parsedUser = sanitizeUserForStorage({ ...parsedUser, ...latestProfile });
+                const mergedProfile = { ...parsedUser, ...latestProfile };
+                const latestCompletion = getProfileCompletion(mergedProfile);
+                parsedUser = {
+                  ...sanitizeUserForStorage(mergedProfile),
+                  profileCompletion: latestCompletion
+                };
+                setProfileCompletionOverride(latestCompletion);
                 setUserData(parsedUser);
                 localStorage.setItem('user', JSON.stringify(parsedUser));
               }
@@ -3022,11 +3055,11 @@ const Sidebar = ({
     }
     else if (sidebarConfig && (sidebarConfig.useFixedDefault || !sidebarConfig.menuItems)) {
       void 0;
-      items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
+      items = isClientUser ? [...clientMenuItems] : [];
     }
     else {
       void 0;
-      items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
+      items = isClientUser ? [...clientMenuItems] : [];
     }
 
     // The dashboard is the employee's landing page. The server configuration
@@ -3144,6 +3177,8 @@ const Sidebar = ({
     const handleProfileUpdated = event => {
       const updatedProfile = event.detail;
       if (!updatedProfile || typeof updatedProfile !== 'object') return;
+      const latestCompletion = getProfileCompletion(updatedProfile);
+      setProfileCompletionOverride(latestCompletion);
       setUserData(current => ({ ...current, ...updatedProfile }));
     };
 
@@ -3152,8 +3187,14 @@ const Sidebar = ({
   }, []);
 
   const profileCompletion = useMemo(() => {
+    if (Number.isFinite(Number(profileCompletionOverride))) {
+      return Math.max(0, Math.min(100, Number(profileCompletionOverride)));
+    }
+    if (Number.isFinite(Number(userData?.profileCompletion))) {
+      return Math.max(0, Math.min(100, Number(userData.profileCompletion)));
+    }
     return getProfileCompletion(userData);
-  }, [userData]);
+  }, [profileCompletionOverride, userData]);
 
   useEffect(() => {
     if (loading || !menuItems.length) return;

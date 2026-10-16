@@ -764,3 +764,240 @@
   font-size: 13px;
   font-weight: 700;
 }
+
+/* File Upload & Removal Styles */
+.PaymentsPage-fileGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.PaymentsPage-chooseFileButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #3b82f6;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.PaymentsPage-chooseFileButton:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.PaymentsPage-selectedFileCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+}
+
+.PaymentsPage-selectedFileInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.PaymentsPage-fileIconBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.PaymentsPage-fileMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.PaymentsPage-fileName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #15803d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.PaymentsPage-fileSize {
+  font-size: 11px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.PaymentsPage-removeFileBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fff;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.PaymentsPage-removeFileBtn:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+/* Uploaded Receipts List */
+.PaymentsPage-uploadedReceiptsSection {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.PaymentsPage-uploadedReceiptsSection h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.PaymentsPage-uploadedReceiptsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.PaymentsPage-uploadedReceiptItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.PaymentsPage-receiptItemLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.PaymentsPage-receiptItemLeft strong {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.PaymentsPage-receiptItemMeta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.PaymentsPage-receiptBadge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.PaymentsPage-receiptBadge-pending-verification,
+.PaymentsPage-receiptBadge-pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.PaymentsPage-receiptBadge-approved,
+.PaymentsPage-receiptBadge-paid {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.PaymentsPage-receiptBadge-rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.PaymentsPage-receiptItemRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.PaymentsPage-receiptLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0284c7;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.PaymentsPage-receiptLink:hover {
+  background: #bae6fd;
+  color: #0369a1;
+}
+
+.PaymentsPage-removeReceiptBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  background: #fff;
+  color: #ea580c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.PaymentsPage-removeReceiptBtn:hover:not(:disabled) {
+  background: #ffedd5;
+  border-color: #f97316;
+  color: #c2410c;
+}
+
+.PaymentsPage-removeReceiptBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -1367,7 +1367,12 @@ const ProjectDetailsPage = () => {
     });
   }, [taskSearchTerm, assigneeFilteredTasks, tasks]);
 
-  const taskDocumentCount = tasks.filter((task) => hasAttachmentFile(task?.pdfFile)).length;
+  // The Documents tab is for project files and task documents such as PDFs.
+  // Task images belong with the task/remark itself, not in this document list.
+  const taskDocumentTasks = tasks.filter(
+    (task) => hasAttachmentFile(task?.pdfFile) && !isImagePath(task.pdfFile)
+  );
+  const taskDocumentCount = taskDocumentTasks.length;
   const documentCount = (hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0) + taskDocumentCount;
 
   const taskAssigneeOptions = useMemo(
@@ -2540,9 +2545,7 @@ const ProjectDetailsPage = () => {
                   </h3>
                   {taskDocumentCount > 0 ? (
                     <div className="pdp-task-documents-grid">
-                      {tasks
-                        .filter((task) => hasAttachmentFile(task?.pdfFile))
-                        .map((task) => (
+                      {taskDocumentTasks.map((task) => (
                           <div
                             className="pdp-task-document-card"
                             key={task._id}

@@ -789,197 +789,240 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
     return record.user.name || record.user.email || "Unknown Employee";
   };
 
+  const calculatedHoursWorked = useMemo(() => {
+    if (!editedRecord.inTime || !editedRecord.outTime) return null;
+    const [inHour, inMinute] = editedRecord.inTime.split(':').map(Number);
+    const [outHour, outMinute] = editedRecord.outTime.split(':').map(Number);
+    const totalMinutes = (outHour * 60 + outMinute) - (inHour * 60 + inMinute);
+    if (totalMinutes < 0) return null;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+  }, [editedRecord.inTime, editedRecord.outTime]);
+
   if (!record) return null;
+
+  const empName = getEmployeeName();
+  const empInitials = empName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || "EM";
+  const departmentName = record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || "General";
+  const empType = record.user?.employeeType?.toUpperCase() || "FULL-TIME";
+  const attendanceDateFormatted = record.date ? new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A";
 
   return (
     <div className="EmppAttendence-modal-overlay" onClick={onClose}>
-      <div className="EmppAttendence-modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="EmppAttendence-modal-header">
-          <h3>Edit Attendance</h3>
-          <button className="EmppAttendence-modal-close" onClick={onClose}>
-            <FiX size={20} />
-          </button>
-        </div>
-
-        <div className="EmppAttendence-modal-body">
-          <div className="EmppAttendence-employee-info-summary">
-            <div className="EmppAttendence-employee-avatar large">
-              {(() => {
-                const name = getEmployeeName();
-                return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-              })()}
+      <div className="EmppAttendence-modal-content EmppAttendence-edit-modal-wrapper" onClick={(e) => e.stopPropagation()}>
+        {/* Modern Modal Header */}
+        <div className="EmppAttendence-modal-header EmppAttendence-edit-modal-header">
+          <div className="EmppAttendence-edit-modal-title-wrap">
+            <div className="EmppAttendence-edit-modal-icon-badge">
+              <FiClock size={20} />
             </div>
             <div>
-              <h4>{getEmployeeName()}</h4>
-              <p className="EmppAttendence-text-muted">{record.user?.email || "N/A"}</p>
-              <p className="EmppAttendence-text-muted">
-                {(record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || "N/A")} • {record.user?.employeeType?.toUpperCase() || "N/A"} • 
-                {record.date ? new Date(record.date).toLocaleDateString() : "N/A"}
+              <h3>Edit Attendance Record</h3>
+              <p className="EmppAttendence-edit-modal-subtitle">
+                Review and update shift timings, status and punch records
               </p>
             </div>
           </div>
+          <button className="EmppAttendence-modal-close" onClick={onClose} title="Close modal">
+            <FiX size={18} />
+          </button>
+        </div>
 
-          <div className="EmppAttendence-form-grid">
-            <div className="EmppAttendence-form-group">
-              <label>Date</label>
-              <input
-                type="date"
-                className="EmppAttendence-form-input"
-                value={editedRecord.date}
-                onChange={(e) => setEditedRecord(prev => ({ ...prev, date: e.target.value }))}
-              />
+        <div className="EmppAttendence-modal-body EmppAttendence-edit-modal-body">
+          {/* Employee Summary Card */}
+          <div className="EmppAttendence-edit-emp-card">
+            <div className="EmppAttendence-edit-emp-avatar">
+              {empInitials}
+            </div>
+            <div className="EmppAttendence-edit-emp-details">
+              <div className="EmppAttendence-edit-emp-title-row">
+                <h4>{empName}</h4>
+                <span className={`EmppAttendence-edit-status-badge status-${editedRecord.status}`}>
+                  {editedRecord.status.toUpperCase()}
+                </span>
+              </div>
+              <p className="EmppAttendence-edit-emp-email">{record.user?.email || "No email registered"}</p>
+              <div className="EmppAttendence-edit-emp-tags">
+                <span className="EmppAttendence-edit-tag dept-tag">
+                  {departmentName}
+                </span>
+                <span className="EmppAttendence-edit-tag type-tag">
+                  {empType}
+                </span>
+                <span className="EmppAttendence-edit-tag date-tag">
+                  <FiCalendar size={12} /> {attendanceDateFormatted}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Grid */}
+          <div className="EmppAttendence-edit-form-section">
+            <div className="EmppAttendence-edit-form-grid">
+              {/* Date */}
+              <div className="EmppAttendence-form-group">
+                <label className="EmppAttendence-field-label">
+                  <FiCalendar size={14} /> Attendance Date
+                </label>
+                <input
+                  type="date"
+                  className="EmppAttendence-form-input EmppAttendence-edit-input"
+                  value={editedRecord.date}
+                  onChange={(e) => setEditedRecord(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+
+              {/* Status */}
+              <div className="EmppAttendence-form-group">
+                <label className="EmppAttendence-field-label">
+                  <FiCheckCircle size={14} /> Attendance Status
+                </label>
+                <select
+                  className="EmppAttendence-form-input EmppAttendence-edit-select"
+                  value={editedRecord.status}
+                  onChange={(e) => setEditedRecord(prev => ({ ...prev, status: e.target.value }))}
+                  disabled={!canEditRecord}
+                >
+                  <option value="present">🟢 Present</option>
+                  <option value="late">🟡 Late</option>
+                  <option value="halfday">🔵 Half Day</option>
+                  <option value="absent">🔴 Absent</option>
+                  <option value="uninformedleave">🟠 Uninformed Leave</option>
+                  <option value="holiday">🟣 Holiday</option>
+                </select>
+              </div>
+
+              {/* Check In Time */}
+              <div className="EmppAttendence-form-group">
+                <label className="EmppAttendence-field-label">
+                  <FiClock size={14} /> Check In Time
+                </label>
+                <input
+                  type="time"
+                  className="EmppAttendence-form-input EmppAttendence-edit-input"
+                  value={editedRecord.inTime}
+                  onChange={(e) => handleTimeChange('inTime', e.target.value)}
+                />
+                <LocationMeta location={record?.inLocation} label="Login" />
+              </div>
+
+              {/* Check Out Time */}
+              <div className="EmppAttendence-form-group">
+                <label className="EmppAttendence-field-label">
+                  <FiClock size={14} /> Check Out Time
+                </label>
+                <input
+                  type="time"
+                  className="EmppAttendence-form-input EmppAttendence-edit-input"
+                  value={editedRecord.outTime}
+                  onChange={(e) => setEditedRecord(prev => ({ ...prev, outTime: e.target.value }))}
+                />
+                <LocationMeta location={record?.outLocation} label="Logout" />
+              </div>
             </div>
 
-            <div className="EmppAttendence-form-group">
-              <label>Check In Time</label>
-              <input
-                type="time"
-                className="EmppAttendence-form-input"
-                value={editedRecord.inTime}
-                onChange={(e) => handleTimeChange('inTime', e.target.value)}
-              />
-              <LocationMeta location={record?.inLocation} label="Login" />
+            {/* Time Metrics Cards (Late By, Early Leave, Overtime, Hours Worked) */}
+            <div className="EmppAttendence-edit-metrics-wrap">
+              <div className="EmppAttendence-edit-metric-card">
+                <span className="metric-title">Late By</span>
+                <span className={`metric-value ${editedRecord.lateBy && editedRecord.lateBy !== '00:00:00' ? 'has-val warn' : ''}`}>
+                  {editedRecord.lateBy || '00:00:00'}
+                </span>
+              </div>
+              <div className="EmppAttendence-edit-metric-card">
+                <span className="metric-title">Early Leave</span>
+                <span className={`metric-value ${editedRecord.earlyLeave && editedRecord.earlyLeave !== '00:00:00' ? 'has-val danger' : ''}`}>
+                  {editedRecord.earlyLeave || '00:00:00'}
+                </span>
+              </div>
+              <div className="EmppAttendence-edit-metric-card">
+                <span className="metric-title">Overtime</span>
+                <span className={`metric-value ${editedRecord.overTime && editedRecord.overTime !== '00:00:00' ? 'has-val success' : ''}`}>
+                  {editedRecord.overTime || '00:00:00'}
+                </span>
+              </div>
+              <div className="EmppAttendence-edit-metric-card highlight">
+                <span className="metric-title">Working Hours</span>
+                <span className="metric-value">
+                  {calculatedHoursWorked || '--:--'}
+                </span>
+              </div>
             </div>
 
-            <div className="EmppAttendence-form-group">
-              <label>Check Out Time</label>
-              <input
-                type="time"
-                className="EmppAttendence-form-input"
-                value={editedRecord.outTime}
-                onChange={(e) => setEditedRecord(prev => ({ ...prev, outTime: e.target.value }))}
-              />
-              <LocationMeta location={record?.outLocation} label="Logout" />
-            </div>
-
-            <div className="EmppAttendence-form-group">
-              <label>Status</label>
-              <select
-                className="EmppAttendence-form-input"
-                value={editedRecord.status}
-                onChange={(e) => setEditedRecord(prev => ({ ...prev, status: e.target.value }))}
-                disabled={!canEditRecord}
-              >
-                <option value="present">Present</option>
-                <option value="late">Late</option>
-                <option value="halfday">Half Day</option>
-                <option value="absent">Absent</option>
-                <option value="uninformedleave">Uninformed Leave</option>
-                <option value="holiday">Holiday</option>
-              </select>
-            </div>
-
-            <div className="EmppAttendence-form-group">
-              <label>Late By</label>
-              <input
-                type="text"
-                className="EmppAttendence-form-input"
-                value={editedRecord.lateBy}
-                readOnly
-                placeholder="00:00:00"
-              />
-            </div>
-
-            <div className="EmppAttendence-form-group">
-              <label>Early Leave</label>
-              <input
-                type="text"
-                className="EmppAttendence-form-input"
-                value={editedRecord.earlyLeave}
-                readOnly
-                placeholder="00:00:00"
-              />
-            </div>
-
-            <div className="EmppAttendence-form-group">
-              <label>Overtime</label>
-              <input
-                type="text"
-                className="EmppAttendence-form-input"
-                value={editedRecord.overTime}
-                readOnly
-                placeholder="00:00:00"
-              />
-            </div>
-
-            <div className="EmppAttendence-form-group EmppAttendence-full-width">
-              <label>Notes</label>
+            {/* Notes */}
+            <div className="EmppAttendence-form-group EmppAttendence-full-width" style={{ marginTop: '16px' }}>
+              <label className="EmppAttendence-field-label">
+                <FiFileText size={14} /> Notes / Remarks
+              </label>
               <textarea
-                className="EmppAttendence-form-input"
+                className="EmppAttendence-form-input EmppAttendence-edit-textarea"
                 value={editedRecord.notes}
                 onChange={(e) => setEditedRecord(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Add any additional notes..."
+                placeholder="Add any administrative notes or shift exceptions..."
                 rows="3"
               />
             </div>
           </div>
 
-          <div className="EmppAttendence-calculated-info">
-            <div className="EmppAttendence-info-item">
-              <span>Status:</span>
-              <span>Recalculated automatically from the saved shift snapshot</span>
-            </div>
-            {editedRecord.inTime && editedRecord.outTime && (
-              <div className="EmppAttendence-info-item">
-                <span>Hours Worked:</span>
-                <span>
-                  {(() => {
-                    const [inHour, inMinute] = editedRecord.inTime.split(':').map(Number);
-                    const [outHour, outMinute] = editedRecord.outTime.split(':').map(Number);
-                    const totalMinutes = (outHour * 60 + outMinute) - (inHour * 60 + inMinute);
-                    const hours = Math.floor(totalMinutes / 60);
-                    const minutes = totalMinutes % 60;
-                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-                  })()}
-                </span>
-              </div>
-            )}
+          {/* Shift Note Banner */}
+          <div className="EmppAttendence-edit-info-banner">
+            <FiAlertCircle size={16} />
+            <span>Shift status and timing violations are automatically recalculated upon saving.</span>
           </div>
 
+          {/* Delete Confirmation Box */}
           {showConfirmDelete && (
-            <div className="EmppAttendence-confirm-delete">
-              <FiAlertTriangle size={24} color="#ff6b6b" />
+            <div className="EmppAttendence-confirm-delete EmppAttendence-edit-confirm-delete">
+              <FiAlertTriangle size={28} color="#ef4444" />
               <h4>Delete Attendance Record?</h4>
-              <p>Are you sure you want to delete this attendance record? This action cannot be undone.</p>
+              <p>Are you sure you want to delete this record for <strong>{empName}</strong>? This action cannot be undone.</p>
               <div className="EmppAttendence-confirm-buttons">
                 <button 
+                  type="button"
                   className="EmppAttendence-btn EmppAttendence-btn-outlined" 
                   onClick={() => setShowConfirmDelete(false)}
                 >
                   Cancel
                 </button>
                 <button 
+                  type="button"
                   className="EmppAttendence-btn EmppAttendence-btn-danger" 
                   onClick={handleDelete}
                   disabled={loading}
                 >
-                  {loading ? 'Deleting...' : 'Yes, Delete'}
+                  {loading ? 'Deleting...' : 'Yes, Permanently Delete'}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <div className="EmppAttendence-modal-footer">
+        {/* Modal Footer */}
+        <div className="EmppAttendence-modal-footer EmppAttendence-edit-modal-footer">
           <div className="EmppAttendence-footer-left">
             <button 
-              className="EmppAttendence-btn EmppAttendence-btn-danger" 
+              type="button"
+              className="EmppAttendence-btn-danger-subtle" 
               onClick={() => setShowConfirmDelete(true)}
-              disabled={showConfirmDelete}
+              disabled={showConfirmDelete || loading || !canDeleteRecord}
+              title="Delete attendance record"
             >
-              <FiTrash2 /> Delete Record
+              <FiTrash2 size={16} /> Delete Record
             </button>
           </div>
           <div className="EmppAttendence-footer-right">
-            <button className="EmppAttendence-btn EmppAttendence-btn-outlined" onClick={onClose}>
+            <button type="button" className="EmppAttendence-btn EmppAttendence-btn-outlined" onClick={onClose}>
               Cancel
             </button>
             <button 
+              type="button"
               className="EmppAttendence-btn EmppAttendence-btn-contained" 
               onClick={handleSave}
               disabled={loading || showConfirmDelete}
             >
-              {loading ? 'Saving...' : 'Save Changes'}
+              <FiSave size={16} />
+              {loading ? 'Saving Changes...' : 'Save Changes'}
             </button>
           </div>
         </div>
@@ -2084,9 +2127,31 @@ const EmployeeAttendance = () => {
     return filtered;
   }, [records, selectedEmployeeType, selectedDepartment, searchTerm, statusFilter]);
 
+  const statsBaseRecords = useMemo(() => {
+    let filtered = records;
+
+    if (selectedEmployeeType !== "all") {
+      filtered = filtered.filter(
+        (rec) =>
+          rec.user?.employeeType &&
+          rec.user.employeeType.toLowerCase() ===
+            selectedEmployeeType.toLowerCase()
+      );
+    }
+
+    if (selectedDepartment !== "all") {
+      filtered = filtered.filter((rec) => {
+        const deptVal = rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || rec.user?.departmentId;
+        return deptVal === selectedDepartment;
+      });
+    }
+
+    return filtered;
+  }, [records, selectedEmployeeType, selectedDepartment]);
+
   useEffect(() => {
-    calculateStats(filteredRecords);
-  }, [filteredRecords]);
+    calculateStats(statsBaseRecords);
+  }, [statsBaseRecords]);
 
   
   
@@ -3441,7 +3506,8 @@ const EmployeeAttendance = () => {
         ]
           .filter(stat =>
             stat.count > 0 ||
-            ["all", "present", "late", "halfday", "absent"].includes(stat.filterValue)
+            ["all", "present", "late", "halfday", "absent", "ontime"].includes(stat.filterValue) ||
+            statusFilter === stat.filterValue
           )
           .map((stat) => (
             <div 

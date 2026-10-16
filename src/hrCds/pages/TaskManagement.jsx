@@ -860,7 +860,10 @@ const AnimatedStatValue = ({ value }) => {
 
 const UserCreateTask = () => {
   const storedTaskUser = useMemo(() => getStoredTaskUser(), []);
-  const initialTaskPeriod = 'today';
+  // Task management is the source of truth for all user tasks. Opening on
+  // "today" hid valid future-due tasks and made a newly-created task look as
+  // though it had disappeared.
+  const initialTaskPeriod = 'all';
   const cachedTaskData = useMemo(() => {
     const availableCache =
       taskManagementMemoryCache ||
@@ -2550,6 +2553,13 @@ const UserCreateTask = () => {
 
   const patchTaskStatusLocally = useCallback((taskId, taskSource, nextStatus, remarks = '') => {
     lastTaskStatusMutationAtRef.current = Date.now();
+    // A cached list can still contain the old status. If it is reused on a
+    // later focus/refresh it overwrites the optimistic patch and the card
+    // appears to disappear or jump back to its prior state.
+    allTasksPageCacheRef.current.clear();
+    allTasksPrefetchKeyRef.current = '';
+    if (allTasksAbortRef.current) allTasksAbortRef.current.abort();
+    if (allTasksPrefetchAbortRef.current) allTasksPrefetchAbortRef.current.abort();
     const normalizedStatus = normalizeStatus(nextStatus);
     const timestamp = new Date().toISOString();
     const sourceKey = String(taskSource || '').toLowerCase();
@@ -4652,7 +4662,10 @@ const UserCreateTask = () => {
         status: normalizedStatus,
         remarks: remarks || `Status changed to ${normalizedStatus}`
       });
-      window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+      // The optimistic patch already updates this card and its local counters.
+      // Reloading every task source after each selection made status changes
+      // feel slow, particularly for accounts with a long task history.
+      void fetchAllTaskCounts(taskViewMode);
       if (options.showSuccess !== false) showSnackbar('Status updated successfully', 'success');
       return true;
     } catch (err) {
@@ -4698,7 +4711,9 @@ const UserCreateTask = () => {
         status: normalizedStatus,
         remarks: remarks || `Status changed to ${normalizedStatus}`
       });
-      window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+      // Keep the optimistic status visible; a full list reload is unnecessary
+      // after a successful, persisted status update.
+      void fetchAllTaskCounts(taskViewMode);
       if (options.showSuccess !== false) showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
       return true;
     } catch (err) {
@@ -4746,7 +4761,9 @@ const UserCreateTask = () => {
         const statusPayload = { status: normalizedStatus, completed: normalizedStatus === 'completed' };
 
         await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
-        window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+        // The list was patched before this request, so avoid an expensive
+        // full refresh that can momentarily stall the task screen.
+        void fetchAllTaskCounts(taskViewMode);
         if (options.showSuccess !== false) showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
         return true;
       } catch (err) {
@@ -4979,7 +4996,8 @@ const UserCreateTask = () => {
         status: toProjectApiStatus(normalizedStatus),
         remark: remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`
       });
-      window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+      // Do not refetch every task after a single project-status update.
+      void fetchAllTaskCounts(taskViewMode);
       if (options.showSuccess !== false) showSnackbar(`Project task status changed to ${normalizedStatus} successfully`, 'success');
       return true;
     } catch (err) {
@@ -4987,6 +5005,25 @@ const UserCreateTask = () => {
       restoreTaskStateSnapshot(snapshot);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update project task status', 'error');
       return false;
+    }
+  };
+
+  // A status selection is an explicit action. Previously, every option except
+  // "in progress" was only staged in the remarks dialog, so closing that
+  // dialog left the task unchanged and made the selector appear broken.
+  const handleTaskStatusSelection = (task, nextStatus, taskSource) => {
+    const taskId = task?._id || task?.id;
+    if (!taskId || !nextStatus) return;
+
+    const remark = nextStatus === 'in-progress' ? 'Started working on task' : `Status changed to ${nextStatus}`;
+    if (taskSource === 'self') {
+      void handleStatusChange(taskId, nextStatus, remark);
+    } else if (taskSource === 'client') {
+      void handleClientTaskStatusChange(taskId, nextStatus, remark);
+    } else if (taskSource === 'project') {
+      void handleProjectTaskStatusChange(task, nextStatus, remark);
+    } else {
+      void handleAssignedTaskStatusChange(taskId, nextStatus, remark);
     }
   };
 
@@ -5252,6 +5289,13 @@ const UserCreateTask = () => {
         });
         setAllTasksStatsGrouped(prev => insertCreatedTask(prev));
         setTaskViewsLoaded(prev => ({ ...prev, self: true, all: true }));
+      // Do not allow a previously cached page to replace this just-created
+      // task during a focus refresh or the next list fetch.
+      allTasksPageCacheRef.current.clear();
+      allTasksPrefetchKeyRef.current = '';
+      if (allTasksAbortRef.current) allTasksAbortRef.current.abort();
+      if (allTasksPrefetchAbortRef.current) allTasksPrefetchAbortRef.current.abort();
+      void fetchAllTaskCounts(taskViewMode);
       }
 
       setOpenDialog(false);
@@ -5271,8 +5315,6 @@ const UserCreateTask = () => {
         recurrenceEndDate: '',
         reminderSettings: createDefaultReminderSettings(),
       });
-
-      window.setTimeout(() => void refreshCurrentTaskView('self'), 1800);
 
     } catch (err) {
       console.error('❌ Error creating task:', err);
@@ -7159,24 +7201,7 @@ const UserCreateTask = () => {
                                       value={displayedSelectValue}
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
-                                        const currentTaskId = task._id || task.id;
-                                        
-                                        if (selectedStatus === 'in-progress') {
-                                          
-                                          if (taskSource === 'self') {
-                                            handleStatusChange(currentTaskId, 'in-progress', 'Started working');
-                                          } else if (taskSource === 'client') {
-                                            handleClientTaskStatusChange(currentTaskId, 'in-progress');
-                                          } else if (taskSource === 'project') {
-                                            handleProjectTaskStatusChange(task, 'in-progress', 'Started working');
-                                          } else {
-                                            handleAssignedTaskStatusChange(currentTaskId, 'in-progress', 'Started working');
-                                          }
-                                        } else {
-                                          
-                                          setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
-                                          setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
-                                        }
+                                        handleTaskStatusSelection(task, selectedStatus, taskSource);
                                       }}
                                       className="user-create-task-select"
                                       style={{ 
@@ -7487,31 +7512,7 @@ const UserCreateTask = () => {
                                   value={displayedSelectValue}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
-                                    const currentTaskId = task._id || task.id;
-                                    
-                                    if (selectedStatus === 'completed' || selectedStatus === 'pending') {
-                                      
-                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
-                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
-                                    } 
-                                    else if (selectedStatus === 'in-progress') {
-                                      
-                                      if (taskSource === 'self') {
-                                        handleStatusChange(currentTaskId, 'in-progress', 'Started working on task');
-                                      } else if (taskSource === 'client') {
-                                        handleClientTaskStatusChange(currentTaskId, 'in-progress');
-                                      } else if (taskSource === 'project') {
-                                        handleProjectTaskStatusChange(task, 'in-progress', 'Started working on task');
-                                      } else {
-                                        handleAssignedTaskStatusChange(currentTaskId, 'in-progress', 'Started working on task');
-                                      }
-                                    }
-                                    else {
-                                      
-                                      
-                                      setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
-                                      setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
-                                    }
+                                    handleTaskStatusSelection(task, selectedStatus, taskSource);
                                   }}
                                   className="user-create-task-select"
                                   style={{ 

@@ -464,26 +464,6 @@ const Dashboard = () => {
     };
   }, []);
 
-  const fetchCompaniesTaskSummary = async (clientsList) => {
-    const clientIds = [...new Set(
-      (clientsList || [])
-        .map(c => String(c?._id || c?.id || '').trim())
-        .filter(Boolean)
-    )];
-    if (!clientIds.length) return;
-    try {
-      const res = await tasksApi.get('/summary/bulk', {
-        params: { clientIds: clientIds.join(',') }
-      });
-      const summaries = res.data?.data || {};
-      if (isMounted.current && summaries && typeof summaries === 'object') {
-        setCompanyTaskCounts(prev => ({ ...prev, ...summaries }));
-      }
-    } catch {
-      // ignore fallback error
-    }
-  };
-
   useEffect(() => {
     isMounted.current = true;
     const handleSelectionChange = () => {
@@ -847,20 +827,10 @@ const Dashboard = () => {
   const dynamicCompanyCards = availableClients.map((item, idx) => {
     const companyName = item.company || item.businessName || item.companyName || item.client || 'Company';
     const serviceCount = Array.isArray(item.services) ? item.services.length : 0;
+    const taskCount = Array.isArray(item.tasks) ? item.tasks.length : 0;
+    const status = item.status || item.accountStatus || 'Active';
     const id = normalizeMatchValue(item?._id || item?.id);
     const selectedClientId = normalizeMatchValue(client?._id || client?.id);
-    const isActive = Boolean(id && id === selectedClientId);
-    const rawId = String(item?._id || item?.id || '');
-    const summaryTotal = companyTaskCounts[rawId]?.total ?? companyTaskCounts[id]?.total;
-    const fallbackCount = Number(item.totalTasks ?? item.taskCount ?? (Array.isArray(item.tasks) ? item.tasks.length : 0));
-    const taskCount = isActive && totalTasksCount > 0
-      ? totalTasksCount
-      : Number.isFinite(summaryTotal) && summaryTotal > 0
-        ? summaryTotal
-        : Number.isFinite(fallbackCount) && fallbackCount > 0
-          ? fallbackCount
-          : (Number.isFinite(summaryTotal) ? summaryTotal : 0);
-    const status = item.status || item.accountStatus || 'Active';
     return {
       client: item,
       id: id || `comp-${idx}`,
@@ -868,7 +838,7 @@ const Dashboard = () => {
       serviceCount,
       taskCount,
       status,
-      isActive,
+      isActive: id && id === selectedClientId,
       initial: companyName.charAt(0).toUpperCase(),
       bgType: idx % 2 === 0 ? 'blue' : 'purple'
     };

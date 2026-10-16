@@ -511,8 +511,14 @@ const AddClientPage = () => {
   return (
     <div className="ClientManagement-container" style={{ padding: '2rem' }}>
       <div className="ClientPlansPage-header-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <button className="ClientPlansPage-back-btn" onClick={() => navigate('/ciisUser/emp-client')} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '1rem', color: '#666' }}>
-          <FiArrowLeft size={20} style={{ marginRight: '0.5rem' }} /> Back to Clients
+        <button
+          type="button"
+          className="ClientDetailsPage-back-btn ClientPlansPage-back-btn"
+          onClick={() => navigate('/ciisUser/emp-client')}
+          title="Back to Clients"
+        >
+          <FiArrowLeft size={16} />
+          <span>Back to Clients</span>
         </button>
         <h2 style={{ margin: 0 }}>{initialClient ? 'Add New Company' : 'Add New Client / Company'}</h2>
       </div>
@@ -722,8 +728,24 @@ const AddClientPage = () => {
                     const manager = projectManagers.find(pm => pm._id === managerId);
                     if (!manager) return null;
                     return (
-                      <div key={managerId} className="ClientManagement-selected-item" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#e2e8f0', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.9rem' }}>
-                        <span>{manager.name}</span>
+                      <div
+                        key={managerId}
+                        className="ClientManagement-selected-item"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          background: '#eff6ff',
+                          color: '#1e40af',
+                          border: '1px solid #bfdbfe',
+                          padding: '0.3rem 0.65rem',
+                          borderRadius: '6px',
+                          fontSize: '0.85rem',
+                          fontWeight: '600',
+                          boxShadow: '0 1px 2px rgba(37, 99, 235, 0.05)'
+                        }}
+                      >
+                        <span style={{ color: '#1e3a8a' }}>{manager.name}</span>
                         <button
                           type="button"
                           className="ClientManagement-selected-item-remove"
@@ -733,7 +755,20 @@ const AddClientPage = () => {
                               projectManagers: prev.projectManagers.filter(id => id !== managerId)
                             }));
                           }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            color: '#3b82f6',
+                            padding: '2px',
+                            marginLeft: '2px',
+                            transition: 'color 0.2s ease'
+                          }}
+                          title="Remove user"
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = '#3b82f6'; }}
                         >
                           <FiX size={14} />
                         </button>

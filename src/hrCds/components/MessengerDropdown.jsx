@@ -738,6 +738,32 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     });
   }, [conversations, companyUsers, searchQuery, activeTab, currentUserId]);
 
+  const getMessageSenderName = (msg) => {
+    if (!msg) return "Member";
+    if (msg.sender && typeof msg.sender === "object") {
+      const name = msg.sender.name || msg.sender.fullName || msg.sender.username || msg.sender.email;
+      if (name) return name;
+    }
+    if (msg.senderName) return msg.senderName;
+    const senderId = getEntityId(msg.sender || msg.senderId);
+    if (senderId) {
+      if (Array.isArray(selectedChat?.members)) {
+        const member = selectedChat.members.find(
+          (m) => getEntityId(m?.user || m) === senderId
+        );
+        const userObj = member?.user && typeof member.user === "object" ? member.user : member;
+        const memberName = userObj?.name || userObj?.fullName || userObj?.username;
+        if (memberName) return memberName;
+      }
+      if (Array.isArray(companyUsers)) {
+        const found = companyUsers.find((u) => getEntityId(u) === senderId);
+        const foundName = found?.name || found?.fullName || found?.username;
+        if (foundName) return foundName;
+      }
+    }
+    return "Member";
+  };
+
   if (isClientUser) {
     return null;
   }
@@ -1112,6 +1138,11 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                             <em>This message was deleted</em>
                           ) : (
                             <>
+                              {selectedChat?.isGroup && !isMe && (
+                                <span className="fb-chat-sender-name">
+                                  {getMessageSenderName(msg)}
+                                </span>
+                              )}
                               {msg.text && <span>{msg.text}</span>}
                               {fileKind === "image" && (
                                 <img className="fb-chat-message-image" src={fileUrl} alt={fileName} />
@@ -1317,15 +1348,18 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
             {pendingAttachment && (
               <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
                 <div className="fb-chat-preview-modal">
-                  <button
-                    type="button"
-                    className="fb-chat-preview-close"
-                    title="Close preview"
-                    onClick={() => setPendingAttachment(null)}
-                  >
-                    <X size={18} />
-                  </button>
-                  <strong>Preview attachment</strong>
+                  <div className="fb-chat-preview-header">
+                    <strong>Preview attachment</strong>
+                    <button
+                      type="button"
+                      className="fb-chat-preview-close"
+                      title="Close preview"
+                      onClick={() => setPendingAttachment(null)}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
                   <div className="fb-chat-preview-body">
                     {pendingAttachment.kind === "image" && (
                       <img src={attachmentPreviewUrl} alt={pendingAttachment.file.name} />
@@ -1343,22 +1377,25 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                       </div>
                     )}
                   </div>
-                  <div className="fb-chat-preview-meta">
-                    <span>{pendingAttachment.file.name}</span>
-                    <span>{formatFileSize(pendingAttachment.file.size)}</span>
-                  </div>
-                  <div className="fb-chat-preview-actions">
-                    <button type="button" onClick={() => setPendingAttachment(null)}>
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={handleSendFile}
-                      disabled={isSending}
-                    >
-                      Send
-                    </button>
+
+                  <div className="fb-chat-preview-footer">
+                    <div className="fb-chat-preview-meta">
+                      <span title={pendingAttachment.file.name}>{pendingAttachment.file.name}</span>
+                      <span>{formatFileSize(pendingAttachment.file.size)}</span>
+                    </div>
+                    <div className="fb-chat-preview-actions">
+                      <button type="button" onClick={() => setPendingAttachment(null)}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={handleSendFile}
+                        disabled={isSending}
+                      >
+                        Send
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1367,7 +1404,17 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
             {confirmDeleteMessage && (
               <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
                 <div className="fb-chat-confirm-modal">
-                  <strong>Delete for everyone?</strong>
+                  <div className="fb-chat-preview-header">
+                    <strong>Delete for everyone?</strong>
+                    <button
+                      type="button"
+                      className="fb-chat-preview-close"
+                      title="Cancel"
+                      onClick={() => setConfirmDeleteMessage(null)}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
                   <p>This message will be removed from this conversation for all members.</p>
                   <div className="fb-chat-preview-actions">
                     <button type="button" onClick={() => setConfirmDeleteMessage(null)}>

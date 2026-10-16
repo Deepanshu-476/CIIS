@@ -166,7 +166,12 @@ const ClientDetailsPage = () => {
     return (
       <div className="ClientPlansPage-container">
         <div className="ClientPlansPage-header-row">
-          <button className="ClientPlansPage-back-btn" onClick={() => navigate('/ciisUser/emp-client')}>
+          <button
+            type="button"
+            className="ClientDetailsPage-back-btn ClientPlansPage-back-btn"
+            onClick={() => navigate('/ciisUser/emp-client')}
+            title="Back to Clients"
+          >
             <FiArrowLeft size={16} />
             <span>Back to Clients</span>
           </button>
@@ -201,7 +206,12 @@ const ClientDetailsPage = () => {
   return (
     <div className="ClientPlansPage-container ClientDetailsPage-container">
       <div className="ClientDetailsPage-topbar">
-        <button className="ClientPlansPage-back-btn" onClick={() => navigate('/ciisUser/emp-client')}>
+        <button
+          type="button"
+          className="ClientDetailsPage-back-btn ClientPlansPage-back-btn"
+          onClick={() => navigate('/ciisUser/emp-client')}
+          title="Back to Clients"
+        >
           <FiArrowLeft size={16} />
           <span>Back to Clients</span>
         </button>

@@ -42,6 +42,18 @@ const MONTH_NAMES = [
 const isAttendanceFlagTrue = (value) =>
   value === true || value === 1 || String(value).trim().toLowerCase() === "true";
 
+// Professional status filter options with labels and color classes
+const STATUS_FILTER_OPTIONS = [
+  { key: "ALL", label: "All Statuses", dotClass: "all" },
+  { key: "PRESENT", label: "Present", dotClass: "present" },
+  { key: "LATE", label: "Late", dotClass: "late" },
+  { key: "HALF DAY", label: "Half Day", dotClass: "halfday" },
+  { key: "ABSENT", label: "Absent", dotClass: "absent" },
+  { key: "WEEKLY OFF", label: "Weekly Off", dotClass: "weeklyoff" },
+  { key: "HOLIDAY", label: "Holiday", dotClass: "holiday" },
+  { key: "ON LEAVE", label: "On Leave", dotClass: "onleave" },
+];
+
 const Attendance = () => {
   // ----------------------------------------------------
   // 1. Current User & Authentication
@@ -1306,29 +1318,59 @@ const Attendance = () => {
                 <div className="att-status-filter-wrapper" ref={statusDropdownRef}>
                   <button
                     type="button"
-                    className="att-status-filter-icon-btn"
+                    className={`att-status-filter-icon-btn ${statusFilter !== "ALL" ? "active" : ""} ${showStatusDropdown ? "open" : ""}`}
                     onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                    title="Filter by status"
+                    title={statusFilter === "ALL" ? "Filter by status" : `Filtered: ${STATUS_FILTER_OPTIONS.find(o => o.key === statusFilter)?.label || statusFilter}`}
+                    aria-label="Filter attendance records by status"
                   >
                     <FiFilter />
+                    {statusFilter !== "ALL" && <span className="att-filter-active-dot" />}
                   </button>
 
                   {showStatusDropdown && (
                     <div className="att-filter-dropdown-menu">
-                      {["ALL", "PRESENT", "LATE", "HALF DAY", "ABSENT", "WEEKLY OFF", "HOLIDAY", "ON LEAVE"].map((st) => (
-                        <button
-                          key={st}
-                          type="button"
-                          className={`att-filter-dropdown-item ${statusFilter === st ? "active" : ""}`}
-                          onClick={() => {
-                            setStatusFilter(st);
-                            setShowStatusDropdown(false);
-                          }}
-                        >
-                          <span>{st === "ALL" ? "All Statuses" : st}</span>
-                          {statusFilter === st && <FiCheck />}
-                        </button>
-                      ))}
+                      <div className="att-filter-dropdown-header">
+                        <span className="att-filter-header-title">Filter by Status</span>
+                        {statusFilter !== "ALL" && (
+                          <button
+                            type="button"
+                            className="att-filter-reset-btn"
+                            onClick={() => {
+                              setStatusFilter("ALL");
+                              setShowStatusDropdown(false);
+                            }}
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="att-filter-dropdown-list">
+                        {STATUS_FILTER_OPTIONS.map((opt) => {
+                          const isSelected = statusFilter === opt.key;
+                          return (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              className={`att-filter-dropdown-item ${isSelected ? "active" : ""}`}
+                              onClick={() => {
+                                setStatusFilter(opt.key);
+                                setShowStatusDropdown(false);
+                              }}
+                            >
+                              <div className="att-filter-item-left">
+                                <span className={`att-filter-dot ${opt.dotClass}`} />
+                                <span className="att-filter-item-label">{opt.label}</span>
+                              </div>
+                              {isSelected && (
+                                <span className="att-filter-check-icon">
+                                  <FiCheck />
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

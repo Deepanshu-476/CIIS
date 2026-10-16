@@ -553,9 +553,12 @@ const UserDashboard = () => {
   }, [dashboardUser, user]);
 
   const fetchProductivity = useCallback(async (period = productivityPeriod, dates = productivityDates) => {
-    if (!token) return;
+    if (!token) {
+      setProductivityData(current => ({ ...current, loading: false }));
+      return;
+    }
     if (period === 'custom' && (!dates.from || !dates.to || dates.from > dates.to)) {
-      setProductivityData(current => ({ ...current, error: 'Please select a valid date range.' }));
+      setProductivityData(current => ({ ...current, error: 'Please select a valid date range.', loading: false }));
       return;
     }
     const requestId = ++productivityRequestRef.current;
@@ -567,9 +570,25 @@ const UserDashboard = () => {
         timeout: 12000,
         cache: false,
       });
-      if (requestId === productivityRequestRef.current) setProductivityData({ ...response.data.data, loading: false, refreshing: false, error: '' });
+      if (requestId === productivityRequestRef.current) {
+        const data = response.data?.data || {};
+        setProductivityData({
+          ...data,
+          series: Array.isArray(data.series) ? data.series : [],
+          loading: false,
+          refreshing: false,
+          error: ''
+        });
+      }
     } catch (error) {
-      if (requestId === productivityRequestRef.current) setProductivityData(current => ({ ...current, loading: false, refreshing: false, error: error.response?.data?.message || 'Unable to load productivity.' }));
+      if (requestId === productivityRequestRef.current) {
+        setProductivityData(current => ({
+          ...current,
+          loading: false,
+          refreshing: false,
+          error: error.response?.data?.message || 'Unable to load productivity.'
+        }));
+      }
     }
   }, [productivityDates, productivityPeriod, token]);
 
@@ -578,7 +597,16 @@ const UserDashboard = () => {
     if (productivityPeriod === 'custom') return;
     if (summaryProductivityHydratedRef.current && productivityPeriod === 'weekly') return;
     fetchProductivity(productivityPeriod, productivityDates);
-  }, [fetchProductivity, productivityDates, productivityPeriod]);
+  }, [fetchProductivity, initialLoadDone, productivityDates, productivityPeriod]);
+
+  // Failsafe: Productivity loading state must never remain stuck indefinitely
+  useEffect(() => {
+    if (!productivityData.loading) return;
+    const safetyTimer = window.setTimeout(() => {
+      setProductivityData(current => current.loading ? { ...current, loading: false } : current);
+    }, 10000);
+    return () => window.clearTimeout(safetyTimer);
+  }, [productivityData.loading]);
 
   const companyDetails = useMemo(() => {
     try {
@@ -1148,7 +1176,7 @@ const UserDashboard = () => {
     setProjectsLoading(true);
     try {
       const response = await axios.get('/projects', {
-        params: { companyCode, page: 1, limit: 6 },
+        params: { companyCode, page: 1, limit: 12 },
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15000
       });
@@ -1300,6 +1328,9 @@ const UserDashboard = () => {
       if (summary.productivity) {
         summaryProductivityHydratedRef.current = true;
         setProductivityData({ ...summary.productivity, loading: false, refreshing: false, error: '' });
+      } else {
+        summaryProductivityHydratedRef.current = false;
+        setProductivityData(current => ({ ...current, loading: false }));
       }
 
       if (Array.isArray(summary.upcomingMeetings)) {
@@ -1393,19 +1424,23 @@ const UserDashboard = () => {
             fetchHolidays(),
             fetchAttendanceData(true),
             fetchLeaveData(),
+            fetchProductivity('weekly', productivityDates),
+            fetchDashboardProjects(),
           ]);
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
         setInitialLoadDone(true);
+        setProductivityData(prev => prev.loading ? { ...prev, loading: false } : prev);
+        setProjectsLoading(false);
       }
     };
 
     loadData();
 
     return () => cancelPendingRequests();
-  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchFocusStats, cancelPendingRequests, isUserInCurrentCompany]);
+  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchFocusStats, fetchProductivity, fetchDashboardProjects, productivityDates, cancelPendingRequests, isUserInCurrentCompany]);
 
   useEffect(() => {
     if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
@@ -2099,7 +2134,7 @@ const UserDashboard = () => {
     const aName = String(a.projectName || a.name || a.title || '');
     const bName = String(b.projectName || b.name || b.title || '');
     return aName.localeCompare(bName, undefined, { sensitivity: 'base' });
-  }).slice(0, 3), [dashboardProjects]);
+  }).slice(0, 6), [dashboardProjects]);
 
   const quickActions = [
     { label: 'New Task', icon: <CirclePlus />, tone: 'purple', fields: [['title', 'Task title', 'text'], ['description', 'Description', 'textarea'], ['dueDateTime', 'Due date', 'datetime-local']] },

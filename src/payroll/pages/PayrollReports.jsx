@@ -96,6 +96,15 @@ const money = value => `INR ${Number(value || 0).toLocaleString("en-IN", { minim
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 const monthLabel = value => value ? new Date(`${value}-01T00:00:00`).toLocaleString("en-IN", { month: "long", year: "numeric" }) : "";
 const employeeKey = item => String(item?.user?._id || item?.user || item?._id || "");
+const isActiveUser = (user) => {
+  if (!user) return false;
+  if (user.isActive === false || user.isActive === "false") return false;
+  const status = String(user.status || user.employeeStatus || "").toLowerCase().trim();
+  if (["inactive", "terminated", "resigned", "suspended", "rejected"].includes(status)) return false;
+  const regStatus = String(user.registrationStatus || "").toLowerCase().trim();
+  if (regStatus === "rejected") return false;
+  return true;
+};
 const employeeName = item => item?.user?.name || "Employee";
 const employeeCode = item => item?.user?.employeeId || item?.user?.empId || "—";
 const departmentName = item => item?.department || item?.user?.department?.name || item?.user?.department || "Unassigned";
@@ -125,7 +134,7 @@ export default function PayrollReports() {
     return () => { active = false; };
   }, [applied.month]);
 
-  const sourceEmployees = run?.employees || [];
+  const sourceEmployees = (run?.employees || []).filter(item => isActiveUser(item.user));
   const departments = useMemo(() => [...new Set(sourceEmployees.map(departmentName))].sort(), [sourceEmployees]);
   const payGroups = useMemo(() => [...new Set(sourceEmployees.map(item => item.payFrequency || "Monthly"))].sort(), [sourceEmployees]);
   const filtered = useMemo(() => sourceEmployees.filter(item => {

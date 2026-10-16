@@ -10,6 +10,16 @@ const nameOf = (value) => typeof value === "object" ? value?.name || "—" : val
 
 const assignedDate = (value) => value ? new Date(value).toLocaleDateString("en-GB") : "—";
 
+const isActiveUser = (user) => {
+  if (!user) return false;
+  if (user.isActive === false || user.isActive === "false") return false;
+  const status = String(user.status || user.employeeStatus || "").toLowerCase().trim();
+  if (["inactive", "terminated", "resigned", "suspended", "rejected"].includes(status)) return false;
+  const regStatus = String(user.registrationStatus || "").toLowerCase().trim();
+  if (regStatus === "rejected") return false;
+  return true;
+};
+
 export default function AssignSalary() {
   const [users, setUsers] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -25,8 +35,8 @@ export default function AssignSalary() {
     axiosInstance.get("/employee-salaries", { noCache: true })
       .then((response) => {
         if (!current) return;
-        setUsers(Array.isArray(response.data?.users) ? response.data.users : []);
-        setAssignments(Array.isArray(response.data?.assignments) ? response.data.assignments : []);
+        setUsers(Array.isArray(response.data?.users) ? response.data.users.filter(isActiveUser) : []);
+        setAssignments(Array.isArray(response.data?.assignments) ? response.data.assignments.filter(item => isActiveUser(item.user)) : []);
       })
       .catch((requestError) => current && setError(requestError.response?.data?.message || "Salary assignment data could not be loaded."))
       .finally(() => current && setLoading(false));

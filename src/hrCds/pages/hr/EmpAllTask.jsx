@@ -1500,6 +1500,7 @@ const TaskDetails = () => {
 
         try {
           response = await axios.get('/tasks/all/company-overview', {
+            noCache: true,
             ...config,
             params: { includeStats: 'false' }
           });
@@ -2272,6 +2273,7 @@ const TaskDetails = () => {
       }
 
       const response = await axios.get(`/tasks/all/user/${userId}/stats`, {
+            noCache: true,
         params: {
           period: fromDate || toDate || dateFilter === 'overdue' ? 'all' : dateFilter,
           fromDate,
@@ -2446,6 +2448,7 @@ const TaskDetails = () => {
       }
 
       const response = await axios.get(`/tasks/all/user/${userId}`, {
+            noCache: true,
         params: {
           page,
           limit: taskLimit,

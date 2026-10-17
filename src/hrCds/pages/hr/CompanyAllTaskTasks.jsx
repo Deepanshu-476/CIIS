@@ -46,8 +46,11 @@ import {
   FiGrid,
   FiPlay,
   FiPause,
-  FiEdit2
+  FiEdit2,
+  FiImage,
+  FiZoomIn
 } from "react-icons/fi";
+import API_URL from "../../../config";
 import {
   getCurrentUserId,
   getStoredUser,
@@ -88,6 +91,130 @@ const resolveDisplayString = (value, fallback = "—") => {
   return fallback;
 };
 
+const getRemarkImagePath = (image) => {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+  return image.url || image.path || image.image || image.filename || "";
+};
+
+const isImageFile = (pathOrName = "") => {
+  if (!pathOrName) return false;
+  const clean = String(pathOrName).split("?")[0].toLowerCase();
+  return (
+    /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif)$/i.test(clean) ||
+    clean.startsWith("data:image/") ||
+    clean.includes("/uploads/") ||
+    clean.includes("client-remarks") ||
+    clean.includes("remarks")
+  );
+};
+
+const getRemarkImages = (remark) => {
+  if (!remark) return [];
+  const list = [];
+
+  // 1. Array of images (ClientTask model)
+  if (Array.isArray(remark.images)) {
+    remark.images.forEach((img) => {
+      const p = getRemarkImagePath(img);
+      if (p) list.push(p);
+    });
+  }
+
+  // 2. Array of attachments
+  if (Array.isArray(remark.attachments)) {
+    remark.attachments.forEach((att) => {
+      const p = getRemarkImagePath(att);
+      if (p && isImageFile(p)) list.push(p);
+    });
+  }
+
+  // 3. Array of files
+  if (Array.isArray(remark.files)) {
+    remark.files.forEach((f) => {
+      const p = getRemarkImagePath(f);
+      if (p && isImageFile(p)) list.push(p);
+    });
+  }
+
+  // 4. Single image (Task / Project models)
+  if (remark.image) {
+    const p = getRemarkImagePath(remark.image);
+    if (p) list.push(p);
+  }
+
+  // 5. Single file
+  if (remark.file) {
+    const p = getRemarkImagePath(remark.file);
+    if (p && isImageFile(p)) list.push(p);
+  }
+
+  return [...new Set(list.filter(Boolean))];
+};
+
+const getImageUrl = (rawPath) => {
+  if (!rawPath) return "";
+  if (
+    typeof rawPath === "string" &&
+    (rawPath.startsWith("http://") ||
+      rawPath.startsWith("https://") ||
+      rawPath.startsWith("data:") ||
+      rawPath.startsWith("blob:"))
+  ) {
+    return rawPath;
+  }
+
+  const baseUrl = API_URL;
+  const baseUrlWithoutApi = baseUrl.replace(/\/api\/?$/, "");
+  let cleanPath = String(rawPath).replace(/\\/g, "/").replace(/^\/+/, "");
+
+  if (cleanPath.startsWith("uploads/client-remarks/")) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.startsWith("client-remarks/")) {
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  if (cleanPath.startsWith("uploads/remarks/")) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.startsWith("remarks/")) {
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  if (cleanPath.startsWith("uploads/")) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.includes("client-remarks")) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+
+  const filename = cleanPath.split("/").pop();
+  return `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`;
+};
+
+const handleRemarkImageError = (e, originalPath) => {
+  const filename = String(originalPath || "").split("/").pop();
+  if (!filename) {
+    e.target.style.display = "none";
+    return;
+  }
+  const baseUrlWithoutApi = API_URL.replace(/\/api\/?$/, "");
+  const fallbacks = [
+    `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/${filename}`,
+    `${baseUrlWithoutApi}/${filename}`,
+  ];
+
+  const currentTry = parseInt(e.target.dataset.tryIndex || "0", 10);
+  if (currentTry < fallbacks.length) {
+    e.target.dataset.tryIndex = String(currentTry + 1);
+    e.target.src = fallbacks[currentTry];
+  } else {
+    e.target.style.display = "none";
+  }
+};
+
 const cleanActivityDescription = (desc, action) => {
   if (!desc) {
     if (!action) return "Activity logged";
@@ -98,7 +225,7 @@ const cleanActivityDescription = (desc, action) => {
   let text = String(desc);
 
   // Format messy Date strings like "Sun Oct 25 2026 00:00:00 GMT+0000 (Coordinated Universal Time)"
-  text = text.replace(/"[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}\s+[\d:]+\s+GMT[^\"]*"/g, (match) => {
+  text = text.replace(/"[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}\s+[\d:]+\s+GMT[^"]*"/g, (match) => {
     try {
       const cleanStr = match.replace(/"/g, "");
       const d = new Date(cleanStr);
@@ -648,6 +775,7 @@ const CompanyAllTaskTasks = () => {
 
   const [activityModal, setActivityModal] = useState({ open: false, task: null, logs: [] });
   const [remarksModal, setRemarksModal] = useState({ open: false, task: null, remarks: [] });
+  const [zoomImage, setZoomImage] = useState(null);
   const [editModal, setEditModal] = useState({ open: false, task: null });
   const [taskDetailsModal, setTaskDetailsModal] = useState({ open: false, task: null });
   const [expandedCheckpoints, setExpandedCheckpoints] = useState({});
@@ -1134,20 +1262,29 @@ const CompanyAllTaskTasks = () => {
   const fetchTaskDetails = useCallback(async (task) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
     const source = getTaskSource(task);
+    const isClient = source === "client" || Boolean(task.clientId || task.isClientTask);
     const endpoints = [];
 
     // Remarks endpoints by source with universal fallback
-    if (source === "client") {
+    if (isClient) {
+      endpoints.push({ key: "remarks", url: `/tasks/client-tasks/${task._id}/client-remarks` });
       endpoints.push({ key: "remarks", url: `/tasks/client-tasks/${task._id}/remarks` });
+      endpoints.push({ key: "remarks", url: `/tasks/${task._id}/client-remarks` });
     } else if (source === "project" && task.projectId) {
       endpoints.push({ key: "remarks", url: `/tasks/project/${task.projectId}/tasks/${task._id}/remarks` });
     } else if (source === "self") {
       endpoints.push({ key: "remarks", url: `/tasks/self/${task._id}/remarks` });
     } else {
       endpoints.push({ key: "remarks", url: `/task/${task._id}/remarks` });
+      if (task.clientId || task.isClientTask) {
+        endpoints.push({ key: "remarks", url: `/tasks/client-tasks/${task._id}/client-remarks` });
+      }
     }
 
-    // Universal Activity Logs endpoint works for all task types
+    // Activity Logs endpoints
+    if (isClient) {
+      endpoints.push({ key: "activityLogs", url: `/tasks/client-tasks/${task._id}/client-activity-logs` });
+    }
     endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
 
     const fallbackLogs = Array.isArray(task.activityLogs) && task.activityLogs.length > 0
@@ -1165,11 +1302,13 @@ const CompanyAllTaskTasks = () => {
           const res = await axios.get(url);
           const data = res.data?.logs || res.data?.activityLogs || res.data?.remarks || res.data?.data || res.data;
           if (Array.isArray(data) && data.length > 0) {
-            details[key] = data;
+            if (!details[key] || details[key].length === 0 || data.length >= details[key].length) {
+              details[key] = data;
+            }
           }
-        } catch (err) {
+        } catch {
           // If a specific remarks endpoint fails, try universal /task/:id/remarks
-          if (key === "remarks" && url !== `/task/${task._id}/remarks`) {
+          if (key === "remarks" && url !== `/task/${task._id}/remarks` && (!details.remarks || details.remarks.length === 0)) {
             try {
               const fallbackRes = await axios.get(`/task/${task._id}/remarks`);
               const fbData = fallbackRes.data?.remarks || fallbackRes.data?.data || fallbackRes.data;
@@ -1461,24 +1600,36 @@ const CompanyAllTaskTasks = () => {
   const handleAddRemarkFromModal = useCallback(async (task, text, files = []) => {
     if (!task?._id || !text) return;
     const source = getTaskSource(task);
-    const endpoint =
-      source === "client"
-        ? `/tasks/client-tasks/${task._id}/remarks`
-        : source === "project"
-          ? `/tasks/project/${task.projectId}/tasks/${task._id}/remarks`
-          : source === "self"
-            ? `/tasks/self/${task._id}/remarks`
-            : `/task/${task._id}/remarks`;
+    const isClient = source === "client" || Boolean(task.clientId || task.isClientTask);
 
     if (files && files.length > 0) {
       const formData = new FormData();
       formData.append("text", text);
       formData.append("remark", text);
-      files.forEach((f) => formData.append("image", f));
-      await axios.post(endpoint, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      if (isClient) {
+        files.forEach((f) => formData.append("images", f));
+        await axios.post(`/tasks/client-tasks/${task._id}/client-remarks/upload-images`, formData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+      } else {
+        files.forEach((f) => formData.append("image", f));
+        const endpoint = source === "project"
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/remarks`
+          : source === "self"
+            ? `/tasks/self/${task._id}/remarks`
+            : `/task/${task._id}/remarks`;
+        await axios.post(endpoint, formData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+      }
     } else {
+      const endpoint = isClient
+        ? `/tasks/client-tasks/${task._id}/client-remarks`
+        : source === "project"
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/remarks`
+          : source === "self"
+            ? `/tasks/self/${task._id}/remarks`
+            : `/task/${task._id}/remarks`;
       await axios.post(endpoint, { text, remark: text, comment: text });
     }
 
@@ -2749,7 +2900,7 @@ const CompanyAllTaskTasks = () => {
                       <h3>{group.label} ({group.tasks.length})</h3>
                     </div>
 
-                    <div className="task-items-list">
+                    <div className={`task-items-list ${taskViewLayout === "grid" ? "grid-view" : ""}`}>
                       {group.tasks.map((task) => {
                         const dispStatus = getDisplayStatus(task);
                         const meta = getStatusMeta(dispStatus);
@@ -4207,6 +4358,41 @@ const CompanyAllTaskTasks = () => {
 
                             <div className="task-activity-card-content">
                               <p className="task-activity-text">{text}</p>
+                              {(() => {
+                                const remarkImages = getRemarkImages(r);
+                                if (!remarkImages || remarkImages.length === 0) return null;
+                                return (
+                                  <div className="task-remark-images-wrap">
+                                    <span className="task-remark-images-label">
+                                      <FiImage size={12} />
+                                      Attached Images ({remarkImages.length})
+                                    </span>
+                                    <div className="task-remark-images-grid">
+                                      {remarkImages.map((imgPath, imgIdx) => {
+                                        const fullUrl = getImageUrl(imgPath);
+                                        return (
+                                          <div
+                                            key={imgIdx}
+                                            className="task-remark-thumb-container"
+                                            onClick={() => setZoomImage(fullUrl)}
+                                            title="Click to zoom image"
+                                          >
+                                            <img
+                                              src={fullUrl}
+                                              alt={`Remark image ${imgIdx + 1}`}
+                                              className="task-remark-image-thumb"
+                                              onError={(e) => handleRemarkImageError(e, imgPath)}
+                                            />
+                                            <div className="task-remark-thumb-overlay">
+                                              <FiZoomIn size={16} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -4393,6 +4579,27 @@ const CompanyAllTaskTasks = () => {
             <button type="button" className="btn-close-toast" onClick={() => setToast({ open: false, message: "", type: "success" })}>
               <FiX size={14} />
             </button>
+          </div>
+        )}
+
+        {/* Remark Image Zoom Lightbox */}
+        {zoomImage && (
+          <div className="task-remark-zoom-backdrop" onClick={() => setZoomImage(null)}>
+            <div className="task-remark-zoom-box" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="task-remark-zoom-close"
+                onClick={() => setZoomImage(null)}
+                title="Close"
+              >
+                <FiX size={18} />
+              </button>
+              <img
+                src={zoomImage}
+                alt="Enlarged remark attachment"
+                className="task-remark-zoom-img"
+              />
+            </div>
           </div>
         )}
       </div>

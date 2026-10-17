@@ -26,18 +26,20 @@
 }
 
 .task-detail-modal-panel {
-  width: min(1060px, 58vw);
+  width: min(1140px, 86vw);
+  max-width: 100vw;
   background: #ffffff;
   color: #0f172a;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  box-shadow: -10px 0 35px rgba(15, 23, 42, 0.12);
+  box-shadow: -10px 0 35px rgba(15, 23, 42, 0.16);
   animation: panelSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
   border-radius: 16px 0 0 16px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  box-sizing: border-box;
 }
 
 @keyframes panelSlideIn {
@@ -140,10 +142,14 @@
 .task-detail-modal-scrollable {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .task-detail-modal-scrollable::-webkit-scrollbar {
@@ -524,6 +530,9 @@
   display: grid;
   grid-template-columns: 1.25fr 0.95fr;
   gap: 14px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .task-left-column,
@@ -531,6 +540,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* CARD BOX BASE */
@@ -542,6 +554,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .card-box-header {
@@ -596,6 +612,14 @@
   justify-content: space-between;
   position: relative;
   padding: 4px 0 0;
+}
+
+.journey-milestones-row.single-step {
+  justify-content: center;
+}
+
+.journey-milestones-row.single-step .milestones-track-line {
+  display: none !important;
 }
 
 .milestones-track-line {
@@ -904,15 +928,70 @@
   white-space: nowrap;
 }
 
-/* ATTACHMENTS */
+/* ATTACHMENTS & MEDIA */
 .attachments-body {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.attachments-image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.attachment-gallery-item {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.attachment-gallery-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  border-color: #2563eb;
+}
+
+.attachment-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-item-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.attachment-gallery-item:hover .gallery-item-overlay {
+  opacity: 1;
 }
 
 .attachments-list {
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
 
 .attachment-item-card {
@@ -923,11 +1002,17 @@
   border-radius: 8px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.attachment-item-card:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .attachment-icon-box {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 6px;
   background: #eff6ff;
   color: #2563eb;
@@ -935,12 +1020,26 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.attachment-icon-box.clickable-thumb {
+  cursor: pointer;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+}
+
+.attachment-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .attachment-info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -954,6 +1053,10 @@
   text-overflow: ellipsis;
 }
 
+.attachment-name:hover {
+  color: #2563eb;
+}
+
 .attachment-meta {
   font-size: 10.5px;
   color: #64748b;
@@ -962,13 +1065,14 @@
 .attachment-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .attachment-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   color: #64748b;
@@ -976,11 +1080,47 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
 }
 
-.attachment-btn:hover {
+.attachment-btn.preview-btn {
+  color: #2563eb;
+}
+
+.attachment-btn.preview-btn:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.attachment-btn.download-btn:hover {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.attachments-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 12px;
+  text-align: center;
+  color: #64748b;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #e2e8f0;
+}
+
+.empty-state-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 2px;
+}
+
+.empty-state-subtitle {
+  font-size: 11px;
+  color: #94a3b8;
 }
 
 /* WORK SESSIONS */
@@ -1385,10 +1525,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 24px;
+  padding: 12px 24px;
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .footer-left {
@@ -1527,3 +1670,170 @@
     padding-right: 14px;
   }
 }
+
+/* ==========================================================================
+   Remark Images Grid & Lightbox Zoom Modal
+   ========================================================================== */
+.task-remark-images-wrap {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-remark-images-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.task-remark-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.task-remark-thumb-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.task-remark-thumb-container:hover {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.18);
+}
+
+.task-remark-image-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.task-remark-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transition: opacity 0.15s ease;
+}
+
+.task-remark-thumb-container:hover .task-remark-thumb-overlay {
+  opacity: 1;
+}
+
+/* Lightbox / Zoom Modal */
+.task-remark-zoom-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(5px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: taskZoomFadeIn 0.2s ease-out;
+}
+
+@keyframes taskZoomFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.task-remark-zoom-box {
+  position: relative;
+  max-width: 92vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-remark-zoom-img {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+}
+
+.task-remark-zoom-toolbar {
+  position: absolute;
+  top: -46px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10002;
+}
+
+.zoom-toolbar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+  text-decoration: none;
+}
+
+.zoom-toolbar-btn:hover {
+  background: #f1f5f9;
+  transform: scale(1.08);
+}
+
+.zoom-toolbar-btn.close-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.task-remark-zoom-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease;
+  z-index: 10001;
+}
+
+.task-remark-zoom-close:hover {
+  background: #f1f5f9;
+  transform: scale(1.08);
+}
+

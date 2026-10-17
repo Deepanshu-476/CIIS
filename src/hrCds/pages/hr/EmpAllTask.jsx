@@ -29,7 +29,7 @@ import {
   FiEdit3, FiExternalLink, FiMoreVertical, FiShare2, FiInfo, FiHash,
   FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime, FiLogIn,
    FiClipboard, FiMonitor,
-  FiPaperclip, FiMic, FiFileText
+  FiPaperclip, FiMic, FiFileText, FiZap
 } from "react-icons/fi";
 
 
@@ -123,6 +123,171 @@ const getInitials = (name) => {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+};
+
+const cleanActivityDescription = (desc, action) => {
+  if (!desc) {
+    if (!action) return "Activity logged";
+    const formattedAction = String(action).replace(/_/g, " ").replace(/-/g, " ");
+    return formattedAction.charAt(0).toUpperCase() + formattedAction.slice(1);
+  }
+
+  let text = String(desc);
+
+  text = text.replace(/"[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}\s+[\d:]+\s+GMT[^"]*"/g, (match) => {
+    try {
+      const cleanStr = match.replace(/"/g, "");
+      const d = new Date(cleanStr);
+      if (!isNaN(d.getTime())) {
+        return `"${d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })}"`;
+      }
+    } catch {
+      // fallback
+    }
+    return match;
+  });
+
+  text = text.replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g, (match) => {
+    try {
+      const d = new Date(match);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+      }
+    } catch {
+      // fallback
+    }
+    return match;
+  });
+
+  text = text.replace(/"in_progress"/gi, '"In Progress"');
+  text = text.replace(/"in-progress"/gi, '"In Progress"');
+  text = text.replace(/"onhold"/gi, '"On Hold"');
+  text = text.replace(/"completed"/gi, '"Completed"');
+  text = text.replace(/"pending"/gi, '"Pending"');
+  text = text.replace(/"reopen"/gi, '"Reopen"');
+  text = text.replace(/"cancelled"/gi, '"Cancelled"');
+
+  return text;
+};
+
+const getActivityMeta = (log) => {
+  const action = String(log?.action || log?.type || "").toLowerCase();
+  const desc = String(log?.description || log?.text || log?.message || log?.details || "").toLowerCase();
+  const newS = String(log?.newValues?.status || "").toLowerCase();
+
+  if (newS === "completed" || desc.includes("to completed") || action.includes("complete") || (desc.includes("completed") && !desc.includes("from completed"))) {
+    return {
+      type: "completed",
+      label: "Completed",
+      badgeClass: "badge-completed",
+      icon: <FiCheckCircle size={14} />,
+      color: "#16a34a",
+      bg: "#dcfce7",
+      border: "#86efac"
+    };
+  }
+
+  if (newS === "onhold" || newS === "on-hold" || desc.includes("to on hold") || desc.includes("to onhold") || desc.includes("to on-hold") || (action.includes("hold") && !action.includes("resumed"))) {
+    return {
+      type: "onhold",
+      label: "On Hold",
+      badgeClass: "badge-onhold",
+      icon: <FiPause size={13} />,
+      color: "#9333ea",
+      bg: "#f3e8ff",
+      border: "#d8b4fe"
+    };
+  }
+
+  if (newS === "in-progress" || newS === "inprogress" || desc.includes("to in progress") || desc.includes("to in-progress") || desc.includes("to inprogress") || action.includes("start") || action.includes("progress") || action.includes("resumed")) {
+    return {
+      type: "progress",
+      label: "In Progress",
+      badgeClass: "badge-progress",
+      icon: <FiPlay size={13} />,
+      color: "#0284c7",
+      bg: "#e0f2fe",
+      border: "#7dd3fc"
+    };
+  }
+
+  if (action.includes("create") || desc.includes("was created") || desc.includes("task created") || action === "creation") {
+    return {
+      type: "created",
+      label: "Created",
+      badgeClass: "badge-created",
+      icon: <FiPlus size={14} />,
+      color: "#059669",
+      bg: "#ecfdf5",
+      border: "#a7f3d0"
+    };
+  }
+
+  if (action.includes("timer") || desc.includes("timer stopped") || desc.includes("session duration") || desc.includes("time spent")) {
+    return {
+      type: "timer",
+      label: "Timer Session",
+      badgeClass: "badge-timer",
+      icon: <FiClock size={13} />,
+      color: "#d97706",
+      bg: "#fef3c7",
+      border: "#fde68a"
+    };
+  }
+  if (action.includes("assign") || desc.includes("assigned")) {
+    return {
+      type: "assign",
+      label: "Assignment",
+      badgeClass: "badge-assign",
+      icon: <FiUser size={13} />,
+      color: "#4f46e5",
+      bg: "#e0e7ff",
+      border: "#c7d2fe"
+    };
+  }
+  if (action.includes("due") || desc.includes("due date") || desc.includes("deadline")) {
+    return {
+      type: "dueDate",
+      label: "Due Date",
+      badgeClass: "badge-due",
+      icon: <FiCal size={13} />,
+      color: "#ea580c",
+      bg: "#ffedd5",
+      border: "#fed7aa"
+    };
+  }
+  if (action.includes("remark") || action.includes("comment") || desc.includes("remark")) {
+    return {
+      type: "remark",
+      label: "Remark",
+      badgeClass: "badge-remark",
+      icon: <FiMessageSquare size={13} />,
+      color: "#0891b2",
+      bg: "#ecfeff",
+      border: "#a5f3fc"
+    };
+  }
+  if (action.includes("status") || desc.includes("status changed")) {
+    return {
+      type: "status",
+      label: "Status Change",
+      badgeClass: "badge-status",
+      icon: <FiActivity size={13} />,
+      color: "#2563eb",
+      bg: "#eff6ff",
+      border: "#bfdbfe"
+    };
+  }
+
+  return {
+    type: "update",
+    label: action ? action.replace(/_/g, " ").toUpperCase() : "UPDATE",
+    badgeClass: "badge-update",
+    icon: <FiZap size={13} />,
+    color: "#475569",
+    bg: "#f1f5f9",
+    border: "#cbd5e1"
+  };
 };
 
 const taskStatsRequests = new Map();
@@ -372,36 +537,129 @@ const getTaskType = (task) => {
 };
 
 
+const getRemarkImagePath = (image) => {
+  if (!image) return '';
+  if (typeof image === 'string') return image;
+  return image.url || image.path || image.image || image.filename || '';
+};
+
+const isImageFile = (pathOrName = '') => {
+  if (!pathOrName) return false;
+  const clean = String(pathOrName).split('?')[0].toLowerCase();
+  return (
+    /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif)$/i.test(clean) ||
+    clean.startsWith('data:image/') ||
+    clean.includes('/uploads/') ||
+    clean.includes('client-remarks') ||
+    clean.includes('remarks')
+  );
+};
+
+const getRemarkImages = (remark) => {
+  if (!remark) return [];
+  const list = [];
+
+  // 1. Array of images (ClientTask model)
+  if (Array.isArray(remark.images)) {
+    remark.images.forEach((img) => {
+      const p = getRemarkImagePath(img);
+      if (p) list.push(p);
+    });
+  }
+
+  // 2. Array of attachments
+  if (Array.isArray(remark.attachments)) {
+    remark.attachments.forEach((att) => {
+      const p = getRemarkImagePath(att);
+      if (p && isImageFile(p)) list.push(p);
+    });
+  }
+
+  // 3. Array of files
+  if (Array.isArray(remark.files)) {
+    remark.files.forEach((f) => {
+      const p = getRemarkImagePath(f);
+      if (p && isImageFile(p)) list.push(p);
+    });
+  }
+
+  // 4. Single image (Task / Project models)
+  if (remark.image) {
+    const p = getRemarkImagePath(remark.image);
+    if (p) list.push(p);
+  }
+
+  // 5. Single file
+  if (remark.file) {
+    const p = getRemarkImagePath(remark.file);
+    if (p && isImageFile(p)) list.push(p);
+  }
+
+  return [...new Set(list.filter(Boolean))];
+};
+
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
-
-  void 0;
-
-  
-  if (imagePath.startsWith('http')) {
+  if (
+    typeof imagePath === 'string' &&
+    (imagePath.startsWith('http://') ||
+      imagePath.startsWith('https://') ||
+      imagePath.startsWith('data:') ||
+      imagePath.startsWith('blob:'))
+  ) {
     return imagePath;
   }
 
   const baseUrl = API_URL;
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); 
 
+  let cleanPath = String(imagePath).replace(/\\/g, '/').replace(/^\/+/, '');
   
-  let cleanPath = imagePath.replace(/\\/g, '/').replace(/^\/+/, '');
-  
-  
+  if (cleanPath.startsWith('uploads/client-remarks/')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.startsWith('client-remarks/')) {
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  if (cleanPath.startsWith('uploads/remarks/')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.startsWith('remarks/')) {
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
   if (cleanPath.startsWith('uploads/')) {
-    
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.includes('client-remarks')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
-  if (cleanPath.startsWith('client-remarks/')) {
-    
-    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
-  }
-  
-  
   const filename = cleanPath.split('/').pop();
   return `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`;
+};
+
+const handleRemarkImageError = (e, originalPath) => {
+  const filename = String(originalPath || '').split('/').pop();
+  if (!filename) {
+    e.target.style.display = 'none';
+    return;
+  }
+  const baseUrlWithoutApi = API_URL.replace(/\/api\/?$/, '');
+  const fallbacks = [
+    `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/${filename}`,
+    `${baseUrlWithoutApi}/${filename}`,
+  ];
+
+  const currentTry = parseInt(e.target.dataset.tryIndex || '0', 10);
+  if (currentTry < fallbacks.length) {
+    e.target.dataset.tryIndex = String(currentTry + 1);
+    e.target.src = fallbacks[currentTry];
+  } else {
+    e.target.style.display = 'none';
+  }
 };
 
 const TaskDetails = () => {
@@ -3615,16 +3873,41 @@ const TaskDetails = () => {
 
                         <div className="task-activity-card-content">
                           <p className="task-activity-text">{text}</p>
-                          {r.image && (
-                            <div style={{ marginTop: '8px' }}>
-                              <img
-                                src={getImageUrl(r.image)}
-                                alt="Remark attachment"
-                                style={{ maxWidth: '200px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #eaecf0' }}
-                                onClick={() => setZoomImage(getImageUrl(r.image))}
-                              />
-                            </div>
-                          )}
+                          {(() => {
+                            const remarkImages = getRemarkImages(r);
+                            if (!remarkImages || remarkImages.length === 0) return null;
+                            return (
+                              <div className="task-remark-images-wrap">
+                                <span className="task-remark-images-label">
+                                  <FiImage size={12} />
+                                  Attached Images ({remarkImages.length})
+                                </span>
+                                <div className="task-remark-images-grid">
+                                  {remarkImages.map((imgPath, imgIdx) => {
+                                    const fullUrl = getImageUrl(imgPath);
+                                    return (
+                                      <div
+                                        key={imgIdx}
+                                        className="task-remark-thumb-container"
+                                        onClick={() => setZoomImage(fullUrl)}
+                                        title="Click to zoom image"
+                                      >
+                                        <img
+                                          src={fullUrl}
+                                          alt={`Remark attachment ${imgIdx + 1}`}
+                                          className="task-remark-image-thumb"
+                                          onError={(e) => handleRemarkImageError(e, imgPath)}
+                                        />
+                                        <div className="task-remark-thumb-overlay">
+                                          <FiZoomIn size={16} />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

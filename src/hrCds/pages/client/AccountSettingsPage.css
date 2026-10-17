@@ -278,7 +278,9 @@
 
 .ClientPageBase-card h2 {
   margin: 0;
+  font-size: 20px;
   color: #0f172a;
+  font-weight: 800;
 }
 
 .ClientPageBase-card p {

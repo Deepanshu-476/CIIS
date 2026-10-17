@@ -13,6 +13,7 @@ import {
   FiDownload,
   FiEdit,
   FiEye,
+  FiEyeOff,
   FiFileText,
   FiHeart,
   FiLock,
@@ -267,6 +268,9 @@ const Profile = () => {
     newPassword: "",
     confirmPassword: "",
   });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [documentName, setDocumentName] = useState("");
@@ -719,6 +723,25 @@ const Profile = () => {
     if (documentPreview?.url) URL.revokeObjectURL(documentPreview.url);
   }, [documentPreview]);
 
+  // Lock background scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(
+      editOpen ||
+      passwordOpen ||
+      profileImagePreviewOpen ||
+      profileCropOpen ||
+      documentUploadOpen ||
+      documentPreview
+    );
+    if (isAnyModalOpen) {
+      const originalBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+      };
+    }
+  }, [editOpen, passwordOpen, profileImagePreviewOpen, profileCropOpen, documentUploadOpen, documentPreview]);
+
   const deleteDocument = async (documentId) => {
     if (!window.confirm("Delete this document?")) return;
     try {
@@ -771,6 +794,9 @@ const Profile = () => {
       newPassword: "",
       confirmPassword: "",
     });
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setPasswordOpen(true);
     setMessage(null);
   };
@@ -783,6 +809,9 @@ const Profile = () => {
         newPassword: "",
         confirmPassword: "",
       });
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
     }
   };
 
@@ -1698,41 +1727,80 @@ const Profile = () => {
             </div>
 
             <div className="UserDetails-modal-content">
-              {(editSection === "all" || editSection === "family") && <section className="UserDetails-form-section">
+              <section className="UserDetails-form-section">
                 <h3><FiLock /> Password Details</h3>
                 <div className="UserDetails-form-grid UserDetails-password-grid">
                   <label>
                     Current Password *
-                    <input
-                      type="password"
-                      value={passwordData.currentPassword}
-                      onChange={(event) => handlePasswordChange("currentPassword", event.target.value)}
-                      autoComplete="current-password"
-                      required
-                    />
+                    <div className="UserDetails-password-input-wrapper">
+                      <input
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={passwordData.currentPassword}
+                        onChange={(event) => handlePasswordChange("currentPassword", event.target.value)}
+                        autoComplete="current-password"
+                        placeholder="Enter current password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="UserDetails-password-toggle-btn"
+                        onClick={() => setShowCurrentPassword((prev) => !prev)}
+                        tabIndex={-1}
+                        title={showCurrentPassword ? "Hide password" : "Show password"}
+                        aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                      >
+                        {showCurrentPassword ? <FiEyeOff /> : <FiEye />}
+                      </button>
+                    </div>
                   </label>
                   <label>
                     New Password *
-                    <input
-                      type="password"
-                      value={passwordData.newPassword}
-                      onChange={(event) => handlePasswordChange("newPassword", event.target.value)}
-                      autoComplete="new-password"
-                      required
-                    />
+                    <div className="UserDetails-password-input-wrapper">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordData.newPassword}
+                        onChange={(event) => handlePasswordChange("newPassword", event.target.value)}
+                        autoComplete="new-password"
+                        placeholder="Enter new password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="UserDetails-password-toggle-btn"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        tabIndex={-1}
+                        title={showNewPassword ? "Hide password" : "Show password"}
+                        aria-label={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        {showNewPassword ? <FiEyeOff /> : <FiEye />}
+                      </button>
+                    </div>
                   </label>
                   <label>
                     Confirm New Password *
-                    <input
-                      type="password"
-                      value={passwordData.confirmPassword}
-                      onChange={(event) => handlePasswordChange("confirmPassword", event.target.value)}
-                      autoComplete="new-password"
-                      required
-                    />
+                    <div className="UserDetails-password-input-wrapper">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordData.confirmPassword}
+                        onChange={(event) => handlePasswordChange("confirmPassword", event.target.value)}
+                        autoComplete="new-password"
+                        placeholder="Confirm new password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="UserDetails-password-toggle-btn"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        tabIndex={-1}
+                        title={showConfirmPassword ? "Hide password" : "Show password"}
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+                      </button>
+                    </div>
                   </label>
                 </div>
-              </section>}
+              </section>
             </div>
 
             <div className="UserDetails-modal-footer">

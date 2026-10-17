@@ -8997,43 +8997,72 @@ const UserCreateTask = () => {
 
       {/* Quick Task Reminder Configuration Modal for ANY task */}
       {taskReminderModal.open && taskReminderModal.task && (
-        <div className="user-create-task-dialog-overlay task-reminder-overlay" style={{ zIndex: 99998 }}>
-          <div className="user-create-task-dialog task-reminder-modal" style={{ maxWidth: '520px', width: '92%', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FiBell style={{ color: '#2563eb', fontSize: '20px' }} />
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Set Task Reminder</h3>
+        <div 
+          className="user-create-task-dialog-overlay task-reminder-overlay" 
+          style={{ zIndex: 99998 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setTaskReminderModal({ open: false, task: null, settings: createDefaultReminderSettings(), saving: false });
+            }
+          }}
+        >
+          <div 
+            className="user-create-task-dialog task-reminder-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="task-reminder-modal-title"
+          >
+            {/* 1. FIXED HEADER */}
+            <div className="task-reminder-modal-header">
+              <div className="task-reminder-modal-header-left">
+                <div className="task-reminder-bell-icon">
+                  <FiBell />
+                </div>
+                <div>
+                  <h3 id="task-reminder-modal-title" className="task-reminder-modal-title">Set Task Reminder</h3>
+                  <p className="task-reminder-modal-subtitle">Configure alerts & notifications before due time</p>
+                </div>
               </div>
               <button
                 type="button"
-                className="personal-task-close"
+                className="personal-task-close task-reminder-close-btn"
                 onClick={() => setTaskReminderModal({ open: false, task: null, settings: createDefaultReminderSettings(), saving: false })}
+                title="Close"
+                aria-label="Close"
               >
                 <FiX />
               </button>
             </div>
 
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '13px' }}>
-              <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '4px' }}>
-                {taskReminderModal.task.title || taskReminderModal.task.name || 'Untitled task'}
+            {/* 2. SCROLLABLE BODY */}
+            <div className="task-reminder-modal-body">
+              <div className="task-reminder-task-summary">
+                <div className="task-reminder-summary-title">
+                  {taskReminderModal.task.title || taskReminderModal.task.name || 'Untitled task'}
+                </div>
+                <div className="task-reminder-summary-meta">
+                  <span className="task-reminder-meta-tag">
+                    <strong>Type:</strong> {getTaskSource(taskReminderModal.task)}
+                  </span>
+                  <span className="task-reminder-meta-tag">
+                    <strong>Due:</strong> {format12HourDateTime(getDueDateForTask(taskReminderModal.task)) || 'No due date'}
+                  </span>
+                </div>
               </div>
-              <div style={{ color: '#64748b', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <span><strong>Type:</strong> {getTaskSource(taskReminderModal.task)}</span>
-                <span><strong>Due:</strong> {format12HourDateTime(getDueDateForTask(taskReminderModal.task)) || 'No due date'}</span>
-              </div>
+
+              {renderReminderSettings(
+                taskReminderModal.settings,
+                getDueDateForTask(taskReminderModal.task),
+                (nextSettings) => setTaskReminderModal(prev => ({ ...prev, settings: nextSettings })),
+                taskReminderModal.task.title || taskReminderModal.task.name
+              )}
             </div>
 
-            {renderReminderSettings(
-              taskReminderModal.settings,
-              getDueDateForTask(taskReminderModal.task),
-              (nextSettings) => setTaskReminderModal(prev => ({ ...prev, settings: nextSettings })),
-              taskReminderModal.task.title || taskReminderModal.task.name
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+            {/* 3. FIXED FOOTER */}
+            <div className="task-reminder-modal-footer">
               <button
                 type="button"
-                className="user-create-task-button user-create-task-button-outlined"
+                className="user-create-task-button user-create-task-button-outlined task-reminder-cancel-btn"
                 onClick={() => setTaskReminderModal({ open: false, task: null, settings: createDefaultReminderSettings(), saving: false })}
                 disabled={taskReminderModal.saving}
               >
@@ -9041,7 +9070,7 @@ const UserCreateTask = () => {
               </button>
               <button
                 type="button"
-                className="user-create-task-button user-create-task-button-contained"
+                className="user-create-task-button user-create-task-button-contained task-reminder-save-btn"
                 onClick={handleSaveTaskReminder}
                 disabled={taskReminderModal.saving}
               >

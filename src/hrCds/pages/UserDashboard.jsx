@@ -448,6 +448,9 @@ const UserDashboard = () => {
   const [quickForm, setQuickForm] = useState({});
   const [quickSubmitting, setQuickSubmitting] = useState(false);
   const [quickLeaveReasonError, setQuickLeaveReasonError] = useState('');
+  const [quickLeavePolicies, setQuickLeavePolicies] = useState([]);
+  const [quickLeavePoliciesLoading, setQuickLeavePoliciesLoading] = useState(false);
+  const [quickLeavePolicyError, setQuickLeavePolicyError] = useState('');
   const [quickTaskType, setQuickTaskType] = useState('personal');
   const [quickClients, setQuickClients] = useState([]);
   const [quickClientsLoading, setQuickClientsLoading] = useState(false);
@@ -2150,6 +2153,22 @@ const UserDashboard = () => {
 
   const enabledQuickActionLabels = ['New Task', 'Apply Leave', 'Request Asset', 'Meetings', 'My Attendance', 'My Notes'];
   const visibleQuickActions = quickActions.filter(action => enabledQuickActionLabels.includes(action.label));
+  const selectedQuickLeavePolicy = useMemo(
+    () => quickLeavePolicies.find(policy => String(policy?.leaveType || '').trim() === quickForm.type) || null,
+    [quickForm.type, quickLeavePolicies]
+  );
+  const quickLeaveChoices = quickLeavePolicies.length
+    ? quickLeavePolicies.map(policy => ({
+        type: String(policy?.leaveType || '').trim(),
+        hint: policy?.policyName || policy?.payType || 'Leave policy',
+        policy,
+      })).filter(choice => choice.type)
+    : [
+        { type: 'Casual', hint: 'Personal work' },
+        { type: 'Sick', hint: 'Health & recovery' },
+        { type: 'Paid', hint: 'Paid time off' },
+        { type: 'Unpaid', hint: 'Unpaid leave' },
+      ];
 
   const openQuickAction = action => {
     if (action.route) {
@@ -2165,6 +2184,41 @@ const UserDashboard = () => {
     }
     setQuickForm(action.label === 'Apply Leave' ? { type: 'Casual' } : action.label === 'Timesheet' ? { date: new Date().toISOString().slice(0, 10) } : {});
   };
+
+  useEffect(() => {
+    if (activeQuickAction?.label !== 'Apply Leave') return;
+    let active = true;
+    const loadQuickLeavePolicies = async () => {
+      setQuickLeavePoliciesLoading(true);
+      setQuickLeavePolicyError('');
+      try {
+        const response = await axios.get('/leave-policies/applicable', {
+          _skipErrorNotify: true,
+          cache: false,
+          noCache: true,
+        });
+        const policies = Array.isArray(response?.data?.policies) ? response.data.policies : [];
+        if (!active) return;
+        setQuickLeavePolicies(policies);
+        const availableTypes = policies.map(policy => String(policy?.leaveType || '').trim()).filter(Boolean);
+        if (availableTypes.length) {
+          setQuickForm(current => ({
+            ...current,
+            type: availableTypes.includes(current.type) ? current.type : availableTypes[0],
+          }));
+        } else if (response?.data?.hasConfiguredPolicies) {
+          setQuickLeavePolicyError('No leave policy is assigned to your department and job role.');
+        }
+      } catch (error) {
+        console.error('Failed to load quick leave policies:', error);
+        if (active) setQuickLeavePolicyError('Unable to load leave balance. Please try again.');
+      } finally {
+        if (active) setQuickLeavePoliciesLoading(false);
+      }
+    };
+    loadQuickLeavePolicies();
+    return () => { active = false; };
+  }, [activeQuickAction]);
 
   useEffect(() => {
     if (activeQuickAction?.label !== 'New Task' || quickTaskType !== 'client' || quickClients.length) return;
@@ -2344,6 +2398,15 @@ const UserDashboard = () => {
           if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error('Please select valid leave dates');
           if (end < start) throw new Error('End date cannot be before start date');
           const days = Math.floor((end - start) / 86400000) + 1;
+          const remaining = Number(selectedQuickLeavePolicy?.balance?.remaining);
+          const remainingThisMonth = Number(selectedQuickLeavePolicy?.balance?.remainingThisMonth);
+          const isCurrentMonth = start.getFullYear() === new Date().getFullYear() && start.getMonth() === new Date().getMonth();
+          if (selectedQuickLeavePolicy && Number.isFinite(remaining) && days > remaining) {
+            throw new Error(`Only ${remaining} annual leave day(s) remaining.`);
+          }
+          if (selectedQuickLeavePolicy && isCurrentMonth && Number.isFinite(remainingThisMonth) && days > remainingThisMonth) {
+            throw new Error(`Only ${remainingThisMonth} leave day(s) remaining this month.`);
+          }
           await axios.post('/leaves/apply', { ...quickForm, reason: trimmedLeaveReason, days }); break;
         }
         case 'Request Asset': {
@@ -2680,13 +2743,27 @@ const UserDashboard = () => {
               ) : activeQuickAction.label === 'Apply Leave' ? (
                 <div className="quick-leave-form">
                   <div className="quick-leave-types">
-                    {[
-                      ['Casual', 'Personal work'],
-                      ['Sick', 'Health & recovery'],
-                      ['Paid', 'Paid time off'],
-                      ['Unpaid', 'Unpaid leave']
-                    ].map(([type, hint]) => <button type="button" key={type} className={quickForm.type === type ? 'active' : ''} onClick={() => setQuickForm(current => ({ ...current, type }))}><span>{type.charAt(0)}</span><strong>{type}</strong><small>{hint}</small></button>)}
+                    {quickLeaveChoices.map(({ type, hint, policy }) => {
+                      const remaining = policy?.balance?.remaining;
+                      return <button type="button" key={type} className={quickForm.type === type ? 'active' : ''} onClick={() => setQuickForm(current => ({ ...current, type }))}>
+                        <span>{type.charAt(0)}</span>
+                        <strong>{type}</strong>
+                        <small>{hint}</small>
+                        {policy && <em>{remaining ?? policy.entitledDays ?? 0} left</em>}
+                      </button>;
+                    })}
                   </div>
+                  {quickLeavePoliciesLoading ? (
+                    <div className="quick-leave-balance-state">Loading your leave balance...</div>
+                  ) : quickLeavePolicyError ? (
+                    <div className="quick-leave-balance-state error">{quickLeavePolicyError}</div>
+                  ) : selectedQuickLeavePolicy ? (
+                    <div className="quick-leave-balance" aria-live="polite">
+                      <div><span>Annual balance</span><strong>{selectedQuickLeavePolicy.balance?.remaining ?? selectedQuickLeavePolicy.entitledDays ?? 0} days left</strong></div>
+                      <div><span>Used</span><strong>{selectedQuickLeavePolicy.balance?.used ?? 0} days</strong></div>
+                      <div><span>This month</span><strong>{selectedQuickLeavePolicy.balance?.remainingThisMonth ?? selectedQuickLeavePolicy.monthlyAllowed ?? 0} days left</strong></div>
+                    </div>
+                  ) : null}
                   <div className="quick-leave-date-card">
                     <label><span>Start date</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={quickForm.startDate || ''} onChange={e => {
                       const input = e.currentTarget;

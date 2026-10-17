@@ -756,30 +756,93 @@
   padding: 2px;
 }
 
-.att-status-filter-wrapper {
+/* Status Filter in Top Controls Bar */
+.att-status-select-wrapper {
   position: relative;
-  z-index: 35;
+  z-index: 45;
 }
 
-.att-status-filter-btn {
-  height: 38px;
-  padding: 0 14px;
+.att-status-select-btn {
+  height: 34px;
+  padding: 0 12px;
   background: #ffffff;
   border: 1px solid var(--att-gray-200);
   border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--att-gray-700);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   cursor: pointer;
+  box-shadow: var(--att-shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.att-status-select-btn:hover {
+  background: var(--att-gray-50);
+  border-color: var(--att-primary);
+  color: var(--att-primary);
+}
+
+.att-status-select-btn.active {
+  background: #eff6ff;
+  border-color: var(--att-primary);
+  color: var(--att-primary);
+  font-weight: 700;
+}
+
+.att-chevron-icon {
+  font-size: 13px;
+  color: var(--att-gray-400);
+  transition: transform 0.2s ease;
+}
+
+.att-chevron-icon.rotate {
+  transform: rotate(180deg);
+}
+
+.att-filter-active-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--att-primary);
+}
+
+/* Active Status Filter Badge (in Table Header) */
+.att-active-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--att-primary);
+  animation: att-fade-in 0.15s ease-out;
+}
+
+.att-active-filter-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: #dbeafe;
+  color: var(--att-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
   transition: all 0.15s ease;
 }
 
-.att-status-filter-btn:hover {
-  border-color: var(--att-primary);
-  color: var(--att-primary);
+.att-active-filter-clear-btn:hover {
+  background: var(--att-primary);
+  color: #ffffff;
 }
 
 /* Status Filter Dropdown */

@@ -1173,6 +1173,8 @@ const Attendance = () => {
               className={`att-time-pill-btn ${timeRange === "TODAY" && !selectedCalendarDate ? "active" : ""}`}
               onClick={() => {
                 setTimeRange("TODAY");
+                setStatusFilter("ALL");
+                setShowStatusDropdown(false);
                 setSelectedCalendarDate(null);
               }}
             >
@@ -1202,6 +1204,71 @@ const Attendance = () => {
         </div>
 
         <div className="att-controls-right">
+          {/* Status Filter Dropdown (Only for multiple-day periods: Week, Month, All Time; hidden on single-day Today view) */}
+          {timeRange !== "TODAY" && !selectedCalendarDate && (
+            <div className="att-status-select-wrapper" ref={statusDropdownRef}>
+              <button
+                type="button"
+                className={`att-status-select-btn ${statusFilter !== "ALL" ? "active" : ""} ${showStatusDropdown ? "open" : ""}`}
+                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                title={statusFilter === "ALL" ? "Filter by status" : `Filtered: ${STATUS_FILTER_OPTIONS.find(o => o.key === statusFilter)?.label || statusFilter}`}
+                aria-label="Filter records by status"
+              >
+                <FiFilter />
+                <span>{statusFilter === "ALL" ? "All Statuses" : STATUS_FILTER_OPTIONS.find(o => o.key === statusFilter)?.label || statusFilter}</span>
+                {statusFilter !== "ALL" && <span className="att-filter-active-dot" />}
+                <FiChevronDown className={`att-chevron-icon ${showStatusDropdown ? "rotate" : ""}`} />
+              </button>
+
+              {showStatusDropdown && (
+                <div className="att-filter-dropdown-menu">
+                  <div className="att-filter-dropdown-header">
+                    <span className="att-filter-header-title">Filter by Status</span>
+                    {statusFilter !== "ALL" && (
+                      <button
+                        type="button"
+                        className="att-filter-reset-btn"
+                        onClick={() => {
+                          setStatusFilter("ALL");
+                          setShowStatusDropdown(false);
+                        }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="att-filter-dropdown-list">
+                    {STATUS_FILTER_OPTIONS.map((opt) => {
+                      const isSelected = statusFilter === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          className={`att-filter-dropdown-item ${isSelected ? "active" : ""}`}
+                          onClick={() => {
+                            setStatusFilter(opt.key);
+                            setShowStatusDropdown(false);
+                          }}
+                        >
+                          <div className="att-filter-item-left">
+                            <span className={`att-filter-dot ${opt.dotClass}`} />
+                            <span className="att-filter-item-label">{opt.label}</span>
+                          </div>
+                          {isSelected && (
+                            <span className="att-filter-check-icon">
+                              <FiCheck />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Month Selector Dropdown */}
           <div className="att-month-select-wrapper" ref={monthDropdownRef}>
             <button
@@ -1314,66 +1381,23 @@ const Attendance = () => {
                   )}
                 </div>
 
-                {/* Status Filter Dropdown */}
-                <div className="att-status-filter-wrapper" ref={statusDropdownRef}>
-                  <button
-                    type="button"
-                    className={`att-status-filter-icon-btn ${statusFilter !== "ALL" ? "active" : ""} ${showStatusDropdown ? "open" : ""}`}
-                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                    title={statusFilter === "ALL" ? "Filter by status" : `Filtered: ${STATUS_FILTER_OPTIONS.find(o => o.key === statusFilter)?.label || statusFilter}`}
-                    aria-label="Filter attendance records by status"
-                  >
-                    <FiFilter />
-                    {statusFilter !== "ALL" && <span className="att-filter-active-dot" />}
-                  </button>
-
-                  {showStatusDropdown && (
-                    <div className="att-filter-dropdown-menu">
-                      <div className="att-filter-dropdown-header">
-                        <span className="att-filter-header-title">Filter by Status</span>
-                        {statusFilter !== "ALL" && (
-                          <button
-                            type="button"
-                            className="att-filter-reset-btn"
-                            onClick={() => {
-                              setStatusFilter("ALL");
-                              setShowStatusDropdown(false);
-                            }}
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="att-filter-dropdown-list">
-                        {STATUS_FILTER_OPTIONS.map((opt) => {
-                          const isSelected = statusFilter === opt.key;
-                          return (
-                            <button
-                              key={opt.key}
-                              type="button"
-                              className={`att-filter-dropdown-item ${isSelected ? "active" : ""}`}
-                              onClick={() => {
-                                setStatusFilter(opt.key);
-                                setShowStatusDropdown(false);
-                              }}
-                            >
-                              <div className="att-filter-item-left">
-                                <span className={`att-filter-dot ${opt.dotClass}`} />
-                                <span className="att-filter-item-label">{opt.label}</span>
-                              </div>
-                              {isSelected && (
-                                <span className="att-filter-check-icon">
-                                  <FiCheck />
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* Active Status Filter Badge (if filtered from top bar) */}
+                {statusFilter !== "ALL" && (
+                  <div className="att-active-filter-badge" title={`Filtered by ${statusFilter}`}>
+                    <span className={`att-filter-dot ${STATUS_FILTER_OPTIONS.find(o => o.key === statusFilter)?.dotClass || ""}`} />
+                    <span className="att-active-filter-text">
+                      {STATUS_FILTER_OPTIONS.find(o => o.key === statusFilter)?.label || statusFilter}
+                    </span>
+                    <button
+                      type="button"
+                      className="att-active-filter-clear-btn"
+                      onClick={() => setStatusFilter("ALL")}
+                      title="Clear status filter"
+                    >
+                      <FiX />
+                    </button>
+                  </div>
+                )}
 
                 {/* Overtime Action Buttons */}
                 <button

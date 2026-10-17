@@ -20,10 +20,13 @@ import {
   FiInfo,
   FiMessageSquare,
   FiFolder,
-  FiImage
+  FiImage,
+  FiZoomIn,
+  FiEye,
+  FiExternalLink
 } from 'react-icons/fi';
 import axios from '../../utils/axiosConfig';
-import { API_URL_IMG } from '../../config';
+import API_URL, { API_URL_IMG } from '../../config';
 import './TaskDetailsModal.css';
 
 // Helper to format seconds into "Xh Ym" or "Ym Zs" or "Xs"
@@ -46,6 +49,130 @@ const formatTimeOnly = (dateVal) => {
   const d = new Date(dateVal);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+};
+
+const getRemarkImagePath = (image) => {
+  if (!image) return '';
+  if (typeof image === 'string') return image;
+  return image.url || image.path || image.image || image.filename || '';
+};
+
+const isImageFile = (pathOrName = '') => {
+  if (!pathOrName) return false;
+  const clean = String(pathOrName).split('?')[0].toLowerCase();
+  return (
+    /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif)$/i.test(clean) ||
+    clean.startsWith('data:image/') ||
+    clean.includes('/uploads/') ||
+    clean.includes('client-remarks') ||
+    clean.includes('remarks')
+  );
+};
+
+const getRemarkImages = (remark) => {
+  if (!remark) return [];
+  const list = [];
+
+  // 1. Array of images (ClientTask model)
+  if (Array.isArray(remark.images)) {
+    remark.images.forEach((img) => {
+      const p = getRemarkImagePath(img);
+      if (p) list.push(p);
+    });
+  }
+
+  // 2. Array of attachments
+  if (Array.isArray(remark.attachments)) {
+    remark.attachments.forEach((att) => {
+      const p = getRemarkImagePath(att);
+      if (p && isImageFile(p)) list.push(p);
+    });
+  }
+
+  // 3. Array of files
+  if (Array.isArray(remark.files)) {
+    remark.files.forEach((f) => {
+      const p = getRemarkImagePath(f);
+      if (p && isImageFile(p)) list.push(p);
+    });
+  }
+
+  // 4. Single image (Task / Project models)
+  if (remark.image) {
+    const p = getRemarkImagePath(remark.image);
+    if (p) list.push(p);
+  }
+
+  // 5. Single file
+  if (remark.file) {
+    const p = getRemarkImagePath(remark.file);
+    if (p && isImageFile(p)) list.push(p);
+  }
+
+  return [...new Set(list.filter(Boolean))];
+};
+
+const getImageUrl = (rawPath) => {
+  if (!rawPath) return '';
+  if (
+    typeof rawPath === 'string' &&
+    (rawPath.startsWith('http://') ||
+      rawPath.startsWith('https://') ||
+      rawPath.startsWith('data:') ||
+      rawPath.startsWith('blob:'))
+  ) {
+    return rawPath;
+  }
+
+  const baseUrl = API_URL;
+  const baseUrlWithoutApi = baseUrl.replace(/\/api\/?$/, '');
+  let cleanPath = String(rawPath).replace(/\\/g, '/').replace(/^\/+/, '');
+
+  if (cleanPath.startsWith('uploads/client-remarks/')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.startsWith('client-remarks/')) {
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  if (cleanPath.startsWith('uploads/remarks/')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.startsWith('remarks/')) {
+    return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
+  }
+  if (cleanPath.startsWith('uploads/')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+  if (cleanPath.includes('client-remarks')) {
+    return `${baseUrlWithoutApi}/${cleanPath}`;
+  }
+
+  const filename = cleanPath.split('/').pop();
+  return `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`;
+};
+
+const handleRemarkImageError = (e, originalPath) => {
+  const filename = String(originalPath || '').split('/').pop();
+  if (!filename) {
+    e.target.style.display = 'none';
+    return;
+  }
+  const baseUrlWithoutApi = API_URL.replace(/\/api\/?$/, '');
+  const fallbacks = [
+    `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
+    `${baseUrlWithoutApi}/uploads/${filename}`,
+    `${baseUrlWithoutApi}/${filename}`,
+  ];
+
+  const currentTry = parseInt(e.target.dataset.tryIndex || '0', 10);
+  if (currentTry < fallbacks.length) {
+    e.target.dataset.tryIndex = String(currentTry + 1);
+    e.target.src = fallbacks[currentTry];
+  } else {
+    e.target.style.display = 'none';
+  }
 };
 
 const formatDateOnly = (dateVal) => {
@@ -73,7 +200,8 @@ const STATUS_CONFIG = {
   pending: { label: 'Pending', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
   'in-progress': { label: 'In Progress', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
   inprogress: { label: 'In Progress', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-  onhold: { label: 'On Hold', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+  onhold: { label: 'On Hold', color: '#9333ea', bg: '#f3e8ff', border: '#d8b4fe' },
+  'on-hold': { label: 'On Hold', color: '#9333ea', bg: '#f3e8ff', border: '#d8b4fe' },
   completed: { label: 'Completed', color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0' },
   rejected: { label: 'Rejected', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
   overdue: { label: 'Overdue', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
@@ -81,8 +209,16 @@ const STATUS_CONFIG = {
 };
 
 const normalizeStatus = (status = 'pending') => {
-  const s = String(status).toLowerCase().trim().replace(/_/g, '-').replace(/\s+/g, '-');
-  return STATUS_CONFIG[s] ? s : (s === 'inprogress' ? 'in-progress' : 'pending');
+  const raw = String(status || 'pending').toLowerCase().trim();
+  if (raw === 'in-progress' || raw === 'inprogress' || raw === 'in progress' || raw === 'in_progress') return 'in-progress';
+  if (raw === 'onhold' || raw === 'on-hold' || raw === 'on hold' || raw === 'on_hold') return 'onhold';
+  if (raw === 'completed' || raw === 'complete') return 'completed';
+  if (raw === 'pending') return 'pending';
+  if (raw === 'reopen' || raw === 're-open') return 'reopen';
+  if (raw === 'rejected') return 'rejected';
+  if (raw === 'overdue') return 'overdue';
+  const clean = raw.replace(/_/g, '-').replace(/\s+/g, '-');
+  return STATUS_CONFIG[clean] ? clean : 'pending';
 };
 
 const PRIORITY_CONFIG = {
@@ -99,11 +235,11 @@ const resolveLogEventType = (log) => {
   // activity and the time journey cannot be reconstructed.
   const newS = String(log?.newValues?.status || log?.status || '').toLowerCase().trim();
   if (newS) {
-    if (newS === 'in-progress' || newS === 'inprogress') return 'in-progress';
-    if (newS === 'onhold' || newS === 'on-hold') return 'onhold';
-    if (newS === 'completed') return 'completed';
+    if (newS === 'in-progress' || newS === 'inprogress' || newS === 'in progress' || newS === 'in_progress') return 'in-progress';
+    if (newS === 'onhold' || newS === 'on-hold' || newS === 'on hold' || newS === 'on_hold') return 'onhold';
+    if (newS === 'completed' || newS === 'complete') return 'completed';
     if (newS === 'pending') return 'pending';
-    if (newS === 'reopen') return 'reopen';
+    if (newS === 'reopen' || newS === 're-open') return 'reopen';
   }
 
   const title = String(log?.title || '').toLowerCase().trim();
@@ -145,6 +281,7 @@ const TaskDetailsModal = ({
   const [isSubmittingRemark, setIsSubmittingRemark] = useState(false);
   const [openStatusMenu, setOpenStatusMenu] = useState(null); // 'header' | 'footer' | null
   const [liveSessionSeconds, setLiveSessionSeconds] = useState(0);
+  const [zoomImage, setZoomImage] = useState(null);
 
   const remarkInputRef = useRef(null);
   const statusMenuRef = useRef(null);
@@ -178,44 +315,105 @@ const TaskDetailsModal = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openStatusMenu]);
 
-  if (!open || !task) return null;
-
-  const currentStatus = normalizeStatus(task.status || task.overallStatus);
-  const priority = String(task.priority || 'medium').toLowerCase();
+  const safeTask = task || {};
+  const currentStatus = normalizeStatus(safeTask.status || safeTask.overallStatus);
+  const priority = String(safeTask.priority || 'medium').toLowerCase();
   const priorityConf = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.medium;
   const statusConf = STATUS_CONFIG[currentStatus] || STATUS_CONFIG['in-progress'];
 
   // Dynamic Assignee Information
-  const assigneeName = task.assignee || task.assignedUser?.name || (Array.isArray(task.assignedTo) ? task.assignedTo[0]?.name : task.assignedTo?.name) || employeeInfo?.name || employeeInfo?.fullName || 'Assignee';
+  const assigneeName = safeTask.assignee || safeTask.assignedUser?.name || (Array.isArray(safeTask.assignedTo) ? safeTask.assignedTo[0]?.name : safeTask.assignedTo?.name) || employeeInfo?.name || employeeInfo?.fullName || 'Assignee';
   const assigneeRole = employeeInfo?.role || employeeInfo?.designation || employeeInfo?.jobRole;
   const assigneeDept = employeeInfo?.department?.name || employeeInfo?.department;
   const assigneeSummary = [assigneeName, assigneeRole, assigneeDept].filter(Boolean).join(' · ');
-  const projectName = task.projectName || task.project?.name || task.project?.title || (typeof task.project === 'string' ? task.project : '');
-  const clientName = task.clientName || task.client?.name || task.client?.companyName || task.clientId?.client || task.clientId?.name || task.clientId?.company || (typeof task.client === 'string' ? task.client : '');
-  const taskTypeTag = task.taskFor === 'self' || task.isSelfTask
-    ? 'Personal task'
-    : (task.source === 'project' || task.projectId || projectName)
-      ? (projectName ? `Project: ${projectName}` : 'Project task')
-      : (task.source === 'client' || task.clientId || clientName)
-        ? (clientName ? `Client: ${clientName}` : 'Client task')
-        : 'Company task';
+  const projectName = safeTask.projectName || safeTask.project?.name || safeTask.project?.title || (typeof safeTask.project === 'string' ? safeTask.project : '');
+  const clientName = safeTask.clientName || safeTask.client?.name || safeTask.client?.companyName || safeTask.clientId?.client || safeTask.clientId?.name || safeTask.clientId?.company || (typeof safeTask.client === 'string' ? safeTask.client : '');
+  const isPersonal = safeTask.taskFor === 'self' || safeTask.isSelfTask;
+  const isClient = safeTask.source === 'client' || Boolean(safeTask.clientId || clientName);
+  const isProject = safeTask.source === 'project' || Boolean(safeTask.projectId || projectName);
+
+  const taskTypeTag = isPersonal
+    ? 'Personal Task'
+    : isClient
+      ? 'Client Task'
+      : isProject
+        ? 'Project Task'
+        : 'Company Task';
 
   // Dynamic Dates
-  const createdDate = task.createdAt || task.createdTime;
-  const dueDate = task.dueDate || task.dueDateTime || task.completionDate;
-  const updatedDate = task.updatedAt || task.lastActivityAt || createdDate;
+  const createdDate = safeTask.createdAt || safeTask.createdTime;
+  const dueDate = safeTask.dueDate || safeTask.dueDateTime || safeTask.completionDate;
+  const updatedDate = safeTask.updatedAt || safeTask.lastActivityAt || createdDate;
 
   // Dynamic Activity Logs, Remarks & Files
-  const rawActivities = Array.isArray(task.activityLogs) ? task.activityLogs : (Array.isArray(task.statusHistory) ? task.statusHistory : (Array.isArray(task.activities) ? task.activities : []));
-  const rawRemarks = Array.isArray(task.remarks) ? task.remarks : [];
-  const rawFiles = Array.isArray(task.files) ? task.files : (Array.isArray(task.attachments) ? task.attachments : []);
+  const rawActivities = Array.isArray(safeTask.activityLogs) ? safeTask.activityLogs : (Array.isArray(safeTask.statusHistory) ? safeTask.statusHistory : (Array.isArray(safeTask.activities) ? safeTask.activities : []));
+  const rawRemarks = Array.isArray(safeTask.remarks) ? safeTask.remarks : [];
+
+  // All Attachments & Uploaded Images (collected from all task fields + remarks)
+  const allAttachments = useMemo(() => {
+    const list = [];
+    const pushItem = (item) => {
+      if (!item) return;
+      if (typeof item === 'string') {
+        const raw = item.trim();
+        if (!raw) return;
+        const filename = raw.split('/').pop().split('\\').pop() || 'Attachment';
+        list.push({
+          filename,
+          originalName: filename,
+          path: raw,
+          url: getImageUrl(raw),
+          isImage: isImageFile(raw)
+        });
+      } else if (typeof item === 'object') {
+        const rawPath = item.path || item.url || item.image || item.filename || item.file || '';
+        const filename = item.originalName || item.filename || item.name || (rawPath ? rawPath.split('/').pop().split('\\').pop() : 'Attachment');
+        const url = getImageUrl(rawPath) || item.url || (rawPath.startsWith('http') ? rawPath : '');
+        list.push({
+          ...item,
+          filename,
+          originalName: filename,
+          path: rawPath,
+          url: url || rawPath,
+          size: item.size,
+          uploadedAt: item.uploadedAt || item.createdAt || item.timestamp,
+          isImage: isImageFile(rawPath || filename)
+        });
+      }
+    };
+
+    if (Array.isArray(safeTask.files)) safeTask.files.forEach(pushItem);
+    if (Array.isArray(safeTask.attachments)) safeTask.attachments.forEach(pushItem);
+    if (Array.isArray(safeTask.images)) safeTask.images.forEach(pushItem);
+    if (safeTask.image) pushItem(safeTask.image);
+    if (safeTask.file) pushItem(safeTask.file);
+    if (Array.isArray(safeTask.documents)) safeTask.documents.forEach(pushItem);
+
+    if (Array.isArray(safeTask.remarks)) {
+      safeTask.remarks.forEach((r) => {
+        const rImages = getRemarkImages(r);
+        rImages.forEach((img) => pushItem(img));
+      });
+    }
+
+    const seen = new Set();
+    return list.filter((f) => {
+      const key = f.url || f.path || f.filename;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [safeTask.files, safeTask.attachments, safeTask.images, safeTask.image, safeTask.file, safeTask.documents, safeTask.remarks]);
+
+  const rawFiles = allAttachments;
+  const imageAttachments = useMemo(() => allAttachments.filter((f) => f.isImage), [allAttachments]);
 
   // Parse time spent & sessions
   const isCurrentlyRunning = currentStatus === 'in-progress';
 
   // Robust calculation of when the task actually started running
   const resolvedInProgressStart = useMemo(() => {
-    if (!isCurrentlyRunning) return null;
+    if (!task || !isCurrentlyRunning) return null;
 
     // 1. Explicit in-progress timestamp field
     if (task.inProgressSince) {
@@ -274,8 +472,8 @@ const TaskDetailsModal = ({
 
   // Base accumulated seconds from database
   const baseAccumulatedSeconds = useMemo(() => {
-    return Number(task.timeSpent || task.workTime?.seconds || task.timeTracking?.totalSeconds || 0);
-  }, [task.timeSpent, task.workTime, task.timeTracking]);
+    return Number(task?.timeSpent || task?.workTime?.seconds || task?.timeTracking?.totalSeconds || 0);
+  }, [task?.timeSpent, task?.workTime, task?.timeTracking]);
 
   // 1. Comprehensive Lifecycle & Work Sessions Extraction from Activity Logs
   const lifecycleData = useMemo(() => {
@@ -292,9 +490,9 @@ const TaskDetailsModal = ({
     let firstSessionStartTime = null;
     let firstHoldStartTime = null;
     let resumeSessionStartTime = null;
-    let completedTimestamp = task.completedAt ? new Date(task.completedAt) : null;
+    let completedTimestamp = task?.completedAt ? new Date(task.completedAt) : null;
 
-    if (task.holdStartedAt) {
+    if (task?.holdStartedAt) {
       firstHoldStartTime = new Date(task.holdStartedAt);
     }
 
@@ -371,7 +569,7 @@ const TaskDetailsModal = ({
     }
 
     if (currentStatus === 'onhold') {
-      const curHold = lastHoldStartTime || (task.holdStartedAt ? new Date(task.holdStartedAt) : new Date(updatedDate));
+      const curHold = lastHoldStartTime || (task?.holdStartedAt ? new Date(task.holdStartedAt) : new Date(updatedDate));
       if (!firstHoldStartTime) firstHoldStartTime = curHold;
       const curHoldSecs = Math.max(0, Math.floor((new Date().getTime() - curHold.getTime()) / 1000));
       holdDurationSum += curHoldSecs;
@@ -386,11 +584,11 @@ const TaskDetailsModal = ({
       resumeSessionStartTime,
       completedTimestamp
     };
-  }, [rawActivities, isCurrentlyRunning, resolvedInProgressStart, updatedDate, currentStatus, task.holdStartedAt, task.completedAt]);
+  }, [rawActivities, isCurrentlyRunning, resolvedInProgressStart, updatedDate, currentStatus, task?.holdStartedAt, task?.completedAt]);
 
   // Dynamically compute static sessions from task.workSessions or logs
   const computedSessions = useMemo(() => {
-    if (Array.isArray(task.workSessions) && task.workSessions.length > 0) {
+    if (Array.isArray(task?.workSessions) && task.workSessions.length > 0) {
       return task.workSessions.map((s, idx) => ({
         id: idx + 1,
         startStr: s.start ? formatTimeOnly(s.start) : formatTimeOnly(createdDate),
@@ -401,11 +599,11 @@ const TaskDetailsModal = ({
     }
 
     return [...lifecycleData.completedSessionsList];
-  }, [task.workSessions, lifecycleData, isCurrentlyRunning, createdDate, updatedDate]);
+  }, [task?.workSessions, lifecycleData, isCurrentlyRunning, createdDate, updatedDate]);
 
   // Total Work Sessions count (including ongoing active session)
   const totalWorkSessionsCount = useMemo(() => {
-    if (Array.isArray(task.workSessions) && task.workSessions.length > 0) {
+    if (Array.isArray(task?.workSessions) && task.workSessions.length > 0) {
       return task.workSessions.length;
     }
     const completedCount = computedSessions.length;
@@ -415,12 +613,9 @@ const TaskDetailsModal = ({
     if (completedCount > 0) return completedCount;
     if (baseAccumulatedSeconds > 0 || currentStatus === 'completed') return 1;
     return 0;
-  }, [task.workSessions, computedSessions.length, isCurrentlyRunning, baseAccumulatedSeconds, currentStatus]);
+  }, [task?.workSessions, computedSessions.length, isCurrentlyRunning, baseAccumulatedSeconds, currentStatus]);
 
-  // Dynamic Total Tracked Time (in seconds). `timeSpent` is commonly a
-  // server snapshot which already includes the currently running interval.
-  // Never add that snapshot to the live ticker: that was doubling a new task's
-  // only session. Completed sessions are safe to add to the live session.
+  // Dynamic Total Tracked Time (in seconds)
   const staticTrackedSeconds = useMemo(() => {
     if (computedSessions.length > 0) {
       return computedSessions.reduce((acc, s) => acc + (s.durationSeconds || 0), 0);
@@ -436,14 +631,14 @@ const TaskDetailsModal = ({
 
   // Dynamic Hold Time
   const totalHoldSeconds = useMemo(() => {
-    if (task.totalHoldSeconds) return Number(task.totalHoldSeconds);
+    if (task?.totalHoldSeconds) return Number(task.totalHoldSeconds);
     if (lifecycleData.holdDurationSum > 0) return lifecycleData.holdDurationSum;
     if (currentStatus === 'onhold') {
-      const hStart = task.holdStartedAt ? new Date(task.holdStartedAt) : new Date(updatedDate);
+      const hStart = task?.holdStartedAt ? new Date(task.holdStartedAt) : new Date(updatedDate);
       return Math.max(0, Math.floor((new Date() - hStart) / 1000));
     }
     return 0;
-  }, [task.totalHoldSeconds, lifecycleData.holdDurationSum, currentStatus, task.holdStartedAt, updatedDate]);
+  }, [task?.totalHoldSeconds, lifecycleData.holdDurationSum, currentStatus, task?.holdStartedAt, updatedDate]);
 
   // Real Waiting / Pending duration before work actually started
   const totalWaitingSeconds = useMemo(() => {
@@ -485,7 +680,7 @@ const TaskDetailsModal = ({
 
     const hasHold = totalHoldSeconds > 0 || currentStatus === 'onhold' || lifecycleData.firstHoldStartTime;
     const hasSession2 = isCurrentlyRunning || computedSessions.length > 1;
-    const isDone = currentStatus === 'completed' || task.completedAt;
+    const isDone = currentStatus === 'completed';
 
     if (hasHold && hasSession2 && isDone) {
       return [
@@ -522,7 +717,7 @@ const TaskDetailsModal = ({
       { type: 'waiting', width: 18, title: 'Waiting / Pending' },
       { type: 'tracked', width: 82, title: 'Active Work / Tracked' }
     ];
-  }, [currentStatus, totalHoldSeconds, lifecycleData.firstHoldStartTime, isCurrentlyRunning, computedSessions.length, task.completedAt]);
+  }, [currentStatus, totalHoldSeconds, lifecycleData.firstHoldStartTime, isCurrentlyRunning, computedSessions.length]);
 
   // Dynamic Journey Steps (Only actual events that occurred for this task)
   const journeySteps = useMemo(() => {
@@ -553,15 +748,15 @@ const TaskDetailsModal = ({
     }
 
     // 3. On Hold (Only if task actually went on hold or has hold duration)
-    const hasHold = Boolean(lifecycleData.firstHoldStartTime || task.holdStartedAt || currentStatus === 'onhold' || totalHoldSeconds > 0);
+    const hasHold = Boolean(lifecycleData.firstHoldStartTime || task?.holdStartedAt || currentStatus === 'onhold' || totalHoldSeconds > 0);
     if (hasHold) {
       const holdTime = lifecycleData.firstHoldStartTime
         ? formatTimeOnly(lifecycleData.firstHoldStartTime)
-        : formatTimeOnly(task.holdStartedAt || updatedDate);
+        : formatTimeOnly(task?.holdStartedAt || updatedDate);
       steps.push({
         label: 'On Hold',
         time: holdTime,
-        color: '#f59e0b',
+        color: '#9333ea',
         active: true
       });
     }
@@ -573,7 +768,7 @@ const TaskDetailsModal = ({
         ? formatTimeOnly(lifecycleData.resumeSessionStartTime)
         : (computedSessions[1]?.startStr || (isCurrentlyRunning && resolvedInProgressStart ? formatTimeOnly(resolvedInProgressStart) : formatTimeOnly(updatedDate)));
       steps.push({
-        label: 'In Progress',
+        label: 'In Progress (Resumed)',
         time: s2Time,
         color: '#2563eb',
         active: true
@@ -581,10 +776,10 @@ const TaskDetailsModal = ({
     }
 
     // 5. Completed (Only if task is marked completed)
-    if (currentStatus === 'completed' || task.completedAt || lifecycleData.completedTimestamp) {
+    if (currentStatus === 'completed') {
       const doneTime = lifecycleData.completedTimestamp
         ? formatTimeOnly(lifecycleData.completedTimestamp)
-        : formatTimeOnly(task.completedAt || updatedDate);
+        : formatTimeOnly(task?.completedAt || updatedDate);
       steps.push({
         label: 'Completed',
         time: doneTime,
@@ -594,7 +789,7 @@ const TaskDetailsModal = ({
     }
 
     return steps;
-  }, [createdDate, currentStatus, staticTrackedSeconds, computedSessions, lifecycleData, task.holdStartedAt, task.completedAt, updatedDate, totalHoldSeconds, isCurrentlyRunning, resolvedInProgressStart]);
+  }, [createdDate, currentStatus, staticTrackedSeconds, computedSessions, lifecycleData, task?.holdStartedAt, task?.completedAt, updatedDate, totalHoldSeconds, isCurrentlyRunning, resolvedInProgressStart]);
 
   // Dynamic Audit & Status Timeline Events
   const auditEvents = useMemo(() => {
@@ -707,7 +902,7 @@ const TaskDetailsModal = ({
           time: formatTimeOnly(createdDate),
           date: formatDateOnly(createdDate),
           title: 'Task Created',
-          description: `Task created: ${task.title || 'Task'}`,
+          description: `Task created: ${safeTask.title || 'Task'}`,
           status: 'pending',
           statusConf: STATUS_CONFIG.pending,
           dotColor: '#94a3b8',
@@ -771,10 +966,10 @@ const TaskDetailsModal = ({
       });
     }
 
-    if (currentStatus === 'completed' || task.completedAt || lifecycleData.completedTimestamp) {
+    if (currentStatus === 'completed') {
       list.push({
         id: 5,
-        time: lifecycleData.completedTimestamp ? formatTimeOnly(lifecycleData.completedTimestamp) : formatTimeOnly(task.completedAt || updatedDate),
+        time: lifecycleData.completedTimestamp ? formatTimeOnly(lifecycleData.completedTimestamp) : formatTimeOnly(task?.completedAt || updatedDate),
         date: formatDateOnly(updatedDate),
         title: 'In Progress → Completed',
         description: `Tracking finalized\nFinal tracked time: ${formatDuration(totalTrackedSeconds)}`,
@@ -785,7 +980,7 @@ const TaskDetailsModal = ({
     }
 
     return list;
-  }, [rawActivities, createdDate, currentStatus, totalTrackedSeconds, lifecycleData, resolvedInProgressStart, assigneeName, computedSessions, totalHoldSeconds, updatedDate, task.completedAt]);
+  }, [rawActivities, createdDate, currentStatus, totalTrackedSeconds, lifecycleData, resolvedInProgressStart, assigneeName, computedSessions, totalHoldSeconds, updatedDate, task?.completedAt, safeTask.title]);
 
   // Handle adding a remark dynamically
   const handleAddRemarkSubmit = async (e) => {
@@ -798,12 +993,13 @@ const TaskDetailsModal = ({
       if (onRemarkAdded) {
         await onRemarkAdded(task, text, []);
       } else {
-        const source = task.taskFor === 'self' || task.isSelfTask ? 'self' : task.source || 'task';
-        const endpoint = source === 'client'
-          ? `/tasks/client-tasks/${task._id}/remarks`
+        const source = safeTask.taskFor === 'self' || safeTask.isSelfTask ? 'self' : safeTask.source || 'task';
+        const isClient = source === 'client' || Boolean(safeTask.clientId || safeTask.isClientTask);
+        const endpoint = isClient
+          ? `/tasks/client-tasks/${safeTask._id}/client-remarks`
           : source === 'self'
-            ? `/tasks/self/${task._id}/remarks`
-            : `/task/${task._id}/remarks`;
+            ? `/tasks/self/${safeTask._id}/remarks`
+            : `/task/${safeTask._id}/remarks`;
 
         await axios.post(endpoint, { text, remark: text });
       }
@@ -829,6 +1025,8 @@ const TaskDetailsModal = ({
       remarkInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
+
+  if (!open || !task) return null;
 
   const taskIdStr = task.taskNumber || task.customId || `TSK-${String(task._id || '001234').slice(-6).toUpperCase()}`;
 
@@ -1071,7 +1269,7 @@ const TaskDetailsModal = ({
 
                 <div className="time-journey-body">
                   {/* Step Journey Milestones (Dynamic to actual events) */}
-                  <div className="journey-milestones-row">
+                  <div className={`journey-milestones-row ${journeySteps.length <= 1 ? 'single-step' : ''}`}>
                     {journeySteps.length > 1 && (
                       <div
                         className="milestones-track-line"
@@ -1186,43 +1384,106 @@ const TaskDetailsModal = ({
                 </div>
               </div>
 
-              {/* ATTACHMENTS CARD (100% Dynamic) */}
+              {/* ATTACHMENTS & MEDIA CARD (100% Dynamic with Previews) */}
               <div className="card-box attachments-card">
                 <div className="card-box-header">
                   <div className="card-header-title">
                     <FiPaperclip size={15} className="card-header-icon" />
-                    <h3>Attachments ({rawFiles.length})</h3>
+                    <h3>Attachments & Media ({rawFiles.length})</h3>
                   </div>
+                  {imageAttachments.length > 0 && (
+                    <span className="events-count-badge">{imageAttachments.length} image{imageAttachments.length > 1 ? 's' : ''}</span>
+                  )}
                 </div>
 
                 <div className="attachments-body">
+                  {/* Visual Image Gallery Preview if images exist */}
+                  {imageAttachments.length > 0 && (
+                    <div className="attachments-image-gallery">
+                      {imageAttachments.map((img, i) => (
+                        <div
+                          key={`gallery-${i}`}
+                          className="attachment-gallery-item"
+                          onClick={() => setZoomImage(img.url)}
+                          title={`Click to preview ${img.filename}`}
+                        >
+                          <img
+                            src={img.url}
+                            alt={img.filename}
+                            onError={(e) => handleRemarkImageError(e, img.path)}
+                          />
+                          <div className="gallery-item-overlay">
+                            <FiZoomIn size={16} />
+                            <span>Preview</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {rawFiles.length > 0 ? (
                     <div className="attachments-list">
                       {rawFiles.map((f, idx) => {
-                        const fileName = f.originalName || f.filename || f.name || `Attachment-${idx + 1}`;
-                        const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
-                        const isImg = ['JPG', 'JPEG', 'PNG', 'WEBP', 'SVG'].includes(fileExt);
+                        const fileName = f.filename || `Attachment-${idx + 1}`;
                         const fileSize = f.size ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : null;
-                        const fileUrl = f.path ? (f.path.startsWith('http') ? f.path : `${API_URL_IMG || ''}/${f.path}`) : (f.url || '#');
+                        const fileUrl = f.url || '#';
+                        const isImg = f.isImage;
 
                         return (
                           <div className="attachment-item-card" key={idx}>
-                            <div className="attachment-icon-box">
-                              {isImg ? <FiImage size={18} /> : <FiFileText size={18} />}
+                            <div
+                              className={`attachment-icon-box ${isImg ? 'clickable-thumb' : ''}`}
+                              onClick={() => isImg && setZoomImage(fileUrl)}
+                              title={isImg ? 'Click to preview image' : ''}
+                            >
+                              {isImg ? (
+                                <img
+                                  src={fileUrl}
+                                  alt={fileName}
+                                  className="attachment-thumb-img"
+                                  onError={(e) => handleRemarkImageError(e, f.path)}
+                                />
+                              ) : (
+                                <FiFileText size={18} />
+                              )}
                             </div>
-                            <div className="attachment-info">
+                            <div
+                              className="attachment-info"
+                              onClick={() => isImg && setZoomImage(fileUrl)}
+                              style={{ cursor: isImg ? 'pointer' : 'default' }}
+                            >
                               <span className="attachment-name" title={fileName}>{fileName}</span>
                               <span className="attachment-meta">
                                 {[fileSize, formatFullDateTime(f.uploadedAt || f.createdAt), assigneeName].filter(Boolean).join(' · ')}
                               </span>
                             </div>
                             <div className="attachment-actions">
+                              {isImg ? (
+                                <button
+                                  type="button"
+                                  className="attachment-btn preview-btn"
+                                  onClick={() => setZoomImage(fileUrl)}
+                                  title="Preview Image"
+                                >
+                                  <FiEye size={14} />
+                                </button>
+                              ) : (
+                                <a
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="attachment-btn preview-btn"
+                                  title="Open in new tab"
+                                >
+                                  <FiExternalLink size={14} />
+                                </a>
+                              )}
                               <a
                                 href={fileUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                download
-                                className="attachment-btn"
+                                download={fileName}
+                                className="attachment-btn download-btn"
                                 title="Download File"
                               >
                                 <FiDownload size={14} />
@@ -1234,8 +1495,9 @@ const TaskDetailsModal = ({
                     </div>
                   ) : (
                     <div className="attachments-empty-state">
+                      <FiPaperclip size={24} style={{ color: '#94a3b8', marginBottom: 4 }} />
                       <span className="empty-state-title">No files attached</span>
-                      <span className="empty-state-subtitle">Files uploaded to this task will appear here.</span>
+                      <span className="empty-state-subtitle">Files and images uploaded to this task will appear here.</span>
                     </div>
                   )}
                 </div>
@@ -1407,6 +1669,37 @@ const TaskDetailsModal = ({
                                 </div>
                               </div>
                               <p className="remark-text-body">{text}</p>
+                              {(() => {
+                                const remarkImages = getRemarkImages(rem);
+                                if (!remarkImages || remarkImages.length === 0) return null;
+                                return (
+                                  <div className="task-remark-images-wrap" style={{ marginTop: '8px' }}>
+                                    <div className="task-remark-images-grid">
+                                      {remarkImages.map((imgPath, imgIdx) => {
+                                        const fullUrl = getImageUrl(imgPath);
+                                        return (
+                                          <div
+                                            key={imgIdx}
+                                            className="task-remark-thumb-container"
+                                            onClick={() => setZoomImage(fullUrl)}
+                                            title="Click to view full image"
+                                          >
+                                            <img
+                                              src={fullUrl}
+                                              alt={`Remark attachment ${imgIdx + 1}`}
+                                              className="task-remark-image-thumb"
+                                              onError={(e) => handleRemarkImageError(e, imgPath)}
+                                            />
+                                            <div className="task-remark-thumb-overlay">
+                                              <FiZoomIn size={16} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         );
@@ -1548,6 +1841,47 @@ const TaskDetailsModal = ({
           </div>
         </div>
       </div>
+
+      {/* Image Zoom Lightbox with Preview Controls */}
+      {zoomImage && (
+        <div className="task-remark-zoom-backdrop" onClick={() => setZoomImage(null)}>
+          <div className="task-remark-zoom-box" onClick={(e) => e.stopPropagation()}>
+            <div className="task-remark-zoom-toolbar">
+              <a
+                href={zoomImage}
+                target="_blank"
+                rel="noreferrer"
+                className="zoom-toolbar-btn"
+                title="Open original in new tab"
+              >
+                <FiExternalLink size={16} />
+              </a>
+              <a
+                href={zoomImage}
+                download
+                className="zoom-toolbar-btn"
+                title="Download image"
+              >
+                <FiDownload size={16} />
+              </a>
+              <button
+                type="button"
+                className="zoom-toolbar-btn close-btn"
+                onClick={() => setZoomImage(null)}
+                title="Close (ESC)"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+            <img
+              src={zoomImage}
+              alt="Enlarged attachment preview"
+              className="task-remark-zoom-img"
+              onError={(e) => handleRemarkImageError(e, zoomImage)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

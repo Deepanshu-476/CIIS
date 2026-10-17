@@ -417,6 +417,7 @@ const Dashboard = () => {
       return [];
     }
   });
+  const [companyTaskCounts, setCompanyTaskCounts] = useState({});
   const [services, setServices] = useState(() => {
     try {
       const current = JSON.parse(localStorage.getItem('client') || 'null');
@@ -582,6 +583,7 @@ const Dashboard = () => {
       if (matchingClients.length > 0) {
         localStorage.setItem('client_available_clients', JSON.stringify(matchingClients));
       }
+      fetchCompaniesTaskSummary(matchingClients);
 
       if (currentClient) {
         setClient(currentClient);
@@ -675,6 +677,7 @@ const Dashboard = () => {
         if (effectiveClients.length > 0) {
           localStorage.setItem('client_available_clients', JSON.stringify(effectiveClients));
         }
+        fetchCompaniesTaskSummary(effectiveClients);
         const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
         const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
         

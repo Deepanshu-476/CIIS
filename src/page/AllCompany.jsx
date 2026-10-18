@@ -210,32 +210,13 @@ const AllCompany = () => {
     try {
       setLoading(true);
       const headers = getAuthHeaders();
-      const [companiesRes, usersRes] = await Promise.all([
-        axios.get(`${API_URL}/superAdmin/companies`, { headers }),
-        axios.get(`${API_URL}/superAdmin/users`, { headers }),
-      ]);
-
-      const allCompanies = extractList(companiesRes.data);
-      const allUsers = extractList(usersRes.data);
-      const usersByCompany = allUsers.reduce((acc, user) => {
-        const companyId = getId(user?.company || user?.companyId);
-        if (!companyId) return acc;
-        if (!acc[companyId]) acc[companyId] = [];
-        acc[companyId].push(user);
-        return acc;
-      }, {});
-
-      const nextCompanies = allCompanies.map(company => {
-        const companyId = getId(company);
-        const companyUsers = usersByCompany[companyId] || [];
-        return {
-          ...company,
-          _id: companyId,
-          // Server count when available; the users list below is capped at 50 rows.
-          userCount: typeof company.userCount === "number" ? company.userCount : companyUsers.length,
-          users: companyUsers,
-        };
-      });
+      // userCount comes from the server; the old /superAdmin/users list here stopped at 50 users.
+      const companiesRes = await axios.get(`${API_URL}/superAdmin/companies`, { headers });
+      const nextCompanies = extractList(companiesRes.data).map(company => ({
+        ...company,
+        _id: getId(company),
+        userCount: typeof company.userCount === "number" ? company.userCount : 0,
+      }));
 
       setCompanies(nextCompanies);
     } catch (error) {

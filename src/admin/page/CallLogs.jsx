@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box, Typography, TextField, InputAdornment, IconButton, Button,
   MenuItem, Select, Paper, Table, TableHead, TableBody, TableRow,
@@ -56,61 +56,76 @@ const recordingHref = (url) => {
   return `${String(API_URL_IMG).replace(/\/+$/, '')}/${String(url).replace(/^\/+/, '')}`;
 };
 
+// Local-day bounds for the date buttons, sent to the server as from/to.
+const dateRange = (filter) => {
+  if (filter === 'All') return {};
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  if (filter === 'Last 30 Days') start.setDate(start.getDate() - 29);
+  return { from: start.toISOString() };
+};
+
 function CallLogs() {
   const [logs, setLogs] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [direction, setDirection] = useState('');
   const [dateFilter, setDateFilter] = useState('Today');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const response = await axios.get('/crm/telecaller/call-logs', { params: { limit: 500 } });
-      setLogs(Array.isArray(response.data?.items) ? response.data.items : []);
-    } catch (err) {
-      setLogs([]);
-      setError(err.response?.data?.message || 'Failed to load call logs.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Typing waits a moment before asking the server.
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  const filteredLogs = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const now = new Date();
-    const todayKey = now.toDateString();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return logs.filter((log) => {
-      const startedAt = new Date(log.startTime || log.createdAt);
-      if (dateFilter === 'Today' && startedAt.toDateString() !== todayKey) return false;
-      if (dateFilter === 'Last 30 Days' && !(startedAt >= thirtyDaysAgo)) return false;
-      if (status && String(log.status || '').toLowerCase() !== status) return false;
-      if (direction && callDirection(log.callType) !== direction) return false;
-      if (!query) return true;
-      return [log.leadName, log.leadPhone, log.agentName].some((value) => String(value || '').toLowerCase().includes(query));
-    });
-  }, [dateFilter, direction, logs, search, status]);
+    const timer = setTimeout(() => setQuery(search.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     setPage(0);
-  }, [search, status, direction, dateFilter]);
+  }, [query, status, direction, dateFilter, rowsPerPage]);
 
-  const pageRows = filteredLogs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // One page at a time from the server (the page used to load 500 rows and filter them here,
+  // so older calls never showed).
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    const params = {
+      page: page + 1,
+      limit: rowsPerPage,
+      ...(query ? { search: query } : {}),
+      ...(status ? { status } : {}),
+      ...(direction ? { direction } : {}),
+      ...dateRange(dateFilter),
+    };
+    axios.get('/crm/telecaller/call-logs', { params })
+      .then((response) => {
+        if (!active) return;
+        setLogs(Array.isArray(response.data?.items) ? response.data.items : []);
+        setTotal(Number(response.data?.total) || 0);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setLogs([]);
+        setTotal(0);
+        setError(err.response?.data?.message || 'Failed to load call logs.');
+      })
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [page, rowsPerPage, query, status, direction, dateFilter, reloadKey]);
+
+  const fetchLogs = useCallback(() => setReloadKey((key) => key + 1), []);
+  const pageRows = logs;
 
   return (
     <Box p={3}>
       <Box mb={3} display="flex" alignItems="center" justifyContent="space-between">
-        <Typography variant="h5" fontWeight={600}>{filteredLogs.length} Call Logs</Typography>
+        <Typography variant="h5" fontWeight={600}>{total} Call Logs</Typography>
         <Button startIcon={<RefreshIcon />} onClick={fetchLogs} disabled={loading}>Refresh</Button>
       </Box>
 
@@ -238,15 +253,14 @@ function CallLogs() {
 
         <TablePagination
           component="div"
-          count={filteredLogs.length}
+          count={total}
           page={page}
           onPageChange={(event, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={(event) => {
             setRowsPerPage(parseInt(event.target.value, 10));
-            setPage(0);
           }}
-          rowsPerPageOptions={[5, 10, 25]}
+          rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </Paper>
     </Box>

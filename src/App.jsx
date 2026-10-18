@@ -72,6 +72,7 @@ const CompanyDetails = lazy(() => import("./admin/components/CompanyDetails.jsx"
 const CompanyAccessManagement = lazy(() => import("./admin/page/CompanyAccessManagement.jsx"));
 const AllCompany = lazy(() => import("./page/AllCompany.jsx"));
 const CompanyUsersPage = lazy(() => import("./page/CompanyUsersPage.jsx"));
+const CompanyAdminDetails = lazy(() => import("./page/CompanyAdminDetails.jsx"));
 const CompanyAssetManagement = lazy(() => import("./page/CompanyAssetManagement.jsx"));
 const Holiday = lazy(() => import("./page/Holidays.jsx"));
 const BranchManagement = lazy(() => import("./admin/page/BranchManagement.jsx"));
@@ -211,6 +212,7 @@ function App() {
           <Route path="register-request" element={<RegisterRequest />} />
           <Route path="all-company" element={<AllCompany />} />
           <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
+          <Route path="all-company/:companyId/admins" element={<CompanyAdminDetails />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />

@@ -324,6 +324,7 @@ const LISTS = {
     ],
   },
   calls: {
+    search: "Search lead, phone, telecaller",
     statuses: ["all", "answered", "missed", "not reachable", "rejected"],
     columns: [
       ["Lead", c => <><strong>{c.leadName || "—"}</strong><div className="CDV-sub">{c.leadPhone}</div></>],

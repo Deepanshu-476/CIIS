@@ -2477,8 +2477,29 @@ const Sidebar = ({
     fetchLocalData();
   }, []);
 
-  const fetchMenuBadgeCounts = useCallback(async () => {
+  const fetchMenuBadgeCounts = useCallback(async ({ fresh = false } = {}) => {
     if (!userId) return;
+
+    // One request for every badge count (/api/badges). Older backends without it fall back to the
+    // individual requests below.
+    try {
+      const badgeRes = await axiosInstance.get('/badges', {
+        params: fresh ? { fresh: 1 } : {},
+        cache: false,
+        _skipErrorNotify: true
+      });
+      const counts = badgeRes?.data?.counts;
+      if (counts && typeof counts === 'object') {
+        setMenuBadgeCounts(current => {
+          const mergedCounts = { ...current, ...counts };
+          writeBadgeCache(userId, mergedCounts);
+          return mergedCounts;
+        });
+        return;
+      }
+    } catch {
+      // fall back below
+    }
 
     const requests = await Promise.allSettled([
       axiosInstance.get('/tasks/self/stats', { _skipErrorNotify: true }),
@@ -2614,7 +2635,8 @@ const Sidebar = ({
       fetchMenuBadgeCounts();
     }
 
-    const refreshBadges = () => fetchMenuBadgeCounts();
+    // Fired after the user acts (read, approve, ...): skip the 30s server cache.
+    const refreshBadges = () => fetchMenuBadgeCounts({ fresh: true });
     window.addEventListener('ciis-sidebar-badges-refresh', refreshBadges);
 
     return () => {

@@ -150,6 +150,17 @@ const AllCompany = () => {
     Authorization: `Bearer ${localStorage.getItem("token")}`,
   });
 
+  // "View Data" (read-only company data) is served only to the platform owner, same rule as the backend
+  // isPlatformOwner(); company owners who open this panel only see their own company anyway.
+  const canViewCompanyData = useMemo(() => {
+    try {
+      const admin = JSON.parse(localStorage.getItem("superAdmin") || localStorage.getItem("user") || "{}");
+      return String(admin?.email || "").trim().toLowerCase() === "ashutoshrai130@gmail.com" || admin?.isSuperAdmin === true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const getSeatLimit = company => {
     return (
       company?.maxEmployees ||
@@ -501,6 +512,9 @@ const AllCompany = () => {
       case "admins":
         window.open(`/Ciis-network/all-company/${company._id}/admins`, "_blank", "noopener,noreferrer");
         break;
+      case "data":
+        window.open(`/Ciis-network/all-company/${company._id}/view`, "_blank", "noopener,noreferrer");
+        break;
       case "subscription":
         openSubscriptionModal(company);
         break;
@@ -787,6 +801,18 @@ const AllCompany = () => {
                             >
                               <span className="material-icons">admin_panel_settings</span>
                             </a>
+                            {canViewCompanyData && (
+                              <a
+                                className="AllCompany-icon-button AllCompany-admin-link"
+                                href={`/Ciis-network/all-company/${companyId}/view`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="View company data (read only, new tab)"
+                                aria-label={`View data of ${company.companyName || "company"} in a new tab`}
+                              >
+                                <span className="material-icons">visibility</span>
+                              </a>
+                            )}
                             <button
                               type="button"
                               className="AllCompany-icon-button"
@@ -801,7 +827,7 @@ const AllCompany = () => {
 
                                 const rect = event.currentTarget.getBoundingClientRect();
                                 const menuWidth = 190;
-                                const menuHeight = 214;
+                                const menuHeight = canViewCompanyData ? 254 : 214;
                                 const gap = 8;
                                 const isBottomRow = companyIndex >= paginatedCompanies.length - 2;
                                 const openUp = isBottomRow || window.innerHeight - rect.bottom < menuHeight + gap;
@@ -828,6 +854,12 @@ const AllCompany = () => {
                                   <span className="material-icons">admin_panel_settings</span>
                                   Admin Details
                                 </button>
+                                {canViewCompanyData && (
+                                  <button type="button" onClick={() => handleRowAction("data", company)}>
+                                    <span className="material-icons">visibility</span>
+                                    View Data
+                                  </button>
+                                )}
                                 <button type="button" onClick={() => handleRowAction("subscription", company)}>
                                   <span className="material-icons">workspace_premium</span>
                                   Subscription

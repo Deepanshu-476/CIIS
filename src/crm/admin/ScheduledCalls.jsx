@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiCalendar,
@@ -16,10 +16,9 @@ import {
   FiArrowUpRight,
   FiCheckCircle
 } from 'react-icons/fi';
-import axiosInstance from '../../utils/axiosConfig';
+import useCrmPagedList, { optionNames } from '../hooks/useCrmPagedList';
 import './ScheduledCalls.css';
 
-const EMPTY_CALLS = [];
 
 const formatName = (str = '') => {
   if (!str) return '';
@@ -36,15 +35,6 @@ const getInitials = (name = '') => {
   if (!parts.length) return 'U';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
-
-const uniqueSorted = (values = []) => {
-  const unique = new Map();
-  values.forEach(value => {
-    const label = String(value || '').trim();
-    if (label) unique.set(label.toLowerCase(), label);
-  });
-  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b));
 };
 
 const getRelativeSchedule = (dateStr) => {
@@ -102,10 +92,31 @@ const getLocalDateString = (val) => {
   return `${y}-${m}-${day}`;
 };
 
-export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
-  const [fetchedCalls, setFetchedCalls] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+const mapScheduledLead = (lead, idx) => ({
+  id: lead._id || idx + 1,
+  rawId: lead._id,
+  leadId: lead._id ? `#LD-${String(lead._id).slice(-4).toUpperCase()}` : `#LD-${String(idx + 1).padStart(3, '0')}`,
+  name: lead.name || 'Lead',
+  phone: lead.phone || '—',
+  email: lead.email || '',
+  source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
+  leadType: lead.leadTypeName || lead.leadType?.name || 'General',
+  status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Scheduled',
+  scheduledRaw: lead.nextFollowUp,
+  scheduledDate: lead.nextFollowUp ? getLocalDateString(lead.nextFollowUp) : '—',
+  scheduleMeta: getRelativeSchedule(lead.nextFollowUp),
+  assignedAge: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+  createdRawDate: lead.createdAt,
+  note: lead.remarks || lead.customField1 || lead.notes || '—',
+  assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
+  assignedRole: lead.assignedTo?.jobRole || lead.assignedTo?.role || 'Telecaller'
+  
+});
+
+// Schedule timing filters handled on the server (nextFollowUp by India calendar day).
+const SCHEDULE_FILTERS = { today: 'today', upcoming: 'upcoming', overdue: 'overdue' };
+
+export default function ScheduledCalls() {
   const [copiedId, setCopiedId] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
 
@@ -125,142 +136,44 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const fetchScheduled = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await axiosInstance.get('/crm/admin/calls/scheduled', { _skipErrorNotify: true });
-      if (Array.isArray(res.data?.items)) {
-        const items = res.data.items.map((lead, idx) => ({
-          id: lead._id || idx + 1,
-          rawId: lead._id,
-          leadId: lead._id ? `#LD-${String(lead._id).slice(-4).toUpperCase()}` : `#LD-${String(idx + 1).padStart(3, '0')}`,
-          name: lead.name || 'Lead',
-          phone: lead.phone || '—',
-          email: lead.email || '',
-          source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
-          leadType: lead.leadTypeName || lead.leadType?.name || 'General',
-          status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Scheduled',
-          scheduledRaw: lead.nextFollowUp,
-          scheduledDate: lead.nextFollowUp ? getLocalDateString(lead.nextFollowUp) : '—',
-          scheduleMeta: getRelativeSchedule(lead.nextFollowUp),
-          assignedAge: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
-          createdRawDate: lead.createdAt,
-          note: lead.remarks || lead.customField1 || lead.notes || '—',
-          assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
-          assignedRole: lead.assignedTo?.jobRole || lead.assignedTo?.role || 'Telecaller'
-        }));
-        setFetchedCalls(items);
-      } else {
-        setFetchedCalls([]);
-      }
-    } catch (err) {
-      setFetchedCalls([]);
-      setError(err.response?.data?.message || 'Failed to load scheduled calls.');
-    } finally {
-      setLoading(false);
+  const statusFilter = String(appliedFilters.status || '').trim().toLowerCase();
+  const {
+    items, total, pages, stats: serverStats, options, loading, error, reload
+  } = useCrmPagedList('/crm/admin/calls/scheduled', {
+    page,
+    limit: pageSize,
+    search,
+    filters: {
+      assignedTo: appliedFilters.assignedTo,
+      source: appliedFilters.source,
+      leadType: appliedFilters.leadType,
+      schedule: SCHEDULE_FILTERS[statusFilter] || '',
+      status: (SCHEDULE_FILTERS[statusFilter] || statusFilter === 'scheduled') ? '' : appliedFilters.status,
+      from: appliedFilters.from,
+      to: appliedFilters.to,
+      dateField: 'nextFollowUp'
     }
-  }, []);
+  });
+  const fetchScheduled = reload;
+  const visibleCalls = useMemo(() => items.map(mapScheduledLead), [items]);
 
-  useEffect(() => {
-    fetchScheduled();
-  }, [fetchScheduled]);
-
-  const allCalls = useMemo(() => {
-    return calls.length ? calls : fetchedCalls;
-  }, [calls, fetchedCalls]);
-
-  // Overall statistics for KPI cards
-  const stats = useMemo(() => {
-    const total = allCalls.length;
-    let scheduledToday = 0;
-    let upcoming = 0;
-    let overdue = 0;
-
-    allCalls.forEach(call => {
-      const type = call.scheduleMeta?.type;
-      if (type === 'today') scheduledToday++;
-      else if (type === 'tomorrow' || type === 'future') upcoming++;
-      else if (type === 'overdue') overdue++;
-    });
-
-    return { total, scheduledToday, upcoming, overdue };
-  }, [allCalls]);
+  // Overall statistics for KPI cards (whole list, from the server)
+  const stats = useMemo(() => ({
+    total: serverStats?.total || 0,
+    scheduledToday: serverStats?.schedule?.today || 0,
+    upcoming: serverStats?.schedule?.upcoming || 0,
+    overdue: serverStats?.schedule?.overdue || 0
+  }), [serverStats]);
 
   // Dynamic filter dropdown options
-  const availableAssignees = useMemo(
-    () => uniqueSorted(allCalls.map(c => c.assignedTo).filter(v => v && v !== 'Unassigned')),
-    [allCalls]
-  );
-  const availableSources = useMemo(() => uniqueSorted(allCalls.map(c => c.source).filter(Boolean)), [allCalls]);
-  const availableTypes = useMemo(() => uniqueSorted(allCalls.map(c => c.leadType).filter(Boolean)), [allCalls]);
+  const availableAssignees = useMemo(() => optionNames(options?.assignees), [options]);
+  const availableSources = useMemo(() => optionNames(options?.sources), [options]);
+  const availableTypes = useMemo(() => optionNames(options?.types), [options]);
   const availableStatuses = useMemo(() => {
     const timingStatuses = ['Today', 'Upcoming', 'Overdue'];
-    const leadStatuses = uniqueSorted(allCalls.map(c => c.status).filter(Boolean));
+    const leadStatuses = optionNames(options?.statuses).map(status => status.charAt(0).toUpperCase() + status.slice(1));
     return [...timingStatuses, ...leadStatuses.filter(s => !timingStatuses.some(t => t.toLowerCase() === s.toLowerCase()))];
-  }, [allCalls]);
-
-  // Apply filters and search
-  const filteredCalls = useMemo(() => {
-    return allCalls.filter(call => {
-      // 1. Search Query
-      const q = search.trim().toLowerCase();
-      const matchesSearch = !q || [
-        call.leadId,
-        call.name,
-        call.phone,
-        call.email,
-        call.source,
-        call.leadType,
-        call.assignedTo,
-        call.note
-      ].some(val => String(val || '').toLowerCase().includes(q));
-
-      // 2. Form Filters
-      const matchesAssignee = !appliedFilters.assignedTo || 
-        String(call.assignedTo || '').trim().toLowerCase() === appliedFilters.assignedTo.trim().toLowerCase();
-
-      // Date range filtering (by Scheduled Callback Date)
-      let matchesDate = true;
-      if (appliedFilters.from || appliedFilters.to) {
-        const callLocalDate = call.scheduledDate && call.scheduledDate !== '—'
-          ? call.scheduledDate
-          : getLocalDateString(call.scheduledRaw);
-        if (callLocalDate) {
-          if (appliedFilters.from && callLocalDate < appliedFilters.from) matchesDate = false;
-          if (appliedFilters.to && callLocalDate > appliedFilters.to) matchesDate = false;
-        } else {
-          matchesDate = false;
-        }
-      }
-
-      // Schedule status match (Today, Upcoming, Overdue, Scheduled, or lead status)
-      let matchesStatus = true;
-      if (appliedFilters.status) {
-        const filterVal = appliedFilters.status.trim().toLowerCase();
-        const metaType = call.scheduleMeta?.type;
-        if (filterVal === 'today') {
-          matchesStatus = metaType === 'today';
-        } else if (filterVal === 'upcoming') {
-          matchesStatus = metaType === 'tomorrow' || metaType === 'future';
-        } else if (filterVal === 'overdue') {
-          matchesStatus = metaType === 'overdue';
-        } else if (filterVal === 'scheduled') {
-          matchesStatus = true;
-        } else {
-          matchesStatus = String(call.status || '').trim().toLowerCase() === filterVal;
-        }
-      }
-
-      const matchesSource = !appliedFilters.source || 
-        String(call.source || '').trim().toLowerCase() === appliedFilters.source.trim().toLowerCase();
-
-      const matchesType = !appliedFilters.leadType || 
-        String(call.leadType || '').trim().toLowerCase() === appliedFilters.leadType.trim().toLowerCase();
-
-      return matchesSearch && matchesAssignee && matchesDate && matchesStatus && matchesSource && matchesType;
-    });
-  }, [allCalls, search, appliedFilters]);
+  }, [options]);
 
   // Active filter count
   const activeFiltersCount = useMemo(() => {
@@ -268,11 +181,7 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
   }, [appliedFilters]);
 
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredCalls.length / pageSize));
-  const visibleCalls = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredCalls.slice(start, start + pageSize);
-  }, [filteredCalls, page, pageSize]);
+  const totalPages = pages;
 
   // Instant real-time filter update on select/input change
   const updateFilter = (key, value) => {
@@ -311,7 +220,7 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
         <div className="scheduled-heading-left">
           <div className="scheduled-title-row">
             <h1>Scheduled Calls</h1>
-            <span className="scheduled-title-badge">{allCalls.length} Callbacks</span>
+            <span className="scheduled-title-badge">{stats.total} Callbacks</span>
           </div>
           <p className="scheduled-subtitle">
             Track and manage scheduled callbacks, upcoming follow-ups, and overdue client contacts.
@@ -487,7 +396,7 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
           <div className="scheduled-table-header-left">
             <h2 className="scheduled-table-title">Scheduled Callbacks Directory</h2>
             <span className="scheduled-counter-pill">
-              {filteredCalls.length} {filteredCalls.length === 1 ? 'Lead' : 'Leads'}
+              {total} {total === 1 ? 'Lead' : 'Leads'}
             </span>
           </div>
 
@@ -693,8 +602,8 @@ export default function ScheduledCalls({ calls = EMPTY_CALLS }) {
         {/* Pagination Footer */}
         <footer className="scheduled-table-footer">
           <span className="scheduled-showing-txt">
-            Showing {filteredCalls.length ? (page - 1) * pageSize + 1 : 0} to{' '}
-            {Math.min(page * pageSize, filteredCalls.length)} of {filteredCalls.length} entries
+            Showing {total ? (page - 1) * pageSize + 1 : 0} to{' '}
+            {Math.min(page * pageSize, total)} of {total} entries
           </span>
           <div className="scheduled-pagination-btns">
             <button

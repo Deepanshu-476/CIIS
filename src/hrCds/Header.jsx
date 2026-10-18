@@ -319,7 +319,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
         axios.get(`${API_URL}/task/my`, { headers, _skipErrorNotify: true }),
         axios.get(`${API_URL}/task/assigned`, { headers, _skipErrorNotify: true }),
         axios.get(`${API_URL}/groups`, { headers, _skipErrorNotify: true }),
-        axios.get(`${API_URL}/alerts`, { headers, _skipErrorNotify: true }),
+        // Newest alerts only (the bell shows today's items); the full list was several MB for managers.
+        axios.get(`${API_URL}/alerts`, { headers, params: { page: 1, limit: 20 }, _skipErrorNotify: true }),
         axios.get(`${API_URL}/notifications`, {
           headers,
           params: { unreadOnly: true, limit: 100 },
@@ -464,7 +465,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       });
 
       
-      const alertData = alertsRes.value?.data?.data || [];
+      // /alerts returns `alerts`; reading `data` meant alerts never reached the bell.
+      const alertData = alertsRes.value?.data?.alerts || alertsRes.value?.data?.data || [];
       alertData.forEach((a) => {
         all.push({ 
           id: `alert-${a._id || Date.now()}`,

@@ -36,13 +36,229 @@ const TABS = [
   { key: "overview", label: "Overview", icon: "dashboard" },
   { key: "users", label: "Users", icon: "groups" },
   { key: "tasks", label: "Tasks", icon: "task_alt" },
+  { key: "projects", label: "Projects", icon: "folder" },
   { key: "attendance", label: "Attendance", icon: "schedule" },
   { key: "leaves", label: "Leaves", icon: "event_busy" },
+  { key: "meetings", label: "Meetings", icon: "video_call" },
   { key: "clients", label: "Clients", icon: "business_center" },
+  { key: "client-tasks", label: "Client Tasks", icon: "assignment" },
+  { key: "client-meetings", label: "Client Meetings", icon: "groups_2" },
+  { key: "services", label: "Services", icon: "design_services" },
+  { key: "leads", label: "Leads", icon: "person_search" },
   { key: "calls", label: "CRM Calls", icon: "call" },
+  { key: "follow-ups", label: "Follow-ups", icon: "pending_actions" },
+  { key: "assignments", label: "Lead Assignments", icon: "swap_horiz" },
+  { key: "support-tickets", label: "Support Tickets", icon: "support_agent" },
+  { key: "assets", label: "Assets", icon: "inventory_2" },
+  { key: "asset-requests", label: "Asset Requests", icon: "assignment_return" },
+  { key: "alerts", label: "Alerts", icon: "notifications" },
+  { key: "groups", label: "Groups", icon: "diversity_3" },
+  { key: "departments", label: "Departments", icon: "apartment" },
+  { key: "branches", label: "Branches", icon: "store" },
+  { key: "job-roles", label: "Job Roles", icon: "work" },
+  { key: "holidays", label: "Holidays", icon: "celebration" },
+  { key: "payroll", label: "Payroll", icon: "payments" },
 ];
 
+const pill = value => <span className="CAD-pill CAD-pill-blue">{pretty(value)}</span>;
+const activePill = active => <span className={`CAD-pill ${active === false ? "CAD-pill-red" : "CAD-pill-green"}`}>{active === false ? "Inactive" : "Active"}</span>;
+const names = list => (list || []).map(item => item?.name).filter(Boolean).join(", ") || "—";
+
 const LISTS = {
+  projects: {
+    search: "Search project",
+    statuses: ["all", "active", "planning", "on hold", "completed", "cancelled"],
+    columns: [
+      ["Project", x => <><strong>{x.projectName}</strong><div className="CDV-sub">{x.description || ""}</div></>],
+      ["Team", x => names(x.users)],
+      ["Tasks", x => `${x.completedTasks || 0} / ${x.taskCount || 0} done`],
+      ["Status", x => pill(x.status)],
+      ["Priority", x => pretty(x.priority)],
+      ["Start", x => fmtDate(x.startDate)],
+      ["End", x => fmtDate(x.endDate)],
+    ],
+  },
+  meetings: {
+    search: "Search meeting",
+    columns: [
+      ["Meeting", x => <><strong>{x.title}</strong><div className="CDV-sub">{x.description || ""}</div></>],
+      ["Date", x => `${fmtDate(x.date)} ${x.time || ""}`],
+      ["Attendees", x => names(x.attendees)],
+      ["Created by", x => x.createdBy?.name || "—"],
+    ],
+  },
+  "client-tasks": {
+    search: "Search task, service, assignee",
+    statuses: ["all", "pending", "in-progress", "onhold", "completed", "overdue", "reopen"],
+    columns: [
+      ["Task", x => <><strong>{x.name}</strong><div className="CDV-sub">{x.service || ""}</div></>],
+      ["Client", x => x.clientId?.client || "—"],
+      ["Assignee", x => x.assignee || "—"],
+      ["Plan", x => x.planName || "—"],
+      ["Priority", x => pretty(x.priority)],
+      ["Status", x => pill(x.completed ? "completed" : x.status)],
+      ["Due", x => fmtDate(x.dueDate)],
+    ],
+  },
+  "client-meetings": {
+    search: "Search title or client",
+    statuses: ["all", "scheduled", "completed", "cancelled", "rescheduled"],
+    columns: [
+      ["Meeting", x => <><strong>{x.title}</strong><div className="CDV-sub">{x.clientName}</div></>],
+      ["Type", x => pretty(x.meetingType)],
+      ["When", x => `${fmtDate(x.meetingDate)} ${x.meetingTime || ""}`],
+      ["Status", x => pill(x.status)],
+      ["Priority", x => pretty(x.priority)],
+      ["Created by", x => x.createdBy?.name || "—"],
+    ],
+  },
+  services: {
+    search: "Search service",
+    columns: [["Service", x => <strong>{x.servicename}</strong>], ["Added", x => fmtDate(x.createdAt)]],
+  },
+  leads: {
+    search: "Search name, phone, email, telecaller",
+    statuses: ["all", "new", "follow-up", "interested", "not interested", "converted", "closed"],
+    columns: [
+      ["Lead", x => <><strong>{x.name}</strong><div className="CDV-sub">{x.phone} {x.email ? `· ${x.email}` : ""}</div></>],
+      ["Source", x => x.leadSourceName || "—"],
+      ["Type", x => x.leadTypeName || "—"],
+      ["Status", x => pill(x.status)],
+      ["Assigned to", x => x.assignedToName || "Unassigned"],
+      ["Next follow-up", x => fmtDate(x.nextFollowUp, true)],
+      ["Created", x => fmtDate(x.createdAt)],
+    ],
+  },
+  "follow-ups": {
+    search: "Search lead or telecaller",
+    statuses: ["all", "pending", "done"],
+    columns: [
+      ["Lead", x => <><strong>{x.leadName}</strong><div className="CDV-sub">{x.leadPhone}</div></>],
+      ["Telecaller", x => x.agentName || "—"],
+      ["Due", x => fmtDate(x.date, true)],
+      ["Priority", x => pretty(x.priority)],
+      ["Status", x => pill(x.status)],
+      ["Note", x => x.note || "—"],
+    ],
+  },
+  assignments: {
+    search: "Search lead or telecaller",
+    statuses: ["all", "assigned", "reassigned", "unassigned"],
+    columns: [
+      ["Lead", x => <><strong>{x.leadName}</strong><div className="CDV-sub">{x.leadPhone}</div></>],
+      ["From", x => x.fromUserName || "—"],
+      ["To", x => x.toUserName || "—"],
+      ["By", x => x.performedByName || "—"],
+      ["Action", x => pill(x.action)],
+      ["Reason", x => x.reason || "—"],
+      ["When", x => fmtDate(x.createdAt, true)],
+    ],
+  },
+  "support-tickets": {
+    search: "Search ticket, subject, requester",
+    statuses: ["all", "open", "in progress", "waiting", "escalated", "resolved", "closed"],
+    columns: [
+      ["Ticket", x => <><strong>{x.ticketNumber}</strong><div className="CDV-sub">{x.subject}</div></>],
+      ["Requester", x => x.requesterName || "—"],
+      ["Category", x => pretty(x.category)],
+      ["Priority", x => pretty(x.priority)],
+      ["Status", x => pill(x.status)],
+      ["Assigned to", x => x.assignedToName || "—"],
+      ["Created", x => fmtDate(x.createdAt, true)],
+    ],
+  },
+  assets: {
+    search: "Search asset or holder",
+    statuses: ["all", "available", "assigned", "maintenance"],
+    columns: [
+      ["Asset", x => <><strong>{x.name}</strong><div className="CDV-sub">{x.description || ""}</div></>],
+      ["Qty", x => x.quantity ?? "—"],
+      ["Status", x => pill(x.status)],
+      ["Branch", x => x.branchName || "—"],
+      ["Assigned to", x => x.assignedToName || "—"],
+      ["Since", x => fmtDate(x.assignedDate)],
+    ],
+  },
+  "asset-requests": {
+    search: "Search asset",
+    statuses: ["all", "pending", "approved", "rejected", "return_requested", "pending_verification", "deposited", "completed", "cancelled"],
+    columns: [
+      ["Employee", x => <><strong>{x.user?.name || "—"}</strong><div className="CDV-sub">{x.user?.employeeId || ""}</div></>],
+      ["Asset", x => x.assetName || "—"],
+      ["Type", x => pretty(x.requestType)],
+      ["Status", x => pill(x.status)],
+      ["Reason", x => x.reason || "—"],
+      ["Requested", x => fmtDate(x.requestDate || x.createdAt)],
+    ],
+  },
+  alerts: {
+    search: "Search alert",
+    statuses: ["all", "info", "warning", "error"],
+    columns: [
+      ["Alert", x => <><strong>{x.title || pretty(x.type)}</strong><div className="CDV-sub">{x.message}</div></>],
+      ["Type", x => pill(x.type)],
+      ["Sent to", x => x.audience],
+      ["Read by", x => x.readCount],
+      ["By", x => x.createdByName || "—"],
+      ["When", x => fmtDate(x.createdAt, true)],
+    ],
+  },
+  groups: {
+    search: "Search group",
+    columns: [
+      ["Group", x => <><strong>{x.name}</strong><div className="CDV-sub">{x.description || ""}</div></>],
+      ["Members", x => x.memberCount],
+      ["Created by", x => x.createdBy?.name || "—"],
+      ["Status", x => activePill(x.isActive)],
+    ],
+  },
+  departments: {
+    search: "Search department",
+    columns: [
+      ["Department", x => <strong>{x.name}</strong>],
+      ["Branch", x => x.branchName || "—"],
+      ["Support head", x => x.supportHeadName || "—"],
+      ["Status", x => activePill(x.isActive)],
+    ],
+  },
+  branches: {
+    search: "Search branch",
+    columns: [
+      ["Branch", x => <><strong>{x.name}</strong>{x.isDefault ? <div className="CDV-sub">Default</div> : null}</>],
+      ["Code", x => x.branchCode || "—"],
+      ["Phone", x => x.phone || "—"],
+      ["Address", x => x.address || "—"],
+      ["Status", x => activePill(x.isActive)],
+    ],
+  },
+  "job-roles": {
+    search: "Search job role",
+    columns: [
+      ["Job role", x => <strong>{x.name}</strong>],
+      ["Department", x => x.departmentName || "—"],
+      ["Shifts", x => x.shiftCount],
+      ["Status", x => activePill(x.isActive)],
+    ],
+  },
+  holidays: {
+    search: "Search holiday",
+    columns: [
+      ["Holiday", x => <><strong>{x.title}</strong><div className="CDV-sub">{x.description || ""}</div></>],
+      ["Date", x => fmtDate(x.date)],
+      ["Status", x => activePill(x.isActive)],
+    ],
+  },
+  payroll: {
+    statuses: ["all", "draft", "calculated", "reviewed", "approved", "locked"],
+    columns: [
+      ["Month", x => <strong>{x.month}</strong>],
+      ["Status", x => pill(x.status)],
+      ["Employees", x => x.employeeCount],
+      ["Calculated", x => fmtDate(x.calculatedAt, true)],
+      ["Approved", x => fmtDate(x.approvedAt, true)],
+      ["Locked", x => fmtDate(x.lockedAt, true)],
+    ],
+  },
   users: {
     search: "Search name, email, phone, ID",
     statuses: ["all", "active", "inactive"],
@@ -72,7 +288,7 @@ const LISTS = {
   },
   attendance: {
     date: true,
-    statuses: ["all", "present", "late", "half-day", "absent", "leave"],
+    statuses: ["all", "present", "late", "half day", "absent", "short leave", "holiday", "weekend"],
     columns: [
       ["Employee", a => <><strong>{a.user?.name || "—"}</strong><div className="CDV-sub">{a.user?.employeeId || ""}</div></>],
       ["Status", a => <span className="CAD-pill CAD-pill-blue">{pretty(a.status)}</span>],
@@ -272,6 +488,9 @@ export default function CompanyDataView() {
                 <Stat icon="pending_actions" label="Pending follow-ups" value={s?.crm.pendingFollowUps} />
                 <Stat icon="business_center" label="Clients" value={s?.clients} />
                 <Stat icon="video_call" label="Upcoming meetings" value={s?.upcomingMeetings} />
+                <Stat icon="folder" label="Projects" value={s?.projects} />
+                <Stat icon="support_agent" label="Open support tickets" value={s?.openTickets} />
+                <Stat icon="assignment_return" label="Pending asset requests" value={s?.pendingAssetRequests} />
               </div>
             ) : (
               <ListTab key={tab} companyId={companyId} tab={tab} />

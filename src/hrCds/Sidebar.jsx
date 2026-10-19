@@ -1478,6 +1478,15 @@ const allPagesItems = [
     category: 'administration',
     order: 27
   },
+  // Shown when the company plan includes feedback-questionnaire (filterItemsByCompanyAccess).
+  {
+    id: 'feedback-questionnaire',
+    name: 'Feedback / Questionnaire',
+    icon: 'Assignment',
+    path: '/ciisUser/feedback-questionnaire',
+    category: 'administration',
+    order: 27.5
+  },
   {
     id: 'support-desk',
     name: 'Support Desk',

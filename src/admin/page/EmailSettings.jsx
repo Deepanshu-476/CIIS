@@ -43,6 +43,7 @@ const defaultForm = {
   emailPort: 465,
   emailSecure: true,
   replyTo: '',
+  dailyLimit: '',
   moduleSettings: {},
   loginSettings: {
     companyLoginOtpEnabled: true,
@@ -159,6 +160,7 @@ function EmailSettings() {
       emailPort: settings.emailPort || 465,
       emailSecure: settings.emailSecure !== false,
       replyTo: settings.replyTo || '',
+      dailyLimit: (settings.senderProfiles || []).find(profile => profile.active)?.dailyLimit || '',
       moduleSettings: settings.moduleSettings || {},
       loginSettings: {
         companyLoginOtpEnabled: settings.loginSettings?.companyLoginOtpEnabled !== false,
@@ -268,7 +270,8 @@ function EmailSettings() {
         emailPass: normalizedEmailPass,
         emailHost: nextForm.emailHost,
         emailPort: Number(nextForm.emailPort) || 465,
-        emailSecure: nextForm.emailHost === 'smtp.gmail.com' ? true : nextForm.emailSecure
+        emailSecure: nextForm.emailHost === 'smtp.gmail.com' ? true : nextForm.emailSecure,
+        dailyLimit: Math.max(0, Math.floor(Number(nextForm.dailyLimit) || 0))
       };
 
       if (!payload.emailPass) {
@@ -311,7 +314,8 @@ function EmailSettings() {
       emailHost: isHostingEmail ? 'smtp.hostinger.com' : 'smtp.gmail.com',
       emailPort: profile.emailPort || 465,
       emailSecure: profile.emailSecure !== false,
-      replyTo: profile.replyTo || ''
+      replyTo: profile.replyTo || '',
+      dailyLimit: profile.dailyLimit || ''
     }));
 
     setSaving(true);
@@ -350,7 +354,8 @@ function EmailSettings() {
       emailHost: 'smtp.gmail.com',
       emailPort: 465,
       emailSecure: true,
-      replyTo: ''
+      replyTo: '',
+      dailyLimit: ''
     }));
     setShowPassword(false);
   };
@@ -868,6 +873,16 @@ function EmailSettings() {
                     helperText={form.emailHostType === 'hosting' ? 'Usually 465 SSL or 587 TLS' : 'Default 465'}
                     fullWidth
                   />
+                  <TextField
+                    label="Daily send limit"
+                    type="number"
+                    value={form.dailyLimit}
+                    onChange={(event) => updateField('dailyLimit', event.target.value)}
+                    placeholder={form.emailHost === 'smtp.gmail.com' ? '450' : '300'}
+                    helperText="Recipients per day from this account. Empty = default (Gmail 450, others 300)."
+                    inputProps={{ min: 0 }}
+                    fullWidth
+                  />
                   <FormControlLabel
                     sx={{ alignSelf: 'center' }}
                     control={
@@ -894,6 +909,11 @@ function EmailSettings() {
 
                 <Box>
                   <Typography sx={{ fontWeight: 900, mb: 1 }}>Saved Sender Accounts</Typography>
+                  {senderProfiles.length > 1 && (
+                    <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>
+                      Emails go from the Active account until its daily limit is used up (or the provider refuses), then from the next account; after the last one, back to the first. Counts reset at midnight.
+                    </Alert>
+                  )}
                   {senderProfiles.length > 0 ? (
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}>
                       {senderProfiles.map((profile) => {
@@ -931,6 +951,19 @@ function EmailSettings() {
                                 <Typography color="text.secondary" sx={{ fontSize: 12 }}>
                                   Saved password: {profile.maskedPassword || '********'}
                                 </Typography>
+                              )}
+                              <Typography sx={{ fontSize: 12, fontWeight: 800, mt: 0.5 }}>
+                                Today: {profile.sentToday || 0} / {profile.effectiveDailyLimit || '—'}
+                                {!profile.dailyLimit ? ' (default)' : ''}
+                              </Typography>
+                              {profile.pausedUntil && (
+                                <Chip
+                                  size="small"
+                                  color="warning"
+                                  label={`Paused until ${new Date(profile.pausedUntil).toLocaleString()}`}
+                                  title={profile.pausedReason || ''}
+                                  sx={{ mt: 0.5, height: 22, fontWeight: 800 }}
+                                />
                               )}
                             </Box>
                           </Button>

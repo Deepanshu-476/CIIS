@@ -917,7 +917,7 @@ const UserCreateTask = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     window.dispatchEvent(new Event('ciis-auth-changed'));
-    navigate('/login');
+    navigate('/', { replace: true });
   };
 
   const isOverdue = (taskOrDate) => {

@@ -531,7 +531,7 @@ const EmmpTask = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     window.dispatchEvent(new Event('ciis-auth-changed'));
-    navigate('/login');
+    navigate('/', { replace: true });
   };
 
   const calculateStats = (tasksData) => {

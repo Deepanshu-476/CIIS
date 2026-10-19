@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiCalendar,
@@ -16,7 +16,7 @@ import {
   FiPhoneCall,
   FiUserCheck
 } from 'react-icons/fi';
-import axiosInstance from '../../utils/axiosConfig';
+import useCrmPagedList, { optionNames, sumStatuses } from '../hooks/useCrmPagedList';
 import './AssignedCalls.css';
 
 const formatName = (str = '') => {
@@ -36,15 +36,6 @@ const getInitials = (name = '') => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-const uniqueSorted = (values = []) => {
-  const unique = new Map();
-  values.forEach(value => {
-    const label = String(value || '').trim();
-    if (label) unique.set(label.toLocaleLowerCase(), label);
-  });
-  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b));
-};
-
 const calculateAge = (dateStr) => {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -57,10 +48,28 @@ const calculateAge = (dateStr) => {
   return `${Math.floor(diffDays / 30)} months ago`;
 };
 
+const mapAssignedLead = (lead, idx) => ({
+  id: lead._id || idx + 1,
+  rawId: lead._id,
+  leadId: lead._id ? `#LD-${String(lead._id).slice(-4).toUpperCase()}` : `#LD-00${idx + 1}`,
+  lead: lead.name || 'Lead',
+  email: lead.email || '',
+  note: lead.remarks || lead.customField1 || '—',
+  phone: lead.phone || '—',
+  source: lead.leadSourceName || lead.leadSource?.name || lead.source || '',
+  type: lead.leadTypeName || lead.leadType?.name || '',
+  status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Assigned',
+  assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
+  assignedRole: lead.assignedTo?.jobRole || lead.assignedTo?.role || 'Telecaller',
+  assignedRawDate: lead.assignedAt || lead.createdAt,
+  createdRawDate: lead.createdAt,
+  assignedDate: lead.assignedAt
+    ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—',
+  age: lead.createdAt ? calculateAge(lead.createdAt) : '—'
+});
+
 const AssignedCalls = () => {
-  const [callsList, setCallsList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [filters, setFilters] = useState({ assignedTo: '', source: '', type: '', from: '', to: '' });
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const [search, setSearch] = useState('');
@@ -69,115 +78,34 @@ const AssignedCalls = () => {
   const [selectedLead, setSelectedLead] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
-  const fetchAssigned = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await axiosInstance.get('/crm/admin/calls/assigned', { _skipErrorNotify: true });
-      if (Array.isArray(res.data?.items)) {
-        const items = res.data.items.map((lead, idx) => ({
-          id: lead._id || idx + 1,
-          rawId: lead._id,
-          leadId: lead._id ? `#LD-${String(lead._id).slice(-4).toUpperCase()}` : `#LD-00${idx + 1}`,
-          lead: lead.name || 'Lead',
-          email: lead.email || '',
-          note: lead.remarks || lead.customField1 || '—',
-          phone: lead.phone || '—',
-          source: lead.leadSourceName || lead.leadSource?.name || lead.source || '',
-          type: lead.leadTypeName || lead.leadType?.name || '',
-          status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Assigned',
-          assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
-          assignedRole: lead.assignedTo?.jobRole || lead.assignedTo?.role || 'Telecaller',
-          assignedRawDate: lead.assignedAt || lead.createdAt,
-          createdRawDate: lead.createdAt,
-          assignedDate: lead.assignedAt
-            ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-            : '—',
-          age: lead.createdAt ? calculateAge(lead.createdAt) : '—'
-        }));
-        setCallsList(items);
-      } else {
-        setCallsList([]);
-        setError('The assigned calls service returned an invalid response.');
-      }
-    } catch (err) {
-      setCallsList([]);
-      setError(err.response?.data?.message || 'An error occurred while loading calls.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Server-side paging: only the visible page is downloaded; KPI cards and dropdowns come from the server.
+  const {
+    items, total, pages, stats: serverStats, options, loading, error, reload
+  } = useCrmPagedList('/crm/admin/calls/assigned', {
+    page,
+    limit: pageSize,
+    search,
+    filters: { ...appliedFilters, dateField: 'assignedAt' }
+  });
+  const fetchAssigned = reload;
+  const visibleCalls = useMemo(() => items.map(mapAssignedLead), [items]);
 
-  useEffect(() => {
-    fetchAssigned();
-  }, []);
+  const stats = useMemo(() => ({
+    total: serverStats?.total || 0,
+    uniqueTelecallers: serverStats?.assignees || 0,
+    assignedToday: serverStats?.assignedToday || 0,
+    activeFollowUps: sumStatuses(serverStats?.byStatus, ['follow-up', 'in progress', 'interested', 'new', 'assigned'])
+  }), [serverStats]);
 
-  // Compute top KPI cards
-  const stats = useMemo(() => {
-    const total = callsList.length;
-    const uniqueTelecallers = new Set(
-      callsList.map(c => c.assignedTo).filter(a => a && a !== 'Unassigned')
-    ).size;
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const assignedToday = callsList.filter(c => {
-      if (!c.assignedRawDate) return false;
-      const d = new Date(c.assignedRawDate);
-      return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === todayStr;
-    }).length;
-    const activeFollowUps = callsList.filter(c =>
-      ['follow-up', 'in progress', 'interested', 'new', 'assigned'].includes(
-        String(c.status || '').toLowerCase()
-      )
-    ).length;
-
-    return {
-      total,
-      uniqueTelecallers,
-      assignedToday,
-      activeFollowUps
-    };
-  }, [callsList]);
-
-  // Filter options come only from values present in the live assigned-leads result.
-  const availableAssignees = useMemo(
-    () => uniqueSorted(callsList.map(call => call.assignedTo).filter(value => value && value !== 'Unassigned')),
-    [callsList]
-  );
-  const availableSources = useMemo(() => uniqueSorted(callsList.map(call => call.source)), [callsList]);
-  const availableTypes = useMemo(() => uniqueSorted(callsList.map(call => call.type)), [callsList]);
-
-  // Filtered Leads
-  const filteredCalls = useMemo(() => {
-    return callsList.filter(call => {
-      const query = search.trim().toLowerCase();
-      const matchesSearch = !query || [call.leadId, call.lead, call.phone, call.source, call.type, call.assignedTo, call.note]
-        .some(value => String(value || '').toLowerCase().includes(query));
-
-      // Date range filtering
-      let matchesDate = true;
-      if (appliedFilters.from || appliedFilters.to) {
-        const rawDate = call.assignedRawDate ? new Date(call.assignedRawDate) : (call.createdRawDate ? new Date(call.createdRawDate) : null);
-        if (rawDate && !isNaN(rawDate.getTime())) {
-          const dateStr = rawDate.toISOString().slice(0, 10);
-          if (appliedFilters.from && dateStr < appliedFilters.from) matchesDate = false;
-          if (appliedFilters.to && dateStr > appliedFilters.to) matchesDate = false;
-        }
-      }
-
-      return matchesSearch
-        && matchesDate
-        && (!appliedFilters.assignedTo || call.assignedTo === appliedFilters.assignedTo)
-        && (!appliedFilters.source || call.source === appliedFilters.source)
-        && (!appliedFilters.type || call.type === appliedFilters.type);
-    });
-  }, [appliedFilters, search, callsList]);
+  const availableAssignees = useMemo(() => optionNames(options?.assignees), [options]);
+  const availableSources = useMemo(() => optionNames(options?.sources), [options]);
+  const availableTypes = useMemo(() => optionNames(options?.types), [options]);
 
   const activeFiltersCount = useMemo(() => {
     return Object.values(appliedFilters).filter(Boolean).length;
   }, [appliedFilters]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredCalls.length / pageSize));
-  const visibleCalls = filteredCalls.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = pages;
 
   const updateFilter = (key, value) => setFilters(current => ({ ...current, [key]: value }));
   const applyFilters = () => { setAppliedFilters(filters); setPage(1); };
@@ -200,7 +128,7 @@ const AssignedCalls = () => {
         <div className="assigned-heading-left">
           <div className="assigned-title-row">
             <h1>Assigned Calls</h1>
-            <span className="assigned-title-badge">{callsList.length} Total Leads</span>
+            <span className="assigned-title-badge">{stats.total} Total Leads</span>
           </div>
           <p className="assigned-subtitle">
             Monitor and track leads assigned across telecallers, counselors, and executives.
@@ -360,7 +288,7 @@ const AssignedCalls = () => {
           <div className="assigned-table-header-left">
             <h2 className="assigned-table-title">Lead Assignment Directory</h2>
             <span className="assigned-counter-pill">
-              {filteredCalls.length} {filteredCalls.length === 1 ? 'Lead' : 'Leads'}
+              {total} {total === 1 ? 'Lead' : 'Leads'}
             </span>
           </div>
 
@@ -569,8 +497,8 @@ const AssignedCalls = () => {
         {/* Table Pagination Footer */}
         <footer className="assigned-table-footer">
           <span className="assigned-showing-txt">
-            Showing {filteredCalls.length ? (page - 1) * pageSize + 1 : 0} to{' '}
-            {Math.min(page * pageSize, filteredCalls.length)} of {filteredCalls.length} entries
+            Showing {total ? (page - 1) * pageSize + 1 : 0} to{' '}
+            {Math.min(page * pageSize, total)} of {total} entries
           </span>
           <div className="assigned-pagination-btns">
             <button

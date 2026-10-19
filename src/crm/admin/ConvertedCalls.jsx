@@ -14,6 +14,7 @@ import {
   FiCalendar
 } from 'react-icons/fi';
 import axiosInstance from '../../utils/axiosConfig';
+import useCrmPagedList, { optionNames, pageWindow, leadAttempts } from '../hooks/useCrmPagedList';
 import './ConvertedCalls.css';
 
 const getLocalDateString = (d) => {
@@ -26,47 +27,35 @@ const getLocalDateString = (d) => {
   return `${year}-${month}-${day}`;
 };
 
+const mapConvertedLead = (lead, idx) => ({
+  id: lead._id || idx + 1,
+  leadId: `#LD-${String(lead._id).slice(-3)}`,
+  name: lead.name || 'Lead',
+  note: lead.remarks || lead.customField1 || '—',
+  phone: lead.phone || '—',
+  source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
+  leadType: lead.leadTypeName || lead.leadType?.name || 'General',
+  leadStatus: 'Converted',
+  outcome: 'Converted',
+  callType: 'Outbound',
+  completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
+  rawCompletedDate: lead.updatedAt ? getLocalDateString(lead.updatedAt) : '',
+  attempts: leadAttempts(lead),
+  assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
+  conversionValue: lead.expectedValue ? `₹${lead.expectedValue.toLocaleString('en-IN')}` : '—',
+  enrolledCourse: lead.course || lead.leadTypeName || lead.leadType?.name || '—',
+  paymentStatus: lead.paymentStatus || '—',
+  remarks: lead.remarks || '—'
+});
+
 const ConvertedCalls = () => {
-  const [calls, setCalls] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
-    const fetchConverted = async () => {
-      try {
-        const [res, teamRes] = await Promise.allSettled([
-          axiosInstance.get('/crm/admin/calls/converted', { _skipErrorNotify: true }),
-          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
-        ]);
-        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
-          const items = res.value.data.items.map((lead, idx) => ({
-            id: lead._id || idx + 1,
-            leadId: `#LD-${String(lead._id).slice(-3)}`,
-            name: lead.name || 'Lead',
-            note: lead.remarks || lead.customField1 || '—',
-            phone: lead.phone || '—',
-            source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
-            leadType: lead.leadTypeName || lead.leadType?.name || 'General',
-            leadStatus: 'Converted',
-            outcome: 'Converted',
-            callType: 'Outbound',
-            completedAt: lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
-            rawCompletedDate: lead.updatedAt ? getLocalDateString(lead.updatedAt) : '',
-            attempts: lead.callHistory?.length || 0,
-            assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
-            conversionValue: lead.expectedValue ? `₹${lead.expectedValue.toLocaleString('en-IN')}` : '—',
-            enrolledCourse: lead.course || lead.leadTypeName || lead.leadType?.name || '—',
-            paymentStatus: lead.paymentStatus || '—',
-            remarks: lead.remarks || '—'
-          }));
-          setCalls(items);
-        }
-        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
-          setTeamUsers(teamRes.value.data.users);
-        }
-      } catch (err) { if (isMounted) setCalls([]); }
-    };
-    fetchConverted();
+    axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+      .then(res => { if (isMounted && Array.isArray(res.data?.users)) setTeamUsers(res.data.users); })
+      .catch(() => {});
     return () => { isMounted = false; };
   }, []);
   const [filters, setFilters] = useState({
@@ -105,40 +94,34 @@ const ConvertedCalls = () => {
     setCurrentPage(1);
   };
 
-  const filteredCalls = useMemo(() => {
-    return calls.filter(call => {
-      if (appliedFilters.assignedTo && call.assignedTo !== appliedFilters.assignedTo) return false;
-      if (appliedFilters.callType && call.callType !== appliedFilters.callType) return false;
-      if (appliedFilters.source && call.source !== appliedFilters.source) return false;
-      if (appliedFilters.leadType && call.leadType !== appliedFilters.leadType) return false;
-      if (appliedFilters.completedDate && call.rawCompletedDate !== appliedFilters.completedDate) return false;
-
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const match =
-          call.leadId.toLowerCase().includes(query) ||
-          call.name.toLowerCase().includes(query) ||
-          call.phone.includes(query) ||
-          call.source.toLowerCase().includes(query) ||
-          call.leadType.toLowerCase().includes(query) ||
-          call.assignedTo.toLowerCase().includes(query);
-        if (!match) return false;
-      }
-      return true;
-    });
-  }, [calls, appliedFilters, searchTerm]);
-
-  const totalEntries = filteredCalls.length;
-  const totalPages = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
+  const noMatch = appliedFilters.callType && appliedFilters.callType !== 'Outbound';
+  const { items, total, pages, stats, options } = useCrmPagedList('/crm/admin/calls/converted', {
+    page: currentPage,
+    limit: entriesPerPage,
+    search: searchTerm,
+    filters: {
+      assignedTo: appliedFilters.assignedTo,
+      source: appliedFilters.source,
+      leadType: appliedFilters.leadType,
+      status: noMatch ? 'none' : '',
+      from: appliedFilters.completedDate,
+      to: appliedFilters.completedDate,
+      dateField: 'updatedAt'
+    }
+  });
+  const paginatedCalls = useMemo(() => items.map(mapConvertedLead), [items]);
+  const totalEntries = total;
+  const totalPages = pages;
   const startIndex = (currentPage - 1) * entriesPerPage;
-  const paginatedCalls = filteredCalls.slice(startIndex, startIndex + entriesPerPage);
+  const optionAssignees = useMemo(() => optionNames(options?.assignees), [options]);
+  const optionSources = useMemo(() => optionNames(options?.sources), [options]);
+  const optionTypes = useMemo(() => optionNames(options?.types), [options]);
 
-  const totalConverted = calls.length;
-  const inboundCount = calls.filter(c => c.callType === 'Inbound').length;
-  const todayStr = getLocalDateString(new Date());
-  const convertedToday = calls.filter(c => c.rawCompletedDate === todayStr).length;
-  const outboundCount = calls.filter(c => c.callType === 'Outbound').length;
-
+  // Every converted call is shown as Outbound in this page.
+  const totalConverted = stats?.total || 0;
+  const inboundCount = 0;
+  const convertedToday = stats?.updatedToday || 0;
+  const outboundCount = totalConverted;
   return (
     <div className="cnv-root">
       {/* Header */}
@@ -215,7 +198,7 @@ const ConvertedCalls = () => {
               <option value="">All Users</option>
               {Array.from(new Set([
                 ...(teamUsers.map(u => u.name).filter(Boolean)),
-                ...(calls.map(c => c.assignedTo).filter(Boolean))
+                ...optionAssignees
               ])).map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -243,7 +226,7 @@ const ConvertedCalls = () => {
               <option value="">Select Lead Source</option>
               {Array.from(new Set([
                 'Facebook', 'Instagram', 'Referral', 'Website',
-                ...(calls.map(c => c.source).filter(Boolean))
+                ...optionSources
               ])).map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -259,7 +242,7 @@ const ConvertedCalls = () => {
               <option value="">Select Lead Type</option>
               {Array.from(new Set([
                 'NEET', 'JEE', 'CAT',
-                ...(calls.map(c => c.leadType).filter(Boolean))
+                ...optionTypes
               ])).map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -424,7 +407,7 @@ const ConvertedCalls = () => {
             >
               ‹
             </button>
-            {Array.from({ length: totalPages }, (_, i) => (
+            {pageWindow(currentPage, totalPages).map((p, _x, _y, i = p - 1) => (
               <button
                 key={i + 1}
                 className={`cnv-page-btn ${currentPage === i + 1 ? 'active' : ''}`}

@@ -295,6 +295,9 @@ const Alerts = () => {
   const [filterCategory, setFilterCategory] = useState("all");
   const [sortBy, setSortBy] = useState("latest"); // 'latest' | 'oldest'
   const [currentPage, setCurrentPage] = useState(1);
+  // Server paging: one page plus whole-list stats (/alerts?page&limit); filters/search/sort run on the server.
+  const [serverPage, setServerPage] = useState(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const itemsPerPage = 8;
 
   // Management Modal
@@ -382,12 +385,36 @@ const Alerts = () => {
     }
   };
 
+  // fetchAlerts is called from handlers created before the latest render; read filters from refs.
+  const currentPageRef = useRef(currentPage);
+  const activeTabRef = useRef(activeTab);
+  const filterCategoryRef = useRef(filterCategory);
+  const debouncedSearchRef = useRef(debouncedSearch);
+  const sortByRef = useRef(sortBy);
+  currentPageRef.current = currentPage;
+  activeTabRef.current = activeTab;
+  filterCategoryRef.current = filterCategory;
+  debouncedSearchRef.current = debouncedSearch;
+  sortByRef.current = sortBy;
+
   const fetchAlerts = async ({ silent = false } = {}) => {
     if (!silent) setRefreshing(true);
     try {
-      const res = await axios.get("/alerts", getHeaders());
+      const res = await axios.get("/alerts", {
+        ...getHeaders(),
+        cache: false,
+        params: {
+          page: currentPageRef.current,
+          limit: itemsPerPage,
+          ...(activeTabRef.current !== "all" ? { view: activeTabRef.current } : {}),
+          ...(filterCategoryRef.current !== "all" ? { category: filterCategoryRef.current } : {}),
+          ...(debouncedSearchRef.current.trim() ? { search: debouncedSearchRef.current.trim() } : {}),
+          ...(sortByRef.current === "oldest" ? { sort: "oldest" } : {}),
+        },
+      });
       const list = getApiList(res.data, ["alerts"]);
       setAlerts(list);
+      setServerPage(res.data?.stats ? { total: Number(res.data.total) || 0, pages: Number(res.data.pages) || 1, stats: res.data.stats } : null);
       return list;
     } catch (err) {
       if (!silent) {
@@ -474,6 +501,18 @@ const Alerts = () => {
 
   // Calculate stats for top metric cards
   const stats = useMemo(() => {
+    if (serverPage?.stats) {
+      const { total, unread, thisWeek } = serverPage.stats;
+      const read = Math.max(0, total - unread);
+      return {
+        total,
+        read,
+        unread,
+        readPercentage: total > 0 ? Math.round((read / total) * 100) : 0,
+        unreadPercentage: total > 0 ? Math.round((unread / total) * 100) : 0,
+        thisWeek,
+      };
+    }
     const total = visibleAlerts.length;
     const readCount = visibleAlerts.filter(isRead).length;
     const unreadCount = total - readCount;
@@ -494,10 +533,11 @@ const Alerts = () => {
       unreadPercentage,
       thisWeek,
     };
-  }, [visibleAlerts, isRead]);
+  }, [visibleAlerts, isRead, serverPage]);
 
-  // Filter & sort visible alerts
+  // Filter & sort visible alerts (server-paged lists are already filtered and sorted)
   const filteredAlerts = useMemo(() => {
+    if (serverPage) return alerts;
     let list = [...visibleAlerts];
 
     // Tab filter
@@ -534,7 +574,7 @@ const Alerts = () => {
     });
 
     return list;
-  }, [visibleAlerts, activeTab, filterCategory, searchQuery, sortBy, isRead]);
+  }, [visibleAlerts, activeTab, filterCategory, searchQuery, sortBy, isRead, serverPage, alerts]);
 
   // Selected alert object
   const selectedAlert = useMemo(() => {
@@ -564,14 +604,28 @@ const Alerts = () => {
   }, [activeTab, filterCategory, searchQuery, sortBy]);
 
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / itemsPerPage));
+  const totalAlertCount = serverPage ? serverPage.total : filteredAlerts.length;
+  const totalPages = serverPage ? serverPage.pages : Math.max(1, Math.ceil(filteredAlerts.length / itemsPerPage));
   const paginatedAlerts = useMemo(() => {
+    if (serverPage) return filteredAlerts;
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredAlerts.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAlerts, currentPage, itemsPerPage]);
+  }, [filteredAlerts, currentPage, itemsPerPage, serverPage]);
 
-  const startRecordNum = filteredAlerts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endRecordNum = Math.min(currentPage * itemsPerPage, filteredAlerts.length);
+  const startRecordNum = totalAlertCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endRecordNum = Math.min(currentPage * itemsPerPage, totalAlertCount);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Refetch the page whenever paging, tab, category, search or sort changes.
+  const firstAlertsFetch = useRef(true);
+  useEffect(() => {
+    if (firstAlertsFetch.current) { firstAlertsFetch.current = false; return; }
+    void fetchAlerts({ silent: true });
+  }, [currentPage, activeTab, filterCategory, debouncedSearch, sortBy]);
 
   // Toggle Read / Unread Status
   const handleToggleRead = async (alert) => {
@@ -619,6 +673,8 @@ const Alerts = () => {
       const currentCount = parseInt(localStorage.getItem("unreadCount") || "0", 10);
       const nextCount = currentlyRead ? currentCount + 1 : Math.max(0, currentCount - 1);
       localStorage.setItem("unreadCount", String(nextCount));
+      // Server stats (read/unread counts) and the unread tab depend on this change.
+      if (serverPage) void fetchAlerts({ silent: true });
     } catch {
       setNotification({ type: "error", message: "Failed to update alert status." });
     } finally {
@@ -721,6 +777,7 @@ const Alerts = () => {
       await axios.delete(`/alerts/${id}`, getHeaders());
       setAlerts((prev) => prev.filter((a) => String(a._id) !== String(id)));
       setNotification({ type: "success", message: "Alert deleted." });
+      void fetchAlerts({ silent: true });
     } catch {
       setNotification({ type: "error", message: "Failed to delete alert." });
     }
@@ -1012,7 +1069,7 @@ const Alerts = () => {
           {/* List Footer: Pagination Bar */}
           <footer className="AlertsPaginationBar">
             <span className="AlertsPaginationText">
-              Showing {startRecordNum} to {endRecordNum} of {filteredAlerts.length} alerts
+              Showing {startRecordNum} to {endRecordNum} of {totalAlertCount} alerts
             </span>
 
             <div className="AlertsPaginationControls">
@@ -1026,7 +1083,7 @@ const Alerts = () => {
                 <FiChevronLeft />
               </button>
 
-              {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => (
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, idx) => Math.max(1, Math.min(currentPage - 2, totalPages - 4)) + idx).map((pageNum) => (
                 <button
                   key={pageNum}
                   type="button"

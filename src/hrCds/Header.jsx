@@ -625,7 +625,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   
   const handleLogout = () => {
-    handleAppLogout({ navigate, redirectPath: "/login" });
+    handleAppLogout({ navigate, redirectPath: "/" });
   };
 
   

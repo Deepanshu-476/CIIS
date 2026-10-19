@@ -5352,7 +5352,7 @@ const UserCreateTask = () => {
       sessionStorage.removeItem(key);
     });
     window.dispatchEvent(new Event('ciis-auth-changed'));
-    navigate('/login');
+    navigate('/', { replace: true });
   };
 
   

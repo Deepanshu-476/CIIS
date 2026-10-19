@@ -12,6 +12,7 @@ import { createConversation, createGroupConversation, deleteMessageForEveryone, 
 import MessageBubble from "./MessageBubble";
 import { API_URL_IMG } from "../config";  
 import { resolveAvatarUrl } from "./messageUtils";
+import { describeCallMessage, isCallMessage } from "./callMessage";
 import { useCall } from "../context/CallContext";
 import { useNotification } from "../context/NotificationContext";
 
@@ -2318,7 +2319,18 @@ useEffect(() => {
                                     </div>
                                 )}
 
-                                {disappearingNotice ? (
+                                {isCallMessage(message) ? (() => {
+                                    const callInfo = describeCallMessage(message, currentUser?._id || currentUser?.id);
+                                    const CallIcon = callInfo.isVideo ? Video : Phone;
+                                    return (
+                                        <div className="chat-disappearing-notice" data-message-id={message._id || ""} style={callInfo.missed ? { color: "#dc2626" } : undefined}>
+                                            <CallIcon size={14} />
+                                            <span>
+                                                {callInfo.outgoing ? "↗ " : "↙ "}{callInfo.text} · {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                            </span>
+                                        </div>
+                                    );
+                                })() : disappearingNotice ? (
                                     <div className="chat-disappearing-notice" data-message-id={message._id || ""}>
                                         <TimerReset size={14} />
                                         <span>

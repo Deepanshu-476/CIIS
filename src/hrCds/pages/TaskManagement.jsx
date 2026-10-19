@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fi';
 import "../Css/TaskManagement.css";
 import TaskDetailsModal from '../components/TaskDetailsModal';
-import API_URL from '../../config';
+import API_URL, { UPLOAD_FALLBACK_ORIGINS } from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 import { useSocket } from '../../context/SocketContext';
 
@@ -68,6 +68,30 @@ const getImageUrl = (imagePath) => {
   ];
   
   return possiblePaths[0];
+};
+
+// Same upload path on every known backend origin; app uploads live on the app backend.
+const getImageUrlCandidates = (primaryUrl) => {
+  if (!primaryUrl) return [];
+  const match = primaryUrl.match(/^https?:\/\/[^/]+\/(?:api\/)?(uploads\/[^?#]*)/i);
+  if (!match) return [primaryUrl];
+  const uploadPath = match[1];
+  const filename = uploadPath.split('/').pop();
+  const urls = [primaryUrl];
+  UPLOAD_FALLBACK_ORIGINS.filter(Boolean).forEach(origin => {
+    const base = origin.replace(/\/+$/, '');
+    urls.push(`${base}/${uploadPath}`);
+  });
+  UPLOAD_FALLBACK_ORIGINS.filter(Boolean).forEach(origin => {
+    const base = origin.replace(/\/+$/, '');
+    urls.push(
+      `${base}/uploads/remarks/${filename}`,
+      `${base}/uploads/client-remarks/${filename}`,
+      `${base}/uploads/remarks/client-remarks/${filename}`,
+      `${base}/uploads/${filename}`
+    );
+  });
+  return [...new Set(urls)];
 };
 
 const getAttachmentPath = (file) => {
@@ -8624,7 +8648,7 @@ const UserCreateTask = () => {
                                     return (
                                       <div 
                                         key={imgIndex}
-                                        onClick={() => setZoomImage(imageUrl)}
+                                        onClick={(e) => setZoomImage(e.currentTarget.querySelector('img')?.src || imageUrl)}
                                         style={{ cursor: 'pointer', position: 'relative' }}
                                       >
                                         <img
@@ -8638,20 +8662,13 @@ const UserCreateTask = () => {
                                             border: '1px solid #eee'
                                           }}
                                           onError={(e) => {
-                                            const filename = imageUrl.split('/').pop();
-                                            const baseUrl = API_URL.replace(/\/api$/, '');
-                                            const alternativeUrls = [
-                                              `${baseUrl}/uploads/client-remarks/${filename}`,
-                                              `${baseUrl}/uploads/remarks/client-remarks/${filename}`,
-                                              `${baseUrl}/uploads/${filename}`,
-                                              `${baseUrl}/${filename}`
-                                            ];
-                                            
-                                            let currentIndex = 0;
+                                            const alternativeUrls = getImageUrlCandidates(imageUrl);
+                                            // onError fires once per failed URL, so keep the position on the element.
                                             const tryNextUrl = () => {
-                                              if (currentIndex < alternativeUrls.length && e.target.src !== alternativeUrls[currentIndex]) {
-                                                e.target.src = alternativeUrls[currentIndex];
-                                                currentIndex++;
+                                              const nextIndex = Number(e.target.dataset.fallbackIndex || 0) + 1;
+                                              if (nextIndex < alternativeUrls.length) {
+                                                e.target.dataset.fallbackIndex = String(nextIndex);
+                                                e.target.src = alternativeUrls[nextIndex];
                                               } else {
                                                 e.target.style.display = 'none';
                                                 const parent = e.target.parentElement;

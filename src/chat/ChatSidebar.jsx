@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BellOff, Camera, Check, Edit, Lock, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
+import { describeCallMessage, isCallMessage } from "./callMessage";
 
 const ChatSidebar = ({
     groups,
@@ -34,6 +35,7 @@ const ChatSidebar = ({
         const message = item?.lastMessage;
         if (!message) return item?.isGroup ? "Channel chat" : (item?.companyRole || "Direct message");
         if (message.deletedForEveryone) return "This message was deleted";
+        if (isCallMessage(message)) return describeCallMessage(message, currentUserId).text;
         if (message.messageType === "system" && message.systemEvent?.type === "disappearing_messages_changed") {
             const actorId = message.systemEvent.actor?._id || message.systemEvent.actor || message.sender?._id || message.sender;
             const actor = String(actorId || "") === String(currentUserId || "")

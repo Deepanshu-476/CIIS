@@ -20,4 +20,12 @@ export const CHAT_UPLOAD_ORIGINS = [
   'https://backendcds.ciisnetwork.in/',
 ];
 
+// The mobile app talks to a separate backend process with its own uploads
+// folder, so files uploaded from the app only exist on that origin.
+export const UPLOAD_FALLBACK_ORIGINS = [
+  API_URL_IMG,
+  'https://backendapp.ciisnetwork.in/',
+  'https://backendcds.ciisnetwork.in/',
+];
+
 export default API_URL; 

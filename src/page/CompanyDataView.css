@@ -267,3 +267,175 @@
     margin-top: 0;
   }
 }
+
+/* ---- Page layout ----
+   .AllCompany-page centres its child and the child had no width, so the whole view shrank to its
+   content and sat in a narrow column. Here it takes the available width. */
+.CDV-page {
+  display: block;
+  padding: 16px 20px 32px;
+}
+
+.CDV-inner {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  gap: 16px;
+}
+
+/* Compact title bar instead of a tall card */
+.CDV-page .CDV-head {
+  padding: 14px 20px;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(76, 84, 255, 0.06);
+}
+
+.CDV-page .CDV-head h1 {
+  margin: 2px 0 6px;
+  font-size: 22px;
+  font-weight: 700 !important;
+}
+
+.CDV-page .CDV-head .CAD-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 700 !important;
+}
+
+.CDV-page .CDV-head .CAD-company-meta {
+  gap: 8px;
+}
+
+.CDV-page .CDV-body {
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 16px;
+}
+
+/* Sidebar follows the page while scrolling and scrolls by itself when longer than the screen. */
+.CDV-page .CDV-sidebar {
+  top: 16px;
+  max-height: calc(100vh - 110px);
+  padding: 10px 8px;
+  box-shadow: 0 6px 20px rgba(76, 84, 255, 0.06);
+}
+
+.CDV-page .CDV-side-title {
+  font-weight: 700 !important;
+  padding: 8px 10px 4px;
+}
+
+.CDV-page .CDV-side-item {
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 500 !important;
+}
+
+.CDV-page .CDV-side-item.active {
+  font-weight: 600 !important;
+}
+
+.CDV-page .CDV-side-toggle {
+  font-weight: 600 !important;
+}
+
+/* Data card */
+.CDV-page .CDV-main > .CAD-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(76, 84, 255, 0.06);
+}
+
+.CDV-page .CDV-toolbar .AllCompany-input {
+  height: 42px;
+}
+
+.CDV-page .CDV-table th {
+  font-weight: 700 !important;
+}
+
+.CDV-page .CDV-table td strong,
+.CDV-page .CDV-stat-value,
+.CDV-page .CDV-count {
+  font-weight: 700 !important;
+}
+
+.CDV-page .CDV-stats {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.CDV-page .CDV-stat {
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(76, 84, 255, 0.06);
+}
+
+@media (max-width: 900px) {
+  .CDV-page {
+    padding: 12px;
+  }
+
+  .CDV-page .CDV-body {
+    grid-template-columns: 1fr;
+  }
+
+  .CDV-page .CDV-sidebar {
+    position: static;
+    max-height: none;
+  }
+}
+
+/* Desktop: the platform layout clips overflow (so position: sticky cannot work). The view fits the
+   window instead; the sidebar and the data scroll on their own, so the sidebar always stays in view. */
+@media (min-width: 901px) {
+  .CDV-page {
+    padding: 0 20px;
+    /* 112px above (top bar + layout padding); the negative margin takes back most of the layout's
+       bottom padding so the window itself does not scroll. */
+    height: calc(100vh - 136px);
+    margin-bottom: -40px;
+    min-height: 520px;
+    overflow: hidden;
+  }
+
+  .CDV-inner {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .CDV-page .CDV-head {
+    flex-shrink: 0;
+  }
+
+  .CDV-page .CDV-body {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .CDV-page .CDV-sidebar {
+    position: static;
+    height: 100%;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .CDV-page .CDV-main {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+}
+
+@media (min-width: 901px) {
+  /* Filters and the record count stay at the top of the data panel while its rows scroll. */
+  .CDV-page .CDV-main .CDV-toolbar {
+    position: sticky;
+    top: -16px;
+    z-index: 2;
+    margin: -16px -18px 14px;
+    padding: 16px 18px 12px;
+    background: var(--ac-card-strong, #fff);
+    border-bottom: 1px solid var(--ac-border, rgba(143, 155, 179, 0.18));
+  }
+}

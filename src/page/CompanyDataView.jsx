@@ -510,8 +510,8 @@ export default function CompanyDataView() {
   const s = overview?.summary;
 
   return (
-    <div className="AllCompany-page">
-      <div className="AllCompany-page-inner CAD-inner">
+    <div className="AllCompany-page CDV-page">
+      <div className="AllCompany-page-inner CAD-inner CDV-inner">
         {error ? (
           <div className="CAD-card CAD-error">
             <span className="material-icons">error_outline</span>

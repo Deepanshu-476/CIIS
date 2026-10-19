@@ -3887,11 +3887,14 @@ const ClientManagement = () => {
         const uniqueClients = Array.from(
           new Map(clients.filter(c => c?._id).map(c => [String(c._id), c])).values()
         );
-        const response = await tasksApi.get('/summary/bulk', {
-          params: { clientIds: uniqueClients.map(client => client._id).join(',') }
-        });
+        // The summary endpoint takes at most 100 ids per request (a longer list also overflows the URL).
+        const batches = [];
+        for (let i = 0; i < uniqueClients.length; i += 100) batches.push(uniqueClients.slice(i, i + 100));
+        const responses = await Promise.all(batches.map(batch => tasksApi.get('/summary/bulk', {
+          params: { clientIds: batch.map(client => client._id).join(',') }
+        })));
         if (cancelled) return;
-        const summaries = response.data?.data || {};
+        const summaries = Object.assign({}, ...responses.map(response => response.data?.data || {}));
         let pendingTasks = 0;
         let overdueTasks = 0;
         const overdueClientsData = [];

@@ -803,7 +803,7 @@ const SidebarManagement = () => {
       setSelectedDepartment(departmentId);
       setSelectedRole(roleId);
       setDepartmentSearch(getDepartmentName(config.departmentId));
-      setRoleSearch(getRoleNameById(config.role));
+      setRoleSearch(config.roleName || getRoleNameById(config.role));
       const menuItems = config.menuItems || [];
       const savedRanges = config.ranges || [];
       setSelectedItems(menuItems.map(item => item.id));
@@ -2085,7 +2085,7 @@ const SidebarManagement = () => {
                           <div className="SidebarManagement-config-item-role">
                             <span className="SidebarManagement-config-item-icon">🔒</span>
                             <span className="SidebarManagement-config-item-role-chip">
-                              {getRoleNameById(config.role)}
+                              {config.roleName || getRoleNameById(config.role)}
                             </span>
                           </div>
                           <span className="SidebarManagement-config-item-meta">
@@ -2162,7 +2162,7 @@ const SidebarManagement = () => {
                   <span className="SidebarManagement-modal-subtitle">
                     {company?.companyName} ({company?.companyCode}) - 
                     {getDepartmentName(modalState.data.departmentId)} - 
-                    {getRoleNameById(modalState.data.role)}
+                    {modalState.data.roleName || getRoleNameById(modalState.data.role)}
                   </span>
                   <button className="SidebarManagement-modal-close" onClick={closeModal}>✗</button>
                 </div>

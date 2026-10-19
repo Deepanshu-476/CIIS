@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from '../../utils/axiosConfig';
+import { createTaskStatusSaver } from '../../utils/taskStatusSave';
 import { useNavigate } from 'react-router-dom';
 import {
   FiPlus, FiCalendar, FiInfo, FiPaperclip, FiMic, FiFileText,
@@ -788,6 +789,8 @@ const formatShiftTimeLabel = (shiftTimeValue, fallbackLabel = 'your shift') => {
 };
 
 let taskManagementMemoryCache = null;
+const saveTaskStatus = createTaskStatusSaver(axios);
+
 const TASK_MANAGEMENT_SESSION_CACHE_KEY = 'ciis-task-management-cache-v1';
 const getTaskManagementLocalCacheKey = userId => `ciis-task-management-cache:${userId || 'anonymous'}`;
 
@@ -865,16 +868,13 @@ const UserCreateTask = () => {
   // though it had disappeared.
   const initialTaskPeriod = 'all';
   const cachedTaskData = useMemo(() => {
-    const availableCache =
-      taskManagementMemoryCache ||
-      getTaskManagementSessionCache() ||
-      getTaskManagementPersistentCache(storedTaskUser?.id);
-    if (!availableCache || availableCache.userId !== storedTaskUser?.id) {
-      return null;
-    }
-    if (availableCache.period !== initialTaskPeriod) {
-      return null;
-    }
+    const availableCache = [
+      taskManagementMemoryCache,
+      getTaskManagementSessionCache(),
+      getTaskManagementPersistentCache(storedTaskUser?.id)
+    ].find(cache => cache && cache.userId === storedTaskUser?.id &&
+      cache.period === initialTaskPeriod);
+    if (!availableCache) return null;
     taskManagementMemoryCache = availableCache;
     return availableCache;
   }, [storedTaskUser?.id]);
@@ -889,6 +889,17 @@ const UserCreateTask = () => {
   const [userName, setUserName] = useState(storedTaskUser?.name || '');
   const [userShiftWindow, setUserShiftWindow] = useState(extractShiftWindow(storedTaskUser));
   const [authError, setAuthError] = useState(!storedTaskUser);
+  const [savingTaskIds, setSavingTaskIds] = useState(() => new Set());
+  const savingTaskIdsRef = useRef(new Set());
+  useEffect(() => {
+    if (savingTaskIds.size === 0) return undefined;
+    const protectPendingSave = event => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', protectPendingSave);
+    return () => window.removeEventListener('beforeunload', protectPendingSave);
+  }, [savingTaskIds]);
   const [loading, setLoading] = useState(false);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
   const [loadingClientTasks, setLoadingClientTasks] = useState(false);
@@ -1835,23 +1846,23 @@ const UserCreateTask = () => {
         };
 
         if (source === 'client') {
-          return axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, payload);
+          return saveTaskStatus(`/tasks/client-tasks/assigned/${taskId}/status`, payload);
         }
 
         if (source === 'project') {
           const projectId = getValueId(task.projectId) || task.projectId;
           if (!projectId) return Promise.resolve();
-          return axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
+          return saveTaskStatus(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
             status: 'overdue',
             remark: payload.remarks
           });
         }
 
         if (source === 'assigned') {
-          return axios.patch(`/tasks/assigned/${taskId}/status`, payload);
+          return saveTaskStatus(`/tasks/assigned/${taskId}/status`, payload);
         }
 
-        return axios.patch(`/tasks/self/${taskId}/status`, payload);
+        return saveTaskStatus(`/tasks/self/${taskId}/status`, payload);
       });
 
     if (updateRequests.length === 0) return false;
@@ -2518,6 +2529,9 @@ const UserCreateTask = () => {
 
   const patchTaskStatusLocally = useCallback((taskId, taskSource, nextStatus, remarks = '') => {
     lastTaskStatusMutationAtRef.current = Date.now();
+    // A counts response started before this click must not revert local counters.
+    allTaskCountsRequestRef.current += 1;
+    if (allTaskCountsAbortRef.current) allTaskCountsAbortRef.current.abort();
     // A cached list can still contain the old status. If it is reused on a
     // later focus/refresh it overwrites the optimistic patch and the card
     // appears to disappear or jump back to its prior state.
@@ -2717,6 +2731,19 @@ const UserCreateTask = () => {
     setClientTaskStats(snapshot.clientTaskStats);
     setProjectTaskStats(snapshot.projectTaskStats);
     setSelectedTaskDetails(snapshot.selectedTaskDetails);
+    // Roll back persisted optimistic data as well as React state.
+    allTasksPageCacheRef.current.clear();
+    taskManagementMemoryCache = {
+      ...(taskManagementMemoryCache || {}),
+      allTasksGrouped: snapshot.allTasksGrouped,
+      allTasksStatsGrouped: snapshot.allTasksStatsGrouped,
+      myTasksGrouped: snapshot.myTasksGrouped,
+      assignedToMeTasksGrouped: snapshot.assignedToMeTasksGrouped,
+      clientTasksGrouped: snapshot.clientTasksGrouped,
+      projectTasksGrouped: snapshot.projectTasksGrouped,
+      cachedAt: Date.now()
+    };
+    persistTaskManagementCache(taskManagementMemoryCache);
   }, []);
 
   const getActiveTasksGrouped = useCallback(() => {
@@ -3499,10 +3526,13 @@ const UserCreateTask = () => {
 
   const fetchAllTasks = useCallback(async (targetPage = 1, viewOverride = taskViewMode) => {
     if (authError || !userId) return;
+    // Do not read pre-save state during a route remount/background refresh.
+    await saveTaskStatus.whenIdle();
 
     const requestId = allTasksRequestRef.current + 1;
     allTasksRequestRef.current = requestId;
     const requestStartedAt = Date.now();
+    let didLoadTasks = false;
     const shouldShowLoader = !allTasksLoadedRef.current;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
@@ -3537,6 +3567,7 @@ const UserCreateTask = () => {
       if (allTasksRequestRef.current !== requestId) return;
       if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
 
+      didLoadTasks = true;
       setAllTasksGrouped(groupedTasks);
       setAllTasksStatsGrouped(groupedTasks);
       setMyTasksGrouped(selfGrouped);
@@ -3625,8 +3656,10 @@ const UserCreateTask = () => {
       if (allTasksRequestRef.current === requestId) {
         allTasksAbortRef.current = null;
         setLoadingAllTasks(false);
-        allTasksLoadedRef.current = true;
-        setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
+        if (didLoadTasks) {
+          allTasksLoadedRef.current = true;
+          setTaskViewsLoaded({ all: true, self: true, assigned: true, client: true, project: true });
+        }
       }
     }
   }, [authError, userId, buildTaskQueryParams, taskViewMode, extractTasksFromResponse, groupTasksByDate, enrichAssignedTasks, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateClientStatsFromTasks, calculateProjectStatsFromTasks]);
@@ -4623,7 +4656,7 @@ const UserCreateTask = () => {
     const taskSource = getTaskSource(task || { __taskSource: 'self' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
     try {
-      await axios.patch(`/tasks/self/${taskId}/status`, {
+      await saveTaskStatus(`/tasks/self/${taskId}/status`, {
         status: normalizedStatus,
         remarks: remarks || `Status changed to ${normalizedStatus}`
       });
@@ -4672,7 +4705,7 @@ const UserCreateTask = () => {
     const taskSource = getTaskSource(task || { __taskSource: 'assigned' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
     try {
-      await axios.patch(`/tasks/assigned/${taskId}/status`, {
+      await saveTaskStatus(`/tasks/assigned/${taskId}/status`, {
         status: normalizedStatus,
         remarks: remarks || `Status changed to ${normalizedStatus}`
       });
@@ -4725,7 +4758,7 @@ const UserCreateTask = () => {
     try {
         const statusPayload = { status: normalizedStatus, completed: normalizedStatus === 'completed' };
 
-        await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
+        await saveTaskStatus(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
         // The list was patched before this request, so avoid an expensive
         // full refresh that can momentarily stall the task screen.
         void fetchAllTaskCounts(taskViewMode);
@@ -4965,7 +4998,7 @@ const UserCreateTask = () => {
     const taskSource = getTaskSource(task || { __taskSource: 'project' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
     try {
-      await axios.patch(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
+      await saveTaskStatus(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
         status: toProjectApiStatus(normalizedStatus),
         remark: remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`
       });
@@ -4984,19 +5017,27 @@ const UserCreateTask = () => {
   // A status selection is an explicit action. Previously, every option except
   // "in progress" was only staged in the remarks dialog, so closing that
   // dialog left the task unchanged and made the selector appear broken.
-  const handleTaskStatusSelection = (task, nextStatus, taskSource) => {
+  const handleTaskStatusSelection = async (task, nextStatus, taskSource) => {
     const taskId = task?._id || task?.id;
     if (!taskId || !nextStatus) return;
-
+    const saveKey = `${taskSource}:${taskId}`;
+    if (savingTaskIdsRef.current.has(saveKey)) return;
+    savingTaskIdsRef.current.add(saveKey);
+    setSavingTaskIds(new Set(savingTaskIdsRef.current));
     const remark = nextStatus === 'in-progress' ? 'Started working on task' : `Status changed to ${nextStatus}`;
-    if (taskSource === 'self') {
-      void handleStatusChange(taskId, nextStatus, remark);
-    } else if (taskSource === 'client') {
-      void handleClientTaskStatusChange(taskId, nextStatus, remark);
-    } else if (taskSource === 'project') {
-      void handleProjectTaskStatusChange(task, nextStatus, remark);
-    } else {
-      void handleAssignedTaskStatusChange(taskId, nextStatus, remark);
+    try {
+      if (taskSource === 'self') {
+        await handleStatusChange(taskId, nextStatus, remark);
+      } else if (taskSource === 'client') {
+        await handleClientTaskStatusChange(taskId, nextStatus, remark);
+      } else if (taskSource === 'project') {
+        await handleProjectTaskStatusChange(task, nextStatus, remark);
+      } else {
+        await handleAssignedTaskStatusChange(taskId, nextStatus, remark);
+      }
+    } finally {
+      savingTaskIdsRef.current.delete(saveKey);
+      setSavingTaskIds(new Set(savingTaskIdsRef.current));
     }
   };
 
@@ -5017,17 +5058,17 @@ const UserCreateTask = () => {
     void (async () => {
       try {
         if (taskSource === 'client') {
-          await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, { 
+          await saveTaskStatus(`/tasks/client-tasks/assigned/${taskId}/status`, {
             status: 'overdue',
             remarks: remarks || 'Manually marked as overdue'
           });
         } else if (taskSource === 'self') {
-          await axios.patch(`/tasks/self/${taskId}/status`, { 
+          await saveTaskStatus(`/tasks/self/${taskId}/status`, {
             status: 'overdue',
             remarks: remarks || 'Manually marked as overdue'
           });
         } else if (taskSource === 'assigned') {
-          await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+          await saveTaskStatus(`/tasks/assigned/${taskId}/status`, {
             status: 'overdue',
             remarks: remarks || 'Manually marked as overdue'
           });
@@ -7172,6 +7213,8 @@ const UserCreateTask = () => {
                                   <div style={{ minWidth: '90px' }}>
                                     <select
                                       value={displayedSelectValue}
+                                      disabled={savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
+                                      title={savingTaskIds.has(`${taskSource}:${task._id || task.id}`) ? 'Saving status...' : 'Change Status'}
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
                                         handleTaskStatusSelection(task, selectedStatus, taskSource);
@@ -7483,6 +7526,8 @@ const UserCreateTask = () => {
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <select
                                   value={displayedSelectValue}
+                                      disabled={savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
+                                      title={savingTaskIds.has(`${taskSource}:${task._id || task.id}`) ? 'Saving status...' : 'Change Status'}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
                                     handleTaskStatusSelection(task, selectedStatus, taskSource);

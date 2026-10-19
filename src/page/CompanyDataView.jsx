@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import API_URL from "../config";
@@ -59,6 +59,50 @@ const TABS = [
   { key: "holidays", label: "Holidays", icon: "celebration" },
   { key: "payroll", label: "Payroll", icon: "payments" },
 ];
+
+// Sidebar like the company's own: same sections, and only modules its plan includes
+// (company.allowedPages). An empty plan list means every page, as in the employee sidebar.
+const SECTIONS = [
+  { label: "Main", tabs: ["overview", "users"] },
+  { label: "Work", tabs: ["tasks", "projects", "attendance", "leaves", "meetings"] },
+  { label: "Clients", tabs: ["clients", "client-tasks", "client-meetings", "services"] },
+  { label: "Admin CRM", tabs: ["leads", "calls", "follow-ups", "assignments"] },
+  { label: "Communication", tabs: ["support-tickets", "alerts", "groups"] },
+  { label: "Administration", tabs: ["departments", "branches", "job-roles", "holidays", "assets", "asset-requests"] },
+  { label: "Payroll", tabs: ["payroll"] },
+];
+const ALWAYS_SHOWN = new Set(["overview", "users", "branches", "holidays"]);
+const TAB_PAGES = {
+  tasks: ["task-management", "company-all-task", "admin-task-create"],
+  projects: ["adminproject", "project"],
+  attendance: ["emp-attendance", "attendance"],
+  leaves: ["emp-leaves", "my-leaves", "leave-policy"],
+  meetings: ["admin-meeting", "employee-meeting"],
+  clients: ["emp-client", "active-clients"],
+  "client-tasks": ["emp-client", "active-clients"],
+  "client-meetings": ["client-meeting"],
+  services: ["emp-client"],
+  leads: ["admin-crm-"],
+  calls: ["admin-crm-", "admin-telecaller-"],
+  "follow-ups": ["admin-crm-", "admin-telecaller-"],
+  assignments: ["admin-crm-"],
+  "support-tickets": ["support-desk", "support-operations"],
+  alerts: ["alert", "create-alert"],
+  groups: ["manage-groups", "chat"],
+  departments: ["department"],
+  "job-roles": ["JobRoleManagement"],
+  assets: ["emp-assets", "my-assets", "company-assets"],
+  "asset-requests": ["emp-assets", "my-assets"],
+  payroll: ["payroll-process", "salary-component", "salary-structure", "salary-assignment", "assign-salary", "payslip", "payroll-reports"],
+};
+const normalizePage = value => String(value || "").trim().replace(/^\/+/, "").replace(/^ciisuser\//i, "").toLowerCase();
+const isTabInPlan = (tabKey, allowedPages) => {
+  if (ALWAYS_SHOWN.has(tabKey) || !allowedPages.length) return true;
+  return (TAB_PAGES[tabKey] || []).some(page => {
+    const key = page.toLowerCase();
+    return key.endsWith("-") ? allowedPages.some(p => p.startsWith(key)) : allowedPages.includes(key);
+  });
+};
 
 const pill = value => <span className="CAD-pill CAD-pill-blue">{pretty(value)}</span>;
 const activePill = active => <span className={`CAD-pill ${active === false ? "CAD-pill-red" : "CAD-pill-green"}`}>{active === false ? "Inactive" : "Active"}</span>;
@@ -421,12 +465,20 @@ export default function CompanyDataView() {
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [allowedPages, setAllowedPages] = useState([]);
+  const [showAllModules, setShowAllModules] = useState(false);
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api(`/superAdmin/company/${companyId}/view/summary`);
+      const [{ data }, companyRes] = await Promise.all([
+        api(`/superAdmin/company/${companyId}/view/summary`),
+        // The company's plan pages decide which modules its sidebar shows.
+        api(`/company/${companyId}`).catch(() => null),
+      ]);
+      const companyRecord = companyRes?.data?.company || companyRes?.data?.data || companyRes?.data || {};
+      setAllowedPages(Array.isArray(companyRecord.allowedPages) ? companyRecord.allowedPages.map(normalizePage).filter(Boolean) : []);
       setOverview(data);
       if (data?.company?.companyName) document.title = `${data.company.companyName} · Company data`;
     } catch (err) {
@@ -437,6 +489,21 @@ export default function CompanyDataView() {
   }, [companyId]);
 
   useEffect(() => { loadOverview(); }, [loadOverview]);
+
+  const sections = useMemo(() => SECTIONS
+    .map(section => ({
+      ...section,
+      items: section.tabs
+        .filter(key => showAllModules || isTabInPlan(key, allowedPages))
+        .map(key => TABS.find(t => t.key === key))
+        .filter(Boolean),
+    }))
+    .filter(section => section.items.length), [allowedPages, showAllModules]);
+  const hiddenCount = TABS.length - sections.reduce((n, section) => n + section.items.length, 0);
+
+  useEffect(() => {
+    if (!sections.some(section => section.items.some(item => item.key === tab))) setTab("overview");
+  }, [sections, tab]);
 
   if (loading) return <CIISLoader />;
   const company = overview?.company || {};
@@ -470,14 +537,25 @@ export default function CompanyDataView() {
               </a>
             </section>
 
-            <nav className="CDV-tabs">
-              {TABS.map(t => (
-                <button key={t.key} type="button" className={`CDV-tab ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
-                  <span className="material-icons">{t.icon}</span>{t.label}
-                </button>
+            <div className="CDV-body">
+            <aside className="CDV-sidebar" aria-label={`${company.companyName || "Company"} modules`}>
+              {sections.map(section => (
+                <div key={section.label} className="CDV-side-section">
+                  <div className="CDV-side-title">{section.label}</div>
+                  {section.items.map(t => (
+                    <button key={t.key} type="button" className={`CDV-side-item ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
+                      <span className="material-icons">{t.icon}</span>{t.label}
+                    </button>
+                  ))}
+                </div>
               ))}
-            </nav>
-
+              {(hiddenCount > 0 || showAllModules) && allowedPages.length > 0 ? (
+                <button type="button" className="CDV-side-toggle" onClick={() => setShowAllModules(v => !v)}>
+                  {showAllModules ? "Show only plan modules" : `Show all modules (${hiddenCount} not in plan)`}
+                </button>
+              ) : null}
+            </aside>
+            <div className="CDV-main">
             {tab === "overview" ? (
               <div className="CDV-stats">
                 <Stat icon="groups" label="Users" value={s?.users.total} sub={`${s?.users.active} active`} />
@@ -496,6 +574,8 @@ export default function CompanyDataView() {
             ) : (
               <ListTab key={tab} companyId={companyId} tab={tab} />
             )}
+            </div>
+            </div>
           </>
         )}
       </div>

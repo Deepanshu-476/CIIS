@@ -998,7 +998,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
           </>
         ) : (
           /* ==========================================================================
-             IN-PLACE CHAT CONVERSATION VIEW ("jisse main chat bhi yhi se krr sku")
+             IN-PLACE CHAT CONVERSATION VIEW
              ========================================================================== */
           <div className="fb-chat-view">
             {/* Header */}

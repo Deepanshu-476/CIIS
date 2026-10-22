@@ -398,6 +398,7 @@ export function DataTable({
                       kind === "assigned" || kind === "converted" ? (
                         <div className="haps-lead-info-cell">
                           <span className="haps-lead-name">{row.name}</span>
+                          {row.missedCallAt && <span className="haps-missed-badge">📵 Missed call · call back</span>}
                           <small className="haps-lead-sub" title={row.notes || row.remarks || ""}>
                             {kind === "converted"
                               ? (row.email || "—")
@@ -405,7 +406,10 @@ export function DataTable({
                           </small>
                         </div>
                       ) : (
-                        <span className="haps-lead-name">{row.name}</span>
+                        <div className="haps-lead-info-cell">
+                          <span className="haps-lead-name">{row.name}</span>
+                          {row.missedCallAt && <span className="haps-missed-badge">📵 Missed call · call back</span>}
+                        </div>
                       )
                     ) : key === "phone" ? (
                       <span className="haps-lead-phone">{row.phone}</span>

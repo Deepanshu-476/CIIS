@@ -690,7 +690,7 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
       if (activeSection === "Profile") {
         const cleanPhone = normalizePhone(phone);
         if (phone && cleanPhone.length !== 10) {
-          setStatus("Phone number 10 digits ka hona chahiye");
+          setStatus("Phone number must be 10 digits");
           setSaving(false);
           return;
         }

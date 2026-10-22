@@ -35,6 +35,7 @@ import { TELECALLER_BASE } from "./telecallerPages";
 import { useTelecaller } from "./useTelecaller";
 import { todayKey, formatDate, normalizeLead } from "./liveData";
 import { dateLabel } from "./LeadComponents";
+import MessageTemplatesModal from "./MessageTemplatesModal";
 import "./LeadDetail.css";
 
 export default function LeadDetail() {
@@ -286,6 +287,7 @@ function LeadDetailContent({
   currentIndex,
 }) {
   const [activeTab, setActiveTab] = useState("Activity");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [newNote, setNewNote] = useState("");
   const [toastMessage, setToastMessage] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -487,14 +489,14 @@ function LeadDetailContent({
               </Link>
             )}
 
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
               className="ld-btn ld-btn-whatsapp"
+              onClick={() => setTemplatesOpen(true)}
             >
-              <MessageSquare size={14} /> WhatsApp
-            </a>
+              <MessageSquare size={14} /> Message
+            </button>
+            <MessageTemplatesModal open={templatesOpen} lead={lead} onClose={() => setTemplatesOpen(false)} />
 
             <a
               href={`mailto:${lead.email}`}

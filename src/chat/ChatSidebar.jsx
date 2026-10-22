@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BellOff, Camera, Check, Edit, Lock, Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
+import { taskEventText } from "./taskEventText";
 
 const ChatSidebar = ({
     groups,
@@ -45,7 +46,7 @@ const ChatSidebar = ({
             return `${actor} enabled disappearing messages · ${duration}`;
         }
         if (message.text) {
-            const rawText = String(message.text);
+            const rawText = taskEventText(message);
             const disappearingNoticeMatch = rawText.match(/^\[\[ciis-system-disappearing:([^\]]+)\]\]$/);
             if (disappearingNoticeMatch) {
                 try {

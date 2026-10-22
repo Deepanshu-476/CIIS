@@ -1,0 +1,456 @@
+/* CRM Pipeline Board and Campaign Manager Styles */
+
+.cp-board-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+
+.cp-board-hint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.cp-error {
+  padding: 10px 14px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.cp-success {
+  padding: 10px 14px;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.cp-board {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  min-height: 480px;
+}
+
+.cp-column {
+  flex: 0 0 280px;
+  background-color: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 220px);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cp-column.is-drop-target {
+  background-color: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.cp-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #1e293b;
+  border-top: 4px solid transparent;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cp-count {
+  font-size: 12px;
+  font-weight: 800;
+  background-color: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.cp-cards {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.cp-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.cp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+.cp-card strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.cp-card-phone {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.cp-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.cp-tag {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background-color: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+}
+
+.cp-tag-campaign {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.cp-card-owner {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.cp-empty {
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 18px 0;
+  margin: 0;
+}
+
+.cp-more {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #2563eb;
+  background: none;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.cp-more:hover {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+}
+
+/* Campaign Manager Modal */
+.cp-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.cp-modal {
+  background-color: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.cp-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cp-modal-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cp-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.cp-close:hover {
+  color: #0f172a;
+}
+
+.cp-form {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.cp-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  gap: 6px;
+}
+
+.cp-form input,
+.cp-form textarea,
+.cp-form select {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+}
+
+.cp-form input:focus,
+.cp-form textarea:focus,
+.cp-form select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.cp-form-row {
+  display: flex;
+  gap: 14px;
+}
+
+.cp-form-row label {
+  flex: 1;
+}
+
+.cp-outcomes {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0;
+}
+
+.cp-outcomes legend {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  padding: 0 6px;
+}
+
+.cp-outcomes small {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.cp-outcomes > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cp-outcomes label {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: #f1f5f9;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cp-outcomes label.is-on {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.cp-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cp-btn-primary {
+  padding: 8px 18px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cp-btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.cp-btn-secondary {
+  padding: 8px 16px;
+  background-color: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cp-btn-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.cp-btn-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.cp-campaign {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-campaign-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cp-campaign-head > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cp-status {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.cp-status-active {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.cp-status-paused {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.cp-status-completed {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+.cp-campaign-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cp-campaign-actions button {
+  background: none;
+  border: 1px solid #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cp-campaign-actions button.danger {
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.cp-campaign-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.cp-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cp-progress-bar {
+  height: 8px;
+  background-color: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cp-progress-bar > span {
+  display: block;
+  height: 100%;
+  background-color: #16a34a;
+  border-radius: 4px;
+}
+
+.cp-progress-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.cp-progress-pct {
+  font-weight: 700;
+  color: #0f172a;
+}

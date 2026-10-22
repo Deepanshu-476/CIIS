@@ -1,0 +1,38 @@
+// Preserve Axios auth/error interceptors and keep small writes alive on reload.
+export const createTaskStatusSaver = (client) => {
+  const pending = new Map();
+  const save = (url, payload) => {
+    const previous = pending.get(url);
+    const body = { ...payload, _statusRequestId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}` };
+    const send = async () => {
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          const response = await client.patch(url, body, {
+            adapter: 'fetch', fetchOptions: { keepalive: true },
+          });
+          if (response.data?.success === false) {
+            const error = new Error(response.data.error || response.data.message || 'Status could not be saved');
+            error.response = response;
+            throw error;
+          }
+          return response;
+        } catch (error) {
+          const temporary = (!error.response && ['ERR_NETWORK', 'ECONNRESET', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code)) ||
+            [502, 503, 504].includes(error.response?.status);
+          if (!temporary || attempt >= 1) throw error;
+          await new Promise(resolve => setTimeout(resolve, 350));
+        }
+      }
+    };
+    const request = (previous ? previous.catch(() => {}) : Promise.resolve())
+      .then(send).finally(() => {
+        if (pending.get(url) === request) pending.delete(url);
+      });
+    pending.set(url, request);
+    return request;
+  };
+  save.whenIdle = async () => {
+    while (pending.size) await Promise.allSettled([...pending.values()]);
+  };
+  return save;
+};

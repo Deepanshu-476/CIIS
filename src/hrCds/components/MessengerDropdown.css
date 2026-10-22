@@ -1264,18 +1264,54 @@
   box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.25);
 }
 
-.fb-chat-inputbar input {
+.fb-chat-inputbar .chat-mention-composer {
   flex: 1;
-  border: 0;
-  outline: 0;
-  background: transparent;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.fb-chat-inputbar input,
+.fb-chat-inputbar textarea,
+.fb-chat-inputbar .chat-mention-composer textarea,
+.fb-chat-inputbar .fb-chat-input {
+  flex: 1;
+  width: 100%;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
   font-size: 14px;
   color: #050505;
   font-family: inherit;
   min-width: 0;
+  min-height: 24px;
+  max-height: 120px;
+  line-height: 20px;
+  padding: 4px 6px;
+  resize: none !important;
+  box-shadow: none !important;
+  overflow-y: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.fb-chat-inputbar input::placeholder {
+.fb-chat-inputbar input:focus,
+.fb-chat-inputbar textarea:focus,
+.fb-chat-inputbar textarea:focus-visible,
+.fb-chat-inputbar .chat-mention-composer textarea:focus,
+.fb-chat-inputbar .chat-mention-composer textarea:focus-visible,
+.fb-chat-inputbar .fb-chat-input:focus,
+.fb-chat-inputbar .fb-chat-input:focus-visible {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.fb-chat-inputbar input::placeholder,
+.fb-chat-inputbar textarea::placeholder,
+.fb-chat-inputbar .chat-mention-composer textarea::placeholder,
+.fb-chat-inputbar .fb-chat-input::placeholder {
   color: #65676b;
 }
 

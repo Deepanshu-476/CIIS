@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
 import { API_URL_IMG, CHAT_UPLOAD_ORIGINS } from "../config";
+import { mentionSegments } from "./mentionUtils";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
@@ -182,6 +183,10 @@ const MessageBubble = ({
         : rawMessageText
     ).replace(/\[\[ciis-expire:\d+\]\]/g, "").trim();
 
+    const mentionOffset = rawMessageText.indexOf(displayMessageText);
+    const textParts = mentionSegments(displayMessageText, (message.mentions || []).map(mention => ({
+        ...mention, start: mention.start - mentionOffset, end: mention.end - mentionOffset,
+    })));
     const isDeletedForEveryone = Boolean(message.deletedForEveryone);
     const mediaType = message.mediaType || message.type || message.fileType;
     const getRawMediaUrl = () => {
@@ -806,7 +811,9 @@ const MessageBubble = ({
                 </div>
             ) : (
                 <div className="message-content-row">
-                    {displayMessageText && <span className="message-text-content">{displayMessageText}</span>}
+                    {displayMessageText && <span className="message-text-content">{textParts.map((part, index) => part.user
+                        ? <span key={index} className="chat-member-mention" data-mentioned-user={part.user}>{part.text}</span>
+                        : <React.Fragment key={index}>{part.text}</React.Fragment>)}</span>}
                     {renderMedia()}
                     {!isAudioOnly && (
                         <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>

@@ -1048,6 +1048,7 @@ const ChatPage = () => {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [groups, setGroups] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [chatLoadErrors, setChatLoadErrors] = useState({});
   const [statuses, setStatuses] = useState([]);
   const [statusesLoading, setStatusesLoading] = useState(false);
   const [statusesError, setStatusesError] = useState("");
@@ -1201,27 +1202,30 @@ const ChatPage = () => {
   const fetchConversations = async () => {
     try {
       const res = await getConversations();
+      setChatLoadErrors(previous => ({ ...previous, conversations: false }));
       setConversations(res.data.conversations || []);
       return res.data.conversations || [];
     } catch (error) {
-      void 0;
+      setChatLoadErrors(previous => ({ ...previous, conversations: true }));
     }
   };
 
   const fetchGroups = async () => {
     try {
       const res = await getCompanyGroups();
+      setChatLoadErrors(previous => ({ ...previous, groups: false }));
       const fetchedGroups = res.data.groups || res.data.data || res.data || [];
       setGroups(Array.isArray(fetchedGroups) ? fetchedGroups : []);
       return Array.isArray(fetchedGroups) ? fetchedGroups : [];
     } catch (error) {
-      void 0;
+      setChatLoadErrors(previous => ({ ...previous, groups: true }));
     }
   };
 
   const fetchUsers = async () => {
     try {
       const res = await getCompanyUsers();
+      setChatLoadErrors(previous => ({ ...previous, users: false }));
       const nextUsers = res.data.users || [];
       setUsers(nextUsers.map(user => {
         const userId = getEntityId(user);
@@ -1250,7 +1254,7 @@ const ChatPage = () => {
         };
       });
     } catch (error) {
-      void 0;
+      setChatLoadErrors(previous => ({ ...previous, users: true }));
     }
   };
 
@@ -1538,6 +1542,8 @@ const ChatPage = () => {
           currentUserId={currentUserId}
           companyUsers={users}
           onCreateGroup={handleCreateGroup}
+          loadError={Object.values(chatLoadErrors).some(Boolean)}
+          onRetry={() => Promise.allSettled([fetchUsers(), fetchGroups(), fetchConversations()])}
         />
       )}
 

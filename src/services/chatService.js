@@ -6,18 +6,22 @@ const API = `${API_URL}/chat`;
 const getToken = () => {
     return localStorage.getItem("token");
 };
-    
-export const getCompanyUsers = async () => {
 
-    return axios.get(
-        `${API}/users`,
-        {
-            headers: {
-                Authorization: `Bearer ${getToken()}`
-            }
-        }
-    );
+// Share concurrent reads from the full chat page, popup and socket callbacks.
+// Keep completed responses uncached so membership changes remain visible.
+const pendingChatReads = new Map();
+const chatRead = (key, load) => {
+    const token = getToken();
+    const requestKey = `${token}:${key}`;
+    if (pendingChatReads.has(requestKey)) return pendingChatReads.get(requestKey);
+    const request = Promise.resolve().then(() => load(token)).finally(() => pendingChatReads.delete(requestKey));
+    pendingChatReads.set(requestKey, request);
+    return request;
 };
+    
+export const getCompanyUsers = () => chatRead('users', token => axios.get(`${API}/users`, {
+    headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
+}));
 
 export const getAllCompanyUsers = async () => {
     return axios.get(
@@ -139,18 +143,26 @@ export const deleteCompanyGroup = async (groupId) => {
     );
 };
 
-export const getConversations = async () => {
-
-    return axios.get(
-        `${API}/conversations`,
-        {
-            headers: {
-                Authorization: `Bearer ${getToken()}`
-                
-            }
-        }
-    );
-};
+export const getConversations = () => chatRead('conversations', async token => {
+    const conversations = new Map();
+    let cursor;
+    let beforeId;
+    let response;
+    do {
+        response = await axios.get(`${API}/conversations`, {
+            headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
+            params: { limit: 100, ...(cursor ? { before: cursor, beforeId } : {}) },
+        });
+        for (const conversation of response.data.conversations || []) conversations.set(conversation._id, conversation);
+        const pagination = response.data.pagination;
+        if (!pagination?.hasMore || !pagination.nextCursor) break;
+        const nextId = pagination.nextId;
+        if (cursor === pagination.nextCursor && beforeId === nextId) break;
+        cursor = pagination.nextCursor;
+        beforeId = nextId;
+    } while (true);
+    return { ...response, data: { ...response.data, conversations: [...conversations.values()] } };
+});
 
 export const createConversation = async (
     receiverId
@@ -221,16 +233,9 @@ async (formData) => {
     );
 };
 
-export const getCompanyGroups = async () => {
-    return axios.get(
-        `${API}/groups`,
-        {
-            headers: {
-                Authorization: `Bearer ${getToken()}`
-            }
-        }
-    );
-};
+export const getCompanyGroups = () => chatRead('groups', token => axios.get(`${API}/groups`, {
+    headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
+}));
 
 export const markMessageSeen = async (messageId) => {
     return axios.patch(

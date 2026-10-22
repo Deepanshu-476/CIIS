@@ -14,6 +14,8 @@ const ChatSidebar = ({
     currentUserId,
     companyUsers = [],
     onCreateGroup,
+    loadError = false,
+    onRetry,
     className = ""
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -367,6 +369,9 @@ const ChatSidebar = ({
                     <SlidersHorizontal size={14} />
                 </div>
                 <div className="chat-sidebar-list">
+                    {loadError && <div role="alert" style={{ padding: 12, color: "#b42318" }}>
+                        Some chats could not load. <button type="button" onClick={onRetry}>Retry</button>
+                    </div>}
                     {filteredUsers.map((user, index) => (
                         <div
                             key={user._id}

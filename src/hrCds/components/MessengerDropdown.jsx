@@ -198,6 +198,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
   // Data States
   const [conversations, setConversations] = useState(() => memoryCachedConversations || []);
+  const [chatLoadError, setChatLoadError] = useState("");
   const [companyUsers, setCompanyUsers] = useState(() => memoryCachedUsers || []);
   const [companyGroups, setCompanyGroups] = useState(() => memoryCachedGroups || []);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
@@ -244,6 +245,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const cameraInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const receivedMessageIdsRef = useRef(new Set());
+  const initialDataRequested = useRef(false);
 
   useEffect(() => {
     if (!pendingAttachment?.file) {
@@ -321,6 +323,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   // Fetch initial conversations, users, and groups
   const loadChatData = async () => {
     try {
+      setChatLoadError("");
       if (!memoryCachedConversations || memoryCachedConversations.length === 0) {
         setLoadingConversations(true);
       }
@@ -341,6 +344,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         })
         .catch((err) => {
           console.warn("Failed to load chat conversations:", err);
+          setChatLoadError("Chats could not load. Please retry.");
           return [];
         })
         .finally(() => {
@@ -355,7 +359,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
           setCompanyUsers(list);
           return list;
         })
-        .catch(() => []);
+        .catch(() => { setChatLoadError("Some contacts could not load. Please retry."); return []; });
 
       const groupsPromise = getCompanyGroups()
         .then((groupsRes) => {
@@ -364,7 +368,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
           setCompanyGroups(list);
           return list;
         })
-        .catch(() => []);
+        .catch(() => { setChatLoadError("Some channels could not load. Please retry."); return []; });
 
       await Promise.allSettled([convPromise, usersPromise, groupsPromise]);
     } catch (err) {
@@ -374,7 +378,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   };
 
   useEffect(() => {
-    loadChatData();
+    if (isWidgetOpen || !initialDataRequested.current) {
+      initialDataRequested.current = true;
+      loadChatData();
+    }
   }, [isWidgetOpen]);
 
   // Socket setup for real-time presence & messages
@@ -753,7 +760,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     const convMap = new Map();
     conversations.forEach((c) => {
       if (c.isGroup) {
-        convMap.set(`group:${getEntityId(c.groupId || c._id)}`, c);
+        convMap.set(`group:${getEntityId(c.clientId || c.projectId || c.groupId || c._id)}`, c);
       } else {
         const otherMember = (c.members || []).find((m) => getEntityId(m) !== currentUserId);
         if (otherMember) {
@@ -801,6 +808,23 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       });
     });
 
+    // Include every accessible channel, even when absent from recent conversations.
+    companyGroups.forEach(group => {
+      const groupId = getEntityId(group.clientId || group.projectId || group);
+      if (!groupId || convMap.has(`group:${groupId}`)) return;
+      const conversation = group.conversation;
+      items.push({
+        id: groupId, key: `group-${groupId}`, isGroup: true,
+        clientId: group.clientId, projectId: group.projectId,
+        name: `${group.name || "Group Channel"}${group.clientId ? " (Client)" : group.projectId ? " (Project)" : ""}`,
+        avatar: group.profileImage || group.avatar || group.image,
+        lastMessage: getMessagePreview(conversation?.lastMessage),
+        time: conversation?.lastMessage?.createdAt || conversation?.updatedAt,
+        unread: Number(conversation?.unreadCount) || 0,
+        conversation, targetUser: null,
+      });
+    });
+
     // 2. Add colleagues who don't have an active conversation yet (for easy quick search)
     companyUsers.forEach((u) => {
       const uid = getEntityId(u);
@@ -833,7 +857,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       }
       return true;
     });
-  }, [conversations, companyUsers, searchQuery, activeTab, currentUserId]);
+  }, [conversations, companyUsers, companyGroups, searchQuery, activeTab, currentUserId]);
 
   const getMessageSenderName = (msg) => {
     if (!msg) return "Member";
@@ -1023,6 +1047,11 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
             </div>
 
             {/* Conversations List */}
+            {chatLoadError && (
+              <div role="alert" style={{ padding: "10px 16px", color: "#b42318" }}>
+                {chatLoadError} <button type="button" onClick={loadChatData}>Retry</button>
+              </div>
+            )}
             <div className="fb-messenger-list">
               {loadingConversations && conversationItems.length === 0 ? (
                 <div className="fb-messenger-skeleton-list">

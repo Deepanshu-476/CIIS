@@ -418,7 +418,7 @@ const StatusChip = ({ status, label }) => {
   const normalizedStatus = normalizeStatus(status);
   const statusLabel = label || normalizedStatus;
   return (
-    <div className={`user-create-task-status-chip ${normalizedStatus}`}>
+    <div className={`user-create-task-status-chip ${normalizedStatus}`} title={normalizedStatus === 'onhold' ? 'Overdue check after 24 hours. If the employee is absent on the deadline day, the next check is 24 hours later.' : undefined}>
       {statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1).replace('-', ' ')}
     </div>
   );
@@ -1064,15 +1064,6 @@ const UserCreateTask = () => {
     time12h: '',
     taskTitle: '',
   });
-  const [reminderAlertModal, setReminderAlertModal] = useState({
-    open: false,
-    task: null,
-    title: '',
-    message: '',
-    taskType: '',
-    dueTime12h: '',
-    reminderTime12h: '',
-  });
   const [newCheckpointTitle, setNewCheckpointTitle] = useState('');
   const [isAddingCheckpoint, setIsAddingCheckpoint] = useState(false);
   const [deletingCheckpointId, setDeletingCheckpointId] = useState(null);
@@ -1703,33 +1694,7 @@ const UserCreateTask = () => {
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = socketContext?.onNewNotification?.((notification = {}) => {
-      if (notification.type !== 'task_due_reminder') return;
 
-      playReminderChime();
-      triggerBrowserNotification(
-        notification.title || 'Task Due Reminder',
-        notification.message || 'Your task reminder has been triggered'
-      );
-      showSnackbar(notification.message || notification.title || 'Task Due Reminder', 'warning');
-
-      setReminderAlertModal({
-        open: true,
-        task: notification.task || null,
-        title: notification.title || '⏰ Task Due Reminder!',
-        message: notification.message || 'Your task is approaching its due time!',
-        taskType: notification.taskType || 'Task',
-        dueTime12h: notification.dueDate ? format12HourDateTime(notification.dueDate) : '',
-        reminderTime12h: format12HourTime(new Date()),
-      });
-    });
-    return () => {
-      if (typeof unsubscribe === 'function') unsubscribe();
-    };
-  }, [socketContext, showSnackbar]);
-
-  
   const fetchUserData = useCallback(() => {
     try {
       const userStr = localStorage.getItem('user');
@@ -2921,7 +2886,7 @@ const UserCreateTask = () => {
       if (allTaskCountsAbortRef.current) allTaskCountsAbortRef.current.abort();
       const controller = new AbortController();
       allTaskCountsAbortRef.current = controller;
-      const responseData = (await axios.get(`/tasks/counts?${query}`, { signal: controller.signal })).data;
+      const responseData = (await axios.get(`/tasks/counts?${query}`, { signal: controller.signal, noCache: true })).data;
 
       if (allTaskCountsRequestRef.current !== requestId) return;
 
@@ -3550,7 +3515,7 @@ const UserCreateTask = () => {
         if (allTasksAbortRef.current) allTasksAbortRef.current.abort();
         const controller = new AbortController();
         allTasksAbortRef.current = controller;
-        responseData = (await axios.get(`/tasks/all?${query}`, { signal: controller.signal })).data;
+        responseData = (await axios.get(`/tasks/all?${query}`, { signal: controller.signal, noCache: true })).data;
         allTasksPageCacheRef.current.set(query, { data: responseData, cachedAt: Date.now() });
       }
       let responseTasks = Array.isArray(responseData?.tasks) ? responseData.tasks : extractTasksFromResponse(responseData);
@@ -4776,11 +4741,19 @@ const UserCreateTask = () => {
 
   const refreshCurrentTaskView = useCallback(async (source = taskViewMode) => {
     const viewToRefresh = taskViewMode || source || 'all';
+    allTasksPageCacheRef.current.clear();
     await Promise.all([
       fetchAllTasks(allTasksPagination.page || 1, viewToRefresh),
       fetchAllTaskCounts(viewToRefresh)
     ]);
   }, [allTasksPagination.page, fetchAllTaskCounts, fetchAllTasks, taskViewMode]);
+
+  useEffect(() => {
+    const unsubscribe = socketContext?.onNewNotification?.(notification => {
+      if (notification?.type === 'task_overdue') void refreshCurrentTaskView();
+    });
+    return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
+  }, [socketContext, refreshCurrentTaskView]);
 
   useEffect(() => {
     if (!userId || authError) return undefined;
@@ -8935,62 +8908,6 @@ const UserCreateTask = () => {
             >
               Got it
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Reminder Alert / Alarm Trigger Popup Modal */}
-      {reminderAlertModal.open && (
-        <div className="user-create-task-dialog-overlay task-reminder-overlay" style={{ zIndex: 99999 }}>
-          <div className="user-create-task-dialog task-reminder-alert-dialog" style={{ maxWidth: '480px', width: '92%', padding: '24px', borderTop: '4px solid #f59e0b' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
-                🔔
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1e293b' }}>
-                  {reminderAlertModal.title || 'Task reminder alert'}
-                </h3>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
-                  Type: {reminderAlertModal.taskType}
-                </span>
-              </div>
-            </div>
-            <p style={{ margin: '0 0 16px', fontSize: '15px', color: '#334155', lineHeight: 1.5 }}>
-              {reminderAlertModal.message}
-            </p>
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '20px', fontSize: '13px' }}>
-              <div style={{ marginBottom: '6px' }}>
-                <strong style={{ color: '#475569' }}>Task:</strong> {reminderAlertModal.task?.title || reminderAlertModal.task?.name || 'Task'}
-              </div>
-              {reminderAlertModal.dueTime12h && (
-                <div>
-                  <strong style={{ color: '#475569' }}>Due time:</strong> <span style={{ color: '#dc2626', fontWeight: 600 }}>{reminderAlertModal.dueTime12h}</span>
-                </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="user-create-task-button user-create-task-button-outlined"
-                onClick={() => setReminderAlertModal(prev => ({ ...prev, open: false }))}
-              >
-                Dismiss
-              </button>
-              {reminderAlertModal.task && (
-                <button
-                  type="button"
-                  className="user-create-task-button user-create-task-button-contained"
-                  onClick={() => {
-                    const target = reminderAlertModal.task;
-                    setReminderAlertModal(prev => ({ ...prev, open: false }));
-                    openTaskDetails(target);
-                  }}
-                >
-                  View Task Details
-                </button>
-              )}
-            </div>
           </div>
         </div>
       )}

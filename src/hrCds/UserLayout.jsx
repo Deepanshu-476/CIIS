@@ -14,7 +14,7 @@ import SupportChatWidget from './pages/SupportChatWidget';
 import MessengerDropdown from './components/MessengerDropdown';
 import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
-import PageAccessGate from './components/PageAccessGate';
+import PageAccessGate, { hasCompanyPlanAccess } from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
 import { useAuth } from '../context/useAuth';
 
@@ -232,7 +232,7 @@ const UserLayout = () => {
       </MainContent>
       <FeedbackQuestionnairePopup />
       {!isClientUser && <SupportChatWidget />}
-      {!isClientUser && <MessengerDropdown />}
+      {!isClientUser && hasCompanyPlanAccess('chat') && <MessengerDropdown />}
     </LayoutContainer>
   );
 };

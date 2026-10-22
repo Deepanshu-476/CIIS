@@ -5,11 +5,15 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
-import { ArrowLeft, Bell, Camera, ChevronRight, Download, ExternalLink, FileText, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, Camera, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
+import ChatMentionInput from "./ChatMentionInput";
+import { mentionMembers, reconcileMentions } from "./mentionUtils";
+import TaskDetailsModal from "../hrCds/components/TaskDetailsModal";
+import { openClientConversation, getClientChatTask, addClientChatRemark, openProjectConversation, getProjectChatTask, addProjectChatRemark } from "../services/chatService";
 import { API_URL_IMG } from "../config";  
 import { resolveAvatarUrl } from "./messageUtils";
 import { useCall } from "../context/CallContext";
@@ -90,6 +94,73 @@ const formatMessageDateSeparator = (value) => {
         month: "short",
         year: "numeric"
     });
+};
+
+const getTaskEventMeta = (message) => {
+    const eventType = message?.systemEvent?.type;
+    const text = String(message?.text || "");
+
+    let label = "Task Update";
+    let eventCategory = "status";
+
+    if (eventType === "task_created" || text.includes("task create kiya") || text.toLowerCase().includes("task created")) {
+        label = "Task Created";
+        eventCategory = "create";
+    } else if (eventType === "task_status_changed" || text.includes("ka status") || text.includes("→")) {
+        label = "Status Updated";
+        eventCategory = "status";
+    } else if (eventType === "task_mentioned" || text.includes("mention kiya")) {
+        label = "Task Mention";
+        eventCategory = "mention";
+    }
+
+    const dateVal = message?.createdAt || message?.updatedAt;
+    const date = dateVal ? new Date(dateVal) : new Date();
+    const isValidDate = !Number.isNaN(date.getTime());
+
+    let formattedTime = "";
+    let fullDateTime = "";
+
+    if (isValidDate) {
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        const isToday = getMessageDateKey(date) === getMessageDateKey(today);
+        const isYesterday = getMessageDateKey(date) === getMessageDateKey(yesterday);
+
+        const timeStr = date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        if (isToday) {
+            formattedTime = timeStr;
+        } else if (isYesterday) {
+            formattedTime = `Yesterday, ${timeStr}`;
+        } else {
+            const dateStr = date.toLocaleDateString([], {
+                day: "numeric",
+                month: "short"
+            });
+            formattedTime = `${dateStr}, ${timeStr}`;
+        }
+
+        fullDateTime = date.toLocaleString([], {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    return {
+        label,
+        eventCategory,
+        formattedTime,
+        fullDateTime
+    };
 };
 
 const getMessageTimeValue = (message) => {
@@ -249,9 +320,23 @@ const ChatBox = ({
     });
     const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
 
-    const [text, setText] =
+    const [text, setRawText] =
         useState("");
+    const [messageMentions, setMessageMentions] = useState([]);
+    const setText = (nextText, nextMentions) => {
+        setMessageMentions(nextMentions ?? reconcileMentions(text, nextText, messageMentions));
+        setRawText(nextText);
+    };
     const [replyingTo, setReplyingTo] = useState(null);
+    const [projectTask, setProjectTask] = useState(null);
+    const remarkRequests = useRef(new Map());
+    useEffect(() => { setProjectTask(null); setMessageMentions([]); }, [selectedUser?._id, selectedUser?.id]);
+    const openProjectTask = async (event) => {
+        try {
+            const result = event.client ? await getClientChatTask(event.client, event.task) : await getProjectChatTask(event.project, event.task);
+            setProjectTask(result.data.task);
+        } catch { showToast?.("Task is unavailable or access was removed.", "error"); }
+    };
 
     const [files, setFiles] =
         useState([]);
@@ -617,7 +702,7 @@ useEffect(() => {
             const currentUserId = getEntityId(currentUser);
             const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
             if (incomingConversationId && incomingConversationId !== currentConversationId) return;
-            if (message?._id && senderId && senderId !== currentUserId && message.messageType !== "system") {
+            if (message?._id && senderId && senderId !== currentUserId && (message.messageType !== "system" || message.systemEvent?.task)) {
                 markMessageSeen(message._id).catch(() => {});
                 socket.emit(
                     "chat:seen",
@@ -818,7 +903,11 @@ useEffect(() => {
         try {
             let res;
 
-            if (selectedUser?.isGroup) {
+            if (selectedUser?.clientId) {
+                res = await openClientConversation(selectedUser.clientId);
+            } else if (selectedUser?.projectId) {
+                res = await openProjectConversation(selectedUser.projectId);
+            } else if (selectedUser?.isGroup) {
                 res = await createGroupConversation(
                     selectedUser._id || selectedUser.id
                 );
@@ -1246,6 +1335,7 @@ useEffect(() => {
                         );
                     }
 
+                    if (index === 0) formData.append("mentions", JSON.stringify(messageMentions));
                     if (index === 0 && replyingTo?._id) {
                         formData.append("replyToMessageId", replyingTo._id);
                     }
@@ -1280,6 +1370,7 @@ useEffect(() => {
                     "text",
                     outgoingText
                 );
+                formData.append("mentions", JSON.stringify(messageMentions));
                 if (replyingTo?._id) {
                     formData.append("replyToMessageId", replyingTo._id);
                 }
@@ -1303,7 +1394,7 @@ useEffect(() => {
             onConversationChange?.();
 
         } catch (error) {
-            void 0;
+            showToast?.(error.response?.data?.message || "Unable to send message. Please try again.", "error");
         }
     };
 
@@ -1362,9 +1453,16 @@ useEffect(() => {
         }
     };
 
+    const replyFocusPending = useRef(false);
+    useEffect(() => {
+        if (!replyFocusPending.current || !replyingTo) return;
+        replyFocusPending.current = false;
+        chatInputRef.current?.focus();
+    }, [replyingTo]);
+
     const handleMessageReply = (message) => {
+        replyFocusPending.current = true;
         setReplyingTo(message);
-        setTimeout(() => chatInputRef.current?.focus(), 0);
     };
 
     const scrollToRepliedMessage = messageId => {
@@ -1822,7 +1920,7 @@ useEffect(() => {
                     </div>
                     <h2>{selectedName}</h2>
                     <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
-                    {selectedUser.isGroup && (
+                    {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
                         <>
                             <button
                                 type="button"
@@ -2026,8 +2124,12 @@ useEffect(() => {
     };
 
     const groupMembers = selectedUser?.isGroup
-        ? selectedUser.members || selectedUser.users || selectedUser.memberIds || selectedUser.membersIds || []
+        ? selectedUser.members || selectedUser.users || selectedUser.memberIds || selectedUser.membersIds || conversation?.members || []
         : [];
+    const availableMentionMembers = mentionMembers(
+        selectedUser?.isGroup ? [...groupMembers, ...(conversation?.members || [])] : conversation?.members?.length ? conversation.members : [currentUser, selectedUser],
+        [...users, currentUser, selectedUser, ...groupMembers, ...(conversation?.members || [])]
+    );
     const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
     const isIdOnline = id => {
         const value = (id || "").toString();
@@ -2081,7 +2183,7 @@ useEffect(() => {
         }
     };
     const deleteCurrentChannel = async () => {
-        if (!selectedUser?.isGroup || isSendingAction) return;
+        if (!selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
         if (!window.confirm("Delete this channel for everyone?")) return;
         setShowHeaderMenu(false);
         setIsSendingAction(true);
@@ -2098,7 +2200,7 @@ useEffect(() => {
     const updateCurrentChannelImage = async (event) => {
         const file = event.target.files?.[0];
         event.target.value = "";
-        if (!file || !selectedUser?.isGroup || isSendingAction) return;
+        if (!file || !selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
         setIsSendingAction(true);
         try {
             await onUpdateGroup?.(selectedUser, {
@@ -2247,7 +2349,7 @@ useEffect(() => {
                                 <Trash2 size={17} />
                                 Clear chat
                             </button>
-                            {selectedUser.isGroup && (
+                            {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
                                 <button type="button" className="danger" onClick={deleteCurrentChannel} disabled={isSendingAction}>
                                     <Trash2 size={17} />
                                     Delete channel
@@ -2318,7 +2420,45 @@ useEffect(() => {
                                     </div>
                                 )}
 
-                                {disappearingNotice ? (
+                                {message.messageType === "system" && message.systemEvent?.task ? (() => {
+                                    const taskMeta = getTaskEventMeta(message);
+                                    return (
+                                        <div className="chat-task-update" data-message-id={message._id}>
+                                            <button
+                                                type="button"
+                                                className={`chat-task-card event-${taskMeta.eventCategory}`}
+                                                onClick={() => openProjectTask(message.systemEvent)}
+                                                title="Click to view task details"
+                                            >
+                                                <div className="chat-task-card-header">
+                                                    <div className="chat-task-card-header-left">
+                                                        <Clock size={12} className="chat-task-card-clock" />
+                                                        <span className="chat-task-event-badge">{taskMeta.label}</span>
+                                                    </div>
+                                                    {taskMeta.formattedTime && (
+                                                        <time className="chat-task-card-time" title={taskMeta.fullDateTime}>
+                                                            {taskMeta.formattedTime}
+                                                        </time>
+                                                    )}
+                                                </div>
+                                                <div className="chat-task-card-body">
+                                                    <FileText size={15} className="chat-task-card-icon" />
+                                                    <span className="chat-task-card-text">{message.text}</span>
+                                                    <ChevronRight size={14} className="chat-task-card-chevron" />
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="chat-task-reply"
+                                                onClick={() => handleMessageReply(message)}
+                                                aria-label="Reply to task update"
+                                                title="Reply to task update"
+                                            >
+                                                <Reply size={14} /> Reply
+                                            </button>
+                                        </div>
+                                    );
+                                })() : disappearingNotice ? (
                                     <div className="chat-disappearing-notice" data-message-id={message._id || ""}>
                                         <TimerReset size={14} />
                                         <span>
@@ -2358,6 +2498,19 @@ useEffect(() => {
 
             </div>
 
+            {projectTask && <TaskDetailsModal open task={projectTask} canEdit={false}
+                employeeInfo={currentUser} onClose={() => setProjectTask(null)}
+                mentionUsers={selectedUser?.members || []}
+                onRemarkAdded={async (task, text, _files, mentions) => {
+                    const key = JSON.stringify([task.clientId || task.projectId, task._id, text, mentions]);
+                    const requestId = remarkRequests.current.get(key) || crypto.randomUUID();
+                    remarkRequests.current.set(key, requestId);
+                    if (task.clientId) await addClientChatRemark(task.clientId, task._id, text, mentions, requestId);
+                    else await addProjectChatRemark(task.projectId, task._id, text, mentions, requestId);
+                    const result = task.clientId ? await getClientChatTask(task.clientId, task._id) : await getProjectChatTask(task.projectId, task._id);
+                    setProjectTask(result.data.task);
+                    remarkRequests.current.delete(key);
+                }} />}
             <div className="chat-input-area">
                 <div className="chat-quick-replies">
                     {quickReplies.map(reply => (
@@ -2593,8 +2746,12 @@ useEffect(() => {
                         {recordingError && (
                             <div className="recording-error">{recordingError}</div>
                         )}
-                        <input
+                        <ChatMentionInput
                             ref={chatInputRef}
+                            mentions={messageMentions}
+                            members={availableMentionMembers}
+                            onMentionSelect={setText}
+                            aria-label={replyingTo ? "Write a reply" : "Write a message"}
                             type="text"
                             className="chat-input"
                             value={text}

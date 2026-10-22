@@ -25,6 +25,7 @@ import {
   Paperclip,
   MoreVertical,
   Trash2,
+  Reply,
 } from "lucide-react";
 import {
   getConversations,
@@ -38,6 +39,10 @@ import {
   deleteMessageForMe,
   deleteMessageForEveryone,
 } from "../../services/chatService";
+import TaskDetailsModal from "./TaskDetailsModal";
+import { getClientChatTask, addClientChatRemark, openClientConversation } from "../../services/chatService";
+import ChatMentionInput from "../../chat/ChatMentionInput";
+import { mentionMembers, reconcileMentions, mentionSegments } from "../../chat/mentionUtils";
 import { resolveAvatarUrl } from "../../chat/messageUtils";
 import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/useAuth";
@@ -80,6 +85,25 @@ const getEntityId = (value) => {
   return value.toString();
 };
 
+export const hasCompanyChatAccess = () => {
+  try {
+    const storage = typeof window !== "undefined" && window?.localStorage
+      ? window.localStorage
+      : (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!storage) return true;
+    const raw = storage.getItem("companyDetails");
+    if (!raw) return true;
+    const company = JSON.parse(raw);
+    const allowed = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
+    if (!allowed.length) return true;
+    const normalize = v => String(v || "").trim().replace(/^\/+/, "").toLowerCase();
+    const set = new Set(allowed.map(normalize));
+    return set.has("chat") || set.has("ciisuser/chat");
+  } catch {
+    return true;
+  }
+};
+
 const getConversationId = (value) => (
   value?.conversationId || value?.conversation?._id || value?._id || value?.id || ""
 ).toString();
@@ -107,6 +131,17 @@ const sortConversationItems = (items = []) => [...items].sort((first, second) =>
 });
 
 const MAX_WIDGET_FILE_SIZE = 50 * 1024 * 1024;
+
+let memoryCachedConversations = null;
+let memoryCachedUsers = null;
+let memoryCachedGroups = null;
+
+export const clearMessengerMemoryCache = () => {
+  memoryCachedConversations = null;
+  memoryCachedUsers = null;
+  memoryCachedGroups = null;
+};
+
 const CHAT_EMOJI_CATEGORIES = [
   { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
   { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
@@ -162,16 +197,17 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const [activeConversationId, setActiveConversationId] = useState(null);
 
   // Data States
-  const [conversations, setConversations] = useState([]);
-  const [companyUsers, setCompanyUsers] = useState([]);
-  const [companyGroups, setCompanyGroups] = useState([]);
+  const [conversations, setConversations] = useState(() => memoryCachedConversations || []);
+  const [companyUsers, setCompanyUsers] = useState(() => memoryCachedUsers || []);
+  const [companyGroups, setCompanyGroups] = useState(() => memoryCachedGroups || []);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(() => !memoryCachedConversations || memoryCachedConversations.length === 0);
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all"); // "all" | "unread" | "groups" | "colleagues"
+  const [activeTab, setActiveTab] = useState("all"); // "all" | "unread" | "projects" | "clients"
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
@@ -183,7 +219,20 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Input & Sending
-  const [inputText, setInputText] = useState("");
+  const [inputText, setRawInputText] = useState("");
+  const [messageMentions, setMessageMentions] = useState([]);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [clientTask, setClientTask] = useState(null);
+  const clientRemarkRequests = useRef(new Map());
+  const setInputText = (next, mentions) => {
+    setMessageMentions(mentions ?? reconcileMentions(inputText, next, messageMentions));
+    setRawInputText(next);
+  };
+  const activeConversation = conversations.find(item => String(item._id) === String(activeConversationId)) || selectedChat?.conversation;
+  const mentionCandidates = mentionMembers(
+    activeConversation?.members || selectedChat?.members || (!selectedChat?.isGroup ? [currentUser, selectedChat?.targetUser || selectedChat] : []),
+    [...companyUsers, currentUser, ...(selectedChat?.members || [])]
+  );
   const [isSending, setIsSending] = useState(false);
   const sendingRef = useRef(false);
 
@@ -272,25 +321,55 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   // Fetch initial conversations, users, and groups
   const loadChatData = async () => {
     try {
-      const [convRes, usersRes, groupsRes] = await Promise.all([
-        getConversations().catch(() => ({ data: {} })),
-        getCompanyUsers().catch(() => ({ data: {} })),
-        getCompanyGroups().catch(() => ({ data: {} })),
-      ]);
+      if (!memoryCachedConversations || memoryCachedConversations.length === 0) {
+        setLoadingConversations(true);
+      }
 
-      const convList = convRes.data?.conversations || [];
-      const usersList = usersRes.data?.users || [];
-      const groupsList = groupsRes.data?.groups || groupsRes.data?.data || [];
+      // 1. Fetch conversations immediately and update state as soon as it returns
+      // (Do NOT wait for users or groups to finish before showing conversations!)
+      const convPromise = getConversations()
+        .then((convRes) => {
+          const convList = convRes.data?.conversations || [];
+          const sorted = sortConversationItems(convList);
+          memoryCachedConversations = sorted;
+          setConversations(sorted);
 
-      setConversations(sortConversationItems(convList));
-      setCompanyUsers(usersList);
-      setCompanyGroups(groupsList);
+          // Compute total unread
+          const unreadTotal = convList.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
+          onUnreadChange?.(unreadTotal);
+          return sorted;
+        })
+        .catch((err) => {
+          console.warn("Failed to load chat conversations:", err);
+          return [];
+        })
+        .finally(() => {
+          setLoadingConversations(false);
+        });
 
-      // Compute total unread
-      const unreadTotal = convList.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
-      onUnreadChange?.(unreadTotal);
+      // 2. Fetch company users and groups concurrently without blocking conversation display
+      const usersPromise = getCompanyUsers()
+        .then((usersRes) => {
+          const list = usersRes.data?.users || [];
+          memoryCachedUsers = list;
+          setCompanyUsers(list);
+          return list;
+        })
+        .catch(() => []);
+
+      const groupsPromise = getCompanyGroups()
+        .then((groupsRes) => {
+          const list = groupsRes.data?.groups || groupsRes.data?.data || [];
+          memoryCachedGroups = list;
+          setCompanyGroups(list);
+          return list;
+        })
+        .catch(() => []);
+
+      await Promise.allSettled([convPromise, usersPromise, groupsPromise]);
     } catch (err) {
-      console.warn("Failed to load chat conversations:", err);
+      console.warn("Failed to load chat data:", err);
+      setLoadingConversations(false);
     }
   };
 
@@ -383,6 +462,13 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     socket.on("chat:user-offline", handleUserOffline);
     socket.on("chat:receive-message", handleReceiveMessage);
     socket.on("chat:unread-update", handleUnreadUpdate);
+    const handleMembership = async (data) => {
+      await loadChatData();
+      if (String(data.conversationId) !== String(activeConversationId)) return;
+      try { await getMessages(activeConversationId, { limit: 1 }); }
+      catch { setSelectedChat(null); setActiveConversationId(null); setClientTask(null); setReplyingTo(null); setMessages([]); setActiveView("list"); }
+    };
+    socket.on("chat:project-membership-updated", handleMembership);
     socket.on("chat:conversation-updated", loadChatData);
 
     if (socket.connected) {
@@ -395,6 +481,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       socket.off("chat:user-offline", handleUserOffline);
       socket.off("chat:receive-message", handleReceiveMessage);
       socket.off("chat:unread-update", handleUnreadUpdate);
+      socket.off("chat:project-membership-updated", handleMembership);
       socket.off("chat:conversation-updated", loadChatData);
     };
   }, [socket, activeConversationId, currentUserId]);
@@ -405,6 +492,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
   // Handle opening a chat (conversation or colleague)
   const handleSelectChat = async (target) => {
+    setReplyingTo(null);
+    setMessageMentions([]);
     setSelectedChat(target);
     setActiveView("chat");
     setLoadingMessages(true);
@@ -413,6 +502,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     setShowAttachmentMenu(false);
 
     try {
+      setClientTask(null);
       let convId = target?.conversation?._id || (target?.members ? target?._id : null);
 
       // If selecting a user without an existing conversation, create/find it
@@ -422,7 +512,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         convId = res.data?.conversation?._id || res.data?._id;
       } else if (!convId && target.isGroup) {
         const groupId = getEntityId(target);
-        const res = await createGroupConversation(groupId);
+        const res = target.clientId ? await openClientConversation(target.clientId) : await createGroupConversation(groupId);
         convId = res.data?.conversation?._id || res.data?._id;
       }
 
@@ -467,20 +557,23 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
   // Handle sending a message
   const handleSendMessage = async (textToSend = inputText) => {
-    const text = String(textToSend || "").trim();
-    if (!text || !activeConversationId || isSending || sendingRef.current) return;
+    const text = String(textToSend || "");
+    if (!text.trim() || !activeConversationId || isSending || sendingRef.current) return;
 
     sendingRef.current = true;
     setIsSending(true);
-    setInputText("");
 
     try {
       const formData = new FormData();
       formData.append("conversationId", activeConversationId);
       formData.append("text", text);
+      formData.append("mentions", JSON.stringify(messageMentions));
+      if (replyingTo?._id) formData.append("replyToMessageId", replyingTo._id);
 
       const res = await sendMessage(formData);
       const sentMsg = res.data?.message || res.data;
+      setInputText("", []);
+      setReplyingTo(null);
 
       // Add to local state only if not already received via socket
       if (sentMsg) {
@@ -529,6 +622,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       const formData = new FormData();
       formData.append("conversationId", activeConversationId);
       formData.append("file", file);
+      if (replyingTo?._id) formData.append("replyToMessageId", replyingTo._id);
       formData.append("fileType", file.type || "application/octet-stream");
       formData.append("fileName", file.name || `attachment-${Date.now()}`);
 
@@ -545,6 +639,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       setTimeout(() => scrollToBottom(true), 50);
       loadChatData();
       setPendingAttachment(null);
+      setReplyingTo(null);
     } catch (err) {
       console.warn("Failed to send attachment:", err);
       setAttachmentError("Unable to send attachment. Please try again.");
@@ -677,7 +772,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       let targetUser = null;
 
       if (conv.isGroup) {
-        displayName = conv.name || conv.groupName || "Group Channel";
+        displayName = `${conv.name || conv.groupName || "Group Channel"}${conv.clientId ? " (Client)" : conv.projectId ? " (Project)" : ""}`;
         avatar = null;
       } else {
         const other = (conv.members || []).find((m) => getEntityId(m) !== currentUserId);
@@ -694,6 +789,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         id: conv._id,
         key: `conv-${conv._id}`,
         isGroup: Boolean(conv.isGroup),
+        clientId: conv.clientId,
+        projectId: conv.projectId,
         name: displayName,
         avatar,
         lastMessage: lastMsgText,
@@ -726,8 +823,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     // Filter by Tab & Search
     return items.filter((item) => {
       if (activeTab === "unread" && item.unread <= 0) return false;
-      if (activeTab === "groups" && !item.isGroup) return false;
-      if (activeTab === "colleagues" && item.isGroup) return false;
+      if ((activeTab === "projects" || activeTab === "groups") && !(item.projectId || item.conversation?.projectId || (item.isGroup && !item.clientId && !item.conversation?.clientId))) return false;
+      if ((activeTab === "clients" || activeTab === "colleagues") && !(item.clientId || item.conversation?.clientId)) return false;
 
       if (query) {
         const nameMatch = item.name.toLowerCase().includes(query);
@@ -764,7 +861,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     return "Member";
   };
 
-  if (isClientUser) {
+  if (isClientUser || !hasCompanyChatAccess()) {
     return null;
   }
 
@@ -823,9 +920,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
-                  title="New message / Search colleagues"
+                  title="New message / Search"
                   onClick={() => {
-                    setActiveTab("colleagues");
+                    setActiveTab("all");
                     inputRef.current?.focus();
                   }}
                 >
@@ -911,23 +1008,35 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               </button>
               <button
                 type="button"
-                className={`fb-messenger-tab ${activeTab === "groups" ? "active" : ""}`}
-                onClick={() => setActiveTab("groups")}
+                className={`fb-messenger-tab ${activeTab === "projects" || activeTab === "groups" ? "active" : ""}`}
+                onClick={() => setActiveTab("projects")}
               >
-                Groups
+                Projects
               </button>
               <button
                 type="button"
-                className={`fb-messenger-tab ${activeTab === "colleagues" ? "active" : ""}`}
-                onClick={() => setActiveTab("colleagues")}
+                className={`fb-messenger-tab ${activeTab === "clients" || activeTab === "colleagues" ? "active" : ""}`}
+                onClick={() => setActiveTab("clients")}
               >
-                Colleagues
+                Clients
               </button>
             </div>
 
             {/* Conversations List */}
             <div className="fb-messenger-list">
-              {conversationItems.length > 0 ? (
+              {loadingConversations && conversationItems.length === 0 ? (
+                <div className="fb-messenger-skeleton-list">
+                  {[1, 2, 3, 4, 5].map((idx) => (
+                    <div key={idx} className="fb-messenger-skeleton-item">
+                      <div className="fb-messenger-skeleton-avatar" />
+                      <div className="fb-messenger-skeleton-content">
+                        <div className="fb-messenger-skeleton-title" />
+                        <div className="fb-messenger-skeleton-subtitle" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : conversationItems.length > 0 ? (
                 conversationItems.map((item) => {
                   const avatarUrl = resolveAvatarUrl(item.avatar);
                   const online = !item.isGroup && isUserOnline(item.targetUser || item.avatar);
@@ -979,8 +1088,22 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <div className="fb-messenger-empty-icon">
                     <MessageSquare size={24} />
                   </div>
-                  <strong>No messages found</strong>
-                  <p>Search for a colleague or start a new conversation.</p>
+                  <strong>
+                    {activeTab === "unread"
+                      ? "No unread messages"
+                      : activeTab === "projects" || activeTab === "groups"
+                      ? "No project chats found"
+                      : activeTab === "clients" || activeTab === "colleagues"
+                      ? "No client chats found"
+                      : searchQuery
+                      ? "No matching conversations"
+                      : "No messages found"}
+                  </strong>
+                  <p>
+                    {searchQuery
+                      ? "Try searching with another name or email."
+                      : "Search for a colleague or start a new conversation."}
+                  </p>
                 </div>
               )}
             </div>
@@ -1130,6 +1253,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   return (
                     <div
                       key={messageId}
+                      id={`widget-message-${messageId}`}
                       className={`fb-chat-message-row ${isMe ? "me" : "peer"}`}
                     >
                       <div className="fb-chat-bubble-wrap">
@@ -1143,7 +1267,17 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                                   {getMessageSenderName(msg)}
                                 </span>
                               )}
-                              {msg.text && <span>{msg.text}</span>}
+                              {msg.replyTo && <button type="button" className="fb-chat-quoted-reply" onClick={() => document.getElementById(`widget-message-${msg.replyTo._id}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}>
+                                <strong>{msg.replyTo.sender?.name || "User"}</strong>
+                                <span>{msg.replyTo.deletedForEveryone ? "This message was deleted" : msg.replyTo.text || "Attachment"}</span>
+                              </button>}
+                              {msg.systemEvent?.client && <button type="button" className="fb-chat-quoted-reply" onClick={async () => {
+                                try { const result = await getClientChatTask(msg.systemEvent.client, msg.systemEvent.task); setClientTask(result.data.task); }
+                                catch { setAttachmentError("Task is unavailable or access was removed."); }
+                              }}>Open task details</button>}
+                              {msg.text && <span>{mentionSegments(msg.text, msg.mentions).map((part, index) => part.user
+                                ? <strong key={index} className="fb-chat-member-mention">{part.text}</strong>
+                                : <React.Fragment key={index}>{part.text}</React.Fragment>)}</span>}
                               {fileKind === "image" && (
                                 <img className="fb-chat-message-image" src={fileUrl} alt={fileName} />
                               )}
@@ -1182,10 +1316,14 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                         )}
                         {openMessageMenuId === messageId && !isDeleted && (
                           <div className="fb-chat-message-menu">
+                            <button type="button" onClick={() => {
+                              setReplyingTo(msg); setOpenMessageMenuId("");
+                              requestAnimationFrame(() => inputRef.current?.focus());
+                            }}><Reply size={14} /> Reply</button>
                             <button type="button" onClick={() => handleDeleteForMe(msg)}>
                               <Trash2 size={14} /> Delete
                             </button>
-                            {isMe && (
+                            {isMe && !(msg.messageType === "system" && msg.systemEvent?.task) && (
                               <button
                                 type="button"
                                 className="danger"
@@ -1229,6 +1367,16 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               <div ref={messagesEndRef} />
             </div>
 
+            {clientTask && <TaskDetailsModal open task={clientTask} canEdit={false} employeeInfo={currentUser}
+              onClose={() => setClientTask(null)} mentionUsers={mentionCandidates}
+              onRemarkAdded={async (task, text, _files, mentions) => {
+                const key = JSON.stringify([task.clientId, task._id, text, mentions]);
+                const requestId = clientRemarkRequests.current.get(key) || crypto.randomUUID();
+                clientRemarkRequests.current.set(key, requestId);
+                await addClientChatRemark(task.clientId, task._id, text, mentions, requestId);
+                const result = await getClientChatTask(task.clientId, task._id); setClientTask(result.data.task);
+                clientRemarkRequests.current.delete(key);
+              }} />}
             {/* Input Bar */}
             <div className="fb-chat-input-area">
               {showAttachmentMenu && (
@@ -1264,6 +1412,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 </div>
               )}
 
+              {replyingTo && <div className="fb-chat-reply-preview">
+                <div><strong>Replying to {replyingTo.sender?.name || "User"}</strong><span>{replyingTo.text || "Attachment"}</span></div>
+                <button type="button" aria-label="Cancel reply" onClick={() => setReplyingTo(null)}><X size={16} /></button>
+              </div>}
               <div className="fb-chat-inputbar">
                 <button
                   type="button"
@@ -1286,9 +1438,15 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <Smile size={18} color="#65676b" />
                 </button>
 
-                <input
+                <ChatMentionInput
+                  key={activeConversationId || "new-chat"}
+                  mentions={messageMentions}
+                  members={mentionCandidates}
+                  onMentionSelect={setInputText}
+                  aria-label={replyingTo ? "Write a reply" : "Write a message"}
                   ref={inputRef}
                   type="text"
+                  className="fb-chat-input chat-input"
                   placeholder="Type a message..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}

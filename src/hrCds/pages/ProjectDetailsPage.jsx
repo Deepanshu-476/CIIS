@@ -4,6 +4,8 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import "../Css/ProjectDetailsPage.css";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings, normalizeReminderSettings } from '../components/TaskReminderControl';
+import ProjectBulkImportModal from '../components/ProjectBulkImportModal';
+import { FiUploadCloud } from "react-icons/fi";
 
 const SHOW_TASK_DOCUMENTS = true;
 
@@ -178,7 +180,8 @@ const Icons = {
   AccessTime: () => <span className="pdp-icon">⏱️</span>,
   Group: () => <span className="pdp-icon">👥</span>,
   Folder: () => <span className="pdp-icon">📁</span>,
-  CloudUpload: () => <span className="pdp-icon">☁️↑</span>,
+  CloudUpload: () => <FiUploadCloud className="pdp-icon" />,
+  Upload: () => <FiUploadCloud className="pdp-icon" />,
   Image: () => <span className="pdp-icon">🖼️</span>,
   Bolt: () => <span className="pdp-icon">⚡</span>,
   Notifications: () => <span className="pdp-icon">🔔</span>,
@@ -240,6 +243,7 @@ const ProjectDetailsPage = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [detailTaskId, setDetailTaskId] = useState(null);
   const [taskDetailToRestore, setTaskDetailToRestore] = useState(null);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const [stats, setStats] = useState({
     totalTasks: 0,
@@ -2096,7 +2100,26 @@ const ProjectDetailsPage = () => {
             </div>
           </div>
 
-          <div className="pdp-hero-actions">
+          <div className="pdp-hero-actions" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="pdp-button pdp-button-outline"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#ffffff",
+                borderColor: "#cbd5e1",
+                color: "#334155",
+                fontWeight: 600,
+              }}
+              onClick={() => setIsBulkImportOpen(true)}
+              disabled={loading.tasks}
+              title="Bulk import tasks from Excel"
+            >
+              <Icons.Upload />
+              Import Tasks (Excel)
+            </button>
             <button
               className="pdp-button pdp-button-primary"
               onClick={handleOpenCreateTaskDialog}
@@ -3713,6 +3736,21 @@ const ProjectDetailsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Project Bulk Import Modal */}
+      <ProjectBulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={(data) => {
+          showSnackbar(data.message || "Tasks imported successfully!", "success");
+          loadProjectDetails(projectId);
+        }}
+        allowedModes={["existing"]}
+        currentProjectId={projectId}
+        currentProjectName={projectDetails?.projectName || ""}
+        projectsList={[]}
+        branchId={projectDetails?.branch}
+      />
     </div>
   );
 };

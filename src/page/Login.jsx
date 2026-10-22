@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import axios from '../utils/axiosConfig';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import { sanitizeUserForStorage } from '../context/AuthContext';
+import { sanitizeUserForStorage, clearAuthStorageCaches } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Login.css'; 
 
 const clearPreviousLoginStorage = () => {
+  clearAuthStorageCaches();
   [
     'token',
     'user',
@@ -283,6 +284,9 @@ const Login = () => {
       });
 
       let errorMsg = 'Login failed. Please try again.';
+      if (err.name === 'QuotaExceededError') {
+        errorMsg = 'Login verified, but browser storage is full. Clear site storage and try again.';
+      }
 
       if (err.response?.data) {
         const { errorCode, message } = err.response.data;

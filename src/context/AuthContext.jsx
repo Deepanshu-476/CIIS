@@ -32,7 +32,17 @@ export const sanitizeUserForStorage = (user) => {
   if (sanitized.user && typeof sanitized.user === 'object') {
     sanitized.user = sanitizeUserForStorage(sanitized.user);
   }
-  return sanitized;
+  // Inline uploads can exceed the browser's entire storage quota. Keep URLs,
+  // but leave embedded file contents in the API response only.
+  const compact = (value) => {
+    if (typeof value === 'string' && /^data:/i.test(value)) return '';
+    if (Array.isArray(value)) return value.map(compact);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, compact(item)]));
+    }
+    return value;
+  };
+  return compact(sanitized);
 };
 
 const AUTH_STORAGE_KEYS = [
@@ -58,6 +68,15 @@ const APP_CACHE_PREFIXES = [
   'ciis-call-history-',
   'unread-count-cache:',
 ];
+
+export const clearAuthStorageCaches = () => {
+  // Evict only disposable app caches; preserve other settings and stored work.
+  Object.keys(localStorage).forEach(key => {
+    if (key === 'ciis-task-management-cache-v1' || APP_CACHE_PREFIXES.some(prefix => key.startsWith(prefix))) {
+      localStorage.removeItem(key);
+    }
+  });
+};
 
 const clearStorageKeys = storage => {
   if (!storage) return;

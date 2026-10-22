@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import "./chat.css";
 import ChatSidebar from "../../chat/ChatSidebar";
 import ChatBox from "../../chat/ChatBox";
@@ -1036,6 +1037,8 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
 };
 
 const ChatPage = () => {
+  const location = useLocation();
+  const openedNotification = useRef(null);
   const currentUser = JSON.parse(localStorage.getItem("user")) || {};
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -1120,7 +1123,7 @@ const ChatPage = () => {
   });
 
   const findGroupConversation = group => conversations.find(conversation => (
-    conversation.isGroup && (conversation.groupId?._id || conversation.groupId || "").toString() === (group._id || group.id).toString()
+    conversation.isGroup && (conversation.clientId || conversation.projectId || conversation.groupId?._id || conversation.groupId || "").toString() === (group._id || group.id).toString()
   ));
 
   const sortByConversation = (items, resolver) => [...items].sort((first, second) => {
@@ -1171,12 +1174,13 @@ const ChatPage = () => {
   const visibleGroups = groups.filter(isVisibleGroupForCurrentUser);
 
   const enrichedGroups = sortByConversation(visibleGroups.map(group => {
-    const conversation = findGroupConversation(group);
+    const conversation = findGroupConversation(group) || group.conversation;
     const conversationId = conversation?._id?.toString();
     const groupId = (group._id || group.id || "").toString();
     const unreadOverride = getUnreadOverride(conversationId, groupId);
     return {
       ...group,
+      name: group.clientId ? `${group.name} (Client)` : group.projectId ? `${group.name} (Project)` : group.name,
       isGroup: true,
       groupImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",
       profileImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",
@@ -1187,10 +1191,18 @@ const ChatPage = () => {
     };
   }), group => group.conversation);
 
+  useEffect(() => {
+    const conversationId = location.state?.conversationId;
+    if (!conversationId || openedNotification.current === location.key) return;
+    const group = enrichedGroups.find(item => String(item.conversation?._id) === String(conversationId));
+    if (group) { openedNotification.current = location.key; setSelectedUser(group); setActiveView("chats"); }
+  }, [location.key, groups, conversations]);
+
   const fetchConversations = async () => {
     try {
       const res = await getConversations();
       setConversations(res.data.conversations || []);
+      return res.data.conversations || [];
     } catch (error) {
       void 0;
     }
@@ -1201,6 +1213,7 @@ const ChatPage = () => {
       const res = await getCompanyGroups();
       const fetchedGroups = res.data.groups || res.data.data || res.data || [];
       setGroups(Array.isArray(fetchedGroups) ? fetchedGroups : []);
+      return Array.isArray(fetchedGroups) ? fetchedGroups : [];
     } catch (error) {
       void 0;
     }
@@ -1256,7 +1269,7 @@ const ChatPage = () => {
 
   const handleDeleteGroup = async (group) => {
     const groupId = (group?._id || group?.id || group?.groupId || "").toString();
-    if (!groupId) return;
+    if (!groupId || group.projectId || group.clientId) return;
     await deleteCompanyGroup(groupId);
     setGroups(prev => prev.filter(item => (item._id || item.id || "").toString() !== groupId));
     setConversations(prev => prev.filter(item => (
@@ -1270,6 +1283,7 @@ const ChatPage = () => {
   };
 
   const handleUpdateGroup = async (group, payload) => {
+    if (group.projectId || group.clientId) return;
     const groupId = (group?._id || group?.id || group?.groupId || "").toString();
     if (!groupId) return null;
     const response = await updateCompanyGroup(groupId, payload);
@@ -1411,6 +1425,16 @@ const ChatPage = () => {
     socket.on("chat:user-offline", handleChatUserOffline);
     socket.on("user:online", handleChatUserOnline);
     socket.on("user:offline", handleChatUserOffline);
+    const handleMembership = async () => {
+      const [nextGroups] = await Promise.all([fetchGroups(), fetchConversations()]);
+      if (!nextGroups) return;
+      setSelectedUser(previous => {
+        if (!previous?.projectId && !previous?.clientId) return previous;
+        const group = nextGroups.find(item => String(item.clientId || item.projectId) === String(previous.clientId || previous.projectId));
+        return group ? { ...previous, ...group, isGroup: true } : null;
+      });
+    };
+    socket.on("chat:project-membership-updated", handleMembership);
     socket.on("chat:unread-update", handleUnread);
     // socket.on("chat:status-update", handleStatusUpdate);
     socket.on("connect", refreshOnlineUsers);
@@ -1432,6 +1456,7 @@ const ChatPage = () => {
       socket.off("chat:user-offline", handleChatUserOffline);
       socket.off("user:online", handleChatUserOnline);
       socket.off("user:offline", handleChatUserOffline);
+      socket.off("chat:project-membership-updated", handleMembership);
       socket.off("chat:unread-update", handleUnread);
       // socket.off("chat:status-update", handleStatusUpdate);
       socket.off("connect", refreshOnlineUsers);

@@ -733,8 +733,14 @@ const MyLeaves = () => {
             const approverUser = step?.user || {};
             const approverName = approverUser?.name || "Approver";
             const rawStatus = step?.status || "Pending";
-            const isSupersededPending = isFinalized && rawStatus === "Pending";
-            const displayStatus = isSupersededPending ? "Not required" : rawStatus;
+            const isAutoRejected = leave?.status === "Rejected" && (
+              String(leave?.remarks || "").toLowerCase().includes("auto reject") ||
+              (Array.isArray(leave?.history) && leave.history.some(h => String(h.remarks || "").toLowerCase().includes("auto reject") || h.role === "System"))
+            );
+            const isSupersededPending = isFinalized && (rawStatus === "Pending" || isAutoRejected);
+            const displayStatus = isAutoRejected && (rawStatus === "Pending" || rawStatus === "Rejected")
+              ? "Period Expired"
+              : (isSupersededPending ? "Not required" : rawStatus);
             const initials = getInitials(approverName);
             const statusLower = isSupersededPending ? "neutral" : rawStatus.toLowerCase();
 
@@ -2129,11 +2135,12 @@ const MyLeaves = () => {
                   {historyDialog.items.map((item, index) => {
                     const action = String(item.action || "pending").toLowerCase();
                     const actor = typeof item.by === "object" ? item.by?.name : item.by;
+                    const isAutoReject = item.role === "System" || String(item.remarks || "").toLowerCase().includes("auto reject");
                     const historyText =
                       action === "approved"
                         ? `Approved by ${actor || "Unknown"}`
                         : action === "rejected"
-                        ? `Rejected by ${actor || "Unknown"}`
+                        ? (isAutoReject ? "Auto-rejected: Leave period ended without approval" : `Rejected by ${actor || "Unknown"}`)
                         : action === "applied"
                         ? "Leave request applied"
                         : "Pending update";

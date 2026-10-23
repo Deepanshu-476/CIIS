@@ -94,7 +94,10 @@ const mapStatusCountsToTaskStats = (statusCounts = {}) => {
     overdue: statusCounts.overdue?.count || 0,
     onhold: statusCounts.onhold?.count || statusCounts.onHold?.count || 0,
     reopen: statusCounts.reopen?.count || 0,
-    cancelled: statusCounts.cancelled?.count || 0
+    cancelled: statusCounts.cancelled?.count || 0,
+    personal: statusCounts.personal?.count || 0,
+    project: statusCounts.project?.count || 0,
+    client: statusCounts.client?.count || 0
   };
 };
 
@@ -108,7 +111,10 @@ const emptyTaskStats = {
   overdue: 0,
   onhold: 0,
   reopen: 0,
-  cancelled: 0
+  cancelled: 0,
+  personal: 0,
+  project: 0,
+  client: 0
 };
 
 const getUserTaskStats = (user) => {
@@ -143,13 +149,17 @@ const EMP_USERS_CACHE_KEY_PREFIX = "ciis-emp-all-task-users-cache-v1";
 
 const buildEmpUsersCacheKey = ({
   branchId = "",
+  timeframe = "today",
   fromDate = "",
   toDate = "",
+  taskType = "all",
 }) => [
   EMP_USERS_CACHE_KEY_PREFIX,
   String(branchId || ""),
+  String(timeframe || "today"),
   String(fromDate || ""),
   String(toDate || ""),
+  String(taskType || "all"),
 ].join("|");
 
 const readEmpUsersCache = (cacheKey) => {
@@ -349,25 +359,13 @@ const getStatusObject = (status) => {
 
 
 const getTaskType = (task) => {
-  
-  if (task.source === 'assigned') return 'assigned';
-  if (task.source === 'personal') return 'personal';
-  if (task.source === 'client') return 'assigned'; 
-  
-  
-  if (task.taskType === 'assigned' || task.taskType === 'client') return 'assigned';
-  if (task.taskType === 'personal') return 'personal';
-  
-  
-  if (task.clientId || task.isClientTask === true) return 'assigned';
-  
-  
-  if (task.assignedBy) return 'assigned';
-  
-  
+  if (!task) return 'personal';
+  const source = String(task.__taskSource || task.taskSource || task.source || '').toLowerCase();
+  if (source === 'project' || task.projectId || task.projectTaskId || task.projectName || task.project) return 'project';
+  if (source === 'client' || task.clientId || task.isClientTask === true || task.clientName || task.client) return 'client';
+  if (source === 'personal' || source === 'self' || task.taskType === 'personal' || task.taskType === 'self') return 'personal';
+  if (source === 'assigned' || task.taskType === 'assigned' || task.assignedBy) return 'assigned';
   if (task.userStatus && !task.status) return 'assigned';
-  
-  
   return 'personal';
 };
 
@@ -521,6 +519,7 @@ const TaskDetails = () => {
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
   const [selectedPerfFilter, setSelectedPerfFilter] = useState('all');
+  const [taskTypeFilter, setTaskTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name-asc');
   const [viewMode, setViewMode] = useState('grid');
   const [activeDeptTab, setActiveDeptTab] = useState('all');
@@ -535,8 +534,20 @@ const TaskDetails = () => {
     const selectedUser = users.find((user) => String(user._id || user.id) === String(userId));
     const params = new URLSearchParams();
     const todayStr = getDateInputValue();
-    params.set('startDate', globalFromDate || todayStr);
-    params.set('endDate', globalToDate || todayStr);
+    if (globalFromDate || globalToDate) {
+      if (globalFromDate) params.set('startDate', globalFromDate);
+      if (globalToDate) params.set('endDate', globalToDate);
+    } else if (dateFilter === 'today') {
+      params.set('startDate', todayStr);
+      params.set('endDate', todayStr);
+    } else if (dateFilter === 'all') {
+      // All dates - no range filter so all tasks show
+      params.set('startDate', '');
+      params.set('endDate', '');
+    }
+    if (taskTypeFilter && taskTypeFilter !== 'all') {
+      params.set('taskType', taskTypeFilter);
+    }
     const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`, {
       state: {
@@ -544,7 +555,7 @@ const TaskDetails = () => {
         taskStats: selectedUser?.taskStats || null,
       },
     });
-  }, [globalFromDate, globalToDate, navigate, users]);
+  }, [dateFilter, globalFromDate, globalToDate, navigate, users, taskTypeFilter]);
 
   
   useEffect(() => {
@@ -1451,10 +1462,18 @@ const TaskDetails = () => {
     fetchUsersTimeoutRef.current = setTimeout(async () => {
       if (!isMounted.current || usersFetchRequestRef.current !== requestId) return;
 
-      const todayStr = getDateInputValue();
+      const fromDateParam = globalFromDate || undefined;
+      const toDateParam = globalToDate || undefined;
+      const isDateFiltered = fromDateParam || toDateParam;
+      const effectivePeriod = isDateFiltered
+        ? (fromDateParam && toDateParam && fromDateParam === toDateParam ? 'today' : 'custom')
+        : (dateFilter || 'today');
+
       const cacheKey = buildEmpUsersCacheKey({
-        fromDate: todayStr,
-        toDate: todayStr,
+        timeframe: effectivePeriod,
+        fromDate: fromDateParam || "",
+        toDate: toDateParam || "",
+        taskType: taskTypeFilter,
       });
       const cachedUsersSnapshot = readEmpUsersCache(cacheKey);
       const shouldShowLoading = !cachedUsersSnapshot;
@@ -1610,6 +1629,7 @@ const TaskDetails = () => {
               toDate: toDateParam,
               status: 'all',
               priority: 'all',
+              taskType: taskTypeFilter,
             },
           };
           const statsRes = await fetchTaskStats(statsPayload, {
@@ -1694,7 +1714,7 @@ const TaskDetails = () => {
       }
     }, 300); 
 
-  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, pageScope]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, pageScope, dateFilter, taskTypeFilter]);
 
   
   useEffect(() => {
@@ -2826,6 +2846,7 @@ const TaskDetails = () => {
     setSelectedRoleFilter('all');
     setSelectedStatusFilter('all');
     setSelectedPerfFilter('all');
+    setTaskTypeFilter('all');
     setSortBy('name-asc');
     setActiveDeptTab('all');
     setCurrentPage(1);
@@ -4889,11 +4910,11 @@ const TaskDetails = () => {
             <div className="new-stat-icon purple"><FiClipboard size={20} /></div>
             <div className="new-stat-val">
               <h3>{systemStats.totalTasks || overallStats.total || 0}</h3>
-              <span>Tasks Today</span>
+              <span>{dateFilter === 'today' ? 'Tasks Today' : dateFilter === 'all' ? 'Total Tasks' : 'Tasks'}</span>
             </div>
             <div className="new-stat-trend green">↑ 8%</div>
           </div>
-          <p>Tasks assigned today</p>
+          <p>{dateFilter === 'today' ? 'Tasks assigned today' : 'All tasks assigned'}</p>
         </div>
         <div className="new-stat-card card-orange">
           <div className="new-stat-top">
@@ -5056,6 +5077,36 @@ const TaskDetails = () => {
         </div>
         
         <div className="new-filter-group">
+          <div className={`new-filter-item ${dateFilter !== 'today' ? 'active' : ''}`}>
+            <label>Timeframe</label>
+            <select
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="today">Today</option>
+              <option value="all">Total (All Time)</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          <div className={`new-filter-item ${taskTypeFilter !== 'all' ? 'active' : ''}`}>
+            <label>Task Type</label>
+            <select
+              value={taskTypeFilter}
+              onChange={(e) => {
+                setTaskTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All (Personal & Project)</option>
+              <option value="personal">Personal Tasks</option>
+              <option value="project">Project Tasks</option>
+              <option value="client">Client Tasks</option>
+            </select>
+          </div>
           <div className={`new-filter-item ${selectedDeptFilter !== 'all' ? 'active' : ''}`}>
             <label>Department</label>
             <select
@@ -5390,6 +5441,14 @@ const TaskDetails = () => {
                                 <span>Completion</span>
                               </div>
                             </div>
+
+                            {((userStats.personal || 0) > 0 || (userStats.project || 0) > 0 || (userStats.client || 0) > 0) && (
+                              <div style={{ display: 'flex', gap: '8px', padding: '2px 16px 8px', fontSize: '11px', color: '#64748b' }}>
+                                {(userStats.personal || 0) > 0 && <span>👤 Personal: <strong style={{ color: '#1e293b' }}>{userStats.personal}</strong></span>}
+                                {(userStats.project || 0) > 0 && <span>📁 Project: <strong style={{ color: '#1e293b' }}>{userStats.project}</strong></span>}
+                                {(userStats.client || 0) > 0 && <span>💼 Client: <strong style={{ color: '#1e293b' }}>{userStats.client}</strong></span>}
+                              </div>
+                            )}
                             
                             <div className="new-user-progress">
                               <div className="progress-track">

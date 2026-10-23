@@ -620,6 +620,22 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   
   const handleLogoClick = useCallback(() => {
+    try {
+      const rawSidebar = localStorage.getItem('sidebarConfig');
+      if (rawSidebar) {
+        const cfg = JSON.parse(rawSidebar);
+        const menuItems = Array.isArray(cfg?.menuItems) ? cfg.menuItems : (Array.isArray(cfg?.items) ? cfg.items : []);
+        const hasOverview = menuItems.some(item => {
+          const id = String(item?.id || '').toLowerCase();
+          const p = String(item?.path || '').toLowerCase();
+          return id === 'dashboard-overview' || p.includes('dashboard-overview');
+        });
+        if (hasOverview) {
+          navigate("/ciisUser/dashboard-overview");
+          return;
+        }
+      }
+    } catch {}
     navigate("/ciisUser/user-dashboard");
   }, [navigate]);
 

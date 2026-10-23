@@ -11,6 +11,7 @@ import { createConversation, createGroupConversation, deleteMessageForEveryone, 
 
 import MessageBubble from "./MessageBubble";
 import ChatMentionInput from "./ChatMentionInput";
+import { taskEventText } from "./taskEventText";
 import { mentionMembers, reconcileMentions } from "./mentionUtils";
 import TaskDetailsModal from "../hrCds/components/TaskDetailsModal";
 import { openClientConversation, getClientChatTask, addClientChatRemark, openProjectConversation, getProjectChatTask, addProjectChatRemark } from "../services/chatService";
@@ -434,7 +435,7 @@ const ChatBox = ({
     };
 
     const getMessagePreview = (message) => {
-        if (message?.text) return message.text;
+        if (message?.text) return taskEventText(message);
         if (message?.file) return "Sent an attachment";
         return "Sent a message";
     };
@@ -1507,7 +1508,7 @@ useEffect(() => {
         event.target.value = "";
     };
 
-    const getMessageText = (message) => String(message?.text || message?.caption || "")
+    const getMessageText = (message) => String(taskEventText(message) || message?.caption || "")
         .replace(/\[\[ciis-reply:[^\]]+\]\]/g, "")
         .replace(/\[\[ciis-expire:\d+\]\]/g, "")
         .replace(/\[\[ciis-system-disappearing:[^\]]+\]\]/g, "")
@@ -2455,7 +2456,7 @@ useEffect(() => {
                                                 </div>
                                                 <div className="chat-task-card-body">
                                                     <FileText size={15} className="chat-task-card-icon" />
-                                                    <span className="chat-task-card-text">{message.text}</span>
+                                                    <span className="chat-task-card-text">{taskEventText(message)}</span>
                                                     <ChevronRight size={14} className="chat-task-card-chevron" />
                                                 </div>
                                             </button>
@@ -2710,7 +2711,7 @@ useEffect(() => {
                                             ? "You"
                                             : replyingTo.sender?.name || selectedName || "User"}
                                     </strong>
-                                    <span>{replyingTo.text || replyingTo.fileName || replyingTo.name || "Attachment"}</span>
+                                    <span>{taskEventText(replyingTo) || replyingTo.fileName || replyingTo.name || "Attachment"}</span>
                                 </div>
                                 <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
                                     <X size={17} />
@@ -2808,6 +2809,8 @@ useEffect(() => {
                             type="button"
                             className="emoji-btn"
                             title="Emoji"
+                            aria-label="Emoji"
+                            aria-expanded={showEmojiPicker}
                             onClick={() => setShowEmojiPicker((prev) => !prev)}
                         >
                             <Smile size={20} />
@@ -2822,7 +2825,7 @@ useEffect(() => {
                                     searchPlaceHolder="Search emoji"
                                     lazyLoadEmojis
                                     width="100%"
-                                    height={420}
+                                    height="min(420px, calc(100dvh - 180px))"
                                     previewConfig={{ showPreview: false }}
                                     onEmojiClick={handleEmojiSelect}
                                 />

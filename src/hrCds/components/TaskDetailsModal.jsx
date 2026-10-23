@@ -132,7 +132,7 @@ const resolveLogEventType = (log) => {
 
 const TaskDetailsModal = ({
   open,
-  task,
+  task: incomingTask,
   onClose,
   onStatusChange,
   onRemarkAdded,
@@ -140,6 +140,7 @@ const TaskDetailsModal = ({
   canEdit = true,
   mentionUsers = []
 }) => {
+  const task = incomingTask || {};
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [howTrackingOpen, setHowTrackingOpen] = useState(false);
   const [remarkText, setRemarkText] = useState('');
@@ -179,8 +180,6 @@ const TaskDetailsModal = ({
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openStatusMenu]);
-
-  if (!open || !task) return null;
 
   const currentStatus = normalizeStatus(task.status || task.overallStatus);
   const priority = String(task.priority || 'medium').toLowerCase();
@@ -838,6 +837,8 @@ const TaskDetailsModal = ({
   };
 
   const taskIdStr = task.taskNumber || task.customId || `TSK-${String(task._id || '001234').slice(-6).toUpperCase()}`;
+
+  if (!open || !incomingTask) return null;
 
   return (
     <div className={`task-detail-modal-overlay ${isFullscreen ? 'fullscreen-overlay' : ''}`} onClick={onClose}>

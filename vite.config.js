@@ -33,11 +33,6 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Large standalone export tools that don't depend on React
-            if (id.includes('jspdf') || id.includes('xlsx') || id.includes('html2canvas')) {
-              return 'vendor-export';
-            }
-            // All React and React-dependent libraries together in one unified chunk to prevent useLayoutEffect/undefined errors
             if (
               id.includes('react') ||
               id.includes('react-dom') ||
@@ -48,7 +43,10 @@ export default defineConfig({
               id.includes('lucide-react') ||
               id.includes('sweetalert2') ||
               id.includes('recharts') ||
-              id.includes('chart.js')
+              id.includes('chart.js') ||
+              id.includes('jspdf') ||
+              id.includes('xlsx') ||
+              id.includes('html2canvas')
             ) {
               return 'vendor-react-core';
             }

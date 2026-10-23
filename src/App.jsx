@@ -51,6 +51,7 @@ const MyLeaves = lazy(() => import("./hrCds/pages/MyLeaves"));
 const Profile = lazy(() => import("./hrCds/pages/Profile"));
 const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
 const DashboardOverview = lazy(() => import("./hrCds/pages/DashboardOverview"));
+const DashboardOverviewPreview = lazy(() => import("./hrCds/pages/DashboardOverviewPreview.jsx"));
 const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
 const EmployeeMeetingPage = lazy(() => import("./hrCds/pages/EmployeeMeetingPage"));
 const EmployeeProject = lazy(() => import("./hrCds/pages/EmployeeProject"));
@@ -192,6 +193,48 @@ function App() {
         <Route path="/lead-management" element={<Navigate to="/ciisUser/telecaller/assigned-calls" replace />} />
         <Route path="/talicaliler" element={<Navigate to="/ciisUser/telecaller/dashboard" replace />} />
 
+        {/* Dynamic Dashboard Overview System - Dedicated Routes */}
+        <Route
+          path="/dashboard-overview"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+        <Route
+          path="/dashboard-overview/:companyId"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+        <Route
+          path="/dashboard-overview-preview"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+        <Route
+          path="/dashboard-overview-preview/:companyId"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+
         <Route
           path="/Ciis-network/*"
           element={
@@ -202,6 +245,10 @@ function App() {
             </ThemeContextProvider>
           }
         >
+          <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="RegisterCompany" element={<RegisterCompany />} />
           <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
@@ -299,6 +346,10 @@ function App() {
             )}
           />
           <Route path="dashboard-1" element={<DashboardOverview />} />
+          <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="client-dashboard" element={<ClientDashboardPage />} />
           <Route path="client-my-services" element={<MyServicesPage />} />

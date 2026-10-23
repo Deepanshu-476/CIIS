@@ -94,6 +94,7 @@ const formatProjectDate = (value, fallback = "Not set") => {
 
 const getUserId = (user) => user?._id || user?.id;
 const getProjectId = (p) => p?._id || p?.id;
+const getTaskId = (t) => t?._id || t?.id || (typeof t === 'string' ? t : null);
 const isImageFile = (value = "") => /\.(avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(String(value));
 const LIVE_API_URL = "https://backendciisnetwork.com/api";
 

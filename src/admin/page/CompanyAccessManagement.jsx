@@ -20,6 +20,11 @@ import {
   TextField,
   Typography,
   alpha,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -32,6 +37,8 @@ import {
   LockOpen as LockOpenIcon,
   ManageAccounts as ManageAccountsIcon,
   Search as SearchIcon,
+  Tune as TuneIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import axiosInstance from "../../utils/axiosConfig";
 import { CRM_PAGES } from "../../config/crmPages";
@@ -41,6 +48,7 @@ import "./JobRoleManagement.css";
 const APP_ROUTES = [
   { id: "user-dashboard", path: "user-dashboard", name: "Dashboard", category: "main" },
   { id: "dashboard-1", path: "dashboard-1", name: "Dashboard 1", category: "main" },
+  { id: "dashboard-overview", path: "dashboard-overview", name: "Dynamic Dashboard Overview", category: "main" },
   { id: "attendance", path: "attendance", name: "My Attendance", category: "main" },
   { id: "my-leaves", path: "my-leaves", name: "My Leaves", category: "main" },
   { id: "my-assets", path: "my-assets", name: "My Assets", category: "main" },
@@ -217,6 +225,152 @@ const formatDate = value => {
   });
 };
 
+
+const DASHBOARD_OVERVIEW_SECTIONS = [
+  // A. PEOPLE
+  {
+    key: "employeesOverview",
+    group: "people",
+    groupLabel: "PEOPLE",
+    title: "Employees Overview",
+    desc: "Total, active, inactive staff, department and role distributions.",
+  },
+  {
+    key: "attendanceOverview",
+    group: "people",
+    groupLabel: "PEOPLE",
+    title: "Attendance Overview",
+    desc: "Daily present, absent, late check-ins, half-days, and punch logs.",
+  },
+  {
+    key: "leavesOverview",
+    group: "people",
+    groupLabel: "PEOPLE",
+    title: "Leaves Overview",
+    desc: "Pending approvals, approved, rejected leaves, and staff on leave today.",
+  },
+  {
+    key: "payrollOverview",
+    group: "people",
+    groupLabel: "PEOPLE",
+    title: "Payroll Overview",
+    desc: "Total payroll cost, processed runs, pending processing, and salary stats.",
+    isSensitive: true,
+  },
+  {
+    key: "assetsOverview",
+    group: "people",
+    groupLabel: "PEOPLE",
+    title: "Assets Overview",
+    desc: "Assigned assets, inventory, maintenance, and pending employee requests.",
+  },
+
+  // B. WORK
+  {
+    key: "tasksOverview",
+    group: "work",
+    groupLabel: "WORK",
+    title: "Tasks Overview",
+    desc: "Company tasks breakdown: pending, in-progress, completed, overdue rate.",
+  },
+  {
+    key: "projectsOverview",
+    group: "work",
+    groupLabel: "WORK",
+    title: "Projects Overview",
+    desc: "Active projects, planning, completed, delayed, and milestone deadlines.",
+  },
+  {
+    key: "meetingsOverview",
+    group: "work",
+    groupLabel: "WORK",
+    title: "Meetings Overview",
+    desc: "Upcoming internal & client meetings, today's schedule, and attendees.",
+  },
+  {
+    key: "chatOverview",
+    group: "work",
+    groupLabel: "WORK",
+    title: "Chat Overview",
+    desc: "Active communication channels, team groups, and discussion hubs.",
+  },
+  {
+    key: "alertsOverview",
+    group: "work",
+    groupLabel: "WORK",
+    title: "Alerts Overview",
+    desc: "System alerts, notices, unread company announcements, urgency types.",
+  },
+
+  // C. CLIENTS
+  {
+    key: "clientManagementOverview",
+    group: "clients",
+    groupLabel: "CLIENTS",
+    title: "Client Management Overview",
+    desc: "Active and inactive client accounts, new onboarding, and status distributions.",
+  },
+  {
+    key: "clientServicesOverview",
+    group: "clients",
+    groupLabel: "CLIENTS",
+    title: "Client Services Overview",
+    desc: "Active services, delivered milestones, task completion, and pending tasks.",
+  },
+  {
+    key: "clientPortalOverview",
+    group: "clients",
+    groupLabel: "CLIENTS",
+    title: "Client Portal Overview",
+    desc: "Shared client documents, pending review files, and compliance docs.",
+  },
+  {
+    key: "supportOverview",
+    group: "clients",
+    groupLabel: "CLIENTS",
+    title: "Support Overview",
+    desc: "Client support tickets: open, in-progress, resolved, and urgent escalations.",
+  },
+
+  // D. INSIGHTS
+  {
+    key: "employeeActivityOverview",
+    group: "insights",
+    groupLabel: "INSIGHTS",
+    title: "Employee Activity Overview",
+    desc: "Audit logs, user actions, system modifications, and real-time user events.",
+  },
+  {
+    key: "attendanceAnalyticsOverview",
+    group: "insights",
+    groupLabel: "INSIGHTS",
+    title: "Attendance Analytics Overview",
+    desc: "7-day attendance trend curves, daily consistency, and absenteeism patterns.",
+  },
+  {
+    key: "taskAnalyticsOverview",
+    group: "insights",
+    groupLabel: "INSIGHTS",
+    title: "Task Analytics Overview",
+    desc: "Priority breakdown, task velocity, completion curves, and overdue ratios.",
+  },
+  {
+    key: "teamVisibilityOverview",
+    group: "insights",
+    groupLabel: "INSIGHTS",
+    title: "Team Visibility Overview",
+    desc: "Department capacity, branch breakdown, staff allocations, and workload.",
+  },
+  {
+    key: "payrollReportsOverview",
+    group: "insights",
+    groupLabel: "INSIGHTS",
+    title: "Payroll Reports Overview",
+    desc: "Historical salary summaries, run audit trends, deductions, and periods.",
+    isSensitive: true,
+  },
+];
+
 export default function CompanyAccessManagement() {
   const navigate = useNavigate();
   const { companyId } = useParams();
@@ -231,6 +385,14 @@ export default function CompanyAccessManagement() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
   const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
+  const [showOverviewModal, setShowOverviewModal] = useState(false);
+  const [dashboardOverviewConfig, setDashboardOverviewConfig] = useState(() => {
+    const init = {};
+    DASHBOARD_OVERVIEW_SECTIONS.forEach((s) => {
+      init[s.key] = true;
+    });
+    return init;
+  });
 
   const selectedCompany = useMemo(
     () => companies.find(company => company._id === selectedCompanyId),
@@ -245,6 +407,60 @@ export default function CompanyAccessManagement() {
   const selectedPercent = APP_ROUTES.length
     ? Math.round((selectedPages.length / APP_ROUTES.length) * 100)
     : 0;
+  
+  const isDashboardSelected = useMemo(() => {
+    return selectedPages.includes("dashboard-overview");
+  }, [selectedPages]);
+
+  const enabledOverviewCount = useMemo(() => {
+    return Object.values(dashboardOverviewConfig).filter(Boolean).length;
+  }, [dashboardOverviewConfig]);
+
+  const toggleOverviewSection = (key) => {
+    setDashboardOverviewConfig((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const toggleAllOverviewSections = (enableAll) => {
+    const next = {};
+    DASHBOARD_OVERVIEW_SECTIONS.forEach((s) => {
+      next[s.key] = Boolean(enableAll);
+    });
+    setDashboardOverviewConfig(next);
+  };
+
+  const toggleGroupOverviewSections = (groupKey) => {
+    const groupItems = DASHBOARD_OVERVIEW_SECTIONS.filter((s) => s.group === groupKey);
+    const allEnabled = groupItems.every((s) => Boolean(dashboardOverviewConfig[s.key]));
+    setDashboardOverviewConfig((prev) => {
+      const next = { ...prev };
+      groupItems.forEach((s) => {
+        next[s.key] = !allEnabled;
+      });
+      return next;
+    });
+  };
+
+  const applyOverviewPreset = (preset) => {
+    const next = {};
+    DASHBOARD_OVERVIEW_SECTIONS.forEach((s) => {
+      if (preset === "all") {
+        next[s.key] = true;
+      } else if (preset === "core") {
+        next[s.key] = ["employeesOverview", "attendanceOverview", "leavesOverview", "payrollOverview", "tasksOverview", "projectsOverview", "alertsOverview"].includes(s.key);
+      } else if (preset === "workforce") {
+        next[s.key] = s.group === "people" || s.group === "insights";
+      } else if (preset === "operations") {
+        next[s.key] = s.group === "work" || s.group === "clients";
+      } else {
+        next[s.key] = false;
+      }
+    });
+    setDashboardOverviewConfig(next);
+  };
+
   const selectedSuperAdminPercent = SUPER_ADMIN_ROUTES.length
     ? Math.round((selectedSuperAdminPages.length / SUPER_ADMIN_ROUTES.length) * 100)
     : 0;
@@ -310,6 +526,21 @@ export default function CompanyAccessManagement() {
     setIsActive(Boolean(company.isActive));
     setActiveDays(30);
     setNotice(null);
+
+    if (company.moduleDashboardConfig && typeof company.moduleDashboardConfig === "object") {
+      const init = {};
+      DASHBOARD_OVERVIEW_SECTIONS.forEach((s) => {
+        const item = company.moduleDashboardConfig[s.key];
+        init[s.key] = item ? Boolean(item.enabled) : true;
+      });
+      setDashboardOverviewConfig(init);
+    } else {
+      const init = {};
+      DASHBOARD_OVERVIEW_SECTIONS.forEach((s) => {
+        init[s.key] = true;
+      });
+      setDashboardOverviewConfig(init);
+    }
   };
 
   const openCompanyAccess = company => {
@@ -325,12 +556,16 @@ export default function CompanyAccessManagement() {
     navigate("/Ciis-network/CompanyAccessManagement");
   };
 
-  const togglePage = pageId => {
-    setSelectedPages(prev =>
-      prev.includes(pageId)
-        ? prev.filter(id => id !== pageId)
-        : [...prev, pageId]
-    );
+  const togglePage = (pageId) => {
+    setSelectedPages((prev) => {
+      const willBeSelected = !prev.includes(pageId);
+      if (pageId === "dashboard-overview" && willBeSelected) {
+        setShowOverviewModal(true);
+      }
+      return willBeSelected
+        ? [...prev, pageId]
+        : prev.filter((id) => id !== pageId);
+    });
   };
 
   const toggleCategory = routes => {
@@ -372,13 +607,27 @@ export default function CompanyAccessManagement() {
 
     setSaving(true);
     try {
+      const moduleDashboardConfigPayload = {};
+      DASHBOARD_OVERVIEW_SECTIONS.forEach((s) => {
+        moduleDashboardConfigPayload[s.key] = { enabled: Boolean(dashboardOverviewConfig[s.key]) };
+      });
+
       const response = await axiosInstance.patch(`/company/${selectedCompany._id}/access`, {
         allowedPages: selectedPages,
         allowedSuperAdminPages: selectedSuperAdminPages,
         activeDays,
         isActive,
         updatedBy: getStoredAdminId(),
+        moduleDashboardConfig: moduleDashboardConfigPayload,
       });
+
+      try {
+        await axiosInstance.put(`/dashboard-overview/config/${selectedCompany._id}`, {
+          config: moduleDashboardConfigPayload,
+        });
+      } catch (syncErr) {
+        console.warn("Dashboard overview config sync note:", syncErr.message);
+      }
 
       const updatedCompany = response.data.company;
       setCompanies(prev => prev.map(company => (
@@ -399,6 +648,172 @@ export default function CompanyAccessManagement() {
       setSaving(false);
     }
   };
+
+  
+  const renderOverviewControlsContent = () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Top Presets & Counter */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "10px",
+          padding: "12px 16px",
+          background: "#f0f7ff",
+          borderRadius: "12px",
+          border: "1px solid #bfdbfe",
+        }}
+      >
+        <div>
+          <span style={{ fontSize: "14px", fontWeight: "800", color: "#1e3a8a", display: "inline-block", marginRight: "8px" }}>
+            Active Sections:
+          </span>
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: "700",
+              background: "#2563eb",
+              color: "#ffffff",
+              padding: "3px 10px",
+              borderRadius: "12px",
+            }}
+          >
+            {enabledOverviewCount} of 19 Enabled
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="JobRoleManagement-btn-outline"
+            onClick={() => toggleAllOverviewSections(true)}
+            style={{ padding: "4px 10px", fontSize: "11.5px", borderColor: "#3b82f6", color: "#2563eb", background: "#ffffff" }}
+          >
+            Select All 19
+          </button>
+          <button
+            type="button"
+            className="JobRoleManagement-btn-secondary"
+            onClick={() => toggleAllOverviewSections(false)}
+            style={{ padding: "4px 10px", fontSize: "11.5px" }}
+          >
+            Clear All
+          </button>
+          <button
+            type="button"
+            className="JobRoleManagement-btn-outline"
+            onClick={() => applyOverviewPreset("core")}
+            style={{ padding: "4px 10px", fontSize: "11.5px" }}
+          >
+            Core HR
+          </button>
+          <button
+            type="button"
+            className="JobRoleManagement-btn-outline"
+            onClick={() => applyOverviewPreset("workforce")}
+            style={{ padding: "4px 10px", fontSize: "11.5px" }}
+          >
+            Workforce
+          </button>
+          <button
+            type="button"
+            className="JobRoleManagement-btn-outline"
+            onClick={() => applyOverviewPreset("operations")}
+            style={{ padding: "4px 10px", fontSize: "11.5px" }}
+          >
+            Operations
+          </button>
+        </div>
+      </div>
+
+      {/* 4 Groups of Sections: PEOPLE, WORK, CLIENTS, INSIGHTS */}
+      {[
+        { id: "people", label: "PEOPLE — Workforce Overview", color: "#2563eb" },
+        { id: "work", label: "WORK — Tasks and Teams", color: "#16a34a" },
+        { id: "clients", label: "CLIENTS — Accounts and Delivery", color: "#7c3aed" },
+        { id: "insights", label: "INSIGHTS — Analytics & Visibility", color: "#d97706" },
+      ].map((grp) => {
+        const groupSections = DASHBOARD_OVERVIEW_SECTIONS.filter((s) => s.group === grp.id);
+        const groupActiveCount = groupSections.filter((s) => Boolean(dashboardOverviewConfig[s.key])).length;
+        return (
+          <div key={grp.id} style={{ background: "#ffffff", padding: "14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "10px",
+                paddingBottom: "6px",
+                borderBottom: "1px solid #f1f5f9",
+              }}
+            >
+              <span style={{ fontSize: "12.5px", fontWeight: "800", color: grp.color, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                {grp.label} ({groupActiveCount}/{groupSections.length})
+              </span>
+              <button
+                type="button"
+                className="JobRoleManagement-btn-outline"
+                style={{ padding: "2px 8px", fontSize: "11px" }}
+                onClick={() => toggleGroupOverviewSections(grp.id)}
+              >
+                {groupActiveCount === groupSections.length ? "Deselect Group" : "Select Group"}
+              </button>
+            </div>
+
+            <Grid container spacing={1.2}>
+              {groupSections.map((sec) => {
+                const isEnabled = Boolean(dashboardOverviewConfig[sec.key]);
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={sec.key}>
+                    <div
+                      onClick={() => toggleOverviewSection(sec.key)}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: "8px",
+                        border: `1.5px solid ${isEnabled ? "#3b82f6" : "#e2e8f0"}`,
+                        background: isEnabled ? "#f0f7ff" : "#ffffff",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        onChange={() => {}}
+                        style={{ marginTop: "3px", cursor: "pointer", accentColor: "#2563eb", width: "16px", height: "16px" }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "13px", fontWeight: "700", color: isEnabled ? "#1e293b" : "#64748b" }}>
+                            {sec.title}
+                          </span>
+                          {sec.isSensitive && (
+                            <span style={{ fontSize: "10px", background: "#fef3c7", color: "#b45309", padding: "1px 5px", borderRadius: "4px", fontWeight: 700 }}>
+                              Protected
+                            </span>
+                          )}
+                          <span style={{ fontSize: "10px", background: isEnabled ? "#dcfce7" : "#f1f5f9", color: isEnabled ? "#15803d" : "#94a3b8", padding: "1px 6px", borderRadius: "10px", fontWeight: 700, marginLeft: "auto" }}>
+                            {isEnabled ? "ON" : "OFF"}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: "11px", color: "#64748b", margin: "2px 0 0", lineHeight: 1.3 }}>
+                          {sec.desc}
+                        </p>
+                      </div>
+                    </div>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const renderAccessPanel = () => {
     if (!selectedCompany) return null;
@@ -536,28 +951,137 @@ export default function CompanyAccessManagement() {
                   <Grid container spacing={1.2}>
                     {routes.map(route => {
                       const selected = selectedPages.includes(route.id);
+                      const isDynamicDashboardOverview = route.id === "dashboard-overview";
                       return (
                         <Grid item xs={12} sm={6} lg={4} key={route.id}>
-                          <button
-                            className="JobRoleManagement-menu-item"
-                            onClick={() => togglePage(route.id)}
+                          <div
                             style={{
-                              border: `1px solid ${selected ? categoryColor : "#e0e0e0"}`,
-                              background: selected ? alpha(categoryColor, 0.08) : "#fff",
+                              border: `1.5px solid ${selected ? (isDynamicDashboardOverview ? "#2563eb" : categoryColor) : "#e0e0e0"}`,
+                              background: selected ? (isDynamicDashboardOverview ? "#eff6ff" : alpha(categoryColor, 0.08)) : "#fff",
+                              borderRadius: "12px",
+                              padding: "10px 12px",
+                              boxShadow: isDynamicDashboardOverview && selected ? "0 4px 14px rgba(37,99,235,0.18)" : "none",
+                              transition: "all 0.2s ease",
                             }}
                           >
-                            <span className="JobRoleManagement-menu-icon">
-                              {selected ? <CheckCircleIcon fontSize="small" /> : <AppsIcon fontSize="small" />}
-                            </span>
-                            <span className="JobRoleManagement-menu-text">
-                              <span className="JobRoleManagement-menu-title">{route.name}</span>
-                              <span className="JobRoleManagement-menu-subtitle">/{route.path}</span>
-                            </span>
-                          </button>
+                            <div
+                              onClick={() => togglePage(route.id)}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "10px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <span className="JobRoleManagement-menu-icon" style={{ color: selected ? (isDynamicDashboardOverview ? "#2563eb" : categoryColor) : "#94a3b8" }}>
+                                {selected ? <CheckCircleIcon fontSize="small" /> : <AppsIcon fontSize="small" />}
+                              </span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: "13px", color: selected ? "#0f172a" : "#475569" }}>
+                                  {route.name}
+                                </div>
+                                <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                                  /{route.path}
+                                </div>
+                              </div>
+                              {isDynamicDashboardOverview && selected && (
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: 700,
+                                    background: "#dbeafe",
+                                    color: "#1d4ed8",
+                                    padding: "2px 8px",
+                                    borderRadius: "12px",
+                                  }}
+                                >
+                                  {enabledOverviewCount}/19
+                                </span>
+                              )}
+                            </div>
+
+                            {isDynamicDashboardOverview && selected && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowOverviewModal(true);
+                                }}
+                                style={{
+                                  marginTop: "8px",
+                                  width: "100%",
+                                  padding: "6px 10px",
+                                  background: "#2563eb",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: "6px",
+                                }}
+                              >
+                                <TuneIcon style={{ fontSize: 14 }} />
+                                ⚙ Overview Controls ({enabledOverviewCount}/19)
+                              </button>
+                            )}
+                          </div>
                         </Grid>
                       );
                     })}
                   </Grid>
+
+                  {category === "main" && isDashboardSelected && (
+                    <div
+                      style={{
+                        marginTop: 16,
+                        padding: "14px 16px",
+                        background: "#f0fdf4",
+                        border: "1px solid #86efac",
+                        borderRadius: "10px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 22 }}>📊</span>
+                        <div>
+                          <strong style={{ color: "#166534", fontSize: "13px" }}>
+                            Dynamic Dashboard Overview Controls Active
+                          </strong>
+                          <p style={{ margin: 0, fontSize: "12px", color: "#15803d" }}>
+                            {enabledOverviewCount} of 19 sections enabled for {selectedCompany?.companyName || "this company"}.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowOverviewModal(true)}
+                        style={{
+                          padding: "6px 14px",
+                          background: "#16a34a",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <TuneIcon style={{ fontSize: 15 }} />
+                        Configure Overview Sections
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -642,6 +1166,77 @@ export default function CompanyAccessManagement() {
             );
           })}
         </Stack>
+
+        {/* Focused Dialog Modal for Overview Controls */}
+        <Dialog
+          open={showOverviewModal}
+          onClose={() => setShowOverviewModal(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: "16px",
+              overflow: "hidden",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              m: 0,
+              p: 2,
+              background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "10px",
+                  background: "#3b82f6",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <TuneIcon fontSize="small" />
+              </Box>
+              <Box>
+                <Typography variant="h6" sx={{ fontSize: "16px", fontWeight: 800, color: "#ffffff", m: 0 }}>
+                  Dashboard Overview Controls
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#94a3b8" }}>
+                  {selectedCompany?.companyName || "Company"} — Configure enabled overview sections & graphs
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton onClick={() => setShowOverviewModal(false)} sx={{ color: "#94a3b8", "&:hover": { color: "#ffffff" } }}>
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+
+          <DialogContent dividers sx={{ p: 2.5, background: "#f8fafc" }}>
+            {renderOverviewControlsContent()}
+          </DialogContent>
+
+          <DialogActions sx={{ p: 2, background: "#ffffff", borderTop: "1px solid #e2e8f0", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "12px", color: "#64748b" }}>
+              {enabledOverviewCount} of 19 sections currently selected.
+            </span>
+            <Button
+              variant="contained"
+              onClick={() => setShowOverviewModal(false)}
+              sx={{ textTransform: "none", fontWeight: 700, background: "#2563eb", px: 3 }}
+            >
+              Done / Apply
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, borderRadius: 24 }}>
           <button className="JobRoleManagement-btn-primary" onClick={saveAccess} disabled={saving}>

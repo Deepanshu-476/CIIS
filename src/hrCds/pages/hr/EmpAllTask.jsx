@@ -215,6 +215,102 @@ const isUserInBranch = (user, branchId) => {
   return getUserBranchIds(user).includes(String(branchId));
 };
 
+const cleanActivityDescription = (desc, action) => {
+  if (!desc) {
+    if (!action) return "Activity logged";
+    const formattedAction = String(action).replace(/_/g, " ").replace(/-/g, " ");
+    return formattedAction.charAt(0).toUpperCase() + formattedAction.slice(1);
+  }
+  let text = String(desc);
+  text = text.replace(/"in_progress"/gi, '"In Progress"');
+  text = text.replace(/"in-progress"/gi, '"In Progress"');
+  text = text.replace(/"onhold"/gi, '"On Hold"');
+  text = text.replace(/"completed"/gi, '"Completed"');
+  text = text.replace(/"pending"/gi, '"Pending"');
+  return text;
+};
+
+const getActivityMeta = (log) => {
+  const action = String(log?.action || log?.type || "").toLowerCase();
+  const desc = String(log?.description || log?.text || log?.message || log?.details || "").toLowerCase();
+  const newS = String(log?.newValues?.status || "").toLowerCase();
+
+  if (newS === "completed" || desc.includes("to completed") || action.includes("complete")) {
+    return {
+      type: "completed",
+      label: "Completed",
+      icon: <FiCheckCircle size={14} />,
+      color: "#16a34a",
+      bg: "#dcfce7",
+      border: "#86efac"
+    };
+  }
+
+  if (newS === "onhold" || newS === "on-hold" || desc.includes("hold") || action.includes("hold")) {
+    return {
+      type: "onhold",
+      label: "On Hold",
+      icon: <FiPause size={13} />,
+      color: "#9333ea",
+      bg: "#f3e8ff",
+      border: "#d8b4fe"
+    };
+  }
+
+  if (newS === "in-progress" || newS === "inprogress" || desc.includes("progress") || action.includes("start") || action.includes("progress")) {
+    return {
+      type: "progress",
+      label: "In Progress",
+      icon: <FiPlay size={13} />,
+      color: "#0284c7",
+      bg: "#e0f2fe",
+      border: "#7dd3fc"
+    };
+  }
+
+  if (action.includes("create") || desc.includes("created")) {
+    return {
+      type: "created",
+      label: "Created",
+      icon: <FiPlus size={14} />,
+      color: "#059669",
+      bg: "#ecfdf5",
+      border: "#a7f3d0"
+    };
+  }
+
+  if (action.includes("timer") || desc.includes("time") || desc.includes("session")) {
+    return {
+      type: "timer",
+      label: "Timer Session",
+      icon: <FiClock size={13} />,
+      color: "#d97706",
+      bg: "#fef3c7",
+      border: "#fde68a"
+    };
+  }
+
+  if (action.includes("assign") || desc.includes("assigned")) {
+    return {
+      type: "assign",
+      label: "Assignment",
+      icon: <FiUser size={13} />,
+      color: "#4f46e5",
+      bg: "#e0e7ff",
+      border: "#c7d2fe"
+    };
+  }
+
+  return {
+    type: "default",
+    label: "Update",
+    icon: <FiCheckCircle size={13} />,
+    color: "#6b7280",
+    bg: "#f3f4f6",
+    border: "#e5e7eb"
+  };
+};
+
 const getRoleText = value => {
   if (!value) return '';
   if (typeof value === 'string') {

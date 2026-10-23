@@ -259,17 +259,40 @@ const Login = () => {
 
       const companyRole = String(res.data.user?.companyRole || '').toLowerCase();
       const userRole = String(res.data.user?.role || '').toLowerCase();
+      const companyAllowed = Array.isArray(companyDetails?.allowedPages) ? companyDetails.allowedPages : [];
       let redirectPath = '/ciisUser/user-dashboard';
+
+      if (res.data.redirectTo) {
+        redirectPath = res.data.redirectTo;
+      } else if (res.data.user?.assignedDashboard) {
+        redirectPath = res.data.user.assignedDashboard;
+      } else if (companyAllowed.includes('dashboard-overview') && !companyAllowed.includes('user-dashboard')) {
+        redirectPath = '/ciisUser/dashboard-overview';
+      }
+
+      // Check sidebar config dynamically right at login
+      try {
+        const sidebarRes = await axios.get('/sidebar/config');
+        if (sidebarRes.data?.data) {
+          localStorage.setItem('sidebarConfig', JSON.stringify(sidebarRes.data.data));
+          const items = Array.isArray(sidebarRes.data.data.menuItems) ? sidebarRes.data.data.menuItems : [];
+          const hasOverview = items.some(item => {
+            const id = String(item?.id || '').toLowerCase();
+            const p = String(item?.path || '').toLowerCase();
+            return id === 'dashboard-overview' || p.includes('dashboard-overview');
+          });
+          if (hasOverview && companyRole !== 'client' && userRole !== 'admin') {
+            redirectPath = '/ciisUser/dashboard-overview';
+          }
+        }
+      } catch (_) {}
 
       if (companyRole === 'client') {
         redirectPath = '/client/dashboard';
-      } else if (res.data.redirectTo) {
-        redirectPath = res.data.redirectTo;
       } else if (userRole === 'admin') {
         redirectPath = '/admin/dashboard';
       }
 
-      void 0;
       navigate(redirectPath);
       
     } catch (err) {
@@ -406,12 +429,36 @@ const Login = () => {
         
         const companyRole = String(response.data.user?.companyRole || '').toLowerCase();
         const userRole = String(response.data.user?.role || '').toLowerCase();
+        const companyAllowed = Array.isArray(companyDetails?.allowedPages) ? companyDetails.allowedPages : [];
         let redirectPath = '/ciisUser/user-dashboard';
+
+        if (response.data.redirectTo) {
+          redirectPath = response.data.redirectTo;
+        } else if (response.data.user?.assignedDashboard) {
+          redirectPath = response.data.user.assignedDashboard;
+        } else if (companyAllowed.includes('dashboard-overview') && !companyAllowed.includes('user-dashboard')) {
+          redirectPath = '/ciisUser/dashboard-overview';
+        }
+
+        // Check sidebar config dynamically right at login
+        try {
+          const sidebarRes = await axios.get('/sidebar/config');
+          if (sidebarRes.data?.data) {
+            localStorage.setItem('sidebarConfig', JSON.stringify(sidebarRes.data.data));
+            const items = Array.isArray(sidebarRes.data.data.menuItems) ? sidebarRes.data.data.menuItems : [];
+            const hasOverview = items.some(item => {
+              const id = String(item?.id || '').toLowerCase();
+              const p = String(item?.path || '').toLowerCase();
+              return id === 'dashboard-overview' || p.includes('dashboard-overview');
+            });
+            if (hasOverview && companyRole !== 'client' && userRole !== 'admin') {
+              redirectPath = '/ciisUser/dashboard-overview';
+            }
+          }
+        } catch (_) {}
 
         if (companyRole === 'client') {
           redirectPath = '/client/dashboard';
-        } else if (response.data.redirectTo) {
-          redirectPath = response.data.redirectTo;
         } else if (userRole === 'admin') {
           redirectPath = '/admin/dashboard';
         }

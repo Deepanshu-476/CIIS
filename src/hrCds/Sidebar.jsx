@@ -1526,6 +1526,8 @@ const allPagesItems = [
 const getPathFromName = (name) => {
   const pathMap = {
     'Dashboard': '/ciisUser/user-dashboard',
+    'Dynamic Dashboard Overview': '/ciisUser/dashboard-overview',
+    'dashboard-overview': '/ciisUser/dashboard-overview',
     'My Attendance': '/ciisUser/attendance',
     'Attendance': '/ciisUser/attendance',
     'My Leaves': '/ciisUser/my-leaves',
@@ -3081,7 +3083,9 @@ const Sidebar = ({
     if (!isClientUser && !items.some(item => (
       String(item?.id || '').toLowerCase() === 'dashboard' ||
       String(item?.id || '').toLowerCase() === 'user-dashboard' ||
-      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard'
+      String(item?.id || '').toLowerCase() === 'dashboard-overview' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/dashboard-overview'
     ))) {
       items = [{ ...fixedDefaultItems[0], order: 1 }, ...items];
     }

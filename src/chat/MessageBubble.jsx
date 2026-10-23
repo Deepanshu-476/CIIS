@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
 import { API_URL_IMG, CHAT_UPLOAD_ORIGINS } from "../config";
 import { mentionSegments } from "./mentionUtils";
+import { taskEventText } from "./taskEventText";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
@@ -175,7 +176,7 @@ const MessageBubble = ({
             sender: message.replyTo.sender?.name || "User",
             text: message.replyTo.deletedForEveryone
                 ? "This message was deleted"
-                : message.replyTo.text || message.replyTo.file?.split(/[\\/]/).pop() || "Attachment",
+                : taskEventText(message.replyTo) || message.replyTo.file?.split(/[\\/]/).pop() || "Attachment",
         }
         : legacyReplyMeta;
     const displayMessageText = (encodedReplyMatch

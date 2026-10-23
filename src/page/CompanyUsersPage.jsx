@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -10,18 +10,6 @@ const getId = value => {
   if (!value) return "";
   if (typeof value === "object") return value._id || value.id || "";
   return String(value);
-};
-
-const extractList = data => {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.users)) return data.users;
-  if (Array.isArray(data?.departments)) return data.departments;
-  if (Array.isArray(data?.jobRoles)) return data.jobRoles;
-  if (Array.isArray(data?.roles)) return data.roles;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.message)) return data.message;
-  if (Array.isArray(data?.message?.data)) return data.message.data;
-  return [];
 };
 
 const formatDate = value => {
@@ -74,11 +62,13 @@ const CompanyUsersPage = () => {
   const { companyId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [users, setUsers] = useState([]);
-  const [departmentNamesById, setDepartmentNamesById] = useState({});
-  const [jobRoleNamesById, setJobRoleNamesById] = useState({});
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, admins: 0 });
   const [searchTerm, setSearchTerm] = useState("");
+  const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -89,135 +79,65 @@ const CompanyUsersPage = () => {
     Authorization: `Bearer ${localStorage.getItem("token")}`,
   });
 
-  const looksLikeObjectId = value => typeof value === "string" && /^[0-9a-fA-F]{24}$/.test(value);
-
-  const getUserDepartment = user => {
-    if (user?.departmentName || user?.deptName) return user.departmentName || user.deptName;
-    const department = user?.department || user?.departmentId || user?.deptId;
-    if (department && typeof department === "object") {
-      const departmentId = getId(department);
-      return department.name || department.departmentName || department.title || departmentNamesById[departmentId] || "Not assigned";
-    }
-    const departmentId = getId(department);
-    if (departmentNamesById[departmentId]) return departmentNamesById[departmentId];
-    return looksLikeObjectId(departmentId) ? "Not assigned" : departmentId || "Not assigned";
-  };
-
-  const getUserJobRole = user => {
-    if (user?.jobRoleName || user?.companyRoleName || user?.designationName) {
-      return user.jobRoleName || user.companyRoleName || user.designationName;
-    }
-
-    const jobRole = user?.jobRole || user?.jobRoleId || user?.companyRole || user?.designation || user?.employeeType;
-    if (jobRole && typeof jobRole === "object") {
-      const jobRoleId = getId(jobRole);
-      return jobRole.name || jobRole.title || jobRole.roleName || jobRoleNamesById[jobRoleId] || "N/A";
-    }
-    const jobRoleId = getId(jobRole);
-    if (jobRoleNamesById[jobRoleId]) return jobRoleNamesById[jobRoleId];
-    return looksLikeObjectId(jobRoleId) ? "N/A" : jobRoleId || "N/A";
-  };
-
-  const getUserRole = user => user?.role || user?.userRole || "User";
+  // Department and job role names come resolved from the server.
+  const getUserDepartment = user => user?.departmentName || "Not assigned";
+  const getUserJobRole = user => user?.jobRoleName || "N/A";
   const getUserPhone = user => user?.mobile || user?.phone || user?.contact || user?.contactNumber || user?.phoneNumber || "N/A";
 
   const getStatus = user => (user?.isActive === false ? { label: "Inactive", tone: "danger" } : { label: "Active", tone: "success" });
 
-  const fetchPageData = async () => {
-    try {
-      setLoading(true);
-      const headers = getAuthHeaders();
-      const [companyRes, usersRes, departmentsRes, jobRolesRes] = await Promise.allSettled([
-        axios.get(`${API_URL}/company/${companyId}`, { headers }),
-        axios.get(`${API_URL}/superAdmin/users`, { headers }),
-        axios.get(`${API_URL}/departments`, { headers, params: { company: companyId } }),
-        axios.get(`${API_URL}/job-roles`, { headers, params: { company: companyId } }),
-      ]);
-
-      if (companyRes.status === "fulfilled") {
-        setCompany(companyRes.value.data?.company || companyRes.value.data);
-      }
-
-      const departments = departmentsRes.status === "fulfilled" ? extractList(departmentsRes.value.data) : [];
-      const jobRoles = jobRolesRes.status === "fulfilled" ? extractList(jobRolesRes.value.data) : [];
-
-      const departmentMap = {};
-      departments.forEach(department => {
-        const id = department?._id || department?.id;
-        const name = department?.name || department?.departmentName || department?.title;
-        if (id && name) departmentMap[id] = name;
-      });
-
-      const jobRoleMap = {};
-      jobRoles.forEach(jobRole => {
-        const id = jobRole?._id || jobRole?.id;
-        const name = jobRole?.name || jobRole?.jobRoleName || jobRole?.roleName || jobRole?.title;
-        if (id && name) jobRoleMap[id] = name;
-      });
-
-      setDepartmentNamesById(departmentMap);
-      setJobRoleNamesById(jobRoleMap);
-
-      const allUsers = usersRes.status === "fulfilled" ? extractList(usersRes.value.data) : [];
-      setUsers(allUsers.filter(user => String(getId(user.company || user.companyId)) === String(companyId)));
-    } catch (error) {
-      console.error("Failed to load company users:", error);
-      toast.error(error.response?.data?.message || "Failed to load company users");
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchPageData();
+    axios.get(`${API_URL}/company/${companyId}`, { headers: getAuthHeaders() })
+      .then(res => setCompany(res.data?.company || res.data))
+      .catch(() => {});
   }, [companyId]);
+
+  // Typing waits a moment before asking the server.
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(searchTerm.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter, pageSize]);
+  }, [query, statusFilter, pageSize]);
 
-  const filteredUsers = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    const next = users.filter(user => {
-      const status = getStatus(user);
-      const matchesSearch =
-        !term ||
-        [
-          user?.name,
-          user?.email,
-          getUserDepartment(user),
-          getUserJobRole(user),
-          getUserRole(user),
-          getUserPhone(user),
-          user?.employeeId,
-          user?.empId,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(term);
+  // One page of this company's users from the server. The old page loaded /superAdmin/users, which
+  // stops at 50 users across every company, and filtered here.
+  useEffect(() => {
+    let active = true;
+    setListLoading(true);
+    const params = { page, limit: pageSize, ...(query ? { search: query } : {}), ...(statusFilter !== "all" ? { status: statusFilter } : {}) };
+    axios.get(`${API_URL}/superAdmin/company/${companyId}/users`, { headers: getAuthHeaders(), params })
+      .then(res => {
+        if (!active) return;
+        setUsers(res.data?.items || []);
+        setTotal(res.data?.total || 0);
+        if (res.data?.stats) setStats(res.data.stats);
+      })
+      .catch(error => {
+        if (!active) return;
+        console.error("Failed to load company users:", error);
+        toast.error(error.response?.data?.error || error.response?.data?.message || "Failed to load company users");
+        setUsers([]);
+        setTotal(0);
+      })
+      .finally(() => {
+        if (!active) return;
+        setListLoading(false);
+        setLoading(false);
+      });
+    return () => { active = false; };
+  }, [companyId, page, pageSize, query, statusFilter]);
 
-      let matchesStatus = true;
-      if (statusFilter === "active") matchesStatus = user?.isActive !== false;
-      if (statusFilter === "inactive") matchesStatus = user?.isActive === false;
-      if (statusFilter === "all") matchesStatus = true;
-
-      return matchesSearch && matchesStatus;
-    });
-
-    next.sort((first, second) => String(first?.name || "").localeCompare(String(second?.name || "")));
-    return next;
-  }, [users, searchTerm, statusFilter, departmentNamesById, jobRoleNamesById]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const startItem = filteredUsers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endItem = Math.min(filteredUsers.length, currentPage * pageSize);
-  const activeCount = users.filter(user => user?.isActive !== false).length;
-  const inactiveCount = users.length - activeCount;
-  const adminCount = users.filter(user => String(getUserRole(user)).toLowerCase() === "admin" || String(getUserRole(user)).toLowerCase() === "super_admin" || String(getUserRole(user)).toLowerCase() === "super-admin").length;
+  const paginatedUsers = users;
+  const startItem = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(total, currentPage * pageSize);
+  const activeCount = stats.active;
+  const inactiveCount = stats.inactive;
+  const adminCount = stats.admins;
 
   const handleCopy = async value => {
     try {
@@ -261,10 +181,10 @@ const CompanyUsersPage = () => {
                 <span>•</span>
                 <span>{company?.subscriptionPlan || company?.selectedPlan?.name || "Plan not set"}</span>
                 <span>•</span>
-                <span>{getUserCountLabel(users.length)}</span>
+                <span>{getUserCountLabel(stats.total)}</span>
               </p>
               <p className="AllCompany-company-hero-submeta">
-                <span><span className="material-icons">groups</span>{users.length} users</span>
+                <span><span className="material-icons">groups</span>{stats.total} users</span>
                 <span>•</span>
                 <span>Joined on {formatDate(company?.createdAt)}</span>
               </p>
@@ -274,7 +194,7 @@ const CompanyUsersPage = () => {
           <div className="AllCompany-company-hero-stats">
             <div className="AllCompany-mini-stat">
               <span className="material-icons">groups</span>
-              <strong>{users.length}</strong>
+              <strong>{stats.total}</strong>
               <span>Total Users</span>
             </div>
             <div className="AllCompany-mini-stat">
@@ -344,7 +264,15 @@ const CompanyUsersPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedUsers.length > 0 ? (
+                {listLoading && paginatedUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="AllCompany-empty-state">
+                        <strong>Loading users…</strong>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginatedUsers.length > 0 ? (
                   paginatedUsers.map(user => {
                     const userId = getId(user);
                     const status = getStatus(user);
@@ -429,7 +357,7 @@ const CompanyUsersPage = () => {
 
           <div className="AllCompany-footer">
             <p>
-              Showing {startItem} to {endItem} of {filteredUsers.length} users
+              Showing {startItem} to {endItem} of {total} users
             </p>
 
             <div className="AllCompany-pagination">

@@ -27,7 +27,6 @@ import {
   getTaskStatus,
   getTaskTitle,
 } from '../utils/clientPortalData';
-import PageBranchDropdown, { usePageBranchScope } from '../components/PageBranchDropdown';
 import './ActiveClientsOverview.css';
 
 const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -270,12 +269,6 @@ const normalizeTaskStats = (tasks, apiStats = null) => {
 };
 
 const ActiveClientsOverview = () => {
-  const {
-    branchOptions,
-    selectedBranchId,
-    setSelectedBranchId,
-    branchQueryParams
-  } = usePageBranchScope();
   const [clients, setClients] = useState([]);
   const [clientTaskMap, setClientTaskMap] = useState({});
   const [clientStatsMap, setClientStatsMap] = useState({});
@@ -328,19 +321,7 @@ const ActiveClientsOverview = () => {
     return code;
   };
 
-  const activeClients = useMemo(() => {
-    const activeOnly = clients.filter(client => String(client.status || 'Active').toLowerCase() === 'active');
-    const seen = new Map();
-    activeOnly.forEach(client => {
-      const normKey = String(
-        client.company || client.businessName || client.client || client._id || ''
-      ).trim().toLowerCase().replace(/\s+/g, ' ');
-      if (!seen.has(normKey)) {
-        seen.set(normKey, client);
-      }
-    });
-    return Array.from(seen.values());
-  }, [clients]);
+  const activeClients = useMemo(() => clients, [clients]);
 
   const enrichedClients = useMemo(() => (
     activeClients.map(client => {
@@ -490,25 +471,24 @@ const ActiveClientsOverview = () => {
   };
 
   const fetchActiveClients = async companyCode => {
-    const firstResponse = await clientsApi.get('/', {
-      params: {
-        companyCode,
-        status: 'Active',
-        limit: ACTIVE_CLIENTS_PAGE_SIZE,
-        page: 1,
-        sortBy: 'client',
-        sortOrder: 'asc',
-        ...branchQueryParams,
-      },
-    });
-
-    const firstPageClients = firstResponse.data?.data || [];
-    const pagination = firstResponse.data?.pagination || {};
-
-    return {
-      clients: firstPageClients,
-      pagination,
+    const params = {
+      companyCode,
+      limit: ACTIVE_CLIENTS_PAGE_SIZE,
+      sortBy: 'client',
+      sortOrder: 'asc',
     };
+    const firstResponse = await clientsApi.get('/', { params: { ...params, page: 1 } });
+    const pagination = firstResponse.data?.pagination || {};
+    const allClients = [...(firstResponse.data?.data || [])];
+    const totalPages = Number(pagination.totalPages ||
+      Math.ceil(Number(pagination.totalItems || pagination.total || 0) / ACTIVE_CLIENTS_PAGE_SIZE) || 1);
+    const pages = await mapWithConcurrency(
+      Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => index + 2),
+      RELATED_FETCH_CONCURRENCY,
+      page => clientsApi.get('/', { params: { ...params, page } })
+    );
+    pages.forEach(response => allClients.push(...(response.data?.data || [])));
+    return { clients: allClients, pagination };
   };
 
   const fetchClientTasks = async client => {
@@ -833,17 +813,7 @@ const ActiveClientsOverview = () => {
       }
 
       const { clients: loadedClients } = await fetchActiveClients(companyCode);
-      const activeRaw = loadedClients.filter(client => String(client.status || 'Active').toLowerCase() === 'active');
-      const seenActive = new Map();
-      activeRaw.forEach(client => {
-        const normKey = String(
-          client.company || client.businessName || client.client || client._id || ''
-        ).trim().toLowerCase().replace(/\s+/g, ' ');
-        if (!seenActive.has(normKey)) {
-          seenActive.set(normKey, client);
-        }
-      });
-      const active = Array.from(seenActive.values());
+      const active = loadedClients;
 
       let bulkStatsMap = {};
       if (active.length > 0) {
@@ -891,7 +861,7 @@ const ActiveClientsOverview = () => {
 
   useEffect(() => {
     loadData();
-  }, [branchQueryParams.branchId]);
+  }, []);
 
   useEffect(() => {
     const clientObj = selectedClient?.client;
@@ -935,11 +905,7 @@ const ActiveClientsOverview = () => {
 
   return (
     <section className="ActiveClientsOverview-page">
-      <PageBranchDropdown
-        branchOptions={branchOptions}
-        selectedBranchId={selectedBranchId}
-        onChange={setSelectedBranchId}
-      />
+
 
       {error && (
         <div className="ActiveClientsOverview-alert">
@@ -954,14 +920,14 @@ const ActiveClientsOverview = () => {
           <aside className="ActiveClientsOverview-clientList">
             <div className="ActiveClientsOverview-listTitle">
               <span><FiUsers /></span>
-              <strong>Active Clients ({activeClients.length})</strong>
+              <strong>All Clients ({activeClients.length})</strong>
             </div>
 
             <div className="ActiveClientsOverview-clientRows">
               {filteredClients.length === 0 ? (
                 <div className="ActiveClientsOverview-empty ActiveClientsOverview-listEmpty">
                   <FiBriefcase />
-                  <h2>No active clients found</h2>
+                  <h2>No clients found</h2>
                   <p>Active clients will appear here once they are added in client management.</p>
                 </div>
               ) : filteredClients.map(({ client }) => {
@@ -1241,7 +1207,7 @@ const ActiveClientsOverview = () => {
             ) : (
               <div className="ActiveClientsOverview-empty">
                 <FiBriefcase />
-                <h2>No active clients found</h2>
+                <h2>No clients found</h2>
                 <p>Active clients will appear here once they are added in client management.</p>
               </div>
             )}

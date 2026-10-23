@@ -335,3 +335,11 @@ export const markStatusViewed = async statusId =>
 
 export const deleteStatus = async statusId =>
     axios.delete(`${API}/statuses/${statusId}`, authConfig());
+
+export const openProjectConversation = projectId => axios.post(`${API}/conversation/group`, { projectId }, { headers: { Authorization: `Bearer ${getToken()}` } });
+export const getProjectChatTask = (projectId, taskId) => axios.get(`${API}/project-task/${projectId}/${taskId}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+export const addProjectChatRemark = (projectId, taskId, text, mentions, requestId) => axios.post(`${API_URL}/projects/${projectId}/tasks/${taskId}/remarks`, { text, mentions }, { headers: { Authorization: `Bearer ${getToken()}`, "Idempotency-Key": requestId } });
+
+export const openClientConversation = clientId => axios.post(`${API}/conversation/group`, { clientId }, { headers: { Authorization: `Bearer ${getToken()}` } });
+export const getClientChatTask = (clientId, taskId) => axios.get(`${API}/client-task/${clientId}/${taskId}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+export const addClientChatRemark = (clientId, taskId, text, mentions, requestId) => axios.post(`${API}/client-task/${clientId}/${taskId}/remarks`, { text, mentions }, { headers: { Authorization: `Bearer ${getToken()}`, 'Idempotency-Key': requestId } });

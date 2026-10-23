@@ -938,7 +938,7 @@ const CreateUser = () => {
                   )}
                 </div>
                 <small className="CreateUser-helper-text">
-                  Dropdown se branches select karo. Primary branch auto include hogi.
+                  Select branches from the dropdown. The primary branch is included automatically.
                 </small>
               </div> */}
 

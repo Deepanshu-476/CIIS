@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, sanitizeUserForStorage, clearAuthStorageCaches } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import { lockBackgroundScroll, unlockBackgroundScroll } from '../../utils/scrollLock';
 import './LoginModal.css';
@@ -23,6 +23,7 @@ export const closeLoginModal = () => {
 };
 
 const clearPreviousLoginStorage = () => {
+  clearAuthStorageCaches();
   [
     'token',
     'user',
@@ -252,6 +253,9 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
     } catch (err) {
       console.error('Login error:', err);
       let errorMsg = 'Login failed. Please verify your credentials.';
+      if (err.name === 'QuotaExceededError') {
+        errorMsg = 'Login verified, but browser storage is full. Clear site storage and try again.';
+      }
 
       if (err.response?.data) {
         const { errorCode, message } = err.response.data;
@@ -300,13 +304,14 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
     }
 
     if (data.user) {
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser?.(data.user);
+      const storedUser = sanitizeUserForStorage(data.user);
+      localStorage.setItem('user', JSON.stringify(storedUser));
+      setUser?.(storedUser);
       setIsAuthenticated?.(true);
     }
 
     if (data.client) {
-      localStorage.setItem('client', JSON.stringify(data.client));
+      localStorage.setItem('client', JSON.stringify(sanitizeUserForStorage(data.client)));
       const clientId = String(data.client._id || data.client.id || data.client.clientId || '');
       if (clientId) {
         localStorage.setItem('client_portal_selected_client_id', clientId);
@@ -319,7 +324,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
     }
 
     if (data.companyDetails) {
-      localStorage.setItem('companyDetails', JSON.stringify(data.companyDetails));
+      localStorage.setItem('companyDetails', JSON.stringify(sanitizeUserForStorage(data.companyDetails)));
     }
 
     toast.success('Login successful!');

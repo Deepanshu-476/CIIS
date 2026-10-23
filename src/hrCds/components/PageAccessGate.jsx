@@ -245,7 +245,7 @@ export const isKnownAppRoute = (pathname = "") => {
   return false;
 };
 
-const hasCompanyPlanAccess = pagePath => {
+export const hasCompanyPlanAccess = pagePath => {
   try {
     const company = JSON.parse(localStorage.getItem('companyDetails') || '{}');
     const allowed = company?.allowedPages || [];

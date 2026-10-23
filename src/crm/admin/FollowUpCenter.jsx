@@ -14,6 +14,7 @@ import {
   FiUser
 } from 'react-icons/fi';
 import axiosInstance from '../../utils/axiosConfig';
+import useCrmPagedList, { optionNames, pageWindow } from '../hooks/useCrmPagedList';
 import './FollowUpCenter.css';
 
 const IST_TIME_ZONE = 'Asia/Kolkata';
@@ -44,64 +45,38 @@ const formatInIst = value => {
   });
 };
 
+const mapFollowUp = (item, idx) => {
+  const today = dateKeyInIst(new Date());
+  const tomorrow = dateKeyInIst(new Date(Date.now() + 86400000));
+  const dueKey = dateKeyInIst(item.date);
+  const completed = ['done', 'completed'].includes(String(item.status).toLowerCase());
+  return {
+    id: item._id || idx + 1,
+    department: 'Telecaller',
+    type: [item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Call'],
+    leadId: `#LD-${String(item.lead?._id || item._id).slice(-3)}`,
+    institute: item.lead?.name || 'Lead',
+    phone: item.lead?.phone || '—',
+    assignedTo: item.agent?.name || 'Telecaller',
+    assignedRole: 'Telecaller',
+    dueDate: formatInIst(item.date),
+    dueKey,
+    dueRelative: dueKey === today ? 'Today' : dueKey === tomorrow ? 'Tomorrow' : dueKey < today ? 'Overdue' : 'Upcoming',
+    status: completed ? 'Completed' : (dueKey < today ? 'Overdue' : 'Pending'),
+    priority: item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : 'Medium'
+  };
+};
+
+const SCHEDULE_PARAM = { 'All Pending': 'pending', Overdue: 'overdue', Today: 'today', Tomorrow: 'tomorrow', Upcoming: 'later', Completed: 'completed' };
+
 export default function FollowUpCenter() {
-  const [followups, setFollowups] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
-    const fetchFollowups = async () => {
-      setLoading(true);
-      setLoadError('');
-      try {
-        const [res, teamRes] = await Promise.allSettled([
-          axiosInstance.get('/crm/admin/calls/follow-ups', { _skipErrorNotify: true }),
-          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
-        ]);
-        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
-          const today = dateKeyInIst(new Date());
-          const tomorrow = dateKeyInIst(new Date(Date.now() + 86400000));
-          const items = res.value.data.items.map((item, idx) => {
-            const dueKey = dateKeyInIst(item.date);
-            const completed = ['done', 'completed'].includes(String(item.status).toLowerCase());
-            return {
-              id: item._id || idx + 1,
-              department: 'Telecaller',
-              type: [item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Call'],
-              leadId: `#LD-${String(item.lead?._id || item._id).slice(-3)}`,
-              institute: item.lead?.name || 'Lead',
-              phone: item.lead?.phone || '—',
-              assignedTo: item.agent?.name || 'Telecaller',
-              assignedRole: 'Telecaller',
-              dueDate: formatInIst(item.date),
-              dueKey,
-              dueRelative: dueKey === today ? 'Today' : dueKey === tomorrow ? 'Tomorrow' : dueKey < today ? 'Overdue' : 'Upcoming',
-              status: completed ? 'Completed' : (dueKey < today ? 'Overdue' : 'Pending'),
-              priority: item.priority ? item.priority.charAt(0).toUpperCase() + item.priority.slice(1) : 'Medium'
-            };
-          });
-          setFollowups(items);
-        } else if (isMounted) {
-          setFollowups([]);
-          setLoadError(res.status === 'rejected'
-            ? (res.reason?.response?.data?.message || 'Could not load follow-ups. Please retry.')
-            : 'The follow-up service returned an invalid response.');
-        }
-        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
-          setTeamUsers(teamRes.value.data.users);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setFollowups([]);
-          setLoadError(err.response?.data?.message || 'Could not load follow-ups. Please retry.');
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    fetchFollowups();
+    axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+      .then(res => { if (isMounted && Array.isArray(res.data?.users)) setTeamUsers(res.data.users); })
+      .catch(() => {});
     return () => { isMounted = false; };
   }, []);
   
@@ -138,74 +113,34 @@ export default function FollowUpCenter() {
     setCurrentPage(1);
   };
 
-  // Filtered List
-  const filteredData = useMemo(() => {
-    return followups.filter((item) => {
-      // Department
-      if (deptFilter !== 'All Departments' && item.department !== deptFilter) {
-        return false;
-      }
-      // Type
-      if (typeFilter !== 'All Types') {
-        const hasType = item.type.some(t => t.toLowerCase() === typeFilter.toLowerCase());
-        if (!hasType) return false;
-      }
-      // Assigned To
-      if (assignedFilter !== 'All Users' && !item.assignedTo.includes(assignedFilter)) {
-        return false;
-      }
-      // Schedule
-      if (scheduleFilter === 'Overdue' && item.status !== 'Overdue') {
-        return false;
-      }
-      if (scheduleFilter === 'Today' && item.dueRelative !== 'Today') {
-        return false;
-      }
-      if (scheduleFilter === 'Tomorrow' && item.dueRelative !== 'Tomorrow') return false;
-      if (scheduleFilter === 'Upcoming' && item.dueRelative !== 'Upcoming') return false;
-      if (scheduleFilter === 'Completed' && item.status !== 'Completed') return false;
-      if (scheduleFilter === 'All Pending' && item.status === 'Completed') return false;
-      if (dateFrom && item.dueKey < dateFrom) return false;
-      if (dateTo && item.dueKey > dateTo) return false;
-      // Search
-      if (searchTerm.trim() !== '') {
-        const query = searchTerm.toLowerCase();
-        const matches =
-          item.leadId.toLowerCase().includes(query) ||
-          item.institute.toLowerCase().includes(query) ||
-          item.phone.toLowerCase().includes(query) ||
-          item.assignedTo.toLowerCase().includes(query) ||
-          item.department.toLowerCase().includes(query);
-        if (!matches) return false;
-      }
-      return true;
-    });
-  }, [followups, deptFilter, typeFilter, assignedFilter, scheduleFilter, dateFrom, dateTo, searchTerm]);
-
-  // Pagination calculation
-  const totalEntries = filteredData.length;
-  const totalPages = Math.ceil(totalEntries / entriesPerPage) || 1;
+  // Server-side filtering and paging; KPI cards cover every follow-up of the company.
+  const { items, total, pages, stats: serverStats, options, loading, error: loadError } = useCrmPagedList('/crm/admin/calls/follow-ups', {
+    page: currentPage,
+    limit: entriesPerPage,
+    search: searchTerm,
+    filters: {
+      department: deptFilter,
+      type: typeFilter,
+      agent: assignedFilter,
+      schedule: SCHEDULE_PARAM[scheduleFilter] || '',
+      from: dateFrom,
+      to: dateTo
+    }
+  });
+  const currentEntries = useMemo(() => items.map(mapFollowUp), [items]);
+  const totalEntries = total;
+  const totalPages = pages;
   const indexOfLast = currentPage * entriesPerPage;
   const indexOfFirst = indexOfLast - entriesPerPage;
-  const currentEntries = filteredData.slice(indexOfFirst, indexOfLast);
+  const agentOptions = useMemo(() => optionNames(options?.agents), [options]);
 
-  // Stats calculation
-  const stats = useMemo(() => {
-    const pending = followups.filter(f => f.status !== 'Completed');
-    const todayCount = pending.filter(f => f.dueRelative === 'Today').length;
-    const tomorrowCount = pending.filter(f => f.dueRelative === 'Tomorrow').length;
-    const upcomingCount = pending.filter(f => f.dueRelative === 'Upcoming').length;
-    const overdueCount = followups.filter(f => f.status === 'Overdue').length;
-    const totalPendingCount = pending.length;
-
-    return {
-      today: todayCount,
-      tomorrow: tomorrowCount,
-      upcoming: upcomingCount,
-      overdue: overdueCount,
-      totalPending: totalPendingCount
-    };
-  }, [followups]);
+  const stats = useMemo(() => ({
+    today: serverStats?.today || 0,
+    tomorrow: serverStats?.tomorrow || 0,
+    upcoming: serverStats?.later || 0,
+    overdue: serverStats?.overdue || 0,
+    totalPending: serverStats?.pending || 0
+  }), [serverStats]);
 
   const handleOpenModal = (item) => {
     setSelectedItem(item);
@@ -324,7 +259,7 @@ export default function FollowUpCenter() {
               <option value="All Users">All Users</option>
               {Array.from(new Set([
                 ...(teamUsers.map(u => u.name).filter(Boolean)),
-                ...(followups.map(f => f.assignedTo).filter(Boolean))
+                ...agentOptions
               ])).map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -384,7 +319,7 @@ export default function FollowUpCenter() {
         <div className="fuc-table-header">
           <div>
             <h2 className="fuc-table-title">Unified Follow-Up List</h2>
-            <span className="fuc-table-subtitle">{filteredData.length} records</span>
+            <span className="fuc-table-subtitle">{total} records</span>
           </div>
           <div className="fuc-dept-tags"><span className="fuc-badge-telecaller">Telecaller</span></div>
         </div>
@@ -539,7 +474,7 @@ export default function FollowUpCenter() {
             >
               &lt;
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            {pageWindow(currentPage, totalPages).map((page) => (
               <button
                 key={page}
                 className={`fuc-page-btn ${currentPage === page ? 'active' : ''}`}

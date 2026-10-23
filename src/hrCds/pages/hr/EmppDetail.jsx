@@ -2058,7 +2058,9 @@ const EmployeeDirectory = () => {
     }
   }, [currentUserCompanyId, user.getAuthToken]);
 
-  const fetchAllEmployeesFromEndpoint = useCallback(async (url, params, config) => {
+  const fetchAllEmployeesFromEndpoint = useCallback(async (url, rawParams, config) => {
+    // Family/bank fields are only returned on request; the server still allows it for owner/admin/HR only.
+    const params = { ...rawParams, includeSensitive: true };
     const firstResponse = await axios.get(url, {
       ...config,
       params: { ...params, page: 1, limit: 100 }

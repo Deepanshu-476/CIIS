@@ -14,10 +14,14 @@ import {
   FiCheckCircle,
   FiAlertTriangle,
   FiRefreshCw,
-  FiTrendingUp
+  FiTrendingUp,
+  FiUploadCloud,
+  FiPlus,
+  FiPaperclip
 } from "react-icons/fi";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
+import ProjectBulkImportModal from "../components/ProjectBulkImportModal";
 
 const parseStoredJson = (key) => {
   try {
@@ -154,6 +158,9 @@ const Icons = {
   PriorityHigh: () => <FiAlertTriangle className="EmployeeProject-icon" />,
   Update: () => <FiRefreshCw className="EmployeeProject-icon" />,
   TrendingUp: () => <FiTrendingUp className="EmployeeProject-icon" />,
+  UploadCloud: () => <FiUploadCloud className="EmployeeProject-icon" />,
+  Add: () => <FiPlus className="EmployeeProject-icon" />,
+  AttachFile: () => <FiPaperclip className="EmployeeProject-icon" />,
 };
 
 const EmployeeProject = () => {
@@ -168,9 +175,143 @@ const EmployeeProject = () => {
     severity: "success",
   });
 
+  // Bulk import & single task create states
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [selectedProjectForTask, setSelectedProjectForTask] = useState(null);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [targetProjectId, setTargetProjectId] = useState("");
+  const [taskForm, setTaskForm] = useState({
+    title: "",
+    description: "",
+    assignedUsers: [],
+    dueDate: "",
+    priority: "Medium",
+  });
+  const [taskFile, setTaskFile] = useState(null);
+  const [taskErrors, setTaskErrors] = useState({});
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [companyUsers, setCompanyUsers] = useState([]);
+
   useEffect(() => {
     loadProjects();
   }, []);
+
+  const fetchCompanyUsers = async () => {
+    try {
+      const { companyCode, companyIdentifier } = getCompanyContext();
+      if (!companyCode) return;
+      const res = await axios.get("/users/company-users", {
+        params: { companyCode, companyIdentifier: companyIdentifier || undefined },
+        timeout: 10000,
+      });
+      if (res.data?.success && res.data.message?.users) setCompanyUsers(res.data.message.users);
+      else if (Array.isArray(res.data)) setCompanyUsers(res.data);
+      else if (res.data?.data) setCompanyUsers(res.data.data);
+      else if (res.data?.users) setCompanyUsers(res.data.users);
+    } catch (err) {
+      console.error("Error fetching company users:", err);
+    }
+  };
+
+  const handleOpenCreateTask = (project = null) => {
+    const defaultProjId = project?._id || project?.id || (projects[0]?._id || projects[0]?.id || "");
+    setTargetProjectId(defaultProjId);
+    setTaskForm({
+      title: "",
+      description: "",
+      assignedUsers: [],
+      dueDate: "",
+      priority: "Medium",
+    });
+    setTaskFile(null);
+    setTaskErrors({});
+    setIsCreateTaskOpen(true);
+    if (companyUsers.length === 0) {
+      fetchCompanyUsers();
+    }
+  };
+
+  const handleOpenBulkImport = (project = null) => {
+    setSelectedProjectForTask(project);
+    setIsBulkImportOpen(true);
+  };
+
+  const assignableUsers = useMemo(() => {
+    const selectedProj = projects.find((p) => (p._id || p.id) === targetProjectId);
+    if (selectedProj?.users && Array.isArray(selectedProj.users) && selectedProj.users.length > 0) {
+      if (typeof selectedProj.users[0] === "object" && selectedProj.users[0]?.name) {
+        return selectedProj.users;
+      }
+      const userIds = new Set(selectedProj.users.map((u) => (typeof u === "object" ? u._id || u.id : u)));
+      const matched = companyUsers.filter((u) => userIds.has(u._id || u.id));
+      if (matched.length > 0) return matched;
+    }
+    return companyUsers;
+  }, [projects, targetProjectId, companyUsers]);
+
+  const handleCreateTaskSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const newErrors = {};
+    if (!targetProjectId) newErrors.project = "Please select a target project";
+    if (!taskForm.title.trim()) newErrors.title = "Task title is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setTaskErrors(newErrors);
+      return;
+    }
+
+    try {
+      setIsSubmittingTask(true);
+      const formData = new FormData();
+      formData.append("title", taskForm.title.trim());
+      formData.append("description", taskForm.description.trim());
+      formData.append("priority", taskForm.priority);
+      if (taskForm.dueDate) {
+        formData.append("dueDate", new Date(taskForm.dueDate).toISOString());
+      }
+      if (taskForm.assignedUsers.length > 0) {
+        formData.append("assignedUsers", JSON.stringify(taskForm.assignedUsers));
+        formData.append("assignedTo", taskForm.assignedUsers[0]);
+      }
+      if (taskFile) {
+        const safeTaskTitle = (taskForm.title || "Task").replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, "_");
+        const ext = taskFile.name ? taskFile.name.substring(taskFile.name.lastIndexOf(".")) : ".pdf";
+        formData.append("pdfFile", taskFile, `${safeTaskTitle}_Document${ext.toLowerCase()}`);
+      }
+
+      const res = await axios.post(`/projects/${targetProjectId}/tasks`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (res.status === 200 || res.status === 201) {
+        setSnackbar({
+          open: true,
+          message: "Task created successfully!",
+          severity: "success",
+        });
+        setIsCreateTaskOpen(false);
+        setTaskForm({ title: "", description: "", assignedUsers: [], dueDate: "", priority: "Medium" });
+        setTaskFile(null);
+        setTaskErrors({});
+        await loadProjects();
+      } else {
+        setSnackbar({
+          open: true,
+          message: res.data?.message || "Failed to create task",
+          severity: "error",
+        });
+      }
+    } catch (err) {
+      console.error("Error creating task:", err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Failed to create task",
+        severity: "error",
+      });
+    } finally {
+      setIsSubmittingTask(false);
+    }
+  };
 
   const loadProjects = async () => {
     setLoading(true);
@@ -459,6 +600,49 @@ const EmployeeProject = () => {
               Select a project to view its details, team members, and all tasks
             </p>
           </div>
+          <div className="EmployeeProject-header-actions" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="EmployeeProject-button EmployeeProject-button-outline"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#ffffff",
+                borderColor: "#cbd5e1",
+                color: "#334155",
+                fontWeight: 600,
+                padding: "8px 16px",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+              onClick={() => handleOpenBulkImport()}
+              title="Bulk import tasks from Excel into a project"
+            >
+              <Icons.UploadCloud /> Import Tasks (Excel)
+            </button>
+            <button
+              type="button"
+              className="EmployeeProject-button EmployeeProject-button-primary"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "linear-gradient(135deg, #1877f2 0%, #166fe5 100%)",
+                color: "#ffffff",
+                border: "none",
+                fontWeight: 600,
+                padding: "8px 18px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(24, 119, 242, 0.25)",
+              }}
+              onClick={() => handleOpenCreateTask()}
+              title="Create a new task in a project"
+            >
+              <Icons.Add /> Create Task
+            </button>
+          </div>
         </div>
 
         {/* Project Overview Stats */}
@@ -653,18 +837,40 @@ const EmployeeProject = () => {
                           {p.endDate ? ` • Due: ${formatProjectDate(p.endDate)}` : ""}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-primary"
-                        title="Open project details and tasks"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleProjectClick(p);
-                        }}
-                      >
-                        View Tasks
-                        <Icons.ArrowForward />
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <button
+                          type="button"
+                          className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-outline"
+                          style={{
+                            background: "#ffffff",
+                            borderColor: "#cbd5e1",
+                            color: "#475569",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontWeight: 600,
+                          }}
+                          title="Add a task to this project"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCreateTask(p);
+                          }}
+                        >
+                          <Icons.Add /> Task
+                        </button>
+                        <button
+                          type="button"
+                          className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-primary"
+                          title="Open project details and tasks"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProjectClick(p);
+                          }}
+                        >
+                          View Tasks
+                          <Icons.ArrowForward />
+                        </button>
+                      </div>
                     </div>
 
                     {(p.pdfFile?.path ||
@@ -684,6 +890,283 @@ const EmployeeProject = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Task Bulk Import Modal (Locked to existing projects only) */}
+      <ProjectBulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => {
+          setIsBulkImportOpen(false);
+          setSelectedProjectForTask(null);
+        }}
+        onSuccess={(data) => {
+          setSnackbar({
+            open: true,
+            message: data.message || "Tasks imported successfully!",
+            severity: "success",
+          });
+          loadProjects();
+        }}
+        allowedModes={["existing"]}
+        currentProjectId={selectedProjectForTask?._id || selectedProjectForTask?.id || null}
+        currentProjectName={selectedProjectForTask?.projectName || ""}
+        projectsList={projects}
+      />
+
+      {/* Single Task Creation Modal */}
+      {isCreateTaskOpen && (
+        <div className="EmployeeProject-modal">
+          <div
+            className="EmployeeProject-modal-backdrop"
+            onClick={() => !isSubmittingTask && setIsCreateTaskOpen(false)}
+          />
+          <div className="EmployeeProject-modal-content EmployeeProject-modal-md EmployeeProject-create-task-modal">
+            <div className="EmployeeProject-modal-header EmployeeProject-modal-header-primary">
+              <div className="EmployeeProject-create-task-heading">
+                <span className="EmployeeProject-create-task-heading-icon">+</span>
+                <div>
+                  <h3 style={{ margin: 0, color: "#ffffff" }}>Create New Task</h3>
+                  <p style={{ margin: "4px 0 0", color: "rgba(255, 255, 255, 0.85)", fontSize: "12px" }}>
+                    Add task details and assign to project team members
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="EmployeeProject-modal-close"
+                onClick={() => !isSubmittingTask && setIsCreateTaskOpen(false)}
+                aria-label="Close task dialog"
+              >
+                <Icons.Close />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTaskSubmit}>
+              <div className="EmployeeProject-modal-body" style={{ maxHeight: "calc(80vh - 150px)", overflowY: "auto" }}>
+                {/* Target Project Dropdown */}
+                <div className="EmployeeProject-form-group">
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
+                    Project <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <select
+                    className="EmployeeProject-select"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "7px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                    value={targetProjectId}
+                    onChange={(e) => {
+                      setTargetProjectId(e.target.value);
+                      setTaskErrors((prev) => ({ ...prev, project: undefined }));
+                    }}
+                    disabled={isSubmittingTask}
+                  >
+                    <option value="">-- Select Project --</option>
+                    {projects.map((p) => (
+                      <option key={p._id || p.id} value={p._id || p.id}>
+                        {p.projectName || "Unnamed Project"}
+                      </option>
+                    ))}
+                  </select>
+                  {taskErrors.project && (
+                    <span style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px", display: "block" }}>
+                      {taskErrors.project}
+                    </span>
+                  )}
+                </div>
+
+                {/* Task Title */}
+                <div className="EmployeeProject-form-group" style={{ marginTop: "14px" }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
+                    Task Title <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="EmployeeProject-input"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "7px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                    value={taskForm.title}
+                    placeholder="Enter task title..."
+                    onChange={(e) => {
+                      setTaskForm({ ...taskForm, title: e.target.value });
+                      setTaskErrors((prev) => ({ ...prev, title: undefined }));
+                    }}
+                    disabled={isSubmittingTask}
+                  />
+                  {taskErrors.title && (
+                    <span style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px", display: "block" }}>
+                      {taskErrors.title}
+                    </span>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div className="EmployeeProject-form-group" style={{ marginTop: "14px" }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
+                    Description
+                  </label>
+                  <textarea
+                    className="EmployeeProject-textarea"
+                    rows="3"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: "7px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                    value={taskForm.description}
+                    placeholder="Enter task description..."
+                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                    disabled={isSubmittingTask}
+                  />
+                </div>
+
+                {/* Priority & Due Date in 2 columns */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginTop: "14px" }}>
+                  <div className="EmployeeProject-form-group">
+                    <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
+                      Priority
+                    </label>
+                    <select
+                      className="EmployeeProject-select"
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: "7px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                      value={taskForm.priority}
+                      onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
+                      disabled={isSubmittingTask}
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                    </select>
+                  </div>
+
+                  <div className="EmployeeProject-form-group">
+                    <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
+                      Due Date & Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      className="EmployeeProject-input"
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: "7px", border: "1px solid #cbd5e1", fontSize: "13px" }}
+                      value={taskForm.dueDate}
+                      onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                      disabled={isSubmittingTask}
+                    />
+                  </div>
+                </div>
+
+                {/* Assign to Users */}
+                <div className="EmployeeProject-form-group" style={{ marginTop: "14px" }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
+                    Assign To
+                  </label>
+                  <div
+                    style={{
+                      maxHeight: "160px",
+                      overflowY: "auto",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      padding: "8px",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                      gap: "8px",
+                      background: "#f8fafc",
+                    }}
+                  >
+                    {assignableUsers.map((u) => {
+                      const uId = u._id || u.id;
+                      const isSelected = taskForm.assignedUsers.includes(uId);
+                      return (
+                        <label
+                          key={uId}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            padding: "6px 10px",
+                            borderRadius: "6px",
+                            background: isSelected ? "#eff6ff" : "#ffffff",
+                            border: `1px solid ${isSelected ? "#3b82f6" : "#e2e8f0"}`,
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setTaskForm((prev) => {
+                                const exists = prev.assignedUsers.includes(uId);
+                                return {
+                                  ...prev,
+                                  assignedUsers: exists
+                                    ? prev.assignedUsers.filter((id) => id !== uId)
+                                    : [...prev.assignedUsers, uId],
+                                };
+                              });
+                            }}
+                          />
+                          <span
+                            style={{
+                              width: "24px",
+                              height: "24px",
+                              borderRadius: "50%",
+                              background: "#e0e7ff",
+                              color: "#4338ca",
+                              display: "grid",
+                              placeItems: "center",
+                              fontWeight: 700,
+                              fontSize: "11px",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {(u.name || "U").charAt(0).toUpperCase()}
+                          </span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <strong>{u.name || "User"}</strong>
+                          </span>
+                        </label>
+                      );
+                    })}
+                    {assignableUsers.length === 0 && (
+                      <p style={{ margin: 0, padding: "10px", color: "#94a3b8", fontSize: "12px" }}>
+                        No members available
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Optional Attachment */}
+                <div className="EmployeeProject-form-group" style={{ marginTop: "14px" }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
+                    Attachment (PDF / Document)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => setTaskFile(e.target.files[0] || null)}
+                    style={{ fontSize: "12px" }}
+                    disabled={isSubmittingTask}
+                  />
+                  {taskFile && (
+                    <span style={{ fontSize: "11px", color: "#059669", display: "block", marginTop: "4px" }}>
+                      Selected: {taskFile.name} ({(taskFile.size / 1024).toFixed(1)} KB)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="EmployeeProject-modal-footer">
+                <button
+                  type="button"
+                  className="EmployeeProject-button EmployeeProject-button-outline"
+                  onClick={() => setIsCreateTaskOpen(false)}
+                  disabled={isSubmittingTask}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="EmployeeProject-button EmployeeProject-button-primary"
+                  disabled={isSubmittingTask}
+                >
+                  {isSubmittingTask ? "Creating..." : "Create Task"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

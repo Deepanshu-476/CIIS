@@ -1478,6 +1478,15 @@ const allPagesItems = [
     category: 'administration',
     order: 27
   },
+  // Shown when the company plan includes feedback-questionnaire (filterItemsByCompanyAccess).
+  {
+    id: 'feedback-questionnaire',
+    name: 'Feedback / Questionnaire',
+    icon: 'Assignment',
+    path: '/ciisUser/feedback-questionnaire',
+    category: 'administration',
+    order: 27.5
+  },
   {
     id: 'support-desk',
     name: 'Support Desk',
@@ -2477,8 +2486,29 @@ const Sidebar = ({
     fetchLocalData();
   }, []);
 
-  const fetchMenuBadgeCounts = useCallback(async () => {
+  const fetchMenuBadgeCounts = useCallback(async ({ fresh = false } = {}) => {
     if (!userId) return;
+
+    // One request for every badge count (/api/badges). Older backends without it fall back to the
+    // individual requests below.
+    try {
+      const badgeRes = await axiosInstance.get('/badges', {
+        params: fresh ? { fresh: 1 } : {},
+        cache: false,
+        _skipErrorNotify: true
+      });
+      const counts = badgeRes?.data?.counts;
+      if (counts && typeof counts === 'object') {
+        setMenuBadgeCounts(current => {
+          const mergedCounts = { ...current, ...counts };
+          writeBadgeCache(userId, mergedCounts);
+          return mergedCounts;
+        });
+        return;
+      }
+    } catch {
+      // fall back below
+    }
 
     const requests = await Promise.allSettled([
       axiosInstance.get('/tasks/self/stats', { _skipErrorNotify: true }),
@@ -2488,8 +2518,8 @@ const Sidebar = ({
         params: { page: 1, limit: 100 },
         _skipErrorNotify: true
       }),
-      axiosInstance.get('/alerts', { _skipErrorNotify: true }),
-      axiosInstance.get(`/users/${userId}/groups`, { _skipErrorNotify: true }),
+      // The server applies alert visibility and read state; the full alert list was only used to count.
+      axiosInstance.get('/alerts/unread/count', { params: { mine: 1 }, cache: false, _skipErrorNotify: true }),
       axiosInstance.get('/leaves/status', { _skipErrorNotify: true })
     ]);
 
@@ -2499,7 +2529,6 @@ const Sidebar = ({
       assetsResult,
       meetingsResult,
       alertsResult,
-      groupsResult,
       leavesResult
     ] = requests;
     const nextCounts = {};
@@ -2556,27 +2585,8 @@ const Sidebar = ({
       }).length;
     }
 
-    if (alertsResult.status === 'fulfilled') {
-      const alerts = getResponseRecords(alertsResult.value, ['alerts']);
-      const userGroupIds = groupsResult.status === 'fulfilled'
-        ? getResponseRecords(groupsResult.value, ['groups']).map(group => String(group?._id || group?.id || group))
-        : [];
-      const visibleAlerts = alerts.filter(alert => {
-        const assignedUsers = Array.isArray(alert?.assignedUsers) ? alert.assignedUsers : [];
-        const assignedGroups = Array.isArray(alert?.assignedGroups) ? alert.assignedGroups : [];
-        if (assignedUsers.length === 0 && assignedGroups.length === 0) return true;
-
-        const assignedToUser = assignedUsers.some(user => String(user?._id || user?.id || user) === String(userId));
-        const assignedToGroup = assignedGroups.some(group => (
-          userGroupIds.includes(String(group?._id || group?.id || group))
-        ));
-        return assignedToUser || assignedToGroup;
-      });
-
-      nextCounts.alerts = visibleAlerts.filter(alert => (
-        !Array.isArray(alert?.readBy) ||
-        !alert.readBy.some(reader => String(reader?._id || reader?.id || reader) === String(userId))
-      )).length;
+    if (alertsResult.status === 'fulfilled' && typeof alertsResult.value?.data?.count === 'number') {
+      nextCounts.alerts = alertsResult.value.data.count;
     }
 
     setMenuBadgeCounts(current => {
@@ -2634,7 +2644,8 @@ const Sidebar = ({
       fetchMenuBadgeCounts();
     }
 
-    const refreshBadges = () => fetchMenuBadgeCounts();
+    // Fired after the user acts (read, approve, ...): skip the 30s server cache.
+    const refreshBadges = () => fetchMenuBadgeCounts({ fresh: true });
     window.addEventListener('ciis-sidebar-badges-refresh', refreshBadges);
 
     return () => {

@@ -14,7 +14,7 @@ import SupportChatWidget from './pages/SupportChatWidget';
 import MessengerDropdown from './components/MessengerDropdown';
 import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
-import PageAccessGate from './components/PageAccessGate';
+import PageAccessGate, { hasCompanyPlanAccess } from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
 import { useAuth } from '../context/useAuth';
 
@@ -211,7 +211,9 @@ const UserLayout = () => {
               overflow: 'visible',
               boxSizing: 'border-box',
               backgroundColor: '#f8faff',
-              padding: { xs: '10px 12px 96px', sm: '14px 18px 96px' },
+              // Bottom space clears the stacked Chats and Support buttons (bottom right) so pagers and
+              // last-row actions stay clickable when scrolled to the end.
+              padding: { xs: '10px 12px 160px', sm: '14px 18px 160px' },
               '& > *': {
                 minHeight: '100%',
                 padding: '0 !important',
@@ -230,7 +232,7 @@ const UserLayout = () => {
       </MainContent>
       <FeedbackQuestionnairePopup />
       {!isClientUser && <SupportChatWidget />}
-      {!isClientUser && <MessengerDropdown />}
+      {!isClientUser && hasCompanyPlanAccess('chat') && <MessengerDropdown />}
     </LayoutContainer>
   );
 };

@@ -37,6 +37,7 @@ import axios from "../../utils/axiosConfig";
 import "../Css/AdminProject.css";
 import CIISLoader from "../../Loader/CIISLoader"; 
 import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
+import ProjectBulkImportModal from "../components/ProjectBulkImportModal";
 
 const Icons = {
   Add: (props) => <FiPlus {...props} />,
@@ -317,6 +318,7 @@ export const AdminProject = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   
   const [requestTimeout, setRequestTimeout] = useState(null);
@@ -1338,14 +1340,34 @@ export const AdminProject = () => {
               <h1 className="ap-header-title">Manage Projects</h1>
               <p className="ap-header-subtitle">Create, edit, delete, and assign company projects</p>
             </div>
-            <button
-              type="button"
-              className="ap-btn ap-btn-primary ap-header-create-btn"
-              onClick={openCreateProjectForm}
-              disabled={loading}
-            >
-              <Icons.Add /> Create New Project
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="ap-btn ap-btn-outline ap-header-import-btn"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "#ffffff",
+                  borderColor: "#cbd5e1",
+                  color: "#334155",
+                  fontWeight: 600,
+                }}
+                onClick={() => setIsBulkImportOpen(true)}
+                disabled={loading}
+                title="Bulk import projects from Excel"
+              >
+                <Icons.Upload /> Bulk Import Projects (Excel)
+              </button>
+              <button
+                type="button"
+                className="ap-btn ap-btn-primary ap-header-create-btn"
+                onClick={openCreateProjectForm}
+                disabled={loading}
+              >
+                <Icons.Add /> Create New Project
+              </button>
+            </div>
           </div>
 
           
@@ -1798,6 +1820,18 @@ export const AdminProject = () => {
           )}
         </div>
       </div>
+
+      <ProjectBulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={(data) => {
+          showSnackbar(data.message || "Bulk import completed successfully!", "success");
+          fetchProjects();
+        }}
+        allowedModes={["new"]}
+        projectsList={projects}
+        branchId={selectedBranchId}
+      />
     </div>
   );
 };

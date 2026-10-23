@@ -273,11 +273,13 @@ const TaskDetailsModal = ({
   onStatusChange,
   onRemarkAdded,
   employeeInfo,
-  canEdit = true
+  canEdit = true,
+  mentionUsers = []
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [howTrackingOpen, setHowTrackingOpen] = useState(false);
   const [remarkText, setRemarkText] = useState('');
+  const [selectedMentionIds, setSelectedMentionIds] = useState([]);
   const [isSubmittingRemark, setIsSubmittingRemark] = useState(false);
   const [openStatusMenu, setOpenStatusMenu] = useState(null); // 'header' | 'footer' | null
   const [liveSessionSeconds, setLiveSessionSeconds] = useState(0);
@@ -991,7 +993,11 @@ const TaskDetailsModal = ({
     setIsSubmittingRemark(true);
     try {
       if (onRemarkAdded) {
-        await onRemarkAdded(task, text, []);
+        const mentions = selectedMentionIds.filter(id => {
+          const user = mentionUsers.find(member => String(member._id || member) === id);
+          return user && text.includes(`@${user.name || 'User'}`);
+        });
+        await onRemarkAdded(task, text, [], mentions);
       } else {
         const source = safeTask.taskFor === 'self' || safeTask.isSelfTask ? 'self' : safeTask.source || 'task';
         const isClient = source === 'client' || Boolean(safeTask.clientId || safeTask.isClientTask);
@@ -1004,6 +1010,7 @@ const TaskDetailsModal = ({
         await axios.post(endpoint, { text, remark: text });
       }
       setRemarkText('');
+      setSelectedMentionIds([]);
     } catch (err) {
       console.error('Failed to submit remark:', err);
     } finally {
@@ -1712,6 +1719,19 @@ const TaskDetailsModal = ({
                   )}
 
                   {/* Add Remark Input Row */}
+                  {mentionUsers.length > 0 && <label>Mention a member
+                    <select aria-label="Mention a project member" value="" onChange={event => {
+                      const user = mentionUsers.find(member => String(member._id || member) === event.target.value);
+                      if (user) {
+                        setRemarkText(previous => `${previous} @${user.name || 'User'} `);
+                        setSelectedMentionIds(previous => [...new Set([...previous, String(user._id || user)])]);
+                      }
+                      remarkInputRef.current?.focus();
+                    }}>
+                      <option value="">Select member</option>
+                      {mentionUsers.map(user => <option key={user._id || user} value={user._id || user}>{user.name || 'User'}</option>)}
+                    </select>
+                  </label>}
                   <form onSubmit={handleAddRemarkSubmit} className="add-remark-box">
                     <div className="remark-current-avatar">
                       {getInitials(employeeInfo?.name || 'User')}

@@ -23,6 +23,7 @@ import {
 } from 'react-icons/fi';
 import './AllLeads.css';
 import api from '../../utils/axiosConfig';
+import useCrmPagedList, { optionNames } from '../hooks/useCrmPagedList';
 
 const formatName = (str = '') => {
   if (!str) return '';
@@ -41,11 +42,19 @@ const getInitials = (name = '') => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+const mapLead = item => ({...item, id:item._id, leadId: item._id ? `#LD-${String(item._id).slice(-6).toUpperCase()}` : '#LD-000', note:item.remarks || '',
+        source: item.leadSourceName || item.leadSource?.name || item.source || '-',
+        type: item.leadTypeName || item.leadType?.name || item.type || '-',
+        status: item.status ? item.status.charAt(0).toUpperCase()+item.status.slice(1) : 'New',
+        assignedTo: item.assignedToName || item.assignedTo?.name || (typeof item.assignedTo === 'string' && item.assignedTo !== 'Unassigned' ? item.assignedTo : 'Unassigned'),
+        assignedUserId: item.assignedTo?._id || (typeof item.assignedTo === 'string' && item.assignedTo !== 'Unassigned' ? item.assignedTo : '') || '',
+        assignedDate: (item.assignedTo && item.assignedAt) ? new Date(item.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
+        createdDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
+        assignedAge:item.assignedTo && item.assignedAt ? `${Math.max(0, Math.floor((Date.now() - new Date(item.assignedAt).getTime()) / 86400000))} days` : '-'});
+
 export default function AllLeads() {
   const location = useLocation();
   const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [teamError, setTeamError] = useState('');
 
@@ -158,19 +167,6 @@ export default function AllLeads() {
 
   useEffect(() => {
     let active = true;
-    api.get('/crm/leads', {cache:false}).then(({data}) => {
-      if(active) setLeads(data.items.map(item => ({...item, id:item._id, leadId: item._id ? `#LD-${String(item._id).slice(-6).toUpperCase()}` : '#LD-000', note:item.remarks || '',
-        source: item.leadSourceName || item.leadSource?.name || item.source || '-',
-        type: item.leadTypeName || item.leadType?.name || item.type || '-',
-        status: item.status ? item.status.charAt(0).toUpperCase()+item.status.slice(1) : 'New',
-        assignedTo: item.assignedToName || item.assignedTo?.name || (typeof item.assignedTo === 'string' && item.assignedTo !== 'Unassigned' ? item.assignedTo : 'Unassigned'),
-        assignedUserId: item.assignedTo?._id || (typeof item.assignedTo === 'string' && item.assignedTo !== 'Unassigned' ? item.assignedTo : '') || '',
-        assignedDate: (item.assignedTo && item.assignedAt) ? new Date(item.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
-        createdDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
-        assignedAge:item.assignedTo && item.assignedAt ? `${Math.max(0, Math.floor((Date.now() - new Date(item.assignedAt).getTime()) / 86400000))} days` : '-'})));
-    }).catch(err => {if(active) setError(err.response?.data?.message || 'Could not load leads. Please refresh to retry.');})
-      .finally(() => {if(active) setLoading(false);});
-
     api.get('/crm/leads/team', {cache:false}).then(({data}) => {
       if(active && data.users) setTeamMembers(data.users);
     }).catch(() => { if (active) setTeamError('Could not load team members. Refresh the page to retry.'); });
@@ -242,35 +238,40 @@ export default function AllLeads() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
 
+  // Server-side filtering and paging; the dropdowns list values from every lead of the company.
+  const {
+    items, total, pages: serverPages, options, loading, error
+  } = useCrmPagedList('/crm/leads', {
+    page: currentPage,
+    limit: entriesPerPage,
+    search: searchTerm,
+    filters: {
+      assignedTo: filterAssignedTo === 'All Users' ? '' : (filterAssignedTo === 'Unassigned' ? 'unassigned' : filterAssignedTo),
+      source: filterSource,
+      type: filterType,
+      from: filterDateFrom,
+      to: filterDateTo,
+      dateField: 'leadDate'
+    }
+  });
+  useEffect(() => { setLeads(items.map(mapLead)); }, [items]);
+
+  // ?lead=<id> opens that lead even when it is not on the current page.
   useEffect(() => {
-    if (loading) return;
     const leadId = new URLSearchParams(location.search).get('lead');
-    if (!leadId) return;
-    const lead = leads.find(item => String(item.id || item._id) === leadId);
-    if (lead) setSelectedLead(lead);
-  }, [leads, loading, location.search]);
+    if (!leadId) return undefined;
+    let active = true;
+    api.get('/crm/leads', { params: { page: 1, limit: 1, id: leadId }, cache: false, _skipErrorNotify: true })
+      .then(({ data }) => { if (active && data?.items?.[0]) setSelectedLead(mapLead(data.items[0])); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [location.search]);
 
-  // Filtered Leads
-  const filteredLeads = useMemo(() => {
-    return leads.filter((lead) => {
-      const matchesSearch =
-        String(lead.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.leadId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(lead.phone || '').includes(searchTerm) ||
-        lead.note.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesSource = !filterSource || lead.source === filterSource;
-      const matchesType = !filterType || lead.type === filterType;
-
-      return matchesSearch && matchesSource && matchesType && (filterAssignedTo === 'All Users' || (filterAssignedTo === 'Unassigned' ? !lead.assignedUserId : lead.assignedUserId === filterAssignedTo)) && (!filterDateFrom || lead.leadDate >= filterDateFrom) && (!filterDateTo || lead.leadDate <= filterDateTo);
-    });
-  }, [leads, searchTerm, filterSource, filterType, filterAssignedTo, filterDateFrom, filterDateTo]);
-
-  const totalEntries = filteredLeads.length;
-  const pages = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
+  const totalEntries = total;
+  const pages = serverPages;
   const page = Math.min(currentPage, pages);
   const start = (page-1)*entriesPerPage;
-  const visible = filteredLeads.slice(start, start+entriesPerPage);
+  const visible = leads;
   useEffect(() => {setCurrentPage(1);}, [searchTerm, filterSource, filterType, filterAssignedTo, filterDateFrom, filterDateTo, entriesPerPage]);
 
   const handleResetFilters = () => {
@@ -307,7 +308,7 @@ export default function AllLeads() {
               className="al-select"
             >
               <option value="All Users">All Users</option>
-              {[...new Map(leads.filter(lead => lead.assignedUserId).map(lead => [lead.assignedUserId, lead])).values()].map(lead => <option key={lead.assignedUserId} value={lead.assignedUserId}>{lead.assignedTo} ({teamMembers.find(member => member._id === lead.assignedUserId)?.email || lead.assignedUserId.slice(-6)})</option>)}
+              {(options?.assignees || []).map(assignee => <option key={assignee.id} value={assignee.id}>{assignee.name || 'Telecaller'} ({teamMembers.find(member => member._id === assignee.id)?.email || assignee.id.slice(-6)})</option>)}
               <option value="Unassigned">Unassigned</option>
             </select>
           </div>
@@ -320,7 +321,7 @@ export default function AllLeads() {
               className="al-select"
             >
               <option value="">Select Lead Source</option>
-              {[...new Set(leads.map(lead => lead.source))].map(value => <option key={value} value={value}>{value}</option>)}
+              {optionNames(options?.sources).map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           </div>
 
@@ -332,7 +333,7 @@ export default function AllLeads() {
               className="al-select"
             >
               <option value="">Select Lead Type</option>
-              {[...new Set(leads.map(lead => lead.type))].map(value => <option key={value} value={value}>{value}</option>)}
+              {optionNames(options?.types).map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           </div>
 

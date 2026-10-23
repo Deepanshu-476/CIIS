@@ -60,7 +60,12 @@ const UserLayout = () => {
   const { user } = useAuth();
   const location = useLocation();
   const normalizedPath = location.pathname.replace(/\/+$/, '');
-  const isDashboard = ['/ciisUser/user-dashboard', '/ciisUser/dashboard-1'].includes(normalizedPath);
+  const isDashboard = [
+    '/ciisUser/user-dashboard',
+    '/ciisUser/dashboard-1',
+    '/ciisUser/dashboard-overview',
+    '/ciisUser/dashboard-overview-preview',
+  ].includes(normalizedPath);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const theme = useTheme();

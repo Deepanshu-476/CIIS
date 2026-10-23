@@ -50,6 +50,7 @@ const APP_ROUTES = [
   { path: 'my-leaves', name: 'My Leaves', icon: 'EventNote', category: 'main' },
   { path: 'profile', name: 'My Details', icon: 'Person', category: 'main' },
   { path: 'user-dashboard', name: 'Dashboard', icon: 'Dashboard', category: 'main' },
+  { path: 'dashboard-overview', name: 'Dynamic Dashboard Overview', icon: 'Dashboard', category: 'main' },
   { path: 'dashboard-1', name: 'Dashboard 1', icon: 'Dashboard', category: 'main' },
   { path: 'project', name: 'My Projects', icon: 'Groups', category: 'projects' },
   { path: 'task-management', name: 'Create Task', icon: 'Task', category: 'tasks' },

@@ -1179,9 +1179,17 @@ const ChatPage = () => {
     const conversationId = conversation?._id?.toString();
     const groupId = (group._id || group.id || "").toString();
     const unreadOverride = getUnreadOverride(conversationId, groupId);
+    const isClient = Boolean(group.clientId || conversation?.clientId || group.groupKind === "client");
+    const isProject = Boolean(group.projectId || conversation?.projectId || group.groupKind === "project");
+    const rawName = (group.name || conversation?.groupName || "Group").replace(/\s*\((?:Client|Project)\)$/i, "").trim();
+    const displayName = isClient ? `${rawName} (Client)` : isProject ? `${rawName} (Project)` : rawName;
+
     return {
       ...group,
-      name: group.clientId ? `${group.name} (Client)` : group.projectId ? `${group.name} (Project)` : group.name,
+      clientId: group.clientId || conversation?.clientId || undefined,
+      projectId: group.projectId || conversation?.projectId || undefined,
+      groupKind: isClient ? "client" : isProject ? "project" : (group.groupKind || "channel"),
+      name: displayName,
       isGroup: true,
       groupImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",
       profileImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",

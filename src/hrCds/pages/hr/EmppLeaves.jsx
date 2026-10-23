@@ -365,15 +365,10 @@ const EmployeeLeaves = () => {
   
   
   
-  let socketContext = { isConnected: false, onNewLeave: () => {}, onLeaveStatusChanged: () => {}, onLeaveDeleted: () => {}, joinLeaveRoom: () => {}, leaveLeaveRoom: () => {} };
-  let notificationContext = { showToast: () => {} };
-  
-  try {
-    socketContext = useSocket() || socketContext;
-    notificationContext = useNotification() || notificationContext;
-  } catch (error) {
-    console.warn("Socket or Notification context not available:", error);
-  }
+  const rawSocket = useSocket();
+  const rawNotification = useNotification();
+  const socketContext = rawSocket || { isConnected: false, onNewLeave: () => {}, onLeaveStatusChanged: () => {}, onLeaveDeleted: () => {}, joinLeaveRoom: () => {}, leaveLeaveRoom: () => {} };
+  const notificationContext = rawNotification || { showToast: () => {} };
   
   const { 
     onNewLeave, 

@@ -169,12 +169,25 @@ const ChatSidebar = ({
         item?.conversation?.lastMessage
     );
 
+    const isClientGroup = item => {
+        const title = item?.name || item?.groupName;
+        return Boolean(
+            item?.clientId ||
+            item?.groupKind === "client" ||
+            item?.conversation?.clientId ||
+            (typeof title === "string" && title.includes("(Client)"))
+        );
+    };
+
     const filteredGroups = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         return (groups || []).filter(group => {
+            const isClient = isClientGroup(group);
+            if (activeFilter === "clients" && !isClient) return false;
+            if (activeFilter === "groups" && isClient) return false;
             if (activeFilter === "unread" && getBadgeCount(group) <= 0) return false;
             if (activeFilter === "favourites" && !(group.isFavourite || group.isFavorite || group.favorite)) return false;
-            return ["groups", "all", "unread", "favourites"].includes(activeFilter) && [
+            return ["all", "clients", "groups", "unread", "favourites"].includes(activeFilter) && [
                 getGroupName(group),
                 getLastMessageText(group),
             ].some(value => !query || String(value || "").toLowerCase().includes(query));
@@ -185,7 +198,7 @@ const ChatSidebar = ({
         const query = searchTerm.trim().toLowerCase();
         return (users || []).filter(user => {
             if (!hasStartedConversation(user)) return false;
-            if (activeFilter === "groups") return false;
+            if (activeFilter === "clients" || activeFilter === "groups") return false;
             if (activeFilter === "unread" && getBadgeCount(user) <= 0) return false;
             if (activeFilter === "favourites" && !(user.isFavourite || user.isFavorite || user.favorite)) return false;
             return [
@@ -234,12 +247,15 @@ const ChatSidebar = ({
     const conversationStats = useMemo(() => {
         const startedUsers = (users || []).filter(hasStartedConversation);
         const allGroups = groups || [];
+        const clientGroups = allGroups.filter(isClientGroup);
+        const regularGroups = allGroups.filter(g => !isClientGroup(g));
         const allItems = [...startedUsers, ...allGroups];
 
         return {
             all: allItems.length,
+            clients: clientGroups.length,
+            groups: regularGroups.length,
             unread: allItems.filter(item => getBadgeCount(item) > 0).length,
-            groups: allGroups.length,
             favourites: allItems.filter(item => item.isFavourite || item.isFavorite || item.favorite).length,
         };
     }, [users, groups, unreadCounts]);
@@ -330,7 +346,7 @@ const ChatSidebar = ({
                 <div className="sidebar-top">
                     <div>
                         <div className="sidebar-title">Chats</div>
-                        <div className="sidebar-subtitle">{conversationStats.all} conversations</div>
+                        <div className="sidebar-subtitle">{activeFilter === "clients" ? `${conversationStats.clients} clients` : `${conversationStats.all} conversations`}</div>
                     </div>
                     <div className="sidebar-actions">
                         <button className="sidebar-icon" title="New chat" type="button" onClick={openNewChatPanel}>
@@ -356,11 +372,12 @@ const ChatSidebar = ({
                     />
                 </div>
                 <div className="chat-filter-tabs">
-                    <button type="button" className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All <span>{conversationStats.all}</span></button>
-                    <button type="button" className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread <span>{conversationStats.unread}</span></button>
-                    <button type="button" className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Channels <span>{conversationStats.groups}</span></button>
+                    <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All <span>{conversationStats.all}</span></button>
+                    <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "clients" ? "active" : ""} onClick={() => setActiveFilter("clients")}>Clients <span>{conversationStats.clients}</span></button>
+                    <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Channels <span>{conversationStats.groups}</span></button>
+                    <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread <span>{conversationStats.unread}</span></button>
                     {(conversationStats.favourites > 0 || activeFilter === "favourites") && (
-                        <button type="button" className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Fav <span>{conversationStats.favourites}</span></button>
+                        <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Fav <span>{conversationStats.favourites}</span></button>
                     )}
                 </div>
 
@@ -447,7 +464,9 @@ const ChatSidebar = ({
                         const groupId = (group._id || group.id || "").toString();
                         const isSelected = (selectedUser?._id || selectedUser?.id || "").toString() === groupId;
                         const avatarSrc = getAvatarSrc(group.groupImage || group.profileImage || group.avatar || group.image);
-                        const groupInitial = (getGroupName(group) || "C").charAt(0).toUpperCase();
+                        const isClient = isClientGroup(group);
+                        const rawName = getGroupName(group).replace(/\s*\((?:Client|Project)\)$/i, "");
+                        const groupInitial = (rawName || "C").charAt(0).toUpperCase();
 
                         return (
                             <div
@@ -459,7 +478,7 @@ const ChatSidebar = ({
                                     {avatarSrc ? (
                                         <img
                                             src={avatarSrc}
-                                            alt={getGroupName(group)}
+                                            alt={rawName}
                                             onError={(e) => {
                                                 e.currentTarget.style.display = "none";
                                                 if (e.currentTarget.nextSibling) {
@@ -476,7 +495,13 @@ const ChatSidebar = ({
                                 <div className="chat-user-body">
                                     <div className="chat-user-row">
                                         <div className="chat-user-name">
-                                            {getGroupName(group)}
+                                            {rawName}
+                                            {isClient && (
+                                                <span className="chat-pill-client">Client</span>
+                                            )}
+                                            {!isClient && Boolean(group.projectId || group.groupKind === "project") && (
+                                                <span className="chat-pill-project">Project</span>
+                                            )}
                                         </div>
                                         <span className="chat-user-time">{getLastMessageTime(group)}</span>
                                         {isConversationMuted(group) && (
@@ -491,7 +516,7 @@ const ChatSidebar = ({
                                         )}
                                     </div>
                                     <div className="chat-user-department">
-                                        {group.department || "Channel conversation"}
+                                        {group.department || (isClient ? "Client conversation" : "Channel conversation")}
                                     </div>
                                     <div className="chat-user-role">
                                         <span className={getGroupOnlineCount(group) > 0 ? "status-dot" : "status-dot offline"} />

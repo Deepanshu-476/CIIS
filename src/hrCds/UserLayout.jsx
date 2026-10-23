@@ -16,6 +16,7 @@ import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
+import useTaskRealtime from '../hooks/useTaskRealtime';
 
 const drawerWidthOpen = 236;
 const drawerWidthClosed = 70;
@@ -50,6 +51,7 @@ const MainContent = styled('main', {
 }));
 
 const UserLayout = () => {
+  useTaskRealtime();
   const location = useLocation();
   const normalizedPath = location.pathname.replace(/\/+$/, '');
   const isDashboard = ['/ciisUser/user-dashboard', '/ciisUser/dashboard-1'].includes(normalizedPath);

@@ -95,11 +95,6 @@ const formatProjectDate = (value, fallback = "Not set") => {
   });
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
 const getProjectTaskTotal = (project) => {
   if (typeof project?.taskCount === "number") return project.taskCount;
   if (typeof project?.totalTasks === "number") return project.totalTasks;
@@ -161,10 +156,6 @@ const Icons = {
   TrendingUp: () => <FiTrendingUp className="EmployeeProject-icon" />,
 };
 
-<<<<<<< HEAD
->>>>>>> 566a03a8892a30f54712bf026add027f52dff73c
-=======
->>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
 const EmployeeProject = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
@@ -652,57 +643,6 @@ const EmployeeProject = () => {
                       </p>
                     )}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-                  {p.description && (
-                    <p className="EmployeeProject-card-description">
-                      {p.description.length > 120
-                        ? `${p.description.substring(0, 120)}...`
-                        : p.description}
-                    </p>
-                  )}
-
-                  <div className="EmployeeProject-card-footer">
-                    <div className="EmployeeProject-card-date">
-                      <Icons.CalendarToday />
-                      <span>
-                        {p.startDate
-                          ? new Date(p.startDate).toLocaleDateString()
-                          : "No date"}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleProjectClick(p);
-                      }}
-                    >
-                      View Tasks
-                      <Icons.ArrowForward />
-                    </button>
-                  </div>
-
-                  {(p.pdfFile?.path ||
-                    p.pdfFile?.filename ||
-                    p.pdfFile?.url) && (
-                    <div className="EmployeeProject-card-pdf">
-                      <div className="EmployeeProject-pdf-info">
-                        <Icons.PictureAsPdf />
-                        <span className="EmployeeProject-pdf-text">
-                          Document attached
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-=======
-=======
->>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
                     <div className="EmployeeProject-card-footer">
                       <div className="EmployeeProject-card-date" title="Project timeline">
                         <Icons.CalendarToday />
@@ -744,10 +684,6 @@ const EmployeeProject = () => {
               </div>
             );
           })}
-<<<<<<< HEAD
->>>>>>> 566a03a8892a30f54712bf026add027f52dff73c
-=======
->>>>>>> 21ce2fb5cc3d542f30df012bf0f1ce710a7c4b70
         </div>
       )}
     </div>

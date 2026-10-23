@@ -8,10 +8,11 @@ import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
 import './UserDashboardResponsive.css';
 import useIsMobile from '../../hooks/useIsMobile';
+import AIQuickWidget from '../../components/ai/AIQuickWidget';
 import {
   CirclePlus, Umbrella, BriefcaseBusiness, UserPlus, Folder, CalendarDays,
   NotebookPen, Clock3, Play, ClipboardCheck, Video, Coffee, CheckCircle2,
-  LogOut, LayoutDashboard, Smartphone, CalendarClock, Phone, Sparkles
+  LogOut, LayoutDashboard, Smartphone, CalendarClock, Phone
 } from 'lucide-react';
 
 import {
@@ -1415,6 +1416,21 @@ const UserDashboard = () => {
     }
   }, [attendanceData, holidays, recentTaskEvents, updateRecentActivity]);
 
+  useEffect(() => {
+    const handleTaskCreated = () => {
+      fetchRecentTaskActivity();
+      fetchFocusStats();
+      fetchDashboardSummary();
+    };
+
+    window.addEventListener('ciis:task-created', handleTaskCreated);
+    window.addEventListener('task:created', handleTaskCreated);
+    return () => {
+      window.removeEventListener('ciis:task-created', handleTaskCreated);
+      window.removeEventListener('task:created', handleTaskCreated);
+    };
+  }, [fetchRecentTaskActivity, fetchFocusStats, fetchDashboardSummary]);
+
 
   useEffect(() => {
     if (isRunning) {
@@ -2754,6 +2770,8 @@ const UserDashboard = () => {
             </button>
           </section>
 
+          {isMobile && <AIQuickWidget />}
+
           <section className="MobileDashV2-focus">
             <header><div><FiZap /><span>Today’s focus</span></div><b>{focusStats.dueToday + focusStats.inProgress}</b></header>
             <div>
@@ -3387,6 +3405,8 @@ const UserDashboard = () => {
               <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
             </div>
           </section>
+          
+          {!isMobile && <AIQuickWidget />}
 
           <section className="dashboard-side-panel dashboard-schedule-panel">
             <div className="dashboard-section-heading"><strong>Upcoming Schedule</strong><button onClick={() => navigate('/ciisUser/employee-meeting')}>View All</button></div>

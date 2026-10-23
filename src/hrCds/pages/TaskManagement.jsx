@@ -17,6 +17,7 @@ import TaskDetailsModal from '../components/TaskDetailsModal';
 import API_URL from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 import { useSocket } from '../../context/SocketContext';
+import useTaskRealtime, { invalidateTaskManagementCache } from '../../hooks/useTaskRealtime';
 
 
 const getImageUrl = (imagePath) => {
@@ -32,33 +33,33 @@ const getImageUrl = (imagePath) => {
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
   let cleanPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  
+
   if (cleanPath.startsWith('uploads/client-remarks/')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
-  
+
   if (cleanPath.startsWith('client-remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
-  
+
   if (cleanPath.startsWith('uploads/remarks/')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
-  
+
   if (cleanPath.startsWith('remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
-  
+
   if (cleanPath.startsWith('uploads/')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
-  
+
   if (cleanPath.includes('client-remarks')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
-  
+
   const filename = cleanPath.split('/').pop();
-  
+
   const possiblePaths = [
     `${baseUrl}/uploads/${filename}`,
     `${baseUrlWithoutApi}/uploads/${filename}`,
@@ -66,7 +67,7 @@ const getImageUrl = (imagePath) => {
     `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
     `${baseUrlWithoutApi}/client-remarks/${filename}`
   ];
-  
+
   return possiblePaths[0];
 };
 
@@ -89,11 +90,11 @@ const createEmptyCheckpoint = () => ({
 const getCleanCheckpoints = (checkpoints = []) => (
   Array.isArray(checkpoints)
     ? checkpoints
-        .map(item => ({
-          title: String(item?.title || '').trim(),
-          completed: Boolean(item?.completed)
-        }))
-        .filter(item => item.title)
+      .map(item => ({
+        title: String(item?.title || '').trim(),
+        completed: Boolean(item?.completed)
+      }))
+      .filter(item => item.title)
     : []
 );
 
@@ -221,6 +222,9 @@ const playReminderChime = () => {
 
 const triggerBrowserNotification = async (title, body) => {
   try {
+    if (typeof window !== 'undefined' && window.__ciisSpeakNotification) {
+      window.__ciisSpeakNotification({ title, message: body, type: 'task_due_reminder' });
+    }
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
       new Notification(title, { body, icon: '/favicon.ico' });
@@ -288,7 +292,7 @@ const getClientNameFromTask = (task) => {
   if (task.clientName && task.clientName !== 'Unknown Client') {
     return task.clientName;
   }
-  
+
   if (task.clientId && typeof task.clientId === 'object') {
     if (task.clientId.company) {
       return task.clientId.company;
@@ -297,11 +301,11 @@ const getClientNameFromTask = (task) => {
       return task.clientId.email.split('@')[0];
     }
   }
-  
+
   if (task.clientCompany) {
     return task.clientCompany;
   }
-  
+
   return 'N/A';
 };
 
@@ -320,7 +324,7 @@ const getValueId = (value) => {
 
 const normalizeStatus = (status) => {
   if (!status) return 'pending';
-  
+
   const statusMap = {
     'In Progress': 'in-progress',
     'In-Progress': 'in-progress',
@@ -334,10 +338,10 @@ const normalizeStatus = (status) => {
     'on hold': 'onhold',
     'onhold': 'onhold',
     'Reopen': 'reopen',
-    'Cancelled': 'cancelled',   
+    'Cancelled': 'cancelled',
     'cancelled': 'cancelled'
   };
-  
+
   return statusMap[status] || status.toLowerCase();
 };
 
@@ -398,7 +402,7 @@ const formatDueDateTime = (dueDate) => {
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
   const cardColor = getColorValue(color);
   return (
-    <div 
+    <div
       className={`user-create-task-stat-card ${active ? 'active' : ''}`}
       style={{
         borderLeftColor: cardColor,
@@ -434,7 +438,7 @@ const PriorityChip = ({ priority }) => {
 };
 
 const getColorValue = (color) => {
-  const colors = {   
+  const colors = {
     primary: '#1976d2',
     success: '#4caf50',
     warning: '#ff9800',
@@ -868,10 +872,14 @@ const UserCreateTask = () => {
     if (!availableCache || availableCache.userId !== storedTaskUser?.id) {
       return null;
     }
+    // Expire cache after 45 seconds to ensure fresh tasks are loaded
+    if (availableCache.cachedAt && (Date.now() - availableCache.cachedAt > 45 * 1000)) {
+      return null;
+    }
     taskManagementMemoryCache = availableCache;
     return availableCache;
   }, [storedTaskUser?.id]);
-  
+
   const [openDialog, setOpenDialog] = useState(false);
   const [openClientTaskDialog, setOpenClientTaskDialog] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -897,10 +905,10 @@ const UserCreateTask = () => {
     project: false
   });
 
-  
+
   const [myTasksGrouped, setMyTasksGrouped] = useState(cachedTaskData?.myTasksGrouped || {});
-  
-  
+
+
   const [assignedToMeTasksGrouped, setAssignedToMeTasksGrouped] = useState(cachedTaskData?.assignedToMeTasksGrouped || {});
   const [clientTasksGrouped, setClientTasksGrouped] = useState(cachedTaskData?.clientTasksGrouped || {});
   const [clients, setClients] = useState([]);
@@ -950,8 +958,8 @@ const UserCreateTask = () => {
     hasNext: false,
     hasPrev: false
   });
-  
-  
+
+
   const [taskViewMode, setTaskViewMode] = useState('all');
   const [taskFeatureAccess, setTaskFeatureAccess] = useState(() => getTaskFeatureAccessFromStorage());
 
@@ -969,8 +977,8 @@ const UserCreateTask = () => {
       setStatusFilter('');
     }
   }, [taskFeatureAccess, taskViewMode]);
-  
-  
+
+
   const [taskStats, setTaskStats] = useState({
     total: 0,
     pending: { count: 0, percentage: 0 },
@@ -983,7 +991,7 @@ const UserCreateTask = () => {
     overdue: { count: 0, percentage: 0 }
   });
 
-  
+
   const [assignedTaskStats, setAssignedTaskStats] = useState({
     total: 0,
     pending: { count: 0, percentage: 0 },
@@ -1033,7 +1041,7 @@ const UserCreateTask = () => {
   // Prevent an older list request from replacing a task status that the user
   // has just changed optimistically.
   const lastTaskStatusMutationAtRef = useRef(0);
-  
+
   const [zoomImage, setZoomImage] = useState(null);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
   const [taskReminderModal, setTaskReminderModal] = useState({
@@ -1180,7 +1188,7 @@ const UserCreateTask = () => {
     setProjectTaskForm(prev => ({ ...prev, checkpoints: (prev.checkpoints || []).filter((_, itemIndex) => itemIndex !== index) }));
   };
 
-  
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -1237,7 +1245,7 @@ const UserCreateTask = () => {
     }
   }, [openClientTaskDialog, selectedClientId, clientTaskForm.service]);
 
-  
+
   const showSnackbar = (message, severity = 'info') => {
     if (snackbarTimerRef.current) {
       clearTimeout(snackbarTimerRef.current);
@@ -1663,7 +1671,7 @@ const UserCreateTask = () => {
       }
 
       setTaskReminderModal({ open: false, task: null, settings: createDefaultReminderSettings(), saving: false });
-      
+
       const dueTime12h = format12HourDateTime(getDueDateForTask(task));
       setReminderConfirmPopup({
         open: true,
@@ -1715,7 +1723,7 @@ const UserCreateTask = () => {
     };
   }, [socketContext, showSnackbar]);
 
-  
+
   const fetchUserData = useCallback(() => {
     try {
       const userStr = localStorage.getItem('user');
@@ -1726,24 +1734,24 @@ const UserCreateTask = () => {
       }
 
       const user = JSON.parse(userStr);
-      
+
       const userId = user.id || user._id;
       const userRole = user.role || user.jobRole;
       const userName = user.name;
-      
+
       if (!userId || !userRole || !userName) {
         setAuthError(true);
         showSnackbar('Invalid user data. Please log in again.', 'error');
         return;
       }
- 
+
       setUserRole(userRole);
       setUserId(userId);
       setUserName(userName);
       setAuthError(false);
-      
+
       void 0;
-      
+
     } catch (error) {
       console.error('Error parsing user data:', error);
       setAuthError(true);
@@ -1751,7 +1759,7 @@ const UserCreateTask = () => {
     }
   }, []);
 
-  
+
   const getUserStatusForTask = useCallback((task, userId) => {
     if (!task || !userId) return 'pending';
     const currentUserId = String(userId);
@@ -1768,37 +1776,37 @@ const UserCreateTask = () => {
       : latestStatusLog?.newValue;
     const activityStatus = normalizeStatus(activityValue || latestStatusLog?.status || '');
     if (activityStatus && activityStatus !== 'pending') return activityStatus;
-    
+
     const userStatus = task.statusByUser?.find(s => {
       if (typeof s.user === 'string') return String(s.user) === currentUserId;
       if (s.user && typeof s.user === 'object') return String(s.user._id || s.user.id || '') === currentUserId;
       return false;
     });
-    
+
     if (userStatus) return normalizeStatus(userStatus.status);
-    
+
     const statusInfo = task.statusInfo?.find(s => String(s.userId?._id || s.userId?.id || s.userId || '') === currentUserId);
     if (statusInfo) return normalizeStatus(statusInfo.status);
 
     return canonicalStatus || 'pending';
   }, []);
 
-  
+
   const getAssignedTaskStatus = useCallback((task) => {
     if (!task) return 'pending';
-    
-    
+
+
     if (task.completed === true) return 'completed';
-    
-    
+
+
     if (task.status) {
       return normalizeStatus(task.status);
     }
-    
+
     return 'pending';
   }, []);
 
-  
+
   const getEffectiveOverdueDate = useCallback((dueDateTime, task) => {
     if (task?.onHoldReleasedAt) {
       const releasedAt = new Date(task.onHoldReleasedAt);
@@ -1887,7 +1895,7 @@ const UserCreateTask = () => {
     return results.some(result => result.status === 'fulfilled');
   }, [getAssignedTaskStatus, getUserStatusForTask, isOverdue, userId]);
 
-  
+
   const groupTasksByDate = useCallback((tasks) => {
     const grouped = {};
     const getTaskCompletionDate = task => {
@@ -1925,10 +1933,10 @@ const UserCreateTask = () => {
       const date = new Date(dateToUse || 0);
       return Number.isNaN(date.getTime()) ? 0 : date.getTime();
     };
-    
+
     tasks.forEach(task => {
       const dateToUse = getTaskGroupDate(task);
-      
+
       if (dateToUse) {
         const dateKey = new Date(dateToUse).toLocaleDateString('en-IN', {
           timeZone: 'Asia/Kolkata',
@@ -1936,7 +1944,7 @@ const UserCreateTask = () => {
           month: 'long',
           day: 'numeric'
         });
-        
+
         if (!grouped[dateKey]) {
           grouped[dateKey] = [];
         }
@@ -1949,7 +1957,7 @@ const UserCreateTask = () => {
         grouped[fallbackKey].push(task);
       }
     });
-    
+
     const sortedGrouped = {};
     Object.keys(grouped)
       .sort((a, b) => {
@@ -1964,11 +1972,11 @@ const UserCreateTask = () => {
           return new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0);
         });
       });
-    
+
     return sortedGrouped;
   }, []);
 
-  
+
   const calculateStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
       setTaskStats({
@@ -1984,7 +1992,7 @@ const UserCreateTask = () => {
       });
       return;
     }
-    
+
     let total = 0;
     const statusCounts = {
       pending: 0,
@@ -2027,12 +2035,12 @@ const UserCreateTask = () => {
     });
   }, [userId, getUserStatusForTask, isOverdue]);
 
-  
+
   const calculateExternalStatsFromTasks = useCallback((tasks) => {
     if (!tasks || Object.keys(tasks).length === 0) {
       return emptyExternalStats();
     }
-    
+
     let total = 0;
     let highPriority = 0;
     let highPriorityCompleted = 0;
@@ -2046,8 +2054,8 @@ const UserCreateTask = () => {
     Object.values(tasks).forEach(dateTasks => {
       dateTasks.forEach(task => {
         total++;
-        
-        
+
+
         let status = getAssignedTaskStatus(task);
         const isHighPriority = String(task?.priority || '').toLowerCase() === 'high';
 
@@ -2057,8 +2065,8 @@ const UserCreateTask = () => {
             highPriorityCompleted++;
           }
         }
-        
-        
+
+
         const dueDate = task.dueDate || task.dueDateTime;
         const isTaskOverdue = dueDate && isOverdue(dueDate, status, task);
 
@@ -2748,11 +2756,11 @@ const UserCreateTask = () => {
     return getActiveTasksGrouped();
   }, [taskViewMode, visibleAllTasksStatsGrouped, getActiveTasksGrouped]);
 
-  
+
   const enrichAssignedTasks = useCallback((tasks) => {
     return tasks.map(task => {
       let clientDisplayName = 'Unknown Client';
-      
+
       if (task.clientId && typeof task.clientId === 'object') {
         if (task.clientId.company) {
           clientDisplayName = task.clientId.company;
@@ -2760,15 +2768,15 @@ const UserCreateTask = () => {
           clientDisplayName = task.clientId.email.split('@')[0];
         }
       }
-      
-      
+
+
       let normalizedStatus = normalizeStatus(task.status);
-      
-      
+
+
       if (task.completed === true && normalizedStatus !== 'completed') {
         normalizedStatus = 'completed';
       }
-      
+
       return {
         ...task,
         clientName: clientDisplayName,
@@ -2899,7 +2907,7 @@ const UserCreateTask = () => {
     return tasks.map(task => ({ ...task, __taskSource: source }));
   }, []);
 
-  
+
   const fetchAssignedToMeTasks = useCallback(async () => {
     if (authError || !userId) {
       void 0;
@@ -2908,15 +2916,15 @@ const UserCreateTask = () => {
 
     void 0;
     setLoadingAssigned(true);
-    
+
     try {
       const query = buildTaskQueryParams();
       const url = `/tasks/assigned/to-me${query ? `?${query}` : ''}`;
-      
+
       void 0;
-      
+
       const res = await axios.get(url);
-      
+
       void 0;
       void 0;
 
@@ -2938,16 +2946,16 @@ const UserCreateTask = () => {
         const groupedTasks = groupTasksByDate(tasksArray);
         setAssignedToMeTasksGrouped(groupedTasks);
         calculateAssignedStatsFromTasks(groupedTasks);
-        
+
         const totalTasks = tasksArray.length;
         void 0;
-        
+
         if (totalTasks > 0) {
           void 0;
         } else {
           void 0;
         }
-        
+
       } else {
         void 0;
         setAssignedToMeTasksGrouped({});
@@ -2956,13 +2964,13 @@ const UserCreateTask = () => {
 
     } catch (err) {
       console.error('❌ Error in fetchAssignedToMeTasks:', err);
-      
+
       if (err.response) {
         console.error('❌ Error response:', {
           status: err.response.status,
           data: err.response.data,
         });
-        
+
         if (err.response.status === 401) {
           setAuthError(true);
           showSnackbar('Session expired. Please log in again.', 'error');
@@ -2981,10 +2989,10 @@ const UserCreateTask = () => {
         console.error('❌ Error setting up request:', err.message);
         showSnackbar('Failed to load assigned tasks', 'error');
       }
-      
+
       setAssignedToMeTasksGrouped({});
       calculateAssignedStatsFromTasks({});
-      
+
     } finally {
       setLoadingAssigned(false);
       setTaskViewsLoaded(prev => ({ ...prev, assigned: true }));
@@ -3176,7 +3184,7 @@ const UserCreateTask = () => {
         formattedDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000)).toISOString().slice(0, 16);
       }
     }
-    
+
     setClientTaskForm(prev => ({
       ...prev,
       _id: task._id || task.id,
@@ -3191,13 +3199,13 @@ const UserCreateTask = () => {
 
   const handleUpdateAndAssignClientTask = useCallback(async () => {
     if (!clientTaskForm._id) return;
-    
+
     const assigneeToUse = selectedAssignee || currentLoggedInAssignee;
     if (!assigneeToUse) {
       showSnackbar('Please log in again to assign tasks', 'error');
       return;
     }
-    
+
     if (!clientTaskForm.name.trim() || !clientTaskForm.description.trim() || !clientTaskForm.dueDateTime) {
       showSnackbar('Please fill task title, description, and due date', 'error');
       return;
@@ -3224,16 +3232,16 @@ const UserCreateTask = () => {
       };
 
       const response = await axios.put(`/tasks/client-tasks/${clientTaskForm._id}`, payload);
-      
+
       if (!response.data?.success) {
         throw new Error(response.data?.message || 'Failed to update and assign task');
       }
 
       showSnackbar('Task assigned to you successfully', 'success');
-      
+
       // Remove from the pending list
       setServicePendingTasks(prev => prev.filter(t => (t._id || t.id) !== clientTaskForm._id));
-      
+
       const updatedTask = {
         ...(servicePendingTasks.find(t => (t._id || t.id) === clientTaskForm._id) || {}),
         ...payload,
@@ -3249,7 +3257,7 @@ const UserCreateTask = () => {
         __taskSource: 'client',
         taskSource: 'client'
       };
-      
+
       setClientTasksGrouped(prev => {
         const existingTasks = Object.values(prev || {}).flat();
         const filteredTasks = existingTasks.filter(t => (t._id || t.id) !== clientTaskForm._id);
@@ -3286,7 +3294,7 @@ const UserCreateTask = () => {
       setTaskViewsLoaded(prev => ({ ...prev, client: true }));
       setOpenClientTaskDialog(false);
       fetchClientTasks();
-      
+
     } catch (err) {
       console.error('Error assigning task:', err);
       showSnackbar(err.response?.data?.message || err.message || 'Failed to assign task', 'error');
@@ -3642,7 +3650,7 @@ const UserCreateTask = () => {
     }
   }, [allTasksPagination.page, fetchAllTasks, fetchProjectTasks, getCleanCheckpoints, projectTaskForm, selectedProject, selectedProjectUsers, showSnackbar]);
 
-  
+
   const fetchMyTasks = useCallback(async () => {
     if (authError || !userId) {
       setLoading(false);
@@ -3655,7 +3663,7 @@ const UserCreateTask = () => {
       const query = buildUserTaskQueryParams(getUserTaskApiPeriod());
       const url = `/tasks/self?${query}`;
       void 0;
-      
+
       const res = await axios.get(url);
       let selfTasks = extractTasksFromResponse(res.data);
       if (await syncOverdueTaskStatuses(selfTasks, 'self')) {
@@ -3666,9 +3674,9 @@ const UserCreateTask = () => {
 
       // Do not let an older list request overwrite a status the user just changed.
       if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
-      
+
       void 0;
-      
+
       setMyTasksGrouped(tasks);
       calculateStatsFromTasks(tasks);
 
@@ -3686,7 +3694,7 @@ const UserCreateTask = () => {
     }
   }, [authError, userId, calculateStatsFromTasks, extractTasksFromResponse, groupTasksByDate, tagTasksWithSource, buildUserTaskQueryParams, getUserTaskApiPeriod, syncOverdueTaskStatuses]);
 
-  
+
   const fetchOverdueTasks = useCallback(async () => {
     if (authError || !userId) {
       return;
@@ -3703,12 +3711,12 @@ const UserCreateTask = () => {
     }
   }, [authError, userId]);
 
-  
+
   const handleTimeFilterChange = (period) => {
     setTimeFilter(period);
   };
 
-  
+
   const handleViewModeChange = (mode) => {
     setTaskViewMode(mode);
     setStatusFilter('');
@@ -3736,7 +3744,7 @@ const UserCreateTask = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  
+
   const handleStatsCardClick = (status) => {
     if (status) {
       const newStatusFilter = status === 'all' || statusFilter === status ? '' : status;
@@ -3750,17 +3758,17 @@ const UserCreateTask = () => {
         onhold: 'On Hold'
       };
       setStatusFilter(newStatusFilter);
-      
+
       showSnackbar(
-        newStatusFilter 
-          ? `Filtering ${taskViewMode === 'all' ? 'all' : taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : taskViewMode === 'project' ? 'project' : 'assigned'} tasks by: ${statusLabels[status] || status.replace('-', ' ')}` 
+        newStatusFilter
+          ? `Filtering ${taskViewMode === 'all' ? 'all' : taskViewMode === 'self' ? 'personal' : taskViewMode === 'client' ? 'client' : taskViewMode === 'project' ? 'project' : 'assigned'} tasks by: ${statusLabels[status] || status.replace('-', ' ')}`
           : 'Cleared status filter',
         'info'
       );
     }
   };
 
-  
+
   const clearAllFilters = () => {
     setStatusFilter('');
     setTimeFilter('all');
@@ -3771,7 +3779,7 @@ const UserCreateTask = () => {
     showSnackbar('All filters cleared', 'info');
   };
 
-  
+
   const fetchTaskRemarks = async (taskOrId, taskSource = taskViewMode) => {
     const requestId = ++remarksRequestRef.current;
     try {
@@ -3784,13 +3792,13 @@ const UserCreateTask = () => {
 
       const endpoint = isProjectTask
         ? `/tasks/project/${projectId}/tasks/${taskId}/remarks`
-        : isClientTask 
-        ? `/tasks/client-tasks/${taskId}/client-remarks`
-        : isSelfTask
-        ? `/tasks/self/${taskId}/remarks`
-        : isAssignedTask
-        ? `/tasks/assigned/${taskId}/remarks`
-        : `/task/${taskId}/remarks`;
+        : isClientTask
+          ? `/tasks/client-tasks/${taskId}/client-remarks`
+          : isSelfTask
+            ? `/tasks/self/${taskId}/remarks`
+            : isAssignedTask
+              ? `/tasks/assigned/${taskId}/remarks`
+              : `/task/${taskId}/remarks`;
 
       if (isProjectTask && !projectId) {
         showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
@@ -3806,9 +3814,9 @@ const UserCreateTask = () => {
         source
       });
       setIsLoadingRemarks(!cachedRemarks);
-      
+
       const res = await axios.get(endpoint);
-      
+
       let remarks = [];
       if (res.data.success && res.data.data) {
         if (Array.isArray(res.data.data)) {
@@ -3823,19 +3831,19 @@ const UserCreateTask = () => {
       } else if (Array.isArray(res.data)) {
         remarks = res.data;
       }
-      
+
       remarks = remarks.map(normalizeRemark);
 
       remarksCacheRef.current.set(cacheKey, remarks);
       if (requestId !== remarksRequestRef.current) return;
-      
-      setRemarksDialog({ 
-        open: true, 
-        taskId, 
+
+      setRemarksDialog({
+        open: true,
+        taskId,
         remarks: remarks,
         source
       });
-      
+
     } catch (error) {
       console.error('Error fetching remarks:', error);
       showSnackbar('Failed to load remarks', 'error');
@@ -3844,11 +3852,11 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const handleRemarkImageUpload = (event) => {
     const files = Array.from(event.target.files);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
+
     if (imageFiles.length === 0) {
       showSnackbar('Please select valid image files', 'warning');
       return;
@@ -3869,7 +3877,7 @@ const UserCreateTask = () => {
     setRemarkImages(newImages);
   };
 
-  
+
   const handleRemoveRemarkImage = (index) => {
     setRemarkImages(prev => {
       const newImages = [...prev];
@@ -3902,12 +3910,12 @@ const UserCreateTask = () => {
     });
   }, [remarksCacheRef, setRemarksDialog, taskViewMode]);
 
-  
+
   const handleDragOver = (event) => {
     event.preventDefault();
   };
 
-  
+
   const handleDrop = (event) => {
     event.preventDefault();
     const files = Array.from(event.dataTransfer.files);
@@ -3921,15 +3929,15 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const addRemark = async (taskOrId, taskSource = taskViewMode) => {
     if (!newRemark.trim() && remarkImages.length === 0) {
       showSnackbar('Please enter a remark or upload an image', 'warning');
       return false;
     }
-    
+
     setIsUploadingRemark(true);
-    
+
     try {
       const { task, taskId, projectId } = getProjectTaskContext(taskOrId);
       const source = taskSource || getTaskSource(task);
@@ -3937,10 +3945,10 @@ const UserCreateTask = () => {
       const isProjectTask = source === 'project';
       const isSelfTask = source === 'self';
       const isAssignedTask = source === 'assigned';
-      
+
       let endpoint;
       let formData = new FormData();
-      
+
       if (isProjectTask) {
         if (!projectId) {
           showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
@@ -3977,49 +3985,49 @@ const UserCreateTask = () => {
         if (remarkImages.length > 0) {
           endpoint = `/tasks/client-tasks/${taskId}/client-remarks/upload-images`;
           formData.append('text', newRemark.trim());
-          
+
           remarkImages.forEach((image) => {
             void 0;
             formData.append('images', image.file);
           });
-          
+
           const response = await axios.post(endpoint, formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
             }
           });
-          
+
           void 0;
-          
+
           updateRemarksDialogLocally(taskId, source, response?.data?.data || response?.data?.remark || response?.data || {});
           setNewRemark('');
           remarkImages.forEach(image => {
             if (image.preview) URL.revokeObjectURL(image.preview);
           });
           setRemarkImages([]);
-          
+
           showSnackbar('Remark added successfully with images', 'success');
           return true;
         } else {
           endpoint = `/tasks/client-tasks/${taskId}/client-remarks`;
           void 0;
           void 0;
-          
+
           const response = await axios.post(endpoint, { text: newRemark.trim() }, {
             headers: {
               'Content-Type': 'application/json',
             }
           });
-          
+
           void 0;
-          
+
           updateRemarksDialogLocally(taskId, source, response?.data?.data || response?.data?.remark || response?.data || {});
           setNewRemark('');
           remarkImages.forEach(image => {
             if (image.preview) URL.revokeObjectURL(image.preview);
           });
           setRemarkImages([]);
-          
+
           showSnackbar('Remark added successfully', 'success');
           return true;
         }
@@ -4032,14 +4040,14 @@ const UserCreateTask = () => {
           endpoint = `/task/${taskId}/remarks`;
         }
         formData.append('text', newRemark.trim());
-        
+
         if (remarkImages.length > 0) {
           formData.append('image', remarkImages[0].file);
         }
-        
+
         void 0;
         void 0;
-        
+
         const response = await axios.post(endpoint, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -4047,16 +4055,16 @@ const UserCreateTask = () => {
         });
 
         void 0;
-        
+
         updateRemarksDialogLocally(taskId, source, response?.data?.remark || response?.data?.data || response?.data || {});
         setNewRemark('');
         remarkImages.forEach(image => {
           if (image.preview) URL.revokeObjectURL(image.preview);
         });
         setRemarkImages([]);
-        
+
         showSnackbar(
-          `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`, 
+          `Remark added successfully${remarkImages.length > 0 ? ' with image' : ''}`,
           'success'
         );
 
@@ -4068,13 +4076,13 @@ const UserCreateTask = () => {
       console.error('❌ Error details:', error.response?.data);
       showSnackbar('Failed to add remark: ' + (error.response?.data?.message || error.message), 'error');
       return false;
-      
+
     } finally {
       setIsUploadingRemark(false);
     }
   };
 
-  
+
   const handleSaveRemarkWithStatus = async () => {
     if (isSavingRemarkStatus || isUploadingRemark) return;
     setIsSavingRemarkStatus(true);
@@ -4138,14 +4146,14 @@ const UserCreateTask = () => {
         if (image.preview) URL.revokeObjectURL(image.preview);
       });
       setRemarkImages([]);
-      
+
       if (statusToApply) {
         showSnackbar(hasRemarkContent ? 'Status updated and remark added successfully' : 'Status updated successfully', 'success');
       } else if (hasRemarkContent) {
         showSnackbar('Remark added successfully', 'success');
       }
       setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
-      
+
     } catch (error) {
       console.error("Error saving remark:", error);
       showSnackbar('Failed to save remark', 'error');
@@ -4154,7 +4162,7 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const fetchActivityLogs = async (taskOrId, taskSource = taskViewMode) => {
     const requestId = ++activityRequestRef.current;
     try {
@@ -4164,9 +4172,9 @@ const UserCreateTask = () => {
       const isProjectTask = source === 'project';
       const endpoint = isProjectTask
         ? `/tasks/project/${projectId}/tasks/${taskId}/activity`
-        : isClientTask 
-        ? `/tasks/client-tasks/${taskId}/client-activity-logs`
-        : `/task/${taskId}/activity-logs`;
+        : isClientTask
+          ? `/tasks/client-tasks/${taskId}/client-activity-logs`
+          : `/task/${taskId}/activity-logs`;
 
       if (isProjectTask && !projectId) {
         showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
@@ -4178,9 +4186,9 @@ const UserCreateTask = () => {
       setActivityLogs(cachedLogs || []);
       setActivityDialog({ open: true, taskId });
       setIsLoadingActivity(!cachedLogs);
-      
+
       const res = await axios.get(endpoint);
-      
+
       let logs = [];
       if (res.data.success && res.data.data) {
         if (Array.isArray(res.data.data)) {
@@ -4197,7 +4205,7 @@ const UserCreateTask = () => {
       } else if (Array.isArray(res.data)) {
         logs = res.data;
       }
-      
+
       const normalizedLogs = logs.map((log) => {
         const actor = log.user || log.performedBy || log.createdBy || null;
         const actorName = log.userName || actor?.name || actor?.fullName || actor?.email || '';
@@ -4215,7 +4223,7 @@ const UserCreateTask = () => {
       activityCacheRef.current.set(cacheKey, normalizedLogs);
       if (requestId !== activityRequestRef.current) return;
       setActivityLogs(normalizedLogs);
-      
+
     } catch (error) {
       console.error('Error fetching activity logs:', error);
       showSnackbar('Failed to load activity logs', 'error');
@@ -4224,19 +4232,19 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const applyDateFilter = useCallback((tasks) => {
     return tasks || {};
   }, []);
 
-  
+
   const clearDateFilter = () => {
     setSelectedDate(null);
     setDateRange({ start: null, end: null });
     setCalendarFilterOpen(false);
   };
 
-  
+
   const getDateFilterSummary = () => {
     if (selectedDate) {
       return `Date: ${new Date(selectedDate).toLocaleDateString('en-IN')}`;
@@ -4253,7 +4261,7 @@ const UserCreateTask = () => {
     return null;
   };
 
-  
+
   const filteredTasks = useMemo(() => {
     const tasksToFilter = applyLocalFilters(getActiveTasksGrouped());
     return applyDateFilter(tasksToFilter);
@@ -4330,10 +4338,10 @@ const UserCreateTask = () => {
         const typeLabel = taskSource === 'client'
           ? getClientNameFromTask(task)
           : taskSource === 'project'
-          ? `Project: ${task.projectName || 'Project Task'}`
-          : taskSource === 'self'
-          ? 'Personal'
-          : 'Assigned';
+            ? `Project: ${task.projectName || 'Project Task'}`
+            : taskSource === 'self'
+              ? 'Personal'
+              : 'Assigned';
         const assignedInfo = taskSource === 'project' ? getProjectAssignmentDisplay(task) : '';
 
         return [
@@ -4434,7 +4442,7 @@ const UserCreateTask = () => {
     return count;
   }, [filteredTasks, getStatusForTask, getDueDateForTask, isOverdue]);
 
-  
+
   const handleStatusChange = async (taskId, newStatus, remarks = '', options = {}) => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
@@ -4480,7 +4488,7 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const handleAssignedTaskStatusChange = async (taskId, newStatus, remarks = '', options = {}) => {
     if (authError || !userId) {
       showSnackbar('Please log in to update task status', 'error');
@@ -4517,14 +4525,14 @@ const UserCreateTask = () => {
       console.error("❌ Error updating assigned task:", err);
       console.error("Error details:", err.response?.data);
       restoreTaskStateSnapshot(snapshot);
-      
+
       let errorMessage = 'Failed to update task status';
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.data?.error) {
         errorMessage = err.response.data.error;
       }
-      
+
       showSnackbar(errorMessage, 'error');
       return false;
     }
@@ -4555,34 +4563,98 @@ const UserCreateTask = () => {
     const taskSource = getTaskSource(task || { __taskSource: 'client' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
     try {
-        const statusPayload = { status: normalizedStatus, completed: normalizedStatus === 'completed' };
+      const statusPayload = { status: normalizedStatus, completed: normalizedStatus === 'completed' };
 
-        await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
-        window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
-        if (options.showSuccess !== false) showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
-        return true;
-      } catch (err) {
-        console.error("❌ Error updating client task:", err);
-        restoreTaskStateSnapshot(snapshot);
-        showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update task status', 'error');
-        return false;
-      }
+      await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
+      window.setTimeout(() => void refreshCurrentTaskView(taskSource), 1200);
+      if (options.showSuccess !== false) showSnackbar(`Task status changed to ${normalizedStatus} successfully`, 'success');
+      return true;
+    } catch (err) {
+      console.error("❌ Error updating client task:", err);
+      restoreTaskStateSnapshot(snapshot);
+      showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update task status', 'error');
+      return false;
+    }
   };
 
-  const refreshCurrentTaskView = async (source = taskViewMode) => {
-    if (taskViewMode === 'all') {
-      await fetchAllTasks(allTasksPagination.page || 1);
-    }
+  const refreshCurrentTaskView = useCallback(async (source = taskViewMode) => {
+    taskManagementMemoryCache = null;
+    await fetchAllTasks(allTasksPagination.page || 1);
     if (source === 'self' || taskViewMode === 'self') {
       await fetchMyTasks();
     } else if (source === 'client' || taskViewMode === 'client') {
       await fetchClientTasks();
     } else if (source === 'project' || taskViewMode === 'project') {
       await fetchProjectTasks();
-    } else {
+    } else if (source === 'assigned' || taskViewMode === 'assigned') {
       await fetchAssignedToMeTasks();
     }
-  };
+  }, [taskViewMode, allTasksPagination.page, fetchAllTasks, fetchMyTasks, fetchClientTasks, fetchProjectTasks, fetchAssignedToMeTasks]);
+
+  const handleExternalTaskCreated = useCallback((eventOrTask) => {
+    taskManagementMemoryCache = null;
+    invalidateTaskManagementCache(userId);
+
+    const taskObj = eventOrTask?.detail?.task || eventOrTask?.task || eventOrTask;
+    if (taskObj && (taskObj._id || taskObj.id)) {
+      const taskSource = eventOrTask?.detail?.source || getTaskSource(taskObj) || (taskObj.taskFor === 'self' ? 'self' : 'assigned');
+      const createdTask = tagTasksWithSource([{
+        ...taskObj,
+        status: normalizeStatus(taskObj.status || taskObj.overallStatus || 'pending'),
+        overallStatus: normalizeStatus(taskObj.overallStatus || taskObj.status || 'pending'),
+        createdAt: taskObj.createdAt || new Date().toISOString()
+      }], taskSource)[0];
+
+      const createdId = String(createdTask._id || createdTask.id || '');
+      const insertCreatedTask = grouped => {
+        const existing = Object.values(grouped || {}).flat();
+        const withoutDuplicate = createdId
+          ? existing.filter(task => String(task._id || task.id || '') !== createdId)
+          : existing;
+        return groupTasksByDate([createdTask, ...withoutDuplicate]);
+      };
+
+      if (taskSource === 'self') {
+        setMyTasksGrouped(prev => {
+          const next = insertCreatedTask(prev);
+          calculateStatsFromTasks(next);
+          return next;
+        });
+      } else if (taskSource === 'assigned') {
+        setAssignedToMeTasksGrouped(prev => {
+          const next = insertCreatedTask(prev);
+          calculateAssignedStatsFromTasks(next);
+          return next;
+        });
+      }
+
+      setAllTasksGrouped(prev => {
+        const next = insertCreatedTask(prev);
+        setAllTaskStats(calculateUnifiedStatsFromTasks(next));
+        return next;
+      });
+      setAllTasksStatsGrouped(prev => insertCreatedTask(prev));
+      setTaskViewsLoaded(prev => ({ ...prev, [taskSource]: true, all: true }));
+    }
+
+    void refreshCurrentTaskView();
+  }, [userId, tagTasksWithSource, getTaskSource, groupTasksByDate, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateUnifiedStatsFromTasks, refreshCurrentTaskView]);
+
+  useTaskRealtime({
+    onNewTask: (newTask) => {
+      handleExternalTaskCreated(newTask);
+    }
+  });
+
+  useEffect(() => {
+    const onCustomCreated = (e) => handleExternalTaskCreated(e);
+    window.addEventListener('ciis:task-created', onCustomCreated);
+    window.addEventListener('task:created', onCustomCreated);
+    return () => {
+      window.removeEventListener('ciis:task-created', onCustomCreated);
+      window.removeEventListener('task:created', onCustomCreated);
+    };
+  }, [handleExternalTaskCreated]);
 
   const handleCheckpointToggle = async (task, checkpoint) => {
     const taskId = task?._id || task?.id;
@@ -4614,9 +4686,9 @@ const UserCreateTask = () => {
         ? `/tasks/client-tasks/${taskId}/checkpoints/${checkpointId}`
         : taskSource === 'project'
           ? `/tasks/project/${task.projectId}/tasks/${taskId}/checkpoints/${checkpointId}`
-        : taskSource === 'self'
-          ? `/tasks/self/${taskId}/checkpoints/${checkpointId}`
-          : `/tasks/assigned/${taskId}/checkpoints/${checkpointId}`;
+          : taskSource === 'self'
+            ? `/tasks/self/${taskId}/checkpoints/${checkpointId}`
+            : `/tasks/assigned/${taskId}/checkpoints/${checkpointId}`;
 
       await axios.patch(endpoint, { completed: nextCompleted });
       showSnackbar(nextCompleted ? 'Checkpoint completed' : 'Checkpoint reopened', 'success');
@@ -4780,7 +4852,7 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const markTaskAsOverdue = async (taskId, remarks = '', taskSource = taskViewMode) => {
     if (authError || !userId) {
       showSnackbar('Please log in to mark task as overdue', 'error');
@@ -4797,29 +4869,29 @@ const UserCreateTask = () => {
     void (async () => {
       try {
         if (taskSource === 'client') {
-          await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, { 
+          await axios.patch(`/tasks/client-tasks/assigned/${taskId}/status`, {
             status: 'overdue',
             remarks: remarks || 'Manually marked as overdue'
           });
         } else if (taskSource === 'self') {
-          await axios.patch(`/tasks/self/${taskId}/status`, { 
+          await axios.patch(`/tasks/self/${taskId}/status`, {
             status: 'overdue',
             remarks: remarks || 'Manually marked as overdue'
           });
         } else if (taskSource === 'assigned') {
-          await axios.patch(`/tasks/assigned/${taskId}/status`, { 
+          await axios.patch(`/tasks/assigned/${taskId}/status`, {
             status: 'overdue',
             remarks: remarks || 'Manually marked as overdue'
           });
         } else {
-          await axios.patch(`/task/${taskId}/overdue`, { 
+          await axios.patch(`/task/${taskId}/overdue`, {
             remarks: remarks || 'Manually marked as overdue'
           });
         }
 
         scheduleAllTasksRefresh(1200);
         void fetchOverdueTasks();
-        
+
         showSnackbar('Task marked as overdue', 'warning');
       } catch (err) {
         console.error("Error marking task as overdue:", err.response || err);
@@ -4834,7 +4906,7 @@ const UserCreateTask = () => {
     })();
   };
 
-  
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -4854,7 +4926,7 @@ const UserCreateTask = () => {
         const extension = mimeType.includes('ogg') ? 'ogg' : 'webm';
         const file = new File([blob], `voice-note.${extension}`, { type: mimeType });
         setNewTask(prev => ({ ...prev, voiceNote: file }));
-        
+
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -4905,7 +4977,7 @@ const UserCreateTask = () => {
     event.target.value = '';
   };
 
-  
+
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -4913,7 +4985,7 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const handleCreateTask = async () => {
     if (authError || !userId) {
       showSnackbar('Please log in to create tasks', 'error');
@@ -4933,13 +5005,13 @@ const UserCreateTask = () => {
         : newTask.dueDateTime;
 
       let dueDate;
-      
+
       if (dueDateTimeValue instanceof Date) {
         dueDate = dueDateTimeValue;
       } else if (typeof dueDateTimeValue === 'string') {
         if (dueDateTimeValue.includes('T')) {
-          const dateStr = dueDateTimeValue.includes(':') && dueDateTimeValue.split(':').length === 2 
-            ? `${dueDateTimeValue}:00` 
+          const dateStr = dueDateTimeValue.includes(':') && dueDateTimeValue.split(':').length === 2
+            ? `${dueDateTimeValue}:00`
             : dueDateTimeValue;
           dueDate = new Date(dateStr);
         } else {
@@ -5045,14 +5117,14 @@ const UserCreateTask = () => {
 
       setOpenDialog(false);
       showSnackbar('Task created successfully', 'success');
-      
+
       setNewTask({
-        title: '', 
-        description: '', 
+        title: '',
+        description: '',
         dueDateTime: '',
-        priority: 'medium', 
-        priorityDays: '1', 
-        files: null, 
+        priority: 'medium',
+        priorityDays: '1',
+        files: null,
         voiceNote: null,
         checkpoints: [],
         repeatPattern: 'none',
@@ -5104,7 +5176,7 @@ const UserCreateTask = () => {
     }
   };
 
-  
+
   const handleLogout = () => {
     taskManagementMemoryCache = null;
     sessionStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
@@ -5129,11 +5201,11 @@ const UserCreateTask = () => {
     navigate('/login');
   };
 
-  
+
   useEffect(() => {
     const loadData = async () => {
       void 0;
-      
+
       try {
         const userStr = localStorage.getItem('user');
         if (userStr) {
@@ -5141,15 +5213,15 @@ const UserCreateTask = () => {
           const userIdFromStorage = user.id || user._id;
           const userRoleFromStorage = user.role || user.jobRole;
           const userNameFromStorage = user.name;
-          
+
           if (userIdFromStorage && userRoleFromStorage && userNameFromStorage) {
             void 0;
-            
+
             setUserRole(userRoleFromStorage);
             setUserId(userIdFromStorage);
             setUserName(userNameFromStorage);
             setAuthError(false);
-            
+
             void 0;
           } else {
             console.error('❌ Invalid user data in localStorage');
@@ -5166,7 +5238,7 @@ const UserCreateTask = () => {
         void 0;
       }
     };
-    
+
     loadData();
   }, []);
 
@@ -5219,7 +5291,7 @@ const UserCreateTask = () => {
     }
   }, [clients.length, fetchClients, loadingClients, taskViewMode]);
 
-  
+
   useEffect(() => {
     return () => {
       if (snackbarTimerRef.current) {
@@ -5228,7 +5300,7 @@ const UserCreateTask = () => {
       if (allTasksRefreshTimerRef.current) {
         clearTimeout(allTasksRefreshTimerRef.current);
       }
-      
+
       remarkImages.forEach(image => {
         if (image.preview) {
           URL.revokeObjectURL(image.preview);
@@ -5237,7 +5309,7 @@ const UserCreateTask = () => {
     };
   }, [remarkImages]);
 
-  
+
   if (authError && !localStorage.getItem('token')) {
     return (
       <div className="user-create-task-error-container">
@@ -5382,7 +5454,7 @@ const UserCreateTask = () => {
     { label: 'Overdue', value: activeStats.overdue?.count || 0, icon: FiXCircle, tone: 'overdue' }
   ];
 
-  
+
   return (
     <div className="user-create-task-container">
       {snackbar.open && (
@@ -5401,11 +5473,11 @@ const UserCreateTask = () => {
         </div>
       )}
 
-      
+
       <div className="user-create-task-header">
         <div className={`user-create-task-header-row ${isMobile ? 'user-create-task-flex-column' : ''}`}>
-          
-          
+
+
           <div className="user-create-task-header-left" style={isMobile ? { marginBottom: '16px' } : {}}>
             <div className="user-create-task-title" style={{ fontSize: isMobile ? '24px' : isTablet ? '28px' : '32px' }}>
               Task Management
@@ -5417,7 +5489,7 @@ const UserCreateTask = () => {
 
           </div>
 
-          
+
           {taskViewMode === 'self' && (
             <div className={`user-create-task-header-actions ${isMobile ? 'user-create-task-flex-row user-create-task-justify-between' : ''}`}>
               <button
@@ -5469,7 +5541,7 @@ const UserCreateTask = () => {
         </div>
       </div>
 
-      
+
       <div className="user-create-task-paper" style={{ marginBottom: '16px' }}>
         <div className="user-create-task-paper-content">
           <div className="user-create-task-view-toggle">
@@ -5531,13 +5603,13 @@ const UserCreateTask = () => {
         </div>
       </div>
 
-      
+
       <div className="user-create-task-paper task-statistics-panel">
         <div className="user-create-task-paper-content">
           <div className="task-statistics-panel-title">
             {taskViewMode === 'all' ? 'All Task Statistics' : taskViewMode === 'self' ? 'Personal Task Statistics' : taskViewMode === 'client' ? 'Client Task Statistics' : taskViewMode === 'project' ? 'Project Task Statistics' : 'Assigned Task Statistics'}
           </div>
-          
+
           <div className="user-create-task-time-filter">
             <div className="user-create-task-time-filter-header">
               <div>
@@ -5577,7 +5649,7 @@ const UserCreateTask = () => {
                 { value: "last-month", label: "Last Month", icon: FiCalendar },
               ].map((period) => {
                 const isActive = timeFilter === period.value;
-                
+
                 return (
                   <button
                     key={period.value}
@@ -5669,38 +5741,38 @@ const UserCreateTask = () => {
               ];
 
               return statsData.map((stat, index) => {
-                  const isActive = stat.status === 'all' ? !statusFilter || statusFilter === 'all' : stat.status === statusFilter;
-                  
-                  return (
-                    <StatCard
-                      key={index}
-                      color={stat.color}
-                      clickable={stat.clickable}
-                      active={isActive}
-                      onClick={() => stat.clickable && handleStatsCardClick(stat.status)}
-                    >
-                      <div className="user-create-task-stat-card-content">
-                        <div className="user-create-task-stat-card-header">
-                          <div>
-                            <div className="user-create-task-stat-card-value"><AnimatedStatValue value={stat.value} /></div>
-                            <div className="user-create-task-stat-card-title">{stat.title}</div>
-                          </div>
-                          <div 
-                            className="user-create-task-stat-card-icon"
-                            style={{
-                              backgroundColor: `${getColorValue(stat.color)}15`,
-                              color: getColorValue(stat.color)
-                            }}
-                          >
-                            {React.createElement(stat.icon, { size: isMobile ? 16 : 18 })}
-                          </div>
-                        </div>
+                const isActive = stat.status === 'all' ? !statusFilter || statusFilter === 'all' : stat.status === statusFilter;
 
-                        <div className="user-create-task-stat-card-description">{stat.description}</div>
+                return (
+                  <StatCard
+                    key={index}
+                    color={stat.color}
+                    clickable={stat.clickable}
+                    active={isActive}
+                    onClick={() => stat.clickable && handleStatsCardClick(stat.status)}
+                  >
+                    <div className="user-create-task-stat-card-content">
+                      <div className="user-create-task-stat-card-header">
+                        <div>
+                          <div className="user-create-task-stat-card-value"><AnimatedStatValue value={stat.value} /></div>
+                          <div className="user-create-task-stat-card-title">{stat.title}</div>
+                        </div>
+                        <div
+                          className="user-create-task-stat-card-icon"
+                          style={{
+                            backgroundColor: `${getColorValue(stat.color)}15`,
+                            color: getColorValue(stat.color)
+                          }}
+                        >
+                          {React.createElement(stat.icon, { size: isMobile ? 16 : 18 })}
+                        </div>
                       </div>
-                    </StatCard>
-                  );
-                });
+
+                      <div className="user-create-task-stat-card-description">{stat.description}</div>
+                    </div>
+                  </StatCard>
+                );
+              });
             })()}
           </div>
 
@@ -5751,9 +5823,9 @@ const UserCreateTask = () => {
                   </div>
                 )}
                 {showOverdueOnly && (
-                  <div className="user-create-task-priority-chip" style={{ 
-                    display: 'inline-flex', 
-                    margin: '0 4px', 
+                  <div className="user-create-task-priority-chip" style={{
+                    display: 'inline-flex',
+                    margin: '0 4px',
                     padding: '2px 8px',
                     backgroundColor: '#f44336',
                     color: 'white'
@@ -5931,14 +6003,14 @@ const UserCreateTask = () => {
         </section>
       </div>
 
-      
+
       {(statusFilter === 'overdue' || showOverdueOnly) && getOverdueCount > 0 && (
-        <div className="user-create-task-paper" style={{ 
+        <div className="user-create-task-paper" style={{
           marginTop: '16px',
           borderLeft: '4px solid #f44336'
         }}>
-          <div style={{ 
-            padding: isMobile ? '12px 16px' : '16px 24px', 
+          <div style={{
+            padding: isMobile ? '12px 16px' : '16px 24px',
             borderBottom: '1px solid #ffcdd2',
             backgroundColor: '#fff5f5'
           }}>
@@ -5956,7 +6028,7 @@ const UserCreateTask = () => {
           <div className="user-create-task-paper-content">
             {Object.keys(filteredTasks).map(dateKey => {
               const tasksToCheck = filteredTasks;
-              
+
               const overdueTasksForDate = tasksToCheck[dateKey]?.filter(task => {
                 const status = getStatusForTask(task);
                 return isOverdue(getDueDateForTask(task), status, task);
@@ -5966,7 +6038,7 @@ const UserCreateTask = () => {
 
               return (
                 <div key={dateKey} style={{ marginTop: '16px' }}>
-                  <div style={{ 
+                  <div style={{
                     padding: isMobile ? '10px 12px' : '12px 16px',
                     backgroundColor: '#ffebee',
                     borderRadius: '4px',
@@ -5981,10 +6053,10 @@ const UserCreateTask = () => {
                       const taskSource = getTaskSource(task);
                       const status = getStatusForTask(task);
                       const dueDate = getDueDateForTask(task);
-                      
+
                       return (
-                        <div 
-                          key={task._id} 
+                        <div
+                          key={task._id}
                           className="user-create-task-overdue-item"
                           style={{
                             borderLeft: '3px solid #f44336',
@@ -5999,14 +6071,14 @@ const UserCreateTask = () => {
                                 {task.title || task.name}
                               </div>
                               <div style={{ fontSize: isMobile ? '12px' : '13px', color: '#666', marginTop: '4px' }}>
-                                {(task.description || '').length > 80 
-                                  ? (task.description || '').substring(0, 80) + '...' 
+                                {(task.description || '').length > 80
+                                  ? (task.description || '').substring(0, 80) + '...'
                                   : task.description || ''}
                               </div>
                               {taskSource === 'client' && getClientNameFromTask(task) !== 'N/A' && (
-                                <div style={{ 
-                                  fontSize: isMobile ? '11px' : '12px', 
-                                  color: '#1976d2', 
+                                <div style={{
+                                  fontSize: isMobile ? '11px' : '12px',
+                                  color: '#1976d2',
                                   marginTop: '4px',
                                   display: 'flex',
                                   alignItems: 'center',
@@ -6051,276 +6123,276 @@ const UserCreateTask = () => {
 
       {openClientTaskDialog && (
         <div className="user-create-task-dialog-overlay personal-task-overlay">
-          <div className={`user-create-task-dialog personal-task-dialog client-task-dialog create-client-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+          <div className={`user-create-task-dialog personal-task-dialog client-task-dialog create-client-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{
             maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
             width: isMobile ? '95%' : 'auto'
           }}>
-          <div className="user-create-task-dialog-title">
-            <div className="personal-task-heading">
-              <span className="personal-task-heading-icon"><FiUsers /></span>
-              <div>
-                <div className="personal-task-heading-text">Create Client Task</div>
-                <div className="personal-task-heading-subtitle">
-                  Assign this task to the employee who should receive it
+            <div className="user-create-task-dialog-title">
+              <div className="personal-task-heading">
+                <span className="personal-task-heading-icon"><FiUsers /></span>
+                <div>
+                  <div className="personal-task-heading-text">Create Client Task</div>
+                  <div className="personal-task-heading-subtitle">
+                    Assign this task to the employee who should receive it
+                  </div>
                 </div>
               </div>
+              <button
+                type="button"
+                className="personal-task-close"
+                onClick={() => {
+                  setSelectedAssigneeId('');
+                  setOpenClientTaskDialog(false);
+                }}
+                aria-label="Close dialog"
+              >
+                <FiX />
+              </button>
             </div>
-            <button
-              type="button"
-              className="personal-task-close"
-              onClick={() => {
-                setSelectedAssigneeId('');
-                setOpenClientTaskDialog(false);
-              }}
-              aria-label="Close dialog"
-            >
-              <FiX />
-            </button>
-          </div>
 
-          <div className="user-create-task-dialog-content client-task-dialog-content">
-            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-              <div className="user-create-task-alert info personal-task-info">
-                <FiInfo /> <span>Please choose the employee who should see this client task in their assigned list.</span>
-              </div>
-
-              <div className="user-create-task-form-control">
-                <div className="client-task-label-row">
-                  <label>Client *</label>
-                  <button
-                    type="button"
-                    className="client-task-refresh-link"
-                    onClick={fetchClients}
-                    disabled={loadingClients}
-                  >
-                    <FiRefreshCw size={12} />
-                    {loadingClients ? 'Loading' : 'Refresh'}
-                  </button>
+            <div className="user-create-task-dialog-content client-task-dialog-content">
+              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+                <div className="user-create-task-alert info personal-task-info">
+                  <FiInfo /> <span>Please choose the employee who should see this client task in their assigned list.</span>
                 </div>
-                <select
-                  className="user-create-task-select"
-                  value={selectedClientId}
-                  onChange={(event) => handleClientSelection(event.target.value)}
-                  disabled={loadingClients || clients.length === 0}
-                >
-                  <option value="">{loadingClients ? 'Loading clients...' : 'Select Client'}</option>
-                  {clients.map(client => {
-                    const clientId = client._id || client.id;
-                    const clientName = client.client || client.company || 'Client';
-                    const clientMeta = client.company && client.company !== clientName ? ` - ${client.company}` : '';
-                    return (
-                      <option value={clientId} key={clientId}>
-                        {clientName}{clientMeta}
-                      </option>
-                    );
-                  })}
-                </select>
-                {!loadingClients && clients.length === 0 && (
-                  <small className="client-task-field-help">No clients found. Refresh clients or check company login.</small>
-                )}
-              </div>
 
-              <div className="user-create-task-form-control">
-                <label>Service *</label>
-                <select
-                  className="user-create-task-select"
-                  value={clientTaskForm.service}
-                  onChange={(event) => setClientTaskForm(prev => ({ ...prev, service: event.target.value }))}
-                  disabled={!selectedClient || selectedClientServices.length === 0}
-                >
-                  <option value="">Select Service</option>
-                  {selectedClientServices.map(service => (
-                    <option value={service} key={service}>{service}</option>
-                  ))}
-                </select>
-              </div>
-
-              {clientTaskForm.service && (
                 <div className="user-create-task-form-control">
-                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#333', marginBottom: '8px', display: 'block' }}>
-                    Pending Tasks for {clientTaskForm.service}
-                  </label>
-                  {loadingServiceTasks ? (
-                    <div style={{ fontSize: '13px', color: '#666', padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>Loading tasks...</div>
-                  ) : servicePendingTasks.length > 0 ? (
-                    <div style={{ 
-                      maxHeight: '180px', 
-                      overflowY: 'auto', 
-                      border: '1px solid #e0e0e0', 
-                      borderRadius: '6px',
-                      backgroundColor: '#fafafa'
-                    }}>
-                      {servicePendingTasks.map((task, index) => (
-                        <div key={task._id || index} style={{
-                          padding: '10px 12px',
-                          borderBottom: index < servicePendingTasks.length - 1 ? '1px solid #eee' : 'none',
-                        }}>
-                          <div style={{ fontWeight: 500, color: '#333', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>{task.name || task.title}</span>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                              <StatusChip status={task.status || 'pending'} />
-                              <button
-                                type="button"
-                                onClick={() => handleSelectPendingTask(task)}
-                                style={{
-                                  padding: '4px 8px',
-                                  fontSize: '11px',
-                                  backgroundColor: clientTaskForm._id === (task._id || task.id) ? '#4caf50' : '#1976d2',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                {clientTaskForm._id === (task._id || task.id) ? 'Selected' : 'Select for Edit'}
-                              </button>
-                            </div>
-                          </div>
-                          <div style={{ color: '#666', marginTop: '4px', fontSize: '11px' }}>
-                            Due: {task.dueDate || task.dueDateTime ? formatDueDateTime(task.dueDate || task.dueDateTime) : 'No date'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '13px', color: '#666', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px dashed #ccc' }}>
-                      No unassigned pending tasks found for this service.
-                    </div>
+                  <div className="client-task-label-row">
+                    <label>Client *</label>
+                    <button
+                      type="button"
+                      className="client-task-refresh-link"
+                      onClick={fetchClients}
+                      disabled={loadingClients}
+                    >
+                      <FiRefreshCw size={12} />
+                      {loadingClients ? 'Loading' : 'Refresh'}
+                    </button>
+                  </div>
+                  <select
+                    className="user-create-task-select"
+                    value={selectedClientId}
+                    onChange={(event) => handleClientSelection(event.target.value)}
+                    disabled={loadingClients || clients.length === 0}
+                  >
+                    <option value="">{loadingClients ? 'Loading clients...' : 'Select Client'}</option>
+                    {clients.map(client => {
+                      const clientId = client._id || client.id;
+                      const clientName = client.client || client.company || 'Client';
+                      const clientMeta = client.company && client.company !== clientName ? ` - ${client.company}` : '';
+                      return (
+                        <option value={clientId} key={clientId}>
+                          {clientName}{clientMeta}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {!loadingClients && clients.length === 0 && (
+                    <small className="client-task-field-help">No clients found. Refresh clients or check company login.</small>
                   )}
                 </div>
-              )}
 
-              <div className="user-create-task-form-control">
-                <label>Assign To</label>
-                <select
-                  className="user-create-task-select"
-                  value={selectedAssigneeId}
-                  disabled
-                >
-                  <option value={userId || ''}>
-                    {userName
-                      ? `${userName} (Logged-in employee)`
-                      : 'Logged-in employee'}
-                  </option>
-                </select>
-              </div>
+                <div className="user-create-task-form-control">
+                  <label>Service *</label>
+                  <select
+                    className="user-create-task-select"
+                    value={clientTaskForm.service}
+                    onChange={(event) => setClientTaskForm(prev => ({ ...prev, service: event.target.value }))}
+                    disabled={!selectedClient || selectedClientServices.length === 0}
+                  >
+                    <option value="">Select Service</option>
+                    {selectedClientServices.map(service => (
+                      <option value={service} key={service}>{service}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="user-create-task-form-control">
-                <label>Task Title *</label>
-                <input
-                  className="user-create-task-input"
-                  value={clientTaskForm.name}
-                  placeholder="Enter client task title"
-                  onChange={(event) => setClientTaskForm(prev => ({ ...prev, name: event.target.value }))}
-                />
-              </div>
+                {clientTaskForm.service && (
+                  <div className="user-create-task-form-control">
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#333', marginBottom: '8px', display: 'block' }}>
+                      Pending Tasks for {clientTaskForm.service}
+                    </label>
+                    {loadingServiceTasks ? (
+                      <div style={{ fontSize: '13px', color: '#666', padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>Loading tasks...</div>
+                    ) : servicePendingTasks.length > 0 ? (
+                      <div style={{
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '6px',
+                        backgroundColor: '#fafafa'
+                      }}>
+                        {servicePendingTasks.map((task, index) => (
+                          <div key={task._id || index} style={{
+                            padding: '10px 12px',
+                            borderBottom: index < servicePendingTasks.length - 1 ? '1px solid #eee' : 'none',
+                          }}>
+                            <div style={{ fontWeight: 500, color: '#333', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>{task.name || task.title}</span>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <StatusChip status={task.status || 'pending'} />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectPendingTask(task)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    backgroundColor: clientTaskForm._id === (task._id || task.id) ? '#4caf50' : '#1976d2',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {clientTaskForm._id === (task._id || task.id) ? 'Selected' : 'Select for Edit'}
+                                </button>
+                              </div>
+                            </div>
+                            <div style={{ color: '#666', marginTop: '4px', fontSize: '11px' }}>
+                              Due: {task.dueDate || task.dueDateTime ? formatDueDateTime(task.dueDate || task.dueDateTime) : 'No date'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '13px', color: '#666', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px dashed #ccc' }}>
+                        No unassigned pending tasks found for this service.
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              <div className="user-create-task-form-control">
-                <label>Description *</label>
-                <textarea
-                  className="user-create-task-input"
-                  rows={isMobile ? 3 : 4}
-                  value={clientTaskForm.description}
-                  placeholder="Enter task description"
-                  onChange={(event) => setClientTaskForm(prev => ({ ...prev, description: event.target.value }))}
-                />
-              </div>
+                <div className="user-create-task-form-control">
+                  <label>Assign To</label>
+                  <select
+                    className="user-create-task-select"
+                    value={selectedAssigneeId}
+                    disabled
+                  >
+                    <option value={userId || ''}>
+                      {userName
+                        ? `${userName} (Logged-in employee)`
+                        : 'Logged-in employee'}
+                    </option>
+                  </select>
+                </div>
 
-              <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
-                <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                  <label>Due Date & Time *</label>
+                <div className="user-create-task-form-control">
+                  <label>Task Title *</label>
                   <input
-                    type="datetime-local"
                     className="user-create-task-input"
-                    value={clientTaskForm.dueDateTime}
-                    min={getIndiaDateTimeLocalValue()}
-                    onChange={(event) => setClientTaskForm(prev => ({ ...prev, dueDateTime: event.target.value }))}
+                    value={clientTaskForm.name}
+                    placeholder="Enter client task title"
+                    onChange={(event) => setClientTaskForm(prev => ({ ...prev, name: event.target.value }))}
                   />
                 </div>
 
-                <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                  <label>Priority</label>
-                  <select
-                    className="user-create-task-select"
-                    value={clientTaskForm.priority}
-                    onChange={(event) => setClientTaskForm(prev => ({ ...prev, priority: event.target.value }))}
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
+                <div className="user-create-task-form-control">
+                  <label>Description *</label>
+                  <textarea
+                    className="user-create-task-input"
+                    rows={isMobile ? 3 : 4}
+                    value={clientTaskForm.description}
+                    placeholder="Enter task description"
+                    onChange={(event) => setClientTaskForm(prev => ({ ...prev, description: event.target.value }))}
+                  />
                 </div>
-              </div>
 
-              {renderReminderSettings(
-                clientTaskForm.reminderSettings,
-                clientTaskForm.dueDateTime,
-                (nextSettings) => setClientTaskForm(prev => ({ ...prev, reminderSettings: nextSettings }))
-              )}
-
-              <div className="user-create-task-form-control">
-                <div className="task-checkpoint-header">
-                  <label>Checkpoints (Optional)</label>
-                  <button type="button" className="task-checkpoint-add" onClick={addClientCheckpoint}>
-                    <FiPlus size={14} /> Add
-                  </button>
-                </div>
-                {(clientTaskForm.checkpoints || []).length > 0 && (
-                  <div className="task-checkpoint-input-list">
-                    {clientTaskForm.checkpoints.map((checkpoint, index) => (
-                      <div className="task-checkpoint-input-row" key={`client-checkpoint-${index}`}>
-                        <FiCheckSquare size={16} />
-                        <input
-                          className="user-create-task-input"
-                          value={checkpoint.title}
-                          placeholder={`Checkpoint ${index + 1}`}
-                          onChange={(event) => updateClientCheckpoint(index, event.target.value)}
-                        />
-                        <button type="button" className="task-checkpoint-remove" onClick={() => removeClientCheckpoint(index)} aria-label="Remove checkpoint">
-                          <FiX size={16} />
-                        </button>
-                      </div>
-                    ))}
+                <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
+                  <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                    <label>Due Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      className="user-create-task-input"
+                      value={clientTaskForm.dueDateTime}
+                      min={getIndiaDateTimeLocalValue()}
+                      onChange={(event) => setClientTaskForm(prev => ({ ...prev, dueDateTime: event.target.value }))}
+                    />
                   </div>
+
+                  <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                    <label>Priority</label>
+                    <select
+                      className="user-create-task-select"
+                      value={clientTaskForm.priority}
+                      onChange={(event) => setClientTaskForm(prev => ({ ...prev, priority: event.target.value }))}
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                {renderReminderSettings(
+                  clientTaskForm.reminderSettings,
+                  clientTaskForm.dueDateTime,
+                  (nextSettings) => setClientTaskForm(prev => ({ ...prev, reminderSettings: nextSettings }))
                 )}
+
+                <div className="user-create-task-form-control">
+                  <div className="task-checkpoint-header">
+                    <label>Checkpoints (Optional)</label>
+                    <button type="button" className="task-checkpoint-add" onClick={addClientCheckpoint}>
+                      <FiPlus size={14} /> Add
+                    </button>
+                  </div>
+                  {(clientTaskForm.checkpoints || []).length > 0 && (
+                    <div className="task-checkpoint-input-list">
+                      {clientTaskForm.checkpoints.map((checkpoint, index) => (
+                        <div className="task-checkpoint-input-row" key={`client-checkpoint-${index}`}>
+                          <FiCheckSquare size={16} />
+                          <input
+                            className="user-create-task-input"
+                            value={checkpoint.title}
+                            placeholder={`Checkpoint ${index + 1}`}
+                            onChange={(event) => updateClientCheckpoint(index, event.target.value)}
+                          />
+                          <button type="button" className="task-checkpoint-remove" onClick={() => removeClientCheckpoint(index)} aria-label="Remove checkpoint">
+                            <FiX size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="user-create-task-dialog-actions client-task-create-actions">
-            {isClientPlanExpired ? (
-              <span className="client-task-create-warning" style={{ color: 'red' }}>Client plan expired. You cannot create or assign tasks.</span>
-            ) : selectedClient && selectedClientServices.length === 0 && (
-              <span className="client-task-create-warning">Selected client has no services.</span>
-            )}
-            <button
-              type="button"
-              className="user-create-task-button user-create-task-button-outlined"
-              onClick={() => {
-                setSelectedAssigneeId('');
-                setOpenClientTaskDialog(false);
-              }}
-              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="user-create-task-button user-create-task-button-contained"
-              onClick={clientTaskForm._id ? handleUpdateAndAssignClientTask : handleCreateClientTask}
-              disabled={
-                isCreatingClientTask ||
-                !selectedClient ||
-                isClientPlanExpired ||
-                !clientTaskForm.service ||
-                !clientTaskForm.name.trim() ||
-                !clientTaskForm.description.trim() ||
-                !clientTaskForm.dueDateTime
-              }
-            >
-              {isCreatingClientTask ? (clientTaskForm._id ? 'Updating...' : 'Creating...') : <><FiCheck size={16} /> {clientTaskForm._id ? 'Assign Task' : 'Create Task'}</>}
-            </button>
-          </div>
+            <div className="user-create-task-dialog-actions client-task-create-actions">
+              {isClientPlanExpired ? (
+                <span className="client-task-create-warning" style={{ color: 'red' }}>Client plan expired. You cannot create or assign tasks.</span>
+              ) : selectedClient && selectedClientServices.length === 0 && (
+                <span className="client-task-create-warning">Selected client has no services.</span>
+              )}
+              <button
+                type="button"
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={() => {
+                  setSelectedAssigneeId('');
+                  setOpenClientTaskDialog(false);
+                }}
+                style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={clientTaskForm._id ? handleUpdateAndAssignClientTask : handleCreateClientTask}
+                disabled={
+                  isCreatingClientTask ||
+                  !selectedClient ||
+                  isClientPlanExpired ||
+                  !clientTaskForm.service ||
+                  !clientTaskForm.name.trim() ||
+                  !clientTaskForm.description.trim() ||
+                  !clientTaskForm.dueDateTime
+                }
+              >
+                {isCreatingClientTask ? (clientTaskForm._id ? 'Updating...' : 'Creating...') : <><FiCheck size={16} /> {clientTaskForm._id ? 'Assign Task' : 'Create Task'}</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -6555,11 +6627,11 @@ const UserCreateTask = () => {
         </div>
       )}
 
-      
+
       <div className="user-create-task-paper">
-        <div style={{ 
-          padding: isMobile ? '12px 16px' : '16px 24px', 
-          borderBottom: '1px solid #e0e0e0' 
+        <div style={{
+          padding: isMobile ? '12px 16px' : '16px 24px',
+          borderBottom: '1px solid #e0e0e0'
         }}>
           <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
             <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
@@ -6580,7 +6652,7 @@ const UserCreateTask = () => {
                 </div>
               )}
             </div>
-            
+
             <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-justify-between user-create-task-align-center'}`}>
               <div className="user-create-task-flex user-create-task-gap-1.5 user-create-task-align-center user-create-task-flex-wrap">
                 <button
@@ -6616,7 +6688,7 @@ const UserCreateTask = () => {
                 <button
                   className={`user-create-task-button ${showOverdueOnly ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
                   onClick={() => setShowOverdueOnly(!showOverdueOnly)}
-                  style={{ 
+                  style={{
                     padding: isMobile ? '8px 12px' : '10px 16px',
                     backgroundColor: showOverdueOnly ? '#f44336' : undefined,
                     borderColor: showOverdueOnly ? '#f44336' : undefined,
@@ -6670,7 +6742,7 @@ const UserCreateTask = () => {
           ) : (
             (() => {
               let tasksToDisplay = filteredTasks;
-              
+
               if (showOverdueOnly) {
                 const filtered = {};
                 Object.entries(tasksToDisplay).forEach(([dateKey, tasks]) => {
@@ -6684,9 +6756,9 @@ const UserCreateTask = () => {
                 });
                 tasksToDisplay = filtered;
               }
-              
+
               const hasData = tasksToDisplay && Object.keys(tasksToDisplay).length > 0;
-              
+
               if (!hasData) {
                 return (
                   <div className="user-create-task-empty-state">
@@ -6694,17 +6766,17 @@ const UserCreateTask = () => {
                       {taskViewMode === 'self' ? <FiUser size={48} /> : <FiUsers size={48} />}
                     </div>
                     <div className="user-create-task-empty-state-title">
-                      {taskViewMode === 'self' 
-                        ? 'No personal tasks found' 
-                        : showOverdueOnly 
+                      {taskViewMode === 'self'
+                        ? 'No personal tasks found'
+                        : showOverdueOnly
                           ? 'No overdue tasks found'
                           : taskViewMode === 'all'
                             ? 'No tasks found'
-                          : taskViewMode === 'client'
-                            ? 'No client tasks found'
-                          : taskViewMode === 'project'
-                            ? 'No project tasks found'
-                            : 'No tasks assigned to you'}
+                            : taskViewMode === 'client'
+                              ? 'No client tasks found'
+                              : taskViewMode === 'project'
+                                ? 'No project tasks found'
+                                : 'No tasks assigned to you'}
                     </div>
                     <div className="user-create-task-empty-state-subtitle">
                       {taskViewMode === 'self'
@@ -6713,21 +6785,21 @@ const UserCreateTask = () => {
                           ? 'Great job! You have no overdue tasks.'
                           : taskViewMode === 'all'
                             ? 'No personal, assigned, client, or project tasks are available'
-                          : taskViewMode === 'client'
-                            ? 'You have no tasks assigned from clients'
-                          : taskViewMode === 'project'
-                            ? 'You have no project tasks assigned right now'
-                            : 'You have no assigned tasks right now'}
+                            : taskViewMode === 'client'
+                              ? 'You have no tasks assigned from clients'
+                              : taskViewMode === 'project'
+                                ? 'You have no project tasks assigned right now'
+                                : 'You have no assigned tasks right now'}
                     </div>
                   </div>
                 );
               }
 
-              
+
               if (isMobile) {
                 return Object.entries(tasksToDisplay).map(([dateKey, tasks]) => (
                   <div key={dateKey} style={{ marginTop: '16px' }}>
-                    <div style={{ 
+                    <div style={{
                       padding: '12px',
                       backgroundColor: '#f5f5f5',
                       marginBottom: '8px',
@@ -6741,7 +6813,7 @@ const UserCreateTask = () => {
                         const taskSource = getTaskSource(task);
                         const status = getStatusForTask(task);
                         const dueDate = getDueDateForTask(task);
-                        
+
                         const taskIsOverdue = isOverdue(dueDate, status, task);
                         const shouldHighlightOverdue = (statusFilter === 'overdue' || showOverdueOnly) && taskIsOverdue;
                         const priority = task.priority || 'medium';
@@ -6761,8 +6833,8 @@ const UserCreateTask = () => {
                         const displayedStatus = taskIsOverdue ? 'overdue' : status;
 
                         return (
-                          <div 
-                            key={task._id} 
+                          <div
+                            key={task._id}
                             className={`user-create-task-mobile-card ${shouldHighlightOverdue ? 'overdue-task' : ''}`}
                             role="button"
                             tabIndex={0}
@@ -6777,7 +6849,7 @@ const UserCreateTask = () => {
                                 void openTaskDetails(task);
                               }
                             }}
-                            style={shouldHighlightOverdue ? { 
+                            style={shouldHighlightOverdue ? {
                               borderLeft: '4px solid #f44336',
                               backgroundColor: '#fff5f5'
                             } : {}}
@@ -6793,9 +6865,9 @@ const UserCreateTask = () => {
                                       {task.description || ''}
                                     </div>
                                     {taskSource === 'client' && clientName !== 'N/A' && (
-                                      <div className="user-create-task-mobile-card-client" style={{ 
-                                        fontSize: '12px', 
-                                        color: '#1976d2', 
+                                      <div className="user-create-task-mobile-card-client" style={{
+                                        fontSize: '12px',
+                                        color: '#1976d2',
                                         marginTop: '4px',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -6807,9 +6879,9 @@ const UserCreateTask = () => {
                                     )}
                                     {taskSource === 'project' && task.projectName && (
                                       <div className="user-create-task-mobile-card-client" style={{ marginTop: '4px' }}>
-                                        <div style={{ 
-                                          fontSize: '12px', 
-                                          color: '#7c3aed', 
+                                        <div style={{
+                                          fontSize: '12px',
+                                          color: '#7c3aed',
                                           display: 'flex',
                                           alignItems: 'center',
                                           gap: '4px'
@@ -6835,7 +6907,7 @@ const UserCreateTask = () => {
                                       </div>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ fontSize: '11px', color: '#666' }}>Admin:</span>
-                                         <StatusChip status={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} label={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} />
+                                        <StatusChip status={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} label={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')} />
                                       </div>
                                     </div>
                                   ) : (
@@ -6846,15 +6918,15 @@ const UserCreateTask = () => {
                                 <div className="user-create-task-mobile-card-details">
                                   <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
                                     <FiCalendar size={12} />
-                                    <div style={{ 
-                                      fontSize: '13px', 
+                                    <div style={{
+                                      fontSize: '13px',
                                       color: shouldHighlightOverdue ? '#f44336' : '#333',
                                       fontWeight: shouldHighlightOverdue ? '600' : '400'
                                     }}>
                                       {dueDate ? formatDueDateTime(dueDate) : 'No date'}
                                     </div>
                                     {shouldHighlightOverdue && (
-                                      <div 
+                                      <div
                                         style={{
                                           backgroundColor: '#f44336',
                                           color: 'white',
@@ -6880,7 +6952,7 @@ const UserCreateTask = () => {
 
                                 <div className="user-create-task-mobile-card-actions">
                                   <div className="user-create-task-flex user-create-task-gap-1">
-                                    <button 
+                                    <button
                                       className={`user-create-task-action-button task-reminder-action-btn ${task.reminderSettings?.enabled ? 'active-reminder' : ''}`}
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -6891,7 +6963,7 @@ const UserCreateTask = () => {
                                       <FiBell size={14} />
                                       {task.reminderSettings?.enabled && <span className="reminder-dot-badge" />}
                                     </button>
-                                    <button 
+                                    <button
                                       className="user-create-task-action-button"
                                       onClick={() => fetchTaskRemarks(taskSource === 'project' ? task : task._id, taskSource)}
                                       title="View Remarks"
@@ -6899,7 +6971,7 @@ const UserCreateTask = () => {
                                       <FiMessageSquare size={14} />
                                     </button>
 
-                                    <button 
+                                    <button
                                       className="user-create-task-action-button"
                                       onClick={() => fetchActivityLogs(taskSource === 'project' ? task : task._id, taskSource)}
                                       title="Activity Logs"
@@ -6925,9 +6997,9 @@ const UserCreateTask = () => {
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
                                         const currentTaskId = task._id || task.id;
-                                        
+
                                         if (selectedStatus === 'in-progress') {
-                                          
+
                                           if (taskSource === 'self') {
                                             handleStatusChange(currentTaskId, 'in-progress', 'Started working');
                                           } else if (taskSource === 'client') {
@@ -6938,13 +7010,13 @@ const UserCreateTask = () => {
                                             handleAssignedTaskStatusChange(currentTaskId, 'in-progress', 'Started working');
                                           }
                                         } else {
-                                          
+
                                           setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
                                           setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
                                         }
                                       }}
                                       className="user-create-task-select"
-                                      style={{ 
+                                      style={{
                                         minWidth: '90px',
                                         borderColor: taskIsOverdue ? '#f44336' : undefined,
                                         color: taskIsOverdue ? '#f44336' : undefined,
@@ -6968,11 +7040,11 @@ const UserCreateTask = () => {
                   </div>
                 ));
               }
-              
-              
+
+
               return Object.entries(tasksToDisplay).map(([dateKey, tasks]) => (
                 <div key={dateKey} style={{ marginTop: '24px' }}>
-                  <div style={{ 
+                  <div style={{
                     padding: isMobile ? '12px' : '16px',
                     borderRadius: isMobile ? '6px' : '8px',
                     backgroundColor: '#f5f5f5',
@@ -7003,7 +7075,7 @@ const UserCreateTask = () => {
                           const taskSource = getTaskSource(task);
                           const status = getStatusForTask(task);
                           const dueDate = getDueDateForTask(task);
-                          
+
                           const taskIsOverdue = isOverdue(dueDate, status, task);
                           const shouldHighlightOverdue = (statusFilter === 'overdue' || showOverdueOnly) && taskIsOverdue;
                           const priority = task.priority || 'medium';
@@ -7023,8 +7095,8 @@ const UserCreateTask = () => {
                           const displayedStatus = taskIsOverdue ? 'overdue' : status;
 
                           return (
-                            <tr 
-                              key={task._id} 
+                            <tr
+                              key={task._id}
                               className={`user-create-task-table-row ${shouldHighlightOverdue ? 'overdue-task' : ''}`}
                               role="button"
                               tabIndex={0}
@@ -7038,7 +7110,7 @@ const UserCreateTask = () => {
                                   void openTaskDetails(task);
                                 }
                               }}
-                              style={shouldHighlightOverdue ? { 
+                              style={shouldHighlightOverdue ? {
                                 borderLeft: '4px solid #f44336',
                                 backgroundColor: '#fff5f5'
                               } : {}}
@@ -7049,8 +7121,8 @@ const UserCreateTask = () => {
                                 </div>
                                 {isMobile && (
                                   <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                    {(task.description || '').length > 50 
-                                      ? (task.description || '').substring(0, 50) + '...' 
+                                    {(task.description || '').length > 50
+                                      ? (task.description || '').substring(0, 50) + '...'
                                       : task.description || ''}
                                   </div>
                                 )}
@@ -7095,7 +7167,7 @@ const UserCreateTask = () => {
                                     {formatDueDateTime(dueDate)}
                                   </div>
                                   {shouldHighlightOverdue && (
-                                    <div 
+                                    <div
                                       className="user-create-task-overdue-badge"
                                       style={{
                                         backgroundColor: '#f44336',
@@ -7139,15 +7211,15 @@ const UserCreateTask = () => {
                                   <span className="task-checkpoint-empty">No checkpoints</span>
                                 )}
                               </td>
-                              
+
                               {(taskViewMode === 'client' || taskViewMode === 'project' || taskViewMode === 'all') && (
                                 <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                  <div style={{ 
+                                  <div style={{
                                     color: '#1976d2'
                                   }}>
-                                    <div style={{ 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
                                       gap: '4px'
                                     }}>
                                       {taskSource === 'project' ? <FiTarget size={12} /> : taskSource === 'self' ? <FiUser size={12} /> : <FiUsers size={12} />}
@@ -7166,7 +7238,7 @@ const UserCreateTask = () => {
                                   </div>
                                 </td>
                               )}
-                              
+
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 {attachment && (
                                   attachmentIsImage ? (
@@ -7207,7 +7279,7 @@ const UserCreateTask = () => {
 
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <div className="user-create-task-action-buttons">
-                                  <button 
+                                  <button
                                     className={`user-create-task-action-button task-reminder-action-btn ${task.reminderSettings?.enabled ? 'active-reminder' : ''}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -7218,7 +7290,7 @@ const UserCreateTask = () => {
                                     <FiBell size={isMobile ? 14 : 16} />
                                     {task.reminderSettings?.enabled && <span className="reminder-dot-badge" />}
                                   </button>
-                                  <button 
+                                  <button
                                     className="user-create-task-action-button"
                                     onClick={() => fetchTaskRemarks(taskSource === 'project' ? task : task._id, taskSource)}
                                     title="View Remarks"
@@ -7226,7 +7298,7 @@ const UserCreateTask = () => {
                                     <FiMessageSquare size={isMobile ? 14 : 16} />
                                   </button>
 
-                                  <button 
+                                  <button
                                     className="user-create-task-action-button"
                                     onClick={() => fetchActivityLogs(taskSource === 'project' ? task : task._id, taskSource)}
                                     title="Activity Logs"
@@ -7253,14 +7325,14 @@ const UserCreateTask = () => {
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
                                     const currentTaskId = task._id || task.id;
-                                    
+
                                     if (selectedStatus === 'completed' || selectedStatus === 'pending') {
-                                      
+
                                       setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
                                       setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
-                                    } 
+                                    }
                                     else if (selectedStatus === 'in-progress') {
-                                      
+
                                       if (taskSource === 'self') {
                                         handleStatusChange(currentTaskId, 'in-progress', 'Started working on task');
                                       } else if (taskSource === 'client') {
@@ -7272,14 +7344,14 @@ const UserCreateTask = () => {
                                       }
                                     }
                                     else {
-                                      
-                                      
+
+
                                       setPendingStatusChange({ taskId: currentTaskId, status: selectedStatus, source: taskSource });
                                       setRemarksDialog({ open: true, taskId: currentTaskId, remarks: [], source: taskSource });
                                     }
                                   }}
                                   className="user-create-task-select"
-                                  style={{ 
+                                  style={{
                                     minWidth: isMobile ? '90px' : '100px',
                                     borderColor: taskIsOverdue ? '#f44336' : undefined,
                                     color: taskIsOverdue ? '#f44336' : undefined,
@@ -7328,553 +7400,553 @@ const UserCreateTask = () => {
         </div>
       </div>
 
-      
+
       {openDialog && (
         <div className="user-create-task-dialog-overlay personal-task-overlay">
-        <div className={`user-create-task-dialog personal-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
-          maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
-          width: isMobile ? '95%' : 'auto'
-        }}>
-          <div className="user-create-task-dialog-title">
-            <div className="personal-task-heading">
-              <span className="personal-task-heading-icon"><FiFileText /></span>
-              <div>
-                <div className="personal-task-heading-text">Create Personal Task</div>
-                <div className="personal-task-heading-subtitle">
-                  This task will be automatically assigned to you ({userName})
+          <div className={`user-create-task-dialog personal-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{
+            maxWidth: isMobile ? '95%' : isTablet ? '550px' : '600px',
+            width: isMobile ? '95%' : 'auto'
+          }}>
+            <div className="user-create-task-dialog-title">
+              <div className="personal-task-heading">
+                <span className="personal-task-heading-icon"><FiFileText /></span>
+                <div>
+                  <div className="personal-task-heading-text">Create Personal Task</div>
+                  <div className="personal-task-heading-subtitle">
+                    This task will be automatically assigned to you ({userName})
+                  </div>
                 </div>
               </div>
+              <button type="button" className="personal-task-close" onClick={() => setOpenDialog(false)} aria-label="Close dialog"><FiX /></button>
             </div>
-            <button type="button" className="personal-task-close" onClick={() => setOpenDialog(false)} aria-label="Close dialog"><FiX /></button>
-          </div>
-          
-          <div className="user-create-task-dialog-content" ref={personalTaskContentRef}>
-            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-              <div className="user-create-task-alert info personal-task-info">
-                <FiInfo /> <span>This task will be automatically assigned to you ({userName})</span>
-              </div>
 
-              <div className="user-create-task-form-control">
-                <label>Task Title *</label>
-                <input
-                  type="text"
-                  className="user-create-task-input"
-                  placeholder="Enter a descriptive task title"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                />
-              </div>
+            <div className="user-create-task-dialog-content" ref={personalTaskContentRef}>
+              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+                <div className="user-create-task-alert info personal-task-info">
+                  <FiInfo /> <span>This task will be automatically assigned to you ({userName})</span>
+                </div>
 
-              <div className="user-create-task-form-control">
-                <label>Description *</label>
-                <textarea
-                  className="user-create-task-input"
-                  rows={isMobile ? 3 : 4}
-                  placeholder="Provide detailed description of the task..."
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                />
-              </div>
-
-              <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
-                <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                  <label>Due Date & Time *</label>
+                <div className="user-create-task-form-control">
+                  <label>Task Title *</label>
                   <input
-                    type="datetime-local"
+                    type="text"
                     className="user-create-task-input"
-                    value={newTask.dueDateTime || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      let formattedValue = value;
-                      if (value && value.includes('T') && value.split(':').length === 2) {
-                        formattedValue = `${value}:00`;
-                      }
-                      if (newTask.repeatPattern !== 'none' && userShiftWindow?.end) {
-                        formattedValue = normalizeDateTimeToShiftTime(formattedValue, userShiftWindow.end);
-                      }
-                      setNewTask({ ...newTask, dueDateTime: formattedValue });
-                    }}
-                    min={new Date().toISOString().slice(0, 16)}
+                    placeholder="Enter a descriptive task title"
+                    value={newTask.title}
+                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   />
+                </div>
+
+                <div className="user-create-task-form-control">
+                  <label>Description *</label>
+                  <textarea
+                    className="user-create-task-input"
+                    rows={isMobile ? 3 : 4}
+                    placeholder="Provide detailed description of the task..."
+                    value={newTask.description}
+                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                  />
+                </div>
+
+                <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column' : 'user-create-task-gap-2'}`}>
+                  <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                    <label>Due Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      className="user-create-task-input"
+                      value={newTask.dueDateTime || ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        let formattedValue = value;
+                        if (value && value.includes('T') && value.split(':').length === 2) {
+                          formattedValue = `${value}:00`;
+                        }
+                        if (newTask.repeatPattern !== 'none' && userShiftWindow?.end) {
+                          formattedValue = normalizeDateTimeToShiftTime(formattedValue, userShiftWindow.end);
+                        }
+                        setNewTask({ ...newTask, dueDateTime: formattedValue });
+                      }}
+                      min={new Date().toISOString().slice(0, 16)}
+                    />
+                    {newTask.repeatPattern !== 'none' && (
+                      <div className="personal-task-recurring-helper personal-task-shift-note">
+                        Recurring tasks will use your shift window {formatShiftTimeLabel(userShiftWindow?.start)} - {formatShiftTimeLabel(userShiftWindow?.end, 'shift end')}.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="user-create-task-form-control" style={{ flex: 1 }}>
+                    <label>Priority</label>
+                    <div className={`personal-task-priority-select ${priorityMenuOpen ? 'is-open' : ''}`}>
+                      <button
+                        type="button"
+                        className="personal-task-priority-trigger"
+                        onClick={() => setPriorityMenuOpen(open => !open)}
+                        aria-haspopup="listbox"
+                        aria-expanded={priorityMenuOpen}
+                      >
+                        <FiFlag className={`priority-flag ${newTask.priority}`} />
+                        <span>{newTask.priority.charAt(0).toUpperCase() + newTask.priority.slice(1)}</span>
+                        <span className="priority-chevron">⌄</span>
+                      </button>
+                      {priorityMenuOpen && (
+                        <div className="personal-task-priority-menu" role="listbox">
+                          {[
+                            { value: 'low', label: 'Low', description: 'Low priority task' },
+                            { value: 'medium', label: 'Medium', description: 'Medium priority task' },
+                            { value: 'high', label: 'High', description: 'High priority task' }
+                          ].map(option => (
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={newTask.priority === option.value}
+                              className={`personal-task-priority-option ${newTask.priority === option.value ? 'selected' : ''}`}
+                              key={option.value}
+                              onClick={() => {
+                                setNewTask({ ...newTask, priority: option.value });
+                                setPriorityMenuOpen(false);
+                              }}
+                            >
+                              <span className={`priority-option-icon ${option.value}`}><FiFlag /></span>
+                              <span className="priority-option-copy"><strong>{option.label}</strong><small>{option.description}</small></span>
+                              {newTask.priority === option.value && <FiCheck className="priority-option-check" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {renderReminderSettings(
+                  newTask.reminderSettings,
+                  newTask.dueDateTime,
+                  (nextSettings) => setNewTask(prev => ({ ...prev, reminderSettings: nextSettings }))
+                )}
+
+                <div className="user-create-task-form-control">
+                  <label>Priority Days</label>
+                  <input
+                    type="number"
+                    className="user-create-task-input"
+                    placeholder="Enter priority days"
+                    value={newTask.priorityDays}
+                    onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
+                  />
+                </div>
+
+                <div className="user-create-task-form-control personal-task-recurring-section">
+                  <div className="personal-task-recurring-header">
+                    <div>
+                      <label>Repeat Task</label>
+                      <div className="personal-task-recurring-note">
+                        Set how this personal task should auto-create itself later.
+                      </div>
+                    </div>
+                    <span className={`personal-task-recurring-badge repeat-${newTask.repeatPattern || 'none'}`}>
+                      {repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}
+                    </span>
+                  </div>
+
+                  <div className="personal-task-recurring-grid">
+                    <div className="user-create-task-form-control personal-task-recurring-control">
+                      <select
+                        className="user-create-task-select"
+                        value={newTask.repeatPattern}
+                        onChange={(e) => updateRepeatPattern(e.target.value)}
+                      >
+                        <option value="none">No Repeat</option>
+                        <option value="daily">Repeat Task</option>
+                      </select>
+                      <div className="personal-task-recurring-helper">
+                        {repeatPatternDescriptions[newTask.repeatPattern] || repeatPatternDescriptions.none}
+                      </div>
+                    </div>
+
+                    <div className="personal-task-recurring-summary">
+                      <div className="personal-task-recurring-summary-label">Current Setup</div>
+                      <div className="personal-task-recurring-summary-value">
+                        {newTask.repeatPattern === 'daily'
+                          ? `${repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}${newTask.repeatDays?.length ? ` on ${newTask.repeatDays.map(day => day.slice(0, 3).toUpperCase()).join(', ')}` : ''}`
+                          : (repeatPatternLabels[newTask.repeatPattern] || 'No repeat')}
+                      </div>
+                      <div className="personal-task-recurring-summary-text">
+                        Auto-created tasks keep the same due time as the source task. Tasks will not repeat on days when you are marked absent.
+                      </div>
+                    </div>
+                  </div>
+
                   {newTask.repeatPattern !== 'none' && (
-                    <div className="personal-task-recurring-helper personal-task-shift-note">
-                      Recurring tasks will use your shift window {formatShiftTimeLabel(userShiftWindow?.start)} - {formatShiftTimeLabel(userShiftWindow?.end, 'shift end')}.
+                    <div className="user-create-task-form-control">
+                      <label>Repeat End Date *</label>
+                      <input
+                        type="date"
+                        className="user-create-task-input"
+                        value={formatDateInputValue(newTask.recurrenceEndDate)}
+                        min={(newTask.dueDateTime || new Date().toISOString()).slice(0, 10)}
+                        onChange={(e) => setNewTask({ ...newTask, recurrenceEndDate: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {newTask.repeatPattern === 'daily' && (
+                    <div className="personal-task-week-days">
+                      <div className="personal-task-week-days-label">
+                        Select Days
+                      </div>
+                      <div className="personal-task-week-grid">
+                        {recurringRepeatDays.map(day => (
+                          <button
+                            key={day.value}
+                            type="button"
+                            className={`personal-task-week-chip ${newTask.repeatDays?.includes(day.value) ? 'selected' : ''}`}
+                            onClick={() => toggleRepeatDay(day.value)}
+                          >
+                            {day.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="personal-task-recurring-helper">
+                        Pick one or more weekdays. If you leave them blank, Repeat Task runs every day.
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className="user-create-task-form-control" style={{ flex: 1 }}>
-                  <label>Priority</label>
-                  <div className={`personal-task-priority-select ${priorityMenuOpen ? 'is-open' : ''}`}>
-                    <button
-                      type="button"
-                      className="personal-task-priority-trigger"
-                      onClick={() => setPriorityMenuOpen(open => !open)}
-                      aria-haspopup="listbox"
-                      aria-expanded={priorityMenuOpen}
-                    >
-                      <FiFlag className={`priority-flag ${newTask.priority}`} />
-                      <span>{newTask.priority.charAt(0).toUpperCase() + newTask.priority.slice(1)}</span>
-                      <span className="priority-chevron">⌄</span>
+                <div className="user-create-task-form-control">
+                  <div className="task-checkpoint-header">
+                    <label>Checkpoints (Optional)</label>
+                    <button type="button" className="task-checkpoint-add" onClick={addPersonalCheckpoint}>
+                      <FiPlus size={14} /> Add
                     </button>
-                    {priorityMenuOpen && (
-                      <div className="personal-task-priority-menu" role="listbox">
-                        {[
-                          { value: 'low', label: 'Low', description: 'Low priority task' },
-                          { value: 'medium', label: 'Medium', description: 'Medium priority task' },
-                          { value: 'high', label: 'High', description: 'High priority task' }
-                        ].map(option => (
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={newTask.priority === option.value}
-                            className={`personal-task-priority-option ${newTask.priority === option.value ? 'selected' : ''}`}
-                            key={option.value}
-                            onClick={() => {
-                              setNewTask({ ...newTask, priority: option.value });
-                              setPriorityMenuOpen(false);
-                            }}
-                          >
-                            <span className={`priority-option-icon ${option.value}`}><FiFlag /></span>
-                            <span className="priority-option-copy"><strong>{option.label}</strong><small>{option.description}</small></span>
-                            {newTask.priority === option.value && <FiCheck className="priority-option-check" />}
+                  </div>
+                  {(newTask.checkpoints || []).length > 0 && (
+                    <div className="task-checkpoint-input-list">
+                      {newTask.checkpoints.map((checkpoint, index) => (
+                        <div className="task-checkpoint-input-row" key={`personal-checkpoint-${index}`}>
+                          <FiCheckSquare size={16} />
+                          <input
+                            className="user-create-task-input"
+                            value={checkpoint.title}
+                            placeholder={`Checkpoint ${index + 1}`}
+                            onChange={(event) => updatePersonalCheckpoint(index, event.target.value)}
+                          />
+                          <button type="button" className="task-checkpoint-remove" onClick={() => removePersonalCheckpoint(index)} aria-label="Remove checkpoint">
+                            <FiX size={16} />
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {renderReminderSettings(
-                newTask.reminderSettings,
-                newTask.dueDateTime,
-                (nextSettings) => setNewTask(prev => ({ ...prev, reminderSettings: nextSettings }))
-              )}
-
-              <div className="user-create-task-form-control">
-                <label>Priority Days</label>
-                <input
-                  type="number"
-                  className="user-create-task-input"
-                  placeholder="Enter priority days"
-                  value={newTask.priorityDays}
-                  onChange={(e) => setNewTask({ ...newTask, priorityDays: e.target.value })}
-                />
-              </div>
-
-              <div className="user-create-task-form-control personal-task-recurring-section">
-                <div className="personal-task-recurring-header">
-                  <div>
-                    <label>Repeat Task</label>
-                    <div className="personal-task-recurring-note">
-                      Set how this personal task should auto-create itself later.
-                    </div>
-                  </div>
-                  <span className={`personal-task-recurring-badge repeat-${newTask.repeatPattern || 'none'}`}>
-                    {repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}
-                  </span>
-                </div>
-
-                <div className="personal-task-recurring-grid">
-                  <div className="user-create-task-form-control personal-task-recurring-control">
-                    <select
-                      className="user-create-task-select"
-                      value={newTask.repeatPattern}
-                      onChange={(e) => updateRepeatPattern(e.target.value)}
-                    >
-                      <option value="none">No Repeat</option>
-                      <option value="daily">Repeat Task</option>
-                    </select>
-                    <div className="personal-task-recurring-helper">
-                      {repeatPatternDescriptions[newTask.repeatPattern] || repeatPatternDescriptions.none}
-                    </div>
-                  </div>
-
-                  <div className="personal-task-recurring-summary">
-                    <div className="personal-task-recurring-summary-label">Current Setup</div>
-                    <div className="personal-task-recurring-summary-value">
-                      {newTask.repeatPattern === 'daily'
-                        ? `${repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}${newTask.repeatDays?.length ? ` on ${newTask.repeatDays.map(day => day.slice(0, 3).toUpperCase()).join(', ')}` : ''}`
-                        : (repeatPatternLabels[newTask.repeatPattern] || 'No repeat')}
-                    </div>
-                    <div className="personal-task-recurring-summary-text">
-                      Auto-created tasks keep the same due time as the source task. Tasks will not repeat on days when you are marked absent.
-                    </div>
-                  </div>
-                </div>
-
-                {newTask.repeatPattern !== 'none' && (
-                  <div className="user-create-task-form-control">
-                    <label>Repeat End Date *</label>
-                    <input
-                      type="date"
-                      className="user-create-task-input"
-                      value={formatDateInputValue(newTask.recurrenceEndDate)}
-                      min={(newTask.dueDateTime || new Date().toISOString()).slice(0, 10)}
-                      onChange={(e) => setNewTask({ ...newTask, recurrenceEndDate: e.target.value })}
-                    />
-                  </div>
-                )}
-
-                {newTask.repeatPattern === 'daily' && (
-                  <div className="personal-task-week-days">
-                    <div className="personal-task-week-days-label">
-                      Select Days
-                    </div>
-                    <div className="personal-task-week-grid">
-                      {recurringRepeatDays.map(day => (
-                        <button
-                          key={day.value}
-                          type="button"
-                          className={`personal-task-week-chip ${newTask.repeatDays?.includes(day.value) ? 'selected' : ''}`}
-                          onClick={() => toggleRepeatDay(day.value)}
-                        >
-                          {day.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="personal-task-recurring-helper">
-                      Pick one or more weekdays. If you leave them blank, Repeat Task runs every day.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="user-create-task-form-control">
-                <div className="task-checkpoint-header">
-                  <label>Checkpoints (Optional)</label>
-                  <button type="button" className="task-checkpoint-add" onClick={addPersonalCheckpoint}>
-                    <FiPlus size={14} /> Add
-                  </button>
-                </div>
-                {(newTask.checkpoints || []).length > 0 && (
-                  <div className="task-checkpoint-input-list">
-                    {newTask.checkpoints.map((checkpoint, index) => (
-                      <div className="task-checkpoint-input-row" key={`personal-checkpoint-${index}`}>
-                        <FiCheckSquare size={16} />
-                        <input
-                          className="user-create-task-input"
-                          value={checkpoint.title}
-                          placeholder={`Checkpoint ${index + 1}`}
-                          onChange={(event) => updatePersonalCheckpoint(index, event.target.value)}
-                        />
-                        <button type="button" className="task-checkpoint-remove" onClick={() => removePersonalCheckpoint(index)} aria-label="Remove checkpoint">
-                          <FiX size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Attachments (Optional)</div>
-
-                {selectedTaskFiles.length > 0 && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '10px',
-                      marginBottom: '10px',
-                      border: '1px solid #c7d2fe',
-                      borderRadius: '8px',
-                      background: '#eef2ff',
-                    }}
-                  >
-                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                      {filePreviews.slice(0, 3).map(({ file, url, isImage }, index) => (
-                        <div
-                          key={`${file.name}-${file.lastModified}-${index}`}
-                          title={file.name}
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '6px',
-                            overflow: 'hidden',
-                            background: '#fff',
-                            border: '1px solid #cbd5e1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {isImage ? (
-                            <img
-                              src={url}
-                              alt={file.name}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <FiFileText size={18} />
-                          )}
                         </div>
                       ))}
                     </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b' }}>
-                        {selectedTaskFiles.length} file{selectedTaskFiles.length !== 1 ? 's' : ''} selected
-                      </div>
-                      <div
-                        title={selectedTaskFiles.map(file => file.name).join(', ')}
-                        style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontSize: '12px',
-                          color: '#475569',
-                        }}
-                      >
-                        {selectedTaskFiles.map(file => file.name).join(', ')}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="user-create-task-button user-create-task-button-outlined"
-                      onClick={() => setNewTask(prev => ({ ...prev, files: [] }))}
-                      style={{ padding: '6px 8px', color: '#dc2626', flexShrink: 0 }}
-                      title="Remove selected files"
+                  )}
+                </div>
+
+                <div>
+                  <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>Attachments (Optional)</div>
+
+                  {selectedTaskFiles.length > 0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px',
+                        marginBottom: '10px',
+                        border: '1px solid #c7d2fe',
+                        borderRadius: '8px',
+                        background: '#eef2ff',
+                      }}
                     >
-                      <FiX />
-                    </button>
-                  </div>
-                )}
-                
-                <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-gap-2'}`}>
-                  <label
-                    htmlFor="file-upload"
-                    className="user-create-task-button user-create-task-button-outlined"
-                    style={{
-                      flex: 1,
-                      padding: isMobile ? '10px' : '12px',
-                      minWidth: 0,
-                      cursor: 'pointer',
-                      justifyContent: selectedTaskFiles.length > 0 ? 'flex-start' : 'center',
-                    }}
-                  >
-                    {selectedTaskFiles.length > 0 ? (
-                      <>
-                        <span
-                          style={{
-                            width: '26px',
-                            height: '26px',
-                            borderRadius: '6px',
-                            overflow: 'hidden',
-                            background: '#eef2ff',
-                            border: '1px solid #c7d2fe',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {filePreviews[0]?.isImage ? (
-                            <img
-                              src={filePreviews[0].url}
-                              alt={selectedTaskFiles[0].name}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <FiFileText size={14} />
-                          )}
-                        </span>
-                        <span
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        {filePreviews.slice(0, 3).map(({ file, url, isImage }, index) => (
+                          <div
+                            key={`${file.name}-${file.lastModified}-${index}`}
+                            title={file.name}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '6px',
+                              overflow: 'hidden',
+                              background: '#fff',
+                              border: '1px solid #cbd5e1',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {isImage ? (
+                              <img
+                                src={url}
+                                alt={file.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <FiFileText size={18} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b' }}>
+                          {selectedTaskFiles.length} file{selectedTaskFiles.length !== 1 ? 's' : ''} selected
+                        </div>
+                        <div
                           title={selectedTaskFiles.map(file => file.name).join(', ')}
                           style={{
-                            minWidth: 0,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            textAlign: 'left',
+                            fontSize: '12px',
+                            color: '#475569',
                           }}
                         >
-                          {selectedTaskFiles[0].name}
-                          {selectedTaskFiles.length > 1 ? ` +${selectedTaskFiles.length - 1}` : ''}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="personal-task-attachment-content">
-                        <span className="personal-task-attachment-icon"><FiFileText /></span>
-                        <span><strong>{isMobile ? 'Upload' : 'Upload Files'}</strong><small>Drag & drop or click to upload</small></span>
-                      </span>
-                    )}
-                    <input
-                      ref={fileUploadInputRef}
-                      id="file-upload"
-                      type="file"
-                      multiple
-                      style={{ display: 'none' }}
-                      onChange={handleTaskFileSelect}
-                    />
-                  </label>
-
-                  <button
-                    className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    type="button"
-                    style={{ 
-                      flex: 1,
-                      padding: isMobile ? '10px' : '12px',
-                      backgroundColor: isRecording ? '#f44336' : undefined,
-                      borderColor: isRecording ? '#f44336' : undefined
-                    }}
-                  >
-                    <span className="personal-task-attachment-content">
-                      <span className="personal-task-attachment-icon"><FiMic /></span>
-                      <span><strong>{isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}</strong><small>{isRecording ? 'Recording in progress' : 'Record a voice note'}</small></span>
-                    </span>
-                  </button>
-                </div>
-
-                {filePreviews.length > 0 && (
-                  <div
-                    className="user-create-task-paper"
-                    style={{ marginTop: '12px', padding: isMobile ? '12px' : '16px' }}
-                  >
-                    <div style={{ display: 'grid', gap: '10px' }}>
-                      {filePreviews.map(({ file, url, isImage, isPdf, isAudio, isVideo }, index) => (
-                        <div
-                          key={`${file.name}-${file.lastModified}-${index}`}
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: isMobile ? '56px minmax(0, 1fr) auto' : '56px minmax(0, 1fr) auto auto',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '10px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            background: '#fff',
-                          }}
-                        >
-                          {isImage ? (
-                            <img
-                              src={url}
-                              alt={file.name}
-                              style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px' }}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                width: '56px',
-                                height: '56px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRadius: '6px',
-                                background: '#f1f5f9',
-                              }}
-                            >
-                              <FiFileText size={24} />
-                            </div>
-                          )}
-
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div
-                              title={file.name}
-                              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
-                            >
-                              {file.name}
-                            </div>
-                            <div style={{ marginTop: '3px', color: '#64748b', fontSize: '12px' }}>
-                              {formatFileSize(file.size)}
-                            </div>
-                          </div>
-
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="user-create-task-button user-create-task-button-outlined"
-                            style={{ padding: '8px 10px', textDecoration: 'none', gridColumn: isMobile ? '1 / 3' : 'auto' }}
-                            title="Preview file"
-                          >
-                            <FiZoomIn /> {!isMobile && 'Preview'}
-                          </a>
-                          <button
-                            type="button"
-                            className="user-create-task-button user-create-task-button-outlined"
-                            onClick={() => removeSelectedFile(index)}
-                            style={{ padding: '8px 10px', color: '#dc2626' }}
-                            title="Remove file"
-                          >
-                            <FiTrash2 />
-                          </button>
-
+                          {selectedTaskFiles.map(file => file.name).join(', ')}
                         </div>
-                      ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="user-create-task-button user-create-task-button-outlined"
+                        onClick={() => setNewTask(prev => ({ ...prev, files: [] }))}
+                        style={{ padding: '6px 8px', color: '#dc2626', flexShrink: 0 }}
+                        title="Remove selected files"
+                      >
+                        <FiX />
+                      </button>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {isRecording && (
-                  <div
-                    className="user-create-task-alert info"
-                    style={{ marginTop: '12px', padding: isMobile ? '10px' : '12px' }}
-                  >
-                    <FiMic /> Recording in progress... Press Stop to preview your voice note.
-                  </div>
-                )}
-
-                {!isRecording && voicePreviewUrl && (
-                  <div
-                    className="user-create-task-paper"
-                    style={{ marginTop: '12px', padding: isMobile ? '12px' : '16px' }}
-                  >
-                    <div style={{ marginBottom: '10px', fontWeight: 600 }}>
-                      Voice Note Preview
-                    </div>
-                    <audio
-                      controls
-                      preload="metadata"
-                      src={voicePreviewUrl}
-                      style={{ width: '100%', display: 'block' }}
-                    >
-                      Your browser does not support audio playback.
-                    </audio>
-                    <button
-                      type="button"
+                  <div className={`user-create-task-flex ${isMobile ? 'user-create-task-flex-column user-create-task-gap-2' : 'user-create-task-gap-2'}`}>
+                    <label
+                      htmlFor="file-upload"
                       className="user-create-task-button user-create-task-button-outlined"
-                      onClick={() => setNewTask(prev => ({ ...prev, voiceNote: null }))}
-                      style={{ marginTop: '10px', padding: isMobile ? '8px 10px' : '9px 12px' }}
+                      style={{
+                        flex: 1,
+                        padding: isMobile ? '10px' : '12px',
+                        minWidth: 0,
+                        cursor: 'pointer',
+                        justifyContent: selectedTaskFiles.length > 0 ? 'flex-start' : 'center',
+                      }}
                     >
-                      <FiTrash2 /> Remove Voice Note
+                      {selectedTaskFiles.length > 0 ? (
+                        <>
+                          <span
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '6px',
+                              overflow: 'hidden',
+                              background: '#eef2ff',
+                              border: '1px solid #c7d2fe',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {filePreviews[0]?.isImage ? (
+                              <img
+                                src={filePreviews[0].url}
+                                alt={selectedTaskFiles[0].name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <FiFileText size={14} />
+                            )}
+                          </span>
+                          <span
+                            title={selectedTaskFiles.map(file => file.name).join(', ')}
+                            style={{
+                              minWidth: 0,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'left',
+                            }}
+                          >
+                            {selectedTaskFiles[0].name}
+                            {selectedTaskFiles.length > 1 ? ` +${selectedTaskFiles.length - 1}` : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="personal-task-attachment-content">
+                          <span className="personal-task-attachment-icon"><FiFileText /></span>
+                          <span><strong>{isMobile ? 'Upload' : 'Upload Files'}</strong><small>Drag & drop or click to upload</small></span>
+                        </span>
+                      )}
+                      <input
+                        ref={fileUploadInputRef}
+                        id="file-upload"
+                        type="file"
+                        multiple
+                        style={{ display: 'none' }}
+                        onChange={handleTaskFileSelect}
+                      />
+                    </label>
+
+                    <button
+                      className={`user-create-task-button ${isRecording ? 'user-create-task-button-contained' : 'user-create-task-button-outlined'}`}
+                      onClick={isRecording ? stopRecording : startRecording}
+                      type="button"
+                      style={{
+                        flex: 1,
+                        padding: isMobile ? '10px' : '12px',
+                        backgroundColor: isRecording ? '#f44336' : undefined,
+                        borderColor: isRecording ? '#f44336' : undefined
+                      }}
+                    >
+                      <span className="personal-task-attachment-content">
+                        <span className="personal-task-attachment-icon"><FiMic /></span>
+                        <span><strong>{isRecording ? "Stop" : (isMobile ? "Record" : "Record Voice")}</strong><small>{isRecording ? 'Recording in progress' : 'Record a voice note'}</small></span>
+                      </span>
                     </button>
                   </div>
-                )}
+
+                  {filePreviews.length > 0 && (
+                    <div
+                      className="user-create-task-paper"
+                      style={{ marginTop: '12px', padding: isMobile ? '12px' : '16px' }}
+                    >
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {filePreviews.map(({ file, url, isImage, isPdf, isAudio, isVideo }, index) => (
+                          <div
+                            key={`${file.name}-${file.lastModified}-${index}`}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: isMobile ? '56px minmax(0, 1fr) auto' : '56px minmax(0, 1fr) auto auto',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '10px',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              background: '#fff',
+                            }}
+                          >
+                            {isImage ? (
+                              <img
+                                src={url}
+                                alt={file.name}
+                                style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px' }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '56px',
+                                  height: '56px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '6px',
+                                  background: '#f1f5f9',
+                                }}
+                              >
+                                <FiFileText size={24} />
+                              </div>
+                            )}
+
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div
+                                title={file.name}
+                                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
+                              >
+                                {file.name}
+                              </div>
+                              <div style={{ marginTop: '3px', color: '#64748b', fontSize: '12px' }}>
+                                {formatFileSize(file.size)}
+                              </div>
+                            </div>
+
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="user-create-task-button user-create-task-button-outlined"
+                              style={{ padding: '8px 10px', textDecoration: 'none', gridColumn: isMobile ? '1 / 3' : 'auto' }}
+                              title="Preview file"
+                            >
+                              <FiZoomIn /> {!isMobile && 'Preview'}
+                            </a>
+                            <button
+                              type="button"
+                              className="user-create-task-button user-create-task-button-outlined"
+                              onClick={() => removeSelectedFile(index)}
+                              style={{ padding: '8px 10px', color: '#dc2626' }}
+                              title="Remove file"
+                            >
+                              <FiTrash2 />
+                            </button>
+
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {isRecording && (
+                    <div
+                      className="user-create-task-alert info"
+                      style={{ marginTop: '12px', padding: isMobile ? '10px' : '12px' }}
+                    >
+                      <FiMic /> Recording in progress... Press Stop to preview your voice note.
+                    </div>
+                  )}
+
+                  {!isRecording && voicePreviewUrl && (
+                    <div
+                      className="user-create-task-paper"
+                      style={{ marginTop: '12px', padding: isMobile ? '12px' : '16px' }}
+                    >
+                      <div style={{ marginBottom: '10px', fontWeight: 600 }}>
+                        Voice Note Preview
+                      </div>
+                      <audio
+                        controls
+                        preload="metadata"
+                        src={voicePreviewUrl}
+                        style={{ width: '100%', display: 'block' }}
+                      >
+                        Your browser does not support audio playback.
+                      </audio>
+                      <button
+                        type="button"
+                        className="user-create-task-button user-create-task-button-outlined"
+                        onClick={() => setNewTask(prev => ({ ...prev, voiceNote: null }))}
+                        style={{ marginTop: '10px', padding: isMobile ? '8px 10px' : '9px 12px' }}
+                      >
+                        <FiTrash2 /> Remove Voice Note
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="user-create-task-dialog-actions">
-            <button
-              className="user-create-task-button user-create-task-button-outlined"
-              onClick={() => setOpenDialog(false)}
-              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-            >
-              Cancel
-            </button>
+            <div className="user-create-task-dialog-actions">
+              <button
+                className="user-create-task-button user-create-task-button-outlined"
+                onClick={() => setOpenDialog(false)}
+                style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+              >
+                Cancel
+              </button>
 
-            <button
-              className="user-create-task-button user-create-task-button-contained"
-              onClick={handleCreateTask}
-              disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || isCreatingTask || isRecording}
-              style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
-            >
-              {isCreatingTask ? (
-                'Creating...'
-              ) : (
-                <>
-                  <FiCheck size={isMobile ? 14 : 16} />
-                  {isMobile ? 'Create' : 'Create Task'}
-                </>
-              )}
-            </button>
+              <button
+                className="user-create-task-button user-create-task-button-contained"
+                onClick={handleCreateTask}
+                disabled={!newTask.title || !newTask.description || !newTask.dueDateTime || isCreatingTask || isRecording}
+                style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
+              >
+                {isCreatingTask ? (
+                  'Creating...'
+                ) : (
+                  <>
+                    <FiCheck size={isMobile ? 14 : 16} />
+                    {isMobile ? 'Create' : 'Create Task'}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
 
       {/* Task Details Modal */}
       {selectedTaskDetails && (() => {
@@ -8057,7 +8129,7 @@ const UserCreateTask = () => {
 
       {calendarFilterOpen && (
         <div className="user-create-task-dialog-overlay">
-          <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+          <div className={`user-create-task-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{
             maxWidth: isMobile ? '95%' : isTablet ? '450px' : '500px',
             width: isMobile ? '95%' : 'auto'
           }}>
@@ -8067,7 +8139,7 @@ const UserCreateTask = () => {
                 <div>Filter by Date</div>
               </div>
             </div>
-            
+
             <div className="user-create-task-dialog-content">
               {isLoadingRemarks && (
                 <div className="task-dialog-loading" role="status">
@@ -8169,9 +8241,9 @@ const UserCreateTask = () => {
                         const end = new Date();
                         end.setDate(end.getDate() + 7);
                         setSelectedDate(null);
-                        setDateRange({ 
-                          start: start.toISOString().split('T')[0], 
-                          end: end.toISOString().split('T')[0] 
+                        setDateRange({
+                          start: start.toISOString().split('T')[0],
+                          end: end.toISOString().split('T')[0]
                         });
                         setTimeFilter('all');
                       }}
@@ -8204,252 +8276,252 @@ const UserCreateTask = () => {
         </div>
       )}
 
-      
+
       {remarksDialog.open && (
         <div className="user-create-task-dialog-overlay remarks-dialog-overlay">
-        <div className={`user-create-task-dialog task-remarks-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
-          <div className="user-create-task-dialog-title">
-            <div className="remarks-heading">
-              <span className="remarks-heading-icon"><FiMessageSquare /></span>
-              <div><div>Task Remarks</div><small>Add remarks, notes or feedback related to this task.</small></div>
+          <div className={`user-create-task-dialog task-remarks-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px', width: isMobile ? '95%' : 'auto' }}>
+            <div className="user-create-task-dialog-title">
+              <div className="remarks-heading">
+                <span className="remarks-heading-icon"><FiMessageSquare /></span>
+                <div><div>Task Remarks</div><small>Add remarks, notes or feedback related to this task.</small></div>
+              </div>
+              <button type="button" className="personal-task-close" onClick={() => setRemarksDialog({ open: false, taskId: null, remarks: [], source: null })}><FiX /></button>
             </div>
-            <button type="button" className="personal-task-close" onClick={() => setRemarksDialog({ open: false, taskId: null, remarks: [], source: null })}><FiX /></button>
-          </div>
-          
-          <div className="user-create-task-dialog-content">
-            <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
-              
-              <div className="user-create-task-paper remarks-compose-card">
-                <div className="user-create-task-paper-content">
-                  <div className="remarks-section-title"><i className="remarks-add-dot" aria-hidden="true" />Add New Remark</div>
-                  
-                  <textarea
-                    className="user-create-task-input"
-                    rows={isMobile ? 2 : 3}
-                    placeholder="Enter your remark here..."
-                    value={newRemark}
-                    maxLength={1000}
-                    onChange={(e) => setNewRemark(e.target.value)}
-                    style={{ marginBottom: isMobile ? '12px' : '16px', width: '100%' }}
-                  />
-                  <div className="remarks-character-count">{newRemark.length}/1000</div>
 
-                  
-                  <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
-                    <div className="remarks-section-title"><svg className="remarks-title-dot" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" /></svg>
-                      Attach Images (Optional)
-                      {(remarksDialog.source === 'client' || taskViewMode === 'client') && (
-                        <span style={{ fontSize: isMobile ? '10px' : '11px', color: '#666', marginLeft: '8px' }}>
-                          (Multiple images supported)
-                        </span>
+            <div className="user-create-task-dialog-content">
+              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-3">
+
+                <div className="user-create-task-paper remarks-compose-card">
+                  <div className="user-create-task-paper-content">
+                    <div className="remarks-section-title"><i className="remarks-add-dot" aria-hidden="true" />Add New Remark</div>
+
+                    <textarea
+                      className="user-create-task-input"
+                      rows={isMobile ? 2 : 3}
+                      placeholder="Enter your remark here..."
+                      value={newRemark}
+                      maxLength={1000}
+                      onChange={(e) => setNewRemark(e.target.value)}
+                      style={{ marginBottom: isMobile ? '12px' : '16px', width: '100%' }}
+                    />
+                    <div className="remarks-character-count">{newRemark.length}/1000</div>
+
+
+                    <div style={{ marginBottom: isMobile ? '12px' : '16px' }}>
+                      <div className="remarks-section-title"><svg className="remarks-title-dot" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" /></svg>
+                        Attach Images (Optional)
+                        {(remarksDialog.source === 'client' || taskViewMode === 'client') && (
+                          <span style={{ fontSize: isMobile ? '10px' : '11px', color: '#666', marginLeft: '8px' }}>
+                            (Multiple images supported)
+                          </span>
+                        )}
+                      </div>
+
+                      <div
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        onClick={() => document.getElementById('remark-image-upload').click()}
+                        className="remarks-upload-zone"
+                        style={{
+                          border: '2px dashed #ccc',
+                          borderRadius: isMobile ? '6px' : '8px',
+                          padding: isMobile ? '16px' : '24px',
+                          textAlign: 'center',
+                          backgroundColor: 'white',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        <div className="user-create-task-flex user-create-task-flex-column user-create-task-align-center user-create-task-gap-1">
+                          <FiImage size={isMobile ? 24 : 32} color="#666" />
+                          <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666' }}>
+                            Drag and drop images here, or click to browse
+                          </div>
+                          <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#999' }}>
+                            {(remarksDialog.source === 'client' || taskViewMode === 'client')
+                              ? 'Supports JPG, PNG, GIF (up to 5MB each)'
+                              : 'Supports JPG, PNG, GIF (single image)'}
+                          </div>
+                          <button
+                            className="user-create-task-button user-create-task-button-outlined"
+                            style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
+                          >
+                            <FiCamera />
+                            {!isMobile && "Choose Image"}
+                          </button>
+                        </div>
+
+                        <input
+                          id="remark-image-upload"
+                          type="file"
+                          accept="image/*"
+                          multiple={remarksDialog.source === 'client' || taskViewMode === 'client'}
+                          onChange={handleRemarkImageUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </div>
+
+
+                      {remarkImages.length > 0 && (
+                        <div style={{ marginTop: isMobile ? '12px' : '16px' }}>
+                          <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>
+                            Selected Images ({remarkImages.length})
+                          </div>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                            gap: isMobile ? '6px' : '8px'
+                          }}>
+                            {remarkImages.map((image, index) => (
+                              <div key={index} style={{ position: 'relative' }}>
+                                <img
+                                  src={image.preview}
+                                  alt={`Preview ${index + 1}`}
+                                  style={{
+                                    width: '100%',
+                                    height: isMobile ? '60px' : '80px',
+                                    objectFit: 'cover',
+                                    borderRadius: '4px',
+                                    border: '1px solid #eee'
+                                  }}
+                                  onClick={() => setZoomImage(image.preview)}
+                                />
+                                <button
+                                  style={{
+                                    position: 'absolute',
+                                    top: '4px',
+                                    right: '4px',
+                                    backgroundColor: '#f44336',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: isMobile ? '20px' : '24px',
+                                    height: isMobile ? '20px' : '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: isMobile ? '12px' : '14px'
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveRemarkImage(index);
+                                  }}
+                                >
+                                  <FiX size={isMobile ? 12 : 14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                    
-                    <div
-                      onDragOver={handleDragOver}
-                      onDrop={handleDrop}
-                      onClick={() => document.getElementById('remark-image-upload').click()}
-                      className="remarks-upload-zone"
-                      style={{
-                        border: '2px dashed #ccc',
-                        borderRadius: isMobile ? '6px' : '8px',
-                        padding: isMobile ? '16px' : '24px',
-                        textAlign: 'center',
-                        backgroundColor: 'white',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      <div className="user-create-task-flex user-create-task-flex-column user-create-task-align-center user-create-task-gap-1">
-                        <FiImage size={isMobile ? 24 : 32} color="#666" />
-                        <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#666' }}>
-                          Drag and drop images here, or click to browse
-                        </div>
-                        <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#999' }}>
-                          {(remarksDialog.source === 'client' || taskViewMode === 'client')
-                            ? 'Supports JPG, PNG, GIF (up to 5MB each)'
-                            : 'Supports JPG, PNG, GIF (single image)'}
-                        </div>
-                        <button
-                          className="user-create-task-button user-create-task-button-outlined"
-                          style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
-                        >
-                          <FiCamera />
-                          {!isMobile && "Choose Image"}
-                        </button>
-                      </div>
-                      
-                      <input
-                        id="remark-image-upload"
-                        type="file"
-                        accept="image/*"
-                        multiple={remarksDialog.source === 'client' || taskViewMode === 'client'}
-                        onChange={handleRemarkImageUpload}
-                        style={{ display: 'none' }}
-                      />
-                    </div>
-
-                    
-                    {remarkImages.length > 0 && (
-                      <div style={{ marginTop: isMobile ? '12px' : '16px' }}>
-                        <div style={{ marginBottom: isMobile ? '6px' : '8px', fontWeight: 600 }}>
-                          Selected Images ({remarkImages.length})
-                        </div>
-                        <div style={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', 
-                          gap: isMobile ? '6px' : '8px' 
-                        }}>
-                          {remarkImages.map((image, index) => (
-                            <div key={index} style={{ position: 'relative' }}>
-                              <img
-                                src={image.preview}
-                                alt={`Preview ${index + 1}`}
-                                style={{
-                                  width: '100%',
-                                  height: isMobile ? '60px' : '80px',
-                                  objectFit: 'cover',
-                                  borderRadius: '4px',
-                                  border: '1px solid #eee'
-                                }}
-                                onClick={() => setZoomImage(image.preview)}
-                              />
-                              <button
-                                style={{
-                                  position: 'absolute',
-                                  top: '4px',
-                                  right: '4px',
-                                  backgroundColor: '#f44336',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '50%',
-                                  width: isMobile ? '20px' : '24px',
-                                  height: isMobile ? '20px' : '24px',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: isMobile ? '12px' : '14px'
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemoveRemarkImage(index);
-                                }}
-                              >
-                                <FiX size={isMobile ? 12 : 14} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
 
-              
-              <div>
-                <div className="remarks-section-title remarks-history-title"><svg className="remarks-history-dot" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" /></svg>Remarks History</div>
-                
-                {remarksDialog.remarks.length > 0 ? (
-                  <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
-                    {remarksDialog.remarks.map((remark, index) => {
-                      const remarkImages = getRemarkImages(remark);
 
-                      return (
-                      <div key={index} className="user-create-task-paper remark-history-card">
-                        <div className="user-create-task-paper-content">
-                          <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1.5">
-                            <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
-                              <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
-                                <div style={{
-                                  width: isMobile ? '32px' : '36px',
-                                  height: isMobile ? '32px' : '36px',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#f0f0f0',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontWeight: 600,
-                                  fontSize: isMobile ? '14px' : '16px'
-                                }}>
-                                  {remark.userName?.charAt(0)?.toUpperCase() || remark.user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                                </div>
-                                <div>
-                                  <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>
-                                    {remark.userName || remark.user?.name || 'Unknown User'}
+                <div>
+                  <div className="remarks-section-title remarks-history-title"><svg className="remarks-history-dot" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" /></svg>Remarks History</div>
+
+                  {remarksDialog.remarks.length > 0 ? (
+                    <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
+                      {remarksDialog.remarks.map((remark, index) => {
+                        const remarkImages = getRemarkImages(remark);
+
+                        return (
+                          <div key={index} className="user-create-task-paper remark-history-card">
+                            <div className="user-create-task-paper-content">
+                              <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-1.5">
+                                <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center user-create-task-gap-1">
+                                  <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1.5">
+                                    <div style={{
+                                      width: isMobile ? '32px' : '36px',
+                                      height: isMobile ? '32px' : '36px',
+                                      borderRadius: '50%',
+                                      backgroundColor: '#f0f0f0',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontWeight: 600,
+                                      fontSize: isMobile ? '14px' : '16px'
+                                    }}>
+                                      {remark.userName?.charAt(0)?.toUpperCase() || remark.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '16px' }}>
+                                        {remark.userName || remark.user?.name || 'Unknown User'}
+                                      </div>
+                                      <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
+                                        {new Date(remark.createdAt).toLocaleDateString()} at {' '}
+                                        {new Date(remark.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#666' }}>
-                                    {new Date(remark.createdAt).toLocaleDateString()} at {' '}
-                                    {new Date(remark.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+
+                                {remark.text && (
+                                  <div style={{
+                                    padding: isMobile ? '8px' : '12px',
+                                    backgroundColor: '#fafafa',
+                                    borderRadius: '4px',
+                                    fontSize: isMobile ? '13px' : '14px'
+                                  }}>
+                                    {remark.text}
                                   </div>
-                                </div>
-                              </div>
-                            </div>
+                                )}
 
-                            {remark.text && (
-                              <div style={{ 
-                                padding: isMobile ? '8px' : '12px',
-                                backgroundColor: '#fafafa',
-                                borderRadius: '4px',
-                                fontSize: isMobile ? '13px' : '14px'
-                              }}>
-                                {remark.text}
-                              </div>
-                            )}
 
-                            
-                            {remarkImages.length > 0 && (
-                              <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
-                                <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
-                                  Attached Images ({remarkImages.length}):
-                                </div>
-                                <div style={{ 
-                                  display: 'grid', 
-                                  gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', 
-                                  gap: isMobile ? '6px' : '8px' 
-                                }}>
-                                  {remarkImages.map((imagePath, imgIndex) => {
-                                    const imageUrl = getImageUrl(imagePath);
-                                    
-                                    return (
-                                      <div 
-                                        key={imgIndex}
-                                        onClick={() => setZoomImage(imageUrl)}
-                                        style={{ cursor: 'pointer', position: 'relative' }}
-                                      >
-                                        <img
-                                          src={imageUrl}
-                                          alt={`Remark image ${imgIndex + 1}`}
-                                          style={{
-                                            width: '100%',
-                                            height: '100px',
-                                            objectFit: 'cover',
-                                            borderRadius: '4px',
-                                            border: '1px solid #eee'
-                                          }}
-                                          onError={(e) => {
-                                            const filename = imageUrl.split('/').pop();
-                                            const baseUrl = API_URL.replace(/\/api$/, '');
-                                            const alternativeUrls = [
-                                              `${baseUrl}/uploads/client-remarks/${filename}`,
-                                              `${baseUrl}/uploads/remarks/client-remarks/${filename}`,
-                                              `${baseUrl}/uploads/${filename}`,
-                                              `${baseUrl}/${filename}`
-                                            ];
-                                            
-                                            let currentIndex = 0;
-                                            const tryNextUrl = () => {
-                                              if (currentIndex < alternativeUrls.length && e.target.src !== alternativeUrls[currentIndex]) {
-                                                e.target.src = alternativeUrls[currentIndex];
-                                                currentIndex++;
-                                              } else {
-                                                e.target.style.display = 'none';
-                                                const parent = e.target.parentElement;
-                                                if (parent && !parent.querySelector('.image-error-fallback')) {
-                                                  const fallback = document.createElement('div');
-                                                  fallback.className = 'image-error-fallback';
-                                                  fallback.style.cssText = `
+                                {remarkImages.length > 0 && (
+                                  <div style={{ marginTop: isMobile ? '6px' : '8px' }}>
+                                    <div style={{ fontSize: isMobile ? '11px' : '12px', marginBottom: '4px' }}>
+                                      Attached Images ({remarkImages.length}):
+                                    </div>
+                                    <div style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                                      gap: isMobile ? '6px' : '8px'
+                                    }}>
+                                      {remarkImages.map((imagePath, imgIndex) => {
+                                        const imageUrl = getImageUrl(imagePath);
+
+                                        return (
+                                          <div
+                                            key={imgIndex}
+                                            onClick={() => setZoomImage(imageUrl)}
+                                            style={{ cursor: 'pointer', position: 'relative' }}
+                                          >
+                                            <img
+                                              src={imageUrl}
+                                              alt={`Remark image ${imgIndex + 1}`}
+                                              style={{
+                                                width: '100%',
+                                                height: '100px',
+                                                objectFit: 'cover',
+                                                borderRadius: '4px',
+                                                border: '1px solid #eee'
+                                              }}
+                                              onError={(e) => {
+                                                const filename = imageUrl.split('/').pop();
+                                                const baseUrl = API_URL.replace(/\/api$/, '');
+                                                const alternativeUrls = [
+                                                  `${baseUrl}/uploads/client-remarks/${filename}`,
+                                                  `${baseUrl}/uploads/remarks/client-remarks/${filename}`,
+                                                  `${baseUrl}/uploads/${filename}`,
+                                                  `${baseUrl}/${filename}`
+                                                ];
+
+                                                let currentIndex = 0;
+                                                const tryNextUrl = () => {
+                                                  if (currentIndex < alternativeUrls.length && e.target.src !== alternativeUrls[currentIndex]) {
+                                                    e.target.src = alternativeUrls[currentIndex];
+                                                    currentIndex++;
+                                                  } else {
+                                                    e.target.style.display = 'none';
+                                                    const parent = e.target.parentElement;
+                                                    if (parent && !parent.querySelector('.image-error-fallback')) {
+                                                      const fallback = document.createElement('div');
+                                                      fallback.className = 'image-error-fallback';
+                                                      fallback.style.cssText = `
                                                     width: 100%;
                                                     height: 100px;
                                                     background: #fff3f3;
@@ -8464,7 +8536,7 @@ const UserCreateTask = () => {
                                                     flex-direction: column;
                                                     gap: 4px;
                                                   `;
-                                                  fallback.innerHTML = `
+                                                      fallback.innerHTML = `
                                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                       <circle cx="12" cy="12" r="10"></circle>
                                                       <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -8472,90 +8544,90 @@ const UserCreateTask = () => {
                                                     </svg>
                                                     <span>Image not available</span>
                                                   `;
-                                                  parent.appendChild(fallback);
-                                                }
-                                              }
-                                            };
-                                            
-                                            tryNextUrl();
-                                          }}
-                                        />
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                                                      parent.appendChild(fallback);
+                                                    }
+                                                  }
+                                                };
+
+                                                tryNextUrl();
+                                              }}
+                                            />
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="user-create-task-paper" style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
-                    <div style={{ marginTop: isMobile ? '12px' : '16px', color: '#666', fontWeight: 600 }}>
-                      No remarks yet
+                        );
+                      })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="user-create-task-paper" style={{ textAlign: 'center', padding: isMobile ? '24px' : '32px' }}>
+                      <div style={{ marginTop: isMobile ? '12px' : '16px', color: '#666', fontWeight: 600 }}>
+                        No remarks yet
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+
+            <div className="user-create-task-dialog-actions">
+              <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ width: '100%' }}>
+                <button
+                  className="user-create-task-button user-create-task-button-contained"
+                  onClick={handleSaveRemarkWithStatus}
+                  disabled={isUploadingRemark || isSavingRemarkStatus}
+                  style={{
+                    padding: isMobile ? '8px 12px' : '10px 16px',
+                    minWidth: isMobile ? '120px' : '160px',
+                    marginRight: 'auto'
+                  }}
+                >
+                  {isUploadingRemark || isSavingRemarkStatus ? (
+                    "Saving..."
+                  ) : pendingStatusChange.status ? (
+                    isMobile ? "Save & Update" : "Save Remark & Update Status"
+                  ) : (
+                    <>
+                      <FiMessageSquare />
+                      {isMobile ? "Add Remark" : "Add Remark"}
+                    </>
+                  )}
+                </button>
+
+                <button
+                  className="user-create-task-button user-create-task-button-outlined"
+                  onClick={() => {
+                    setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
+                    remarkImages.forEach(image => {
+                      if (image.preview) URL.revokeObjectURL(image.preview);
+                    });
+                    setRemarkImages([]);
+                    setNewRemark('');
+                    setPendingStatusChange({ taskId: null, status: "", source: null });
+                  }}
+                  style={{
+                    padding: isMobile ? '8px 12px' : '10px 16px',
+                    marginLeft: 'auto'
+                  }}
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
-          
-          
-          <div className="user-create-task-dialog-actions">
-            <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ width: '100%' }}>
-              <button
-                className="user-create-task-button user-create-task-button-contained"
-                onClick={handleSaveRemarkWithStatus}
-                disabled={isUploadingRemark || isSavingRemarkStatus}
-                style={{ 
-                  padding: isMobile ? '8px 12px' : '10px 16px',
-                  minWidth: isMobile ? '120px' : '160px',
-                  marginRight: 'auto'
-                }}
-              >
-                {isUploadingRemark || isSavingRemarkStatus ? (
-                  "Saving..."
-                ) : pendingStatusChange.status ? (
-                  isMobile ? "Save & Update" : "Save Remark & Update Status"
-                ) : (
-                  <>
-                    <FiMessageSquare />
-                    {isMobile ? "Add Remark" : "Add Remark"}
-                  </>
-                )}
-              </button>
-
-              <button
-                className="user-create-task-button user-create-task-button-outlined"
-                onClick={() => {
-                  setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
-                  remarkImages.forEach(image => {
-                    if (image.preview) URL.revokeObjectURL(image.preview);
-                  });
-                  setRemarkImages([]);
-                  setNewRemark('');
-                  setPendingStatusChange({ taskId: null, status: "", source: null });
-                }}
-                style={{ 
-                  padding: isMobile ? '8px 12px' : '10px 16px',
-                  marginLeft: 'auto'
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
         </div>
-      </div>
-    )}
+      )}
 
-      
+
       {activityDialog.open && (
         <div className="user-create-task-dialog-overlay activity-logs-overlay">
-          <div className={`user-create-task-dialog activity-logs-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{ 
+          <div className={`user-create-task-dialog activity-logs-dialog ${isMobile ? 'mobile-dialog' : ''}`} style={{
             maxWidth: isMobile ? '95%' : isTablet ? '700px' : '800px',
             width: isMobile ? '95%' : 'auto'
           }}>
@@ -8605,7 +8677,7 @@ const UserCreateTask = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="user-create-task-dialog-actions">
               <button
                 className="user-create-task-button user-create-task-button-outlined"
@@ -8619,12 +8691,12 @@ const UserCreateTask = () => {
         </div>
       )}
 
-      
+
       {Boolean(zoomImage) && (
         <div className="user-create-task-dialog-overlay" onClick={() => setZoomImage(null)}>
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
-            style={{ 
+            style={{
               position: 'relative',
               maxWidth: '90vw',
               maxHeight: '90vh',
@@ -8818,5 +8890,5 @@ const UserCreateTask = () => {
     </div>
   );
 };
-  
+
 export default UserCreateTask;

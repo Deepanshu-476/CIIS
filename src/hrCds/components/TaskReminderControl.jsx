@@ -137,6 +137,9 @@ export const playReminderChime = () => {
 
 export const triggerBrowserNotification = async (title, body) => {
   try {
+    if (typeof window !== 'undefined' && window.__ciisSpeakNotification) {
+      window.__ciisSpeakNotification({ title, message: body, type: 'task_due_reminder' });
+    }
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
       new Notification(title, { body, icon: '/favicon.ico' });

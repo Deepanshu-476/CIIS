@@ -11,6 +11,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import Header from './SuperAdminHeader';
 import Sidebar from './SuperAdminSidebar';
 import RouteBoundaryLoader from '../../components/RouteBoundaryLoader';
+import useTaskRealtime from '../../hooks/useTaskRealtime';
   
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
@@ -58,6 +59,7 @@ const MainContent = styled('main', {
 }));
 
 const SuperAdminLayout = () => {
+  useTaskRealtime();
   let isSuperAdmin = false;
   try {
     const superAdminRaw = localStorage.getItem('superAdmin');

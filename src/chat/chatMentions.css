@@ -49,7 +49,7 @@
 }
 .chat-page .chat-mention-composer { align-self: center; }
 .chat-page .attachment-menu-wrap,
-.chat-page .emoji-picker-wrap,
+.chat-page .emoji-picker-wrap > .emoji-btn,
 .chat-page .chat-composer > .recording-btn:nth-child(5) {
     position: absolute;
     z-index: 2;
@@ -57,7 +57,21 @@
     transform: translateY(-50%);
 }
 .chat-page .attachment-menu-wrap { left: 12px; }
-.chat-page .emoji-picker-wrap { left: 49px; right: auto; width: 32px; flex: none; }
+.chat-page .emoji-picker-wrap {
+    /* Keep the picker anchored to the composer, not the 32px icon wrapper. */
+    display: contents;
+    position: static;
+    transform: none;
+}
+.chat-page .emoji-picker-wrap > .emoji-btn { left: 49px; right: auto; }
+.chat-page .emoji-picker-panel {
+    left: 12px;
+    right: auto;
+    bottom: calc(100% + 12px);
+    width: min(390px, calc(100% - 24px));
+    max-width: none;
+    max-height: min(420px, calc(100dvh - 180px));
+}
 .chat-page .chat-composer > .recording-btn:nth-child(3) { display: none; }
 .chat-page .chat-composer > .recording-btn:nth-child(5) { right: 49px; }
 .chat-page .chat-composer > .send-btn { flex: 0 0 40px; }

@@ -134,6 +134,15 @@ const insertTranscript = (element, transcript, snapshot) => {
   };
 };
 
+const captureTextTarget = (element) => {
+  const value = element.isContentEditable ? element.textContent || "" : element.value || "";
+  return {
+    value,
+    start: typeof element.selectionStart === "number" ? element.selectionStart : value.length,
+    end: typeof element.selectionEnd === "number" ? element.selectionEnd : value.length,
+  };
+};
+
 const SpeechToTextControl = () => {
   const [target, setTarget] = useState(null);
   const [position, setPosition] = useState(null);
@@ -142,7 +151,6 @@ const SpeechToTextControl = () => {
   const [notice, setNotice] = useState("");
   const recognitionRef = useRef(null);
   const targetRef = useRef(null);
-  const snapshotRef = useRef(null);
   const shouldKeepListeningRef = useRef(false);
   const restartTimerRef = useRef(null);
 
@@ -205,6 +213,7 @@ const SpeechToTextControl = () => {
   useEffect(() => {
     const handleFocusIn = (event) => {
       if (!isEditableTextTarget(event.target)) return;
+      if (event.target !== targetRef.current) stopListening();
       targetRef.current = event.target;
       setTarget(event.target);
       requestAnimationFrame(updatePosition);
@@ -214,7 +223,7 @@ const SpeechToTextControl = () => {
       window.setTimeout(() => {
         const activeElement = document.activeElement;
         if (activeElement?.closest?.(".speech-to-text-control")) return;
-        if (isListening) return;
+        if (shouldKeepListeningRef.current && activeElement !== targetRef.current) stopListening();
         targetRef.current = isEditableTextTarget(activeElement) ? activeElement : null;
         setTarget(targetRef.current);
         updatePosition();
@@ -254,6 +263,9 @@ const SpeechToTextControl = () => {
 
     let animationFrameId;
     const followInputMovement = () => {
+      if (shouldKeepListeningRef.current && (!targetRef.current?.isConnected || !isEditableTextTarget(targetRef.current))) {
+        stopListening();
+      }
       updatePosition();
       animationFrameId = window.requestAnimationFrame(followInputMovement);
     };
@@ -265,13 +277,15 @@ const SpeechToTextControl = () => {
   const stopListening = () => {
     shouldKeepListeningRef.current = false;
     window.clearTimeout(restartTimerRef.current);
-    recognitionRef.current?.stop();
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    recognition?.abort?.();
     setIsListening(false);
   };
 
-  const startListening = (reuseCurrentTarget = false) => {
+  const startListening = () => {
     const element = targetRef.current || document.activeElement;
-    if (!isEditableTextTarget(element)) return;
+    if (!element?.isConnected || !isEditableTextTarget(element)) return;
 
     const Recognition = getSpeechRecognition();
     if (!Recognition) {
@@ -282,17 +296,11 @@ const SpeechToTextControl = () => {
     }
 
     window.clearTimeout(restartTimerRef.current);
-    recognitionRef.current?.abort?.();
+    const previousRecognition = recognitionRef.current;
+    recognitionRef.current = null;
+    previousRecognition?.abort?.();
     targetRef.current = element;
     setTarget(element);
-
-    if (!reuseCurrentTarget || !snapshotRef.current) {
-      snapshotRef.current = {
-        value: element.isContentEditable ? element.textContent || "" : element.value || "",
-        start: typeof element.selectionStart === "number" ? element.selectionStart : (element.textContent || "").length,
-        end: typeof element.selectionEnd === "number" ? element.selectionEnd : (element.textContent || "").length,
-      };
-    }
 
     const recognition = new Recognition();
     recognition.lang = "en-IN";
@@ -301,29 +309,44 @@ const SpeechToTextControl = () => {
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
     shouldKeepListeningRef.current = true;
+    const processedResults = new Set();
+    const isCurrentSession = () => (
+      recognitionRef.current === recognition
+      && shouldKeepListeningRef.current
+      && targetRef.current === element
+      && element.isConnected
+      && isEditableTextTarget(element)
+    );
 
     recognition.onstart = () => {
+      if (!isCurrentSession()) return;
       setNotice("");
       setIsListening(true);
     };
 
     recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .slice(event.resultIndex)
-        .filter((result) => result.isFinal)
-        .map((result) => result[0]?.transcript || "")
-        .join("")
-        .trim();
+      if (!isCurrentSession()) return;
+      const finalParts = [];
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        if (!result.isFinal || processedResults.has(index)) continue;
+        processedResults.add(index);
+        const part = (result[0]?.transcript || "").trim();
+        if (part) finalParts.push(part);
+      }
+      const transcript = finalParts.join(" ");
 
       if (transcript) {
-        snapshotRef.current = insertTranscript(targetRef.current, transcript, snapshotRef.current);
+        // Read the live field and selection so typing, clearing and cursor moves
+        // cannot resurrect text from an earlier recognition result or session.
+        insertTranscript(element, transcript, captureTextTarget(element));
       }
     };
 
     recognition.onerror = (event) => {
+      if (!isCurrentSession()) return;
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        shouldKeepListeningRef.current = false;
-        setIsListening(false);
+        stopListening();
         setNotice("Microphone permission denied.");
         window.setTimeout(() => setNotice(""), 3500);
         return;
@@ -336,22 +359,36 @@ const SpeechToTextControl = () => {
     };
 
     recognition.onend = () => {
-      if (shouldKeepListeningRef.current && isEditableTextTarget(targetRef.current)) {
-        restartTimerRef.current = window.setTimeout(() => startListening(true), 250);
+      if (recognitionRef.current !== recognition) return;
+      if (isCurrentSession()) {
+        restartTimerRef.current = window.setTimeout(() => {
+          if (isCurrentSession()) startListening();
+        }, 250);
         return;
       }
 
+      recognitionRef.current = null;
+      shouldKeepListeningRef.current = false;
       setIsListening(false);
       updatePosition();
     };
 
-    recognition.start();
+    setIsListening(true);
+    try {
+      recognition.start();
+    } catch {
+      stopListening();
+      setNotice("Unable to start speech capture. Please try again.");
+      window.setTimeout(() => setNotice(""), 3500);
+    }
   };
 
   useEffect(() => () => {
     shouldKeepListeningRef.current = false;
     window.clearTimeout(restartTimerRef.current);
-    recognitionRef.current?.abort?.();
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    recognition?.abort?.();
   }, []);
 
   if (!target || !position || !isSupported) return notice ? <div className="speech-to-text-notice">{notice}</div> : null;
@@ -363,7 +400,7 @@ const SpeechToTextControl = () => {
         className={`speech-to-text-control ${isListening ? "listening" : ""}`}
         style={{ top: position.top, left: position.left }}
         onPointerDown={(event) => event.preventDefault()}
-        onClick={isListening ? stopListening : startListening}
+        onClick={() => (shouldKeepListeningRef.current ? stopListening() : startListening())}
         title={isListening ? "Stop speech to text" : "Speak to text"}
         aria-label={isListening ? "Stop speech to text" : "Speak to text"}
       >

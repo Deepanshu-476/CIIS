@@ -232,7 +232,10 @@ const useUser = () => {
   
   const getCurrentUserJobRole = useCallback(() => {
     const user = getCurrentUser();
-    return (user?.jobRole || user?.role || '').toLowerCase();
+    const role = user?.jobRole;
+    return String(
+      role?.roleName || role?.name || role?.title || role || user?.role || ''
+    ).toLowerCase();
   }, [getCurrentUser]);
   
   const getCurrentUserId = useCallback(() => {
@@ -267,7 +270,10 @@ const useUser = () => {
   
   const getCurrentUserCompanyRole = useCallback(() => {
     const user = getCurrentUser();
-    return (user?.companyRole || user?.role || 'employee').toLowerCase();
+    const role = user?.companyRole;
+    return String(
+      role?.roleName || role?.name || role?.title || role || user?.role || 'employee'
+    ).toLowerCase();
   }, [getCurrentUser]);
   
   
@@ -2826,9 +2832,11 @@ const EmployeeDirectory = () => {
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       filtered = filtered.filter((emp) => {
-        const jobRoleName = getJobRoleName(emp.jobRole).toLowerCase();
-        const departmentName = getDepartmentName(emp.department).toLowerCase();
-        const companyRole = (emp.companyRole || '').toLowerCase();
+        const jobRoleName = String(getJobRoleName(emp.jobRole) || '').toLowerCase();
+        const departmentName = String(getDepartmentName(emp.department) || '').toLowerCase();
+        const companyRole = String(
+          emp.companyRole?.roleName || emp.companyRole?.name || emp.companyRole || ''
+        ).toLowerCase();
         
         return (
           (emp.name && emp.name.toLowerCase().includes(search)) ||

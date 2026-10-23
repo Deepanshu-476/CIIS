@@ -391,6 +391,55 @@ const RefreshOverlay = () => (
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+
+  // If the user's Job Role or company has Dynamic Dashboard Overview configured, auto open it instead of user-dashboard
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkAssignedDashboard = async () => {
+      try {
+        let rawSidebar = localStorage.getItem('sidebarConfig');
+        let cfg = rawSidebar ? JSON.parse(rawSidebar) : null;
+
+        // If sidebar config is not yet cached in localStorage, fetch it immediately
+        if (!cfg) {
+          try {
+            const res = await axios.get('/sidebar/config');
+            if (res.data?.data) {
+              cfg = res.data.data;
+              localStorage.setItem('sidebarConfig', JSON.stringify(cfg));
+            }
+          } catch (_) {}
+        }
+
+        if (cfg) {
+          const menuItems = Array.isArray(cfg?.menuItems) ? cfg.menuItems : (Array.isArray(cfg?.items) ? cfg.items : []);
+          const hasOverview = menuItems.some(item => {
+            const id = String(item?.id || '').toLowerCase();
+            const p = String(item?.path || '').toLowerCase();
+            return id === 'dashboard-overview' || p.includes('dashboard-overview');
+          });
+          if (hasOverview && !isCancelled) {
+            navigate('/ciisUser/dashboard-overview', { replace: true });
+            return;
+          }
+        }
+
+        const company = JSON.parse(localStorage.getItem('company') || localStorage.getItem('companyDetails') || '{}');
+        const allowedPages = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
+        if (allowedPages.includes('dashboard-overview') && !allowedPages.includes('user-dashboard') && !isCancelled) {
+          navigate('/ciisUser/dashboard-overview', { replace: true });
+          return;
+        }
+      } catch (e) {
+        console.warn('Dashboard auto-redirect note:', e);
+      }
+    };
+
+    checkAssignedDashboard();
+    return () => { isCancelled = true; };
+  }, [navigate]);
+
   const initialDashboardSnapshot = useMemo(readDashboardCache, []);
   const initialActiveClock = useMemo(
     () => getActiveClockState(initialDashboardSnapshot.activeClock),

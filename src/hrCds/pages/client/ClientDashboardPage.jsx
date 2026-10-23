@@ -613,7 +613,7 @@ const Dashboard = () => {
       if (forceSpinner) {
         setIsDashboardLoading(true);
       }
-      
+
       const userStr = localStorage.getItem('user');
       if (!userStr) {
         return;
@@ -636,7 +636,7 @@ const Dashboard = () => {
       if (!requestCompanyInfo.companyCode) {
         return;
       }
-      
+
       const [companyUsers, response] = await Promise.all([
         fetchCompanyUsers(user),
         api.get('/', {
@@ -680,20 +680,20 @@ const Dashboard = () => {
         fetchCompaniesTaskSummary(effectiveClients);
         const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
         const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
-        
+
         const currentClient = (
           storedClientId
             ? effectiveClients.find(item => normalizeMatchValue(item?._id || item?.id) === storedClientId)
             : null
         ) || effectiveClients.find(item => String(item?.status || 'Active').toLowerCase() === 'active') || effectiveClients[0] || null;
-        
+
         if (currentClient) {
           setClient(currentClient);
           localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
           localStorage.setItem('client', JSON.stringify(currentClient));
           setProjectManagers(collectProjectMembers(currentClient, companyUsers));
           fetchSupportTickets();
-          
+
           const clientServices = Array.isArray(currentClient.services) ? currentClient.services : [];
           setServices(clientServices);
           if (clientServices.length > 0) {
@@ -917,7 +917,7 @@ const Dashboard = () => {
 
   return (
     <div className="ClientDashboard-client-dashboard">
-      
+
       {/* SECTION 1: Top Hero Banner + Profile Card */}
       <div className="ClientDashboard-top-row">
         {/* Left Hero Card */}

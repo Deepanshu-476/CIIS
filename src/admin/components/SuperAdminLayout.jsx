@@ -58,6 +58,39 @@ const MainContent = styled('main', {
 }));
 
 const SuperAdminLayout = () => {
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const handleSidebarMouseEnter = () => {
+    if (!isMobile) {
+      setIsSidebarHovered(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (!isMobile) {
+      setIsSidebarHovered(false);
+    }
+  };
+
+  const toggleMobileSidebar = () => {
+    setMobileSidebarOpen(!mobileSidebarOpen);
+  };
+
+  const handleCloseMobileSidebar = () => {
+    if (isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  }, [isMobile]);
+
   let isSuperAdmin = false;
   try {
     const superAdminRaw = localStorage.getItem('superAdmin');
@@ -95,43 +128,6 @@ const SuperAdminLayout = () => {
     }
     return <Navigate to="/SuperAdminLogin" replace />;
   }
-
-  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
-  
-  const handleSidebarMouseEnter = () => {
-    if (!isMobile) {
-      setIsSidebarHovered(true);
-    }
-  };
-  
-  const handleSidebarMouseLeave = () => {
-    if (!isMobile) {
-      setIsSidebarHovered(false);
-    }
-  };
-  
-  
-  const toggleMobileSidebar = () => {
-    setMobileSidebarOpen(!mobileSidebarOpen);
-  };
-  
-  
-  const handleCloseMobileSidebar = () => {
-    if (isMobile) {
-      setMobileSidebarOpen(false);
-    }
-  };
-  
-  
-  useEffect(() => {
-    if (!isMobile) {
-      setMobileSidebarOpen(false);
-    }
-  }, [isMobile]);
   
   return (
     <LayoutContainer>

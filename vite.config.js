@@ -37,6 +37,10 @@ export default defineConfig({
             if (id.includes('jspdf') || id.includes('xlsx') || id.includes('html2canvas')) {
               return 'vendor-export';
             }
+            // Three.js 3D Voice Orb lazy chunk (loaded only when My AI opens)
+            if (id.includes('three') || id.includes('@react-three')) {
+              return 'vendor-three';
+            }
             // All React and React-dependent libraries together in one unified chunk to prevent useLayoutEffect/undefined errors
             if (
               id.includes('react') ||

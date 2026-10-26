@@ -1,16 +1,14 @@
 /**
  * VoiceOrb GLSL Shaders
  * 
- * Vertex Shader:
- * - 3D Simplex/Perlin noise displacement
- * - Traveling harmonic waves along circular path (radius ~1)
- * - Scaled by uAmplitude, uScale, and real-time uAudioLevel
- * 
- * Fragment Shader:
- * - Color gradient: #22d3ee (cyan) -> #3b82f6 (blue) -> #2dd4bf (teal)
- * - Brighter white-cyan highlight on edges and overlapping crossings
- * - Fresnel-style edge glow
- * - Volumetric translucency
+ * Recreates the exact ethereal, fluid circular aura ring from the reference image:
+ * - Perfectly circular base geometry (XY frontal plane, zero 3D off-axis tilt)
+ * - Low-frequency harmonic fluid waves along the circular path (frequencies 2, 3, 4)
+ * - Smooth radial undulation (no high-frequency polygon distortion or spikes)
+ * - Ethereal feathered edge falloff (smoky, soft-focus ribbon silhouette)
+ * - Rich vibrant palette visible on both light and dark backgrounds:
+ *   Electric Cyan (#05b8e0) -> Ocean Blue (#1e73f3) -> Royal Cobalt (#1440d1)
+ * - NormalBlending with dense luminous core (alpha ~0.88) and feathered misty edges
  */
 
 export const vertexShader = `
@@ -19,107 +17,41 @@ uniform float uSpeed;
 uniform float uAmplitude;
 uniform float uScale;
 uniform float uAudioLevel;
-uniform float uTwist;
+uniform float uPhaseOffset;
 
 varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vViewPosition;
-varying float vDisplacement;
 varying float vAngle;
-
-// 3D Simplex noise functions
-vec4 permute(vec4 x){ return mod(((x * 34.0) + 1.0) * x, 289.0); }
-vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
-
-float snoise(vec3 v){
-    const vec2 C = vec2(1.0 / 6.0, 1.0 / 3.0);
-    const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-
-    vec3 i  = floor(v + dot(v, C.yyy));
-    vec3 x0 = v - i + dot(i, C.xxx);
-
-    vec3 g = step(x0.yzx, x0.xyz);
-    vec3 l = 1.0 - g;
-    vec3 i1 = min(g.xyz, l.zxy);
-    vec3 i2 = max(g.xyz, l.zxy);
-
-    vec3 x1 = x0 - i1 + 1.0 * C.xxx;
-    vec3 x2 = x0 - i2 + 2.0 * C.xxx;
-    vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
-
-    i = mod(i, 289.0);
-    vec4 p = permute(permute(permute(
-                i.z + vec4(0.0, i1.z, i2.z, 1.0))
-            + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-            + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-
-    float n_ = 0.142857142857;
-    vec3 ns = n_ * D.wyz - D.xzx;
-
-    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-
-    vec4 x_ = floor(j * ns.z);
-    vec4 y_ = floor(j - 7.0 * x_);
-
-    vec4 x = x_ * ns.x + ns.yyyy;
-    vec4 y = y_ * ns.x + ns.yyyy;
-    vec4 h = 1.0 - abs(x) - abs(y);
-
-    vec4 b0 = vec4(x.xy, y.xy);
-    vec4 b1 = vec4(x.zw, y.zw);
-
-    vec4 s0 = floor(b0) * 2.0 + 1.0;
-    vec4 s1 = floor(b1) * 2.0 + 1.0;
-    vec4 sh = -step(h, vec4(0.0));
-
-    vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
-    vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
-
-    vec3 p0 = vec3(a0.xy, h.x);
-    vec3 p1 = vec3(a0.zw, h.y);
-    vec3 p2 = vec3(a1.xy, h.z);
-    vec3 p3 = vec3(a1.zw, h.w);
-
-    vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
-    p0 *= norm.x;
-    p1 *= norm.y;
-    p2 *= norm.z;
-    p3 *= norm.w;
-
-    vec4 m = max(0.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);
-    m = m * m;
-    return 42.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
-}
+varying float vDisplacement;
 
 void main() {
     vUv = uv;
     vNormal = normalize(normalMatrix * normal);
 
-    // Compute circular angle and radius
+    // Angle around circular ring (-PI to PI)
     float angle = atan(position.y, position.x);
     vAngle = angle;
 
-    // Time driven by uSpeed
-    float t = uTime * uSpeed;
+    float t = uTime * uSpeed + uPhaseOffset;
 
-    // Symmetrical traveling sine waves (keeps circular base geometry)
-    float wave1 = sin(angle * 3.0 - t * 2.2) * 0.09;
-    float wave2 = cos(angle * 4.0 + t * 1.6) * 0.06;
-    float wave3 = sin(angle * 2.0 - t * 1.0) * 0.05;
+    // Harmonic fluid undulation waves along circle perimeter
+    // Kept strictly low-frequency (2, 3, 4) to maintain the clean circular shape
+    float wave1 = sin(angle * 3.0 - t * 2.0) * 0.075;
+    float wave2 = cos(angle * 2.0 + t * 1.35) * 0.048;
+    float wave3 = sin(angle * 4.0 - t * 0.85) * 0.028;
 
-    // 3D Simplex noise for fluid organic silk ripple
-    vec3 noiseCoord = vec3(position.xy * 1.6, t * 0.7);
-    float noiseVal = snoise(noiseCoord) * 0.12;
+    float dynamicAmp = uAmplitude + uAudioLevel * 0.55;
+    float totalWave = (wave1 + wave2 + wave3) * dynamicAmp;
+    vDisplacement = totalWave;
 
-    // Total displacement modulated by amplitude and audio level
-    float dynamicAmp = uAmplitude + uAudioLevel * 0.75;
-    float totalDisplacement = (wave1 + wave2 + wave3 + noiseVal) * dynamicAmp;
-    vDisplacement = totalDisplacement;
-
-    // Displace along normal + radial direction
-    vec3 displacedPos = position + normal * (totalDisplacement * 0.85);
+    // Displace purely in radial direction from circle center (XY plane)
     vec2 radialDir = normalize(position.xy);
-    displacedPos.xy += radialDir * (totalDisplacement * 0.65);
+    vec3 displacedPos = position;
+    displacedPos.xy += radialDir * totalWave;
+
+    // Gentle out-of-plane Z depth modulation
+    displacedPos.z += sin(angle * 3.0 + t * 1.6) * (0.055 * dynamicAmp);
 
     // Apply speech scale
     displacedPos *= uScale;
@@ -133,49 +65,58 @@ void main() {
 export const fragmentShader = `
 uniform vec3 uColorCyan;
 uniform vec3 uColorBlue;
-uniform vec3 uColorTeal;
+uniform vec3 uColorDeepBlue;
 uniform float uTime;
 uniform float uAudioLevel;
 
 varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vViewPosition;
-varying float vDisplacement;
 varying float vAngle;
+varying float vDisplacement;
 
 void main() {
-    // View direction and Fresnel edge glow
     vec3 viewDir = normalize(vViewPosition);
     vec3 norm = normalize(vNormal);
+
+    // Facing factor: 1.0 at ribbon center (faces camera), 0.0 at inner/outer rims
     float NdotV = abs(dot(viewDir, norm));
-    float fresnel = pow(1.0 - NdotV, 2.4);
 
-    // Continuous circular color gradient around ring:
-    // Cyan (#22d3ee) -> Blue (#3b82f6) -> Teal (#2dd4bf) -> Cyan
-    float normAngle = (vAngle + 3.14159265) / (2.0 * 3.14159265);
-    float gradPos = fract(normAngle + vDisplacement * 0.4);
+    // Feathered smoky edge falloff:
+    // Ribbon is dense and rich in the center, and softly dissolves into misty transparency
+    // at the edges, eliminating hard polygon wireframe borders.
+    float edgeFade = smoothstep(0.02, 0.42, NdotV);
 
-    vec3 color;
-    if (gradPos < 0.33) {
-        float f = gradPos / 0.33;
-        color = mix(uColorCyan, uColorBlue, f);
-    } else if (gradPos < 0.66) {
-        float f = (gradPos - 0.33) / 0.33;
-        color = mix(uColorBlue, uColorTeal, f);
+    // Circular gradient progression around ring (Cyan -> Electric Blue -> Deep Ocean -> Teal)
+    float normAngle = (vAngle + 3.14159265) / 6.2831853;
+    float colorPos = fract(normAngle + uTime * 0.07);
+
+    vec3 baseColor;
+    if (colorPos < 0.33) {
+        float f = colorPos / 0.33;
+        baseColor = mix(uColorCyan, uColorBlue, f);
+    } else if (colorPos < 0.66) {
+        float f = (colorPos - 0.33) / 0.33;
+        baseColor = mix(uColorBlue, uColorDeepBlue, f);
     } else {
-        float f = (gradPos - 0.66) / 0.34;
-        color = mix(uColorTeal, uColorCyan, f);
+        float f = (colorPos - 0.66) / 0.34;
+        baseColor = mix(uColorDeepBlue, uColorCyan, f);
     }
 
-    // Brighter white-cyan highlight on edges and wave crossings
-    vec3 highlightColor = vec3(0.88, 0.98, 1.0);
-    float crossingGlow = max(0.0, vDisplacement * 3.2);
-    float edgeHighlight = pow(fresnel, 2.8) * 0.85 + crossingGlow * 0.35;
-    color = mix(color, highlightColor, clamp(edgeHighlight, 0.0, 0.85));
+    // Silky translucent internal ribbon folds & caustics
+    float ribbonFolds = sin(vAngle * 4.0 - uTime * 1.4 + NdotV * 4.5) * 0.5 + 0.5;
+    float fluidCaustic = sin(vUv.y * 12.566 + vAngle * 2.0 - uTime * 2.0) * 0.5 + 0.5;
 
-    // Volumetric translucency with soft additive fade
-    float alpha = clamp(fresnel * 0.65 + 0.28 + uAudioLevel * 0.25, 0.0, 0.95);
+    // Luminous frosty white-cyan core highlight along crests
+    float coreGlow = pow(NdotV, 2.2) * 0.55 + pow(ribbonFolds, 3.0) * 0.35;
+    vec3 highlightColor = vec3(0.90, 0.98, 1.0);
+    vec3 finalColor = mix(baseColor, highlightColor, clamp(coreGlow * 0.55, 0.0, 0.70));
 
-    gl_FragColor = vec4(color, alpha);
+    // Volumetric smoky transparency: rich and dense in the center (alpha ~0.88),
+    // feathered smoothly to 0 at the rims for misty softness.
+    float alpha = edgeFade * (0.86 + fluidCaustic * 0.12 + uAudioLevel * 0.18);
+    alpha = clamp(alpha, 0.0, 0.95);
+
+    gl_FragColor = vec4(finalColor, alpha);
 }
 `;

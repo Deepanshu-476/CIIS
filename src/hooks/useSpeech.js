@@ -16,6 +16,7 @@ export default function useSpeech({
     onInactivityPrompt,
     onInactivityPause,
     enableChunking = false,
+    maxSttUploads = 12,
 } = {}) {
     const SR = getSR();
     const [engine, setEngine] = useState(defaultEngine);
@@ -98,8 +99,29 @@ export default function useSpeech({
     const isSpeakingRef = useRef(false);
     const speakTimeoutRef = useRef(null);
 
+    // Turn dispatch & STT cap guards
+    const turnDispatchedRef = useRef(false);
+    const sttUploadCountRef = useRef(0);
+    const [sttUploadCount, setSttUploadCount] = useState(0);
+
+    const resetSttUploadCount = useCallback(() => {
+        sttUploadCountRef.current = 0;
+        setSttUploadCount(0);
+    }, []);
+
     const cbRef = useRef(onFinalTranscript);
     cbRef.current = onFinalTranscript;
+
+    const dispatchFinalText = useCallback((text) => {
+        const clean = String(text || '').trim();
+        if (!clean) return;
+        if (turnDispatchedRef.current) return;
+        if (isSpeakingRef.current || window.__ciisVoiceSpeaking || (typeof window !== 'undefined' && window.speechSynthesis?.speaking)) return;
+        turnDispatchedRef.current = true;
+        if (cbRef.current) {
+            cbRef.current(clean);
+        }
+    }, []);
 
     const inactivityPromptCbRef = useRef(onInactivityPrompt);
     inactivityPromptCbRef.current = onInactivityPrompt;
@@ -201,12 +223,12 @@ export default function useSpeech({
             accumulatedTextRef.current = '';
             uncommittedInterimRef.current = '';
             setInterim('');
-            // Echo guard: ignore if speaking
-            if (text && cbRef.current && !isSpeakingRef.current && !window.__ciisVoiceSpeaking) {
-                cbRef.current(text);
+            // Echo guard & duplicate prevention: dispatch only once
+            if (text) {
+                dispatchFinalText(text);
             }
         }
-    }, [engine, cleanupAudioNodes]);
+    }, [engine, cleanupAudioNodes, dispatchFinalText]);
 
     // Setup adaptive VAD audio analyser
     const startAudioAnalyser = useCallback((stream, onSilenceExceeded, onChunkCut) => {
@@ -274,12 +296,12 @@ export default function useSpeech({
                         const samples = calibrationSamplesRef.current;
                         const floorSum = samples.reduce((a, b) => a + b, 0);
                         const computedFloor = samples.length ? floorSum / samples.length : 8;
-                        // True ambient noise floor (unclamped from artificial small values)
-                        noiseFloorRef.current = Math.max(3, Math.round(computedFloor));
-                        // Speech threshold requires distinct energy above ambient floor
-                        speechThresholdRef.current = Math.max(noiseFloorRef.current + 8, Math.round(noiseFloorRef.current * 1.5), 14);
+                        // True ambient noise floor (clamped to prevent early speech from corrupting the baseline)
+                        noiseFloorRef.current = Math.min(10, Math.max(3, Math.round(computedFloor)));
+                        // Speech threshold: sensitive enough to capture soft/normal user voice (baseline 10)
+                        speechThresholdRef.current = Math.max(noiseFloorRef.current + 4, 10);
                         // Silence threshold sits comfortably just above ambient floor
-                        silenceThresholdRef.current = Math.max(noiseFloorRef.current + 3, Math.round(noiseFloorRef.current * 1.15));
+                        silenceThresholdRef.current = Math.max(noiseFloorRef.current + 2, 6);
                         lastDiagRef.current.noiseFloor = noiseFloorRef.current;
                     }
                     animFrameRef.current = requestAnimationFrame(checkAudio);
@@ -302,7 +324,7 @@ export default function useSpeech({
                     : 0;
 
                 // 2. Speech vs Silence classification
-                if (curSmoothed >= speechThresholdRef.current || (curSmoothed >= silenceThresholdRef.current + 3 && voicePeak >= 18)) {
+                if (curSmoothed >= speechThresholdRef.current || (curSmoothed >= silenceThresholdRef.current + 2 && voicePeak >= 15)) {
                     // Definite user speech detected
                     if (!speechDetectedRef.current) {
                         speechDetectedRef.current = true;
@@ -321,8 +343,8 @@ export default function useSpeech({
                         } else {
                             const silenceMs = now - silenceStartTimeRef.current;
 
-                            // Responsive utterance end: 800ms silence after speech has finished
-                            if (silenceMs >= 800) {
+                            // Responsive utterance end: 1400ms natural silence after speech has finished
+                            if (silenceMs >= 1400) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
@@ -330,20 +352,18 @@ export default function useSpeech({
                             }
                         }
                     } else if (onSilenceExceeded) {
-                        // Speech NOT yet detected: prompt at 7s, pause at 14s
+                        // Speech NOT yet detected: prompt at 6s, pause at 10s
                         const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
-                        if (silenceDuration >= 7000) {
-                            if (inactivityPhaseRef.current === 0) {
-                                inactivityPhaseRef.current = 1;
-                                lastSpeechOrListenStartRef.current = now;
-                                if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
-                            } else if (inactivityPhaseRef.current === 1 && silenceDuration >= 14000) {
-                                inactivityPhaseRef.current = 2;
-                                setIsPaused(true);
-                                if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
-                                stop('inactivity');
-                                return;
-                            }
+                        if (silenceDuration >= 6000 && inactivityPhaseRef.current === 0) {
+                            inactivityPhaseRef.current = 1;
+                            lastSpeechOrListenStartRef.current = now;
+                            if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
+                        } else if (silenceDuration >= 10000) {
+                            inactivityPhaseRef.current = 2;
+                            setIsPaused(true);
+                            if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
+                            stop('inactivity');
+                            return;
                         }
                     }
                 } else if (speechDetectedRef.current) {
@@ -352,7 +372,7 @@ export default function useSpeech({
                     if (curSmoothed <= midThreshold) {
                         if (!silenceStartTimeRef.current) {
                             silenceStartTimeRef.current = now;
-                        } else if (now - silenceStartTimeRef.current >= 950) {
+                        } else if (now - silenceStartTimeRef.current >= 1500) {
                             if (onSilenceExceeded) {
                                 onSilenceExceeded('silence');
                                 return;
@@ -391,10 +411,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // 800ms silence for utterance completion
+            // 1400ms natural silence for utterance completion to avoid cutting off sentences
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 800);
+            }, 1400);
         };
 
         const createAndStart = () => {
@@ -474,8 +494,8 @@ export default function useSpeech({
                     setListening(false);
                     cleanupAudioNodes();
                     const finalText = accumulatedTextRef.current.trim();
-                    if (finalText && cbRef.current && !isSpeakingRef.current && !window.__ciisVoiceSpeaking) {
-                        cbRef.current(finalText);
+                    if (finalText) {
+                        dispatchFinalText(finalText);
                     }
                 }
             };
@@ -500,8 +520,10 @@ export default function useSpeech({
             })
             .then((stream) => {
                 audioStreamRef.current = stream;
-                // Audio analyser used for dynamic level visualizer meter
-                startAudioAnalyser(stream);
+                // Audio analyser used for dynamic level visualizer meter & 10s inactivity stop
+                startAudioAnalyser(stream, (reason) => {
+                    stop(reason);
+                });
             })
             .catch((err) => {
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -531,16 +553,25 @@ export default function useSpeech({
             return null;
         }
 
+        // STT upload cap check (12 uploads per conversation session)
+        if (sttUploadCountRef.current >= maxSttUploads) {
+            setNotice(`Voice limit (${maxSttUploads}/${maxSttUploads} turns) reached. Switched to browser speech or text.`);
+            if (SR) {
+                setEngine('browser');
+            }
+            return null;
+        }
+
         setIsTranscribing(true);
 
         const uploadAttempt = async () => {
             const formData = new FormData();
             formData.append('audio', audioBlob, `recording.${ext}`);
-            let langCode = 'hi';
-            if (lang === 'auto') {
-                langCode = 'auto';
-            } else if (lang && lang.toLowerCase().startsWith('en')) {
+            let langCode = 'auto'; // Defaults to auto so Whisper transcribes Hinglish without forcing Devanagari tokens
+            if (lang && lang.toLowerCase().startsWith('en')) {
                 langCode = 'en';
+            } else if (lang === 'hi') {
+                langCode = 'hi';
             }
             formData.append('language', langCode);
 
@@ -554,6 +585,8 @@ export default function useSpeech({
         try {
             data = await uploadAttempt();
             sttFailureCountRef.current = 0; // Reset failures on success
+            sttUploadCountRef.current += 1;
+            setSttUploadCount(sttUploadCountRef.current);
         } catch (firstErr) {
             const status = firstErr?.response?.status;
             const code = firstErr?.response?.data?.code;
@@ -712,8 +745,8 @@ export default function useSpeech({
             }
 
             const data = await uploadAudioBlob(audioBlob, ext, durationMs);
-            if (data?.text && cbRef.current && !isSpeakingRef.current && !window.__ciisVoiceSpeaking) {
-                cbRef.current(data.text.trim());
+            if (data?.text) {
+                dispatchFinalText(data.text.trim());
             }
         };
 
@@ -739,8 +772,13 @@ export default function useSpeech({
         }, 30000);
     }, [cleanupAudioNodes, startAudioAnalyser, stop, uploadAudioBlob]);
 
-    // Unified start listening
+    // Unified start listening (half-duplex: strictly blocked while speaking)
     const start = useCallback(() => {
+        if (isSpeakingRef.current || (typeof window !== 'undefined' && window.speechSynthesis?.speaking)) {
+            console.warn('[useSpeech] Cannot start listening while agent is speaking (half-duplex)');
+            return;
+        }
+        turnDispatchedRef.current = false;
         if (ttsSupported) {
             window.speechSynthesis.cancel();
             isSpeakingRef.current = false;
@@ -758,9 +796,17 @@ export default function useSpeech({
         }
     }, [ttsSupported, cleanupAudioNodes, engine, startWhisper, startBrowserSpeech]);
 
-    // TTS Speaking helper with onEnd completion callback
+    // TTS Speaking helper with onEnd completion callback (half-duplex: mutes mic)
     const speak = useCallback(
         (speechDevanagari, replyHinglish, onEnd) => {
+            // Half-duplex: stop listening immediately before speaking begins
+            stop('agent-speaking');
+            try {
+                recRef.current?.abort();
+            } catch {
+                /* ignore */
+            }
+
             if (!ttsSupported) {
                 if (onEnd) onEnd();
                 return;
@@ -935,6 +981,8 @@ export default function useSpeech({
         recordingVoiceNote,
         startVoiceNoteRecording,
         stopVoiceNoteRecording,
+        sttUploadCount,
+        resetSttUploadCount,
         lastDiag: lastDiagRef.current,
     };
 }

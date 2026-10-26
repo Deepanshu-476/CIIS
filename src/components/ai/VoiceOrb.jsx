@@ -40,70 +40,56 @@ class OrbErrorBoundary extends Component {
 
 /**
  * VoiceOrbMesh
- * 3D Torus Ribbon geometry with custom GLSL 3D Simplex noise displacement shader
+ * Circular fluid aura ring ribbon matching user reference image
  */
 function VoiceOrbMesh({ state, audioAmplitude }) {
     const meshGroupRef = useRef(null);
     const materialRef1 = useRef(null);
     const materialRef2 = useRef(null);
-    const materialRef3 = useRef(null);
 
     // Dynamic state lerp values
     const speedRef = useRef(0.0);
-    const ampRef = useRef(0.8);
+    const ampRef = useRef(0.75);
     const scaleRef = useRef(1.0);
     const rotSpeedRef = useRef(0.0);
     const timeRef = useRef(0.0);
 
-    // Color definitions: Cyan (#22d3ee) -> Blue (#3b82f6) -> Teal (#2dd4bf)
-    const colorCyan = useMemo(() => new THREE.Color('#22d3ee'), []);
-    const colorBlue = useMemo(() => new THREE.Color('#3b82f6'), []);
-    const colorTeal = useMemo(() => new THREE.Color('#2dd4bf'), []);
+    // Color definitions matching reference image:
+    // Electric Cyan (#05b8e0) -> Ocean Blue (#1e73f3) -> Royal Cobalt (#1440d1)
+    const colorCyan = useMemo(() => new THREE.Color('#05b8e0'), []);
+    const colorBlue = useMemo(() => new THREE.Color('#1e73f3'), []);
+    const colorDeepBlue = useMemo(() => new THREE.Color('#1440d1'), []);
 
-    // Create shader uniforms
+    // Create shader uniforms for Primary Ribbon Layer
     const uniforms1 = useMemo(
         () => ({
             uTime: { value: 0 },
             uSpeed: { value: 1.0 },
-            uAmplitude: { value: 0.85 },
+            uAmplitude: { value: 0.75 },
             uScale: { value: 1.0 },
             uAudioLevel: { value: 0.0 },
-            uTwist: { value: 1.0 },
+            uPhaseOffset: { value: 0.0 },
             uColorCyan: { value: colorCyan },
             uColorBlue: { value: colorBlue },
-            uColorTeal: { value: colorTeal }
+            uColorDeepBlue: { value: colorDeepBlue }
         }),
-        [colorCyan, colorBlue, colorTeal]
+        [colorCyan, colorBlue, colorDeepBlue]
     );
 
+    // Create shader uniforms for Secondary Translucent Silk Veil Layer
     const uniforms2 = useMemo(
         () => ({
             uTime: { value: 0 },
             uSpeed: { value: 1.0 },
-            uAmplitude: { value: 0.70 },
-            uScale: { value: 0.97 },
+            uAmplitude: { value: 0.65 },
+            uScale: { value: 0.98 },
             uAudioLevel: { value: 0.0 },
-            uTwist: { value: 1.5 },
+            uPhaseOffset: { value: 1.4 },
             uColorCyan: { value: colorCyan },
             uColorBlue: { value: colorBlue },
-            uColorTeal: { value: colorTeal }
+            uColorDeepBlue: { value: colorDeepBlue }
         }),
-        [colorCyan, colorBlue, colorTeal]
-    );
-
-    const uniforms3 = useMemo(
-        () => ({
-            uTime: { value: 0 },
-            uSpeed: { value: 1.0 },
-            uAmplitude: { value: 0.95 },
-            uScale: { value: 1.03 },
-            uAudioLevel: { value: 0.0 },
-            uTwist: { value: 0.8 },
-            uColorCyan: { value: colorCyan },
-            uColorBlue: { value: colorBlue },
-            uColorTeal: { value: colorTeal }
-        }),
-        [colorCyan, colorBlue, colorTeal]
+        [colorCyan, colorBlue, colorDeepBlue]
     );
 
     useFrame((_, delta) => {
@@ -114,25 +100,25 @@ function VoiceOrbMesh({ state, audioAmplitude }) {
         const isSpeaking = state === 'speaking';
         const isListening = state === 'listening';
 
-        const targetSpeed = isPaused ? 0.0 : isSpeaking ? 1.4 : 1.0;
-        const targetRotSpeed = isPaused ? 0.0 : isSpeaking ? 0.95 : 0.65;
+        const targetSpeed = isPaused ? 0.0 : isSpeaking ? 1.35 : 0.95;
+        const targetRotSpeed = isPaused ? 0.0 : isSpeaking ? 0.75 : 0.45;
         const targetAmp = isPaused
-            ? 0.65
+            ? 0.55
             : isSpeaking
-            ? 1.1 + audioAmplitude * 0.8
-            : 0.8 + audioAmplitude * 0.4;
+            ? 0.95 + audioAmplitude * 0.7
+            : 0.75 + audioAmplitude * 0.35;
 
-        // Speech Scale Pulsing (0.90 -> 1.25 synced with audio amplitude)
+        // Speech Scale Pulsing (gentle breathing scale)
         let targetScale = 1.0;
         if (isSpeaking) {
-            targetScale = 0.92 + audioAmplitude * 0.33;
+            targetScale = 0.96 + audioAmplitude * 0.18;
         } else if (isListening) {
-            targetScale = 1.0 + audioAmplitude * 0.08;
+            targetScale = 1.0 + audioAmplitude * 0.06;
         } else {
             targetScale = 1.0;
         }
 
-        // Smooth Lerp Transitions (ease out within ~300ms)
+        // Smooth Lerp Transitions
         const lerpFactor = 1.0 - Math.exp(-dt * 9.0);
         speedRef.current += (targetSpeed - speedRef.current) * lerpFactor;
         rotSpeedRef.current += (targetRotSpeed - rotSpeedRef.current) * lerpFactor;
@@ -153,38 +139,27 @@ function VoiceOrbMesh({ state, audioAmplitude }) {
 
         // Apply Uniforms to Layer 2
         if (materialRef2.current) {
-            materialRef2.current.uniforms.uTime.value = timeRef.current + 0.4;
+            materialRef2.current.uniforms.uTime.value = timeRef.current + 0.35;
             materialRef2.current.uniforms.uSpeed.value = speedRef.current;
-            materialRef2.current.uniforms.uAmplitude.value = ampRef.current * 0.85;
-            materialRef2.current.uniforms.uScale.value = scaleRef.current * 0.96;
+            materialRef2.current.uniforms.uAmplitude.value = ampRef.current * 0.88;
+            materialRef2.current.uniforms.uScale.value = scaleRef.current * 0.98;
             materialRef2.current.uniforms.uAudioLevel.value = audioAmplitude;
         }
 
-        // Apply Uniforms to Layer 3
-        if (materialRef3.current) {
-            materialRef3.current.uniforms.uTime.value = timeRef.current + 0.8;
-            materialRef3.current.uniforms.uSpeed.value = speedRef.current;
-            materialRef3.current.uniforms.uAmplitude.value = ampRef.current * 1.05;
-            materialRef3.current.uniforms.uScale.value = scaleRef.current * 1.02;
-            materialRef3.current.uniforms.uAudioLevel.value = audioAmplitude;
-        }
-
-        // Rotate Mesh Group (Continuous Z rotation + 3D Y/X tilt wobble)
+        // Rotate Mesh Group ONLY on Z-axis (continuous circular rotation in the XY plane)
+        // Keeps the circle 100% round and flat-facing the user, matching the reference image.
         if (meshGroupRef.current) {
             meshGroupRef.current.rotation.z += dt * rotSpeedRef.current;
-            if (!isPaused) {
-                const t = timeRef.current;
-                meshGroupRef.current.rotation.y = Math.sin(t * 0.7) * 0.14;
-                meshGroupRef.current.rotation.x = Math.cos(t * 0.6) * 0.09;
-            }
+            meshGroupRef.current.rotation.x = 0;
+            meshGroupRef.current.rotation.y = 0;
         }
     });
 
     return (
         <group ref={meshGroupRef}>
-            {/* Layer 1: Primary High-Segment Volumetric Torus Ribbon */}
+            {/* Layer 1: Primary Luminous Circular Fluid Ribbon */}
             <mesh>
-                <torusGeometry args={[1.0, 0.17, 48, 180]} />
+                <torusGeometry args={[0.85, 0.18, 64, 192]} />
                 <shaderMaterial
                     ref={materialRef1}
                     vertexShader={vertexShader}
@@ -192,14 +167,14 @@ function VoiceOrbMesh({ state, audioAmplitude }) {
                     uniforms={uniforms1}
                     transparent={true}
                     depthWrite={false}
-                    blending={THREE.AdditiveBlending}
+                    blending={THREE.NormalBlending}
                     side={THREE.DoubleSide}
                 />
             </mesh>
 
-            {/* Layer 2: Secondary Intertwining Translucent Ribbon Veil */}
-            <mesh rotation={[0.2, 0.3, 0.8]}>
-                <torusGeometry args={[0.98, 0.13, 36, 140]} />
+            {/* Layer 2: Ethereal Translucent Inner Fluid Veil (Produces silky overlapping folds) */}
+            <mesh position={[0, 0, 0.015]}>
+                <torusGeometry args={[0.85, 0.14, 48, 192]} />
                 <shaderMaterial
                     ref={materialRef2}
                     vertexShader={vertexShader}
@@ -207,22 +182,7 @@ function VoiceOrbMesh({ state, audioAmplitude }) {
                     uniforms={uniforms2}
                     transparent={true}
                     depthWrite={false}
-                    blending={THREE.AdditiveBlending}
-                    side={THREE.DoubleSide}
-                />
-            </mesh>
-
-            {/* Layer 3: Whispering Outer Silk Veil (Glowing Crossing Highlights) */}
-            <mesh rotation={[-0.15, -0.25, 1.4]}>
-                <torusGeometry args={[1.02, 0.09, 32, 120]} />
-                <shaderMaterial
-                    ref={materialRef3}
-                    vertexShader={vertexShader}
-                    fragmentShader={fragmentShader}
-                    uniforms={uniforms3}
-                    transparent={true}
-                    depthWrite={false}
-                    blending={THREE.AdditiveBlending}
+                    blending={THREE.NormalBlending}
                     side={THREE.DoubleSide}
                 />
             </mesh>
@@ -281,11 +241,11 @@ export default function VoiceOrb({
                         ? 'Listening... (Tap to pause)'
                         : state === 'paused' || state === 'idle'
                         ? 'Paused (Tap to speak)'
-                        : 'Astra speaking (Tap to stop)'
+                        : 'CIIS AI speaking (Tap to stop)'
                 }
             >
                 <Canvas
-                    camera={{ position: [0, 0, 3.1], fov: 45 }}
+                    camera={{ position: [0, 0, 3.4], fov: 45 }}
                     dpr={Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2)}
                     gl={{
                         alpha: true,

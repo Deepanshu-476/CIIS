@@ -30,6 +30,9 @@ import {
 import { resolveAvatarUrl } from "../../chat/messageUtils";
 import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/useAuth";
+import { useMyAi } from "../../context/MyAiContext";
+import MyAiPinnedRow from "../../components/ai/MyAiPinnedRow";
+import MyAiChatView from "../../components/ai/MyAiChatView";
 import "./MessengerDropdown.css";
 
 const formatRelativeTime = (timestamp) => {
@@ -75,11 +78,20 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
   const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
 
-  // Controlled or internal open state
-  const [isOpenInternal, setIsOpenInternal] = useState(false);
-  const isWidgetOpen = isOpen !== undefined ? isOpen : isOpenInternal;
+  // Connect to global My AI Context (with safe fallback)
+  let myAi = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    myAi = useMyAi();
+  } catch {
+    /* Mounted outside MyAiProvider */
+  }
 
-  // Navigation / View State: "list" | "chat"
+  // Controlled or internal open state (synced with MyAi)
+  const [isOpenInternal, setIsOpenInternal] = useState(false);
+  const isWidgetOpen = isOpen !== undefined ? isOpen : (isOpenInternal || Boolean(myAi?.isOpen));
+
+  // Navigation / View State: "list" | "chat" | "my-ai"
   const [activeView, setActiveView] = useState("list");
   const [selectedChat, setSelectedChat] = useState(null); // Active conversation or user
   const [activeConversationId, setActiveConversationId] = useState(null);
@@ -119,16 +131,39 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const handleCloseWidget = () => {
     if (onClose) onClose();
     setIsOpenInternal(false);
+    if (myAi?.isOpen) {
+      myAi.closeMyAi();
+    }
   };
 
   useEffect(() => {
     const handleCloseFromSupport = () => {
       setIsOpenInternal(false);
       if (onClose) onClose();
+      if (myAi?.isOpen) {
+        myAi.closeMyAi();
+      }
     };
     window.addEventListener("close-messenger-widget", handleCloseFromSupport);
     return () => window.removeEventListener("close-messenger-widget", handleCloseFromSupport);
-  }, [onClose]);
+  }, [onClose, myAi]);
+
+  // Sync open state and active view when My AI is opened globally
+  useEffect(() => {
+    if (myAi?.isOpen) {
+      setActiveView("my-ai");
+      setIsOpenInternal(true);
+    }
+  }, [myAi?.isOpen]);
+
+  useEffect(() => {
+    const handleOpenMyAiEvent = () => {
+      setIsOpenInternal(true);
+      setActiveView("my-ai");
+    };
+    window.addEventListener("open-messenger-widget-my-ai", handleOpenMyAiEvent);
+    return () => window.removeEventListener("open-messenger-widget-my-ai", handleOpenMyAiEvent);
+  }, []);
 
   // Close when clicking outside the widget
   useEffect(() => {
@@ -492,10 +527,12 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     <>
       <div
         ref={dropdownRef}
-        className="fb-messenger-dropdown"
+        className={`fb-messenger-dropdown ${myAi?.isExpanded && activeView === "my-ai" ? "is-expanded" : ""}`}
         aria-label="Messenger Chats Popup"
       >
-        {activeView === "list" ? (
+        {activeView === "my-ai" ? (
+          <MyAiChatView onBack={() => setActiveView("list")} onClose={handleCloseWidget} />
+        ) : activeView === "list" ? (
           <>
             {/* Header */}
             <div className="fb-messenger-header">
@@ -634,6 +671,18 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
             {/* Conversations List */}
             <div className="fb-messenger-list">
+              {/* Pinned My AI Task Assistant Row (Shown on all tab and search match, hidden for clients) */}
+              {!myAi?.isClient && (
+                <MyAiPinnedRow
+                  searchQuery={searchQuery}
+                  activeTab={activeTab}
+                  onSelect={() => {
+                    setActiveView("my-ai");
+                    myAi?.openMyAi({ expanded: false });
+                  }}
+                />
+              )}
+
               {conversationItems.length > 0 ? (
                 conversationItems.map((item) => {
                   const avatarUrl = resolveAvatarUrl(item.avatar);

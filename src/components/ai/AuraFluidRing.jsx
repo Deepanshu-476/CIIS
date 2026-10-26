@@ -12,7 +12,7 @@ import VoiceOrb from './VoiceOrb';
  * - Full audio reactivity (scale pulsing + wave displacement on speaking)
  * - Smooth lerp state transitions (idle, listening, speaking, paused)
  */
-const AuraFluidRing = ({ orbState = 'listening', onClick }) => {
+const AuraFluidRing = ({ orbState = 'listening', onClick, size = 130 }) => {
     // Map orbState to VoiceOrb states
     const mappedState =
         orbState === 'speaking'
@@ -22,6 +22,8 @@ const AuraFluidRing = ({ orbState = 'listening', onClick }) => {
             : orbState === 'paused'
             ? 'paused'
             : 'idle';
+
+    const canvasSize = Math.round(size * 0.95);
 
     return (
         <div
@@ -35,12 +37,12 @@ const AuraFluidRing = ({ orbState = 'listening', onClick }) => {
                     : orbState === 'paused'
                     ? 'Paused (Tap to speak)'
                     : orbState === 'speaking'
-                    ? 'Astra speaking (Tap to stop)'
+                    ? 'CIIS AI speaking (Tap to stop)'
                     : 'Processing…'
             }
             style={{
-                width: 280,
-                height: 280,
+                width: size,
+                height: size,
                 position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
@@ -49,12 +51,15 @@ const AuraFluidRing = ({ orbState = 'listening', onClick }) => {
             }}
         >
             {/* Ambient Cosmic Halo Behind 3D Orb */}
-            <div className={`ai-aura-cosmic-halo ${orbState === 'speaking' ? 'active' : ''}`} />
+            <div
+                className={`ai-aura-cosmic-halo ${orbState === 'speaking' ? 'active' : ''}`}
+                style={{ width: size, height: size }}
+            />
 
             {/* 3D Three.js GLSL Shader Ribbon Orb */}
             <VoiceOrb
                 state={mappedState}
-                size={270}
+                size={canvasSize}
                 transparent={true}
             />
         </div>

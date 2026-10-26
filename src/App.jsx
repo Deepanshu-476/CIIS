@@ -127,6 +127,10 @@ const CallHistory = lazy(() => import("./crm/admin/CallHistory.jsx"));
 const ScheduledCalls = lazy(() => import("./crm/admin/ScheduledCalls.jsx"));
 const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 
+const DevMyAiPreview = import.meta.env.DEV
+  ? lazy(() => import("./components/ai/DevMyAiPreview.jsx"))
+  : null;
+
 function App() {
   return (
     <>
@@ -480,6 +484,10 @@ function App() {
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Route>
+
+        {import.meta.env.DEV && DevMyAiPreview && (
+          <Route path="/__my-ai-preview" element={<DevMyAiPreview />} />
+        )}
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

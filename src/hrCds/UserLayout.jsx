@@ -13,6 +13,7 @@ import Sidebar from './Sidebar';
 import SupportChatWidget from './pages/SupportChatWidget';
 import MessengerDropdown from './components/MessengerDropdown';
 import { CallProvider } from '../context/CallContext';
+import { MyAiProvider } from '../context/MyAiContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
@@ -186,35 +187,37 @@ const UserLayout = () => {
         }}
       >
         <CallProvider>
-          <Box
-            className="UserLayout-page-shell"
-            sx={{
-              width: '100%',
-              maxWidth: '100%',
-              minHeight: { xs: 'calc(100dvh - 56px)', md: 'calc(100dvh - 64px)' },
-              overflow: 'visible',
-              boxSizing: 'border-box',
-              backgroundColor: '#f8faff',
-              padding: { xs: '10px 12px 96px', sm: '14px 18px 96px' },
-              '& > *': {
-                minHeight: '100%',
-                padding: '0 !important',
-                background: 'transparent !important',
+          <MyAiProvider>
+            <Box
+              className="UserLayout-page-shell"
+              sx={{
+                width: '100%',
+                maxWidth: '100%',
+                minHeight: { xs: 'calc(100dvh - 56px)', md: 'calc(100dvh - 64px)' },
+                overflow: 'visible',
                 boxSizing: 'border-box',
-              },
-            }}
-          >
-            <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
-              <PageAccessGate>
-                <Outlet />
-              </PageAccessGate>
-            </Suspense>
-          </Box>
+                backgroundColor: '#f8faff',
+                padding: { xs: '10px 12px 96px', sm: '14px 18px 96px' },
+                '& > *': {
+                  minHeight: '100%',
+                  padding: '0 !important',
+                  background: 'transparent !important',
+                  boxSizing: 'border-box',
+                },
+              }}
+            >
+              <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
+                <PageAccessGate>
+                  <Outlet />
+                </PageAccessGate>
+              </Suspense>
+            </Box>
+            <FeedbackQuestionnairePopup />
+            <SupportChatWidget />
+            <MessengerDropdown />
+          </MyAiProvider>
         </CallProvider>
       </MainContent>
-      <FeedbackQuestionnairePopup />
-      <SupportChatWidget />
-      <MessengerDropdown />
     </LayoutContainer>
   );
 };

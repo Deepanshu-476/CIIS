@@ -8,7 +8,6 @@ import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
 import './UserDashboardResponsive.css';
 import useIsMobile from '../../hooks/useIsMobile';
-import AIQuickWidget from '../../components/ai/AIQuickWidget';
 import {
   CirclePlus, Umbrella, BriefcaseBusiness, UserPlus, Folder, CalendarDays,
   NotebookPen, Clock3, Play, ClipboardCheck, Video, Coffee, CheckCircle2,
@@ -2770,8 +2769,6 @@ const UserDashboard = () => {
             </button>
           </section>
 
-          {isMobile && <AIQuickWidget />}
-
           <section className="MobileDashV2-focus">
             <header><div><FiZap /><span>Today’s focus</span></div><b>{focusStats.dueToday + focusStats.inProgress}</b></header>
             <div>
@@ -3405,8 +3402,6 @@ const UserDashboard = () => {
               <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
             </div>
           </section>
-          
-          {!isMobile && <AIQuickWidget />}
 
           <section className="dashboard-side-panel dashboard-schedule-panel">
             <div className="dashboard-section-heading"><strong>Upcoming Schedule</strong><button onClick={() => navigate('/ciisUser/employee-meeting')}>View All</button></div>

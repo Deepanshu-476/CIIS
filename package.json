@@ -18,6 +18,7 @@
     "dist:mac": "npm run build && electron-builder --mac dmg zip",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
+    "test:unit": "node --test src/hooks/taskAgentPureLogic.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

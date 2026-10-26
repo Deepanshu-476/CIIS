@@ -7,7 +7,8 @@
   bottom: 28px;
   right: 28px;
   width: min(390px, calc(100vw - 28px));
-  height: min(600px, calc(100vh - 80px));
+  height: min(600px, calc(100dvh - 36px));
+  max-height: calc(100dvh - 36px);
   background: #ffffff;
   border-radius: 18px;
   border: 1px solid rgba(226, 232, 240, 0.9);

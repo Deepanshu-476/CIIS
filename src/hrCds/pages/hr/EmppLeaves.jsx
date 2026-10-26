@@ -616,8 +616,14 @@ const EmployeeLeaves = () => {
         {visibleSteps.map((step, index) => {
           const user = getApprovalUser(step);
           const rawStatus = step.status || "Pending";
-          const isSupersededPending = isFinalized && rawStatus === "Pending";
-          const displayStatus = isSupersededPending ? "Not required" : rawStatus;
+          const isAutoRejected = leave?.status === "Rejected" && (
+            String(leave?.remarks || "").toLowerCase().includes("auto reject") ||
+            (Array.isArray(leave?.history) && leave.history.some(h => String(h.remarks || "").toLowerCase().includes("auto reject") || h.role === "System"))
+          );
+          const isSupersededPending = isFinalized && (rawStatus === "Pending" || isAutoRejected);
+          const displayStatus = isAutoRejected && (rawStatus === "Pending" || rawStatus === "Rejected")
+            ? "Period Expired"
+            : (isSupersededPending ? "Not required" : rawStatus);
           const stepClass = isSupersededPending ? "neutral" : rawStatus.toLowerCase();
           return (
             <div

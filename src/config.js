@@ -11,9 +11,15 @@ export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (isDev ? 'http://12
 // // export const API_URL_IMG = 'https://backendapp.ciisnetwork.in/'
 // // export const SOCKET_URL = 'https://backendapp.ciisnetwork.in/'
 
+<<<<<<< HEAD
 // export const API_URL = 'http://127.0.0.1:3000/api';
 // export const API_URL_IMG = 'http://127.0.0.1:3000/';
 // export const SOCKET_URL = 'http://127.0.0.1:3000';
+=======
+// export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000/api';
+// export const API_URL_IMG = import.meta.env.VITE_API_URL_IMG || 'http://127.0.0.1:3000/';
+// export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://127.0.0.1:3000';
+>>>>>>> 271dfe28dcf6e22d52e5cb597d4de0b09bccee90
 export const CHAT_UPLOAD_ORIGINS = [
   API_URL_IMG,
   // 'https://backendappapp.ciisnetwork.in/',

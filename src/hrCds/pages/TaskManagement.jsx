@@ -4380,44 +4380,64 @@ const UserCreateTask = () => {
     try {
       const { task, taskId, projectId } = getProjectTaskContext(taskOrId);
       const source = taskSource || getTaskSource(task);
-      const isClientTask = source === 'client';
-      const isProjectTask = source === 'project';
-      const endpoint = isProjectTask
-        ? `/tasks/project/${projectId}/tasks/${taskId}/activity`
-        : isClientTask 
-        ? `/tasks/client-tasks/${taskId}/client-activity-logs`
-        : `/task/${taskId}/activity-logs`;
-
-      if (isProjectTask && !projectId) {
-        showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
-        return;
-      }
+      const projectEndpoint = projectId ? `/tasks/project/${projectId}/tasks/${taskId}/activity` : null;
+      const clientEndpoint = `/tasks/client-tasks/${taskId}/client-activity-logs`;
+      const taskEndpoint = `/task/${taskId}/activity-logs`;
+      // The row's source can be guessed wrong (e.g. a task tagged by clientId), so the
+      // other endpoints are tried before giving up.
+      const endpoints = (source === 'project'
+        ? [projectEndpoint, taskEndpoint]
+        : source === 'client'
+        ? [clientEndpoint, taskEndpoint, projectEndpoint]
+        : [taskEndpoint, clientEndpoint, projectEndpoint]
+      ).filter(Boolean);
 
       const cacheKey = `${source}:${projectId || ''}:${taskId}`;
       const cachedLogs = activityCacheRef.current.get(cacheKey);
       setActivityLogs(cachedLogs || []);
       setActivityDialog({ open: true, taskId });
       setIsLoadingActivity(!cachedLogs);
-      
-      const res = await axios.get(endpoint);
-      
-      let logs = [];
-      if (res.data.success && res.data.data) {
-        if (Array.isArray(res.data.data)) {
-          logs = res.data.data;
-        } else if (res.data.data.logs) {
-          logs = res.data.data.logs;
-        } else if (res.data.data.data && Array.isArray(res.data.data.data)) {
-          logs = res.data.data.data;
+
+      const extractLogs = (data) => {
+        if (data?.success && data.data) {
+          if (Array.isArray(data.data)) return data.data;
+          if (Array.isArray(data.data.logs)) return data.data.logs;
+          if (Array.isArray(data.data.data)) return data.data.data;
         }
-      } else if (res.data.logs) {
-        logs = res.data.logs;
-      } else if (res.data.activityLogs) {
-        logs = res.data.activityLogs;
-      } else if (Array.isArray(res.data)) {
-        logs = res.data;
+        if (Array.isArray(data?.logs)) return data.logs;
+        if (Array.isArray(data?.activityLogs)) return data.activityLogs;
+        if (Array.isArray(data)) return data;
+        return [];
+      };
+
+      let logs = null;
+      let lastError = null;
+      for (const endpoint of endpoints) {
+        try {
+          const res = await axios.get(endpoint);
+          logs = extractLogs(res.data);
+          if (logs.length) break;
+        } catch (requestError) {
+          lastError = requestError;
+        }
       }
-      
+
+      if (!logs?.length) {
+        const embeddedLogs = [
+          ...(Array.isArray(task?.activityLogs) ? task.activityLogs : []),
+          ...(Array.isArray(task?.statusHistory) ? task.statusHistory.map(entry => ({
+            ...entry,
+            action: 'status_updated',
+            user: entry.changedBy,
+            description: entry.remarks || `Status updated to ${entry.status}`,
+            createdAt: entry.changedAt || entry.createdAt
+          })) : [])
+        ];
+        if (embeddedLogs.length) logs = embeddedLogs;
+      }
+
+      if (logs === null) throw lastError || new Error('Activity logs unavailable');
+
       const normalizedLogs = logs.map((log) => {
         const actor = log.user || log.performedBy || log.createdBy || null;
         const actorName = log.userName || actor?.name || actor?.fullName || actor?.email || '';

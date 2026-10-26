@@ -333,6 +333,8 @@ const MessageBubble = ({
     const attachmentName = getAttachmentName();
     const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !displayMessageText && !isDeletedForEveryone);
     const tryNextMediaUrl = () => {
+        setLocalMediaUrl("");
+        setIsAudioPlaying(false);
         setMediaUrlIndex((currentIndex) => {
             if (currentIndex + 1 < mediaUrlCandidates.length) return currentIndex + 1;
             setHasMediaLoadFailed(true);
@@ -462,8 +464,15 @@ const MessageBubble = ({
     const getCachedAttachmentBlob = async () => {
         if (!mediaUrl) return null;
 
-        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates : [mediaUrl];
+        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates.slice(mediaUrlIndex) : [mediaUrl];
         let lastError = null;
+        const validateResponse = response => {
+            if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+            const contentType = response.headers.get("content-type") || "";
+            if ((isAudioMedia || isVideoMedia || isImageMedia) && /text\/html|application\/json/i.test(contentType)) {
+                throw new Error("Attachment URL returned a page instead of media");
+            }
+        };
 
         for (const url of downloadUrls) {
             try {
@@ -471,20 +480,25 @@ const MessageBubble = ({
                     const cache = await caches.open(ATTACHMENT_CACHE_NAME);
                     const cachedResponse = await cache.match(url);
                     if (cachedResponse) {
-                        setMediaUrlIndex(Math.max(0, downloadUrls.indexOf(url)));
-                        return cachedResponse.blob();
+                        try {
+                            validateResponse(cachedResponse);
+                            setMediaUrlIndex(Math.max(0, mediaUrlCandidates.indexOf(url)));
+                            return await cachedResponse.blob();
+                        } catch {
+                            await cache.delete(url);
+                        }
                     }
                 }
 
                 const response = await fetch(url, { credentials: "include" });
-                if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+                validateResponse(response);
 
                 if ("caches" in window) {
                     const cache = await caches.open(ATTACHMENT_CACHE_NAME);
                     await cache.put(url, response.clone());
                 }
 
-                setMediaUrlIndex(Math.max(0, downloadUrls.indexOf(url)));
+                setMediaUrlIndex(Math.max(0, mediaUrlCandidates.indexOf(url)));
                 return response.blob();
             } catch (error) {
                 lastError = error;
@@ -563,10 +577,11 @@ const MessageBubble = ({
                 try {
                     const audioUrl = await getLocalAttachmentUrl();
                     if (!audioUrl) return;
-                    requestAnimationFrame(() => audioRef.current?.play?.().catch((error) => {
+                    audio.src = audioUrl;
+                    audio.play().catch((error) => {
                         console.warn("Voice note playback failed", error);
                         setIsAudioPlaying(false);
-                    }));
+                    });
                     return;
                 } catch (error) {
                     console.warn("Voice note download failed", error);
@@ -606,7 +621,7 @@ const MessageBubble = ({
         <div className="voice-note-player">
             <audio
                 ref={audioRef}
-                src={localMediaUrl || ""}
+                src={localMediaUrl || undefined}
                 preload="metadata"
                 controls
                 onLoadedMetadata={(event) => updateAudioDuration(event.currentTarget)}
@@ -627,7 +642,7 @@ const MessageBubble = ({
                     setAudioCurrentTime(0);
                 }}
                 onError={(event) => {
-                    console.warn("Voice note load error", event);
+                    if (!event.currentTarget.getAttribute("src")) return;
                     tryNextMediaUrl();
                 }}
             />
@@ -639,6 +654,7 @@ const MessageBubble = ({
                 type="button"
                 className="voice-play-btn"
                 onClick={toggleAudioPlayback}
+                disabled={isAttachmentLoading || hasMediaLoadFailed}
                 aria-label={isAudioPlaying ? "Pause voice recording" : "Play voice recording"}
             >
                 {isAudioPlaying ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
@@ -646,7 +662,7 @@ const MessageBubble = ({
             <div className="voice-note-body">
                 {renderAudioWaveform()}
                 <div className="voice-note-meta">
-                    <span>{formatAudioTime(isAudioPlaying ? audioCurrentTime : audioDuration || audioCurrentTime)}</span>
+                    <span>{hasMediaLoadFailed ? "Voice note unavailable" : isAttachmentLoading ? "Loading..." : formatAudioTime(isAudioPlaying ? audioCurrentTime : audioDuration || audioCurrentTime)}</span>
                     <span>
                         {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {renderDeliveryTick()}

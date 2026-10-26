@@ -31,26 +31,18 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
+        // Only the libraries every page needs get shared vendor chunks. Heavy page-specific
+        // libraries (charts, jspdf, xlsx, html2canvas) are left to Rollup so they load with the
+        // pages that import them instead of on the login page.
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (
-              id.includes('react') ||
-              id.includes('react-dom') ||
-              id.includes('react-router-dom') ||
-              id.includes('@mui') ||
-              id.includes('@emotion') ||
-              id.includes('@date-io') ||
-              id.includes('lucide-react') ||
-              id.includes('sweetalert2') ||
-              id.includes('recharts') ||
-              id.includes('chart.js') ||
-              id.includes('jspdf') ||
-              id.includes('xlsx') ||
-              id.includes('html2canvas')
-            ) {
-              return 'vendor-react-core';
-            }
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+            return 'vendor-react';
           }
+          if (/[\\/]node_modules[\\/](@mui|@emotion|@date-io|@popperjs)[\\/]/.test(id)) {
+            return 'vendor-mui';
+          }
+          return undefined;
         },
       },
     },

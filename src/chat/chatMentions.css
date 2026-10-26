@@ -214,6 +214,24 @@
     color: #16a34a;
 }
 
+.chat-task-card.event-update .chat-task-card-header {
+    background: #f5f3ff;
+    border-bottom-color: #ede9fe;
+}
+.chat-task-card.event-update .chat-task-event-badge,
+.chat-task-card.event-update .chat-task-card-clock {
+    color: #7c3aed;
+}
+
+.chat-task-card.event-delete .chat-task-card-header {
+    background: #fef2f2;
+    border-bottom-color: #fee2e2;
+}
+.chat-task-card.event-delete .chat-task-event-badge,
+.chat-task-card.event-delete .chat-task-card-clock {
+    color: #dc2626;
+}
+
 .chat-task-card-time {
     font-size: 11px;
     color: #64748b;
@@ -315,6 +333,24 @@
 .chat-page.chat-theme-dark .chat-task-card.event-mention .chat-task-event-badge,
 .chat-page.chat-theme-dark .chat-task-card.event-mention .chat-task-card-clock {
     color: #4ade80;
+}
+
+.chat-page.chat-theme-dark .chat-task-card.event-update .chat-task-card-header {
+    background: rgba(139, 92, 246, 0.12);
+    border-bottom-color: rgba(139, 92, 246, 0.2);
+}
+.chat-page.chat-theme-dark .chat-task-card.event-update .chat-task-event-badge,
+.chat-page.chat-theme-dark .chat-task-card.event-update .chat-task-card-clock {
+    color: #a78bfa;
+}
+
+.chat-page.chat-theme-dark .chat-task-card.event-delete .chat-task-card-header {
+    background: rgba(239, 68, 68, 0.12);
+    border-bottom-color: rgba(239, 68, 68, 0.2);
+}
+.chat-page.chat-theme-dark .chat-task-card.event-delete .chat-task-event-badge,
+.chat-page.chat-theme-dark .chat-task-card.event-delete .chat-task-card-clock {
+    color: #f87171;
 }
 
 .chat-page.chat-theme-dark .chat-task-card-time {

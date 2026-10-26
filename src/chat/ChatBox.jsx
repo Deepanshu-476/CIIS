@@ -98,6 +98,21 @@ const formatMessageDateSeparator = (value) => {
     });
 };
 
+const TASK_UPDATE_LABELS = {
+    task_remark_added: ["Remark Added", "mention"],
+    task_priority_changed: ["Priority Changed", "status"],
+    task_due_changed: ["Due Date Changed", "status"],
+    task_assignee_changed: ["Task Reassigned", "create"],
+    task_renamed: ["Task Renamed", "update"],
+    task_description_updated: ["Task Updated", "update"],
+    task_checkpoint_added: ["Checkpoint Added", "update"],
+    task_checkpoint_completed: ["Checkpoint Done", "mention"],
+    task_checkpoint_reopened: ["Checkpoint Reopened", "status"],
+    task_file_added: ["File Attached", "update"],
+    task_file_removed: ["File Removed", "delete"],
+    task_deleted: ["Task Deleted", "delete"],
+};
+
 const getTaskEventMeta = (message) => {
     const eventType = message?.systemEvent?.type;
     const text = String(message?.text || "");
@@ -114,6 +129,8 @@ const getTaskEventMeta = (message) => {
     } else if (eventType === "task_mentioned" || text.includes("mention kiya")) {
         label = "Task Mention";
         eventCategory = "mention";
+    } else if (TASK_UPDATE_LABELS[eventType]) {
+        [label, eventCategory] = TASK_UPDATE_LABELS[eventType];
     }
 
     const dateVal = message?.createdAt || message?.updatedAt;
@@ -334,6 +351,7 @@ const ChatBox = ({
     const remarkRequests = useRef(new Map());
     useEffect(() => { setProjectTask(null); setMessageMentions([]); }, [selectedUser?._id, selectedUser?.id]);
     const openProjectTask = async (event) => {
+        if (event.type === "task_deleted") return showToast?.("This task has been deleted.", "info");
         try {
             const result = event.client ? await getClientChatTask(event.client, event.task) : await getProjectChatTask(event.project, event.task);
             setProjectTask(result.data.task);

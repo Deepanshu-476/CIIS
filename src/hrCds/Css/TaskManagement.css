@@ -1970,6 +1970,8 @@
 .remarks-add-dot { display: block; flex: 0 0 auto; width: 0; height: 0; margin: 0 12px 0 4px; border: 4px solid #1875f0; border-radius: 50%; box-sizing: content-box; }
 .task-remarks-dialog textarea.user-create-task-input { min-height: 96px; margin-bottom: 0 !important; padding: 12px 14px; border-radius: 8px; font-size: 12px; background: #fff; }
 .remarks-character-count { margin: 4px 2px 14px 0; text-align: right; color: #64748b; font-size: 10px; }
+.remarks-status-change-note { margin: 0 0 12px; padding: 8px 10px; border: 1px solid #fde68a; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: 13px; }
+.user-create-task-service-chip { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 11px; font-weight: 600; }
 .task-remarks-dialog .remarks-upload-zone { min-height: 150px; padding: 18px !important; display: flex; align-items: center; justify-content: center; border: 1px dashed #8eb9ff !important; border-radius: 8px !important; background: #fbfdff !important; }
 .task-remarks-dialog .remarks-upload-zone > div > svg { color: #71a7f2 !important; width: 36px; height: 36px; }
 .task-remarks-dialog .remarks-upload-zone .user-create-task-button { width: auto; margin: 8px auto 0; color: #1769e8; border-color: #8db8fa; background: #fff; }

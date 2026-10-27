@@ -54,7 +54,17 @@ import {
   getPageAccessUserIds,
   loadPagePermission,
 } from "../../../utils/pageAccess";
+import { API_URL_IMG } from "../../../config";
 import "./CompanyAllTaskTasks.css";
+
+// Remark images: project/personal remarks keep `image` ("remarks/x.jpg"), client remarks keep `images[].url`.
+const getRemarkImageUrls = remark => [remark?.image, ...(remark?.images || []).map(image => image?.url || image)]
+  .filter(value => typeof value === "string" && value.trim())
+  .map(value => {
+    if (/^(https?:|blob:|data:)/i.test(value)) return value;
+    const path = value.replace(/\\/g, "/").replace(/^\/+/, "").replace(/^api\//, "");
+    return `${API_URL_IMG.replace(/\/+$/, "")}/${path.startsWith("uploads/") ? path : `uploads/${path}`}`;
+  });
 
 const isRawObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
 
@@ -672,6 +682,7 @@ const CompanyAllTaskTasks = () => {
 
   const [activityModal, setActivityModal] = useState({ open: false, task: null, logs: [] });
   const [remarksModal, setRemarksModal] = useState({ open: false, task: null, remarks: [] });
+  const [remarkImagePreview, setRemarkImagePreview] = useState("");
   const [editModal, setEditModal] = useState({ open: false, task: null });
   const [taskDetailsModal, setTaskDetailsModal] = useState({ open: false, task: null });
   const [expandedCheckpoints, setExpandedCheckpoints] = useState({});
@@ -4341,6 +4352,15 @@ const CompanyAllTaskTasks = () => {
 
                             <div className="task-activity-card-content">
                               <p className="task-activity-text">{text}</p>
+                              {getRemarkImageUrls(r).length > 0 && (
+                                <div className="task-remark-images">
+                                  {getRemarkImageUrls(r).map(url => (
+                                    <button type="button" key={url} className="task-remark-image-thumb" onClick={() => setRemarkImagePreview(url)} title="View image">
+                                      <img src={url} alt="Remark attachment" loading="lazy" />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -4358,6 +4378,16 @@ const CompanyAllTaskTasks = () => {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Opened from the remarks modal, so it stacks above that modal's backdrop (z-index 99999). */}
+        {remarkImagePreview && (
+          <div className="task-remark-image-preview" role="dialog" aria-modal="true" onClick={() => setRemarkImagePreview("")}>
+            <button type="button" className="task-remark-image-preview-close" aria-label="Close image" onClick={() => setRemarkImagePreview("")}>
+              <FiX size={20} />
+            </button>
+            <img src={remarkImagePreview} alt="Remark attachment" onClick={event => event.stopPropagation()} />
           </div>
         )}
 

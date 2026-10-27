@@ -3771,7 +3771,8 @@ const TaskDetails = () => {
     if (!zoomImage) return null;
 
     return (
-      <div className="TaskDetails-activity-modal-overlay" onClick={() => setZoomImage(null)}>
+      // Opened from the remarks modal (z-index 99999), so it must sit above it.
+      <div className="TaskDetails-activity-modal-overlay" style={{ zIndex: 100001 }} onClick={() => setZoomImage(null)}>
         <div style={{ 
           position: 'relative',
           maxWidth: '90vw',

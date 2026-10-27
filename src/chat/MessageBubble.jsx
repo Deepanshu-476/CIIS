@@ -3,6 +3,7 @@ import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, M
 import { API_URL_IMG, CHAT_UPLOAD_ORIGINS } from "../config";
 import { mentionSegments } from "./mentionUtils";
 import { taskEventText } from "./taskEventText";
+import { attachmentLabel, attachmentSource } from "./messageUtils";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
@@ -176,7 +177,7 @@ const MessageBubble = ({
             sender: message.replyTo.sender?.name || "User",
             text: message.replyTo.deletedForEveryone
                 ? "This message was deleted"
-                : taskEventText(message.replyTo) || message.replyTo.file?.split(/[\\/]/).pop() || "Attachment",
+                : taskEventText(message.replyTo) || (attachmentSource(message.replyTo) ? attachmentLabel(message.replyTo) : "Message"),
         }
         : legacyReplyMeta;
     const displayMessageText = (encodedReplyMatch

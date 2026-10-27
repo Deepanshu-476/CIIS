@@ -2407,6 +2407,24 @@
   box-shadow: 0 28px 70px rgba(26, 36, 74, .3);
 }
 
+/* The body scrolls inside the capped modal so the Cancel / Create Task footer is always visible. */
+.EmployeeProject-create-task-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.EmployeeProject-create-task-form > .EmployeeProject-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.EmployeeProject-create-task-form > .EmployeeProject-modal-footer {
+  flex: 0 0 auto;
+}
+
 .EmployeeProject-create-task-modal .EmployeeProject-modal-header {
   min-height: 84px;
   padding: 16px 22px;

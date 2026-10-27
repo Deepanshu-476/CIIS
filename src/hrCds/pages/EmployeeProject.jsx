@@ -942,8 +942,8 @@ const EmployeeProject = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateTaskSubmit}>
-              <div className="EmployeeProject-modal-body" style={{ maxHeight: "calc(80vh - 150px)", overflowY: "auto" }}>
+            <form onSubmit={handleCreateTaskSubmit} className="EmployeeProject-create-task-form">
+              <div className="EmployeeProject-modal-body">
                 {/* Target Project Dropdown */}
                 <div className="EmployeeProject-form-group">
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>

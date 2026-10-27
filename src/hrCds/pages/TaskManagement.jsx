@@ -752,6 +752,14 @@ const getEndOfLocalDayIso = (value) => {
   return date.toISOString();
 };
 
+// Repeat tasks may run at most one year past the due date (same rule as the app and backend).
+const getMaxRepeatEndDate = (dueDate) => {
+  const max = new Date(dueDate);
+  max.setDate(max.getDate() + 365);
+  max.setHours(23, 59, 59, 999);
+  return max;
+};
+
 const extractShiftWindow = (user = null) => {
   const candidates = [
     {
@@ -5264,12 +5272,17 @@ const UserCreateTask = () => {
         : '';
       if (newTask.repeatPattern !== 'none') {
         if (!recurrenceEndDate) {
-          showSnackbar('Please select repeat end date', 'error');
+          showSnackbar('Please select repeat end date.', 'error');
           setIsCreatingTask(false);
           return;
         }
         if (new Date(recurrenceEndDate) < dueDate) {
-          showSnackbar('Repeat end date cannot be before due date', 'error');
+          showSnackbar('Repeat end date cannot be before due date.', 'error');
+          setIsCreatingTask(false);
+          return;
+        }
+        if (new Date(recurrenceEndDate) > getMaxRepeatEndDate(dueDate)) {
+          showSnackbar('Repeat end date can be at most 1 year after due date.', 'error');
           setIsCreatingTask(false);
           return;
         }
@@ -7810,6 +7823,7 @@ const UserCreateTask = () => {
                       className="user-create-task-input"
                       value={formatDateInputValue(newTask.recurrenceEndDate)}
                       min={(newTask.dueDateTime || new Date().toISOString()).slice(0, 10)}
+                      max={formatDateInputValue(getMaxRepeatEndDate(newTask.dueDateTime || new Date()))}
                       onChange={(e) => setNewTask({ ...newTask, recurrenceEndDate: e.target.value })}
                     />
                   </div>

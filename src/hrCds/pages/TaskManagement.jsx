@@ -1086,6 +1086,8 @@ const UserCreateTask = () => {
   const allTasksAbortRef = useRef(null);
   const allTasksPageCacheRef = useRef(new Map());
   const allTasksPrefetchAbortRef = useRef(null);
+  // Query string of the list currently on screen (filters + page + view).
+  const displayedAllTasksQueryRef = useRef('');
   const allTasksPrefetchKeyRef = useRef('');
   const lastLongLivedRefreshRef = useRef(0);
   // Prevent an older list request from replacing a task status that the user
@@ -3574,11 +3576,14 @@ const UserCreateTask = () => {
     allTasksRequestRef.current = requestId;
     const requestStartedAt = Date.now();
     let didLoadTasks = false;
-    const shouldShowLoader = !allTasksLoadedRef.current;
+    const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
+    const query = params.toString();
+    // A refresh of the list already on screen may fail quietly. A different filter or
+    // page must not: keeping the old list made "Today" show the All Time tasks.
+    const isSameListRefresh = allTasksLoadedRef.current && displayedAllTasksQueryRef.current === query;
+    const shouldShowLoader = !isSameListRefresh;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
-      const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
-      const query = params.toString();
       const cachedPage = allTasksPageCacheRef.current.get(query);
       let responseData = cachedPage?.data;
 
@@ -3609,6 +3614,7 @@ const UserCreateTask = () => {
       if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
 
       didLoadTasks = true;
+      displayedAllTasksQueryRef.current = query;
       setAllTasksGrouped(groupedTasks);
       setAllTasksStatsGrouped(groupedTasks);
       setMyTasksGrouped(selfGrouped);
@@ -3690,7 +3696,8 @@ const UserCreateTask = () => {
         // task data is already rendered. Show this only when the initial load
         // itself fails and there is no usable task list on screen.
         if (shouldShowLoader && err.response?.status !== 404) {
-          showSnackbar('Failed to load all tasks', 'error');
+          displayedAllTasksQueryRef.current = '';
+          showSnackbar(err.response?.data?.error || err.response?.data?.message || 'Failed to load tasks for this filter', 'error');
         }
       }
     } finally {

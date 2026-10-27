@@ -34,16 +34,52 @@ Task create karne ke liye mujhe ye jaankari chahiye:
 
 Aap sab ek saath bol sakte hain ya main ek ek karke poochunga. Jo nahi dena, 'koi nahi' bol dein, wo blank rahega.`;
 
-const MOCK_PREVIEW = {
+const MOCK_SELF_PREVIEW = {
+  title: 'Weekly sprint planning review',
+  description: 'Self task for reviewing upcoming engineering sprints',
+  taskFor: 'self',
+  assignee: null,
+  dueDateTime: '2026-10-28T18:00:00+05:30',
+  dueLabel: '28 Oct 2026, 6:00 PM',
+  priority: 'Medium',
+  status: 'Pending',
+  statusLabel: 'Pending',
+  reminder: '1 hour before',
+  checkpoints: ['Backlog grooming', 'Capacity estimation'],
+};
+
+const MOCK_ASSIGNED_PREVIEW = {
   title: 'Client proposal review meeting',
   description: 'Discuss Q4 deliverables and final proposal pricing with team',
-  assigneeName: 'Kanika Sharma',
+  taskFor: 'others',
+  assignee: { id: 'usr_1', label: 'Kanika Sharma (EMP102) — HR Executive • Human Resources' },
   dueDateTime: '2026-10-24T18:00:00+05:30',
+  dueLabel: '24 Oct 2026, 6:00 PM',
   priority: 'High',
   status: 'Pending',
-  reminder: true,
+  statusLabel: 'Pending',
+  reminder: '1 hour before',
   checkpoints: ['Check budget figures', 'Slide deck review', 'Approval signature'],
 };
+
+const MOCK_PROJECT_PREVIEW = {
+  title: 'API Testing & Endpoint Validation',
+  description: 'Verify all project endpoints under strict tenant isolation',
+  taskFor: 'project',
+  project: 'TechSoft Core Platform (Start: 01 Jan 2026, #e4e1a1)',
+  projectName: 'TechSoft Core Platform',
+  projectId: '60d5ec49f1b2c8b1f8e4e1a1',
+  assignee: { id: 'usr_1', label: 'Kanika Sharma' },
+  dueDate: '2026-10-30T18:00:00+05:30',
+  dueLabel: '30 Oct 2026, 6:00 PM',
+  priority: 'High',
+  status: 'in progress',
+  statusLabel: 'In Progress',
+  reminder: 'Nahi (No)',
+  checkpoints: ['Contract test', 'Auth integration'],
+};
+
+const MOCK_PREVIEW = MOCK_ASSIGNED_PREVIEW;
 
 const MOCK_CANDIDATES = [
   { id: 'usr_1', name: 'Kanika Sharma', jobRole: 'HR Executive', department: 'Human Resources' },
@@ -116,11 +152,39 @@ export default function DevMyAiPreview() {
     ];
     orbState = 'speaking';
     statusText = 'Speaking...';
-  } else if (scenario === 'ready') {
+  } else if (scenario === 'ready-self') {
+    messages = [
+      { id: 1, role: 'assistant', text: MOCK_GREETING },
+      { id: 2, role: 'user', text: 'Mere liye ek task schedule karo: Weekly sprint review' },
+      { id: 3, role: 'assistant', text: 'Self task summary ready hai. Kya main ise create kar doon?' },
+    ];
+    isReady = true;
+    orbState = 'listening';
+    statusText = 'Listening...';
+  } else if (scenario === 'ready-assigned' || scenario === 'ready') {
     messages = [
       { id: 1, role: 'assistant', text: MOCK_GREETING },
       { id: 2, role: 'user', text: 'Kanika ko assign kardo kal shaam 6 baje high priority' },
       { id: 3, role: 'assistant', text: 'Task summary ready hai. Kya ise create kar doon?' },
+    ];
+    isReady = true;
+    orbState = 'listening';
+    statusText = 'Listening...';
+  } else if (scenario === 'ready-project') {
+    messages = [
+      { id: 1, role: 'assistant', text: MOCK_GREETING },
+      { id: 2, role: 'user', text: 'TechSoft Core Platform project me task add karo API testing' },
+      { id: 3, role: 'assistant', text: 'Project "TechSoft Core Platform (Start: 01 Jan 2026, #e4e1a1)" ke andar task "API Testing & Endpoint Validation" tayar hai. Kya main create kar doon?' },
+    ];
+    isReady = true;
+    orbState = 'listening';
+    statusText = 'Listening...';
+  } else if (scenario === 'ready-error') {
+    messages = [
+      { id: 1, role: 'assistant', text: MOCK_GREETING },
+      { id: 2, role: 'user', text: 'TechSoft Core Platform project me task add karo API testing' },
+      { id: 3, role: 'assistant', text: 'Project task summary check karein aur confirm karein.' },
+      { id: 4, role: 'assistant', text: 'Assign at least one user before moving a task to In Progress', isError: true },
     ];
     isReady = true;
     orbState = 'listening';
@@ -192,7 +256,10 @@ export default function DevMyAiPreview() {
             { id: 'listening', label: '3. Listening (Interim Bubble)' },
             { id: 'thinking', label: '4. Thinking State' },
             { id: 'speaking', label: '5. Speaking State (Active Orb)' },
-            { id: 'ready', label: '6. Ready State (Preview Card)' },
+            { id: 'ready-self', label: '6a. Preview (Self Task)' },
+            { id: 'ready-assigned', label: '6b. Preview (Assigned Task)' },
+            { id: 'ready-project', label: '6c. Preview (Project Task)' },
+            { id: 'ready-error', label: '6d. Preview (Error Above Card)' },
             { id: 'greeting', label: '7. Greeting + Chips' },
             { id: 'error', label: '8. Visible Error Bubble' },
           ].map((sc) => (
@@ -346,26 +413,32 @@ export default function DevMyAiPreview() {
                 </div>
               )}
 
-              {isReady && (
-                <div className="my-ai-preview-card-wrap">
-                  <div className="my-ai-countdown-banner">
-                    <Clock size={14} className="countdown-clock-icon" />
-                    <span>Task create ho raha hai… (3s)</span>
-                    <button type="button" className="my-ai-cancel-countdown-btn" onClick={() => setScenario('greeting')}>
-                      Cancel
-                    </button>
+              {isReady && (() => {
+                let activePreview = MOCK_ASSIGNED_PREVIEW;
+                if (scenario === 'ready-self') activePreview = MOCK_SELF_PREVIEW;
+                if (scenario === 'ready-project' || scenario === 'ready-error') activePreview = MOCK_PROJECT_PREVIEW;
+
+                return (
+                  <div className="my-ai-preview-card-wrap">
+                    <div className="my-ai-countdown-banner">
+                      <Clock size={14} className="countdown-clock-icon" />
+                      <span>Task create ho raha hai… (3s)</span>
+                      <button type="button" className="my-ai-cancel-countdown-btn" onClick={() => setScenario('greeting')}>
+                        Cancel
+                      </button>
+                    </div>
+                    <TaskPreviewCard
+                      preview={activePreview}
+                      files={[]}
+                      busy={false}
+                      uploadProgress={null}
+                      onConfirm={() => alert('Task confirmed!')}
+                      onEdit={() => setScenario('speaking')}
+                      onCancel={() => setScenario('greeting')}
+                    />
                   </div>
-                  <TaskPreviewCard
-                    preview={MOCK_PREVIEW}
-                    files={[]}
-                    busy={false}
-                    uploadProgress={null}
-                    onConfirm={() => alert('Task confirmed!')}
-                    onEdit={() => setScenario('speaking')}
-                    onCancel={() => setScenario('greeting')}
-                  />
-                </div>
-              )}
+                );
+              })()}
             </div>
           </main>
 

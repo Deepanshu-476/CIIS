@@ -9,8 +9,14 @@ import {
     isRefusalOrEditIntent,
     hasFieldChangeIntent,
     isConfirmationIntent,
+    isFillerOnlyTranscript,
     canAcceptConfirm,
+    resolveConfirmPayload,
+    shouldAutoListenAfterTurn,
+    createTtsWatchdog,
     validateAttachmentFile,
+    sanitizeDocName,
+    buildTaskFormDataEntries,
     getRoleAwareGreeting,
     formatSpokenForTTS,
     MAX_FILES,
@@ -121,6 +127,9 @@ export default function useTaskAgentSession({
         stopVoiceNoteRecording,
         sttUploadCount,
         resetSttUploadCount,
+        vadStats,
+        userMuted,
+        setUserMuted,
     } = useSpeech({
         defaultEngine: 'whisper',
         defaultLang: 'hi-IN', // Defaults to Hindi/Hinglish in voice mode
@@ -206,7 +215,23 @@ export default function useTaskAgentSession({
                     return;
                 } else if (isConfirmationIntent(text)) {
                     setLoading(false);
-                    confirmHandlerRef.current?.(resultRef.current?.payload || result?.payload);
+                    if (!isCreatingRef.current) {
+                        const currentDraft = resultRef.current?.draft || draftRef.current || result?.draft;
+                        confirmHandlerRef.current?.(resolveConfirmPayload(null, resultRef.current?.payload || result?.payload, currentDraft));
+                    }
+                    return;
+                } else {
+                    setLoading(false);
+                    const noiseReply = 'Samajh nahi aaya. Create kar doon? Haan ya nahi bolein, ya bataiye kya badalna hai.';
+                    const noiseSpeech = 'समझ नहीं आया। क्या बना दूं? हां या नहीं बोलें, या बताइए क्या बदलना है।';
+                    pushMsg('assistant', noiseReply);
+                    if (autoSpeak) {
+                        speak(noiseSpeech, noiseReply, () => {
+                            if (variant === 'voice') setTimeout(() => start(), 300);
+                        });
+                    } else if (variant === 'voice') {
+                        setTimeout(() => start(), 300);
+                    }
                     return;
                 }
             }
@@ -255,16 +280,33 @@ export default function useTaskAgentSession({
                     const spokenSpeech = data.speech || data.reply;
                     const spokenHinglish = data.reply;
 
-                    if (data.status === 'ready') {
-                        cancelReadyCountdown();
+                    const shouldListen = shouldAutoListenAfterTurn({
+                        status: data.status,
+                        field: data.field,
+                        userMuted,
+                        isCreated: false,
+                    });
 
-                        // Speak summary & confirmation question ("Kya ise create kar doon?")
-                        // Then AUTOMATICALLY turn on microphone after TTS finishes so user can confirm or request changes!
-                        if (autoSpeak) {
-                            speak(spokenSpeech, spokenHinglish, () => {
+                    if (shouldListen) {
+                        if (data.status === 'ready') {
+                            cancelReadyCountdown();
+                        }
+                        if (autoSpeak && ttsSupported) {
+                            let micStarted = false;
+                            const reopenMic = () => {
+                                if (micStarted) return;
+                                micStarted = true;
                                 setTimeout(() => {
                                     start();
                                 }, 300);
+                            };
+
+                            const charLen = (spokenSpeech || spokenHinglish || '').length;
+                            const watchdog = createTtsWatchdog(reopenMic, charLen);
+
+                            speak(spokenSpeech, spokenHinglish, () => {
+                                watchdog.cancel();
+                                reopenMic();
                             });
                         } else {
                             setTimeout(() => {
@@ -274,19 +316,6 @@ export default function useTaskAgentSession({
                     } else if (data.status === 'cancelled') {
                         if (autoSpeak) speak('टास्क कैंसिल कर दिया गया है', 'Task cancel kar diya gaya hai');
                         stop('cancelled');
-                    } else {
-                        // Next question: speak and resume listening automatically after TTS finishes
-                        if (autoSpeak) {
-                            speak(spokenSpeech, spokenHinglish, () => {
-                                setTimeout(() => {
-                                    start();
-                                }, 300);
-                            });
-                        } else {
-                            setTimeout(() => {
-                                start();
-                            }, 300);
-                        }
                     }
                 } else if (data.reply && autoSpeak) {
                     speak(data.speech, data.reply);
@@ -336,6 +365,22 @@ export default function useTaskAgentSession({
                 // If currently in ready state:
                 const isReady = readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready';
                 if (isReady) {
+                    // Dev-only logging for turns in confirming/ready state
+                    if (import.meta.env?.DEV) {
+                        let intentDecision = 'none';
+                        if (hasFieldChangeIntent(clean)) intentDecision = 'field_change';
+                        else if (isRefusalOrEditIntent(clean)) intentDecision = 'refusal_or_edit';
+                        else if (isConfirmationIntent(clean)) intentDecision = 'confirm';
+                        else intentDecision = 'unmatched';
+
+                        console.log('[Dev Voice Turn - Confirming State]', {
+                            rawSTTTranscript: text,
+                            normalizedText: clean,
+                            currentState: resultRef.current?.status || result?.status || (readyCountdown !== null ? 'ready' : 'unknown'),
+                            intentDecision,
+                        });
+                    }
+
                     if (hasFieldChangeIntent(clean)) {
                         cancelReadyCountdown();
                         sendRef.current?.({ text: clean });
@@ -364,6 +409,23 @@ export default function useTaskAgentSession({
                         confirmHandlerRef.current?.(resultRef.current?.payload || result?.payload);
                         return;
                     }
+
+                    // In confirming state, drop non-confirmation filler/acknowledgement words (e.g. "thank you" must NOT count as yes)
+                    if (isFillerOnlyTranscript(clean)) {
+                        if (import.meta.env?.DEV) {
+                            console.info('[useTaskAgentSession] Ignored non-confirmation filler in confirming state:', clean);
+                        }
+                        return;
+                    }
+                }
+
+                // If in idle state (no question pending, no draft being collected), drop filler-only transcripts
+                const isQuestionPending = Boolean(resultRef.current?.field || result?.field || isReady);
+                if (!isQuestionPending && isFillerOnlyTranscript(clean)) {
+                    if (import.meta.env?.DEV) {
+                        console.info('[useTaskAgentSession] Dropped filler-only transcript in idle state:', clean);
+                    }
+                    return;
                 }
 
                 if (/\b(?:band\s*karo|close|exit|खत्म\s*करो)\b/i.test(lower)) {
@@ -395,8 +457,26 @@ export default function useTaskAgentSession({
                 return;
             }
 
+            // In Side mode: drop filler in idle state
+            const isQuestionPendingSide = Boolean(resultRef.current?.field || result?.field || readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready');
+            if (!isQuestionPendingSide && isFillerOnlyTranscript(clean)) {
+                if (import.meta.env?.DEV) {
+                    console.info('[useTaskAgentSession] Dropped filler-only transcript in idle state:', clean);
+                }
+                return;
+            }
+
             // In Side mode: manual input or countdown
             setInput(clean);
+            const isReadySide = readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready';
+            if (isReadySide && isConfirmationIntent(clean)) {
+                cancelAutoSend();
+                cancelReadyCountdown();
+                pushMsg('user', clean);
+                setInput('');
+                confirmHandlerRef.current?.(resultRef.current?.payload || result?.payload);
+                return;
+            }
             if (autoSendVoice && clean.length > 1) {
                 cancelAutoSend();
                 let remaining = 1.5;
@@ -426,8 +506,9 @@ export default function useTaskAgentSession({
         (newFilesList) => {
             setFileError(null);
             const valid = [];
+            const maxFilesLimit = resultRef.current?.payload?.maxFiles || result?.payload?.maxFiles || (resultRef.current?.draft?.intent === 'task_project' || result?.draft?.intent === 'task_project' ? 1 : MAX_FILES);
             for (const file of newFilesList) {
-                const validation = validateAttachmentFile(file, files.length + valid.length);
+                const validation = validateAttachmentFile(file, files.length + valid.length, maxFilesLimit);
                 if (!validation.valid) {
                     setFileError(validation.error);
                     continue;
@@ -437,9 +518,9 @@ export default function useTaskAgentSession({
 
             setFiles((prev) => {
                 const combined = [...prev, ...valid];
-                if (combined.length > MAX_FILES) {
-                    setFileError(`Sirf maximum ${MAX_FILES} files attach kar sakte hain.`);
-                    const limited = combined.slice(0, MAX_FILES);
+                if (combined.length > maxFilesLimit) {
+                    setFileError(`Sirf maximum ${maxFilesLimit} file${maxFilesLimit === 1 ? '' : 's'} attach kar sakte hain.`);
+                    const limited = combined.slice(0, maxFilesLimit);
                     sendRef.current?.({
                         action: { type: 'attachments', count: limited.length },
                         display: `📎 ${limited.length} file(s) attached`,
@@ -459,7 +540,7 @@ export default function useTaskAgentSession({
                 setTimeout(() => start(), 400);
             }
         },
-        [files.length, variant, start]
+        [files.length, variant, start, result?.payload?.maxFiles, result?.draft?.intent]
     );
 
     const handleRemoveFile = useCallback((index) => {
@@ -495,6 +576,7 @@ export default function useTaskAgentSession({
     };
 
     // Confirm & create task: SINGLE-FLIGHT LOCK prevents duplicate creation
+    // Confirm & create task: SINGLE-FLIGHT LOCK prevents duplicate creation
     const handleConfirm = useCallback(async (overridePayload) => {
         // Enforce single-flight create lock
         if (isCreatingRef.current) {
@@ -513,37 +595,34 @@ export default function useTaskAgentSession({
         stop('task-confirmed');
         cancelSpeech();
 
-        const payload = overridePayload || resultRef.current?.payload || result?.payload;
-        if (!payload) {
-            console.warn('[useTaskAgentSession] handleConfirm: No task payload available to create', {
+        // Extract valid payload: dynamically compile from latest server draft at click time
+        const currentDraft = resultRef.current?.draft || draftRef.current || result?.draft;
+        const payload = resolveConfirmPayload(overridePayload, resultRef.current?.payload || result?.payload, currentDraft);
+
+        if (!payload || !payload.endpoint) {
+            console.warn('[useTaskAgentSession] handleConfirm: No task payload/endpoint available to create', {
                 resultRef: resultRef.current,
                 result,
+                overridePayload,
+                currentDraft,
             });
             isCreatingRef.current = false;
+            pushMsg('assistant', 'Task payload taiyar nahi hai. Kripya details check karein.', { isError: true });
             return;
         }
         setCreating(true);
         setUploadProgress(0);
 
         try {
+            const entries = buildTaskFormDataEntries({ payload, files, voiceNoteBlob });
             const formData = new FormData();
-
-            if (payload.fields) {
-                Object.entries(payload.fields).forEach(([k, v]) => {
-                    if (v !== undefined && v !== null) {
-                        formData.append(k, typeof v === 'string' ? v : JSON.stringify(v));
-                    }
-                });
-            }
-
-            const fileField = payload.fileField || 'files';
-            files.forEach((file) => {
-                formData.append(fileField, file);
+            entries.forEach(([key, val, filename]) => {
+                if (filename) {
+                    formData.append(key, val, filename);
+                } else {
+                    formData.append(key, val);
+                }
             });
-
-            if (voiceNoteBlob) {
-                formData.append('voiceNote', voiceNoteBlob, `voice_note_${Date.now()}.webm`);
-            }
 
             const response = await axiosInstance.request({
                 url: payload.endpoint,
@@ -566,17 +645,25 @@ export default function useTaskAgentSession({
             clearAllCaches();
             invalidateTaskManagementCache();
 
+            const isProject = Boolean(payload.endpoint?.includes('/projects/') || payload.fields?.projectId || currentDraft.projectId);
+            const source = isProject ? 'project' : (payload.endpoint?.includes('others') ? 'assigned' : 'self');
+
             broadcastTaskCreated(createdTask || { _id: newTaskId, ...payload.fields }, {
-                source: payload.endpoint?.includes('others') ? 'assigned' : 'self',
+                source,
+                projectId: payload.fields?.projectId || currentDraft.projectId,
             });
 
             if (typeof window !== 'undefined') {
                 const detail = {
                     task: createdTask || { _id: newTaskId, ...payload.fields },
-                    source: payload.endpoint?.includes('others') ? 'assigned' : 'self',
+                    source,
+                    projectId: payload.fields?.projectId || currentDraft.projectId,
                 };
                 window.dispatchEvent(new CustomEvent('task:created', { detail }));
                 window.dispatchEvent(new CustomEvent('ciis:task-created', { detail }));
+                if (isProject) {
+                    window.dispatchEvent(new CustomEvent('project:task-created', { detail }));
+                }
             }
 
             pushMsg('assistant', 'Task create ho gaya ✅');
@@ -587,7 +674,11 @@ export default function useTaskAgentSession({
             stop('created');
             resetFlow();
         } catch (err) {
-            const msg = mapTaskAgentError(err);
+            // Lock remains held through error handling; unlocked only in finally
+            const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
+            const msg = (serverMsg && typeof serverMsg === 'string' && serverMsg.trim())
+                ? serverMsg.trim()
+                : mapTaskAgentError(err);
             pushMsg('assistant', msg, { isError: true });
             if (autoSpeak) {
                 speak('टास्क नहीं बन पाया', msg);
@@ -606,13 +697,15 @@ export default function useTaskAgentSession({
 
     const handleCancel = useCallback(() => {
         cancelReadyCountdown();
+        stop('button-click');
         resetFlow();
         pushMsg('assistant', 'Theek hai, task cancel kar diya.');
         if (autoSpeak) speak('टास्क कैंसिल कर दिया गया', 'Task cancel kar diya');
-    }, [resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak]);
+    }, [resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak, stop]);
 
     const handleEdit = useCallback(() => {
         cancelReadyCountdown();
+        stop('button-click');
         const replyMsg = 'Ji batayein kya changes karne hain? Main kar dungi.';
         const speechMsg = 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
         pushMsg('assistant', replyMsg);
@@ -627,11 +720,12 @@ export default function useTaskAgentSession({
         } else {
             inputRef.current?.focus();
         }
-    }, [pushMsg, cancelReadyCountdown, autoSpeak, speak, variant, start]);
+    }, [pushMsg, cancelReadyCountdown, autoSpeak, speak, variant, start, stop]);
 
     const handleChip = (chip) => {
         cancelAutoSend();
         cancelReadyCountdown();
+        stop('chip-click');
         if (chip.action?.type === 'confirm') {
             handleConfirm(resultRef.current?.payload || result?.payload);
             return;
@@ -642,6 +736,15 @@ export default function useTaskAgentSession({
         }
         if (chip.action?.type === 'reset') {
             resetFlow();
+            return;
+        }
+        if (chip.action?.type === 'pickProject' || chip.action?.pickProject) {
+            const projectId = chip.action?.projectId || chip.action?.pickProject?.projectId || chip.value;
+            sendTurn({
+                action: chip.action,
+                pick: { projectId },
+                display: chip.label,
+            });
             return;
         }
         if (chip.action) {
@@ -661,6 +764,26 @@ export default function useTaskAgentSession({
     const handlePick = (c) => {
         cancelAutoSend();
         cancelReadyCountdown();
+        stop('chip-click');
+        if (c?.action) {
+            sendTurn({
+                action: c.action,
+                pick: c.action.type === 'pickProject' || c.action.pickProject
+                    ? { projectId: c.action.projectId || c.action.pickProject?.projectId }
+                    : undefined,
+                display: c.label || c.name || c.projectName,
+            });
+            return;
+        }
+        if (resultRef.current?.field === 'project' || result?.field === 'project') {
+            const pid = candidateId(c);
+            sendTurn({
+                action: { type: 'pickProject', projectId: pid },
+                pick: { projectId: pid },
+                display: c.projectName || c.name || c.label,
+            });
+            return;
+        }
         sendTurn({
             action: { type: 'set', field: 'assignee', value: candidateId(c) },
             pick: { assigneeId: candidateId(c) },
@@ -669,15 +792,21 @@ export default function useTaskAgentSession({
     };
 
     const onSubmit = (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         cancelAutoSend();
         cancelReadyCountdown();
-        if (loading || listening || isTranscribing) return;
+        if (loading) return;
+
+        // Typing wins over voice: stop recording immediately and discard audio
+        if (listening || isTranscribing) {
+            stop('typed-send');
+        }
+
         const trimmed = (input || '').trim();
         if (!trimmed) return;
 
         const isReady = (resultRef.current?.status === 'ready' || result?.status === 'ready');
-        if (isReady && /\b(?:haan|ha|yes|kar\s*do|kardo|create|bana\s*do|submit|ok|okay|theek\s*hai|हाँ|हां)\b/i.test(trimmed)) {
+        if (isReady && isConfirmationIntent(trimmed)) {
             pushMsg('user', trimmed);
             setInput('');
             handleConfirm(resultRef.current?.payload || result?.payload);
@@ -842,15 +971,17 @@ export default function useTaskAgentSession({
         setSpeechError?.(null);
         setNotice(null);
         if (listening) {
-            stop('orb-toggle');
+            stop('manual');
             setIsPaused(true);
         } else if (isSpeaking) {
             cancelSpeech();
-            start();
+            setUserMuted(false);
+            start({ force: true });
         } else {
             setIsPaused(false);
             setNotice(null);
-            start();
+            setUserMuted(false);
+            start({ force: true });
         }
     };
 
@@ -924,6 +1055,8 @@ export default function useTaskAgentSession({
         isSpeaking,
         isPaused,
         setIsPaused,
+        userMuted,
+        setUserMuted,
         interim,
         audioLevel,
         durationSeconds,
@@ -938,6 +1071,7 @@ export default function useTaskAgentSession({
         recordingVoiceNote,
         sttUploadCount,
         resetSttUploadCount,
+        vadStats,
         // Handlers
         sendTurn,
         handleFinalTranscript,

@@ -47,7 +47,7 @@ const AuraFluidRing = ({ orbState = 'listening', onClick, size = 130 }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer'
+                pointerEvents: 'none'
             }}
         >
             {/* Ambient Cosmic Halo Behind 3D Orb */}

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance from '../utils/axiosConfig';
+import {
+    isSilenceHallucination,
+    isSelfEcho,
+    canProcessTranscriptTurn,
+} from './taskAgentPureLogic';
 
 const getSR = () =>
     typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
@@ -25,6 +30,13 @@ export default function useSpeech({
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
+    const [userMuted, setUserMuted] = useState(false);
+    const userMutedRef = useRef(false);
+    const sessionCounterRef = useRef(0);
+    const activeSessionIdRef = useRef(0);
+    const abortControllerRef = useRef(null);
+    const lastSpokenAssistantTextRef = useRef('');
+    const speechEndedAtRef = useRef(0);
     const [interim, setInterim] = useState('');
     const [audioLevel, setAudioLevel] = useState(0);
     const [durationSeconds, setDurationSeconds] = useState(0);
@@ -83,6 +95,20 @@ export default function useSpeech({
     const countRmsRef = useRef(0);
     const silenceStartTimeRef = useRef(null);
 
+    // Live VAD statistics for Dev overlay & tuning inspection
+    const [vadStats, setVadStats] = useState({
+        rms: 0,
+        noiseFloor: 8,
+        minRms3s: 8,
+        speechThreshold: 15,
+        silenceThreshold: 10,
+        silenceMs: 0,
+        speechDurationMs: 0,
+        isSpeechDetected: false,
+    });
+    const lastVadUpdateRef = useRef(0);
+    const rmsHistory3sRef = useRef([]);
+
     // Chunked recording management
     const chunkCutPendingRef = useRef(false);
     const segmentStartTimeRef = useRef(0);
@@ -112,11 +138,42 @@ export default function useSpeech({
     const cbRef = useRef(onFinalTranscript);
     cbRef.current = onFinalTranscript;
 
-    const dispatchFinalText = useCallback((text) => {
+    const dispatchFinalText = useCallback((text, sessionId = activeSessionIdRef.current) => {
         const clean = String(text || '').trim();
         if (!clean) return;
+
+        const check = canProcessTranscriptTurn({
+            transcriptSessionId: sessionId,
+            currentSessionId: activeSessionIdRef.current,
+            userMuted: userMutedRef.current,
+            isSpeaking: isSpeakingRef.current || window.__ciisVoiceSpeaking,
+            speechEndedAt: speechEndedAtRef.current,
+        });
+        if (!check.allowed) {
+            if (import.meta.env.DEV) {
+                console.info('[useSpeech] Dropped transcript due to:', check.reason, { text: clean });
+            }
+            return;
+        }
+
+        // Silence Hallucination guard: drop "thank you", "thanks for watching", etc. on short/quiet clips
+        const speechDur = lastDiagRef.current.firstSpeechTime ? (Date.now() - lastDiagRef.current.firstSpeechTime) : 0;
+        if (isSilenceHallucination(clean, speechDur, lastDiagRef.current.peakRms)) {
+            if (import.meta.env.DEV) {
+                console.info('[useSpeech] Dropped silence hallucination:', clean);
+            }
+            return;
+        }
+
+        // Echo guard: drop if transcript echoes the assistant's own speech
+        if (isSelfEcho(clean, lastSpokenAssistantTextRef.current)) {
+            if (import.meta.env.DEV) {
+                console.info('[useSpeech] Dropped self-echo transcript:', clean);
+            }
+            return;
+        }
+
         if (turnDispatchedRef.current) return;
-        if (isSpeakingRef.current || window.__ciisVoiceSpeaking || (typeof window !== 'undefined' && window.speechSynthesis?.speaking)) return;
         turnDispatchedRef.current = true;
         if (cbRef.current) {
             cbRef.current(clean);
@@ -197,6 +254,22 @@ export default function useSpeech({
         userStoppedRef.current = true;
         lastDiagRef.current.endReason = reason;
 
+        // Sticky manual mute
+        if (reason === 'manual' || reason === 'user-stop') {
+            userMutedRef.current = true;
+            setUserMuted(true);
+        }
+
+        // Invalidate recording session on manual stop, typed send, cancel, creation, or chip/button click
+        if (reason === 'manual' || reason === 'user-stop' || reason === 'typed-send' || reason === 'cancel' || reason === 'created' || reason === 'chip-click' || reason === 'button-click' || reason === 'task-confirmed') {
+            activeSessionIdRef.current = 0;
+            if (abortControllerRef.current) {
+                try { abortControllerRef.current.abort(); } catch {}
+                abortControllerRef.current = null;
+            }
+            audioChunksRef.current = [];
+        }
+
         if (engine === 'whisper') {
             const rec = mediaRecorderRef.current;
             if (rec && rec.state !== 'inactive') {
@@ -223,9 +296,9 @@ export default function useSpeech({
             accumulatedTextRef.current = '';
             uncommittedInterimRef.current = '';
             setInterim('');
-            // Echo guard & duplicate prevention: dispatch only once
-            if (text) {
-                dispatchFinalText(text);
+            // Discard transcript if stopped manually, session invalidated, or typed send
+            if (text && reason !== 'manual' && reason !== 'user-stop' && reason !== 'typed-send' && reason !== 'cancel') {
+                dispatchFinalText(text, activeSessionIdRef.current);
             }
         }
     }, [engine, cleanupAudioNodes, dispatchFinalText]);
@@ -275,18 +348,20 @@ export default function useSpeech({
                     if (v > voicePeak) voicePeak = v;
                 }
                 const voiceAvg = voiceBins > 1 ? voiceSum / (voiceBins - 1) : 0;
-                const level = Math.min(100, Math.round((voicePeak / 128) * 100));
-                setAudioLevel(level);
-
                 const now = Date.now();
 
-                // Echo guard: do NOT process while agent is speaking
-                if (isSpeakingRef.current || window.__ciisVoiceSpeaking || (typeof window !== 'undefined' && window.speechSynthesis?.speaking)) {
+                // Half-duplex & echo guard: do NOT elevate audio level or process while agent is speaking
+                const isAgentSpeaking = isSpeakingRef.current || window.__ciisVoiceSpeaking;
+                if (isAgentSpeaking) {
+                    setAudioLevel(0);
                     lastSpeechOrListenStartRef.current = now;
                     silenceStartTimeRef.current = null;
                     animFrameRef.current = requestAnimationFrame(checkAudio);
                     return;
                 }
+
+                const level = Math.min(100, Math.round((voicePeak / 128) * 100));
+                setAudioLevel(level);
 
                 // 1. Initial 400ms noise floor calibration
                 if (isCalibratingRef.current) {
@@ -294,14 +369,12 @@ export default function useSpeech({
                     if (now - calibrationStartTimeRef.current >= 400) {
                         isCalibratingRef.current = false;
                         const samples = calibrationSamplesRef.current;
-                        const floorSum = samples.reduce((a, b) => a + b, 0);
-                        const computedFloor = samples.length ? floorSum / samples.length : 8;
-                        // True ambient noise floor (clamped to prevent early speech from corrupting the baseline)
-                        noiseFloorRef.current = Math.min(10, Math.max(3, Math.round(computedFloor)));
-                        // Speech threshold: sensitive enough to capture soft/normal user voice (baseline 10)
-                        speechThresholdRef.current = Math.max(noiseFloorRef.current + 4, 10);
-                        // Silence threshold sits comfortably just above ambient floor
-                        silenceThresholdRef.current = Math.max(noiseFloorRef.current + 2, 6);
+                        const sorted = [...samples].sort((a, b) => a - b);
+                        // Take lower 40th percentile to prevent speech onset or mic transients from blowing up the floor
+                        const p40Floor = sorted[Math.floor(sorted.length * 0.4)] || 8;
+                        noiseFloorRef.current = Math.max(3, Math.min(25, Math.round(p40Floor)));
+                        speechThresholdRef.current = Math.max(noiseFloorRef.current + 6, 12);
+                        silenceThresholdRef.current = Math.max(noiseFloorRef.current + 2, 8);
                         lastDiagRef.current.noiseFloor = noiseFloorRef.current;
                     }
                     animFrameRef.current = requestAnimationFrame(checkAudio);
@@ -311,6 +384,25 @@ export default function useSpeech({
                 // Smooth RMS level using exponential moving average
                 smoothedRmsRef.current = smoothedRmsRef.current * 0.6 + voiceAvg * 0.4;
                 const curSmoothed = smoothedRmsRef.current;
+
+                // Maintain rolling 3-second RMS history to detect quiet periods
+                rmsHistory3sRef.current.push({ time: now, rms: curSmoothed });
+                const windowCutoff = now - 3000;
+                while (rmsHistory3sRef.current.length > 0 && rmsHistory3sRef.current[0].time < windowCutoff) {
+                    rmsHistory3sRef.current.shift();
+                }
+                const minRms3s = rmsHistory3sRef.current.reduce((min, item) => (item.rms < min ? item.rms : min), curSmoothed);
+
+                // Continuous background floor tracking: never stay pinned at cap (25)
+                if (!speechDetectedRef.current && curSmoothed > 0) {
+                    // Decay downward towards minRms3s during quiet periods
+                    const targetFloor = Math.min(noiseFloorRef.current, minRms3s);
+                    noiseFloorRef.current = Math.max(3, Math.min(25, Math.round(noiseFloorRef.current * 0.95 + targetFloor * 0.05)));
+                    speechThresholdRef.current = Math.max(noiseFloorRef.current + 6, 12);
+                    silenceThresholdRef.current = Math.max(noiseFloorRef.current + 2, 8);
+                    lastDiagRef.current.noiseFloor = noiseFloorRef.current;
+                    lastDiagRef.current.minRms3s = minRms3s;
+                }
 
                 if (voicePeak > peakRmsRef.current) {
                     peakRmsRef.current = Math.round(voicePeak);
@@ -324,7 +416,12 @@ export default function useSpeech({
                     : 0;
 
                 // 2. Speech vs Silence classification
-                if (curSmoothed >= speechThresholdRef.current || (curSmoothed >= silenceThresholdRef.current + 2 && voicePeak >= 15)) {
+                // When speech has not started: sensitive threshold catches speech onset
+                // Once speech has started: only sustained speech energy resets silence timer (ambient noise/breathing peak won't reset)
+                const isSpeechOnset = !speechDetectedRef.current && (curSmoothed >= speechThresholdRef.current || (curSmoothed >= silenceThresholdRef.current + 2 && voicePeak >= 15));
+                const isSustainedSpeech = speechDetectedRef.current && (curSmoothed >= speechThresholdRef.current);
+
+                if (isSpeechOnset || isSustainedSpeech) {
                     // Definite user speech detected
                     if (!speechDetectedRef.current) {
                         speechDetectedRef.current = true;
@@ -342,9 +439,10 @@ export default function useSpeech({
                             lastDiagRef.current.silenceTimerStarted = true;
                         } else {
                             const silenceMs = now - silenceStartTimeRef.current;
+                            const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Responsive utterance end: 1400ms natural silence after speech has finished
-                            if (silenceMs >= 1400) {
+                            // Utterance end: 1.1s (1100ms) speech pause window after speech stops, AND after at least 300ms of real speech
+                            if (silenceMs >= 1100 && speechDurationMs >= 300) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
@@ -372,13 +470,35 @@ export default function useSpeech({
                     if (curSmoothed <= midThreshold) {
                         if (!silenceStartTimeRef.current) {
                             silenceStartTimeRef.current = now;
-                        } else if (now - silenceStartTimeRef.current >= 1500) {
-                            if (onSilenceExceeded) {
-                                onSilenceExceeded('silence');
-                                return;
+                        } else {
+                            const silenceMs = now - silenceStartTimeRef.current;
+                            const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
+                            if (silenceMs >= 1250 && speechDurationMs >= 300) {
+                                if (onSilenceExceeded) {
+                                    onSilenceExceeded('silence');
+                                    return;
+                                }
                             }
                         }
                     }
+                }
+
+                // Throttled live VAD stats update for dev overlay and console trace
+                if (now - lastVadUpdateRef.current >= 120) {
+                    lastVadUpdateRef.current = now;
+                    const curRms = Math.round(curSmoothed);
+                    const silenceElapsed = silenceStartTimeRef.current ? (now - silenceStartTimeRef.current) : 0;
+                    const speechElapsed = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
+                    setVadStats({
+                        rms: curRms,
+                        noiseFloor: noiseFloorRef.current,
+                        minRms3s: Math.round(minRms3s),
+                        speechThreshold: speechThresholdRef.current,
+                        silenceThreshold: silenceThresholdRef.current,
+                        silenceMs: silenceElapsed,
+                        speechDurationMs: speechElapsed,
+                        isSpeechDetected: speechDetectedRef.current,
+                    });
                 }
 
                 animFrameRef.current = requestAnimationFrame(checkAudio);
@@ -411,10 +531,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // 1400ms natural silence for utterance completion to avoid cutting off sentences
+            // 1200ms natural silence for browser speech utterance completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 1400);
+            }, 1200);
         };
 
         const createAndStart = () => {
@@ -437,7 +557,7 @@ export default function useSpeech({
 
             rec.onresult = (e) => {
                 // Echo guard: ignore while agent is speaking
-                if (isSpeakingRef.current || window.__ciisVoiceSpeaking || (typeof window !== 'undefined' && window.speechSynthesis?.speaking)) return;
+                if (isSpeakingRef.current || window.__ciisVoiceSpeaking) return;
 
                 speechDetectedRef.current = true;
                 inactivityPhaseRef.current = 0;
@@ -536,20 +656,25 @@ export default function useSpeech({
             setDurationSeconds((s) => s + 1);
         }, 1000);
 
-        // Hard cap at 30s
+        // Hard cap at 20s
         hardCapTimerRef.current = setTimeout(() => {
             stop('cap');
-        }, 30000);
+        }, 20000);
 
         createAndStart();
     }, [SR, lang, stop, cleanupAudioNodes, startAudioAnalyser]);
 
     // Upload an audio chunk to backend /api/ai/transcribe
-    const uploadAudioBlob = useCallback(async (audioBlob, ext, durationMs) => {
+    const uploadAudioBlob = useCallback(async (audioBlob, ext, durationMs, sessionId) => {
         if (!audioBlob || audioBlob.size < 400 || durationMs < 250) {
             if (speechDetectedRef.current) {
                 setNotice('Awaaz bahut chhoti thi, dobara bolein');
             }
+            return null;
+        }
+
+        // Drop immediately if session is not active or was invalidated
+        if (sessionId && activeSessionIdRef.current !== sessionId) {
             return null;
         }
 
@@ -563,20 +688,25 @@ export default function useSpeech({
         }
 
         setIsTranscribing(true);
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         const uploadAttempt = async () => {
             const formData = new FormData();
             formData.append('audio', audioBlob, `recording.${ext}`);
-            let langCode = 'auto'; // Defaults to auto so Whisper transcribes Hinglish without forcing Devanagari tokens
+            let langCode = 'hi'; // Default to 'hi' so Whisper doesn't auto-translate or hallucinate English words
             if (lang && lang.toLowerCase().startsWith('en')) {
                 langCode = 'en';
-            } else if (lang === 'hi') {
+            } else if (lang && (lang.toLowerCase().startsWith('hi') || lang === 'hi-IN')) {
                 langCode = 'hi';
+            } else if (lang === 'auto') {
+                langCode = 'auto';
             }
             formData.append('language', langCode);
 
             const response = await axiosInstance.post('/ai/transcribe', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
+                signal: controller.signal,
             });
             return response.data;
         };
@@ -584,10 +714,19 @@ export default function useSpeech({
         let data = null;
         try {
             data = await uploadAttempt();
+            if (sessionId && activeSessionIdRef.current !== sessionId) {
+                return null;
+            }
             sttFailureCountRef.current = 0; // Reset failures on success
             sttUploadCountRef.current += 1;
             setSttUploadCount(sttUploadCountRef.current);
         } catch (firstErr) {
+            if (firstErr?.name === 'CanceledError' || firstErr?.name === 'AbortError' || firstErr?.code === 'ERR_CANCELED' || /cancel|abort/i.test(firstErr?.message || '')) {
+                return null;
+            }
+            if (sessionId && activeSessionIdRef.current !== sessionId) {
+                return null;
+            }
             const status = firstErr?.response?.status;
             const code = firstErr?.response?.data?.code;
 
@@ -597,8 +736,17 @@ export default function useSpeech({
             } else if (!firstErr?.response || status >= 500) {
                 try {
                     data = await uploadAttempt();
+                    if (sessionId && activeSessionIdRef.current !== sessionId) {
+                        return null;
+                    }
                     sttFailureCountRef.current = 0;
                 } catch (retryErr) {
+                    if (retryErr?.name === 'CanceledError' || retryErr?.name === 'AbortError' || retryErr?.code === 'ERR_CANCELED' || /cancel|abort/i.test(retryErr?.message || '')) {
+                        return null;
+                    }
+                    if (sessionId && activeSessionIdRef.current !== sessionId) {
+                        return null;
+                    }
                     sttFailureCountRef.current += 1;
                     const rCode = retryErr?.response?.data?.code;
                     const rMsg = retryErr?.response?.data?.message || retryErr?.response?.data?.error;
@@ -632,6 +780,9 @@ export default function useSpeech({
                 setError(errMsg || noticeText);
             }
         } finally {
+            if (abortControllerRef.current === controller) {
+                abortControllerRef.current = null;
+            }
             setIsTranscribing(false);
         }
 
@@ -641,7 +792,7 @@ export default function useSpeech({
         }
 
         return data;
-    }, [lang, SR]);
+    }, [lang, SR, maxSttUploads]);
 
     // Start Groq Whisper recording
     const startWhisper = useCallback(async () => {
@@ -650,6 +801,9 @@ export default function useSpeech({
             return;
         }
 
+        sessionCounterRef.current += 1;
+        const currentSessionId = sessionCounterRef.current;
+        activeSessionIdRef.current = currentSessionId;
         userStoppedRef.current = false;
         audioChunksRef.current = [];
         speechDetectedRef.current = false;
@@ -725,6 +879,14 @@ export default function useSpeech({
             cleanupAudioNodes();
             setListening(false);
 
+            if (activeSessionIdRef.current !== currentSessionId || currentSessionId === 0) {
+                if (import.meta.env.DEV) {
+                    console.info('[useSpeech] Dropped audio blob because session was invalidated', { currentSessionId, activeSessionId: activeSessionIdRef.current });
+                }
+                audioChunksRef.current = [];
+                return;
+            }
+
             const durationMs = Date.now() - recordingStartTime;
             const chunks = [...audioChunksRef.current];
             audioChunksRef.current = [];
@@ -744,9 +906,9 @@ export default function useSpeech({
                 return;
             }
 
-            const data = await uploadAudioBlob(audioBlob, ext, durationMs);
-            if (data?.text) {
-                dispatchFinalText(data.text.trim());
+            const data = await uploadAudioBlob(audioBlob, ext, durationMs, currentSessionId);
+            if (data?.text && activeSessionIdRef.current === currentSessionId) {
+                dispatchFinalText(data.text.trim(), currentSessionId);
             }
         };
 
@@ -766,35 +928,51 @@ export default function useSpeech({
             setDurationSeconds((s) => s + 1);
         }, 1000);
 
-        // Hard cap at 30s
+        // Hard cap at 20s
         hardCapTimerRef.current = setTimeout(() => {
             stop('cap');
-        }, 30000);
-    }, [cleanupAudioNodes, startAudioAnalyser, stop, uploadAudioBlob]);
+        }, 20000);
+    }, [cleanupAudioNodes, startAudioAnalyser, stop, uploadAudioBlob, dispatchFinalText]);
 
-    // Unified start listening (half-duplex: strictly blocked while speaking)
-    const start = useCallback(() => {
-        if (isSpeakingRef.current || (typeof window !== 'undefined' && window.speechSynthesis?.speaking)) {
-            console.warn('[useSpeech] Cannot start listening while agent is speaking (half-duplex)');
-            return;
-        }
-        turnDispatchedRef.current = false;
-        if (ttsSupported) {
-            window.speechSynthesis.cancel();
-            isSpeakingRef.current = false;
-            setIsSpeaking(false);
-        }
-        cleanupAudioNodes();
-        setIsPaused(false);
-        setError(null);
-        setNotice(null);
+    // Unified start listening (half-duplex: strictly blocked while speaking, respects userMuted)
+    const start = useCallback(
+        ({ force = false } = {}) => {
+            if (force) {
+                userMutedRef.current = false;
+                setUserMuted(false);
+            } else if (userMutedRef.current) {
+                if (import.meta.env.DEV) {
+                    console.info('[useSpeech] start() ignored because user is muted (manual mic off)');
+                }
+                return;
+            }
+            if (isSpeakingRef.current || window.__ciisVoiceSpeaking) {
+                console.warn('[useSpeech] Cannot start listening while agent is speaking (half-duplex)');
+                return;
+            }
+            if (ttsSupported) {
+                try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+            }
+            turnDispatchedRef.current = false;
+            if (ttsSupported) {
+                window.speechSynthesis.cancel();
+                isSpeakingRef.current = false;
+                window.__ciisVoiceSpeaking = false;
+                setIsSpeaking(false);
+            }
+            cleanupAudioNodes();
+            setIsPaused(false);
+            setError(null);
+            setNotice(null);
 
-        if (engine === 'whisper') {
-            startWhisper();
-        } else {
-            startBrowserSpeech();
-        }
-    }, [ttsSupported, cleanupAudioNodes, engine, startWhisper, startBrowserSpeech]);
+            if (engine === 'whisper') {
+                startWhisper();
+            } else {
+                startBrowserSpeech();
+            }
+        },
+        [ttsSupported, cleanupAudioNodes, engine, startWhisper, startBrowserSpeech]
+    );
 
     // TTS Speaking helper with onEnd completion callback (half-duplex: mutes mic)
     const speak = useCallback(
@@ -822,6 +1000,8 @@ export default function useSpeech({
                 return;
             }
 
+            lastSpokenAssistantTextRef.current = hinglishClean || devanagariClean;
+
             const voices = voicesRef.current.length > 0 ? voicesRef.current : (window.speechSynthesis.getVoices() || []);
             const hiInVoice =
                 voices.find((x) => x.lang === 'hi-IN' || x.lang === 'hi_IN') ||
@@ -845,6 +1025,7 @@ export default function useSpeech({
             utterance.rate = 1.0;
 
             isSpeakingRef.current = true;
+            window.__ciisVoiceSpeaking = true;
             setIsSpeaking(true);
 
             let ended = false;
@@ -855,7 +1036,12 @@ export default function useSpeech({
                     clearTimeout(speakTimeoutRef.current);
                     speakTimeoutRef.current = null;
                 }
+                if (ttsSupported) {
+                    try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+                }
                 isSpeakingRef.current = false;
+                window.__ciisVoiceSpeaking = false;
+                speechEndedAtRef.current = Date.now();
                 setIsSpeaking(false);
                 lastSpeechOrListenStartRef.current = Date.now();
                 if (onEnd) onEnd();
@@ -874,7 +1060,7 @@ export default function useSpeech({
                 handleFinish();
             }
         },
-        [ttsSupported]
+        [ttsSupported, stop]
     );
 
     const cancelSpeech = useCallback(() => {
@@ -983,6 +1169,9 @@ export default function useSpeech({
         stopVoiceNoteRecording,
         sttUploadCount,
         resetSttUploadCount,
+        vadStats,
+        userMuted,
+        setUserMuted,
         lastDiag: lastDiagRef.current,
     };
 }

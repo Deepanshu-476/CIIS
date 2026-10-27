@@ -19,9 +19,11 @@ import {
   AlertCircle,
   Clock,
   Sparkles,
+  Square,
 } from 'lucide-react';
 import { useMyAi } from '../../context/MyAiContext';
 import useTaskAgentSession from '../../hooks/useTaskAgentSession';
+import { formatCandidateDate } from '../../hooks/taskAgentPureLogic';
 import TaskPreviewCard from './TaskPreviewCard';
 import './MyAiChatView.css';
 
@@ -87,6 +89,7 @@ function AssistantMessageContent({ text, isLatest, isError }) {
 const EXAMPLE_CHIPS = [
   'Kal subah 10 baje team meeting rakh do',
   'Urgent task banao: Client proposal review',
+  'Project Website Redesign mein task banao',
   'Call follow-up task 2 din baad',
 ];
 
@@ -163,6 +166,8 @@ export default function MyAiChatView({ onBack, onClose }) {
     fileInputRef,
     sendTurn,
     interim,
+    stop,
+    vadStats,
   } = session;
 
   const [hasWebGL, setHasWebGL] = useState(true);
@@ -193,12 +198,16 @@ export default function MyAiChatView({ onBack, onClose }) {
     sendTurn({ text: chipText });
   };
 
-  // Derive human-friendly status text for the header
+  // Derive human-friendly status text for the header: Listening -> Transcribing -> Thinking
   let statusText = 'Tap to talk';
-  if (loading || isTranscribing || creating) {
-    statusText = 'Thinking...';
-  } else if (isSpeaking) {
+  if (creating) {
+    statusText = 'Creating...';
+  } else if (isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) {
     statusText = 'Speaking...';
+  } else if (loading) {
+    statusText = 'Thinking...';
+  } else if (isTranscribing) {
+    statusText = 'Transcribing...';
   } else if (listening) {
     statusText = 'Listening...';
   } else if (orbState === 'paused') {
@@ -228,14 +237,10 @@ export default function MyAiChatView({ onBack, onClose }) {
           <div className="my-ai-header-title-wrap">
             <h2 className="my-ai-title">CIIS AI</h2>
             <span className="my-ai-subtitle-badge">Assistant</span>
-            {isExpanded ? (
-              <div className={`my-ai-status-indicator ${orbState}`}>
-                <span className={`my-ai-status-dot ${orbState}`} />
-                <span className="my-ai-status-label">{statusText}</span>
-              </div>
-            ) : (
-              <span className={`my-ai-status-dot ${orbState}`} title={statusText} />
-            )}
+            <div className={`my-ai-status-indicator ${orbState}`}>
+              <span className={`my-ai-status-dot ${orbState}`} />
+              <span className="my-ai-status-label">{statusText}</span>
+            </div>
           </div>
         </div>
 
@@ -367,17 +372,26 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
 
-          {/* Assignee disambiguation candidate buttons */}
+          {/* Assignee or Project disambiguation candidate buttons */}
           {candidates.length > 0 && (
             <div className="my-ai-candidates-tray">
-              <span className="my-ai-candidates-label">Kise assign karna hai?</span>
+              <span className="my-ai-candidates-label">
+                {result?.field === 'project' ? 'Konsa project chunna hai?' : 'Kise assign karna hai?'}
+              </span>
               <div className="my-ai-candidates-list">
                 {candidates.map((c) => {
-                  const id = c.id || c._id || c.userId || c.assigneeId;
-                  const label = c.name || c.label;
-                  const subtitle = [c.employeeId, c.jobRole || c.role, c.department]
-                    .filter(Boolean)
-                    .join(' • ');
+                  const id = c.id || c._id || c.userId || c.assigneeId || c.projectId;
+                  const label = c.name || c.projectName || c.label;
+                  const subtitle = result?.field === 'project'
+                    ? [
+                        c.status ? (c.status.charAt(0).toUpperCase() + c.status.slice(1)) : null,
+                        c.startDate ? `Start: ${formatCandidateDate(c.startDate)}` : null,
+                        Array.isArray(c.users) ? `${c.users.length} members` : (c.memberCount ? `${c.memberCount} members` : null),
+                        c._id ? `#${String(c._id).slice(-6)}` : null,
+                      ].filter(Boolean).join(' • ')
+                    : [c.employeeId, c.jobRole || c.role, c.department]
+                        .filter(Boolean)
+                        .join(' • ');
 
                   return (
                     <button
@@ -521,8 +535,8 @@ export default function MyAiChatView({ onBack, onClose }) {
           <input
             ref={fileInputRef}
             type="file"
-            multiple
-            accept=".jpg,.jpeg,.png,.pdf,.mp4,.mp3,.wav,.avi,.mkv,.webm,image/*,application/pdf,video/*,audio/*"
+            multiple={result?.payload?.maxFiles !== 1}
+            accept={result?.payload?.accept ? (Array.isArray(result.payload.accept) ? result.payload.accept.join(',') : result.payload.accept) : ".jpg,.jpeg,.png,.pdf,.mp4,.mp3,.wav,.avi,.mkv,.webm,image/*,application/pdf,video/*,audio/*"}
             style={{ display: 'none' }}
             onChange={(e) => {
               if (e.target.files && e.target.files.length > 0) {
@@ -561,31 +575,74 @@ export default function MyAiChatView({ onBack, onClose }) {
               className="my-ai-composer-input"
               value={input}
               onChange={(e) => {
-                setInput(e.target.value);
+                const val = e.target.value;
+                setInput(val);
                 cancelReadyCountdown();
+                if (val.trim() && listening) {
+                  stop('typing');
+                }
               }}
               placeholder={
                 isTranscribing
-                  ? 'Samajh raha hoon…'
+                  ? 'Transcribing…'
+                  : loading
+                  ? 'Thinking…'
                   : listening
-                  ? 'Sun raha hoon… (Mic ON)'
+                  ? 'Listening… (Mic ON)'
                   : 'Task likhein ya mic dabayein…'
               }
               maxLength={600}
             />
 
-            {/* Send Button */}
-            <button
-              type="submit"
-              className="my-ai-composer-submit-btn"
-              disabled={loading || listening || isTranscribing || !input.trim()}
-              title="Send message"
-              aria-label="Send message"
-            >
-              <Send size={15} />
-            </button>
+            {/* Send / Stop Button: when listening, acts as immediate Stop/Send */}
+            {listening ? (
+              <button
+                type="button"
+                className="my-ai-composer-submit-btn is-stop-btn"
+                onClick={() => stop('user-stop')}
+                title="Stop recording and transcribe"
+                aria-label="Stop recording"
+                style={{ backgroundColor: '#ef4444', color: '#fff' }}
+              >
+                <Square size={13} fill="#fff" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="my-ai-composer-submit-btn"
+                disabled={loading || isTranscribing || !input.trim()}
+                title="Send message"
+                aria-label="Send message"
+              >
+                <Send size={15} />
+              </button>
+            )}
           </div>
         </form>
+
+        {/* Dev-only live VAD diagnostic overlay */}
+        {import.meta.env?.DEV && listening && vadStats && (
+          <div style={{
+            padding: '3px 8px',
+            background: 'rgba(17, 24, 39, 0.95)',
+            color: '#34d399',
+            fontSize: '10.5px',
+            fontFamily: 'monospace',
+            borderTop: '1px solid #374151',
+            display: 'flex',
+            gap: '10px',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}>
+            <span>RMS: <strong>{vadStats.rms}</strong></span>
+            <span>Floor: <strong>{vadStats.noiseFloor}</strong></span>
+            <span>SpeechThresh: <strong>{vadStats.speechThreshold}</strong></span>
+            <span>SilThresh: <strong>{vadStats.silenceThreshold}</strong></span>
+            <span>SilTimer: <strong>{vadStats.silenceMs}ms / 1350ms</strong></span>
+            <span>SpeechDur: <strong>{vadStats.speechDurationMs}ms / 600ms</strong></span>
+          </div>
+        )}
       </footer>
     </div>
   );

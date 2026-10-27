@@ -217,7 +217,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 14px 16px 145px 16px;
+  padding: 14px 16px 220px 16px;
   scroll-behavior: smooth;
   display: flex;
   flex-direction: column;
@@ -226,7 +226,7 @@
 }
 
 .my-ai-view-container.is-expanded .my-ai-thread-scroll {
-  padding-bottom: 200px;
+  padding-bottom: 240px;
 }
 
 .my-ai-messages-list {
@@ -418,6 +418,8 @@
   background: #f8fafc;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
+  position: relative;
+  z-index: 15;
 }
 
 .my-ai-candidates-label {
@@ -466,6 +468,8 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
+  position: relative;
+  z-index: 15;
 }
 
 .my-ai-choice-chip {
@@ -489,7 +493,9 @@
 /* Preview Card & Countdown Banner */
 .my-ai-preview-card-wrap {
   width: 100%;
-  margin: 8px 0;
+  margin: 8px 0 100px 0;
+  position: relative;
+  z-index: 20;
 }
 
 .my-ai-countdown-banner {
@@ -609,13 +615,17 @@
   transform: translateX(-50%);
   width: 130px;
   height: 130px;
-  pointer-events: none;
+  pointer-events: none !important;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: visible;
   transition: width 0.25s ease, height 0.25s ease, bottom 0.25s ease;
+}
+
+.my-ai-orb-overlay * {
+  pointer-events: none !important;
 }
 
 .my-ai-view-container.is-expanded .my-ai-orb-overlay {

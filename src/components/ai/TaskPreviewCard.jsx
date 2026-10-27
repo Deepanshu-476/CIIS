@@ -1,9 +1,17 @@
 import React from 'react';
+import './TaskPreviewCard.css';
 
-const assigneeText = (a) => {
-    if (!a) return 'Khud ke liye (self)';
-    if (typeof a === 'string') return a === 'self' ? 'Khud ke liye (self)' : a;
-    return a.label || a.name || 'Khud ke liye (self)';
+const assigneeText = (a, taskFor) => {
+    if (!a) {
+        return taskFor === 'project' ? 'Bina assignee ke' : 'Khud ke liye (self)';
+    }
+    if (typeof a === 'object' && (a.id || a._id)) {
+        return a.label || a.name || String(a.id || a._id);
+    }
+    if (a === 'self') {
+        return 'Khud ke liye (self)';
+    }
+    return taskFor === 'project' ? 'Bina assignee ke' : 'Khud ke liye (self)';
 };
 
 export default function TaskPreviewCard({
@@ -17,7 +25,7 @@ export default function TaskPreviewCard({
 }) {
     if (!preview) return null;
     const priority = String(preview.priority || 'Medium').toLowerCase();
-    const who = assigneeText(preview.assignee);
+    const who = assigneeText(preview.assignee, preview.taskFor);
     const totalFilesCount = files.length > 0 ? files.length : preview.attachmentsCount || 0;
 
     return (
@@ -33,8 +41,15 @@ export default function TaskPreviewCard({
             </div>
 
             <dl className="ai-meta">
+                {(preview.projectName || preview.project) && (
+                    <>
+                        <dt>Project</dt>
+                        <dd>{preview.projectName || preview.project}</dd>
+                    </>
+                )}
+
                 <dt>Due</dt>
-                <dd>{preview.dueLabel || preview.dueDateTime || '—'}</dd>
+                <dd>{preview.dueLabel || preview.dueDate || preview.dueDateTime || '—'}</dd>
 
                 <dt>Status</dt>
                 <dd>{preview.statusLabel || preview.status || 'Pending'}</dd>
@@ -42,8 +57,12 @@ export default function TaskPreviewCard({
                 <dt>Kiske liye</dt>
                 <dd>{preview.taskFor === 'self' ? 'Khud ke liye (self)' : who}</dd>
 
-                <dt>Priority Days</dt>
-                <dd>{preview.priorityDays !== undefined && preview.priorityDays !== null ? `${preview.priorityDays} din` : '1 din'}</dd>
+                {preview.taskFor !== 'project' && preview.priorityDays !== undefined && preview.priorityDays !== null && (
+                    <>
+                        <dt>Priority Days</dt>
+                        <dd>{`${preview.priorityDays} din`}</dd>
+                    </>
+                )}
 
                 <dt>Reminder</dt>
                 <dd>
@@ -54,8 +73,12 @@ export default function TaskPreviewCard({
                         : 'Nahi (No)'}
                 </dd>
 
-                <dt>Repeat</dt>
-                <dd>{preview.repeatPattern && preview.repeatPattern !== 'none' ? preview.repeatPattern : 'No repeat'}</dd>
+                {preview.taskFor !== 'project' && preview.repeatPattern && (
+                    <>
+                        <dt>Repeat</dt>
+                        <dd>{preview.repeatPattern !== 'none' ? preview.repeatPattern : 'No repeat'}</dd>
+                    </>
+                )}
 
                 <dt>Attachments</dt>
                 <dd>{totalFilesCount > 0 ? `${totalFilesCount} file(s)` : '—'}</dd>

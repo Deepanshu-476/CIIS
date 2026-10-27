@@ -56,6 +56,9 @@ const MyLeaves = () => {
   const pageSize = 10;
 
   const containerRef = useRef(null);
+  // Leaves cancelled from this page: cancelLeave already shows the message, so the
+  // socket echo of the same change stays quiet.
+  const selfCancelledIdsRef = useRef(new Set());
 
   const socketContext = useSocket() || {};
   const notificationContext = useNotification() || {};
@@ -274,7 +277,8 @@ const MyLeaves = () => {
 
           const affectedLeave = prev.find((l) => l._id === leaveId);
 
-          if (affectedLeave) {
+          const isOwnCancelEcho = newStatus === "Cancelled" && selfCancelledIdsRef.current.has(String(leaveId));
+          if (affectedLeave && !isOwnCancelEcho) {
             setRecentlyUpdatedId(leaveId);
             setTimeout(() => setRecentlyUpdatedId(null), 3000);
 
@@ -1012,6 +1016,7 @@ const MyLeaves = () => {
     if (!leaveId || cancellingLeaveId) return;
 
     setCancellingLeaveId(leaveId);
+    selfCancelledIdsRef.current.add(String(leaveId));
     try {
       const response = await axios.patch(`/leaves/${leaveId}/cancel`, {
         remarks: cancelDialog.remarks.trim() || "Cancelled by employee",
@@ -1040,13 +1045,12 @@ const MyLeaves = () => {
         severity: "success",
         autoHide: true,
       });
-      showToast(response.data?.message || "Leave cancelled successfully", "success");
       setCancelDialog({ open: false, leave: null, remarks: "" });
     } catch (error) {
+      selfCancelledIdsRef.current.delete(String(leaveId));
       const message =
         error.response?.data?.error || error.response?.data?.message || "Unable to cancel leave";
       setNotification({ message, severity: "error" });
-      showToast(message, "error");
     } finally {
       setCancellingLeaveId(null);
     }

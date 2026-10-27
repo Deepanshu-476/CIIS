@@ -58,6 +58,7 @@ const EmployeeProject = lazy(() => import("./hrCds/pages/EmployeeProject"));
 const ProjectDetailsPage = lazy(() => import("./hrCds/pages/ProjectDetailsPage"));
 const ClientMeeting = lazy(() => import("./hrCds/pages/ClientMeeting"));
 const DepartmentSupportDesk = lazy(() => import("./hrCds/pages/DepartmentSupportDesk"));
+const BulkEmail = lazy(() => import("./hrCds/pages/BulkEmail"));
 const SupportOperations = lazy(() => import("./admin/page/SupportOperations.jsx"));
 const ActiveClientsOverview = lazy(() => import("./hrCds/pages/ActiveClientsOverview.jsx"));
 const CreateAlerts = lazy(() => import("./hrCds/pages/CreateAlerts.jsx"));
@@ -400,6 +401,7 @@ function App() {
           <Route path="dashboard" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
           <Route path="contact-support" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
+          <Route path="bulk-email" element={<BulkEmail />} />
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
           <Route path="leave-policy-master" element={<LeavePolicy />} />

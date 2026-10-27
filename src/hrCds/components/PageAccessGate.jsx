@@ -91,6 +91,7 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "dashboard",
   "contact-support",
   "support-desk",
+  "bulk-email",
   "support-operations",
   "feedback-questionnaire",
   "leave-policy-master",

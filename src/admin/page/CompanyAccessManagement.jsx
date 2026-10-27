@@ -39,6 +39,7 @@ import {
   Search as SearchIcon,
   Tune as TuneIcon,
   Close as CloseIcon,
+  Email as EmailIcon,
 } from "@mui/icons-material";
 import axiosInstance from "../../utils/axiosConfig";
 import { CRM_PAGES } from "../../config/crmPages";
@@ -88,6 +89,7 @@ const APP_ROUTES = [
   { id: "create-alert", path: "create-alert", name: "Create Alert", category: "communication" },
   { id: "chat", path: "chat", name: "Chat", category: "communication" },
   { id: "support-desk", path: "support-desk", name: "Support Desk", category: "communication" },
+  { id: "bulk-email", path: "bulk-email", name: "Bulk Email", category: "communication" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
   { id: "salary-component", path: "salary-component", name: "Salary Component", category: "payroll" },
   { id: "salary-structure", path: "salary-structure", name: "Salary Structure", category: "payroll" },
@@ -379,6 +381,7 @@ export default function CompanyAccessManagement() {
   const [selectedPages, setSelectedPages] = useState([]);
   const [selectedSuperAdminPages, setSelectedSuperAdminPages] = useState([]);
   const [activeDays, setActiveDays] = useState(30);
+  const [bulkEmailLimits, setBulkEmailLimits] = useState({ daily: 100, monthly: 2000 });
   const [isActive, setIsActive] = useState(true);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -525,6 +528,10 @@ export default function CompanyAccessManagement() {
     setSelectedSuperAdminPages(Array.isArray(company.allowedSuperAdminPages) ? company.allowedSuperAdminPages : []);
     setIsActive(Boolean(company.isActive));
     setActiveDays(30);
+    setBulkEmailLimits({
+      daily: company.bulkEmailLimits?.daily ?? 100,
+      monthly: company.bulkEmailLimits?.monthly ?? 2000,
+    });
     setNotice(null);
 
     if (company.moduleDashboardConfig && typeof company.moduleDashboardConfig === "object") {
@@ -605,6 +612,20 @@ export default function CompanyAccessManagement() {
       return;
     }
 
+    const bulkEmailEnabled = selectedPages.includes("bulk-email");
+    const dailyEmails = Number(bulkEmailLimits.daily);
+    const monthlyEmails = Number(bulkEmailLimits.monthly);
+    if (bulkEmailEnabled) {
+      if (!Number.isInteger(dailyEmails) || !Number.isInteger(monthlyEmails) || dailyEmails < 0 || monthlyEmails < 0) {
+        showAccessNotice("warning", "Bulk Email limits must be whole numbers of 0 or more.");
+        return;
+      }
+      if (dailyEmails > monthlyEmails) {
+        showAccessNotice("warning", "Bulk Email daily limit cannot be more than the monthly limit.");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const moduleDashboardConfigPayload = {};
@@ -619,6 +640,7 @@ export default function CompanyAccessManagement() {
         isActive,
         updatedBy: getStoredAdminId(),
         moduleDashboardConfig: moduleDashboardConfigPayload,
+        ...(bulkEmailEnabled ? { bulkEmailLimits: { daily: dailyEmails, monthly: monthlyEmails } } : {}),
       });
 
       try {
@@ -895,6 +917,40 @@ export default function CompanyAccessManagement() {
               </div>
             </div>
           </Grid>
+          {selectedPages.includes("bulk-email") && (
+            <>
+              <Grid item xs={12} sm={4}>
+                <div className="JobRoleManagement-form-group">
+                  <label className="JobRoleManagement-form-label">Bulk Email limit per day</label>
+                  <div className="JobRoleManagement-input-wrapper">
+                    <EmailIcon className="JobRoleManagement-input-icon" />
+                    <input
+                      type="number"
+                      min="0"
+                      className="JobRoleManagement-form-input"
+                      value={bulkEmailLimits.daily}
+                      onChange={event => setBulkEmailLimits(prev => ({ ...prev, daily: event.target.value }))}
+                    />
+                  </div>
+                </div>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <div className="JobRoleManagement-form-group">
+                  <label className="JobRoleManagement-form-label">Bulk Email limit per month</label>
+                  <div className="JobRoleManagement-input-wrapper">
+                    <EmailIcon className="JobRoleManagement-input-icon" />
+                    <input
+                      type="number"
+                      min="0"
+                      className="JobRoleManagement-form-input"
+                      value={bulkEmailLimits.monthly}
+                      onChange={event => setBulkEmailLimits(prev => ({ ...prev, monthly: event.target.value }))}
+                    />
+                  </div>
+                </div>
+              </Grid>
+            </>
+          )}
         </Grid>
 
         <div className="JobRoleManagement-header CompanyAccessManagement-access-header">

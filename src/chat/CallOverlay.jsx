@@ -87,7 +87,7 @@ const getUserId = (user) => {
 const getAvatarSrc = (avatar) => resolveAvatarUrl(avatar);
  
 const getGroupName = (group) => (
-    group?.name || group?.groupName || group?.group_name || group?.title || "Channel call"
+    group?.name || group?.groupName || group?.group_name || group?.title || "Group call"
 );
 
 const uniqueIds = (ids) => [...new Set(ids.map(id => id?.toString()).filter(Boolean))];
@@ -1102,7 +1102,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             );
 
             const displayTitle = isGroupCall
-                ? (data.groupTitle || data.title || "Channel call")
+                ? (data.groupTitle || data.title || "Group call")
                 : (callerUser?.name || "User");
 
             const incomingCall = {
@@ -1373,7 +1373,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const isVideoCall = call.type === "video";
     const connectedCount = remoteParticipants.filter(participant => participant.stream).length;
     const statusLabel = call.status === "incoming"
-        ? `Incoming ${call.isGroupCall ? "channel " : ""}${isVideoCall ? "video" : "voice"} call`
+        ? `Incoming ${call.isGroupCall ? "group " : ""}${isVideoCall ? "video" : "voice"} call`
         : call.status === "outgoing"
         ? "Ringing..."
         : call.status === "connecting"

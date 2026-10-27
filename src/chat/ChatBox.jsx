@@ -16,7 +16,7 @@ import { mentionMembers, reconcileMentions } from "./mentionUtils";
 import TaskDetailsModal from "../hrCds/components/TaskDetailsModal";
 import { openClientConversation, getClientChatTask, addClientChatRemark, openProjectConversation, getProjectChatTask, addProjectChatRemark } from "../services/chatService";
 import { API_URL_IMG } from "../config";  
-import { resolveAvatarUrl } from "./messageUtils";
+import { attachmentLabel, attachmentSource, resolveAvatarUrl } from "./messageUtils";
 import { describeCallMessage, isCallMessage } from "./callMessage";
 import { useCall } from "../context/CallContext";
 import { useNotification } from "../context/NotificationContext";
@@ -511,7 +511,7 @@ const ChatBox = ({
     const notifyIncomingMessage = (message) => {
         const senderName = getSenderName(message.sender);
         const preview = getMessagePreview(message);
-        const title = selectedUser?.isGroup ? `${senderName} in ${selectedUser.name || "Channel"}` : senderName;
+        const title = selectedUser?.isGroup ? `${senderName} in ${selectedUser.name || "Group"}` : senderName;
 
         showToast(
             {
@@ -2127,7 +2127,7 @@ useEffect(() => {
 
     const getGroupName = (group) => {
         if (!group) return "";
-        return group.name || group.groupName || group.group_name || group.title || "Unnamed Channel";
+        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
     };
 
     const getCurrentTopic = () => (
@@ -2166,7 +2166,7 @@ useEffect(() => {
         : Number(selectedUser?.memberCount || selectedUser?.count || 0);
     const groupStatusLabel = groupMemberCount > 0
         ? `${onlineGroupCount} online - ${groupMemberCount} members`
-        : "Channel Chat";
+        : "Group Chat";
     const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
     const isSelectedUserOnline = selectedUser?.isGroup
         ? onlineGroupCount > 0
@@ -2204,14 +2204,14 @@ useEffect(() => {
     };
     const deleteCurrentChannel = async () => {
         if (!selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
-        if (!window.confirm("Delete this channel for everyone?")) return;
+        if (!window.confirm("Delete this group for everyone?")) return;
         setShowHeaderMenu(false);
         setIsSendingAction(true);
         try {
             await onDeleteGroup?.(selectedUser);
-            showToast?.("Channel deleted successfully.", "success");
+            showToast?.("Group deleted successfully.", "success");
         } catch (error) {
-            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to delete channel.", "error");
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to delete group.", "error");
         } finally {
             setIsSendingAction(false);
         }
@@ -2229,9 +2229,9 @@ useEffect(() => {
                 members: (groupMembers || []).map(getMemberId).filter(Boolean),
                 avatar: file,
             });
-            showToast?.("Channel picture updated.", "success");
+            showToast?.("Group picture updated.", "success");
         } catch (error) {
-            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to update channel picture.", "error");
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to update group picture.", "error");
         } finally {
             setIsSendingAction(false);
         }
@@ -2322,7 +2322,7 @@ useEffect(() => {
                 <div className="chat-header-actions" ref={headerMenuRef}>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start channel video call" : "No channel member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
                         onClick={() => startDirectCall("video")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
                     >
@@ -2330,7 +2330,7 @@ useEffect(() => {
                     </button>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start channel voice call" : "No channel member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
                         onClick={() => startDirectCall("audio")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
                     >
@@ -2350,7 +2350,7 @@ useEffect(() => {
                         <div className="chat-profile-menu">
                             <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
                                 <Info size={17} />
-                                {selectedUser.isGroup ? "Channel info" : "Contact info"}
+                                {selectedUser.isGroup ? "Group info" : "Contact info"}
                             </button>
                             <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
                                 <Search size={17} />
@@ -2729,7 +2729,7 @@ useEffect(() => {
                                             ? "You"
                                             : replyingTo.sender?.name || selectedName || "User"}
                                     </strong>
-                                    <span>{taskEventText(replyingTo) || replyingTo.fileName || replyingTo.name || "Attachment"}</span>
+                                    <span>{taskEventText(replyingTo) || (attachmentSource(replyingTo) ? attachmentLabel(replyingTo) : "Message")}</span>
                                 </div>
                                 <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
                                     <X size={17} />

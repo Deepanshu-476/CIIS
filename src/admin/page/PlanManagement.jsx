@@ -57,6 +57,7 @@ const APP_ROUTES = [
   { id: "create-alert", path: "create-alert", name: "Create Alert", category: "communication" },
   { id: "chat", path: "chat", name: "Chat", category: "communication" },
   { id: "support-desk", path: "support-desk", name: "Support Desk", category: "communication" },
+  { id: "bulk-email", path: "bulk-email", name: "Bulk Email", category: "communication" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "administration" },
   { id: "feedback-questionnaire", path: "feedback-questionnaire", name: "Feedback / Questionnaire", category: "administration" },
   { id: "salary-component", path: "salary-component", name: "Salary Component", category: "payroll" },

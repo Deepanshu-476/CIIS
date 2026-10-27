@@ -14,6 +14,7 @@ const routeLoaders = {
   "/ciisUser/my-assets": () => import("../hrCds/pages/MyAssets"),
   "/ciisUser/chat": () => import("../Pages/Chat/ChatPage"),
   "/ciisUser/support-desk": () => import("../hrCds/pages/DepartmentSupportDesk"),
+  "/ciisUser/bulk-email": () => import("../hrCds/pages/BulkEmail"),
   "/ciisUser/support-operations": () => import("../admin/page/SupportOperations.jsx"),
   "/ciisUser/create-user": () => import("../admin/page/CreateUser"),
   "/ciisUser/register-request": () => import("../hrCds/pages/hr/RegisterRequest.jsx"),

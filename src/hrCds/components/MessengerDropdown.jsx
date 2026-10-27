@@ -43,7 +43,9 @@ import TaskDetailsModal from "./TaskDetailsModal";
 import { getClientChatTask, addClientChatRemark, openClientConversation } from "../../services/chatService";
 import ChatMentionInput from "../../chat/ChatMentionInput";
 import { mentionMembers, reconcileMentions, mentionSegments } from "../../chat/mentionUtils";
-import { resolveAvatarUrl } from "../../chat/messageUtils";
+import { attachmentLabel, attachmentSource, attachmentUrls, resolveAvatarUrl } from "../../chat/messageUtils";
+import { describeCallMessage, isCallMessage } from "../../chat/callMessage";
+import { API_URL_IMG } from "../../config";
 import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/useAuth";
 import { useCall } from "../../context/CallContext";
@@ -113,6 +115,7 @@ const getMessageSenderId = (message) => getEntityId(message?.sender || message?.
 const getMessagePreview = (message) => {
   if (!message) return "Start conversation";
   if (message.deletedForEveryone) return "This message was deleted";
+  if (isCallMessage(message)) return describeCallMessage(message).text;
   if (message.text) return message.text;
   if (message.file) {
     if (String(message.fileType || "").startsWith("image/")) return "Photo";
@@ -368,7 +371,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
           setCompanyGroups(list);
           return list;
         })
-        .catch(() => { setChatLoadError("Some channels could not load. Please retry."); return []; });
+        .catch(() => { setChatLoadError("Some groups could not load. Please retry."); return []; });
 
       await Promise.allSettled([convPromise, usersPromise, groupsPromise]);
     } catch (err) {
@@ -478,9 +481,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     socket.on("chat:project-membership-updated", handleMembership);
     socket.on("chat:conversation-updated", loadChatData);
 
-    if (socket.connected) {
-      socket.emit("chat:get-online-users", handleOnline);
-    }
+    // The socket often connects after this effect runs; ask again on every (re)connect.
+    const requestOnlineUsers = () => socket.emit("chat:get-online-users", handleOnline);
+    socket.on("connect", requestOnlineUsers);
+    if (socket.connected) requestOnlineUsers();
 
     return () => {
       socket.off("chat:online-users", handleOnline);
@@ -490,6 +494,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       socket.off("chat:unread-update", handleUnreadUpdate);
       socket.off("chat:project-membership-updated", handleMembership);
       socket.off("chat:conversation-updated", loadChatData);
+      socket.off("connect", requestOnlineUsers);
     };
   }, [socket, activeConversationId, currentUserId]);
 
@@ -529,14 +534,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
         const msgRes = await getMessages(convId);
         const fetchedMessages = msgRes.data?.messages || [];
+        // Loading the messages marks them all seen on the server; one call per
+        // message here only repeated that work (up to 50 requests per open).
         setMessages(fetchedMessages);
-
-        // Mark unread messages as seen
-        fetchedMessages.forEach((m) => {
-          if (m._id && getEntityId(m.sender) !== currentUserId && !m.seen) {
-            markMessageSeen(m._id).catch(() => {});
-          }
-        });
       }
     } catch (err) {
       console.warn("Error starting chat:", err);
@@ -688,6 +688,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       setMessages((prev) => prev.filter((item) => item._id !== message._id));
       socket?.emit("chat:delete-for-me", { messageId: message._id, conversationId: activeConversationId });
       loadChatData();
+    } catch (error) {
+      setAttachmentError(error?.response?.data?.message || "Unable to delete this message. Please try again.");
     } finally {
       setOpenMessageMenuId("");
       setIsSending(false);
@@ -705,6 +707,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       )));
       socket?.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: activeConversationId });
       loadChatData();
+    } catch (error) {
+      setAttachmentError(error?.response?.data?.message || "Unable to delete this message. Please try again.");
     } finally {
       setConfirmDeleteMessage(null);
       setOpenMessageMenuId("");
@@ -733,7 +737,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const getChatTitle = (item) => {
     if (!item) return "Chat";
     if (item.isGroup) {
-      return item.name || item.groupName || item.title || "Group Channel";
+      return item.name || item.groupName || item.title || "Group";
     }
     return item.name || item.email || "Colleague";
   };
@@ -779,7 +783,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       let targetUser = null;
 
       if (conv.isGroup) {
-        displayName = `${conv.name || conv.groupName || "Group Channel"}${conv.clientId ? " (Client)" : conv.projectId ? " (Project)" : ""}`;
+        displayName = `${conv.name || conv.groupName || "Group"}${conv.clientId ? " (Client)" : conv.projectId ? " (Project)" : ""}`;
         avatar = null;
       } else {
         const other = (conv.members || []).find((m) => getEntityId(m) !== currentUserId);
@@ -816,7 +820,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       items.push({
         id: groupId, key: `group-${groupId}`, isGroup: true,
         clientId: group.clientId, projectId: group.projectId,
-        name: `${group.name || "Group Channel"}${group.clientId ? " (Client)" : group.projectId ? " (Project)" : ""}`,
+        name: `${group.name || "Group"}${group.clientId ? " (Client)" : group.projectId ? " (Project)" : ""}`,
         avatar: group.profileImage || group.avatar || group.image,
         lastMessage: getMessagePreview(conversation?.lastMessage),
         time: conversation?.lastMessage?.createdAt || conversation?.updatedAt,
@@ -1175,7 +1179,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                       <span>{getChatTitle(selectedChat).charAt(0).toUpperCase()}</span>
                     )}
                   </div>
-                  {!selectedChat?.isGroup && isUserOnline(selectedChat) && (
+                  {!selectedChat?.isGroup && isUserOnline(getSelectedChatTarget()) && (
                     <span className="fb-messenger-online-badge" />
                   )}
                 </div>
@@ -1184,12 +1188,12 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <span className="fb-chat-header-name">{getChatTitle(selectedChat)}</span>
                   <span
                     className={`fb-chat-header-status ${
-                      isUserOnline(selectedChat) ? "online" : "offline"
+                      isUserOnline(getSelectedChatTarget()) ? "online" : "offline"
                     }`}
                   >
                     {selectedChat?.isGroup
                       ? "Group Conversation"
-                      : isUserOnline(selectedChat)
+                      : isUserOnline(getSelectedChatTarget())
                       ? "Active now"
                       : "Offline"}
                   </span>
@@ -1262,7 +1266,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                     getEntityId(msg.sender) === currentUserId ||
                     (typeof msg.sender === "string" && msg.sender === currentUserId);
                   const messageId = msg._id || msg.id || index;
-                  const fileUrl = msg.file || msg.fileUrl || msg.attachmentUrl || msg.url || "";
+                  const rawFileUrl = msg.file || msg.fileUrl || msg.attachmentUrl || msg.url || "";
+                  // Task updates attach relative /uploads/... paths; resolve them against the backend.
+                  const fileUrl = rawFileUrl ? (attachmentUrls(rawFileUrl, API_URL_IMG)[0] || rawFileUrl) : "";
                   const fileType = String(msg.fileType || "").toLowerCase();
                   const fileName = msg.fileName || msg.originalName || "Attachment";
                   const fileKind = fileUrl
@@ -1278,6 +1284,17 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   const seenBy = Array.isArray(msg.seenBy) ? msg.seenBy : [];
                   const isSeen = isMe && seenBy.some((entry) => getEntityId(entry) !== currentUserId);
                   const showDelivered = isMe && !isSeen && !selectedChat?.isGroup && isUserOnline(getSelectedChatTarget());
+
+                  if (isCallMessage(msg)) {
+                    const callInfo = describeCallMessage(msg, currentUserId);
+                    return (
+                      <div key={messageId} id={`widget-message-${messageId}`} className={`fb-chat-call-log ${callInfo.missed ? "missed" : ""}`}>
+                        {callInfo.isVideo ? <Video size={13} /> : <Phone size={13} />}
+                        <span>{callInfo.outgoing ? "↗ " : "↙ "}{callInfo.text}</span>
+                        {msg.createdAt && <time>{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>}
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
@@ -1298,7 +1315,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                               )}
                               {msg.replyTo && <button type="button" className="fb-chat-quoted-reply" onClick={() => document.getElementById(`widget-message-${msg.replyTo._id}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}>
                                 <strong>{msg.replyTo.sender?.name || "User"}</strong>
-                                <span>{msg.replyTo.deletedForEveryone ? "This message was deleted" : msg.replyTo.text || "Attachment"}</span>
+                                <span>{msg.replyTo.deletedForEveryone ? "This message was deleted" : msg.replyTo.text || (attachmentSource(msg.replyTo) ? attachmentLabel(msg.replyTo) : "Message")}</span>
                               </button>}
                               {msg.systemEvent?.client && <button type="button" className="fb-chat-quoted-reply" onClick={async () => {
                                 try { const result = await getClientChatTask(msg.systemEvent.client, msg.systemEvent.task); setClientTask(result.data.task); }

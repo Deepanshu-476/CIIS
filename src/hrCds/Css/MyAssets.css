@@ -1160,7 +1160,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  /* Above the fixed top header (MUI app bar, 1100) so the modal's title is not hidden. */
+  z-index: 1300;
   padding: 20px;
   box-sizing: border-box;
   animation: fadeIn 0.2s ease;
@@ -1444,7 +1445,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  /* Opens from inside the details modal (1300), so it stacks above it. */
+  z-index: 1400;
   padding: 24px;
 }
 

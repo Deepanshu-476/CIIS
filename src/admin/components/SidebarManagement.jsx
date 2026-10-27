@@ -60,6 +60,7 @@ const APP_ROUTES = [
   { path: 'create-alert' , name: 'Create Alert', icon: 'Notifications', category: 'communication' },
   { path: 'chat', name: 'Chat', icon: 'Chat', category: 'communication' },
   { path: 'support-desk', name: 'Support Desk', icon: 'SupportAgent', category: 'communication' },
+  { path: 'bulk-email', name: 'Bulk Email', icon: 'Email', category: 'communication' },
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
   { path: 'feedback-questionnaire', name: 'Feedback / Questionnaire', icon: 'Assignment', category: 'administration' },
   ...CRM_PAGES.map((page, index) => ({ ...page, icon: page.icon || 'Dashboard', order: 24.6 + index / 100 })),

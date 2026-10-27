@@ -902,17 +902,25 @@ const TaskDetailsModal = ({
                     <span>{taskTypeTag}</span>
                   </div>
 
-                  {projectName && (
+                  {/* The type tag already names the project/client for those tasks. */}
+                  {projectName && taskTypeTag !== `Project: ${projectName}` && (
                     <div className="task-meta-pill project-pill" style={{ color: '#0284c7', backgroundColor: '#e0f2fe', borderColor: '#bae6fd' }}>
                       <FiFolder size={12} />
                       <span>Project: {projectName}</span>
                     </div>
                   )}
 
-                  {clientName && (
+                  {clientName && taskTypeTag !== `Client: ${clientName}` && (
                     <div className="task-meta-pill client-pill" style={{ color: '#059669', backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }}>
                       <FiUser size={12} />
                       <span>Client: {clientName}</span>
+                    </div>
+                  )}
+
+                  {task.service && (
+                    <div className="task-meta-pill client-pill" style={{ color: '#3730a3', backgroundColor: '#eef2ff', borderColor: '#c7d2fe' }}>
+                      <FiFolder size={12} />
+                      <span>Service: {task.service}</span>
                     </div>
                   )}
 

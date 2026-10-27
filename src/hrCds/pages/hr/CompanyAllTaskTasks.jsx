@@ -54,7 +54,17 @@ import {
   getPageAccessUserIds,
   loadPagePermission,
 } from "../../../utils/pageAccess";
+import { API_URL_IMG } from "../../../config";
 import "./CompanyAllTaskTasks.css";
+
+// Remark images: project/personal remarks keep `image` ("remarks/x.jpg"), client remarks keep `images[].url`.
+const getRemarkImageUrls = remark => [remark?.image, ...(remark?.images || []).map(image => image?.url || image)]
+  .filter(value => typeof value === "string" && value.trim())
+  .map(value => {
+    if (/^(https?:|blob:|data:)/i.test(value)) return value;
+    const path = value.replace(/\\/g, "/").replace(/^\/+/, "").replace(/^api\//, "");
+    return `${API_URL_IMG.replace(/\/+$/, "")}/${path.startsWith("uploads/") ? path : `uploads/${path}`}`;
+  });
 
 const isRawObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
 
@@ -325,10 +335,20 @@ const getDisplayStatus = (task) => {
 };
 
 const getTaskType = (task) => {
-  if (task?.source === "assigned" || task?.source === "client") return "assigned";
-  if (task?.taskType === "assigned" || task?.taskType === "client") return "assigned";
-  if (task?.clientId || task?.isClientTask || task?.assignedBy) return "assigned";
-  if (task?.userStatus && !task?.status) return "assigned";
+  if (!task) return "personal";
+  const source = String(task?.__taskSource || task?.taskSource || task?.source || "").toLowerCase();
+  if (source === "project" || task?.projectId || task?.projectTaskId || task?.projectName || task?.project) {
+    return "project";
+  }
+  if (source === "client" || task?.clientId || task?.isClientTask || task?.clientName || task?.client) {
+    return "client";
+  }
+  if (source === "self" || source === "personal" || task?.taskType === "personal" || task?.taskType === "self") {
+    return "personal";
+  }
+  if (source === "assigned" || task?.taskType === "assigned" || task?.assignedBy) {
+    return "assigned";
+  }
   return "personal";
 };
 
@@ -458,13 +478,18 @@ const countStats = (taskList = []) => {
   let inProgress = 0;
   let completed = 0;
   let overdue = 0;
+  let onhold = 0;
   let personal = 0;
+  let project = 0;
+  let client = 0;
   let work = 0;
 
   taskList.forEach((t) => {
     const s = getDisplayStatus(t);
     if (s === "completed") {
       completed++;
+    } else if (s === "onhold") {
+      onhold++;
     } else if (s === "in-progress") {
       if (isOverdue(t)) overdue++;
       else inProgress++;
@@ -476,6 +501,12 @@ const countStats = (taskList = []) => {
     const taskType = getTaskType(t);
     if (taskType === "self" || taskType === "personal") {
       personal++;
+    } else if (taskType === "project") {
+      project++;
+      work++;
+    } else if (taskType === "client") {
+      client++;
+      work++;
     } else {
       work++;
     }
@@ -487,7 +518,10 @@ const countStats = (taskList = []) => {
     inProgress,
     completed,
     overdue,
+    onhold,
     personal,
+    project,
+    client,
     work,
   };
 };
@@ -648,6 +682,7 @@ const CompanyAllTaskTasks = () => {
 
   const [activityModal, setActivityModal] = useState({ open: false, task: null, logs: [] });
   const [remarksModal, setRemarksModal] = useState({ open: false, task: null, remarks: [] });
+  const [remarkImagePreview, setRemarkImagePreview] = useState("");
   const [editModal, setEditModal] = useState({ open: false, task: null });
   const [taskDetailsModal, setTaskDetailsModal] = useState({ open: false, task: null });
   const [expandedCheckpoints, setExpandedCheckpoints] = useState({});
@@ -859,10 +894,25 @@ const CompanyAllTaskTasks = () => {
         inProgress: Number(apiStats.inProgress?.count ?? apiStats.inProgress) || 0,
         completed: Number(apiStats.completed?.count ?? apiStats.completed) || 0,
         overdue: Number(apiStats.overdue?.count ?? apiStats.overdue) || 0,
-        onhold: Number(apiStats.onhold?.count ?? apiStats.onhold) || 0,
-        personal: Number(apiStats.personal?.count ?? apiStats.personal ?? data.typeCounts?.personal) || 0,
-        work: Number(apiStats.work?.count ?? apiStats.work ?? data.typeCounts?.work) || 0,
+        onhold: Number(apiStats.onhold?.count ?? apiStats.onhold ?? apiStats.onHold?.count ?? apiStats.onHold) || 0,
+        personal: Number(apiStats.personal?.count ?? apiStats.personal ?? data.typeCounts?.personal ?? -1),
+        project: Number(apiStats.project?.count ?? apiStats.project ?? -1),
+        client: Number(apiStats.client?.count ?? apiStats.client ?? -1),
+        work: Number(apiStats.work?.count ?? apiStats.work ?? data.typeCounts?.work ?? -1),
       } : countStats(fetchedTasks);
+
+      if (computedStats.personal < 0) {
+        computedStats.personal = fetchedTasks.filter((t) => ['self', 'personal'].includes(getTaskType(t))).length;
+      }
+      if (computedStats.project < 0) {
+        computedStats.project = fetchedTasks.filter((t) => getTaskType(t) === 'project').length;
+      }
+      if (computedStats.client < 0) {
+        computedStats.client = fetchedTasks.filter((t) => getTaskType(t) === 'client').length;
+      }
+      if (computedStats.work < 0) {
+        computedStats.work = fetchedTasks.filter((t) => ['assigned', 'project', 'client'].includes(getTaskType(t))).length;
+      }
 
       setTasks(fetchedTasks);
       setFilterOptions(data.filterOptions || { projects: [], clients: [] });
@@ -1227,6 +1277,10 @@ const CompanyAllTaskTasks = () => {
       setAssignModal((prev) => ({ ...prev, error: "Task title is required" }));
       return;
     }
+    if (!assignModal.dueDateTime) {
+      setAssignModal((prev) => ({ ...prev, error: "Due date & time is required" }));
+      return;
+    }
     if (!effectiveUserId) {
       setAssignModal((prev) => ({ ...prev, error: "Target employee not found" }));
       return;
@@ -1261,12 +1315,20 @@ const CompanyAllTaskTasks = () => {
     setStartDate(today);
     setEndDate(today);
     setPage(1);
+    navigate({
+      pathname: location.pathname,
+      search: `?startDate=${today}&endDate=${today}`
+    }, { replace: true });
   };
 
   const handleSetAllDatesFilter = () => {
     setStartDate("");
     setEndDate("");
     setPage(1);
+    navigate({
+      pathname: location.pathname,
+      search: ""
+    }, { replace: true });
   };
 
   const handleReset = () => {
@@ -1887,15 +1949,31 @@ const CompanyAllTaskTasks = () => {
   }, [attendanceReliability, completionRate, onTimeRate]);
 
   const personalTasksCount = useMemo(() => {
-    if (typeof stats.personal === "number") return stats.personal;
+    if (typeof stats.personal === "number" && stats.personal >= 0) return stats.personal;
     return tasks.filter((t) => {
       const type = getTaskType(t);
       return type === "self" || type === "personal";
     }).length;
   }, [stats.personal, tasks]);
 
+  const projectTasksCount = useMemo(() => {
+    if (typeof stats.project === "number" && stats.project >= 0) return stats.project;
+    return tasks.filter((t) => {
+      const type = getTaskType(t);
+      return type === "project";
+    }).length;
+  }, [stats.project, tasks]);
+
+  const clientTasksCount = useMemo(() => {
+    if (typeof stats.client === "number" && stats.client >= 0) return stats.client;
+    return tasks.filter((t) => {
+      const type = getTaskType(t);
+      return type === "client";
+    }).length;
+  }, [stats.client, tasks]);
+
   const workTasksCount = useMemo(() => {
-    if (typeof stats.work === "number") return stats.work;
+    if (typeof stats.work === "number" && stats.work >= 0) return stats.work;
     return tasks.filter((t) => {
       const type = getTaskType(t);
       return type === "assigned" || type === "project" || type === "client";
@@ -1930,6 +2008,7 @@ const CompanyAllTaskTasks = () => {
         const taskStatus = getDisplayStatus(task);
         const taskIsOverdue = isOverdue(task);
         if (status === "overdue") return taskStatus === "overdue" || taskIsOverdue;
+        if (status === "onhold") return taskStatus === "onhold";
         // Overdue work is intentionally reserved for the Overdue filter.
         if (taskIsOverdue && ["pending", "in-progress"].includes(status)) return false;
         return taskStatus === status;
@@ -1945,6 +2024,16 @@ const CompanyAllTaskTasks = () => {
       filtered = filtered.filter((t) => {
         const type = getTaskType(t);
         return type === "self" || type === "personal";
+      });
+    } else if (taskTypeFilter === "project") {
+      filtered = filtered.filter((t) => {
+        const type = getTaskType(t);
+        return type === "project";
+      });
+    } else if (taskTypeFilter === "client") {
+      filtered = filtered.filter((t) => {
+        const type = getTaskType(t);
+        return type === "client";
       });
     } else if (taskTypeFilter === "work") {
       filtered = filtered.filter((t) => {
@@ -1976,8 +2065,9 @@ const CompanyAllTaskTasks = () => {
           { key: "in-progress", label: "In Progress", color: "#0ea5e9", matches: (task) => getDisplayStatus(task) === "in-progress" && !isOverdue(task) },
           { key: "pending", label: "Pending", color: "#f59e0b", matches: (task) => getDisplayStatus(task) === "pending" && !isOverdue(task) },
           { key: "completed", label: "Completed", color: "#16a34a", matches: (task) => getDisplayStatus(task) === "completed" },
+          { key: "onhold", label: "On Hold", color: "#7c3aed", matches: (task) => getDisplayStatus(task) === "onhold" },
           { key: "overdue", label: "Overdue", color: "#dc2626", matches: (task) => isOverdue(task) },
-          { key: "other", label: "Other Statuses", color: "#64748b", matches: (task) => !["in-progress", "pending", "completed"].includes(getDisplayStatus(task)) && !isOverdue(task) },
+          { key: "other", label: "Other Statuses", color: "#64748b", matches: (task) => !["in-progress", "pending", "completed", "onhold"].includes(getDisplayStatus(task)) && !isOverdue(task) },
         ];
 
     if (groupBy === "date") {
@@ -2447,6 +2537,17 @@ const CompanyAllTaskTasks = () => {
                   </div>
 
                   <div
+                    className={`modern-stat-card ${status === "onhold" ? "active" : ""}`}
+                    onClick={() => { setStatus(status === "onhold" ? "all" : "onhold"); setPage(1); }}
+                  >
+                    <div className="stat-icon-box purple"><FiPause size={18} /></div>
+                    <div className="stat-text">
+                      <h3>{stats.onhold || 0}</h3>
+                      <span>On Hold</span>
+                    </div>
+                  </div>
+
+                  <div
                     className={`modern-stat-card ${status === "overdue" ? "active" : ""}`}
                     onClick={() => { setStatus(status === "overdue" ? "all" : "overdue"); setPage(1); }}
                   >
@@ -2659,6 +2760,13 @@ const CompanyAllTaskTasks = () => {
                 </button>
                 <button
                   type="button"
+                  className={`task-pill onhold ${status === "onhold" ? "active" : ""}`}
+                  onClick={() => { setStatus(status === "onhold" ? "all" : "onhold"); setTaskTypeFilter("all"); setPage(1); }}
+                >
+                  On Hold <span className="pill-badge">{stats.onhold || 0}</span>
+                </button>
+                <button
+                  type="button"
                   className={`task-pill overdue ${status === "overdue" ? "active" : ""}`}
                   onClick={() => { setStatus(status === "overdue" ? "all" : "overdue"); setTaskTypeFilter("all"); setPage(1); }}
                 >
@@ -2673,10 +2781,17 @@ const CompanyAllTaskTasks = () => {
                 </button>
                 <button
                   type="button"
-                  className={`task-pill work ${taskTypeFilter === "work" ? "active" : ""}`}
-                  onClick={() => { setTaskTypeFilter(taskTypeFilter === "work" ? "all" : "work"); setStatus("all"); setPage(1); }}
+                  className={`task-pill project ${taskTypeFilter === "project" ? "active" : ""}`}
+                  onClick={() => { setTaskTypeFilter(taskTypeFilter === "project" ? "all" : "project"); setStatus("all"); setPage(1); }}
                 >
-                  Work <span className="pill-badge">{workTasksCount || 0}</span>
+                  Project <span className="pill-badge">{projectTasksCount || 0}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`task-pill client ${taskTypeFilter === "client" ? "active" : ""}`}
+                  onClick={() => { setTaskTypeFilter(taskTypeFilter === "client" ? "all" : "client"); setStatus("all"); setPage(1); }}
+                >
+                  Client <span className="pill-badge">{clientTasksCount || 0}</span>
                 </button>
               </div>
 
@@ -3017,23 +3132,52 @@ const CompanyAllTaskTasks = () => {
             </section>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="company-task-pagination">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </button>
-                <span>Page {page} of {totalPages}</span>
-                <button
-                  type="button"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </button>
+            {total > 0 && (
+              <div className="company-task-pagination-wrap" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', background: '#ffffff', padding: '12px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                <div style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span>
+                    Showing <strong>{(page - 1) * limit + 1}</strong> to <strong>{Math.min(page * limit, total)}</strong> of <strong>{total}</strong> tasks
+                  </span>
+                  <span style={{ color: '#cbd5e1' }}>|</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Per page:</span>
+                    <select
+                      value={limit}
+                      onChange={(e) => {
+                        setLimit(Number(e.target.value));
+                        setPage(1);
+                      }}
+                      style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#f8fafc', color: '#1e293b', cursor: 'pointer' }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="company-task-pagination" style={{ margin: 0 }}>
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <FiChevronLeft size={14} /> Previous
+                  </button>
+                  <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                    Page {page} of {Math.max(1, totalPages)}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    Next <FiChevronRight size={14} />
+                  </button>
+                </div>
               </div>
             )}
           </>
@@ -3811,10 +3955,11 @@ const CompanyAllTaskTasks = () => {
                   </div>
 
                   <div className="form-group">
-                    <label>Due Date & Time</label>
+                    <label>Due Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
                     <input
                       type="datetime-local"
                       value={assignModal.dueDateTime}
+                      required
                       onChange={(e) => setAssignModal((prev) => ({ ...prev, dueDateTime: e.target.value }))}
                     />
                   </div>
@@ -4207,6 +4352,15 @@ const CompanyAllTaskTasks = () => {
 
                             <div className="task-activity-card-content">
                               <p className="task-activity-text">{text}</p>
+                              {getRemarkImageUrls(r).length > 0 && (
+                                <div className="task-remark-images">
+                                  {getRemarkImageUrls(r).map(url => (
+                                    <button type="button" key={url} className="task-remark-image-thumb" onClick={() => setRemarkImagePreview(url)} title="View image">
+                                      <img src={url} alt="Remark attachment" loading="lazy" />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -4224,6 +4378,16 @@ const CompanyAllTaskTasks = () => {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Opened from the remarks modal, so it stacks above that modal's backdrop (z-index 99999). */}
+        {remarkImagePreview && (
+          <div className="task-remark-image-preview" role="dialog" aria-modal="true" onClick={() => setRemarkImagePreview("")}>
+            <button type="button" className="task-remark-image-preview-close" aria-label="Close image" onClick={() => setRemarkImagePreview("")}>
+              <FiX size={20} />
+            </button>
+            <img src={remarkImagePreview} alt="Remark attachment" onClick={event => event.stopPropagation()} />
           </div>
         )}
 

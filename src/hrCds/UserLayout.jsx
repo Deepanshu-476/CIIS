@@ -136,6 +136,8 @@ const UserLayout = () => {
   }, [location.pathname, isMobile]);
 
   return (
+    // CallProvider wraps the chat popup as well as the pages: outside it, useCall() is a no-op.
+    <CallProvider>
     <LayoutContainer>
       <CssBaseline />
 
@@ -206,7 +208,6 @@ const UserLayout = () => {
           mt: isMobile ? 7 : 8,
         }}
       >
-        <CallProvider>
           <Box
             className="UserLayout-page-shell"
             sx={{
@@ -233,12 +234,12 @@ const UserLayout = () => {
               </PageAccessGate>
             </Suspense>
           </Box>
-        </CallProvider>
       </MainContent>
       <FeedbackQuestionnairePopup />
       {!isClientUser && <SupportChatWidget />}
       {!isClientUser && hasCompanyPlanAccess('chat') && <MessengerDropdown />}
     </LayoutContainer>
+    </CallProvider>
   );
 };
 

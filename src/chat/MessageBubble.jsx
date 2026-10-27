@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
 import { API_URL_IMG, CHAT_UPLOAD_ORIGINS } from "../config";
 import { mentionSegments } from "./mentionUtils";
 import { taskEventText } from "./taskEventText";
+import { attachmentLabel, attachmentSource } from "./messageUtils";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
@@ -63,6 +64,8 @@ const MessageBubble = ({
     const audioUserPausedRef = useRef(false);
     const audioEndedRef = useRef(false);
     const bubbleRef = useRef(null);
+    const menuRef = useRef(null);
+    const [menuStyle, setMenuStyle] = useState(null);
     const menuButtonRef = useRef(null);
     const menuInstanceIdRef = useRef(`message-menu-${message._id || message.createdAt || Math.random()}`);
     const reactionSummary = Object.entries((message.reactions || []).reduce((summary, reaction) => {
@@ -115,6 +118,32 @@ const MessageBubble = ({
             document.removeEventListener("pointerdown", closeOnOutsideClick);
             document.removeEventListener("keydown", closeOnEscape);
         };
+    }, [showMenu]);
+
+    // Anchor the open menu at the ⋮ button, on whichever side has room inside the
+    // message list (it clips at the composer). A tall photo near the bottom used to
+    // open the menu below the whole bubble, leaving only "Reply" visible.
+    useLayoutEffect(() => {
+        if (!showMenu) {
+            setMenuStyle(null);
+            return;
+        }
+        const menu = menuRef.current, button = menuButtonRef.current, bubble = bubbleRef.current;
+        if (!menu || !button || !bubble) return;
+        const list = bubble.closest(".chat-messages");
+        const area = list ? list.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+        const buttonRect = button.getBoundingClientRect();
+        const bubbleRect = bubble.getBoundingClientRect();
+        const menuHeight = menu.scrollHeight;
+        const gap = 6;
+        const spaceBelow = area.bottom - buttonRect.bottom - gap * 2;
+        const spaceAbove = buttonRect.top - area.top - gap * 2;
+        const below = { top: buttonRect.bottom - bubbleRect.top + gap, bottom: "auto" };
+        const above = { top: "auto", bottom: bubbleRect.bottom - buttonRect.top + gap };
+        if (menuHeight <= spaceBelow) setMenuStyle(below);
+        else if (menuHeight <= spaceAbove) setMenuStyle(above);
+        else if (spaceBelow >= spaceAbove) setMenuStyle({ ...below, maxHeight: Math.max(spaceBelow, 120), overflowY: "auto" });
+        else setMenuStyle({ ...above, maxHeight: Math.max(spaceAbove, 120), overflowY: "auto" });
     }, [showMenu]);
 
     const toggleMessageMenu = () => {
@@ -176,7 +205,7 @@ const MessageBubble = ({
             sender: message.replyTo.sender?.name || "User",
             text: message.replyTo.deletedForEveryone
                 ? "This message was deleted"
-                : taskEventText(message.replyTo) || message.replyTo.file?.split(/[\\/]/).pop() || "Attachment",
+                : taskEventText(message.replyTo) || (attachmentSource(message.replyTo) ? attachmentLabel(message.replyTo) : "Message"),
         }
         : legacyReplyMeta;
     const displayMessageText = (encodedReplyMatch
@@ -848,7 +877,7 @@ const MessageBubble = ({
             )}
 
             {showMenu && !isDeletedForEveryone && (
-                <div className={`message-menu whatsapp-message-menu opens-${menuPlacement}`}>
+                <div ref={menuRef} style={menuStyle || { visibility: "hidden" }} className={`message-menu whatsapp-message-menu opens-${menuPlacement}`}>
                     <div className="message-reaction-strip" aria-label="Message reactions">
                         {quickReactions.map((emoji) => (
                             <button

@@ -56,6 +56,9 @@ const MyLeaves = () => {
   const pageSize = 10;
 
   const containerRef = useRef(null);
+  // Leaves cancelled from this page: cancelLeave already shows the message, so the
+  // socket echo of the same change stays quiet.
+  const selfCancelledIdsRef = useRef(new Set());
 
   const socketContext = useSocket() || {};
   const notificationContext = useNotification() || {};
@@ -274,7 +277,8 @@ const MyLeaves = () => {
 
           const affectedLeave = prev.find((l) => l._id === leaveId);
 
-          if (affectedLeave) {
+          const isOwnCancelEcho = newStatus === "Cancelled" && selfCancelledIdsRef.current.has(String(leaveId));
+          if (affectedLeave && !isOwnCancelEcho) {
             setRecentlyUpdatedId(leaveId);
             setTimeout(() => setRecentlyUpdatedId(null), 3000);
 
@@ -733,8 +737,14 @@ const MyLeaves = () => {
             const approverUser = step?.user || {};
             const approverName = approverUser?.name || "Approver";
             const rawStatus = step?.status || "Pending";
-            const isSupersededPending = isFinalized && rawStatus === "Pending";
-            const displayStatus = isSupersededPending ? "Not required" : rawStatus;
+            const isAutoRejected = leave?.status === "Rejected" && (
+              String(leave?.remarks || "").toLowerCase().includes("auto reject") ||
+              (Array.isArray(leave?.history) && leave.history.some(h => String(h.remarks || "").toLowerCase().includes("auto reject") || h.role === "System"))
+            );
+            const isSupersededPending = isFinalized && (rawStatus === "Pending" || isAutoRejected);
+            const displayStatus = isAutoRejected && (rawStatus === "Pending" || rawStatus === "Rejected")
+              ? "Period Expired"
+              : (isSupersededPending ? "Not required" : rawStatus);
             const initials = getInitials(approverName);
             const statusLower = isSupersededPending ? "neutral" : rawStatus.toLowerCase();
 
@@ -1006,6 +1016,7 @@ const MyLeaves = () => {
     if (!leaveId || cancellingLeaveId) return;
 
     setCancellingLeaveId(leaveId);
+    selfCancelledIdsRef.current.add(String(leaveId));
     try {
       const response = await axios.patch(`/leaves/${leaveId}/cancel`, {
         remarks: cancelDialog.remarks.trim() || "Cancelled by employee",
@@ -1034,13 +1045,12 @@ const MyLeaves = () => {
         severity: "success",
         autoHide: true,
       });
-      showToast(response.data?.message || "Leave cancelled successfully", "success");
       setCancelDialog({ open: false, leave: null, remarks: "" });
     } catch (error) {
+      selfCancelledIdsRef.current.delete(String(leaveId));
       const message =
         error.response?.data?.error || error.response?.data?.message || "Unable to cancel leave";
       setNotification({ message, severity: "error" });
-      showToast(message, "error");
     } finally {
       setCancellingLeaveId(null);
     }
@@ -2129,11 +2139,12 @@ const MyLeaves = () => {
                   {historyDialog.items.map((item, index) => {
                     const action = String(item.action || "pending").toLowerCase();
                     const actor = typeof item.by === "object" ? item.by?.name : item.by;
+                    const isAutoReject = item.role === "System" || String(item.remarks || "").toLowerCase().includes("auto reject");
                     const historyText =
                       action === "approved"
                         ? `Approved by ${actor || "Unknown"}`
                         : action === "rejected"
-                        ? `Rejected by ${actor || "Unknown"}`
+                        ? (isAutoReject ? "Auto-rejected: Leave period ended without approval" : `Rejected by ${actor || "Unknown"}`)
                         : action === "applied"
                         ? "Leave request applied"
                         : "Pending update";

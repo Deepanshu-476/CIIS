@@ -36,7 +36,7 @@ const ChatSidebar = ({
 
     const getLastMessageText = item => {
         const message = item?.lastMessage;
-        if (!message) return item?.isGroup ? "Channel chat" : (item?.companyRole || "Direct message");
+        if (!message) return item?.isGroup ? "Group chat" : (item?.companyRole || "Direct message");
         if (message.deletedForEveryone) return "This message was deleted";
         if (isCallMessage(message)) return describeCallMessage(message, currentUserId).text;
         if (message.messageType === "system" && message.systemEvent?.type === "disappearing_messages_changed") {
@@ -126,7 +126,7 @@ const ChatSidebar = ({
 
     const getGroupName = (group) => {
         if (!group) return "";
-        return group.name || group.groupName || group.group_name || group.title || "Unnamed Channel";
+        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
     };
 
     const getGroupMemberCount = (group) => {
@@ -324,7 +324,7 @@ const ChatSidebar = ({
         const members = selectedGroupMemberIds;
 
         if (!name) {
-            setGroupError("Channel name required");
+            setGroupError("Group name required");
             return;
         }
 
@@ -338,7 +338,7 @@ const ChatSidebar = ({
             await onCreateGroup?.({ name, members, avatar: groupAvatar });
             closeGroupPanel();
         } catch (error) {
-            setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Channel create failed");
+            setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Group create failed");
         }
     };
 
@@ -354,7 +354,7 @@ const ChatSidebar = ({
                         <button className="sidebar-icon" title="New chat" type="button" onClick={openNewChatPanel}>
                             <Edit size={18} />
                         </button>
-                        <button className="sidebar-icon" title="Create channel" type="button" onClick={openGroupPanel}>
+                        <button className="sidebar-icon" title="Create group" type="button" onClick={openGroupPanel}>
                             <Users size={18} />
                         </button>
                         <button className="sidebar-icon" title="Show unread" type="button" onClick={() => setActiveFilter(prev => prev === "unread" ? "all" : "unread")}>
@@ -376,7 +376,7 @@ const ChatSidebar = ({
                 <div className="chat-filter-tabs">
                     <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "all" ? "active" : ""} onClick={() => setActiveFilter("all")}>All <span>{conversationStats.all}</span></button>
                     <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "clients" ? "active" : ""} onClick={() => setActiveFilter("clients")}>Clients <span>{conversationStats.clients}</span></button>
-                    <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Channels <span>{conversationStats.groups}</span></button>
+                    <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "groups" ? "active" : ""} onClick={() => setActiveFilter("groups")}>Groups <span>{conversationStats.groups}</span></button>
                     <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "unread" ? "active" : ""} onClick={() => setActiveFilter("unread")}>Unread <span>{conversationStats.unread}</span></button>
                     {(conversationStats.favourites > 0 || activeFilter === "favourites") && (
                         <button type="button" onMouseDown={e => e.preventDefault()} className={activeFilter === "favourites" ? "active" : ""} onClick={() => setActiveFilter("favourites")}>Fav <span>{conversationStats.favourites}</span></button>
@@ -518,7 +518,7 @@ const ChatSidebar = ({
                                         )}
                                     </div>
                                     <div className="chat-user-department">
-                                        {group.department || (isClient ? "Client conversation" : "Channel conversation")}
+                                        {group.department || (isClient ? "Client conversation" : "Group conversation")}
                                     </div>
                                     <div className="chat-user-role">
                                         <span className={getGroupOnlineCount(group) > 0 ? "status-dot" : "status-dot offline"} />
@@ -636,7 +636,7 @@ const ChatSidebar = ({
                             {groupStep === "details" ? <ArrowLeft size={20} /> : <X size={20} />}
                         </button>
                         <div>
-                            <strong>{groupStep === "details" ? "New channel" : "Add channel members"}</strong>
+                            <strong>{groupStep === "details" ? "New group" : "Add group members"}</strong>
                             <small>{selectedGroupMemberIds.length ? `${selectedGroupMemberIds.length} selected` : "Select contacts"}</small>
                         </div>
                     </div>
@@ -734,9 +734,9 @@ const ChatSidebar = ({
                         </>
                     ) : (
                         <div className="chat-group-details">
-                            <label className="chat-group-avatar-preview" title="Add channel picture">
+                            <label className="chat-group-avatar-preview" title="Add group picture">
                                 {groupAvatarPreview ? (
-                                    <img src={groupAvatarPreview} alt="Channel preview" />
+                                    <img src={groupAvatarPreview} alt="Group preview" />
                                 ) : (
                                     <>
                                         <Users size={30} />
@@ -749,7 +749,7 @@ const ChatSidebar = ({
                                 type="text"
                                 value={groupName}
                                 onChange={event => setGroupName(event.target.value)}
-                                placeholder="Channel name"
+                                placeholder="Group name"
                                 autoFocus
                             />
                             <small>{selectedGroupMemberIds.length} members selected</small>

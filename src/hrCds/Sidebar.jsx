@@ -31,6 +31,7 @@ import {
   MeetingRoom as MeetingRoomIcon,
   Groups as GroupsIcon,
   Chat as ChatIcon,
+  Email as EmailIcon,
   VideoCall as VideoCallIcon,
   ListAlt as ListAltIcon,
   ExpandMore,
@@ -540,6 +541,8 @@ const iconMap = {
   'groups': GroupsIcon,
   'Chat': ChatIcon,
   'chat': ChatIcon,
+  'Email': EmailIcon,
+  'email': EmailIcon,
   'ProjectIcon': GroupsIcon,
   'projecticon': GroupsIcon,
   'Project': GroupsIcon,
@@ -892,6 +895,14 @@ const fixedDefaultItems = [
     path: '/ciisUser/support-desk',
     category: 'communication',
     order: 10
+  },
+  {
+    id: 'bulk-email',
+    name: 'Bulk Email',
+    icon: 'Email',
+    path: '/ciisUser/bulk-email',
+    category: 'communication',
+    order: 10.5
   },
   {
     id: 'create-user',
@@ -1496,6 +1507,14 @@ const allPagesItems = [
     order: 28
   },
   {
+    id: 'bulk-email',
+    name: 'Bulk Email',
+    icon: 'Email',
+    path: '/ciisUser/bulk-email',
+    category: 'communication',
+    order: 28.5
+  },
+  {
     id: 'create-user',
     name: 'Create User',
     icon: 'Person',
@@ -1555,6 +1574,7 @@ const getPathFromName = (name) => {
     'Manage Groups': '/ciisUser/manage-groups',
     'Employee Meeting': '/ciisUser/employee-meeting',
     'Client Meeting': '/ciisUser/client-meeting',
+    'Bulk Email': '/ciisUser/bulk-email',
     'Create Employee Meeting': '/ciisUser/admin-meeting',
     'Admin Projects': '/ciisUser/adminproject',
     'Manage Projects': '/ciisUser/adminproject',

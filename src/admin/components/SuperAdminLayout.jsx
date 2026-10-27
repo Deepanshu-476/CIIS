@@ -199,6 +199,8 @@ const SuperAdminLayout = () => {
             md: 3 
           },
           mt: isMobile ? 7 : 8,
+          // the fixed header sits above main, so main only needs the remaining height
+          minHeight: isMobile ? 'calc(100vh - 56px)' : 'calc(100vh - 64px)',
           transition: theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.easeOut,
             duration: theme.transitions.duration.standard,

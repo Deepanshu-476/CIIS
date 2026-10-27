@@ -259,6 +259,13 @@
   overscroll-behavior: contain;
 }
 
+/* Inside the scrolling form an absolute member list was clipped at the modal edge and sat over the
+   Create Project button, so clicks toggled members instead of submitting. Keep it in the flow. */
+.ap-project-form-modal .ap-dropdown-menu {
+  position: static;
+  margin-top: 8px;
+}
+
 @media (max-width: 640px) {
   .ap-project-form-backdrop {
     padding: 10px;

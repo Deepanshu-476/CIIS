@@ -527,6 +527,7 @@ const getTaskSourceAwareDate = (task) => {
 };
 
 const TASK_PAGE_LIMIT = 10;
+const STATUS_NEEDS_REMARK = ['pending', 'onhold'];
 const API_PERIOD_BY_FILTER = {
   today: 'today',
   yesterday: 'yesterday',
@@ -750,6 +751,14 @@ const getEndOfLocalDayIso = (value) => {
   if (Number.isNaN(date.getTime())) return '';
   date.setHours(23, 59, 59, 999);
   return date.toISOString();
+};
+
+// Repeat tasks may run at most one year past the due date (same rule as the app and backend).
+const getMaxRepeatEndDate = (dueDate) => {
+  const max = new Date(dueDate);
+  max.setDate(max.getDate() + 365);
+  max.setHours(23, 59, 59, 999);
+  return max;
 };
 
 const extractShiftWindow = (user = null) => {
@@ -1077,6 +1086,8 @@ const UserCreateTask = () => {
   const allTasksAbortRef = useRef(null);
   const allTasksPageCacheRef = useRef(new Map());
   const allTasksPrefetchAbortRef = useRef(null);
+  // Query string of the list currently on screen (filters + page + view).
+  const displayedAllTasksQueryRef = useRef('');
   const allTasksPrefetchKeyRef = useRef('');
   const lastLongLivedRefreshRef = useRef(0);
   // Prevent an older list request from replacing a task status that the user
@@ -1920,19 +1931,15 @@ const UserCreateTask = () => {
         .filter(Boolean)
         .sort((a, b) => new Date(b) - new Date(a))[0];
     };
+    // Every task type is listed on the day its status was last changed, otherwise on
+    // its due date (not the day it was created). The server sends this as reportDate.
     const getTaskGroupDate = task => {
+      if (task?.reportDate) return task.reportDate;
       const status = normalizeStatus(task?.userStatus || task?.status || task?.overallStatus);
       if (status === 'completed') {
-        return getTaskCompletionDate(task) || task?.updatedAt || task?.dueDateTime || task?.dueDate || task?.createdAt || task?.createdDate || task?.created_on;
+        return getTaskCompletionDate(task) || task?.statusChangedAt || task?.updatedAt || task?.dueDateTime || task?.dueDate || task?.createdAt || task?.createdDate || task?.created_on;
       }
-      const source = task?.__taskSource || task?.taskSource || task?.source;
-      if (source === 'project') {
-        return getProjectTaskDueDate(task) || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on;
-      }
-      if (source === 'client' || Boolean(task?.clientId)) {
-        return task?.dueDateTime || task?.dueDate || getTaskSourceAwareDate(task) || task?.createdAt || task?.createdDate || task?.created_on;
-      }
-      return task?.createdAt || task?.createdDate || task?.created_on || getTaskSourceAwareDate(task);
+      return task?.statusChangedAt || task?.dueDateTime || task?.dueDate || task?.createdAt || task?.createdDate || task?.created_on;
     };
     const getTaskSortTime = task => {
       const dateToUse = getTaskGroupDate(task);
@@ -2601,6 +2608,12 @@ const UserCreateTask = () => {
           : timestamp;
       }
 
+      // A status change lists the task on today's date (automatic overdue does not).
+      if (normalizedStatus !== 'overdue') {
+        updatedTask.statusChangedAt = timestamp;
+        updatedTask.reportDate = normalizedStatus === 'completed' ? updatedTask.completedAt : timestamp;
+      }
+
       if (sourceKey === 'self') {
         const existingStatusByUser = Array.isArray(task?.statusByUser) ? task.statusByUser : [];
         const currentUserId = String(userId || '');
@@ -2639,12 +2652,17 @@ const UserCreateTask = () => {
       return updatedTask;
     };
 
-    const nextAllTasksGrouped = patchGroupedTasksById(allTasksGrouped, taskId, updateTask);
-    const nextAllTasksStatsGrouped = patchGroupedTasksById(allTasksStatsGrouped, taskId, updateTask);
-    const nextMyTasksGrouped = sourceKey === 'self' ? patchGroupedTasksById(myTasksGrouped, taskId, updateTask) : myTasksGrouped;
-    const nextAssignedTasksGrouped = sourceKey === 'assigned' ? patchGroupedTasksById(assignedToMeTasksGrouped, taskId, updateTask) : assignedToMeTasksGrouped;
-    const nextClientTasksGrouped = sourceKey === 'client' ? patchGroupedTasksById(clientTasksGrouped, taskId, updateTask) : clientTasksGrouped;
-    const nextProjectTasksGrouped = sourceKey === 'project' ? patchGroupedTasksById(projectTasksGrouped, taskId, updateTask) : projectTasksGrouped;
+    // Regroup so the changed task moves under its new date.
+    const patchAndRegroup = grouped => {
+      const patched = patchGroupedTasksById(grouped, taskId, updateTask);
+      return patched === grouped ? grouped : groupTasksByDate(Object.values(patched || {}).flat());
+    };
+    const nextAllTasksGrouped = patchAndRegroup(allTasksGrouped);
+    const nextAllTasksStatsGrouped = patchAndRegroup(allTasksStatsGrouped);
+    const nextMyTasksGrouped = sourceKey === 'self' ? patchAndRegroup(myTasksGrouped) : myTasksGrouped;
+    const nextAssignedTasksGrouped = sourceKey === 'assigned' ? patchAndRegroup(assignedToMeTasksGrouped) : assignedToMeTasksGrouped;
+    const nextClientTasksGrouped = sourceKey === 'client' ? patchAndRegroup(clientTasksGrouped) : clientTasksGrouped;
+    const nextProjectTasksGrouped = sourceKey === 'project' ? patchAndRegroup(projectTasksGrouped) : projectTasksGrouped;
 
     setAllTasksGrouped(nextAllTasksGrouped);
     setAllTasksStatsGrouped(nextAllTasksStatsGrouped);
@@ -2701,6 +2719,7 @@ const UserCreateTask = () => {
     calculateUnifiedStatsFromTasks,
     clientTasksGrouped,
     findTaskInGroups,
+    groupTasksByDate,
     myTasksGrouped,
     projectTasksGrouped,
     selectedTaskDetails,
@@ -3557,11 +3576,14 @@ const UserCreateTask = () => {
     allTasksRequestRef.current = requestId;
     const requestStartedAt = Date.now();
     let didLoadTasks = false;
-    const shouldShowLoader = !allTasksLoadedRef.current;
+    const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
+    const query = params.toString();
+    // A refresh of the list already on screen may fail quietly. A different filter or
+    // page must not: keeping the old list made "Today" show the All Time tasks.
+    const isSameListRefresh = allTasksLoadedRef.current && displayedAllTasksQueryRef.current === query;
+    const shouldShowLoader = !isSameListRefresh;
     if (shouldShowLoader) setLoadingAllTasks(true);
     try {
-      const params = new URLSearchParams(buildTaskQueryParams({ includeAll: false, page: targetPage, view: viewOverride }));
-      const query = params.toString();
       const cachedPage = allTasksPageCacheRef.current.get(query);
       let responseData = cachedPage?.data;
 
@@ -3592,6 +3614,7 @@ const UserCreateTask = () => {
       if (lastTaskStatusMutationAtRef.current > requestStartedAt) return;
 
       didLoadTasks = true;
+      displayedAllTasksQueryRef.current = query;
       setAllTasksGrouped(groupedTasks);
       setAllTasksStatsGrouped(groupedTasks);
       setMyTasksGrouped(selfGrouped);
@@ -3673,7 +3696,8 @@ const UserCreateTask = () => {
         // task data is already rendered. Show this only when the initial load
         // itself fails and there is no usable task list on screen.
         if (shouldShowLoader && err.response?.status !== 404) {
-          showSnackbar('Failed to load all tasks', 'error');
+          displayedAllTasksQueryRef.current = '';
+          showSnackbar(err.response?.data?.error || err.response?.data?.message || 'Failed to load tasks for this filter', 'error');
         }
       }
     } finally {
@@ -4309,17 +4333,28 @@ const UserCreateTask = () => {
         return;
       }
 
+      if (statusToApply && STATUS_NEEDS_REMARK.includes(normalizeStatus(statusToApply)) && !newRemark.trim()) {
+        showSnackbar(`Please enter a remark to mark this task ${normalizeStatus(statusToApply) === 'onhold' ? 'On Hold' : 'Pending'}.`, 'error');
+        return;
+      }
+
+      const statusSource = pendingStatusChange.source || taskViewMode;
+      // Project and client tasks post status + remark as one message in their group chat,
+      // so the remark and image travel with the status request.
+      const remarkGoesWithStatus = Boolean(statusToApply) && ['project', 'client'].includes(statusSource);
+      const statusRemark = remarkGoesWithStatus ? newRemark.trim() : '';
+      const statusImages = remarkGoesWithStatus ? remarkImages.map(image => image.file).filter(Boolean) : [];
+
       setRemarksDialog({ open: false, taskId: null, remarks: [], source: null });
       if (statusToApply) {
         setPendingStatusChange({ taskId: null, status: "", source: null });
       }
 
-      const remarkAdded = hasRemarkContent ? await addRemark(taskId, activeRemarkSource) : false;
+      const remarkAdded = hasRemarkContent && !remarkGoesWithStatus ? await addRemark(taskId, activeRemarkSource) : false;
 
-      if (hasRemarkContent && !remarkAdded) return;
+      if (hasRemarkContent && !remarkGoesWithStatus && !remarkAdded) return;
 
       if (statusToApply) {
-        const statusSource = pendingStatusChange.source || taskViewMode;
         const shouldSuppressLoader = normalizeStatus(statusToApply) === 'completed' && hasRemarkContent;
         let statusUpdated = false;
 
@@ -4327,7 +4362,7 @@ const UserCreateTask = () => {
           statusUpdated = await handleStatusChange(
             statusTaskId,
             statusToApply,
-            "Status changed",
+            newRemark.trim() || "Status changed",
             { showLoader: !shouldSuppressLoader, showSuccess: false }
           );
         } else if (statusSource === 'client') {
@@ -4335,20 +4370,20 @@ const UserCreateTask = () => {
             statusTaskId,
             statusToApply,
             "",
-            { showLoader: !shouldSuppressLoader, showSuccess: false }
+            { showLoader: !shouldSuppressLoader, showSuccess: false, statusRemark, images: statusImages }
           );
         } else if (statusSource === 'project') {
           statusUpdated = await handleProjectTaskStatusChange(
             statusTaskId,
             statusToApply,
             "Status changed",
-            { showLoader: !shouldSuppressLoader, showSuccess: false }
+            { showLoader: !shouldSuppressLoader, showSuccess: false, statusRemark, images: statusImages }
           );
         } else {
           statusUpdated = await handleAssignedTaskStatusChange(
             statusTaskId,
             statusToApply,
-            "Status changed",
+            newRemark.trim() || "Status changed",
             { showLoader: !shouldSuppressLoader, showSuccess: false }
           );
         }
@@ -4380,44 +4415,64 @@ const UserCreateTask = () => {
     try {
       const { task, taskId, projectId } = getProjectTaskContext(taskOrId);
       const source = taskSource || getTaskSource(task);
-      const isClientTask = source === 'client';
-      const isProjectTask = source === 'project';
-      const endpoint = isProjectTask
-        ? `/tasks/project/${projectId}/tasks/${taskId}/activity`
-        : isClientTask 
-        ? `/tasks/client-tasks/${taskId}/client-activity-logs`
-        : `/task/${taskId}/activity-logs`;
-
-      if (isProjectTask && !projectId) {
-        showSnackbar('Project task details are missing. Please refresh and try again.', 'error');
-        return;
-      }
+      const projectEndpoint = projectId ? `/tasks/project/${projectId}/tasks/${taskId}/activity` : null;
+      const clientEndpoint = `/tasks/client-tasks/${taskId}/client-activity-logs`;
+      const taskEndpoint = `/task/${taskId}/activity-logs`;
+      // The row's source can be guessed wrong (e.g. a task tagged by clientId), so the
+      // other endpoints are tried before giving up.
+      const endpoints = (source === 'project'
+        ? [projectEndpoint, taskEndpoint]
+        : source === 'client'
+        ? [clientEndpoint, taskEndpoint, projectEndpoint]
+        : [taskEndpoint, clientEndpoint, projectEndpoint]
+      ).filter(Boolean);
 
       const cacheKey = `${source}:${projectId || ''}:${taskId}`;
       const cachedLogs = activityCacheRef.current.get(cacheKey);
       setActivityLogs(cachedLogs || []);
       setActivityDialog({ open: true, taskId });
       setIsLoadingActivity(!cachedLogs);
-      
-      const res = await axios.get(endpoint);
-      
-      let logs = [];
-      if (res.data.success && res.data.data) {
-        if (Array.isArray(res.data.data)) {
-          logs = res.data.data;
-        } else if (res.data.data.logs) {
-          logs = res.data.data.logs;
-        } else if (res.data.data.data && Array.isArray(res.data.data.data)) {
-          logs = res.data.data.data;
+
+      const extractLogs = (data) => {
+        if (data?.success && data.data) {
+          if (Array.isArray(data.data)) return data.data;
+          if (Array.isArray(data.data.logs)) return data.data.logs;
+          if (Array.isArray(data.data.data)) return data.data.data;
         }
-      } else if (res.data.logs) {
-        logs = res.data.logs;
-      } else if (res.data.activityLogs) {
-        logs = res.data.activityLogs;
-      } else if (Array.isArray(res.data)) {
-        logs = res.data;
+        if (Array.isArray(data?.logs)) return data.logs;
+        if (Array.isArray(data?.activityLogs)) return data.activityLogs;
+        if (Array.isArray(data)) return data;
+        return [];
+      };
+
+      let logs = null;
+      let lastError = null;
+      for (const endpoint of endpoints) {
+        try {
+          const res = await axios.get(endpoint);
+          logs = extractLogs(res.data);
+          if (logs.length) break;
+        } catch (requestError) {
+          lastError = requestError;
+        }
       }
-      
+
+      if (!logs?.length) {
+        const embeddedLogs = [
+          ...(Array.isArray(task?.activityLogs) ? task.activityLogs : []),
+          ...(Array.isArray(task?.statusHistory) ? task.statusHistory.map(entry => ({
+            ...entry,
+            action: 'status_updated',
+            user: entry.changedBy,
+            description: entry.remarks || `Status updated to ${entry.status}`,
+            createdAt: entry.changedAt || entry.createdAt
+          })) : [])
+        ];
+        if (embeddedLogs.length) logs = embeddedLogs;
+      }
+
+      if (logs === null) throw lastError || new Error('Activity logs unavailable');
+
       const normalizedLogs = logs.map((log) => {
         const actor = log.user || log.performedBy || log.createdBy || null;
         const actorName = log.userName || actor?.name || actor?.fullName || actor?.email || '';
@@ -4780,9 +4835,17 @@ const UserCreateTask = () => {
     const taskSource = getTaskSource(task || { __taskSource: 'client' });
     patchTaskStatusLocally(taskId, taskSource, normalizedStatus, remarks);
     try {
-        const statusPayload = { status: normalizedStatus, completed: normalizedStatus === 'completed' };
+        const statusPayload = {
+          status: normalizedStatus,
+          completed: normalizedStatus === 'completed',
+          ...(options.statusRemark ? { statusRemark: options.statusRemark } : {})
+        };
 
-        await saveTaskStatus(`/tasks/client-tasks/assigned/${taskId}/status`, statusPayload);
+        await saveTaskStatus(
+          `/tasks/client-tasks/assigned/${taskId}/status`,
+          statusPayload,
+          options.images?.length ? { images: options.images } : null
+        );
         // The list was patched before this request, so avoid an expensive
         // full refresh that can momentarily stall the task screen.
         void fetchAllTaskCounts(taskViewMode);
@@ -5024,8 +5087,9 @@ const UserCreateTask = () => {
     try {
       await saveTaskStatus(`/tasks/project/${projectId}/tasks/${taskId}/status`, {
         status: toProjectApiStatus(normalizedStatus),
-        remark: remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`
-      });
+        remark: options.statusRemark || remarks || `Status changed to ${toProjectApiStatus(normalizedStatus)}`,
+        ...(options.statusRemark ? { statusRemark: options.statusRemark } : {})
+      }, options.images?.length ? { image: options.images.slice(0, 1) } : null);
       // Do not refetch every task after a single project-status update.
       void fetchAllTaskCounts(taskViewMode);
       if (options.showSuccess !== false) showSnackbar(`Project task status changed to ${normalizedStatus} successfully`, 'success');
@@ -5044,6 +5108,14 @@ const UserCreateTask = () => {
   const handleTaskStatusSelection = async (task, nextStatus, taskSource) => {
     const taskId = task?._id || task?.id;
     if (!taskId || !nextStatus) return;
+    // Pending and On Hold need a reason: the remark dialog saves remark (+ optional image) and status together.
+    if (STATUS_NEEDS_REMARK.includes(normalizeStatus(nextStatus))) {
+      setNewRemark('');
+      setRemarkImages([]);
+      setPendingStatusChange({ taskId, status: normalizeStatus(nextStatus), source: taskSource });
+      void fetchTaskRemarks(task, taskSource);
+      return;
+    }
     const saveKey = `${taskSource}:${taskId}`;
     if (savingTaskIdsRef.current.has(saveKey)) return;
     savingTaskIdsRef.current.add(saveKey);
@@ -5244,12 +5316,17 @@ const UserCreateTask = () => {
         : '';
       if (newTask.repeatPattern !== 'none') {
         if (!recurrenceEndDate) {
-          showSnackbar('Please select repeat end date', 'error');
+          showSnackbar('Please select repeat end date.', 'error');
           setIsCreatingTask(false);
           return;
         }
         if (new Date(recurrenceEndDate) < dueDate) {
-          showSnackbar('Repeat end date cannot be before due date', 'error');
+          showSnackbar('Repeat end date cannot be before due date.', 'error');
+          setIsCreatingTask(false);
+          return;
+        }
+        if (new Date(recurrenceEndDate) > getMaxRepeatEndDate(dueDate)) {
+          showSnackbar('Repeat end date can be at most 1 year after due date.', 'error');
           setIsCreatingTask(false);
           return;
         }
@@ -6340,6 +6417,9 @@ const UserCreateTask = () => {
                                   Client: {getClientNameFromTask(task)}
                                 </div>
                               )}
+                              {taskSource === 'client' && task.service && (
+                                <div className="user-create-task-service-chip">Service: {task.service}</div>
+                              )}
                             </div>
                             <div className="user-create-task-flex user-create-task-gap-1">
                               <button
@@ -7120,6 +7200,9 @@ const UserCreateTask = () => {
                                         Client: {clientName}
                                       </div>
                                     )}
+                                    {taskSource === 'client' && task.service && (
+                                      <div className="user-create-task-service-chip">Service: {task.service}</div>
+                                    )}
                                     {taskSource === 'project' && task.projectName && (
                                       <div className="user-create-task-mobile-card-client" style={{ marginTop: '4px' }}>
                                         <div style={{ 
@@ -7453,6 +7536,9 @@ const UserCreateTask = () => {
                                       {taskSource === 'project' ? <FiTarget size={12} /> : taskSource === 'self' ? <FiUser size={12} /> : <FiUsers size={12} />}
                                       {taskSource === 'client' ? clientName : taskSource === 'project' ? `Project: ${task.projectName || 'Project Task'}` : taskSource === 'self' ? 'Personal' : 'Assigned'}
                                     </div>
+                                    {taskSource === 'client' && task.service && (
+                                      <div className="user-create-task-service-chip">Service: {task.service}</div>
+                                    )}
                                     {taskSource === 'project' && (
                                       <div style={{
                                         color: '#64748b',
@@ -7790,6 +7876,7 @@ const UserCreateTask = () => {
                       className="user-create-task-input"
                       value={formatDateInputValue(newTask.recurrenceEndDate)}
                       min={(newTask.dueDateTime || new Date().toISOString()).slice(0, 10)}
+                      max={formatDateInputValue(getMaxRepeatEndDate(newTask.dueDateTime || new Date()))}
                       onChange={(e) => setNewTask({ ...newTask, recurrenceEndDate: e.target.value })}
                     />
                   </div>
@@ -8247,6 +8334,9 @@ const UserCreateTask = () => {
                 {detailSource === 'client' && (
                   <div className="task-details-info-row"><span>Client</span><strong>{getClientNameFromTask(selectedTaskDetails) || 'Not specified'}</strong></div>
                 )}
+                {detailSource === 'client' && (
+                  <div className="task-details-info-row"><span>Service</span><strong>{selectedTaskDetails.service || 'Not specified'}</strong></div>
+                )}
                 {detailSource === 'project' && (
                   <div className="task-details-info-row"><span>Project</span><strong>{selectedTaskDetails.projectName || 'Not specified'}</strong></div>
                 )}
@@ -8499,7 +8589,15 @@ const UserCreateTask = () => {
               
               <div className="user-create-task-paper remarks-compose-card">
                 <div className="user-create-task-paper-content">
-                  <div className="remarks-section-title"><i className="remarks-add-dot" aria-hidden="true" />Add New Remark</div>
+                  {pendingStatusChange.status && (
+                    <div className="remarks-status-change-note" role="note">
+                      Changing status to <strong>{String(normalizeStatus(pendingStatusChange.status)).replace('onhold', 'on hold').replace(/-/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}</strong>
+                      {STATUS_NEEDS_REMARK.includes(normalizeStatus(pendingStatusChange.status)) ? '. Please add a remark (image optional).' : '.'}
+                    </div>
+                  )}
+                  <div className="remarks-section-title"><i className="remarks-add-dot" aria-hidden="true" />
+                    {STATUS_NEEDS_REMARK.includes(normalizeStatus(pendingStatusChange.status)) ? 'Remark (required)' : 'Add New Remark'}
+                  </div>
                   
                   <textarea
                     className="user-create-task-input"

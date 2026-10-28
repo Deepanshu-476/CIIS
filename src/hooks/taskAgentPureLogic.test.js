@@ -31,6 +31,8 @@ import {
     determineTurnSpeechAndMicAction,
     TITLE_GUARD_FILLERS,
     isTitleGuardRejected,
+    buildParseRequestBody,
+    sanitizeDraftForTransport,
 } from './taskAgentPureLogic.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1793,6 +1795,38 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
 
         // 6. Mic must now auto-open by itself because userMutedRef.current is false!
         assert.equal(session.listening, true, 'Mic must auto-open by itself after agent question when userMutedRef is cleared');
+    });
+
+    test('36. buildParseRequestBody sanitizes draft and matches backend parseRequestSchema contract', () => {
+        // Case 1: First turn with text
+        const body1 = buildParseRequestBody({
+            text: 'Naya project banao ZZ AI Test, description testing, 1 November se 30 November, members Vansh aur Kavya',
+            language: 'hinglish',
+        });
+        assert.equal(body1.message, 'Naya project banao ZZ AI Test, description testing, 1 November se 30 November, members Vansh aur Kavya');
+        assert.equal(body1.language, 'hinglish');
+        assert.equal(body1.draft, undefined);
+
+        // Case 2: Action with draft containing nulls/undefined
+        const messyDraft = {
+            intent: 'create_project',
+            name: 'ZZ AI Test',
+            description: null,
+            startDate: undefined,
+            members: ['Vansh', 'Kavya'],
+        };
+        const body2 = buildParseRequestBody({
+            action: { type: 'set', field: 'description', value: 'testing' },
+            draft: messyDraft,
+        });
+        assert.equal(body2.action.type, 'set');
+        assert.deepEqual(body2.draft, {
+            intent: 'create_project',
+            name: 'ZZ AI Test',
+            members: ['Vansh', 'Kavya'],
+        });
+        assert.equal('description' in body2.draft, false);
+        assert.equal('startDate' in body2.draft, false);
     });
 });
 

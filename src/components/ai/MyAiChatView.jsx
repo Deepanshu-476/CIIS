@@ -646,7 +646,7 @@ export default function MyAiChatView({ onBack, onClose }) {
         </form>
 
         {/* Dev-only live VAD diagnostic overlay */}
-        {import.meta.env?.DEV && listening && vadStats && (
+        {import.meta.env?.DEV && (
           <div style={{
             padding: '3px 8px',
             background: 'rgba(17, 24, 39, 0.95)',
@@ -660,12 +660,25 @@ export default function MyAiChatView({ onBack, onClose }) {
             alignItems: 'center',
             flexWrap: 'wrap',
           }}>
-            <span>RMS: <strong>{vadStats.rms}</strong></span>
-            <span>Floor: <strong>{vadStats.noiseFloor}</strong></span>
-            <span>SpeechThresh: <strong>{vadStats.speechThreshold}</strong></span>
-            <span>SilThresh: <strong>{vadStats.silenceThreshold}</strong></span>
-            <span>SilTimer: <strong>{vadStats.silenceMs}ms / 1350ms</strong></span>
-            <span>SpeechDur: <strong>{vadStats.speechDurationMs}ms / 600ms</strong></span>
+            <span>Mic State: <strong>{
+              listening ? 'active'
+              : (isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'speaking'
+              : userMuted ? 'muted'
+              : (isTypingRef?.current || input.trim()) ? 'typing'
+              : !autoSpeak ? 'speaker off'
+              : speechError === 'not-allowed' ? 'permission'
+              : 'idle'
+            }</strong></span>
+            {listening && vadStats && (
+              <>
+                <span>RMS: <strong>{vadStats.rms}</strong></span>
+                <span>Floor: <strong>{vadStats.noiseFloor}</strong></span>
+                <span>SpeechThresh: <strong>{vadStats.speechThreshold}</strong></span>
+                <span>SilThresh: <strong>{vadStats.silenceThreshold}</strong></span>
+                <span>SilTimer: <strong>{vadStats.silenceMs}ms / 1350ms</strong></span>
+                <span>SpeechDur: <strong>{vadStats.speechDurationMs}ms / 600ms</strong></span>
+              </>
+            )}
           </div>
         )}
       </footer>

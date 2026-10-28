@@ -1010,8 +1010,8 @@ export default function useSpeech({
             }
 
             if (isSpeakingRef.current || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) {
-                // If browser speech synthesis has actually finished or was cancelled, clear stuck speaking flags
-                if (ttsSupported && !window.speechSynthesis?.speaking) {
+                // If browser speech synthesis has actually finished, has no active utterance, or was cancelled, clear stuck speaking flags
+                if (!activeUtteranceRef.current || (ttsSupported && !window.speechSynthesis?.speaking)) {
                     isSpeakingRef.current = false;
                     if (typeof window !== 'undefined') {
                         window.__ciisVoiceSpeaking = false;

@@ -21,6 +21,7 @@ import {
     resolveSpokenText,
     determineTurnSpeechAndMicAction,
     formatSpokenForTTS,
+    buildParseRequestBody,
     MAX_FILES,
     MAX_FILE_SIZE_BYTES,
     ALLOWED_EXTS,
@@ -246,6 +247,7 @@ export default function useTaskAgentSession({
                                 if (resultRef.current?.status === 'created' || resultRef.current?.status === 'cancelled' || isCreatedRef.current) return;
                                 micStarted = true;
                                 cancelSpeech();
+                                clearUserMute();
                                 setTimeout(() => start({ force: true })?.catch?.(() => {}), 200);
                             };
                             const watchdog = createTtsWatchdog(() => {
@@ -300,6 +302,7 @@ export default function useTaskAgentSession({
                                 if (resultRef.current?.status === 'created' || resultRef.current?.status === 'cancelled' || isCreatedRef.current) return;
                                 micStarted = true;
                                 cancelSpeech();
+                                clearUserMute();
                                 setTimeout(() => start({ force: true })?.catch?.(() => {}), 200);
                             };
                             const watchdog = createTtsWatchdog(() => {
@@ -327,17 +330,6 @@ export default function useTaskAgentSession({
             const baseDraft = draftRef.current;
             const draft = draftPatch ? { ...(baseDraft || {}), ...draftPatch } : baseDraft;
 
-            const sanitizeDraftForTransport = (draftObj) => {
-                if (!draftObj || typeof draftObj !== 'object') return undefined;
-                const clean = {};
-                for (const [k, v] of Object.entries(draftObj)) {
-                    if (v !== null && v !== undefined) {
-                        clean[k] = v;
-                    }
-                }
-                return Object.keys(clean).length > 0 ? clean : undefined;
-            };
-
             const TURN_TIMEOUT_MS = 25000;
             const abortController = new AbortController();
             const timeoutId = setTimeout(() => {
@@ -345,15 +337,16 @@ export default function useTaskAgentSession({
             }, TURN_TIMEOUT_MS);
 
             try {
+                const requestPayload = buildParseRequestBody({
+                    text,
+                    action,
+                    pick,
+                    draft,
+                    language: 'hinglish',
+                });
                 const { data } = await axiosInstance.post(
                     AI_ENDPOINTS.TASK_AGENT_PARSE,
-                    {
-                        message: text || undefined,
-                        action: action || undefined,
-                        pick: pick || undefined,
-                        language: 'hinglish',
-                        draft: sanitizeDraftForTransport(draft),
-                    },
+                    requestPayload,
                     {
                         signal: abortController.signal,
                         timeout: TURN_TIMEOUT_MS,
@@ -422,6 +415,7 @@ export default function useTaskAgentSession({
 
                             micStarted = true;
                             cancelSpeech();
+                            clearUserMute();
                             setTimeout(() => {
                                 start({ force: true })?.catch?.(() => {});
                             }, 200);
@@ -1206,7 +1200,7 @@ export default function useTaskAgentSession({
     };
 
     const status = result?.status;
-    const chips = status === 'needs_input' ? result?.chips || [] : [];
+    const chips = Array.isArray(result?.chips) ? result.chips : [];
     const candidates = status === 'needs_disambiguation' ? result?.candidates || [] : [];
     const currentDraft = result?.draft || draftRef.current || {};
 

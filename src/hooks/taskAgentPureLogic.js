@@ -735,3 +735,25 @@ export const isTitleGuardRejected = (title) => {
     return TITLE_GUARD_FILLERS.has(clean) || clean.length < 2;
 };
 
+export const sanitizeDraftForTransport = (draftObj) => {
+    if (!draftObj || typeof draftObj !== 'object') return undefined;
+    const clean = {};
+    for (const [k, v] of Object.entries(draftObj)) {
+        if (v !== null && v !== undefined) {
+            clean[k] = v;
+        }
+    }
+    return Object.keys(clean).length > 0 ? clean : undefined;
+};
+
+export const buildParseRequestBody = ({ text = '', action, pick, draft, language = 'hinglish' } = {}) => {
+    return {
+        message: text || undefined,
+        action: action || undefined,
+        pick: pick || undefined,
+        language: language === 'hi' ? 'hinglish' : language,
+        draft: sanitizeDraftForTransport(draft),
+    };
+};
+
+

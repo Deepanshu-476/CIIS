@@ -24,6 +24,7 @@ export default function TaskPreviewCard({
     onCancel,
 }) {
     if (!preview) return null;
+    const isProject = preview.intent === 'create_project' || preview.entity === 'project';
     const priority = String(preview.priority || 'Medium').toLowerCase();
     const who = assigneeText(preview.assignee, preview.taskFor);
     const totalFilesCount = files.length > 0 ? files.length : preview.attachmentsCount || 0;
@@ -31,7 +32,7 @@ export default function TaskPreviewCard({
     return (
         <div className="ai-preview">
             <div className="ai-preview-top">
-                <h4>{preview.title || '—'}</h4>
+                <h4>{isProject ? (preview.name || preview.projectName || preview.title || '—') : (preview.title || '—')}</h4>
                 <span className={`ai-prio ${priority}`}>{priority}</span>
             </div>
 
@@ -40,49 +41,104 @@ export default function TaskPreviewCard({
                 <p className="ai-preview-desc">{preview.description ? preview.description : '—'}</p>
             </div>
 
-            <dl className="ai-meta">
-                {(preview.projectName || preview.project) && (
-                    <>
-                        <dt>Project</dt>
-                        <dd>{preview.projectName || preview.project}</dd>
-                    </>
-                )}
+            {isProject ? (
+                <dl className="ai-meta">
+                    <dt>Start Date</dt>
+                    <dd>{preview.startDateFormatted || preview.startDate || '—'}</dd>
 
-                <dt>Due</dt>
-                <dd>{preview.dueLabel || preview.dueDate || preview.dueDateTime || '—'}</dd>
+                    <dt>End Date</dt>
+                    <dd>{preview.endDateFormatted || preview.endDate || '—'}</dd>
 
-                <dt>Status</dt>
-                <dd>{preview.statusLabel || preview.status || 'Pending'}</dd>
+                    <dt>Status</dt>
+                    <dd>{preview.status || 'Active'}</dd>
 
-                <dt>Kiske liye</dt>
-                <dd>{preview.taskFor === 'self' ? 'Khud ke liye (self)' : who}</dd>
+                    <dt>Team Members</dt>
+                    <dd>
+                        {Array.isArray(preview.members) && preview.members.length > 0 ? (
+                            <div className="ai-assignee-chips">
+                                {preview.members.map((member, idx) => {
+                                    const name = typeof member === 'object' ? member.name || member.label : member;
+                                    return (
+                                        <span key={idx} className="ai-assignee-chip">
+                                            <span className="ai-assignee-chip-name">{name}</span>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            '—'
+                        )}
+                    </dd>
 
-                {preview.taskFor !== 'project' && preview.priorityDays !== undefined && preview.priorityDays !== null && (
-                    <>
-                        <dt>Priority Days</dt>
-                        <dd>{`${preview.priorityDays} din`}</dd>
-                    </>
-                )}
+                    {(preview.hasPdf || preview.documentPdf || totalFilesCount > 0) && (
+                        <>
+                            <dt>Document</dt>
+                            <dd>{preview.documentPdf?.name ? `📄 ${preview.documentPdf.name}` : (totalFilesCount > 0 ? `📄 ${totalFilesCount} file(s)` : '📄 Attached PDF')}</dd>
+                        </>
+                    )}
+                </dl>
+            ) : (
+                <dl className="ai-meta">
+                    {(preview.projectName || preview.project) && (
+                        <>
+                            <dt>Project</dt>
+                            <dd>{preview.projectName || preview.project}</dd>
+                        </>
+                    )}
 
-                <dt>Reminder</dt>
-                <dd>
-                    {preview.reminder && preview.reminder !== 'Nahi (No)' && preview.reminder !== 'Nahi' && preview.reminder !== 'No' && preview.reminder !== false
-                        ? (typeof preview.reminder === 'string' && !['Yes', 'Haan', 'true'].includes(preview.reminder)
-                            ? preview.reminder
-                            : `Haan (${preview.repeatIntervalMinutes ? `Every ${preview.repeatIntervalMinutes} min` : preview.minutesBeforeDue ? `${preview.minutesBeforeDue} min before due` : preview.reminderOption === 'halfHourly' ? 'Every 30 min' : preview.reminderOption === 'hourly' ? 'Every 1 hour' : '1 hour before'})`)
-                        : 'Nahi (No)'}
-                </dd>
+                    <dt>Due</dt>
+                    <dd>{preview.dueLabel || preview.dueDate || preview.dueDateTime || '—'}</dd>
 
-                {preview.taskFor !== 'project' && preview.repeatPattern && (
-                    <>
-                        <dt>Repeat</dt>
-                        <dd>{preview.repeatPattern !== 'none' ? preview.repeatPattern : 'No repeat'}</dd>
-                    </>
-                )}
+                    <dt>Status</dt>
+                    <dd>{preview.statusLabel || preview.status || 'Pending'}</dd>
 
-                <dt>Attachments</dt>
-                <dd>{totalFilesCount > 0 ? `${totalFilesCount} file(s)` : '—'}</dd>
-            </dl>
+                    <dt>Kiske liye</dt>
+                    <dd>
+                        {preview.taskFor === 'self' ? (
+                            'Khud ke liye (self)'
+                        ) : Array.isArray(preview.assignees) && preview.assignees.length > 0 ? (
+                            <div className="ai-assignee-chips">
+                                {preview.assignees.map((assignee, idx) => (
+                                    <span key={assignee.id || assignee._id || idx} className="ai-assignee-chip">
+                                        <span className="ai-assignee-chip-name">{assignee.name || assignee.label}</span>
+                                        {assignee.department ? (
+                                            <span className="ai-assignee-chip-dept">({assignee.department})</span>
+                                        ) : null}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            who
+                        )}
+                    </dd>
+
+                    {preview.taskFor !== 'project' && preview.priorityDays !== undefined && preview.priorityDays !== null && (
+                        <>
+                            <dt>Priority Days</dt>
+                            <dd>{`${preview.priorityDays} din`}</dd>
+                        </>
+                    )}
+
+                    <dt>Reminder</dt>
+                    <dd>
+                        {preview.reminder && preview.reminder !== 'Nahi (No)' && preview.reminder !== 'Nahi' && preview.reminder !== 'No' && preview.reminder !== false
+                            ? (typeof preview.reminder === 'string' && !['Yes', 'Haan', 'true'].includes(preview.reminder)
+                                ? preview.reminder
+                                : `Haan (${preview.repeatIntervalMinutes ? `Every ${preview.repeatIntervalMinutes} min` : preview.minutesBeforeDue ? `${preview.minutesBeforeDue} min before due` : preview.reminderOption === 'halfHourly' ? 'Every 30 min' : preview.reminderOption === 'hourly' ? 'Every 1 hour' : '1 hour before'})`)
+                            : 'Nahi (No)'}
+                    </dd>
+
+                    {preview.taskFor !== 'project' && preview.repeatPattern && (
+                        <>
+                            <dt>Repeat</dt>
+                            <dd>{preview.repeatPattern !== 'none' ? preview.repeatPattern : 'No repeat'}</dd>
+                        </>
+                    )}
+
+                    <dt>Attachments</dt>
+                    <dd>{totalFilesCount > 0 ? `${totalFilesCount} file(s)` : '—'}</dd>
+                </dl>
+            )}
 
             {/* Checkpoints list */}
             {Array.isArray(preview.checkpoints) && preview.checkpoints.length > 0 ? (

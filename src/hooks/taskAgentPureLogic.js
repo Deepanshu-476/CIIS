@@ -66,6 +66,11 @@ function levenshtein(a, b) {
     return row[lb];
 }
 
+export const NON_CONFIRMING_TOKENS = new Set([
+    'to', 'toh', 'na', 'ko', 'ho', 'hm', 'oh', 'so', 'go', 'bhi', 'aur', 'kya', 'ab',
+    'kuch', 'nahi', 'kisko', 'kab', 'kyun', 'kaha', 'kahan', 'kis'
+]);
+
 const CANONICAL_AFFIRMATIVES = [
     'haan ji', 'bana do', 'kar do', 'create kar do', 'ok', 'theek hai',
     'haan ji kardo', 'haan ji banado', 'kardo', 'banado'
@@ -83,7 +88,14 @@ export const isConfirmationIntent = (text, state = null) => {
 
     if (hasFieldChangeIntent(text)) return false;
 
-    let clean = text.toLowerCase().replace(/[^a-zA-Z\u0900-\u097F\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    // eslint-disable-next-line no-misleading-character-class
+    let clean = text.toLowerCase().replace(/[^a-zA-Z\u0900-\u097F\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+    // Strict rejection for non-confirming filler tokens (e.g., "to", "toh", "na", "ko", "ho", "hm", "oh", "so", "go", "bhi", "aur", "kya", "ab")
+    if (NON_CONFIRMING_TOKENS.has(clean)) return false;
+    if (words.length === 1 && NON_CONFIRMING_TOKENS.has(words[0].toLowerCase())) return false;
+    if (words.every(w => NON_CONFIRMING_TOKENS.has(w.toLowerCase()))) return false;
+
     clean = clean.replace(/\b(?:hanji|hnji|haanji|aaji)\b/g, 'haan ji');
 
     // Direct affirmative patterns
@@ -103,6 +115,7 @@ export const isConfirmationIntent = (text, state = null) => {
 
     // Edit distance against canonical list
     for (const target of CANONICAL_AFFIRMATIVES) {
+        if (target.length <= 3) continue;
         const dist = levenshtein(clean, target);
         const maxAllowed = target.length >= 10 ? 3 : (target.length >= 6 ? 2 : 1);
         if (dist <= maxAllowed) return true;
@@ -115,8 +128,9 @@ export const isConfirmationIntent = (text, state = null) => {
             let totalWordDist = 0;
             let ok = true;
             for (let i = 0; i < words.length; i++) {
+                const maxWordDist = targetWords[i].length <= 3 ? 0 : 2;
                 const d = levenshtein(words[i], targetWords[i]);
-                if (d > 2) { ok = false; break; }
+                if (d > maxWordDist) { ok = false; break; }
                 totalWordDist += d;
             }
             if (ok && totalWordDist <= 2) return true;
@@ -146,7 +160,11 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
         const normStatus = rawStatus.replace(/[-_]/g, ' ');
         const finalStatus = (normStatus === 'in progress' || normStatus === 'inprogress') ? 'in progress' : rawStatus;
 
-        const assignedUsers = draft.assigneeId ? [String(draft.assigneeId)] : [];
+        const assignedUsers = (Array.isArray(draft.assignedUsers) && draft.assignedUsers.length > 0)
+            ? draft.assignedUsers.map(String)
+            : ((Array.isArray(draft.assignees) && draft.assignees.length > 0)
+                ? draft.assignees.map(a => String(a.id || a._id))
+                : (draft.assigneeId ? [String(draft.assigneeId)] : []));
         const checkpoints = Array.isArray(draft.checkpoints)
             ? draft.checkpoints.map(c => typeof c === 'string' ? { title: c, completed: false } : c)
             : [];
@@ -173,7 +191,7 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
                 title: String(draft.title || '').trim(),
                 description: String(draft.description || '').trim(),
                 assignedUsers,
-                assignedTo: draft.assigneeId ? String(draft.assigneeId) : '',
+                assignedTo: assignedUsers[0] || (draft.assigneeId ? String(draft.assigneeId) : ''),
                 priority: draft.priority ? (draft.priority.charAt(0).toUpperCase() + draft.priority.slice(1).toLowerCase()) : 'Medium',
                 status: finalStatus,
                 checkpoints: JSON.stringify(checkpoints),
@@ -184,6 +202,12 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
     }
 
     if (isAssigned) {
+        const userIds = Array.isArray(draft.assignedUsers) && draft.assignedUsers.length > 0
+            ? draft.assignedUsers.map(String)
+            : (Array.isArray(draft.assignees) && draft.assignees.length > 0
+                ? draft.assignees.map(a => String(a.id || a._id))
+                : (draft.assigneeId ? [String(draft.assigneeId)] : []));
+
         return {
             endpoint: '/task/create-for-others',
             method: 'POST',
@@ -194,7 +218,8 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
             fields: {
                 title: String(draft.title || '').trim(),
                 description: String(draft.description || '').trim(),
-                assigneeId: draft.assigneeId ? String(draft.assigneeId) : '',
+                assignedUsers: JSON.stringify(userIds),
+                assigneeId: draft.assigneeId ? String(draft.assigneeId) : (userIds[0] || ''),
                 priority: draft.priority ? draft.priority.toLowerCase() : 'medium',
                 status: draft.status || 'pending',
                 checkpoints: JSON.stringify(draft.checkpoints || []),
@@ -267,8 +292,8 @@ export const canAcceptConfirm = (status, isCreatingLock = false) => {
  * - 'cancelled' (session cancelled)
  * - Any state when userMuted === true
  */
-export const shouldAutoListenAfterTurn = ({ status, field, userMuted = false, isCreated = false } = {}) => {
-    if (userMuted) return false;
+export const shouldAutoListenAfterTurn = ({ status, userMuted = false, isCreated = false, isTyping = false } = {}) => {
+    if (userMuted || isTyping) return false;
     if (isCreated || status === 'created' || status === 'cancelled') return false;
     if (status === 'needs_input' || status === 'needs_disambiguation' || status === 'ready') {
         return true;
@@ -399,7 +424,13 @@ export const canProcessTranscriptTurn = ({
  */
 export const mapTaskAgentError = (err) => {
     if (!err) return 'Kuch gadbad ho gayi. Dobara try karein.';
-    
+
+    // Detailed validation errors take priority over generic "Validation failed"
+    if (err?.response?.data?.details && Array.isArray(err.response.data.details) && err.response.data.details.length > 0) {
+        const detailMsgs = err.response.data.details.map(d => `${d.field ? d.field + ': ' : ''}${d.message}`).join(', ');
+        return `Validation failed (${detailMsgs})`;
+    }
+
     // Explicit server-provided error message takes priority
     const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
     if (serverMsg && typeof serverMsg === 'string' && serverMsg.trim()) {
@@ -465,10 +496,13 @@ export const buildTaskFormDataEntries = ({
         Object.entries(payload.fields).forEach(([k, v]) => {
             if (v !== undefined && v !== null) {
                 if (k === 'assignedUsers') {
-                    const list = Array.isArray(v)
-                        ? v
-                        : (typeof v === 'string' && v.startsWith('[') ? JSON.parse(v) : (v ? [v] : []));
-                    list.forEach(userId => entries.push(['assignedUsers', String(userId)]));
+                    if (Array.isArray(v)) {
+                        // Repeated FormData entries (e.g. POST /projects/:id/tasks contract in ProjectDetailsPage.jsx)
+                        v.forEach(userId => entries.push(['assignedUsers', String(userId)]));
+                    } else if (typeof v === 'string') {
+                        // Single FormData entry with JSON string (e.g. POST /task/create-for-others contract in AdminTaskCreate.jsx)
+                        entries.push(['assignedUsers', v]);
+                    }
                     return;
                 }
                 entries.push([k, typeof v === 'string' ? v : JSON.stringify(v)]);
@@ -566,3 +600,138 @@ Task create karne ke liye mujhe ye jaankari chahiye:
 
 Aap sab ek saath bol sakte hain ya main ek ek karke poochunga. Jo nahi dena, 'koi nahi' bol dein, wo blank rahega.`;
 };
+
+/**
+ * Strips markdown, emojis, bullet points, chip labels, debug "Kya samjha" lines,
+ * and caps long messages to 1-2 sentences (at most ~200 characters) for natural TTS output.
+ */
+export const cleanForSpeech = (raw) => {
+    if (!raw || typeof raw !== 'string') return '';
+    let text = raw;
+
+    // 1. Strip debug / recap lines like "Kya samjha: ..." or "क्या समझा: ..."
+    text = text.replace(/(?:^|\n)\s*(?:Kya samjha|क्या समझा):[^\n]*/gi, '');
+
+    // 2. Strip bullet markers (e.g. "• ", "- ", "* ", "1. ", "1) ")
+    text = text.replace(/^\s*(?:[•\-*]|\d+[.)])\s+/gm, '');
+
+    // 3. Strip markdown syntax: bold, italic, code blocks, links, headers
+    text = text.replace(/```[\s\S]*?```/g, '');
+    text = text.replace(/`([^`]+)`/g, '$1');
+    text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+    text = text.replace(/\*([^*]+)\*/g, '$1');
+    text = text.replace(/__([^_]+)__/g, '$1');
+    text = text.replace(/_([^_]+)_/g, '$1');
+    text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    text = text.replace(/\[([^\]]+)\]/g, '$1');
+    text = text.replace(/^#+\s+/gm, '');
+
+    // 4. Strip emojis
+    text = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '');
+
+    // 5. Strip parenthetical chip / default hints: e.g. "(default 1)", "(default 18:00)"
+    text = text.replace(/\(default\s+[^)]+\)/gi, '');
+
+    // 6. Collapse multiple spaces and newlines
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // 7. Cap length for speech: long messages (like 11 point intro) must not be read in full
+    // If text > 200 characters, cut at the nearest sentence boundary within ~220 chars, or 200 chars max
+    if (text.length > 200) {
+        const sentences = text.match(/[^.!?।]+[.!?।]+/g);
+        if (sentences && sentences.length > 0) {
+            let accum = '';
+            for (const s of sentences) {
+                if ((accum + s).length <= 220) {
+                    accum += s;
+                } else {
+                    break;
+                }
+            }
+            if (accum.trim()) {
+                text = accum.trim();
+            } else {
+                text = text.slice(0, 197).trim() + '...';
+            }
+        } else {
+            text = text.slice(0, 197).trim() + '...';
+        }
+    }
+
+    return text;
+};
+
+/**
+ * Resolves spoken text for TTS prioritizing speakText, then speech, then cleaned bubble reply.
+ */
+export const resolveSpokenText = (data, fallbackBubbleText = '') => {
+    if (data?.speakText && typeof data.speakText === 'string' && data.speakText.trim()) {
+        return cleanForSpeech(data.speakText);
+    }
+    if (data?.speech && typeof data.speech === 'string' && data.speech.trim()) {
+        return cleanForSpeech(data.speech);
+    }
+    const raw = fallbackBubbleText || data?.reply || '';
+    return cleanForSpeech(raw);
+};
+
+/**
+ * Mic & Speech Rule:
+ * 1. Speaker toggle ON (autoSpeak = true): hands-free voice mode.
+ *    - Agent speaks every reply (shouldSpeak = true if ttsSupported).
+ *    - Mic reopens automatically after questions (needs_input, needs_disambiguation, ready),
+ *      whether last turn was typed, chip, or voice (micAction = 'reopen_after_speech').
+ * 2. Speaker toggle OFF (autoSpeak = false): text mode.
+ *    - Silent (shouldSpeak = false).
+ *    - No auto-listen (micAction = 'none').
+ * 3. In both modes:
+ *    - Mic stays closed if user muted, is typing in composer, or task created/cancelled.
+ *    - Denied mic permission fails silently.
+ */
+export const determineTurnSpeechAndMicAction = ({
+    inputSource = 'typed', // 'voice' | 'typed' | 'chip'
+    autoSpeak = true,      // boolean speaker toggle
+    ttsSupported = true,   // boolean
+    shouldListen = false,  // boolean from shouldAutoListenAfterTurn
+    isTyping = false,      // boolean composer typing state
+} = {}) => {
+    if (!autoSpeak) {
+        // Speaker OFF = text mode (silent, no auto-listen)
+        return {
+            shouldSpeak: false,
+            micAction: 'none',
+        };
+    }
+
+    // Speaker ON = hands-free voice mode
+    const shouldSpeak = Boolean(ttsSupported);
+    let micAction = 'none';
+
+    if (shouldListen && !isTyping) {
+        micAction = shouldSpeak ? 'reopen_after_speech' : 'reopen_after_delay';
+    }
+
+    return {
+        shouldSpeak,
+        micAction,
+    };
+};
+
+/**
+ * Title Guard: fillers that must never be accepted as a task title.
+ */
+export const TITLE_GUARD_FILLERS = new Set([
+    'hlo', 'hello', 'hi', 'hey', 'helo', 'namaste', 'namashkar', 'namaskar', 'pranam',
+    'salam', 'salaam', 'yo', 'ya', 'yes', 'yep', 'yeah', 'ok', 'okay', 'okk',
+    'ko', 'co', 'haan', 'ha', 'haanji', 'hnji', 'hn', 'hnn', 'nahi', 'nahin', 'no', 'nope', 'na',
+    'theek hai', 'thik hai', 'theek', 'thik', 'accha', 'acha', 'achha', 'kuch nahi', 'koi nahi',
+    'kuch nhi', 'koi nhi', 'skip', 'kardo', 'kar do', 'banao', 'bana do', 'do', 'done',
+    'sure', 'true', 'false', 'blank', 'none', 'नहीं', 'हाँ', 'हां', 'नमस्ते', 'हेलो', 'हाय'
+]);
+
+export const isTitleGuardRejected = (title) => {
+    if (!title || typeof title !== 'string') return true;
+    const clean = title.trim().toLowerCase().replace(/^[#@$%&*+=~`<>{}()[\]\\/|'"]+|[#@$%&*+=~`<>{}()[\]\\/|'"]+$/g, '').trim();
+    return TITLE_GUARD_FILLERS.has(clean) || clean.length < 2;
+};
+

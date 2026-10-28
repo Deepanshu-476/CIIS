@@ -16,7 +16,7 @@ const stripEmojis = (str) =>
 
 export default function useSpeech({
     defaultEngine = 'whisper', // 'whisper' | 'browser'
-    defaultLang = 'hi-IN',     // 'hi-IN' | 'en-IN' | 'auto'
+    defaultLang = 'auto',       // 'auto' | 'hi-IN' | 'en-IN'
     onFinalTranscript,
     onInactivityPrompt,
     onInactivityPause,
@@ -28,6 +28,7 @@ export default function useSpeech({
     const [lang, setLang] = useState(defaultLang);
     const [listening, setListening] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
+    const isTranscribingRef = useRef(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [userMuted, setUserMuted] = useState(false);
@@ -47,7 +48,9 @@ export default function useSpeech({
     // Auto-dismiss errors/notices immediately whenever engine or language changes
     useEffect(() => {
         setError(null);
-        setNotice(null);
+        if (sttFailureCountRef.current === 0) {
+            setNotice(null);
+        }
     }, [engine, lang]);
 
     // Diagnostics ref for live telemetry & bug reports
@@ -81,6 +84,13 @@ export default function useSpeech({
     const inactivityPhaseRef = useRef(0); // 0: none, 1: prompted at 6s, 2: paused at 12s
     const lastSpeechOrListenStartRef = useRef(0);
     const sttFailureCountRef = useRef(0);
+    const isStartingRef = useRef(false);
+
+    const clearUserMute = useCallback(() => {
+        userMutedRef.current = false;
+        setUserMuted(false);
+        setIsPaused(false);
+    }, []);
 
     // Adaptive VAD calibration & state
     const isCalibratingRef = useRef(true);
@@ -124,6 +134,7 @@ export default function useSpeech({
     // Speaking state & Echo Guard ref
     const isSpeakingRef = useRef(false);
     const speakTimeoutRef = useRef(null);
+    const activeUtteranceRef = useRef(null);
 
     // Turn dispatch & STT cap guards
     const turnDispatchedRef = useRef(false);
@@ -264,7 +275,7 @@ export default function useSpeech({
         if (reason === 'manual' || reason === 'user-stop' || reason === 'typed-send' || reason === 'cancel' || reason === 'created' || reason === 'chip-click' || reason === 'button-click' || reason === 'task-confirmed') {
             activeSessionIdRef.current = 0;
             if (abortControllerRef.current) {
-                try { abortControllerRef.current.abort(); } catch {}
+                try { abortControllerRef.current.abort(); } catch { /* ignore */ }
                 abortControllerRef.current = null;
             }
             audioChunksRef.current = [];
@@ -688,6 +699,7 @@ export default function useSpeech({
         }
 
         setIsTranscribing(true);
+        isTranscribingRef.current = true;
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
@@ -784,6 +796,7 @@ export default function useSpeech({
                 abortControllerRef.current = null;
             }
             setIsTranscribing(false);
+            isTranscribingRef.current = false;
         }
 
         // Notify user if Whisper is struggling without silently switching modes behind their back
@@ -810,11 +823,14 @@ export default function useSpeech({
         segmentSpeechDetectedRef.current = false;
         inactivityPhaseRef.current = 0;
         setError(null);
-        setNotice(null);
+        if (sttFailureCountRef.current === 0) {
+            setNotice(null);
+        }
         setIsPaused(false);
         setInterim('');
         chunkCutPendingRef.current = false;
 
+        isStartingRef.current = true;
         let stream = null;
         try {
             stream = await navigator.mediaDevices.getUserMedia({
@@ -826,6 +842,7 @@ export default function useSpeech({
             });
             audioStreamRef.current = stream;
         } catch (err) {
+            isStartingRef.current = false;
             setListening(false);
             if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                 setError('not-allowed');
@@ -833,6 +850,15 @@ export default function useSpeech({
             } else {
                 setError('mic-failed');
                 setNotice('Microphone connect nahi ho saka. Aap type karke task bana sakte hain.');
+            }
+            return;
+        }
+
+        // If stopped or invalidated while awaiting getUserMedia
+        if (activeSessionIdRef.current !== currentSessionId) {
+            isStartingRef.current = false;
+            if (stream) {
+                try { stream.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
             }
             return;
         }
@@ -909,12 +935,20 @@ export default function useSpeech({
             const data = await uploadAudioBlob(audioBlob, ext, durationMs, currentSessionId);
             if (data?.text && activeSessionIdRef.current === currentSessionId) {
                 dispatchFinalText(data.text.trim(), currentSessionId);
+            } else if (!userMutedRef.current && activeSessionIdRef.current === currentSessionId) {
+                // If Whisper caught no speech or returned empty, re-arm mic for user in hands-free voice mode
+                setTimeout(() => {
+                    if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
+                        start();
+                    }
+                }, 400);
             }
         };
 
         mediaRecorderRef.current = mediaRecorder;
         lastSpeechOrListenStartRef.current = recordingStartTime;
         mediaRecorder.start();
+        isStartingRef.current = false;
         setListening(true);
 
         startAudioAnalyser(
@@ -937,29 +971,59 @@ export default function useSpeech({
     // Unified start listening (half-duplex: strictly blocked while speaking, respects userMuted)
     const start = useCallback(
         ({ force = false } = {}) => {
+            if (listening || (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') || isStartingRef.current || isTranscribingRef.current) {
+                return;
+            }
+
             if (force) {
+                // Recover from stuck or stale flags (cleared through watchdog)
+                // But never override half-duplex if agent is actively speaking right now!
+                const isReallySpeaking = typeof window !== 'undefined' &&
+                    window.speechSynthesis &&
+                    window.speechSynthesis.speaking &&
+                    activeUtteranceRef.current &&
+                    isSpeakingRef.current;
+
+                if (isReallySpeaking) {
+                    console.warn('[useSpeech] Force start deferred: agent is actively speaking (half-duplex protected)');
+                    return;
+                }
+
                 userMutedRef.current = false;
                 setUserMuted(false);
+                if (speakTimeoutRef.current) {
+                    clearTimeout(speakTimeoutRef.current);
+                    speakTimeoutRef.current = null;
+                }
+                activeUtteranceRef.current = null;
+                if (typeof window !== 'undefined') {
+                    window.__ciisCurrentUtterance = null;
+                    window.__ciisVoiceSpeaking = false;
+                }
+                isSpeakingRef.current = false;
+                setIsSpeaking(false);
             } else if (userMutedRef.current) {
                 if (import.meta.env.DEV) {
-                    console.info('[useSpeech] start() ignored because user is muted (manual mic off)');
+                    console.info('[useSpeech] start() ignored because user tapped mute in current window');
                 }
                 return;
             }
-            if (isSpeakingRef.current || window.__ciisVoiceSpeaking) {
-                console.warn('[useSpeech] Cannot start listening while agent is speaking (half-duplex)');
-                return;
+
+            if (isSpeakingRef.current || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) {
+                // If browser speech synthesis has actually finished or was cancelled, clear stuck speaking flags
+                if (ttsSupported && !window.speechSynthesis?.speaking) {
+                    isSpeakingRef.current = false;
+                    if (typeof window !== 'undefined') {
+                        window.__ciisVoiceSpeaking = false;
+                    }
+                    setIsSpeaking(false);
+                } else {
+                    console.warn('[useSpeech] Cannot start listening while agent is speaking (half-duplex)');
+                    return;
+                }
             }
-            if (ttsSupported) {
-                try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
-            }
+
             turnDispatchedRef.current = false;
-            if (ttsSupported) {
-                window.speechSynthesis.cancel();
-                isSpeakingRef.current = false;
-                window.__ciisVoiceSpeaking = false;
-                setIsSpeaking(false);
-            }
             cleanupAudioNodes();
             setIsPaused(false);
             setError(null);
@@ -1024,6 +1088,11 @@ export default function useSpeech({
 
             utterance.rate = 1.0;
 
+            activeUtteranceRef.current = utterance;
+            if (typeof window !== 'undefined') {
+                window.__ciisCurrentUtterance = utterance;
+            }
+
             isSpeakingRef.current = true;
             window.__ciisVoiceSpeaking = true;
             setIsSpeaking(true);
@@ -1035,6 +1104,10 @@ export default function useSpeech({
                 if (speakTimeoutRef.current) {
                     clearTimeout(speakTimeoutRef.current);
                     speakTimeoutRef.current = null;
+                }
+                activeUtteranceRef.current = null;
+                if (typeof window !== 'undefined') {
+                    window.__ciisCurrentUtterance = null;
                 }
                 if (ttsSupported) {
                     try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
@@ -1051,11 +1124,14 @@ export default function useSpeech({
             utterance.onerror = handleFinish;
 
             const charCount = (devanagariClean || hinglishClean).length;
-            const estimatedMs = Math.max(2000, Math.min(45000, charCount * 120));
-            speakTimeoutRef.current = setTimeout(handleFinish, estimatedMs + 1000);
+            const estimatedMs = Math.max(1500, Math.min(10000, charCount * 80 + 1000));
+            speakTimeoutRef.current = setTimeout(handleFinish, estimatedMs);
 
             try {
                 window.speechSynthesis.speak(utterance);
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                }
             } catch {
                 handleFinish();
             }
@@ -1065,13 +1141,23 @@ export default function useSpeech({
 
     const cancelSpeech = useCallback(() => {
         if (ttsSupported) {
-            window.speechSynthesis.cancel();
+            try {
+                window.speechSynthesis.cancel();
+            } catch {
+                /* ignore */
+            }
         }
         if (speakTimeoutRef.current) {
             clearTimeout(speakTimeoutRef.current);
             speakTimeoutRef.current = null;
         }
+        activeUtteranceRef.current = null;
+        if (typeof window !== 'undefined') {
+            window.__ciisCurrentUtterance = null;
+            window.__ciisVoiceSpeaking = false;
+        }
         isSpeakingRef.current = false;
+        speechEndedAtRef.current = Date.now();
         setIsSpeaking(false);
         lastSpeechOrListenStartRef.current = Date.now();
     }, [ttsSupported]);
@@ -1171,7 +1257,9 @@ export default function useSpeech({
         resetSttUploadCount,
         vadStats,
         userMuted,
+        userMutedRef,
         setUserMuted,
+        clearUserMute,
         lastDiag: lastDiagRef.current,
     };
 }

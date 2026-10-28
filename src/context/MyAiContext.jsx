@@ -78,20 +78,26 @@ export function MyAiProvider({ children }) {
   );
 }
 
+const DEFAULT_MY_AI_STATE = {
+  isOpen: false,
+  isExpanded: false,
+  isClient: false,
+};
+
+const DEFAULT_MY_AI_ACTIONS = {
+  openMyAi: () => {},
+  closeMyAi: () => {},
+  toggleExpanded: () => {},
+};
+
 export function useMyAiState() {
   const context = useContext(MyAiStateContext);
-  if (!context) {
-    throw new Error('useMyAiState must be used within a MyAiProvider');
-  }
-  return context;
+  return context || DEFAULT_MY_AI_STATE;
 }
 
 export function useMyAiActions() {
   const context = useContext(MyAiActionsContext);
-  if (!context) {
-    throw new Error('useMyAiActions must be used within a MyAiProvider');
-  }
-  return context;
+  return context || DEFAULT_MY_AI_ACTIONS;
 }
 
 export function useMyAi() {

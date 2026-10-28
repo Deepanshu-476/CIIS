@@ -113,7 +113,7 @@ export default function MyAiChatView({ onBack, onClose }) {
     open: true,
     onClose: handleClose,
     variant: 'voice',
-    startWithMic: false,
+    startWithMic: true,
   });
 
   const {
@@ -137,6 +137,8 @@ export default function MyAiChatView({ onBack, onClose }) {
     setEngine,
     lang,
     listening,
+    userMuted,
+    isTypingRef,
     isSpeaking,
     isTranscribing,
     speechNotice,
@@ -195,7 +197,7 @@ export default function MyAiChatView({ onBack, onClose }) {
 
   // Handle click on example suggestion chip
   const handleExampleChipClick = (chipText) => {
-    sendTurn({ text: chipText });
+    sendTurn({ text: chipText, source: 'typed' });
   };
 
   // Derive human-friendly status text for the header: Listening -> Transcribing -> Thinking
@@ -210,6 +212,10 @@ export default function MyAiChatView({ onBack, onClose }) {
     statusText = 'Transcribing...';
   } else if (listening) {
     statusText = 'Listening...';
+  } else if (autoSpeak && userMuted) {
+    statusText = 'Mic paused - sending your next message resumes it';
+  } else if (autoSpeak) {
+    statusText = 'Mic: auto';
   } else if (orbState === 'paused') {
     statusText = 'Tap to talk';
   }
@@ -562,7 +568,12 @@ export default function MyAiChatView({ onBack, onClose }) {
             <button
               type="button"
               className={`my-ai-composer-icon-btn mic-btn ${listening ? 'is-listening' : ''} ${recordingVoiceNote ? 'recording' : ''}`}
-              onClick={handleOrbClick}
+              onClick={() => {
+                if (isSpeaking) {
+                  cancelSpeech();
+                }
+                handleOrbClick();
+              }}
               title={listening ? 'AI sun raha hai (Tap to pause)' : 'Mic chalu karein'}
               aria-label={listening ? 'Mic on, listening' : 'Mic off'}
             >
@@ -577,7 +588,11 @@ export default function MyAiChatView({ onBack, onClose }) {
               onChange={(e) => {
                 const val = e.target.value;
                 setInput(val);
+                if (isTypingRef) isTypingRef.current = Boolean(val && val.trim().length > 0);
                 cancelReadyCountdown();
+                if (isSpeaking) {
+                  cancelSpeech();
+                }
                 if (val.trim() && listening) {
                   stop('typing');
                 }
@@ -599,7 +614,7 @@ export default function MyAiChatView({ onBack, onClose }) {
               <button
                 type="button"
                 className="my-ai-composer-submit-btn is-stop-btn"
-                onClick={() => stop('user-stop')}
+                onClick={() => stop('silence')}
                 title="Stop recording and transcribe"
                 aria-label="Stop recording"
                 style={{ backgroundColor: '#ef4444', color: '#fff' }}
@@ -618,6 +633,16 @@ export default function MyAiChatView({ onBack, onClose }) {
               </button>
             )}
           </div>
+          {autoSpeak && userMuted && !listening && !isSpeaking && (
+            <div className="my-ai-mic-indicator-hint paused">
+              <span>Mic paused - sending your next message resumes it</span>
+            </div>
+          )}
+          {autoSpeak && !userMuted && !listening && !isSpeaking && (
+            <div className="my-ai-mic-indicator-hint auto">
+              <span>Mic: auto</span>
+            </div>
+          )}
         </form>
 
         {/* Dev-only live VAD diagnostic overlay */}

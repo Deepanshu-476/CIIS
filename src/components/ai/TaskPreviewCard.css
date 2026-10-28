@@ -254,3 +254,34 @@
     outline: 2px solid #6366f1;
     outline-offset: 2px;
 }
+
+/* Multi-assignee chips */
+.ai-assignee-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.ai-assignee-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.ai-assignee-chip-name {
+    font-weight: 600;
+}
+
+.ai-assignee-chip-dept {
+    color: #6366f1;
+    font-size: 11px;
+}

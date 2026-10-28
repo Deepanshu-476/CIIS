@@ -860,3 +860,18 @@ body.my-ai-expanded-active [class*="portal-messenger-launcher"],
 body.my-ai-expanded-active [class*="support-chat-launcher"] {
   display: none !important;
 }
+
+.my-ai-mic-indicator-hint {
+  font-size: 11px;
+  text-align: center;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
+.my-ai-mic-indicator-hint.paused {
+  color: #d97706;
+}
+
+.my-ai-mic-indicator-hint.auto {
+  color: #0284c7;
+}

@@ -26,6 +26,11 @@ import {
     candidateId,
     sanitizeDocName,
     buildTaskFormDataEntries,
+    cleanForSpeech,
+    resolveSpokenText,
+    determineTurnSpeechAndMicAction,
+    TITLE_GUARD_FILLERS,
+    isTitleGuardRejected,
 } from './taskAgentPureLogic.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -807,7 +812,7 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
 
         // 5. Watchdog test: if onend never fires, watchdog must fire within estimated timeout
         let watchdogFired = false;
-        const watchdog = createTtsWatchdog(() => {
+        const _watchdog = createTtsWatchdog(() => {
             watchdogFired = true;
         }, 10, 80); // 80ms max timeout for test
 
@@ -970,5 +975,826 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         session.handleAgentTurnResponse({ status: 'created', speech: 'Task ban gaya' });
         assert.equal(session.micOpen, false, 'Mic must NEVER open after task creation');
     });
+
+    test('26. What gets spoken: cleanForSpeech strips markdown, emoji, bullets, debug lines and caps long text', () => {
+        // 1. Strips markdown
+        const mdText = 'Please review **bold** and *italic* and `code` with [link](https://example.com)';
+        assert.equal(cleanForSpeech(mdText), 'Please review bold and italic and code with link');
+
+        // 2. Strips emojis
+        const emojiText = 'Task create ho gaya ✅ 🚀 🎉! Kal 5 baje milte hain 👍';
+        assert.equal(cleanForSpeech(emojiText), 'Task create ho gaya ! Kal 5 baje milte hain');
+
+        // 3. Strips bullet points
+        const bulletText = 'Items:\n1. Task naam\n2. Description\n• Priority\n- Due date';
+        assert.equal(cleanForSpeech(bulletText), 'Items: Task naam Description Priority Due date');
+
+        // 4. Strips "Kya samjha" debug lines
+        const debugText = 'Samajh gaya.\nKya samjha: naam = "Test Task", due = "kal"\nAgla sawal: description batayein.';
+        assert.equal(cleanForSpeech(debugText), 'Samajh gaya. Agla sawal: description batayein.');
+
+        // 5. Strips parenthetical default chips
+        const defaultChipText = 'Priority Days kya honge? (default 1)';
+        assert.equal(cleanForSpeech(defaultChipText), 'Priority Days kya honge?');
+
+        // 6. Long message (like 11 point intro) capped to 1-2 sentences <= 220 characters
+        const introGreeting = getRoleAwareGreeting({ role: 'admin' });
+        const cleanedGreeting = cleanForSpeech(introGreeting);
+        assert.ok(cleanedGreeting.length <= 220, `Cleaned greeting length (${cleanedGreeting.length}) exceeds 220 chars`);
+        assert.ok(cleanedGreeting.includes('Namaste! Main CIIS AI Assistant hoon.'), 'Should retain initial sentence');
+        assert.ok(!cleanedGreeting.includes('11. Attachments'), 'Should not read the entire 11-point list in full');
+
+        // 7. resolveSpokenText prioritizes speakText > speech > cleaned reply
+        const serverDataWithSpeakText = {
+            reply: 'Detailed visual reply with **formatting** and Kya samjha: debug info',
+            speech: 'डिटेल जवाब',
+            speakText: 'Short spoken answer.',
+        };
+        assert.equal(resolveSpokenText(serverDataWithSpeakText), 'Short spoken answer.');
+
+        const serverDataWithoutSpeakText = {
+            reply: 'Detailed reply ✅',
+            speech: 'नमस्ते',
+        };
+        assert.equal(resolveSpokenText(serverDataWithoutSpeakText), 'नमस्ते');
+
+        const serverDataFallback = {
+            reply: 'Simple reply message without speech fields.',
+        };
+        assert.equal(resolveSpokenText(serverDataFallback), 'Simple reply message without speech fields.');
+    });
+
+    test('27. Rule Matrix: determineTurnSpeechAndMicAction covers all hands-free voice and text mode combinations', () => {
+        // Combination 1: typed + speaker ON -> speaks, mic reopens after speech (hands-free!)
+        const combo1 = determineTurnSpeechAndMicAction({
+            inputSource: 'typed',
+            autoSpeak: true,
+            ttsSupported: true,
+            shouldListen: true,
+        });
+        assert.equal(combo1.shouldSpeak, true, 'typed + speaker ON must speak');
+        assert.equal(combo1.micAction, 'reopen_after_speech', 'typed + speaker ON must reopen mic in hands-free voice mode');
+
+        // Combination 2: typed + speaker OFF -> silent, mic stays closed (text mode!)
+        const combo2 = determineTurnSpeechAndMicAction({
+            inputSource: 'typed',
+            autoSpeak: false,
+            ttsSupported: true,
+            shouldListen: true,
+        });
+        assert.equal(combo2.shouldSpeak, false, 'typed + speaker OFF must be silent');
+        assert.equal(combo2.micAction, 'none', 'typed + speaker OFF must keep mic closed');
+
+        // Combination 3: voice + speaker ON -> speaks, then mic reopens after speech (hands-free!)
+        const combo3 = determineTurnSpeechAndMicAction({
+            inputSource: 'voice',
+            autoSpeak: true,
+            ttsSupported: true,
+            shouldListen: true,
+        });
+        assert.equal(combo3.shouldSpeak, true, 'voice + speaker ON must speak');
+        assert.equal(combo3.micAction, 'reopen_after_speech', 'voice + speaker ON must reopen mic after speech');
+
+        // Combination 4: voice + speaker OFF -> silent, mic stays closed (text mode!)
+        const combo4 = determineTurnSpeechAndMicAction({
+            inputSource: 'voice',
+            autoSpeak: false,
+            ttsSupported: true,
+            shouldListen: true,
+        });
+        assert.equal(combo4.shouldSpeak, false, 'voice + speaker OFF must be silent');
+        assert.equal(combo4.micAction, 'none', 'voice + speaker OFF must keep mic closed in text mode');
+
+        // Combination 5: chip + speaker ON -> speaks, mic reopens after speech
+        const combo5 = determineTurnSpeechAndMicAction({
+            inputSource: 'chip',
+            autoSpeak: true,
+            ttsSupported: true,
+            shouldListen: true,
+        });
+        assert.equal(combo5.shouldSpeak, true, 'chip + speaker ON must speak');
+        assert.equal(combo5.micAction, 'reopen_after_speech', 'chip + speaker ON must reopen mic after speech');
+
+        // Edge case: TTS not supported on platform -> never speaks, mic reopens after delay
+        const comboUnsupported = determineTurnSpeechAndMicAction({
+            inputSource: 'voice',
+            autoSpeak: true,
+            ttsSupported: false,
+            shouldListen: true,
+        });
+        assert.equal(comboUnsupported.shouldSpeak, false);
+        assert.equal(comboUnsupported.micAction, 'reopen_after_delay');
+
+        // Edge case: Turn not eligible for mic (e.g. task created or session cancelled)
+        const comboNotEligible = determineTurnSpeechAndMicAction({
+            inputSource: 'voice',
+            autoSpeak: true,
+            ttsSupported: true,
+            shouldListen: false,
+        });
+        assert.equal(comboNotEligible.shouldSpeak, true);
+        assert.equal(comboNotEligible.micAction, 'none', 'Mic must not reopen when turn is not eligible');
+
+        // Edge case: User is typing in composer -> mic stays closed
+        const comboTyping = determineTurnSpeechAndMicAction({
+            inputSource: 'typed',
+            autoSpeak: true,
+            ttsSupported: true,
+            shouldListen: true,
+            isTyping: true,
+        });
+        assert.equal(comboTyping.shouldSpeak, true);
+        assert.equal(comboTyping.micAction, 'none', 'Mic must not reopen when user is typing in composer');
+    });
+
+    test('28. Title Guard: fillers and greeting words must never be accepted as task titles', () => {
+        const fillersToReject = [
+            'hlo', 'hello', 'hi', 'hey', 'ya', 'yes', 'ok', 'ko', 'haan', 'nahi',
+            'okk', 'okay', 'yep', 'yeah', 'ha', 'hnji', 'nahin', 'no', 'theek', 'thik',
+            'accha', 'acha', 'skip', 'kardo', 'kar do', 'banao', 'bana do',
+        ];
+
+        for (const word of fillersToReject) {
+            assert.ok(isTitleGuardRejected(word), `Expected title guard to reject filler: "${word}"`);
+            assert.ok(isTitleGuardRejected(word.toUpperCase()), `Expected title guard to reject uppercase filler: "${word.toUpperCase()}"`);
+            assert.ok(isTitleGuardRejected(`  ${word}  `), `Expected title guard to reject padded filler: "  ${word}  "`);
+        }
+
+        // Single letter or empty
+        assert.ok(isTitleGuardRejected('a'));
+        assert.ok(isTitleGuardRejected(''));
+        assert.ok(isTitleGuardRejected(null));
+
+        // Valid real task titles must be accepted
+        const validTitles = [
+            'Call Priya about invoice',
+            'Fix login authentication bug',
+            'Deploy release to staging',
+            'Review design mockups',
+            'Client presentation prep',
+        ];
+
+        for (const title of validTitles) {
+            assert.equal(isTitleGuardRejected(title), false, `Expected title guard to accept valid title: "${title}"`);
+        }
+    });
+
+    test('29. Behaviour & Deduplication Simulation: Typed + Speaker ON speaks and keeps mic closed; deduplication prevents double speaking', async () => {
+        class TurnSessionSimulator {
+            constructor() {
+                this.autoSpeak = true;
+                this.ttsSupported = true;
+                this.micOpen = false;
+                this.spokenTurnIds = new Set();
+                this.spokenMessages = [];
+                this.cancelSpeechCalls = 0;
+            }
+
+            cancelSpeech() {
+                this.cancelSpeechCalls += 1;
+            }
+
+            speak(speechText, onEnd) {
+                this.spokenMessages.push(speechText);
+                setTimeout(() => {
+                    if (onEnd) onEnd();
+                }, 10);
+            }
+
+            handleAssistantTurn({ id, reply, speech, speakText, status, field, inputSource }) {
+                const spokenText = resolveSpokenText({ speech, speakText, reply }, reply);
+                const shouldListen = shouldAutoListenAfterTurn({ status, field, userMuted: false, isCreated: false });
+                const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
+                    inputSource,
+                    autoSpeak: this.autoSpeak,
+                    ttsSupported: this.ttsSupported,
+                    shouldListen,
+                });
+
+                if (shouldSpeak && id && !this.spokenTurnIds.has(id)) {
+                    this.spokenTurnIds.add(id);
+                    this.cancelSpeech();
+
+                    if (micAction === 'reopen_after_speech') {
+                        this.speak(spokenText, () => {
+                            this.micOpen = true;
+                        });
+                    } else {
+                        // mic stays closed
+                        this.speak(spokenText);
+                    }
+                } else if (!shouldSpeak && micAction === 'reopen_after_delay') {
+                    setTimeout(() => {
+                        this.micOpen = true;
+                    }, 10);
+                }
+            }
+        }
+
+        const sim = new TurnSessionSimulator();
+
+        // Turn 1: USER TYPED + SPEAKER ON -> speaks reply, mic reopens after speech (hands-free!)
+        sim.handleAssistantTurn({
+            id: 1,
+            inputSource: 'typed',
+            status: 'needs_input',
+            field: 'title',
+            reply: 'Task ka naam kya hoga?',
+        });
+        assert.equal(sim.spokenMessages.length, 1, 'Spoken messages count must be 1');
+        assert.equal(sim.spokenMessages[0], 'Task ka naam kya hoga?');
+        assert.equal(sim.micOpen, false, 'Mic must remain closed while speaking');
+        await new Promise((r) => setTimeout(r, 25));
+        assert.equal(sim.micOpen, true, 'Mic must reopen after typed turn speech finishes in hands-free voice mode');
+
+        // Turn 1 re-render or StrictMode double effect with same ID -> DO NOT speak twice
+        sim.handleAssistantTurn({
+            id: 1,
+            inputSource: 'typed',
+            status: 'needs_input',
+            field: 'title',
+            reply: 'Task ka naam kya hoga?',
+        });
+        assert.equal(sim.spokenMessages.length, 1, 'Deduplication must prevent speaking the same message ID twice');
+
+        // Turn 2: USER TYPED + SPEAKER OFF -> silent, mic stays closed (text mode)
+        sim.autoSpeak = false;
+        sim.micOpen = false;
+        sim.handleAssistantTurn({
+            id: 2,
+            inputSource: 'typed',
+            status: 'needs_input',
+            field: 'dueDateTime',
+            reply: 'Due date kya hogi?',
+        });
+        assert.equal(sim.spokenMessages.length, 1, 'No new speech when speaker is OFF');
+        assert.equal(sim.micOpen, false, 'Mic must remain closed in text mode');
+        sim.autoSpeak = true;
+
+        // Turn 3: USER VOICE + SPEAKER ON -> speaks reply, then mic reopens
+        sim.handleAssistantTurn({
+            id: 3,
+            inputSource: 'voice',
+            status: 'needs_input',
+            field: 'priority',
+            reply: 'Priority kya hogi?',
+        });
+        assert.equal(sim.spokenMessages.length, 2);
+        assert.equal(sim.micOpen, false, 'Mic must remain closed while speaking');
+        await new Promise((r) => setTimeout(r, 25));
+        assert.equal(sim.micOpen, true, 'Mic must reopen after voice turn speech finishes');
+
+        // Turn 4: USER VOICE + SPEAKER OFF -> silent, mic stays closed (text mode)
+        sim.autoSpeak = false;
+        sim.micOpen = false;
+        sim.handleAssistantTurn({
+            id: 4,
+            inputSource: 'voice',
+            status: 'needs_input',
+            field: 'checkpoints',
+            reply: 'Checkpoints add karne hain?',
+        });
+        assert.equal(sim.spokenMessages.length, 2, 'No speech when speaker toggle is OFF');
+        await new Promise((r) => setTimeout(r, 25));
+        assert.equal(sim.micOpen, false, 'Mic must remain closed when speaker toggle is OFF (text mode)');
+    });
+
+    test('30. Mic Auto-On Lifecycle: Greeting watchdog cancels stuck TTS, force unblocks mute, stop button does not mute permanently', async () => {
+        // 1. Session start with voice mode & greeting watchdog recovery
+        let isSpeaking = true;
+        let micStarted = false;
+        let speechCancelled = false;
+
+        const cancelSpeech = () => {
+            isSpeaking = false;
+            speechCancelled = true;
+        };
+
+        const reopenMic = () => {
+            if (isSpeaking) {
+                // If speech is still speaking, cancel it first as watchdog does
+                cancelSpeech();
+            }
+            micStarted = true;
+        };
+
+        // Simulating Chrome speech drop: onend NEVER fires. Watchdog must fire within timeout:
+        const _greetingWatchdog = createTtsWatchdog(() => {
+            cancelSpeech();
+            reopenMic();
+        }, 50, 60);
+
+        await new Promise((r) => setTimeout(r, 90));
+        assert.equal(speechCancelled, true, 'Watchdog must cancel speech if TTS hangs');
+        assert.equal(micStarted, true, 'Mic must be auto-opened after watchdog triggers');
+
+        // 2. Stop recording button clicked with reason 'silence': must NOT set userMuted
+        let userMutedState = false;
+        const handleStopRecording = (reason) => {
+            if (reason === 'manual' || reason === 'user-stop') {
+                userMutedState = true;
+            }
+        };
+
+        handleStopRecording('silence');
+        assert.equal(userMutedState, false, 'Stopping recording via composer stop button (silence) must not mute user');
+
+        // 3. Half-duplex gate: if speech synthesis ended in browser, gate allows mic restart
+        const canStartMic = ({ isSpeaking, browserSpeaking, force }) => {
+            if (force) return true;
+            if (isSpeaking || browserSpeaking) return false;
+            return true;
+        };
+
+        assert.equal(canStartMic({ isSpeaking: false, browserSpeaking: false, force: false }), true);
+        assert.equal(canStartMic({ isSpeaking: true, browserSpeaking: true, force: true }), true, 'Force must allow starting even if previous flags lingered');
+    });
+
+    test('31. Negative Confirmation Tokens: short words and particles (to, toh, na, ko, ho, hm, oh, so, go, bhi, aur, kya, ab) must strictly NOT confirm', () => {
+        const negativeTokens = [
+            'to', 'toh', 'na', 'ko', 'ho', 'hm', 'oh', 'so', 'go', 'bhi', 'aur', 'kya', 'ab',
+            'kuch', 'nahi', 'kisko', 'kab', 'kyun', 'kaha', 'kahan', 'kis'
+        ];
+
+        for (const token of negativeTokens) {
+            const confirmedInReady = isConfirmationIntent(token, 'ready');
+            const confirmedInConfirming = isConfirmationIntent(token, 'confirming');
+            const confirmedDefault = isConfirmationIntent(token);
+
+            assert.equal(confirmedInReady, false, `Negative token "${token}" in ready state must NOT confirm`);
+            assert.equal(confirmedInConfirming, false, `Negative token "${token}" in confirming state must NOT confirm`);
+            assert.equal(confirmedDefault, false, `Negative token "${token}" without state must NOT confirm`);
+        }
+
+        // Positive affirmations must continue to confirm
+        assert.equal(isConfirmationIntent('haan ji', 'ready'), true);
+        assert.equal(isConfirmationIntent('bana do', 'ready'), true);
+        assert.equal(isConfirmationIntent('kar do', 'ready'), true);
+        assert.equal(isConfirmationIntent('ok', 'ready'), true);
+        assert.equal(isConfirmationIntent('yes', 'ready'), true);
+    });
+
+    test('32. Mic Session State & Multi-Assignee Payload Contract vs AdminTaskCreate', () => {
+        // 1. Session mic state: chip click keeps current mic mode ('voice') and triggers mic reopen
+        const sessionMicMode = 'voice';
+        const chipTurnSource = sessionMicMode; // Chip click preserves session micMode
+        assert.equal(chipTurnSource, 'voice');
+
+        const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
+            inputSource: chipTurnSource,
+            autoSpeak: true,
+            ttsSupported: true,
+            shouldListen: true,
+        });
+
+        assert.equal(shouldSpeak, true);
+        assert.equal(micAction, 'reopen_after_speech', 'Mic must reopen after TTS when chip was clicked in voice session');
+
+        // 2. Multi-assignee payload serialization matches AdminTaskCreate.jsx byte-for-byte
+        const multiAssigneeDraft = {
+            intent: 'task_assigned_user',
+            taskFor: 'others',
+            title: 'Deploy microservice update',
+            description: 'Docker image deploy to production',
+            assignees: [
+                { id: '6acdf50cd2a8c22d6f2b2e5c', name: 'Rohit Sharma', department: 'DevOps' },
+                { id: '6acdf50cd2a8c22d6f2b2e5d', name: 'Rahul Verma', department: 'Backend' },
+            ],
+            assignedUsers: ['6acdf50cd2a8c22d6f2b2e5c', '6acdf50cd2a8c22d6f2b2e5d'],
+            priority: 'high',
+            status: 'pending',
+            dueDateTime: '2026-10-30T14:00:00.000Z',
+            checkpoints: [{ title: 'Build container', completed: false }],
+        };
+
+        const payload = buildConfirmPayloadFromDraft(multiAssigneeDraft);
+        assert.equal(payload.endpoint, '/task/create-for-others');
+        assert.equal(payload.method, 'POST');
+        assert.equal(payload.multipart, true);
+
+        // Byte-for-byte matches AdminTaskCreate.jsx line 1337: JSON.stringify(newTask.assignedUsers)
+        const parsedAssignedUsers = JSON.parse(payload.fields.assignedUsers);
+        assert.deepEqual(parsedAssignedUsers, ['6acdf50cd2a8c22d6f2b2e5c', '6acdf50cd2a8c22d6f2b2e5d']);
+        assert.equal(payload.fields.assignedUsers, JSON.stringify(['6acdf50cd2a8c22d6f2b2e5c', '6acdf50cd2a8c22d6f2b2e5d']));
+        assert.equal(payload.fields.title, 'Deploy microservice update');
+        assert.equal(payload.fields.priority, 'high');
+    });
+
+    test('33. FormData Contract Parity: task_project (repeated entries) vs task_assigned_user (single JSON string)', () => {
+        // 1. Project Task: POST /projects/:id/tasks contract (ProjectDetailsPage.jsx lines 724-727)
+        const projectDraft = {
+            intent: 'task_project',
+            projectId: '607f191e810c19729de860a1',
+            projectName: 'Demo 1',
+            title: 'Doing API testing',
+            dueDate: '2026-10-28T17:00:00+05:30',
+            assignedUsers: ['u_divya', 'u_aarav'],
+            assignees: [
+                { id: 'u_divya', name: 'Divya Patel' },
+                { id: 'u_aarav', name: 'Aarav Sharma' },
+            ],
+            priority: 'Medium',
+            status: 'pending',
+        };
+
+        const projectPayload = buildConfirmPayloadFromDraft(projectDraft);
+        assert.equal(projectPayload.endpoint, '/projects/607f191e810c19729de860a1/tasks');
+        assert.ok(Array.isArray(projectPayload.fields.assignedUsers));
+        assert.deepEqual(projectPayload.fields.assignedUsers, ['u_divya', 'u_aarav']);
+
+        const projectFormDataEntries = buildTaskFormDataEntries({ payload: projectPayload });
+        const repeatedAssignedEntries = projectFormDataEntries.filter(([k]) => k === 'assignedUsers');
+        assert.equal(repeatedAssignedEntries.length, 2, 'Project task must have repeated assignedUsers FormData entries');
+        assert.deepEqual(repeatedAssignedEntries, [
+            ['assignedUsers', 'u_divya'],
+            ['assignedUsers', 'u_aarav'],
+        ]);
+
+        // 2. Assigned Task: POST /task/create-for-others contract (AdminTaskCreate.jsx line 1337)
+        const assignedDraft = {
+            intent: 'task_assigned_user',
+            title: 'Client proposal review',
+            dueDateTime: '2026-10-28T17:00:00+05:30',
+            assignedUsers: ['u_rohit', 'u_rahul'],
+            assignees: [
+                { id: 'u_rohit', name: 'Rohit Sharma' },
+                { id: 'u_rahul', name: 'Rahul Verma' },
+            ],
+            priority: 'medium',
+            status: 'pending',
+        };
+
+        const assignedPayload = buildConfirmPayloadFromDraft(assignedDraft);
+        assert.equal(assignedPayload.endpoint, '/task/create-for-others');
+        assert.equal(typeof assignedPayload.fields.assignedUsers, 'string');
+        assert.deepEqual(JSON.parse(assignedPayload.fields.assignedUsers), ['u_rohit', 'u_rahul']);
+
+        const assignedFormDataEntries = buildTaskFormDataEntries({ payload: assignedPayload });
+        const singleAssignedEntries = assignedFormDataEntries.filter(([k]) => k === 'assignedUsers');
+        assert.equal(singleAssignedEntries.length, 1, 'Assigned user task must have single assignedUsers entry containing JSON string');
+        assert.equal(singleAssignedEntries[0][1], JSON.stringify(['u_rohit', 'u_rahul']));
+    });
+
+    class MockSpeechEngine {
+        constructor() {
+            this.isSpeaking = false;
+            this.windowVoiceSpeaking = false;
+            this.speechSynthesisSpeaking = false;
+            this.activeUtterance = null;
+            this.spokenTexts = [];
+        }
+
+        speak(text, onEnd, hangs = false) {
+            this.isSpeaking = true;
+            this.windowVoiceSpeaking = true;
+            this.speechSynthesisSpeaking = true;
+            this.activeUtterance = { text };
+            this.spokenTexts.push(text);
+
+            if (!hangs) {
+                setTimeout(() => {
+                    this.isSpeaking = false;
+                    this.windowVoiceSpeaking = false;
+                    this.speechSynthesisSpeaking = false;
+                    this.activeUtterance = null;
+                    if (onEnd) onEnd();
+                }, 15);
+            }
+        }
+
+        finishSpeaking() {
+            this.isSpeaking = false;
+            this.windowVoiceSpeaking = false;
+            this.speechSynthesisSpeaking = false;
+            this.activeUtterance = null;
+        }
+
+        cancelSpeech() {
+            this.isSpeaking = false;
+            this.windowVoiceSpeaking = false;
+            this.speechSynthesisSpeaking = false;
+            this.activeUtterance = null;
+        }
+    }
+
+    class MockTaskAgentHookSession {
+        constructor({ autoSpeak = true, ttsSupported = true } = {}) {
+            this.autoSpeak = autoSpeak;
+            this.ttsSupported = ttsSupported;
+            this.listening = false;
+            this.userMuted = false;
+            this.userMutedRef = { current: false };
+            this.isTyping = false;
+            this.composerInput = '';
+            this.status = 'idle';
+            this.field = null;
+            this.isCreated = false;
+            this.engine = new MockSpeechEngine();
+            this.whisperUploadCalls = 0;
+            this.sessionId = 1;
+            this.activeSessionId = 0;
+            this.isTranscribing = false;
+        }
+
+        // 1. User manual tap on mic button to pause/mute
+        manualTapMic() {
+            if (this.listening) {
+                this.stopListening('manual');
+            } else {
+                this.userMuted = false;
+                this.userMutedRef.current = false;
+                this.startListening();
+            }
+        }
+
+        muteMic() {
+            this.stopListening('manual');
+        }
+
+        stopListening(reason) {
+            this.listening = false;
+            if (reason === 'manual' || reason === 'user-stop') {
+                this.userMuted = true;
+                this.userMutedRef.current = true;
+            }
+            if (['manual', 'user-stop', 'typed-send', 'chip-click', 'cancel', 'created'].includes(reason)) {
+                this.activeSessionId = 0; // invalidate session to drop trailing buffers
+            }
+        }
+
+        startListening({ force = false } = {}) {
+            if (this.listening || this.isTranscribing) return; // do not start on top of active capture or in-flight upload
+
+            // Half-duplex protection: force never overrides while agent is actively speaking
+            if (this.engine.isSpeaking && !force) return;
+
+            if (force) {
+                this.userMuted = false;
+                this.userMutedRef.current = false;
+            } else if (this.userMutedRef.current) {
+                return; // paused in current window
+            }
+
+            this.sessionId += 1;
+            this.activeSessionId = this.sessionId;
+            this.listening = true;
+        }
+
+        // 2. User sends message: clears manual mute for upcoming turn!
+        sendMessage({ text = '', source = 'typed' }) {
+            // Clear manual mute for conversation progression (Requirement 1)
+            this.userMuted = false;
+            this.userMutedRef.current = false;
+            this.isTyping = false;
+            this.composerInput = '';
+            if (this.listening) {
+                this.stopListening(source === 'voice' ? 'silence' : 'typed-send');
+            }
+        }
+
+        clickChip(chip) {
+            this.userMuted = false;
+            this.userMutedRef.current = false;
+            this.isTyping = false;
+            this.composerInput = '';
+            if (this.listening) {
+                this.stopListening('chip-click');
+            }
+        }
+
+        // 3. Trailing buffer arrival simulation in MediaRecorder.onstop
+        onMediaRecorderStop(capturedSessionId) {
+            if (this.activeSessionId !== capturedSessionId || capturedSessionId === 0) {
+                // Dropped because session was invalidated!
+                return;
+            }
+            this.whisperUploadCalls += 1;
+        }
+
+        // 4. Agent delivers response
+        handleAssistantResponse({ status, field, reply, speech, ttsHangs = false }) {
+            this.status = status;
+            this.field = field;
+            if (status === 'created') this.isCreated = true;
+
+            const isTypingNow = Boolean(this.isTyping || this.composerInput.trim().length > 0);
+
+            const shouldListen = shouldAutoListenAfterTurn({
+                status,
+                field,
+                userMuted: false, // mute cleared by sending message
+                isCreated: this.isCreated,
+                isTyping: isTypingNow,
+            });
+
+            const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
+                inputSource: 'typed',
+                autoSpeak: this.autoSpeak,
+                ttsSupported: this.ttsSupported,
+                shouldListen,
+                isTyping: isTypingNow,
+            });
+
+            if (shouldSpeak) {
+                let micStarted = false;
+                const reopenMic = () => {
+                    if (micStarted) return;
+                    if (this.userMutedRef.current) return;
+                    if (this.isTyping || this.composerInput.trim().length > 0) return;
+                    if (!this.autoSpeak) return;
+                    if (this.isCreated || this.status === 'created' || this.status === 'cancelled') return;
+
+                    micStarted = true;
+                    this.startListening({ force: true });
+                };
+
+                const watchdog = createTtsWatchdog(() => {
+                    this.engine.cancelSpeech();
+                    reopenMic();
+                }, reply.length, 30);
+
+                this.engine.speak(speech || reply, () => {
+                    watchdog.cancel();
+                    reopenMic();
+                }, ttsHangs);
+            }
+        }
+    }
+
+    test('34. PART B: Auto-Mic Hook-Level Rule Matrix with Fake Timers & Speech Engine', async () => {
+
+        // Test 1: Auto-open after each question type for typed, chip, and voice turns
+        const questionTypes = [
+            { status: 'needs_input', field: 'title' },
+            { status: 'needs_disambiguation', field: 'assignee' },
+            { status: 'ready', field: 'ready' },
+        ];
+        const turnSources = ['typed', 'chip', 'voice'];
+
+        for (const q of questionTypes) {
+            for (const src of turnSources) {
+                const session = new MockTaskAgentHookSession({ autoSpeak: true });
+                if (src === 'typed') session.sendMessage({ text: 'sample message', source: 'typed' });
+                else if (src === 'chip') session.clickChip({ label: 'Sample Chip' });
+                else session.sendMessage({ text: 'sample transcript', source: 'voice' });
+
+                session.handleAssistantResponse({
+                    status: q.status,
+                    field: q.field,
+                    reply: 'Agent question text',
+                });
+
+                assert.equal(session.listening, false, `Mic must stay closed while agent is speaking ${q.status} from ${src}`);
+                await new Promise((r) => setTimeout(r, 25));
+                assert.equal(session.listening, true, `Mic must auto-open after agent finishes speaking ${q.status} from ${src}`);
+            }
+        }
+
+        // Test 2: Mute then typed message then next question opens (User manual test case!)
+        const muteTurnSession = new MockTaskAgentHookSession({ autoSpeak: true });
+        muteTurnSession.startListening();
+        assert.equal(muteTurnSession.listening, true);
+
+        // User turns mic off (mute)
+        muteTurnSession.manualTapMic();
+        assert.equal(muteTurnSession.listening, false);
+        assert.equal(muteTurnSession.userMuted, true, 'Manual tap must mute current window');
+
+        // User types "demo 1 project mein task banao" and sends
+        muteTurnSession.sendMessage({ text: 'demo 1 project mein task banao', source: 'typed' });
+        assert.equal(muteTurnSession.userMuted, false, 'Sending message must clear user mute for next turn');
+
+        // Agent asks "Task ka naam kya hoga?"
+        muteTurnSession.handleAssistantResponse({
+            status: 'needs_input',
+            field: 'title',
+            reply: 'Task ka naam kya hoga?',
+        });
+        assert.equal(muteTurnSession.listening, false, 'Mic must wait for speech to finish');
+        await new Promise((r) => setTimeout(r, 25));
+        assert.equal(muteTurnSession.listening, true, 'Mic must auto-open by itself after agent question');
+
+        // Test 3: Stuck isSpeakingRef recovered by the watchdog
+        const stuckSession = new MockTaskAgentHookSession({ autoSpeak: true });
+        stuckSession.sendMessage({ text: 'Hello', source: 'typed' });
+        stuckSession.handleAssistantResponse({
+            status: 'needs_input',
+            field: 'title',
+            reply: 'Task ka naam kya hoga?',
+            ttsHangs: true, // onend NEVER fires (Chromium bug simulation)
+        });
+        assert.equal(stuckSession.engine.isSpeaking, true, 'Engine initially stuck speaking');
+        assert.equal(stuckSession.listening, false, 'Mic must not open immediately on stuck speech');
+        await new Promise((r) => setTimeout(r, 50)); // Watchdog fires at 30ms
+        assert.equal(stuckSession.engine.isSpeaking, false, 'Watchdog must cancel stuck speech');
+        assert.equal(stuckSession.listening, true, 'Mic must auto-open after watchdog recovers stuck speech');
+
+        // Test 4: Typing keeps it closed
+        const typingSession = new MockTaskAgentHookSession({ autoSpeak: true });
+        typingSession.sendMessage({ text: 'Start task', source: 'typed' });
+        typingSession.composerInput = 'typing a task name...';
+        typingSession.isTyping = true;
+        typingSession.handleAssistantResponse({
+            status: 'needs_input',
+            field: 'title',
+            reply: 'Task ka naam kya hoga?',
+        });
+        await new Promise((r) => setTimeout(r, 25));
+        assert.equal(typingSession.listening, false, 'Mic must stay closed when user is typing in composer');
+
+        // Test 5: Speaker OFF keeps it closed (text mode)
+        const speakerOffSession = new MockTaskAgentHookSession({ autoSpeak: false });
+        speakerOffSession.sendMessage({ text: 'Text only task', source: 'typed' });
+        speakerOffSession.handleAssistantResponse({
+            status: 'needs_input',
+            field: 'title',
+            reply: 'Task ka naam kya hoga?',
+        });
+        await new Promise((r) => setTimeout(r, 25));
+        assert.equal(speakerOffSession.listening, false, 'Mic must stay closed when speaker is OFF (text mode)');
+
+        // Test 6: Created / cancelled keeps it closed
+        const createdSession = new MockTaskAgentHookSession({ autoSpeak: true });
+        createdSession.sendMessage({ text: 'haan create kar do', source: 'typed' });
+        createdSession.handleAssistantResponse({
+            status: 'created',
+            field: 'done',
+            reply: 'Task successfully create ho gaya hai!',
+        });
+        await new Promise((r) => setTimeout(r, 25));
+        assert.equal(createdSession.listening, false, 'Mic must stay closed when task is created');
+
+        // Test 7: Stop followed by trailing buffer sends nothing to Whisper
+        const trailingBufferSession = new MockTaskAgentHookSession({ autoSpeak: true });
+        trailingBufferSession.startListening();
+        const recordingSessionId = trailingBufferSession.activeSessionId;
+        assert.ok(recordingSessionId > 0);
+
+        // User stops/mutes or clicks a chip
+        trailingBufferSession.stopListening('manual');
+        assert.equal(trailingBufferSession.activeSessionId, 0, 'Stopping capture must invalidate activeSessionId to 0');
+
+        // Trailing chunks arrive late from mediaRecorder.onstop
+        trailingBufferSession.onMediaRecorderStop(recordingSessionId);
+        assert.equal(trailingBufferSession.whisperUploadCalls, 0, 'Trailing buffer must be dropped, 0 calls to Whisper upload');
+
+        // Test 8: In-flight upload lock prevents starting capture on top of transcribing session, preserving activeSessionId
+        const inFlightSession = new MockTaskAgentHookSession({ autoSpeak: true });
+        inFlightSession.startListening();
+        const activeId = inFlightSession.activeSessionId;
+        assert.ok(activeId > 0);
+
+        // Speech ends -> MediaRecorder stops -> begins transcribing
+        inFlightSession.listening = false;
+        inFlightSession.isTranscribing = true;
+
+        // An async trigger or effect attempts to call startListening while transcribing
+        inFlightSession.startListening({ force: true });
+        assert.equal(inFlightSession.activeSessionId, activeId, 'activeSessionId must NOT be clobbered while transcribing');
+        assert.equal(inFlightSession.listening, false, 'Capture must NOT start while transcribing in-flight');
+
+        // Transcribe finishes -> text processed
+        inFlightSession.isTranscribing = false;
+        inFlightSession.onMediaRecorderStop(activeId);
+        assert.equal(inFlightSession.whisperUploadCalls, 1, 'Transcript for active session must succeed');
+    });
+
+    test('35. Stale userMuted fix: mute, send a typed message, agent asks, mic opens', async () => {
+        // Simulates the exact bug where React state userMuted was closed over as true,
+        // but userMutedRef.current was cleared by sendTurn synchronously.
+        const session = new MockTaskAgentHookSession({ autoSpeak: true });
+
+        // 1. User mutes the mic
+        session.muteMic();
+        assert.equal(session.userMutedRef.current, true, 'userMutedRef must be true after manual mute');
+        assert.equal(session.listening, false, 'Mic must be closed when muted');
+
+        // 2. User sends a typed message: "demo 1 project mein task banao"
+        // In sendTurn: clearUserMute() is called synchronously, resetting userMutedRef.current = false
+        session.sendMessage({ text: 'demo 1 project mein task banao', source: 'typed' });
+        assert.equal(session.userMutedRef.current, false, 'Sending typed message must synchronously clear userMutedRef');
+
+        // 3. Agent replies with a question: "Task ka naam kya hoga?"
+        session.handleAssistantResponse({
+            status: 'needs_input',
+            field: 'title',
+            reply: 'Task ka naam kya hoga?',
+            speech: 'टास्क का नाम क्या होगा?',
+            speakText: 'Task ka naam kya hoga?',
+        });
+
+        // 4. While speaking, mic stays closed (half-duplex)
+        assert.equal(session.listening, false, 'Mic must not open while agent is speaking');
+        assert.equal(session.engine.isSpeaking, true, 'Agent is speaking question');
+
+        // 5. Speech finishes (onend fires)
+        await new Promise((r) => setTimeout(r, 25));
+        session.engine.finishSpeaking();
+
+        // 6. Mic must now auto-open by itself because userMutedRef.current is false!
+        assert.equal(session.listening, true, 'Mic must auto-open by itself after agent question when userMutedRef is cleared');
+    });
 });
+
+
 

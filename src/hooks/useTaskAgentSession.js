@@ -15,9 +15,11 @@ import {
     shouldAutoListenAfterTurn,
     createTtsWatchdog,
     validateAttachmentFile,
-    sanitizeDocName,
     buildTaskFormDataEntries,
     getRoleAwareGreeting,
+    cleanForSpeech,
+    resolveSpokenText,
+    determineTurnSpeechAndMicAction,
     formatSpokenForTTS,
     MAX_FILES,
     MAX_FILE_SIZE_BYTES,
@@ -75,6 +77,11 @@ export default function useTaskAgentSession({
     const readyCountdownIntervalRef = useRef(null);
     const confirmHandlerRef = useRef(null);
     const isCreatingRef = useRef(false);
+    const inputSourceRef = useRef('typed'); // 'voice' | 'typed'
+    // Session-level mic mode state: 'voice' once spoken or tapped, 'typed' when keyboard text sent or muted
+    const micModeRef = useRef(variant === 'voice' || startWithMic ? 'voice' : 'typed');
+    const spokenMessageIdsRef = useRef(new Set());
+    const isTypingRef = useRef(false);
 
     const cancelAutoSend = useCallback(() => {
         if (autoSendIntervalRef.current) {
@@ -94,7 +101,9 @@ export default function useTaskAgentSession({
 
     const pushMsg = useCallback((role, text, extra = {}) => {
         idRef.current += 1;
-        setMessages((m) => [...m, { id: idRef.current, role, text, ...extra }]);
+        const newId = idRef.current;
+        setMessages((m) => [...m, { id: newId, role, text, ...extra }]);
+        return newId;
     }, []);
 
     const handleFinalTranscriptRef = useRef(null);
@@ -129,10 +138,12 @@ export default function useTaskAgentSession({
         resetSttUploadCount,
         vadStats,
         userMuted,
+        userMutedRef,
         setUserMuted,
+        clearUserMute,
     } = useSpeech({
         defaultEngine: 'whisper',
-        defaultLang: 'hi-IN', // Defaults to Hindi/Hinglish in voice mode
+        defaultLang: 'auto', // Defaults to auto language detection
         enableChunking: false,
         maxSttUploads: 12,
         onFinalTranscript: (text) => handleFinalTranscriptRef.current?.(text),
@@ -179,9 +190,15 @@ export default function useTaskAgentSession({
 
     // Send Turn to Backend Task Agent
     const sendTurn = useCallback(
-        async ({ text = '', action, pick, draftPatch, display }) => {
+        async ({ text = '', action, pick, draftPatch, display, source }) => {
             cancelAutoSend();
             cancelReadyCountdown();
+            // Sending a message (typed, chip, voice) clears mute from the previous window (Requirement 1)
+            clearUserMute();
+            isTypingRef.current = false;
+
+            const turnSource = source || inputSourceRef.current || 'typed';
+            inputSourceRef.current = 'typed';
 
             const shown = display !== undefined ? display : text;
             if (!text.trim() && !action && !pick) return;
@@ -191,6 +208,9 @@ export default function useTaskAgentSession({
             }
 
             setInput('');
+            if (inputRef.current) {
+                inputRef.current.value = '';
+            }
             setLoading(true);
             cancelSpeech();
 
@@ -204,13 +224,47 @@ export default function useTaskAgentSession({
                     setLoading(false);
                     const replyMsg = 'Ji batayein kya changes karne hain? Main kar dungi.';
                     const speechMsg = 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
-                    pushMsg('assistant', replyMsg);
-                    if (autoSpeak) {
-                        speak(speechMsg, replyMsg, () => {
-                            if (variant === 'voice') setTimeout(() => start(), 300);
-                        });
-                    } else if (variant === 'voice') {
-                        setTimeout(() => start(), 300);
+                    const msgId = pushMsg('assistant', replyMsg);
+                    const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
+                    const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
+                        inputSource: turnSource,
+                        autoSpeak,
+                        ttsSupported,
+                        shouldListen: true,
+                        isTyping: isTypingNow,
+                    });
+                    if (shouldSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                        spokenMessageIdsRef.current.add(msgId);
+                        cancelSpeech();
+                        if (micAction === 'reopen_after_speech') {
+                            let micStarted = false;
+                            const reopenMic = () => {
+                                if (micStarted) return;
+                                if (userMutedRef.current) return;
+                                if (isTypingRef.current || inputRef.current?.value?.trim()?.length > 0) return;
+                                if (!autoSpeak) return;
+                                if (resultRef.current?.status === 'created' || resultRef.current?.status === 'cancelled' || isCreatedRef.current) return;
+                                micStarted = true;
+                                cancelSpeech();
+                                setTimeout(() => start({ force: true })?.catch?.(() => {}), 200);
+                            };
+                            const watchdog = createTtsWatchdog(() => {
+                                cancelSpeech();
+                                reopenMic();
+                            }, replyMsg.length);
+                            speak(speechMsg, replyMsg, () => {
+                                watchdog.cancel();
+                                reopenMic();
+                            });
+                        } else {
+                            speak(speechMsg, replyMsg);
+                        }
+                    } else if (!shouldSpeak && micAction === 'reopen_after_delay') {
+                        setTimeout(() => {
+                            if (!userMutedRef.current && !isTypingRef.current && !inputRef.current?.value?.trim()?.length) {
+                                start({ force: true })?.catch?.(() => {});
+                            }
+                        }, 200);
                     }
                     return;
                 } else if (isConfirmationIntent(text)) {
@@ -224,13 +278,47 @@ export default function useTaskAgentSession({
                     setLoading(false);
                     const noiseReply = 'Samajh nahi aaya. Create kar doon? Haan ya nahi bolein, ya bataiye kya badalna hai.';
                     const noiseSpeech = 'समझ नहीं आया। क्या बना दूं? हां या नहीं बोलें, या बताइए क्या बदलना है।';
-                    pushMsg('assistant', noiseReply);
-                    if (autoSpeak) {
-                        speak(noiseSpeech, noiseReply, () => {
-                            if (variant === 'voice') setTimeout(() => start(), 300);
-                        });
-                    } else if (variant === 'voice') {
-                        setTimeout(() => start(), 300);
+                    const msgId = pushMsg('assistant', noiseReply);
+                    const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
+                    const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
+                        inputSource: turnSource,
+                        autoSpeak,
+                        ttsSupported,
+                        shouldListen: true,
+                        isTyping: isTypingNow,
+                    });
+                    if (shouldSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                        spokenMessageIdsRef.current.add(msgId);
+                        cancelSpeech();
+                        if (micAction === 'reopen_after_speech') {
+                            let micStarted = false;
+                            const reopenMic = () => {
+                                if (micStarted) return;
+                                if (userMutedRef.current) return;
+                                if (isTypingRef.current || inputRef.current?.value?.trim()?.length > 0) return;
+                                if (!autoSpeak) return;
+                                if (resultRef.current?.status === 'created' || resultRef.current?.status === 'cancelled' || isCreatedRef.current) return;
+                                micStarted = true;
+                                cancelSpeech();
+                                setTimeout(() => start({ force: true })?.catch?.(() => {}), 200);
+                            };
+                            const watchdog = createTtsWatchdog(() => {
+                                cancelSpeech();
+                                reopenMic();
+                            }, noiseReply.length);
+                            speak(noiseSpeech, noiseReply, () => {
+                                watchdog.cancel();
+                                reopenMic();
+                            });
+                        } else {
+                            speak(noiseSpeech, noiseReply);
+                        }
+                    } else if (!shouldSpeak && micAction === 'reopen_after_delay') {
+                        setTimeout(() => {
+                            if (!userMutedRef.current && !isTypingRef.current && !inputRef.current?.value?.trim()?.length) {
+                                start({ force: true })?.catch?.(() => {});
+                            }
+                        }, 200);
                     }
                     return;
                 }
@@ -238,6 +326,17 @@ export default function useTaskAgentSession({
 
             const baseDraft = draftRef.current;
             const draft = draftPatch ? { ...(baseDraft || {}), ...draftPatch } : baseDraft;
+
+            const sanitizeDraftForTransport = (draftObj) => {
+                if (!draftObj || typeof draftObj !== 'object') return undefined;
+                const clean = {};
+                for (const [k, v] of Object.entries(draftObj)) {
+                    if (v !== null && v !== undefined) {
+                        clean[k] = v;
+                    }
+                }
+                return Object.keys(clean).length > 0 ? clean : undefined;
+            };
 
             const TURN_TIMEOUT_MS = 25000;
             const abortController = new AbortController();
@@ -253,7 +352,7 @@ export default function useTaskAgentSession({
                         action: action || undefined,
                         pick: pick || undefined,
                         language: 'hinglish',
-                        draft: draft || undefined,
+                        draft: sanitizeDraftForTransport(draft),
                     },
                     {
                         signal: abortController.signal,
@@ -265,67 +364,118 @@ export default function useTaskAgentSession({
                 resultRef.current = data;
                 setResult(data);
 
+                let assistantMsgId = null;
                 if (data.reply) {
-                    pushMsg('assistant', data.reply);
+                    assistantMsgId = pushMsg('assistant', data.reply);
                 }
 
-                // Voice loop progression
-                if (variant === 'voice') {
-                    if (data.field === 'attachments') {
-                        setHighlightPaperclip(true);
-                    } else {
-                        setHighlightPaperclip(false);
-                    }
+                if (data.field === 'attachments') {
+                    setHighlightPaperclip(true);
+                } else {
+                    setHighlightPaperclip(false);
+                }
 
-                    const spokenSpeech = data.speech || data.reply;
-                    const spokenHinglish = data.reply;
+                const spokenText = resolveSpokenText(data, data.reply);
+                const spokenSpeech = data.speech ? cleanForSpeech(data.speech) : spokenText;
 
-                    const shouldListen = shouldAutoListenAfterTurn({
-                        status: data.status,
-                        field: data.field,
-                        userMuted,
-                        isCreated: false,
-                    });
+                const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
 
-                    if (shouldListen) {
-                        if (data.status === 'ready') {
-                            cancelReadyCountdown();
-                        }
-                        if (autoSpeak && ttsSupported) {
-                            let micStarted = false;
-                            const reopenMic = () => {
-                                if (micStarted) return;
-                                micStarted = true;
-                                setTimeout(() => {
-                                    start();
-                                }, 300);
-                            };
+                const shouldListen = shouldAutoListenAfterTurn({
+                    status: data.status,
+                    field: data.field,
+                    userMuted: false, // cleared on turn send; userMuted only pauses the current listening window
+                    isCreated: false,
+                    isTyping: isTypingNow,
+                });
 
-                            const charLen = (spokenSpeech || spokenHinglish || '').length;
-                            const watchdog = createTtsWatchdog(reopenMic, charLen);
+                if (data.status === 'ready') {
+                    cancelReadyCountdown();
+                }
 
-                            speak(spokenSpeech, spokenHinglish, () => {
-                                watchdog.cancel();
-                                reopenMic();
-                            });
-                        } else {
+                const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
+                    inputSource: turnSource,
+                    autoSpeak,
+                    ttsSupported,
+                    shouldListen,
+                    isTyping: isTypingNow,
+                });
+
+                if (shouldSpeak && assistantMsgId && !spokenMessageIdsRef.current.has(assistantMsgId)) {
+                    spokenMessageIdsRef.current.add(assistantMsgId);
+                    cancelSpeech();
+
+                    if (micAction === 'reopen_after_speech') {
+                        let micStarted = false;
+                        const reopenMic = () => {
+                            if (micStarted) return;
+                            // 1. User tapped mute during speech in current window (Requirement 2)
+                            if (userMutedRef.current) return;
+                            // 2. User is currently typing in composer (Requirement 2)
+                            if (isTypingRef.current || inputRef.current?.value?.trim()?.length > 0) {
+                                console.info('[useTaskAgentSession] Auto-mic skipped because user is typing in composer');
+                                return;
+                            }
+                            // 3. Speaker toggle is OFF (text mode) (Requirement 2)
+                            if (!autoSpeak) return;
+                            // 4. Task was created or cancelled (Requirement 2)
+                            if (resultRef.current?.status === 'created' || resultRef.current?.status === 'cancelled' || isCreatedRef.current) return;
+
+                            micStarted = true;
+                            cancelSpeech();
                             setTimeout(() => {
-                                start();
-                            }, 300);
-                        }
-                    } else if (data.status === 'cancelled') {
-                        if (autoSpeak) speak('टास्क कैंसिल कर दिया गया है', 'Task cancel kar diya gaya hai');
-                        stop('cancelled');
+                                start({ force: true })?.catch?.(() => {});
+                            }, 200);
+                        };
+
+                        const charLen = spokenText.length;
+                        const watchdog = createTtsWatchdog(() => {
+                            cancelSpeech();
+                            reopenMic();
+                        }, charLen);
+
+                        speak(spokenSpeech, spokenText, () => {
+                            watchdog.cancel();
+                            reopenMic();
+                        });
+                    } else {
+                        // Speaks, but micAction is 'none' -> mic stays closed (e.g. typed + speaker ON)
+                        speak(spokenSpeech, spokenText);
                     }
-                } else if (data.reply && autoSpeak) {
-                    speak(data.speech, data.reply);
+                } else if (!shouldSpeak && micAction === 'reopen_after_delay') {
+                    // Voice + speaker OFF: silent, mic reopens after 200ms
+                    setTimeout(() => {
+                        if (!userMutedRef.current && !isTypingRef.current && !inputRef.current?.value?.trim()?.length) {
+                            start({ force: true })?.catch?.(() => {});
+                        }
+                    }, 200);
+                }
+
+                if (data.status === 'cancelled') {
+                    if (autoSpeak) {
+                        cancelSpeech();
+                        speak('टास्क कैंसिल कर दिया गया है', 'Task cancel kar diya gaya hai');
+                    }
+                    stop('cancelled');
                 }
             } catch (err) {
                 // Every single failure path produces a visible error message bubble
                 const msg = mapTaskAgentError(err);
-                pushMsg('assistant', msg, { isError: true });
-                if (autoSpeak) speak('कुछ गड़बड़ हो गई', msg);
-                if (variant === 'voice') {
+                const errId = pushMsg('assistant', msg, { isError: true });
+                const cleanError = cleanForSpeech(msg);
+
+                const { shouldSpeak } = determineTurnSpeechAndMicAction({
+                    inputSource: turnSource,
+                    autoSpeak,
+                    ttsSupported,
+                    shouldListen: false,
+                });
+
+                if (shouldSpeak && errId && !spokenMessageIdsRef.current.has(errId)) {
+                    spokenMessageIdsRef.current.add(errId);
+                    cancelSpeech();
+                    speak('कुछ गड़बड़ हो गई', cleanError);
+                }
+                if (turnSource === 'voice' && !userMutedRef.current) {
                     setTimeout(() => start(), 500);
                 }
             } finally {
@@ -333,7 +483,7 @@ export default function useTaskAgentSession({
                 setLoading(false);
             }
         },
-        [variant, autoSpeak, speak, cancelSpeech, pushMsg, cancelAutoSend, cancelReadyCountdown, start, stop, result?.status]
+        [variant, autoSpeak, speak, cancelSpeech, pushMsg, cancelAutoSend, cancelReadyCountdown, start, stop, result?.status, ttsSupported, userMuted]
     );
 
     sendRef.current = sendTurn;
@@ -344,6 +494,8 @@ export default function useTaskAgentSession({
             const clean = String(text || '').trim();
             if (!clean) return;
 
+            micModeRef.current = 'voice';
+            inputSourceRef.current = 'voice';
             setSpeechError?.(null);
             setNotice(null);
             setLiveTranscriptText(clean);
@@ -359,7 +511,7 @@ export default function useTaskAgentSession({
                 setEnHindiHint(null);
             }
 
-            if (variant === 'voice') {
+            if (variant === 'voice' || autoSpeak) {
                 const lower = clean.toLowerCase();
 
                 // If currently in ready state:
@@ -383,7 +535,8 @@ export default function useTaskAgentSession({
 
                     if (hasFieldChangeIntent(clean)) {
                         cancelReadyCountdown();
-                        sendRef.current?.({ text: clean });
+                        inputSourceRef.current = 'voice';
+                        sendRef.current?.({ text: clean, source: 'voice' });
                         return;
                     }
 
@@ -453,7 +606,8 @@ export default function useTaskAgentSession({
                 }
 
                 // Auto-send immediately in voice mode without manual button press
-                sendRef.current?.({ text: clean });
+                inputSourceRef.current = 'voice';
+                sendRef.current?.({ text: clean, source: 'voice' });
                 return;
             }
 
@@ -536,7 +690,7 @@ export default function useTaskAgentSession({
                 return combined;
             });
 
-            if (variant === 'voice') {
+            if (variant === 'voice' || autoSpeak) {
                 setTimeout(() => start(), 400);
             }
         },
@@ -562,7 +716,7 @@ export default function useTaskAgentSession({
             if (blob) {
                 setVoiceNoteBlob(blob);
                 pushMsg('user', '🎙️ Voice note attach kiya');
-                if (variant === 'voice') {
+                if (variant === 'voice' || autoSpeak) {
                     setTimeout(() => start(), 400);
                 }
             }
@@ -636,6 +790,59 @@ export default function useTaskAgentSession({
                 },
             });
 
+            const isCreatingProject = payload.endpoint === '/projects';
+            if (isCreatingProject) {
+                const createdProject = response?.data?.project || response?.data?.newProject || response?.data?.data || null;
+                const newProjId = createdProject?._id || createdProject?.id || response?.data?._id;
+                const newProjName = createdProject?.projectName || createdProject?.name || payload.fields?.projectName || 'Project';
+
+                clearAllCaches();
+                invalidateTaskManagementCache();
+
+                if (typeof window !== 'undefined') {
+                    const detail = { project: createdProject || { _id: newProjId, ...payload.fields } };
+                    window.dispatchEvent(new CustomEvent('project:created', { detail }));
+                    window.dispatchEvent(new CustomEvent('ciis:project-created', { detail }));
+                }
+
+                pushMsg('assistant', `Project "${newProjName}" create ho gaya! ✅\n\nIs project mein koi task banana hai?`);
+                if (autoSpeak) {
+                    cancelSpeech();
+                    speak('प्रोजेक्ट बन गया। क्या इसमें टास्क बनाना है?', `Project "${newProjName}" create ho gaya. Is project mein koi task banana hai?`);
+                }
+
+                // Chained task prompt: project._id is now known from create response
+                setResult({
+                    status: 'needs_input',
+                    field: 'chain_task_decision',
+                    reply: `Project "${newProjName}" create ho gaya! ✅\n\nIs project mein koi task banana hai?`,
+                    speech: 'प्रोजेक्ट बन गया। क्या इसमें कोई टास्क बनाना है?',
+                    speakText: `Project "${newProjName}" create ho gaya. Is project mein koi task banana hai?`,
+                    chips: [
+                        {
+                            label: 'Haan',
+                            action: {
+                                type: 'chain_task',
+                                projectId: String(newProjId),
+                                projectName: newProjName,
+                                members: createdProject?.users || [],
+                            },
+                        },
+                        {
+                            label: 'Nahi',
+                            action: { type: 'finish_chain' },
+                        },
+                    ],
+                    draft: {
+                        intent: 'task_project',
+                        taskFor: 'project',
+                        projectId: String(newProjId),
+                        projectName: newProjName,
+                    },
+                });
+                return;
+            }
+
             const createdTask = response?.data?.task || response?.data?.newTask || response?.data?.data || null;
             const newTaskId = createdTask?._id || createdTask?.id || response?.data?._id || response?.data?.id;
             if (newTaskId) {
@@ -668,6 +875,7 @@ export default function useTaskAgentSession({
 
             pushMsg('assistant', 'Task create ho gaya ✅');
             if (autoSpeak) {
+                cancelSpeech();
                 speak('टास्क बन गया', 'Task create ho gaya');
             }
             // Mic stays off after task creation
@@ -679,11 +887,13 @@ export default function useTaskAgentSession({
             const msg = (serverMsg && typeof serverMsg === 'string' && serverMsg.trim())
                 ? serverMsg.trim()
                 : mapTaskAgentError(err);
-            pushMsg('assistant', msg, { isError: true });
-            if (autoSpeak) {
-                speak('टास्क नहीं बन पाया', msg);
+            const errId = pushMsg('assistant', msg, { isError: true });
+            if (autoSpeak && errId && !spokenMessageIdsRef.current.has(errId)) {
+                spokenMessageIdsRef.current.add(errId);
+                cancelSpeech();
+                speak('टास्क नहीं बन पाया', cleanForSpeech(msg));
             }
-            if (variant === 'voice') {
+            if (variant === 'voice' && !userMuted) {
                 setTimeout(() => start(), 500);
             }
         } finally {
@@ -691,7 +901,7 @@ export default function useTaskAgentSession({
             setUploadProgress(null);
             isCreatingRef.current = false;
         }
-    }, [result, files, voiceNoteBlob, autoSpeak, speak, pushMsg, resetFlow, cancelReadyCountdown, stop, cancelSpeech, variant, start]);
+    }, [result, files, voiceNoteBlob, autoSpeak, speak, pushMsg, resetFlow, cancelReadyCountdown, stop, cancelSpeech, variant, start, userMuted]);
 
     confirmHandlerRef.current = handleConfirm;
 
@@ -699,33 +909,36 @@ export default function useTaskAgentSession({
         cancelReadyCountdown();
         stop('button-click');
         resetFlow();
-        pushMsg('assistant', 'Theek hai, task cancel kar diya.');
-        if (autoSpeak) speak('टास्क कैंसिल कर दिया गया', 'Task cancel kar diya');
-    }, [resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak, stop]);
+        const msgId = pushMsg('assistant', 'Theek hai, task cancel kar diya.');
+        if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+            spokenMessageIdsRef.current.add(msgId);
+            cancelSpeech();
+            speak('टास्क कैंसिल कर दिया गया', 'Theek hai, task cancel kar diya');
+        }
+    }, [resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak, stop, cancelSpeech]);
 
     const handleEdit = useCallback(() => {
         cancelReadyCountdown();
         stop('button-click');
         const replyMsg = 'Ji batayein kya changes karne hain? Main kar dungi.';
         const speechMsg = 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
-        pushMsg('assistant', replyMsg);
-        if (autoSpeak) {
-            speak(speechMsg, replyMsg, () => {
-                if (variant === 'voice') {
-                    setTimeout(() => start(), 300);
-                }
-            });
-        } else if (variant === 'voice') {
-            setTimeout(() => start(), 300);
+        const msgId = pushMsg('assistant', replyMsg);
+        if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+            spokenMessageIdsRef.current.add(msgId);
+            cancelSpeech();
+            speak(speechMsg, replyMsg);
         } else {
             inputRef.current?.focus();
         }
-    }, [pushMsg, cancelReadyCountdown, autoSpeak, speak, variant, start, stop]);
+    }, [pushMsg, cancelReadyCountdown, autoSpeak, speak, cancelSpeech]);
 
     const handleChip = (chip) => {
         cancelAutoSend();
         cancelReadyCountdown();
         stop('chip-click');
+        clearUserMute();
+        inputSourceRef.current = 'chip';
+        const turnSource = 'chip';
         if (chip.action?.type === 'confirm') {
             handleConfirm(resultRef.current?.payload || result?.payload);
             return;
@@ -744,20 +957,22 @@ export default function useTaskAgentSession({
                 action: chip.action,
                 pick: { projectId },
                 display: chip.label,
+                source: turnSource,
             });
             return;
         }
         if (chip.action) {
-            sendTurn({ action: chip.action, display: chip.label });
+            sendTurn({ action: chip.action, display: chip.label, source: turnSource });
         } else if (chip.type === 'due') {
             sendTurn({
                 action: { type: 'set', field: 'dueDateTime', value: chip.value },
                 display: chip.label,
+                source: turnSource,
             });
         } else if (result?.field === 'attachments' && chip.label.toLowerCase().includes('attach')) {
             fileInputRef.current?.click();
         } else {
-            sendTurn({ text: chip.value || chip.label, display: chip.label });
+            sendTurn({ text: chip.value || chip.label, display: chip.label, source: turnSource });
         }
     };
 
@@ -765,6 +980,9 @@ export default function useTaskAgentSession({
         cancelAutoSend();
         cancelReadyCountdown();
         stop('chip-click');
+        clearUserMute();
+        inputSourceRef.current = 'chip';
+        const turnSource = 'chip';
         if (c?.action) {
             sendTurn({
                 action: c.action,
@@ -772,6 +990,7 @@ export default function useTaskAgentSession({
                     ? { projectId: c.action.projectId || c.action.pickProject?.projectId }
                     : undefined,
                 display: c.label || c.name || c.projectName,
+                source: turnSource,
             });
             return;
         }
@@ -781,6 +1000,7 @@ export default function useTaskAgentSession({
                 action: { type: 'pickProject', projectId: pid },
                 pick: { projectId: pid },
                 display: c.projectName || c.name || c.label,
+                source: turnSource,
             });
             return;
         }
@@ -788,6 +1008,7 @@ export default function useTaskAgentSession({
             action: { type: 'set', field: 'assignee', value: candidateId(c) },
             pick: { assigneeId: candidateId(c) },
             display: c.name || c.label,
+            source: turnSource,
         });
     };
 
@@ -802,8 +1023,17 @@ export default function useTaskAgentSession({
             stop('typed-send');
         }
 
+        clearUserMute();
+        isTypingRef.current = false;
+        if (inputRef.current) {
+            inputRef.current.value = '';
+        }
+
         const trimmed = (input || '').trim();
         if (!trimmed) return;
+
+        micModeRef.current = 'typed';
+        inputSourceRef.current = 'typed';
 
         const isReady = (resultRef.current?.status === 'ready' || result?.status === 'ready');
         if (isReady && isConfirmationIntent(trimmed)) {
@@ -813,7 +1043,7 @@ export default function useTaskAgentSession({
             return;
         }
 
-        sendTurn({ text: input });
+        sendTurn({ text: input, source: 'typed' });
     };
 
     // Greeting on open (visible in messages list)
@@ -821,15 +1051,60 @@ export default function useTaskAgentSession({
         if (open && messages.length === 0) {
             const user = getUser();
             const greeting = getRoleAwareGreeting(user);
-            pushMsg('assistant', greeting);
+            const greetingId = pushMsg('assistant', greeting);
 
-            if ((variant === 'voice' || startWithMic) && sttSupported) {
+            // Short spoken version (<= 200 characters) for natural TTS:
+            const shortGreetingHinglish = 'Namaste! Main CIIS AI Assistant hoon. Task create karne mein main aapki madad karunga. Kripya task details batayein.';
+            const shortGreetingHindi = 'नमस्ते! मैं सी आई आई एस ए आई असिस्टेंट हूँ। टास्क बनाने में मैं आपकी मदद करूँगा। कृपया टास्क बताएं।';
+
+            if (autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
+                spokenMessageIdsRef.current.add(greetingId);
+                cancelSpeech();
+                if (sttSupported && !userMutedRef.current) {
+                    let micStarted = false;
+                    const reopenMic = () => {
+                        if (micStarted) return;
+                        if (userMutedRef.current) return;
+                        micStarted = true;
+                        cancelSpeech();
+                        micModeRef.current = 'voice';
+                        setTimeout(() => {
+                            start({ force: true })?.catch?.(() => {});
+                        }, 200);
+                    };
+                    const watchdog = createTtsWatchdog(() => {
+                        cancelSpeech();
+                        reopenMic();
+                    }, shortGreetingHinglish.length);
+                    speak(shortGreetingHindi, shortGreetingHinglish, () => {
+                        watchdog.cancel();
+                        reopenMic();
+                    });
+                } else {
+                    speak(shortGreetingHindi, shortGreetingHinglish);
+                }
+            } else if (sttSupported && !userMutedRef.current) {
                 if (!listening) {
-                    start();
+                    micModeRef.current = 'voice';
+                    setTimeout(() => start({ force: true })?.catch?.(() => {}), 200);
                 }
             }
         }
-    }, [open, messages.length, pushMsg, variant, startWithMic, sttSupported, listening, start]);
+    }, [open, messages.length, pushMsg, variant, startWithMic, sttSupported, listening, start, autoSpeak, ttsSupported, userMuted, speak, cancelSpeech]);
+
+    // When re-opening drawer that was previously closed: resume listening if in voice mode and not muted
+    const prevOpenRef = useRef(open);
+    useEffect(() => {
+        const wasClosed = !prevOpenRef.current && open;
+        prevOpenRef.current = open;
+        if (wasClosed && messages.length > 0 && autoSpeak && sttSupported && !userMutedRef.current) {
+            const t = setTimeout(() => {
+                micModeRef.current = 'voice';
+                start({ force: true })?.catch?.(() => {});
+            }, 300);
+            return () => clearTimeout(t);
+        }
+    }, [open, messages.length, autoSpeak, sttSupported, userMuted, start]);
 
     // Live display of interim text in browser engine mode or live speech
     useEffect(() => {
@@ -975,12 +1250,12 @@ export default function useTaskAgentSession({
             setIsPaused(true);
         } else if (isSpeaking) {
             cancelSpeech();
-            setUserMuted(false);
+            clearUserMute();
             start({ force: true });
         } else {
             setIsPaused(false);
             setNotice(null);
-            setUserMuted(false);
+            clearUserMute();
             start({ force: true });
         }
     };
@@ -1057,6 +1332,8 @@ export default function useTaskAgentSession({
         setIsPaused,
         userMuted,
         setUserMuted,
+        clearUserMute,
+        isTypingRef,
         interim,
         audioLevel,
         durationSeconds,

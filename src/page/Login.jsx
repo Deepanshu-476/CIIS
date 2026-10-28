@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { sanitizeUserForStorage, clearAuthStorageCaches } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import './Login.css'; 
+import './Login.css';
 
 const clearPreviousLoginStorage = () => {
   clearAuthStorageCaches();
@@ -46,8 +46,8 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [companyDetails, setCompanyDetails] = useState(null);
   const [companyIdentifier, setCompanyIdentifier] = useState('');
-  
-  
+
+
   const [showOtpPopup, setShowOtpPopup] = useState(false);
   const [otp, setOtp] = useState('');
   const [tempToken, setTempToken] = useState('');
@@ -55,11 +55,11 @@ const Login = () => {
   const [otpTimer, setOtpTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [otpError, setOtpError] = useState('');
-  
-  
+
+
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  const [forgotPasswordStep, setForgotPasswordStep] = useState('email'); 
+  const [forgotPasswordStep, setForgotPasswordStep] = useState('email');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -70,11 +70,11 @@ const Login = () => {
   const navigate = useNavigate();
   const { setUser, setToken, setIsAuthenticated } = useAuth();
 
-  
+
   useEffect(() => {
     const extractCompanyIdentifier = () => {
       const path = window.location.pathname;
-      
+
       const match1 = path.match(/\/company\/([^/]+)\/login/);
       if (match1 && match1[1]) {
         return match1[1];
@@ -102,7 +102,7 @@ const Login = () => {
     }
   }, []);
 
-  
+
   useEffect(() => {
     let timer;
     if (showOtpPopup && otpTimer > 0) {
@@ -113,7 +113,7 @@ const Login = () => {
     return () => clearTimeout(timer);
   }, [showOtpPopup, otpTimer]);
 
-  
+
   useEffect(() => {
     let timer;
     if (countdown > 0) {
@@ -191,7 +191,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      
+
       const loginData = {
         email: form.email.trim(),
         password: form.password,
@@ -206,9 +206,9 @@ const Login = () => {
         : '/auth/login';
       const res = await axios.post(loginEndpoint, loginData, { _skipErrorNotify: true });
 
-      
+
       if (res.data.requiresOTP) {
-        
+
         setOtpEmail(res.data.email);
         setTempToken(res.data.tempToken);
         setShowOtpPopup(true);
@@ -216,12 +216,12 @@ const Login = () => {
         setCanResend(false);
         setOtp('');
         setOtpError('');
-        
+
         toast.info('OTP sent to your email. Please verify to continue.');
         return;
       }
 
-      
+
       clearPreviousLoginStorage();
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
@@ -285,7 +285,7 @@ const Login = () => {
             redirectPath = '/ciisUser/dashboard-overview';
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       if (companyRole === 'client') {
         redirectPath = '/client/dashboard';
@@ -294,7 +294,7 @@ const Login = () => {
       }
 
       navigate(redirectPath);
-      
+
     } catch (err) {
       console.error('Login error details:', {
         message: err.message,
@@ -344,24 +344,24 @@ const Login = () => {
 
       toast.error(errorMsg);
       setErrors((prev) => ({ ...prev, general: errorMsg }));
-      
+
     } finally {
       setLoading(false);
     }
   };
 
-  
+
   const handleOtpChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     setOtp(value);
     setOtpError('');
   };
 
-  
+
   const handleVerifyOtp = async (e) => {
     e?.preventDefault?.();
     const otpString = otp.trim();
-    
+
     if (otpString.length !== 6) {
       setOtpError('Please enter complete 6-digit OTP');
       return;
@@ -375,7 +375,7 @@ const Login = () => {
         ? getCompanyAuthPath(companyIdentifier, 'verifyOtp')
         : form.companyCode.trim()
           ? getCompanyAuthPath(form.companyCode.trim(), 'verifyOtp')
-        : '/auth/verify-login-otp';
+          : '/auth/verify-login-otp';
       const response = await axios.post(verifyEndpoint, {
         email: otpEmail,
         otp: otpString,
@@ -383,7 +383,7 @@ const Login = () => {
       }, { _skipErrorNotify: true });
 
       if (response.data.success) {
-        
+
         clearPreviousLoginStorage();
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
@@ -408,7 +408,7 @@ const Login = () => {
           localStorage.removeItem('client_portal_selected_client_id');
         }
 
-        
+
         const activeCompanyIdentifier = (companyIdentifier || form.companyCode).trim();
         if (activeCompanyIdentifier) {
           localStorage.setItem('companyIdentifier', activeCompanyIdentifier);
@@ -421,12 +421,12 @@ const Login = () => {
           localStorage.setItem('companyDetails', JSON.stringify(companyDetails));
         }
 
-        
+
         setShowOtpPopup(false);
-        
+
         toast.success('Login successful!');
 
-        
+
         const companyRole = String(response.data.user?.companyRole || '').toLowerCase();
         const userRole = String(response.data.user?.role || '').toLowerCase();
         const companyAllowed = Array.isArray(companyDetails?.allowedPages) ? companyDetails.allowedPages : [];
@@ -455,14 +455,14 @@ const Login = () => {
               redirectPath = '/ciisUser/dashboard-overview';
             }
           }
-        } catch (_) {}
+        } catch (_) { }
 
         if (companyRole === 'client') {
           redirectPath = '/client/dashboard';
         } else if (userRole === 'admin') {
           redirectPath = '/admin/dashboard';
         }
-        
+
         navigate(redirectPath);
       }
     } catch (error) {
@@ -474,16 +474,16 @@ const Login = () => {
     }
   };
 
-  
+
   const handleResendOtp = async () => {
     setOtpLoading(true);
-    
+
     try {
       const resendEndpoint = companyIdentifier
         ? getCompanyAuthPath(companyIdentifier, 'resendOtp')
         : form.companyCode.trim()
           ? getCompanyAuthPath(form.companyCode.trim(), 'resendOtp')
-        : '/auth/resend-login-otp';
+          : '/auth/resend-login-otp';
       const response = await axios.post(resendEndpoint, {
         email: otpEmail
       }, { _skipErrorNotify: true });
@@ -503,7 +503,7 @@ const Login = () => {
     }
   };
 
-  
+
   const handleCloseOtpPopup = () => {
     setShowOtpPopup(false);
     setOtp('');
@@ -514,7 +514,7 @@ const Login = () => {
     setTempToken('');
   };
 
-  
+
   const handleForgotPassword = async () => {
     if (!forgotPasswordEmail.trim()) {
       setErrors({ forgotPassword: 'Email is required' });
@@ -598,7 +598,7 @@ const Login = () => {
     }
   };
 
-  
+
   const handleBackToLogin = () => {
     setShowForgotPassword(false);
     setForgotPasswordStep('email');
@@ -609,40 +609,40 @@ const Login = () => {
     setErrors({});
   };
 
-  
+
   const VisibilityIcon = () => (
     <svg className="login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
     </svg>
   );
 
   const VisibilityOffIcon = () => (
     <svg className="login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+      <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z" />
     </svg>
   );
 
   const LoginIcon = () => (
     <svg className="login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M11 7L9.6 8.4 12.2 11H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
+      <path d="M11 7L9.6 8.4 12.2 11H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z" />
     </svg>
   );
 
   const LockIcon = () => (
     <svg className="login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+      <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
     </svg>
   );
 
   const EmailIcon = () => (
     <svg className="login-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/>
+      <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z" />
     </svg>
   );
 
   const BusinessIcon = () => (
     <svg className="login-icon business-icon" width="48" height="48" viewBox="0 0 24 24" fill="white">
-      <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+      <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z" />
     </svg>
   );
 
@@ -654,7 +654,7 @@ const Login = () => {
 
   const ArrowBackIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+      <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
     </svg>
   );
 
@@ -675,7 +675,7 @@ const Login = () => {
           <div className="input-container">
             <div className="input-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
               </svg>
             </div>
             <input
@@ -722,7 +722,7 @@ const Login = () => {
             <>
               <div className="button-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
                 </svg>
               </div>
               Verify OTP
@@ -842,7 +842,7 @@ const Login = () => {
                   className={`login-input ${errors.newPassword ? 'input-error' : ''}`}
                   placeholder="Enter new password"
                 />
-                <div 
+                <div
                   className="input-adornment"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                 >
@@ -866,7 +866,7 @@ const Login = () => {
                   className={`login-input ${errors.confirmPassword ? 'input-error' : ''}`}
                   placeholder="Confirm new password"
                 />
-                <div 
+                <div
                   className="input-adornment"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
@@ -900,21 +900,21 @@ const Login = () => {
   return (
     <div className="login-page-container">
       <div className="login-paper fade-in">
-        
+
         <div className="login-left-section">
           <div className="left-pattern"></div>
-          
+
           <div className="left-content">
-            
+
             <div className="logo-container" onClick={() => navigate('/')} title="Go to Home">
               {companyLoading ? (
                 <div className="loading-spinner-container">
                   <div className="spinner"></div>
                 </div>
               ) : companyDetails?.logo ? (
-                <img 
-                  src={companyDetails.logo} 
-                  alt={companyDetails.companyName} 
+                <img
+                  src={companyDetails.logo}
+                  alt={companyDetails.companyName}
                   className="company-logo"
                   decoding="async"
                 />
@@ -958,11 +958,11 @@ const Login = () => {
           </div>
         </div>
 
-        
+
         <div className="login-right-section">
           <div className="form-container">
-            
-            
+
+
             <div className="mobile-logo-container">
               <div className="mobile-logo-wrapper">
                 {companyLoading ? (
@@ -970,9 +970,9 @@ const Login = () => {
                     <div className="spinner small"></div>
                   </div>
                 ) : companyDetails?.logo ? (
-                  <img 
-                    src={companyDetails.logo} 
-                    alt={companyDetails?.companyName || 'Company Logo'} 
+                  <img
+                    src={companyDetails.logo}
+                    alt={companyDetails?.companyName || 'Company Logo'}
                     className="mobile-logo-img"
                     decoding="async"
                   />
@@ -985,27 +985,27 @@ const Login = () => {
                   />
                 )}
               </div>
-              
+
               <h2 className="mobile-company-name">
                 {companyLoading ? 'Loading...' : (companyDetails?.companyName || 'CIIS NETWORK')}
               </h2>
-              
+
               <p className="mobile-company-subtitle">
                 Secure Enterprise Portal
               </p>
             </div>
-            
+
 
             {showForgotPassword ? (
-              
+
               renderForgotPasswordForm()
             ) : showOtpPopup ? (
-              
+
               renderLoginOtpForm()
             ) : (
-              
+
               <>
-                
+
                 <div className="form-header">
                   <h2 className="form-title">
                     Welcome Back
@@ -1015,19 +1015,19 @@ const Login = () => {
                   </p>
                 </div>
 
-                
+
                 {errors.general && (
                   <div className="error-alert">
                     <div className="error-icon">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f2120">
-                        <path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+                        <path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                       </svg>
                     </div>
                     {errors.general}
                   </div>
                 )}
 
-                  <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit}>
                   {!companyIdentifier && (
                     <div className="input-group">
                       <label className="input-label">Company Code</label>
@@ -1049,7 +1049,7 @@ const Login = () => {
                       {errors.companyCode && <span className="error-text">{errors.companyCode}</span>}
                     </div>
                   )}
-                  
+
                   <div className="input-group">
                     <label className="input-label">Email Address</label>
                     <div className="input-container">
@@ -1070,7 +1070,7 @@ const Login = () => {
                     {errors.email && <span className="error-text">{errors.email}</span>}
                   </div>
 
-                  
+
                   <div className="input-group">
                     <label className="input-label">Password</label>
                     <div className="input-container">
@@ -1087,7 +1087,7 @@ const Login = () => {
                         className={`login-input ${errors.password ? 'input-error' : ''}`}
                         placeholder="Enter your password"
                       />
-                      <div 
+                      <div
                         className="input-adornment"
                         onClick={() => setShowPassword(!showPassword)}
                       >
@@ -1097,7 +1097,7 @@ const Login = () => {
                     {errors.password && <span className="error-text">{errors.password}</span>}
                   </div>
 
-                  
+
                   <div className="forgot-password-link">
                     <span
                       onClick={() => setShowForgotPassword(true)}
@@ -1116,7 +1116,7 @@ const Login = () => {
                     </button>
                   </div>
 
-                  
+
                   <button
                     type="submit"
                     className="login-button"
@@ -1142,7 +1142,7 @@ const Login = () => {
               </>
             )}
 
-            
+
             {!showForgotPassword && !showOtpPopup && (
               <div className="terms-privacy">
                 By signing in, you agree to our{' '}

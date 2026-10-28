@@ -2359,23 +2359,23 @@ const Sidebar = ({
 
         const matchingClients = Array.isArray(allClients)
           ? allClients
-              .filter(item => isClientForLoggedInUser(item, userData))
-              .sort((a, b) => {
-                const aId = String(a?._id || a?.id || a?.clientId || '').trim().toLowerCase();
-                const bId = String(b?._id || b?.id || b?.clientId || '').trim().toLowerCase();
-                const aEmail = String(a?.email || a?.clientEmail || '').trim().toLowerCase();
-                const bEmail = String(b?.email || b?.clientEmail || '').trim().toLowerCase();
+            .filter(item => isClientForLoggedInUser(item, userData))
+            .sort((a, b) => {
+              const aId = String(a?._id || a?.id || a?.clientId || '').trim().toLowerCase();
+              const bId = String(b?._id || b?.id || b?.clientId || '').trim().toLowerCase();
+              const aEmail = String(a?.email || a?.clientEmail || '').trim().toLowerCase();
+              const bEmail = String(b?.email || b?.clientEmail || '').trim().toLowerCase();
 
-                if (userAssignedClientId) {
-                  if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
-                  if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
-                }
-                if (userEmail) {
-                  if (aEmail === userEmail && bEmail !== userEmail) return -1;
-                  if (bEmail === userEmail && aEmail !== userEmail) return 1;
-                }
-                return 0;
-              })
+              if (userAssignedClientId) {
+                if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
+                if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
+              }
+              if (userEmail) {
+                if (aEmail === userEmail && bEmail !== userEmail) return -1;
+                if (bEmail === userEmail && aEmail !== userEmail) return 1;
+              }
+              return 0;
+            })
           : [];
         const companies = matchingClients.length ? matchingClients : (storedClient ? [storedClient] : []);
         const selectedId =

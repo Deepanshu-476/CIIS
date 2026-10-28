@@ -1441,6 +1441,7 @@
     opacity: 0;
     transform: scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -1722,12 +1723,15 @@
   .ClientDashboard-middle-grid {
     grid-template-columns: 1fr 1.6fr;
   }
+
   .ClientDashboard-middle-grid .ClientDashboard-distribution-card {
     grid-column: span 2;
   }
+
   .ClientDashboard-bottom-grid {
     grid-template-columns: 1fr 1fr;
   }
+
   .ClientDashboard-bottom-grid .ClientDashboard-quick-actions-card {
     grid-column: span 2;
   }
@@ -1737,9 +1741,11 @@
   .ClientDashboard-top-row {
     grid-template-columns: 1fr;
   }
+
   .ClientDashboard-kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
   .ClientDashboard-companies-grid {
     grid-template-columns: 1fr;
   }
@@ -1749,21 +1755,27 @@
   .ClientDashboard-client-dashboard {
     padding: 14px;
   }
+
   .ClientDashboard-hero-mini-stats {
     grid-template-columns: repeat(2, 1fr);
   }
+
   .ClientDashboard-middle-grid {
     grid-template-columns: 1fr;
   }
+
   .ClientDashboard-middle-grid .ClientDashboard-distribution-card {
     grid-column: auto;
   }
+
   .ClientDashboard-bottom-grid {
     grid-template-columns: 1fr;
   }
+
   .ClientDashboard-bottom-grid .ClientDashboard-quick-actions-card {
     grid-column: auto;
   }
+
   .ClientDashboard-support-body {
     grid-template-columns: 1fr;
   }
@@ -1773,6 +1785,7 @@
   .ClientDashboard-hero-mini-stats {
     grid-template-columns: 1fr;
   }
+
   .ClientDashboard-kpi-grid {
     grid-template-columns: 1fr;
   }
@@ -1785,8 +1798,13 @@
 }
 
 @keyframes clientDashboardFadeIn {
-  from { opacity: 0; }
-  to { opacity: 0.95; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.95;
+  }
 }
 
 .ClientDashboard-skeleton {
@@ -1800,6 +1818,7 @@
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }

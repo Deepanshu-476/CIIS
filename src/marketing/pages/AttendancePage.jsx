@@ -4,19 +4,23 @@ import SiteNav from "../components/SiteNav.jsx";
 import MkLink from "../components/MkLink.jsx";
 import SiteFooter from "../components/SiteFooter.jsx";
 
-const CHAIN = [["Employee opens app","smartphone","Web or mobile","The employee opens CIIS and taps Clock In."],["Location checked","my_location","GPS + radius","GPS coordinates are compared with the office location and attendance radius."],["Selfie captured","photo_camera","With the punch","A selfie is captured with the clock-in, where selfie attendance is enabled."],["Shift applied","schedule","From job role","The employee’s shift decides whether the clock-in is on time, late or half day."],["Day recorded","event_available","Present · Late · Half Day","The record appears on the attendance calendar with in/out times and late-by duration."],["Ready for payroll","payments","Month-end","Attendance for the month is available when HR processes payroll."]];
+const CHAIN = [["Employee opens app", "smartphone", "Web or mobile", "The employee opens CIIS and taps Clock In."], ["Location checked", "my_location", "GPS + radius", "GPS coordinates are compared with the office location and attendance radius."], ["Selfie captured", "photo_camera", "With the punch", "A selfie is captured with the clock-in, where selfie attendance is enabled."], ["Shift applied", "schedule", "From job role", "The employee’s shift decides whether the clock-in is on time, late or half day."], ["Day recorded", "event_available", "Present · Late · Half Day", "The record appears on the attendance calendar with in/out times and late-by duration."], ["Ready for payroll", "payments", "Month-end", "Attendance for the month is available when HR processes payroll."]];
 
 class AttendancePage extends React.Component {
   state = { step: 0, w: window.innerWidth };
   componentDidMount() { this.onR = () => this.setState({ w: window.innerWidth }); window.addEventListener('resize', this.onR); this.iv = setInterval(() => this.setState(s => ({ step: (s.step + 1) % CHAIN.length })), 1900); }
-  componentWillUnmount() { clearInterval(this.iv); window.removeEventListener('resize', this.onR); }
+  componentWillUnmount() { clearInterval(thkoi is.iv); window.removeEventListener('resize', this.onR); }
   renderVals() {
     const s = this.state;
-    const chain = CHAIN.map(([name, icon, short, detail], i) => { const on = i === s.step, past = i < s.step;
-      return { name, icon, short, detail, num: String(i + 1).padStart(2, '0'), bg: on ? '#0b1437' : '#ffffff', fg: on ? '#ffffff' : '#0f172a', sub: on ? '#93c5fd' : '#64748b',
+    const chain = CHAIN.map(([name, icon, short, detail], i) => {
+      const on = i === s.step, past = i < s.step;
+      return {
+        name, icon, short, detail, num: String(i + 1).padStart(2, '0'), bg: on ? '#0b1437' : '#ffffff', fg: on ? '#ffffff' : '#0f172a', sub: on ? '#93c5fd' : '#64748b',
         ibg: on ? 'linear-gradient(135deg,#2563eb,#4f46e5)' : (past ? '#eff6ff' : '#f1f5f9'), ifg: on ? '#ffffff' : (past ? '#2563eb' : '#64748b'),
         bd: on ? '#0b1437' : (past ? '#bfdbfe' : '#e2e8f0'), sh: on ? '0 20px 40px -16px rgba(11,20,55,.55)' : 'none', tf: on ? 'translateY(-4px)' : 'none',
-        pick: () => this.setState({ step: i }) }; });
+        pick: () => this.setState({ step: i })
+      };
+    });
     const n = CHAIN.length, w = s.w;
     return { chain, C: chain[s.step], chainCols: w >= 1080 ? 'repeat(' + n + ',minmax(0,1fr))' : (w >= 600 ? 'repeat(' + Math.ceil(n / 2) + ',minmax(0,1fr))' : 'minmax(0,1fr)') };
   }

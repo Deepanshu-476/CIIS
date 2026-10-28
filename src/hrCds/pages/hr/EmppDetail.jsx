@@ -415,7 +415,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   };
   
   const getCompanyRoleBadge = (role) => {
-    const roleLower = (role || '').toLowerCase();
+    const roleLower = String(role || '').toLowerCase();
     if (roleLower === 'owner') return 'EmployeeDirectory-company-role-owner';
     if (roleLower === 'admin') return 'EmployeeDirectory-company-role-admin';
     if (roleLower === 'manager') return 'EmployeeDirectory-company-role-manager';

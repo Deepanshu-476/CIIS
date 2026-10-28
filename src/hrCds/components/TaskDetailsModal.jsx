@@ -277,6 +277,7 @@ const TaskDetailsModal = ({
   mentionUsers = []
 }) => {
   const task = incomingTask || {};
+  const safeTask = task;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [howTrackingOpen, setHowTrackingOpen] = useState(false);
   const [remarkText, setRemarkText] = useState('');

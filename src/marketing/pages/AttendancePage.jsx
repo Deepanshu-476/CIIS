@@ -9,7 +9,7 @@ const CHAIN = [["Employee opens app", "smartphone", "Web or mobile", "The employ
 class AttendancePage extends React.Component {
   state = { step: 0, w: window.innerWidth };
   componentDidMount() { this.onR = () => this.setState({ w: window.innerWidth }); window.addEventListener('resize', this.onR); this.iv = setInterval(() => this.setState(s => ({ step: (s.step + 1) % CHAIN.length })), 1900); }
-  componentWillUnmount() { clearInterval(thkoi is.iv); window.removeEventListener('resize', this.onR); }
+  componentWillUnmount() { clearInterval(this.iv); window.removeEventListener('resize', this.onR); }
   renderVals() {
     const s = this.state;
     const chain = CHAIN.map(([name, icon, short, detail], i) => {

@@ -323,8 +323,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     return conversations.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
   }, [conversations]);
 
-  // Fetch initial conversations, users, and groups
-  const loadChatData = async () => {
+  // Fetch initial conversations, users, and groups. Every page mounts this
+  // widget for the unread badge, so contacts and groups wait for the first open.
+  const contactsRequested = useRef(false);
+  const loadChatData = async ({ withContacts = contactsRequested.current } = {}) => {
     try {
       setChatLoadError("");
       if (!memoryCachedConversations || memoryCachedConversations.length === 0) {
@@ -355,6 +357,11 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         });
 
       // 2. Fetch company users and groups concurrently without blocking conversation display
+      if (!withContacts) {
+        await convPromise;
+        return;
+      }
+      contactsRequested.current = true;
       const usersPromise = getCompanyUsers()
         .then((usersRes) => {
           const list = usersRes.data?.users || [];
@@ -383,7 +390,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   useEffect(() => {
     if (isWidgetOpen || !initialDataRequested.current) {
       initialDataRequested.current = true;
-      loadChatData();
+      loadChatData({ withContacts: isWidgetOpen || contactsRequested.current });
     }
   }, [isWidgetOpen]);
 

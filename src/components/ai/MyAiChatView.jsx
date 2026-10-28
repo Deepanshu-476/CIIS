@@ -141,6 +141,7 @@ export default function MyAiChatView({ onBack, onClose }) {
     isTypingRef,
     isSpeaking,
     isTranscribing,
+    speechError,
     speechNotice,
     setSpeechError,
     setNotice,
@@ -664,7 +665,7 @@ export default function MyAiChatView({ onBack, onClose }) {
               listening ? 'active'
               : (isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'speaking'
               : userMuted ? 'muted'
-              : (isTypingRef?.current || input.trim()) ? 'typing'
+              : (isTypingRef?.current || input?.trim?.()) ? 'typing'
               : !autoSpeak ? 'speaker off'
               : speechError === 'not-allowed' ? 'permission'
               : 'idle'

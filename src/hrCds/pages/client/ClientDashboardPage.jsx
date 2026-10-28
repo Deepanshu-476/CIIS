@@ -464,6 +464,28 @@ const Dashboard = () => {
     };
   }, []);
 
+  // Task totals for every company card. A merge removed this function but kept its two
+  // calls, so loading the dashboard threw before the tasks were stored (all counts 0).
+  const fetchCompaniesTaskSummary = async (clientsList) => {
+    const clientIds = [...new Set(
+      (clientsList || [])
+        .map(c => String(c?._id || c?.id || '').trim())
+        .filter(Boolean)
+    )];
+    if (!clientIds.length) return;
+    try {
+      const res = await tasksApi.get('/summary/bulk', {
+        params: { clientIds: clientIds.join(',') }
+      });
+      const summaries = res.data?.data || {};
+      if (isMounted.current && summaries && typeof summaries === 'object') {
+        setCompanyTaskCounts(prev => ({ ...prev, ...summaries }));
+      }
+    } catch {
+      // Cards fall back to the counts already on screen.
+    }
+  };
+
   useEffect(() => {
     isMounted.current = true;
     const handleSelectionChange = () => {
@@ -827,10 +849,17 @@ const Dashboard = () => {
   const dynamicCompanyCards = availableClients.map((item, idx) => {
     const companyName = item.company || item.businessName || item.companyName || item.client || 'Company';
     const serviceCount = Array.isArray(item.services) ? item.services.length : 0;
-    const taskCount = Array.isArray(item.tasks) ? item.tasks.length : 0;
-    const status = item.status || item.accountStatus || 'Active';
     const id = normalizeMatchValue(item?._id || item?.id);
     const selectedClientId = normalizeMatchValue(client?._id || client?.id);
+    const isActive = Boolean(id && id === selectedClientId);
+    const summaryTotal = companyTaskCounts[String(item?._id || item?.id || '')]?.total ?? companyTaskCounts[id]?.total;
+    const fallbackCount = Number(item.totalTasks ?? item.taskCount ?? (Array.isArray(item.tasks) ? item.tasks.length : 0)) || 0;
+    // Every card uses the bulk summary, so a company's count does not change when it is
+    // opened; until the summary arrives the open company shows its loaded tasks.
+    const taskCount = Number.isFinite(summaryTotal)
+      ? summaryTotal
+      : (isActive && totalTasksCount > 0 ? totalTasksCount : fallbackCount);
+    const status = item.status || item.accountStatus || 'Active';
     return {
       client: item,
       id: id || `comp-${idx}`,
@@ -838,7 +867,7 @@ const Dashboard = () => {
       serviceCount,
       taskCount,
       status,
-      isActive: id && id === selectedClientId,
+      isActive,
       initial: companyName.charAt(0).toUpperCase(),
       bgType: idx % 2 === 0 ? 'blue' : 'purple'
     };

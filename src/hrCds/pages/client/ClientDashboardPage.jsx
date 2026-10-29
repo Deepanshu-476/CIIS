@@ -506,7 +506,7 @@ const Dashboard = () => {
   const fetchServiceTasks = async (clientId, serviceName) => {
     try {
       const encodedService = encodeURIComponent(serviceName);
-      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`);
+      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`, { params: { limit: 'all' } });
       if (response.data?.success) {
         return response.data.data || [];
       }

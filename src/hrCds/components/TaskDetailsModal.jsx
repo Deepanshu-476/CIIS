@@ -211,6 +211,27 @@ const TaskDetailsModal = ({
   const rawRemarks = Array.isArray(task.remarks) ? task.remarks : [];
   const rawFiles = Array.isArray(task.files) ? task.files : (Array.isArray(task.attachments) ? task.attachments : []);
 
+  // Project remarks store only the author's id (createdBy). Resolve it from the
+  // people this task already carries instead of showing the assignee's name.
+  const knownUserNames = new Map();
+  const rememberUser = value => {
+    if (!value || typeof value !== 'object') return;
+    const id = String(value._id || value.id || '');
+    const name = value.name || value.fullName;
+    if (id && name && !knownUserNames.has(id)) knownUserNames.set(id, name);
+  };
+  rawActivities.forEach(ev => [ev?.user, ev?.performedBy, ev?.changedBy, ev?.updatedBy].forEach(rememberUser));
+  let loggedInUser = null;
+  try { loggedInUser = JSON.parse(localStorage.getItem('user') || 'null'); } catch { loggedInUser = null; }
+  [task.createdBy, task.assignedUser, task.assignedTo, task.assignedUsers, employeeInfo, loggedInUser]
+    .flat()
+    .forEach(rememberUser);
+  const getRemarkAuthor = rem => {
+    const author = rem.user || rem.createdBy || rem.addedBy;
+    const authorId = String(author?._id || author?.id || author || '');
+    return rem.userName || rem.createdByName || author?.name || knownUserNames.get(authorId) || assigneeName;
+  };
+
   // Parse time spent & sessions
   const isCurrentlyRunning = currentStatus === 'in-progress';
 
@@ -1406,7 +1427,7 @@ const TaskDetailsModal = ({
                   {rawRemarks.length > 0 ? (
                     <div className="remarks-feed-list">
                       {rawRemarks.map((rem, idx) => {
-                        const author = rem.userName || rem.user?.name || assigneeName;
+                        const author = getRemarkAuthor(rem);
                         const dateStr = formatFullDateTime(rem.createdAt || rem.date);
                         const text = rem.text || rem.remark || rem.message || rem.comment || 'done';
 

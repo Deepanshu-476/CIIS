@@ -226,7 +226,8 @@ const ServicesTasks = () => {
   const fetchServiceTasks = async (clientId, serviceName) => {
     try {
       const encodedService = encodeURIComponent(serviceName);
-      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`);
+      // Without a limit the API returns only the first 50 tasks of each service.
+      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`, { params: { limit: 'all' } });
       if (response.data?.success) {
         return (response.data.data || []).map(task => ({ ...task, serviceName }));
       }

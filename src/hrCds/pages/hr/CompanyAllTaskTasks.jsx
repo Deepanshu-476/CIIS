@@ -108,7 +108,7 @@ const cleanActivityDescription = (desc, action) => {
   let text = String(desc);
 
   // Format messy Date strings like "Sun Oct 25 2026 00:00:00 GMT+0000 (Coordinated Universal Time)"
-  text = text.replace(/"[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}\s+[\d:]+\s+GMT[^\"]*"/g, (match) => {
+  text = text.replace(/"[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}\s+[\d:]+\s+GMT[^"]*"/g, (match) => {
     try {
       const cleanStr = match.replace(/"/g, "");
       const d = new Date(cleanStr);

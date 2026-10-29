@@ -19,7 +19,7 @@ test('hover preload resolves mixed-case payroll and every canonical CRM route', 
   const crmPaths = context.paths.filter(path => path.includes('/crm/'));
   assert.equal(crmPaths.length, context.crmModuleCount);
   for (const path of crmPaths) await context.preload(path);
-  assert.equal(loaded.length, context.crmModuleCount);
+  assert.equal(loaded.length, context.crmModuleCount); 
   await context.preload('/not-a-route');
   assert.equal(loaded.length, context.crmModuleCount);
 });

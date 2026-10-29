@@ -219,8 +219,21 @@ const ClientDetailsPage = () => {
 
       <section className="ClientDetailsPage-hero">
         <div className="ClientDetailsPage-identity">
-          <div className="ClientDetailsPage-avatar">
-            {(client.client || client.company || 'C').charAt(0).toUpperCase()}
+          <div className="ClientDetailsPage-avatar" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {(client.companyLogo || client.logo) ? (
+              <img
+                src={client.companyLogo || client.logo}
+                alt={client.company || client.client}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%', background: '#fff' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <span style={{ display: (client.companyLogo || client.logo) ? 'none' : 'flex' }}>
+              {(client.client || client.company || 'C').charAt(0).toUpperCase()}
+            </span>
           </div>
           <div className="ClientDetailsPage-title-block">
             <div className="ClientDetailsPage-kicker">Client Details</div>

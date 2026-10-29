@@ -154,7 +154,9 @@ const DocumentsPage = () => {
   const pageCount = Math.max(1, Math.ceil(filteredDocuments.length / 8));
   const currentPage = Math.min(page, pageCount);
   const visibleDocuments = filteredDocuments.slice((currentPage - 1) * 8, currentPage * 8);
-  const clientName = getClientDisplayName(client);
+  // One login can have several companies with the same contact person, so the
+  // company name is what tells the selected one apart.
+  const clientName = client?.company || client?.businessName || getClientDisplayName(client);
   const recentCount = documents.filter(doc => {
     const created = new Date(doc.createdAt).getTime();
     return created >= Date.now() - 30 * 24 * 60 * 60 * 1000 && created <= Date.now();

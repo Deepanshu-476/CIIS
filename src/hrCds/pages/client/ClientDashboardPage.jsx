@@ -464,6 +464,28 @@ const Dashboard = () => {
     };
   }, []);
 
+  // Task totals for every company card. A merge removed this function but kept its two
+  // calls, so loading the dashboard threw before the tasks were stored (all counts 0).
+  const fetchCompaniesTaskSummary = async (clientsList) => {
+    const clientIds = [...new Set(
+      (clientsList || [])
+        .map(c => String(c?._id || c?.id || '').trim())
+        .filter(Boolean)
+    )];
+    if (!clientIds.length) return;
+    try {
+      const res = await tasksApi.get('/summary/bulk', {
+        params: { clientIds: clientIds.join(',') }
+      });
+      const summaries = res.data?.data || {};
+      if (isMounted.current && summaries && typeof summaries === 'object') {
+        setCompanyTaskCounts(prev => ({ ...prev, ...summaries }));
+      }
+    } catch {
+      // Cards fall back to the counts already on screen.
+    }
+  };
+
   useEffect(() => {
     isMounted.current = true;
     const handleSelectionChange = () => {
@@ -484,7 +506,7 @@ const Dashboard = () => {
   const fetchServiceTasks = async (clientId, serviceName) => {
     try {
       const encodedService = encodeURIComponent(serviceName);
-      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`);
+      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`, { params: { limit: 'all' } });
       if (response.data?.success) {
         return response.data.data || [];
       }
@@ -818,6 +840,7 @@ const Dashboard = () => {
   }, []);
 
   const clientName = client?.company || client?.businessName || client?.client || client?.name || user?.name || user?.fullName || 'Client';
+  const clientLogo = client?.companyLogo || client?.logo || client?.logoUrl || user?.companyLogo || user?.logo || user?.company?.logo || '';
   const clientEmail = client?.email || user?.email || '—';
   const clientPhone = client?.phone || user?.phone || '—';
   const clientLocation = client?.city || client?.address || user?.city || user?.address || '—';
@@ -826,19 +849,28 @@ const Dashboard = () => {
 
   const dynamicCompanyCards = availableClients.map((item, idx) => {
     const companyName = item.company || item.businessName || item.companyName || item.client || 'Company';
+    const logo = item.companyLogo || item.logo || item.logoUrl || '';
     const serviceCount = Array.isArray(item.services) ? item.services.length : 0;
-    const taskCount = Array.isArray(item.tasks) ? item.tasks.length : 0;
-    const status = item.status || item.accountStatus || 'Active';
     const id = normalizeMatchValue(item?._id || item?.id);
     const selectedClientId = normalizeMatchValue(client?._id || client?.id);
+    const isActive = Boolean(id && id === selectedClientId);
+    const summaryTotal = companyTaskCounts[String(item?._id || item?.id || '')]?.total ?? companyTaskCounts[id]?.total;
+    const fallbackCount = Number(item.totalTasks ?? item.taskCount ?? (Array.isArray(item.tasks) ? item.tasks.length : 0)) || 0;
+    // Every card uses the bulk summary, so a company's count does not change when it is
+    // opened; until the summary arrives the open company shows its loaded tasks.
+    const taskCount = Number.isFinite(summaryTotal)
+      ? summaryTotal
+      : (isActive && totalTasksCount > 0 ? totalTasksCount : fallbackCount);
+    const status = item.status || item.accountStatus || 'Active';
     return {
       client: item,
       id: id || `comp-${idx}`,
       companyName,
+      logo,
       serviceCount,
       taskCount,
       status,
-      isActive: id && id === selectedClientId,
+      isActive,
       initial: companyName.charAt(0).toUpperCase(),
       bgType: idx % 2 === 0 ? 'blue' : 'purple'
     };
@@ -1057,7 +1089,20 @@ const Dashboard = () => {
           <div className="ClientDashboard-profile-header">
             <div className="ClientDashboard-profile-avatar-wrap">
               <div className="ClientDashboard-profile-avatar">
-                {clientName.charAt(0).toUpperCase()}
+                {clientLogo ? (
+                  <img
+                    src={clientLogo}
+                    alt={clientName}
+                    className="ClientDashboard-profile-avatar-img"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span className="ClientDashboard-profile-avatar-initial" style={{ display: clientLogo ? 'none' : 'flex' }}>
+                  {clientName.charAt(0).toUpperCase()}
+                </span>
               </div>
               <span className="ClientDashboard-online-dot" title="Online"></span>
             </div>
@@ -1156,7 +1201,20 @@ const Dashboard = () => {
               tabIndex={0}
             >
               <div className={`ClientDashboard-company-initial-badge ${company.bgType}`}>
-                {company.initial}
+                {company.logo ? (
+                  <img
+                    src={company.logo}
+                    alt={company.companyName}
+                    className="ClientDashboard-company-badge-logo"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      if (e.target.nextSibling) e.target.nextSibling.style.display = 'inline';
+                    }}
+                  />
+                ) : null}
+                <span style={{ display: company.logo ? 'none' : 'inline' }}>
+                  {company.initial}
+                </span>
               </div>
 
               <div className="ClientDashboard-company-box-info">
@@ -1170,9 +1228,13 @@ const Dashboard = () => {
 
               <div className="ClientDashboard-company-thumb-wrap">
                 <img
-                  src="/company_building.jpg"
+                  src={company.logo || "/company_building.jpg"}
                   alt={company.companyName}
                   className="ClientDashboard-company-thumb-img"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "/company_building.jpg";
+                  }}
                 />
                 <FiChevronRight className="ClientDashboard-company-chevron" />
               </div>
@@ -1636,23 +1698,6 @@ const Dashboard = () => {
             </div>
 
             {/* Action 3 */}
-            <div
-              className="ClientDashboard-action-tile"
-              onClick={() => navigate('/ciisUser/client-meeting')}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="ClientDashboard-action-tile-icon green">
-                <FiCalendar />
-              </div>
-              <div className="ClientDashboard-action-tile-copy">
-                <span>Book Meeting</span>
-                <p>Schedule with team</p>
-              </div>
-              <FiChevronRight className="ClientDashboard-action-tile-chevron" />
-            </div>
-
-            {/* Action 4 */}
             <div
               className="ClientDashboard-action-tile"
               onClick={() => navigate('/client/support-tickets')}

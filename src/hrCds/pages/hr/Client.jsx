@@ -3333,6 +3333,74 @@ const ClientManagement = () => {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, type: '', id: '', name: '' });
   const [editDialog, setEditDialog] = useState({ open: false, client: null });
   const [editError, setEditError] = useState('');
+  const [editLogoUploading, setEditLogoUploading] = useState(false);
+  const [editLogoError, setEditLogoError] = useState('');
+  const editLogoInputRef = useRef(null);
+
+  const handleEditLogoFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setEditLogoError('Please upload an image file (JPEG, PNG, WebP, GIF, SVG)');
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setEditLogoError('Logo image size must be less than 5MB');
+      toast.error('Logo image size must be less than 5MB');
+      return;
+    }
+
+    setEditLogoUploading(true);
+    setEditLogoError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      const token = getAuthToken();
+      const res = await axios.post(`${API_URL}/company/upload-logo`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        timeout: 30000
+      });
+
+      if (res.data?.success && res.data?.logoUrl) {
+        setEditDialog(prev => ({
+          ...prev,
+          client: { ...prev.client, companyLogo: res.data.logoUrl }
+        }));
+        toast.success('Company logo uploaded successfully!');
+      } else {
+        throw new Error(res.data?.message || 'Logo upload failed');
+      }
+    } catch (err) {
+      console.error('Edit logo upload error:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to upload logo';
+      setEditLogoError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setEditLogoUploading(false);
+      if (editLogoInputRef.current) {
+        editLogoInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleEditRemoveLogo = () => {
+    setEditDialog(prev => ({
+      ...prev,
+      client: { ...prev.client, companyLogo: '' }
+    }));
+    setEditLogoError('');
+    if (editLogoInputRef.current) {
+      editLogoInputRef.current.value = '';
+    }
+  };
   const [totalClientsCount, setTotalClientsCount] = useState(0);
   const [activeClientsCount, setActiveClientsCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -4126,6 +4194,7 @@ const ClientManagement = () => {
 
   const handleEditClick = (client) => {
     setEditError('');
+    setEditLogoError('');
     let subscriptionStartDate = '';
     let subscriptionEndDate = '';
     let subscriptionPrice = '';
@@ -4171,11 +4240,14 @@ const ClientManagement = () => {
         } : { _id: name, name: name, email: '', role: '' };
       });
     }
+
+    const resolvedCompanyLogo = client.companyLogo || client.logo || client.logoUrl || (typeof client.client === 'object' ? (client.client?.companyLogo || client.client?.logo) : '') || '';
     
     setEditDialog({ 
       open: true, 
       client: {
         ...client,
+        companyLogo: resolvedCompanyLogo,
         projectManagers: formattedProjectManagers,
         subscriptionStartDate: subscriptionStartDate,
         subscriptionEndDate: subscriptionEndDate,
@@ -4223,7 +4295,8 @@ const ClientManagement = () => {
       description: client.description || '',
       notes: client.notes || '',
       companyCode: companyCode,
-      subscription: subscriptionData
+      subscription: subscriptionData,
+      companyLogo: client.companyLogo || ''
     };
     
     try {
@@ -5186,6 +5259,140 @@ const ClientManagement = () => {
                         client: { ...editDialog.client, phone: e.target.value }
                       })}
                     />
+                  </div>
+
+                  <div className="ClientManagement-form-group ClientManagement-edit-logo-group">
+                    <label className="ClientManagement-form-label">Company Logo</label>
+                    <input
+                      type="file"
+                      ref={editLogoInputRef}
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                      style={{ display: 'none' }}
+                      onChange={handleEditLogoFileChange}
+                      disabled={editLogoUploading}
+                    />
+
+                    <div
+                      className="ClientManagement-form-input"
+                      onClick={() => {
+                        if (!editDialog.client.companyLogo && !editLogoUploading) {
+                          editLogoInputRef.current?.click();
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '4px 8px',
+                        height: '36px',
+                        background: '#fff',
+                        cursor: editDialog.client.companyLogo ? 'default' : (editLogoUploading ? 'not-allowed' : 'pointer'),
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {editDialog.client.companyLogo ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                            <img
+                              src={editDialog.client.companyLogo}
+                              alt="Logo"
+                              style={{
+                                width: '24px',
+                                height: '24px',
+                                objectFit: 'contain',
+                                borderRadius: '4px',
+                                border: '1px solid #e2e8f0',
+                                background: '#f8fafc',
+                                flexShrink: 0
+                              }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              Logo Uploaded
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                editLogoInputRef.current?.click();
+                              }}
+                              disabled={editLogoUploading}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                color: '#2563eb',
+                                background: '#eff6ff',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                lineHeight: '18px'
+                              }}
+                            >
+                              {editLogoUploading ? 'Uploading...' : 'Change'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditRemoveLogo();
+                              }}
+                              disabled={editLogoUploading}
+                              title="Remove logo"
+                              style={{
+                                padding: '2px 6px',
+                                fontSize: '11px',
+                                color: '#dc2626',
+                                background: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                lineHeight: '18px'
+                              }}
+                            >
+                              <FiTrash2 size={12} />
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, color: '#64748b' }}>
+                            <FiUpload size={15} style={{ flexShrink: 0, color: '#64748b' }} />
+                            <span style={{ fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {editLogoUploading ? 'Uploading logo...' : 'Choose company logo...'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              editLogoInputRef.current?.click();
+                            }}
+                            disabled={editLogoUploading}
+                            style={{
+                              padding: '2px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: '#334155',
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              lineHeight: '18px'
+                            }}
+                          >
+                            Browse
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {editLogoError && <small className="ClientManagement-text-danger">{editLogoError}</small>}
                   </div>
 
                   <div className="ClientManagement-form-group ClientManagement-edit-address-group">

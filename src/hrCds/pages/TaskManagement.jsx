@@ -1064,6 +1064,8 @@ const UserCreateTask = () => {
   const [timeFilter, setTimeFilter] = useState(initialTaskPeriod);
   const [trendHoverIndex, setTrendHoverIndex] = useState(null);
   const [trendPeriod, setTrendPeriod] = useState('weekly');
+  // The list holds one page (10 tasks), so the graph loads its own period.
+  const [trendTasksGrouped, setTrendTasksGrouped] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [], source: null });
@@ -5638,7 +5640,44 @@ const UserCreateTask = () => {
     };
   }, [remarkImages]);
 
-  
+  useEffect(() => {
+    if (authError || !userId) return undefined;
+    const today = getLocalDateStart();
+    let rangeStart;
+    if (trendPeriod === 'monthly') {
+      rangeStart = new Date(today);
+      rangeStart.setDate(rangeStart.getDate() - 29);
+    } else if (trendPeriod === 'six-months' || trendPeriod === 'one-year') {
+      rangeStart = new Date(today.getFullYear(), today.getMonth() - (trendPeriod === 'six-months' ? 5 : 11), 1);
+    } else {
+      rangeStart = new Date(today);
+      rangeStart.setDate(rangeStart.getDate() - 6);
+    }
+    const dateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const params = new URLSearchParams({
+      all: 'true',
+      view: taskViewMode,
+      taskType: taskViewMode,
+      dateField: 'reportDate',
+      fromDate: dateKey(rangeStart),
+      toDate: dateKey(today),
+    });
+    const controller = new AbortController();
+    setTrendTasksGrouped(null);
+    axios.get(`/tasks/all?${params}`, { signal: controller.signal, noCache: true, _skipErrorNotify: true })
+      .then(response => {
+        const tasks = Array.isArray(response.data?.tasks) ? response.data.tasks : extractTasksFromResponse(response.data);
+        const tagged = tasks.map(task => ({
+          ...task,
+          __taskSource: task.__taskSource || task.taskSource || (task.clientId ? 'client' : 'assigned')
+        }));
+        setTrendTasksGrouped(filterGroupedTasksByFeatureAccess({ all: tagged }, taskFeatureAccess));
+      })
+      .catch(() => {});
+    return () => controller.abort();
+    // allTaskStats changes after every reload and status change, so the graph follows them.
+  }, [authError, userId, trendPeriod, taskViewMode, allTaskStats, taskFeatureAccess, extractTasksFromResponse]);
+
   if (authError && !localStorage.getItem('token')) {
     return (
       <div className="user-create-task-error-container">
@@ -5722,8 +5761,9 @@ const UserCreateTask = () => {
   }
 
   const trendGraphBuckets = Object.fromEntries(trendBuckets.map(bucket => [bucket.key, bucket]));
-  Object.values(getStatsTasksGrouped()).flat().forEach(task => {
-    const rawDate = getSourceAwareDateForTask(task);
+  Object.values(trendTasksGrouped || getStatsTasksGrouped()).flat().forEach(task => {
+    // Same day the task list groups it under.
+    const rawDate = task.reportDate || getSourceAwareDateForTask(task);
     const taskDate = rawDate ? new Date(rawDate) : null;
     if (!taskDate || Number.isNaN(taskDate.getTime())) return;
     const bucket = trendGraphBuckets[getTrendBucketKey(taskDate)];

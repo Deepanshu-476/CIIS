@@ -132,16 +132,19 @@ const resolveLogEventType = (log) => {
 
 const TaskDetailsModal = ({
   open,
-  task,
+  task: incomingTask,
   onClose,
   onStatusChange,
   onRemarkAdded,
   employeeInfo,
-  canEdit = true
+  canEdit = true,
+  mentionUsers = []
 }) => {
+  const task = incomingTask || {};
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [howTrackingOpen, setHowTrackingOpen] = useState(false);
   const [remarkText, setRemarkText] = useState('');
+  const [selectedMentionIds, setSelectedMentionIds] = useState([]);
   const [isSubmittingRemark, setIsSubmittingRemark] = useState(false);
   const [openStatusMenu, setOpenStatusMenu] = useState(null); // 'header' | 'footer' | null
   const [liveSessionSeconds, setLiveSessionSeconds] = useState(0);
@@ -178,8 +181,6 @@ const TaskDetailsModal = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openStatusMenu]);
 
-  if (!open || !task) return null;
-
   const currentStatus = normalizeStatus(task.status || task.overallStatus);
   const priority = String(task.priority || 'medium').toLowerCase();
   const priorityConf = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.medium;
@@ -209,6 +210,27 @@ const TaskDetailsModal = ({
   const rawActivities = Array.isArray(task.activityLogs) ? task.activityLogs : (Array.isArray(task.statusHistory) ? task.statusHistory : (Array.isArray(task.activities) ? task.activities : []));
   const rawRemarks = Array.isArray(task.remarks) ? task.remarks : [];
   const rawFiles = Array.isArray(task.files) ? task.files : (Array.isArray(task.attachments) ? task.attachments : []);
+
+  // Project remarks store only the author's id (createdBy). Resolve it from the
+  // people this task already carries instead of showing the assignee's name.
+  const knownUserNames = new Map();
+  const rememberUser = value => {
+    if (!value || typeof value !== 'object') return;
+    const id = String(value._id || value.id || '');
+    const name = value.name || value.fullName;
+    if (id && name && !knownUserNames.has(id)) knownUserNames.set(id, name);
+  };
+  rawActivities.forEach(ev => [ev?.user, ev?.performedBy, ev?.changedBy, ev?.updatedBy].forEach(rememberUser));
+  let loggedInUser = null;
+  try { loggedInUser = JSON.parse(localStorage.getItem('user') || 'null'); } catch { loggedInUser = null; }
+  [task.createdBy, task.assignedUser, task.assignedTo, task.assignedUsers, employeeInfo, loggedInUser]
+    .flat()
+    .forEach(rememberUser);
+  const getRemarkAuthor = rem => {
+    const author = rem.user || rem.createdBy || rem.addedBy;
+    const authorId = String(author?._id || author?.id || author || '');
+    return rem.userName || rem.createdByName || author?.name || knownUserNames.get(authorId) || assigneeName;
+  };
 
   // Parse time spent & sessions
   const isCurrentlyRunning = currentStatus === 'in-progress';
@@ -796,7 +818,11 @@ const TaskDetailsModal = ({
     setIsSubmittingRemark(true);
     try {
       if (onRemarkAdded) {
-        await onRemarkAdded(task, text, []);
+        const mentions = selectedMentionIds.filter(id => {
+          const user = mentionUsers.find(member => String(member._id || member) === id);
+          return user && text.includes(`@${user.name || 'User'}`);
+        });
+        await onRemarkAdded(task, text, [], mentions);
       } else {
         const source = task.taskFor === 'self' || task.isSelfTask ? 'self' : task.source || 'task';
         const endpoint = source === 'client'
@@ -808,6 +834,7 @@ const TaskDetailsModal = ({
         await axios.post(endpoint, { text, remark: text });
       }
       setRemarkText('');
+      setSelectedMentionIds([]);
     } catch (err) {
       console.error('Failed to submit remark:', err);
     } finally {
@@ -831,6 +858,8 @@ const TaskDetailsModal = ({
   };
 
   const taskIdStr = task.taskNumber || task.customId || `TSK-${String(task._id || '001234').slice(-6).toUpperCase()}`;
+
+  if (!open || !incomingTask) return null;
 
   return (
     <div className={`task-detail-modal-overlay ${isFullscreen ? 'fullscreen-overlay' : ''}`} onClick={onClose}>
@@ -894,17 +923,25 @@ const TaskDetailsModal = ({
                     <span>{taskTypeTag}</span>
                   </div>
 
-                  {projectName && (
+                  {/* The type tag already names the project/client for those tasks. */}
+                  {projectName && taskTypeTag !== `Project: ${projectName}` && (
                     <div className="task-meta-pill project-pill" style={{ color: '#0284c7', backgroundColor: '#e0f2fe', borderColor: '#bae6fd' }}>
                       <FiFolder size={12} />
                       <span>Project: {projectName}</span>
                     </div>
                   )}
 
-                  {clientName && (
+                  {clientName && taskTypeTag !== `Client: ${clientName}` && (
                     <div className="task-meta-pill client-pill" style={{ color: '#059669', backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }}>
                       <FiUser size={12} />
                       <span>Client: {clientName}</span>
+                    </div>
+                  )}
+
+                  {task.service && (
+                    <div className="task-meta-pill client-pill" style={{ color: '#3730a3', backgroundColor: '#eef2ff', borderColor: '#c7d2fe' }}>
+                      <FiFolder size={12} />
+                      <span>Service: {task.service}</span>
                     </div>
                   )}
 
@@ -1390,7 +1427,7 @@ const TaskDetailsModal = ({
                   {rawRemarks.length > 0 ? (
                     <div className="remarks-feed-list">
                       {rawRemarks.map((rem, idx) => {
-                        const author = rem.userName || rem.user?.name || assigneeName;
+                        const author = getRemarkAuthor(rem);
                         const dateStr = formatFullDateTime(rem.createdAt || rem.date);
                         const text = rem.text || rem.remark || rem.message || rem.comment || 'done';
 
@@ -1419,6 +1456,19 @@ const TaskDetailsModal = ({
                   )}
 
                   {/* Add Remark Input Row */}
+                  {mentionUsers.length > 0 && <label>Mention a member
+                    <select aria-label="Mention a project member" value="" onChange={event => {
+                      const user = mentionUsers.find(member => String(member._id || member) === event.target.value);
+                      if (user) {
+                        setRemarkText(previous => `${previous} @${user.name || 'User'} `);
+                        setSelectedMentionIds(previous => [...new Set([...previous, String(user._id || user)])]);
+                      }
+                      remarkInputRef.current?.focus();
+                    }}>
+                      <option value="">Select member</option>
+                      {mentionUsers.map(user => <option key={user._id || user} value={user._id || user}>{user.name || 'User'}</option>)}
+                    </select>
+                  </label>}
                   <form onSubmit={handleAddRemarkSubmit} className="add-remark-box">
                     <div className="remark-current-avatar">
                       {getInitials(employeeInfo?.name || 'User')}

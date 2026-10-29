@@ -23,6 +23,8 @@ const emptyStructureForm = {
   salaryType: "monthly",
   salaryInputType: "gross",
   defaultGross: "",
+  // Same as mobile: backend defaults to today when omitted; now user-selectable on web too.
+  effectiveFrom: new Date().toISOString().slice(0, 10),
   description: "",
   status: "active",
   components: []
@@ -343,6 +345,7 @@ export default function SalaryStructure() {
       salaryType: item.salaryType || "monthly",
       salaryInputType: item.salaryInputType || "gross",
       defaultGross: item.defaultGross || "",
+      effectiveFrom: item.effectiveFrom ? new Date(item.effectiveFrom).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
       description: item.description || "",
       status: item.status || "active",
       components: sortComponentsWithAutoBalanceAtBottom(existingComponents)
@@ -539,6 +542,18 @@ export default function SalaryStructure() {
               value={form.defaultGross || ""}
               onChange={e => change("defaultGross", e.target.value)}
               placeholder="e.g. 50000"
+              readOnly={headerSaved}
+            />
+          </div>
+
+          {/* Effective From */}
+          <div className="ss-form-group">
+            <label>Effective From</label>
+            <input
+              type="date"
+              className="ss-input"
+              value={form.effectiveFrom || ""}
+              onChange={e => change("effectiveFrom", e.target.value)}
               readOnly={headerSaved}
             />
           </div>

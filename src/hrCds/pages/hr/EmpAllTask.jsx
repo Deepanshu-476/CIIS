@@ -94,7 +94,10 @@ const mapStatusCountsToTaskStats = (statusCounts = {}) => {
     overdue: statusCounts.overdue?.count || 0,
     onhold: statusCounts.onhold?.count || statusCounts.onHold?.count || 0,
     reopen: statusCounts.reopen?.count || 0,
-    cancelled: statusCounts.cancelled?.count || 0
+    cancelled: statusCounts.cancelled?.count || 0,
+    personal: statusCounts.personal?.count || 0,
+    project: statusCounts.project?.count || 0,
+    client: statusCounts.client?.count || 0
   };
 };
 
@@ -108,7 +111,10 @@ const emptyTaskStats = {
   overdue: 0,
   onhold: 0,
   reopen: 0,
-  cancelled: 0
+  cancelled: 0,
+  personal: 0,
+  project: 0,
+  client: 0
 };
 
 const getUserTaskStats = (user) => {
@@ -143,13 +149,17 @@ const EMP_USERS_CACHE_KEY_PREFIX = "ciis-emp-all-task-users-cache-v1";
 
 const buildEmpUsersCacheKey = ({
   branchId = "",
+  timeframe = "today",
   fromDate = "",
   toDate = "",
+  taskType = "all",
 }) => [
   EMP_USERS_CACHE_KEY_PREFIX,
   String(branchId || ""),
+  String(timeframe || "today"),
   String(fromDate || ""),
   String(toDate || ""),
+  String(taskType || "all"),
 ].join("|");
 
 const readEmpUsersCache = (cacheKey) => {
@@ -203,6 +213,102 @@ const getUserBranchIds = (user = {}) => {
 const isUserInBranch = (user, branchId) => {
   if (!branchId) return true;
   return getUserBranchIds(user).includes(String(branchId));
+};
+
+const cleanActivityDescription = (desc, action) => {
+  if (!desc) {
+    if (!action) return "Activity logged";
+    const formattedAction = String(action).replace(/_/g, " ").replace(/-/g, " ");
+    return formattedAction.charAt(0).toUpperCase() + formattedAction.slice(1);
+  }
+  let text = String(desc);
+  text = text.replace(/"in_progress"/gi, '"In Progress"');
+  text = text.replace(/"in-progress"/gi, '"In Progress"');
+  text = text.replace(/"onhold"/gi, '"On Hold"');
+  text = text.replace(/"completed"/gi, '"Completed"');
+  text = text.replace(/"pending"/gi, '"Pending"');
+  return text;
+};
+
+const getActivityMeta = (log) => {
+  const action = String(log?.action || log?.type || "").toLowerCase();
+  const desc = String(log?.description || log?.text || log?.message || log?.details || "").toLowerCase();
+  const newS = String(log?.newValues?.status || "").toLowerCase();
+
+  if (newS === "completed" || desc.includes("to completed") || action.includes("complete")) {
+    return {
+      type: "completed",
+      label: "Completed",
+      icon: <FiCheckCircle size={14} />,
+      color: "#16a34a",
+      bg: "#dcfce7",
+      border: "#86efac"
+    };
+  }
+
+  if (newS === "onhold" || newS === "on-hold" || desc.includes("hold") || action.includes("hold")) {
+    return {
+      type: "onhold",
+      label: "On Hold",
+      icon: <FiPause size={13} />,
+      color: "#9333ea",
+      bg: "#f3e8ff",
+      border: "#d8b4fe"
+    };
+  }
+
+  if (newS === "in-progress" || newS === "inprogress" || desc.includes("progress") || action.includes("start") || action.includes("progress")) {
+    return {
+      type: "progress",
+      label: "In Progress",
+      icon: <FiPlay size={13} />,
+      color: "#0284c7",
+      bg: "#e0f2fe",
+      border: "#7dd3fc"
+    };
+  }
+
+  if (action.includes("create") || desc.includes("created")) {
+    return {
+      type: "created",
+      label: "Created",
+      icon: <FiPlus size={14} />,
+      color: "#059669",
+      bg: "#ecfdf5",
+      border: "#a7f3d0"
+    };
+  }
+
+  if (action.includes("timer") || desc.includes("time") || desc.includes("session")) {
+    return {
+      type: "timer",
+      label: "Timer Session",
+      icon: <FiClock size={13} />,
+      color: "#d97706",
+      bg: "#fef3c7",
+      border: "#fde68a"
+    };
+  }
+
+  if (action.includes("assign") || desc.includes("assigned")) {
+    return {
+      type: "assign",
+      label: "Assignment",
+      icon: <FiUser size={13} />,
+      color: "#4f46e5",
+      bg: "#e0e7ff",
+      border: "#c7d2fe"
+    };
+  }
+
+  return {
+    type: "default",
+    label: "Update",
+    icon: <FiCheckCircle size={13} />,
+    color: "#6b7280",
+    bg: "#f3f4f6",
+    border: "#e5e7eb"
+  };
 };
 
 const getRoleText = value => {
@@ -349,25 +455,13 @@ const getStatusObject = (status) => {
 
 
 const getTaskType = (task) => {
-  
-  if (task.source === 'assigned') return 'assigned';
-  if (task.source === 'personal') return 'personal';
-  if (task.source === 'client') return 'assigned'; 
-  
-  
-  if (task.taskType === 'assigned' || task.taskType === 'client') return 'assigned';
-  if (task.taskType === 'personal') return 'personal';
-  
-  
-  if (task.clientId || task.isClientTask === true) return 'assigned';
-  
-  
-  if (task.assignedBy) return 'assigned';
-  
-  
+  if (!task) return 'personal';
+  const source = String(task.__taskSource || task.taskSource || task.source || '').toLowerCase();
+  if (source === 'project' || task.projectId || task.projectTaskId || task.projectName || task.project) return 'project';
+  if (source === 'client' || task.clientId || task.isClientTask === true || task.clientName || task.client) return 'client';
+  if (source === 'personal' || source === 'self' || task.taskType === 'personal' || task.taskType === 'self') return 'personal';
+  if (source === 'assigned' || task.taskType === 'assigned' || task.assignedBy) return 'assigned';
   if (task.userStatus && !task.status) return 'assigned';
-  
-  
   return 'personal';
 };
 
@@ -521,6 +615,7 @@ const TaskDetails = () => {
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
   const [selectedPerfFilter, setSelectedPerfFilter] = useState('all');
+  const [taskTypeFilter, setTaskTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name-asc');
   const [viewMode, setViewMode] = useState('grid');
   const [activeDeptTab, setActiveDeptTab] = useState('all');
@@ -535,8 +630,20 @@ const TaskDetails = () => {
     const selectedUser = users.find((user) => String(user._id || user.id) === String(userId));
     const params = new URLSearchParams();
     const todayStr = getDateInputValue();
-    params.set('startDate', globalFromDate || todayStr);
-    params.set('endDate', globalToDate || todayStr);
+    if (globalFromDate || globalToDate) {
+      if (globalFromDate) params.set('startDate', globalFromDate);
+      if (globalToDate) params.set('endDate', globalToDate);
+    } else if (dateFilter === 'today') {
+      params.set('startDate', todayStr);
+      params.set('endDate', todayStr);
+    } else if (dateFilter === 'all') {
+      // All dates - no range filter so all tasks show
+      params.set('startDate', '');
+      params.set('endDate', '');
+    }
+    if (taskTypeFilter && taskTypeFilter !== 'all') {
+      params.set('taskType', taskTypeFilter);
+    }
     const query = params.toString() ? `?${params.toString()}` : '';
     navigate(`/ciisUser/company-all-task/tasks/${userId}${query}`, {
       state: {
@@ -544,7 +651,7 @@ const TaskDetails = () => {
         taskStats: selectedUser?.taskStats || null,
       },
     });
-  }, [globalFromDate, globalToDate, navigate, users]);
+  }, [dateFilter, globalFromDate, globalToDate, navigate, users, taskTypeFilter]);
 
   
   useEffect(() => {
@@ -1451,10 +1558,18 @@ const TaskDetails = () => {
     fetchUsersTimeoutRef.current = setTimeout(async () => {
       if (!isMounted.current || usersFetchRequestRef.current !== requestId) return;
 
-      const todayStr = getDateInputValue();
+      const fromDateParam = globalFromDate || undefined;
+      const toDateParam = globalToDate || undefined;
+      const isDateFiltered = fromDateParam || toDateParam;
+      const effectivePeriod = isDateFiltered
+        ? (fromDateParam && toDateParam && fromDateParam === toDateParam ? 'today' : 'custom')
+        : (dateFilter || 'today');
+
       const cacheKey = buildEmpUsersCacheKey({
-        fromDate: todayStr,
-        toDate: todayStr,
+        timeframe: effectivePeriod,
+        fromDate: fromDateParam || "",
+        toDate: toDateParam || "",
+        taskType: taskTypeFilter,
       });
       const cachedUsersSnapshot = readEmpUsersCache(cacheKey);
       const shouldShowLoading = !cachedUsersSnapshot;
@@ -1500,6 +1615,7 @@ const TaskDetails = () => {
 
         try {
           response = await axios.get('/tasks/all/company-overview', {
+            noCache: true,
             ...config,
             params: { includeStats: 'false' }
           });
@@ -1609,6 +1725,7 @@ const TaskDetails = () => {
               toDate: toDateParam,
               status: 'all',
               priority: 'all',
+              taskType: taskTypeFilter,
             },
           };
           const statsRes = await fetchTaskStats(statsPayload, {
@@ -1693,7 +1810,7 @@ const TaskDetails = () => {
       }
     }, 300); 
 
-  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, pageScope]);
+  }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, pageScope, dateFilter, taskTypeFilter]);
 
   
   useEffect(() => {
@@ -2272,6 +2389,7 @@ const TaskDetails = () => {
       }
 
       const response = await axios.get(`/tasks/all/user/${userId}/stats`, {
+            noCache: true,
         params: {
           period: fromDate || toDate || dateFilter === 'overdue' ? 'all' : dateFilter,
           fromDate,
@@ -2446,6 +2564,7 @@ const TaskDetails = () => {
       }
 
       const response = await axios.get(`/tasks/all/user/${userId}`, {
+            noCache: true,
         params: {
           page,
           limit: taskLimit,
@@ -2823,6 +2942,7 @@ const TaskDetails = () => {
     setSelectedRoleFilter('all');
     setSelectedStatusFilter('all');
     setSelectedPerfFilter('all');
+    setTaskTypeFilter('all');
     setSortBy('name-asc');
     setActiveDeptTab('all');
     setCurrentPage(1);
@@ -3651,7 +3771,8 @@ const TaskDetails = () => {
     if (!zoomImage) return null;
 
     return (
-      <div className="TaskDetails-activity-modal-overlay" onClick={() => setZoomImage(null)}>
+      // Opened from the remarks modal (z-index 99999), so it must sit above it.
+      <div className="TaskDetails-activity-modal-overlay" style={{ zIndex: 100001 }} onClick={() => setZoomImage(null)}>
         <div style={{ 
           position: 'relative',
           maxWidth: '90vw',
@@ -4886,11 +5007,11 @@ const TaskDetails = () => {
             <div className="new-stat-icon purple"><FiClipboard size={20} /></div>
             <div className="new-stat-val">
               <h3>{systemStats.totalTasks || overallStats.total || 0}</h3>
-              <span>Tasks Today</span>
+              <span>{dateFilter === 'today' ? 'Tasks Today' : dateFilter === 'all' ? 'Total Tasks' : 'Tasks'}</span>
             </div>
             <div className="new-stat-trend green">↑ 8%</div>
           </div>
-          <p>Tasks assigned today</p>
+          <p>{dateFilter === 'today' ? 'Tasks assigned today' : 'All tasks assigned'}</p>
         </div>
         <div className="new-stat-card card-orange">
           <div className="new-stat-top">
@@ -5053,6 +5174,36 @@ const TaskDetails = () => {
         </div>
         
         <div className="new-filter-group">
+          <div className={`new-filter-item ${dateFilter !== 'today' ? 'active' : ''}`}>
+            <label>Timeframe</label>
+            <select
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="today">Today</option>
+              <option value="all">Total (All Time)</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          <div className={`new-filter-item ${taskTypeFilter !== 'all' ? 'active' : ''}`}>
+            <label>Task Type</label>
+            <select
+              value={taskTypeFilter}
+              onChange={(e) => {
+                setTaskTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All (Personal & Project)</option>
+              <option value="personal">Personal Tasks</option>
+              <option value="project">Project Tasks</option>
+              <option value="client">Client Tasks</option>
+            </select>
+          </div>
           <div className={`new-filter-item ${selectedDeptFilter !== 'all' ? 'active' : ''}`}>
             <label>Department</label>
             <select
@@ -5387,6 +5538,14 @@ const TaskDetails = () => {
                                 <span>Completion</span>
                               </div>
                             </div>
+
+                            {((userStats.personal || 0) > 0 || (userStats.project || 0) > 0 || (userStats.client || 0) > 0) && (
+                              <div style={{ display: 'flex', gap: '8px', padding: '2px 16px 8px', fontSize: '11px', color: '#64748b' }}>
+                                {(userStats.personal || 0) > 0 && <span>👤 Personal: <strong style={{ color: '#1e293b' }}>{userStats.personal}</strong></span>}
+                                {(userStats.project || 0) > 0 && <span>📁 Project: <strong style={{ color: '#1e293b' }}>{userStats.project}</strong></span>}
+                                {(userStats.client || 0) > 0 && <span>💼 Client: <strong style={{ color: '#1e293b' }}>{userStats.client}</strong></span>}
+                              </div>
+                            )}
                             
                             <div className="new-user-progress">
                               <div className="progress-track">

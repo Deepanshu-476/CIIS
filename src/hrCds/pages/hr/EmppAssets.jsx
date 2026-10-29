@@ -8,7 +8,8 @@ import {
   FiUsers, FiLock, FiEyeOff,
   FiShield, FiHome, FiUpload, FiImage, FiX,
   FiEye, FiSend, FiPaperclip, FiTrash2 as FiDelete, FiFileText,
-  FiSearch, FiFilter, FiDownload, FiRefreshCw, FiMoreVertical, FiCalendar
+  FiSearch, FiFilter, FiDownload, FiRefreshCw, FiMoreVertical, FiCalendar,
+  FiExternalLink
 } from 'react-icons/fi';
 import './EmpAssets.css';
 import { API_URL_IMG } from '../../../config';
@@ -109,9 +110,66 @@ const EmpAssets = () => {
     }
   };
 
-  const openStoredImage = (filePath, name) => {
+  const isDocumentFile = (pathOrUrl = '', name = '', mimeType = '') => {
+    if (mimeType) {
+      return !mimeType.startsWith('image/');
+    }
+    const target = `${String(pathOrUrl)} ${String(name)}`.toLowerCase();
+    return target.includes('.pdf') || target.includes('.doc') || target.includes('.docx') || target.includes('.xls') || target.includes('.xlsx') || target.includes('.txt');
+  };
+
+  const isPdfFile = (pathOrUrl = '', name = '', mimeType = '') => {
+    if (mimeType === 'application/pdf') return true;
+    const target = `${String(pathOrUrl)} ${String(name)}`.toLowerCase();
+    return target.includes('.pdf');
+  };
+
+  const openStoredAttachment = (commentOrPath, fallbackName = 'Comment attachment') => {
+    const filePath = typeof commentOrPath === 'object' ? (commentOrPath.image || commentOrPath.file || '') : String(commentOrPath || '');
+    const name = typeof commentOrPath === 'object' ? (commentOrPath.originalName || fallbackName) : fallbackName;
+    const mimeType = typeof commentOrPath === 'object' ? (commentOrPath.mimeType || '') : '';
+
     const urls = getUploadUrls(filePath);
-    if (urls.length) setCommentLightbox({ src: urls[0], urls, urlIndex: 0, name });
+    const primaryUrl = urls[0] || getUploadUrl(filePath);
+
+    if (isPdfFile(filePath, name, mimeType)) {
+      setCommentLightbox({
+        src: primaryUrl,
+        urls,
+        urlIndex: 0,
+        name,
+        type: 'pdf',
+      });
+    } else if (isDocumentFile(filePath, name, mimeType)) {
+      setCommentLightbox({
+        src: primaryUrl,
+        urls,
+        urlIndex: 0,
+        name,
+        type: 'doc',
+      });
+    } else {
+      setCommentLightbox({
+        src: primaryUrl,
+        urls,
+        urlIndex: 0,
+        name,
+        type: 'image',
+      });
+    }
+  };
+
+  const openStoredImage = openStoredAttachment;
+
+  const openPendingAttachment = (item) => {
+    if (!item?.file) return;
+    const isPdf = item.file.type === 'application/pdf' || item.file.name.toLowerCase().endsWith('.pdf');
+    const isDoc = !item.file.type.startsWith('image/');
+    setCommentLightbox({
+      src: item.preview,
+      name: item.file.name,
+      type: isPdf ? 'pdf' : isDoc ? 'doc' : 'image',
+    });
   };
   
   
@@ -1547,11 +1605,18 @@ const EmpAssets = () => {
                     {editingCommentReq.adminComments?.filter(comment => comment.image).map((comment, index) => {
                       const imageUrl = getUploadUrl(comment.image);
                       const imageName = comment.originalName || String(comment.image).replace(/\\/g, '/').split('/').pop() || `Attachment ${index + 1}`;
+                      const isDoc = (comment.mimeType && !comment.mimeType.startsWith('image/')) || isDocumentFile(comment.image, imageName, comment.mimeType);
                       return (
                         <article key={`saved-${index}`}>
                           <div>
-                            {comment.mimeType && !comment.mimeType.startsWith('image/') ? <span className="EmpAssets-document-tile"><FiFileText /></span> : <img src={imageUrl} alt={imageName} data-url-index="0" onError={(event) => handleStoredImageError(event, comment.image)} onClick={(event) => setCommentLightbox({ src: event.currentTarget.src, urls: getUploadUrls(comment.image), urlIndex: Number(event.currentTarget.dataset.urlIndex || 0), name: imageName })} />}
-                            {(!comment.mimeType || comment.mimeType.startsWith('image/')) && <button type="button" className="EmpAssets-attachment-view" onClick={() => openStoredImage(comment.image, imageName)} aria-label={`View ${imageName}`}><FiEye /></button>}
+                            {isDoc ? (
+                              <span className="EmpAssets-document-tile" style={{ cursor: 'pointer' }} onClick={() => openStoredAttachment(comment, imageName)}>
+                                <FiFileText />
+                              </span>
+                            ) : (
+                              <img src={imageUrl} alt={imageName} data-url-index="0" onError={(event) => handleStoredImageError(event, comment.image)} onClick={() => openStoredAttachment(comment, imageName)} />
+                            )}
+                            <button type="button" className="EmpAssets-attachment-view" onClick={() => openStoredAttachment(comment, imageName)} aria-label={`View ${imageName}`}><FiEye /></button>
                             <button type="button" className="EmpAssets-attachment-delete" onClick={() => { setAttachmentDeleteError(''); setAttachmentToDelete({ id: comment._id, name: imageName }); }} disabled={actionLoading} aria-label={`Delete ${imageName}`}><FiDelete /></button>
                           </div>
                           <strong title={imageName}>{imageName}</strong>
@@ -1559,13 +1624,26 @@ const EmpAssets = () => {
                         </article>
                       );
                     })}
-                    {commentImages.map(item => (
-                      <article key={item.id}>
-                        <div>{item.file.type.startsWith('image/') ? <img src={item.preview} alt={item.file.name} onClick={() => setCommentLightbox({ src: item.preview, name: item.file.name })} /> : <span className="EmpAssets-document-tile"><FiFileText /></span>}{item.file.type.startsWith('image/') && <button type="button" className="EmpAssets-attachment-view" onClick={() => setCommentLightbox({ src: item.preview, name: item.file.name })} aria-label={`View ${item.file.name}`}><FiEye /></button>}<button type="button" className="EmpAssets-attachment-delete" onClick={() => removeCommentImage(item.id)} disabled={actionLoading} aria-label={`Remove ${item.file.name}`}><FiDelete /></button></div>
-                        <strong title={item.file.name}>{item.file.name}</strong>
-                        <small className="EmpAssets-pending-file">{Math.round(item.file.size / 1024)} KB · Pending</small>
-                      </article>
-                    ))}
+                    {commentImages.map(item => {
+                      const isImg = item.file.type.startsWith('image/');
+                      return (
+                        <article key={item.id}>
+                          <div>
+                            {isImg ? (
+                              <img src={item.preview} alt={item.file.name} onClick={() => openPendingAttachment(item)} />
+                            ) : (
+                              <span className="EmpAssets-document-tile" style={{ cursor: 'pointer' }} onClick={() => openPendingAttachment(item)}>
+                                <FiFileText />
+                              </span>
+                            )}
+                            <button type="button" className="EmpAssets-attachment-view" onClick={() => openPendingAttachment(item)} aria-label={`View ${item.file.name}`}><FiEye /></button>
+                            <button type="button" className="EmpAssets-attachment-delete" onClick={() => removeCommentImage(item.id)} disabled={actionLoading} aria-label={`Remove ${item.file.name}`}><FiDelete /></button>
+                          </div>
+                          <strong title={item.file.name}>{item.file.name}</strong>
+                          <small className="EmpAssets-pending-file">{Math.round(item.file.size / 1024)} KB · Pending</small>
+                        </article>
+                      );
+                    })}
                   </div>
                 </section>
               )}
@@ -1577,8 +1655,15 @@ const EmpAssets = () => {
                   editingCommentReq.adminComments.map((c, i) => (
                     <div key={i} className="EmpAssets-activity-item">
                       <span>{getInitials(c.addedBy?.name || currentUserName)}</span>
-                      <div><strong>{c.addedBy?.name || currentUserName || 'Admin'} {c.image ? 'uploaded an image' : 'added a comment'}</strong>{c.text && <p>{c.text}</p>}<small>{c.addedAt ? new Date(c.addedAt).toLocaleString() : 'Previously'}</small></div>
-                      {c.image && <button type="button" className="EmpAssets-activity-view" onClick={() => openStoredImage(c.image, 'Comment attachment')}><FiEye /> View</button>}
+                      <div>
+                        <strong>
+                          {c.addedBy?.name || currentUserName || 'Admin'}{' '}
+                          {c.image ? (isDocumentFile(c.image, c.originalName) ? 'uploaded an attachment' : 'uploaded an image') : 'added a comment'}
+                        </strong>
+                        {c.text && <p>{c.text}</p>}
+                        <small>{c.addedAt ? new Date(c.addedAt).toLocaleString() : 'Previously'}</small>
+                      </div>
+                      {c.image && <button type="button" className="EmpAssets-activity-view" onClick={() => openStoredAttachment(c, c.originalName || 'Comment attachment')}><FiEye /> View</button>}
                     </div>
                   ))
                   ) : <p className="EmpAssets-no-activity">No previous activity yet.</p>}
@@ -1611,21 +1696,97 @@ const EmpAssets = () => {
       )}
 
       {commentLightbox && (
-        <div className="EmpAssets-lightbox" role="dialog" aria-modal="true" aria-label="Image preview" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setCommentLightbox(null);
-        }}>
+        <div
+          className={`EmpAssets-lightbox ${commentLightbox.type === 'pdf' || commentLightbox.type === 'doc' ? 'has-document' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Attachment preview"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setCommentLightbox(null);
+          }}
+        >
           <div>
-            <header><strong>{commentLightbox.name}</strong><button type="button" onClick={() => setCommentLightbox(null)} aria-label="Close image preview"><FiX /></button></header>
-            <img
-              src={commentLightbox.src}
-              alt={commentLightbox.name}
-              onError={() => {
-                const nextIndex = (commentLightbox.urlIndex || 0) + 1;
-                if (commentLightbox.urls && nextIndex < commentLightbox.urls.length) {
-                  setCommentLightbox(current => ({ ...current, src: current.urls[nextIndex], urlIndex: nextIndex }));
-                }
-              }}
-            />
+            <header>
+              <strong>{commentLightbox.name}</strong>
+              <div className="EmpAssets-lightbox-header-actions">
+                <a
+                  href={commentLightbox.src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="EmpAssets-lightbox-header-btn"
+                  title="Open in new window"
+                >
+                  <FiExternalLink />
+                </a>
+                <a
+                  href={commentLightbox.src}
+                  download={commentLightbox.name}
+                  className="EmpAssets-lightbox-header-btn"
+                  title="Download"
+                >
+                  <FiDownload />
+                </a>
+                <button type="button" onClick={() => setCommentLightbox(null)} aria-label="Close preview">
+                  <FiX />
+                </button>
+              </div>
+            </header>
+            {commentLightbox.type === 'pdf' ? (
+              <div className="EmpAssets-lightbox-content EmpAssets-lightbox-pdf">
+                <iframe
+                  src={commentLightbox.src}
+                  title={commentLightbox.name}
+                  width="100%"
+                  height="100%"
+                  className="EmpAssets-pdf-frame"
+                />
+              </div>
+            ) : commentLightbox.type === 'doc' ? (
+              <div className="EmpAssets-lightbox-content EmpAssets-lightbox-doc">
+                <div className="EmpAssets-doc-preview-card">
+                  <div className="EmpAssets-doc-icon-wrap">
+                    <FiFileText size={48} />
+                    <span className="EmpAssets-doc-badge">
+                      {String(commentLightbox.name).split('.').pop().toUpperCase()}
+                    </span>
+                  </div>
+                  <h3>{commentLightbox.name}</h3>
+                  <p>Direct browser preview for this document format is not supported. You can download it to view or open in a new tab.</p>
+                  <div className="EmpAssets-doc-actions">
+                    <a
+                      href={commentLightbox.src}
+                      download={commentLightbox.name}
+                      className="EmpAssets-btn EmpAssets-btn-doc-download"
+                    >
+                      <FiDownload /> Download Document
+                    </a>
+                    <a
+                      href={commentLightbox.src}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="EmpAssets-btn EmpAssets-btn-doc-open"
+                    >
+                      <FiExternalLink /> Open in New Tab
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <img
+                src={commentLightbox.src}
+                alt={commentLightbox.name}
+                onError={() => {
+                  const nextIndex = (commentLightbox.urlIndex || 0) + 1;
+                  if (commentLightbox.urls && nextIndex < commentLightbox.urls.length) {
+                    setCommentLightbox((current) => ({
+                      ...current,
+                      src: current.urls[nextIndex],
+                      urlIndex: nextIndex,
+                    }));
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
       )}

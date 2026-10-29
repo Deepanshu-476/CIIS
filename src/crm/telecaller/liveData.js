@@ -36,5 +36,7 @@ export function normalizeLead(item) {
     status: ({ new: 'Assigned', interested: 'Interested', 'not interested': 'Not Interested', 'follow-up': 'Follow-up', converted: 'Converted', closed: 'Closed' })[item.status] || item.status,
     date: last?.date || '', outcome: last?.outcome || '', notes: last?.notes || item.remarks || '',
     followUp: item.nextFollowUp ? localDateTime(item.nextFollowUp) : '', calls,
+    // A missed call from the lead that has not been called back yet.
+    missedCallAt: item.lastMissedCallAt && !['converted', 'closed'].includes(item.status) ? localDateTime(item.lastMissedCallAt) : '',
   };
 }

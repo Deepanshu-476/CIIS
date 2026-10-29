@@ -29,6 +29,15 @@ const asOfDate = (value) => {
 
 const monthName = (value) => value ? new Date(`${value}-01T00:00:00`).toLocaleString("en-IN", { month: "long", year: "numeric" }) : "Selected month";
 const employeeKey = (item) => String(item?.user?._id || item?.user || item?._id || "");
+const isActiveUser = (user) => {
+  if (!user) return false;
+  if (user.isActive === false || user.isActive === "false") return false;
+  const status = String(user.status || user.employeeStatus || "").toLowerCase().trim();
+  if (["inactive", "terminated", "resigned", "suspended", "rejected"].includes(status)) return false;
+  const regStatus = String(user.registrationStatus || "").toLowerCase().trim();
+  if (regStatus === "rejected") return false;
+  return true;
+};
 
 const storedCompany = () => {
   try { return JSON.parse(localStorage.getItem("companyDetails") || "null") || {}; }
@@ -127,7 +136,7 @@ export default function Payslip() {
         const response = await axiosInstance.get("/employee-salaries/payroll-payslips", { params: { month: payrollMonth }, noCache: true });
         if (!active) return;
         const nextRun = response.data?.run || null;
-        const list = nextRun?.employees || [];
+        const list = (nextRun?.employees || []).filter(item => isActiveUser(item.user));
         setRun(nextRun); setEmployees(list);
         if (response.data?.company) setBackendCompany(response.data.company);
         setSelectedId(current => list.some(item => employeeKey(item) === String(current)) ? current : employeeKey(list[0]));

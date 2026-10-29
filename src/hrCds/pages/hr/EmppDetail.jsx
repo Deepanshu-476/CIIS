@@ -232,7 +232,11 @@ const useUser = () => {
   
   const getCurrentUserJobRole = useCallback(() => {
     const user = getCurrentUser();
-    return (user?.jobRole || user?.role || '').toLowerCase();
+    // jobRole is saved as text for some logins and as {_id, name} for others.
+    const role = [user?.jobRole, user?.role]
+      .map(value => (value && typeof value === 'object' ? value.name || value.roleName || '' : value))
+      .find(Boolean);
+    return String(role || '').toLowerCase();
   }, [getCurrentUser]);
   
   const getCurrentUserId = useCallback(() => {
@@ -409,7 +413,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   };
   
   const getCompanyRoleBadge = (role) => {
-    const roleLower = (role || '').toLowerCase();
+    const roleLower = String(role || '').toLowerCase();
     if (roleLower === 'owner') return 'EmployeeDirectory-company-role-owner';
     if (roleLower === 'admin') return 'EmployeeDirectory-company-role-admin';
     if (roleLower === 'manager') return 'EmployeeDirectory-company-role-manager';
@@ -2058,7 +2062,9 @@ const EmployeeDirectory = () => {
     }
   }, [currentUserCompanyId, user.getAuthToken]);
 
-  const fetchAllEmployeesFromEndpoint = useCallback(async (url, params, config) => {
+  const fetchAllEmployeesFromEndpoint = useCallback(async (url, rawParams, config) => {
+    // Family/bank fields are only returned on request; the server still allows it for owner/admin/HR only.
+    const params = { ...rawParams, includeSensitive: true };
     const firstResponse = await axios.get(url, {
       ...config,
       params: { ...params, page: 1, limit: 100 }
@@ -2826,7 +2832,7 @@ const EmployeeDirectory = () => {
       filtered = filtered.filter((emp) => {
         const jobRoleName = getJobRoleName(emp.jobRole).toLowerCase();
         const departmentName = getDepartmentName(emp.department).toLowerCase();
-        const companyRole = (emp.companyRole || '').toLowerCase();
+        const companyRole = String(emp.companyRole || '').toLowerCase();
         
         return (
           (emp.name && emp.name.toLowerCase().includes(search)) ||

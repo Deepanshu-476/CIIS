@@ -130,6 +130,7 @@ const SupportTicketsPage = () => {
         category,
         priority,
         source,
+        companyCode: client?.companyCode || user?.companyCode || '',
       });
       if (response.data?.ticket) {
         setTickets(prev => [response.data.ticket, ...prev]);

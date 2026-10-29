@@ -1,109 +1,139 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box, Typography, TextField, InputAdornment, IconButton, Button,
   MenuItem, Select, Paper, Table, TableHead, TableBody, TableRow,
-  TableCell, Avatar, Chip, Tooltip, TablePagination
+  TableCell, Avatar, Chip, TablePagination, CircularProgress, Alert
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  FilterList as FilterListIcon,
   Phone as PhoneIcon,
   PlayArrow,
   Download as DownloadIcon,
   ArrowUpward,
+  ArrowDownward,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
+import axios from '../../utils/axiosConfig';
+import { API_URL_IMG } from '../../config';
+
+// Real call logs from GET /crm/telecaller/call-logs (same source as the mobile Call History).
+// Previously this page rendered hard-coded sample rows.
+
+const STATUS_COLORS = {
+  answered: 'success',
+  missed: 'warning',
+  'not reachable': 'default',
+  rejected: 'error',
+};
+
+const DATE_FILTERS = ['Today', 'Last 30 Days', 'All'];
+
+const formatDuration = (seconds) => {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  return `${Math.floor(total / 60)}m ${total % 60}s`;
+};
+
+const formatCalledAt = (value) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  const isToday = date.toDateString() === new Date().toDateString();
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return isToday ? `${time}, Today` : `${time}, ${date.toLocaleDateString()}`;
+};
+
+// Backend accepts Inbound/Incoming and Outbound/Outgoing for the same direction.
+const callDirection = (callType) => {
+  const value = String(callType || '').toLowerCase();
+  if (value === 'inbound' || value === 'incoming') return 'inbound';
+  if (value === 'outbound' || value === 'outgoing') return 'outbound';
+  return value;
+};
+
+const recordingHref = (url) => {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${String(API_URL_IMG).replace(/\/+$/, '')}/${String(url).replace(/^\/+/, '')}`;
+};
+
+// Local-day bounds for the date buttons, sent to the server as from/to.
+const dateRange = (filter) => {
+  if (filter === 'All') return {};
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  if (filter === 'Last 30 Days') start.setDate(start.getDate() - 29);
+  return { from: start.toISOString() };
+};
 
 function CallLogs() {
+  const [logs, setLogs] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
+  const [direction, setDirection] = useState('');
   const [dateFilter, setDateFilter] = useState('Today');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const handleChangePage = (event, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+  // Typing waits a moment before asking the server.
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
     setPage(0);
-  };
+  }, [query, status, direction, dateFilter, rowsPerPage]);
 
-  const totalCount = 30;
+  // One page at a time from the server (the page used to load 500 rows and filter them here,
+  // so older calls never showed).
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    const params = {
+      page: page + 1,
+      limit: rowsPerPage,
+      ...(query ? { search: query } : {}),
+      ...(status ? { status } : {}),
+      ...(direction ? { direction } : {}),
+      ...dateRange(dateFilter),
+    };
+    axios.get('/crm/telecaller/call-logs', { params })
+      .then((response) => {
+        if (!active) return;
+        setLogs(Array.isArray(response.data?.items) ? response.data.items : []);
+        setTotal(Number(response.data?.total) || 0);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setLogs([]);
+        setTotal(0);
+        setError(err.response?.data?.message || 'Failed to load call logs.');
+      })
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [page, rowsPerPage, query, status, direction, dateFilter, reloadKey]);
 
-  const mockLogs = [
-    {
-      id: 1,
-      name: 'Unknown',
-      phone: '+919811211503',
-      by: 'Ashutosh Rai',
-      time: '01:59 PM, Today',
-      duration: '0m 27s',
-      badge: 'U',
-      avatarColor: 'green',
-      status: 'Outgoing',
-      hasRecording: true
-    },
-    {
-      id: 2,
-      name: '8837897006',
-      phone: '+918837897006',
-      by: 'Ashutosh Rai',
-      time: '01:51 PM, Today',
-      duration: '0m 48s',
-      badge: '8',
-      avatarColor: 'orangered',
-      status: 'Outgoing',
-      hasRecording: true
-    },
-    {
-      id: 3,
-      name: '9814289955',
-      phone: '+919814289955',
-      by: 'Ashutosh Rai',
-      time: '01:47 PM, Today',
-      duration: '0m 35s',
-      badge: '9',
-      avatarColor: 'orangered',
-      status: 'Outgoing',
-      hasRecording: true
-    },
-    {
-      id: 4,
-      name: '8178597256',
-      phone: '+918178597256',
-      by: 'Ashutosh Rai',
-      time: '12:54 PM, Today',
-      duration: '0m 1s',
-      badge: '8',
-      avatarColor: 'orangered',
-      status: 'Outgoing',
-      hasRecording: false
-    },
-    {
-      id: 5,
-      name: '8360149939',
-      phone: '+918360149939',
-      by: 'Ashutosh Rai',
-      time: '12:51 PM, Today',
-      duration: '0m 50s',
-      badge: '8',
-      avatarColor: 'orangered',
-      status: 'Outgoing',
-      hasRecording: true
-    },
-  ];
+  const fetchLogs = useCallback(() => setReloadKey((key) => key + 1), []);
+  const pageRows = logs;
 
   return (
     <Box p={3}>
-      
-      <Box mb={3}>
-        <Typography variant="h5" fontWeight={600}>30 Call Logs</Typography>
+      <Box mb={3} display="flex" alignItems="center" justifyContent="space-between">
+        <Typography variant="h5" fontWeight={600}>{total} Call Logs</Typography>
+        <Button startIcon={<RefreshIcon />} onClick={fetchLogs} disabled={loading}>Refresh</Button>
       </Box>
 
-      
       <Box display="flex" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
         <TextField
           size="small"
           variant="outlined"
-          placeholder="Search by Phone Number"
+          placeholder="Search by name, phone or agent"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           InputProps={{
@@ -115,31 +145,22 @@ function CallLogs() {
           }}
         />
 
-        <IconButton>
-          <FilterListIcon />
-        </IconButton>
-
-        <Select
-          size="small"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          displayEmpty
-        >
-          <MenuItem value="">By Status</MenuItem>
-          <MenuItem value="Outgoing">Outgoing</MenuItem>
-          <MenuItem value="Incoming">Incoming</MenuItem>
+        <Select size="small" value={direction} onChange={(e) => setDirection(e.target.value)} displayEmpty>
+          <MenuItem value="">All Directions</MenuItem>
+          <MenuItem value="outbound">Outgoing</MenuItem>
+          <MenuItem value="inbound">Incoming</MenuItem>
         </Select>
 
-        <Select
-          size="small"
-          value=""
-          displayEmpty
-        >
-          <MenuItem value="">Select Status</MenuItem>
+        <Select size="small" value={status} onChange={(e) => setStatus(e.target.value)} displayEmpty>
+          <MenuItem value="">All Statuses</MenuItem>
+          <MenuItem value="answered">Answered</MenuItem>
+          <MenuItem value="missed">Missed</MenuItem>
+          <MenuItem value="not reachable">Not Reachable</MenuItem>
+          <MenuItem value="rejected">Rejected</MenuItem>
         </Select>
 
         <Box display="flex" gap={1}>
-          {['Today', 'Last 30 Days', 'Select Range'].map((item) => (
+          {DATE_FILTERS.map((item) => (
             <Button
               key={item}
               variant={dateFilter === item ? 'contained' : 'outlined'}
@@ -151,7 +172,8 @@ function CallLogs() {
         </Box>
       </Box>
 
-      
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
       <Paper variant="outlined">
         <Table>
           <TableHead>
@@ -165,61 +187,80 @@ function CallLogs() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {mockLogs.map((log) => (
-              <TableRow key={log.id}>
-                <TableCell>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <ArrowUpward fontSize="small" color="primary" />
-                    <Chip label={log.status} size="small" />
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Avatar sx={{ bgcolor: log.avatarColor }}>
-                      {log.badge}
-                    </Avatar>
-                    <Box>
-                      <Typography fontWeight={600}>{log.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">{log.phone}</Typography>
-                    </Box>
-                  </Box>
-                </TableCell>
-                <TableCell>{log.by}</TableCell>
-                <TableCell>{log.time}</TableCell>
-                <TableCell>{log.duration}</TableCell>
-                <TableCell>
-                  <Box display="flex" gap={1}>
-                    <Button
-                      size="small"
-                      startIcon={<PlayArrow />}
-                      variant="outlined"
-                      color="error"
-                      disabled={!log.hasRecording}
-                    >
-                      Play Recording
-                    </Button>
-                    <IconButton disabled={!log.hasRecording}>
-                      <DownloadIcon />
-                    </IconButton>
-                    <IconButton>
-                      <PhoneIcon />
-                    </IconButton>
-                  </Box>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center"><CircularProgress size={28} /></TableCell>
+              </TableRow>
+            ) : pageRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  <Typography color="text.secondary">No call logs found for the selected filters.</Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : pageRows.map((log) => {
+              const name = log.leadName || log.leadPhone || 'Unknown';
+              const isInbound = callDirection(log.callType) === 'inbound';
+              const recording = recordingHref(log.recordingUrl);
+              return (
+                <TableRow key={log._id}>
+                  <TableCell>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      {isInbound ? <ArrowDownward fontSize="small" color="success" /> : <ArrowUpward fontSize="small" color="primary" />}
+                      <Chip label={log.status || 'answered'} size="small" color={STATUS_COLORS[String(log.status || '').toLowerCase()] || 'default'} />
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Avatar sx={{ bgcolor: isInbound ? 'green' : 'orangered' }}>
+                        {String(name).charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box>
+                        <Typography fontWeight={600}>{name}</Typography>
+                        <Typography variant="body2" color="text.secondary">{log.leadPhone || '—'}</Typography>
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell>{log.agentName || '—'}</TableCell>
+                  <TableCell>{formatCalledAt(log.startTime || log.createdAt)}</TableCell>
+                  <TableCell>{formatDuration(log.duration)}</TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={1}>
+                      <Button
+                        size="small"
+                        startIcon={<PlayArrow />}
+                        variant="outlined"
+                        color="error"
+                        disabled={!recording}
+                        href={recording || undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Play Recording
+                      </Button>
+                      <IconButton disabled={!recording} href={recording || undefined} download>
+                        <DownloadIcon />
+                      </IconButton>
+                      <IconButton disabled={!log.leadPhone} href={log.leadPhone ? `tel:${log.leadPhone}` : undefined}>
+                        <PhoneIcon />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
 
-        
         <TablePagination
           component="div"
-          count={totalCount}
+          count={total}
           page={page}
-          onPageChange={handleChangePage}
+          onPageChange={(event, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[5, 10, 25]}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(parseInt(event.target.value, 10));
+          }}
+          rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </Paper>
     </Box>

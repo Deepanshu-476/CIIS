@@ -203,8 +203,8 @@ export const handleAppLogout = async ({ navigate, redirectPath = "/" } = {}) => 
 
   // Immediate redirect: no lingering timer or delayed popup!
   if (navigate) {
-    navigate(redirectPath);
+    navigate(redirectPath, { replace: true });
   } else {
-    window.location.href = redirectPath;
+    window.location.replace(redirectPath);
   }
 };

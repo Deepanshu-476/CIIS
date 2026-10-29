@@ -50,6 +50,7 @@ const APP_ROUTES = [
   { path: 'my-leaves', name: 'My Leaves', icon: 'EventNote', category: 'main' },
   { path: 'profile', name: 'My Details', icon: 'Person', category: 'main' },
   { path: 'user-dashboard', name: 'Dashboard', icon: 'Dashboard', category: 'main' },
+  { path: 'dashboard-overview', name: 'Dynamic Dashboard Overview', icon: 'Dashboard', category: 'main' },
   { path: 'dashboard-1', name: 'Dashboard 1', icon: 'Dashboard', category: 'main' },
   { path: 'project', name: 'My Projects', icon: 'Groups', category: 'projects' },
   { path: 'task-management', name: 'Create Task', icon: 'Task', category: 'tasks' },
@@ -59,6 +60,7 @@ const APP_ROUTES = [
   { path: 'create-alert' , name: 'Create Alert', icon: 'Notifications', category: 'communication' },
   { path: 'chat', name: 'Chat', icon: 'Chat', category: 'communication' },
   { path: 'support-desk', name: 'Support Desk', icon: 'SupportAgent', category: 'communication' },
+  { path: 'bulk-email', name: 'Bulk Email', icon: 'Email', category: 'communication' },
   { path: 'support-operations', name: 'Support Operations', icon: 'SupportAgent', category: 'administration' },
   { path: 'feedback-questionnaire', name: 'Feedback / Questionnaire', icon: 'Assignment', category: 'administration' },
   ...CRM_PAGES.map((page, index) => ({ ...page, icon: page.icon || 'Dashboard', order: 24.6 + index / 100 })),
@@ -121,6 +123,12 @@ const getIconHtml = (iconName) => {
 
 const getRouteKey = (path = '') => String(path).split('/').filter(Boolean).pop();
 
+const normalizeAccessKey = (value = '') => String(value || '')
+  .trim()
+  .replace(/^\/+/, '')
+  .replace(/\/+$/, '')
+  .toLowerCase();
+
 const getRouteAccessKeys = (route) => {
   const rawPath = String(route?.path || '').trim();
   const cleanPath = rawPath.replace(/^\/+/, '');
@@ -156,9 +164,9 @@ const isRouteAllowedForCompany = (route, company) => {
   const allowedPages = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
   if (allowedPages.length === 0) return true;
 
-  const allowedSet = new Set(allowedPages.map(item => String(item).trim()).filter(Boolean));
-  const routeKeys = getRouteAccessKeys(route);
-  return [...allowedSet].some(page => routeKeys.has(page) || routeKeys.has(page.replace(/^\/+/, '')));
+  const allowedSet = new Set(allowedPages.map(normalizeAccessKey).filter(Boolean));
+  const routeKeys = new Set([...getRouteAccessKeys(route)].map(normalizeAccessKey).filter(Boolean));
+  return [...routeKeys].some(key => allowedSet.has(key));
 };
 
 const getNormalizedUserRoles = (user = {}) => {
@@ -381,10 +389,11 @@ const SidebarManagement = () => {
   }, []);
 
   const initializePages = (companyOverride = company) => {
-    const pages = APP_ROUTES.map(route => {
+    const pages = APP_ROUTES.filter(route => isRouteAllowedForCompany(route, companyOverride)).map(route => {
       const isClientPath = route.path.startsWith('client-');
       return {
         id: route.path,
+        accessId: route.id || route.path,
         name: route.name,
         path: isClientPath ? `/client/${route.path.substring(7)}` : `/ciisUser/${route.path}`,
         icon: route.icon,
@@ -796,7 +805,7 @@ const SidebarManagement = () => {
       setSelectedDepartment(departmentId);
       setSelectedRole(roleId);
       setDepartmentSearch(getDepartmentName(config.departmentId));
-      setRoleSearch(getRoleNameById(config.role));
+      setRoleSearch(config.roleName || getRoleNameById(config.role));
       const menuItems = config.menuItems || [];
       const savedRanges = config.ranges || [];
       setSelectedItems(menuItems.map(item => item.id));
@@ -2078,7 +2087,7 @@ const SidebarManagement = () => {
                           <div className="SidebarManagement-config-item-role">
                             <span className="SidebarManagement-config-item-icon">🔒</span>
                             <span className="SidebarManagement-config-item-role-chip">
-                              {getRoleNameById(config.role)}
+                              {config.roleName || getRoleNameById(config.role)}
                             </span>
                           </div>
                           <span className="SidebarManagement-config-item-meta">
@@ -2155,7 +2164,7 @@ const SidebarManagement = () => {
                   <span className="SidebarManagement-modal-subtitle">
                     {company?.companyName} ({company?.companyCode}) - 
                     {getDepartmentName(modalState.data.departmentId)} - 
-                    {getRoleNameById(modalState.data.role)}
+                    {modalState.data.roleName || getRoleNameById(modalState.data.role)}
                   </span>
                   <button className="SidebarManagement-modal-close" onClick={closeModal}>✗</button>
                 </div>

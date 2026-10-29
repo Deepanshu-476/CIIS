@@ -70,6 +70,7 @@ export const websiteAppScreenMap = [
       {webUrl: '/ciisUser/SidebarManagement', webPage: 'Sidebar Management', appScreen: 'Sidebar Management', status: 'available'},
       {webUrl: '/ciisUser/chat', webPage: 'Chat', appScreen: 'Chat', status: 'available'},
       {webUrl: '/ciisUser/support-desk', webPage: 'Department Support Desk', appScreen: 'Support Desk', status: 'available'},
+      {webUrl: '/ciisUser/bulk-email', webPage: 'Bulk Email', appScreen: null, status: 'missing'},
       {webUrl: '/ciisUser/support-operations', webPage: 'Support Operations', appScreen: 'Support Operations', status: 'available'},
       {webUrl: '/ciisUser/feedback-questionnaire', webPage: 'Feedback / Questionnaire', appScreen: 'Feedback / Questionnaire', status: 'available'},
       {webUrl: '/ciisUser/leave-policy-master', webPage: 'Leave Policy Master', appScreen: 'Leave Policy', status: 'available'},

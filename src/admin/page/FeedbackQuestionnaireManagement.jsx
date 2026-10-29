@@ -136,7 +136,11 @@ const FeedbackQuestionnaireManagement = () => {
   const [notice, setNotice] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [users, setUsers] = useState([]);
+  // Recipients come from /feedback/recipients (searched and counted on the server).
+  const [recipientOptions, setRecipientOptions] = useState([]);
+  const [recipientTotal, setRecipientTotal] = useState(0);
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [recipientsLoading, setRecipientsLoading] = useState(false);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [responsesDialog, setResponsesDialog] = useState({ open: false, loading: false, questionnaire: null, responses: [] });
   const [form, setForm] = useState({
@@ -165,65 +169,57 @@ const FeedbackQuestionnaireManagement = () => {
     return branches.filter(branch => String(branch.company?._id || branch.company) === companyId);
   }, [branches, form.company]);
 
-  const filteredUsers = useMemo(() => {
-    const companyId = getId(form.company);
-    const branchId = getId(form.branch);
+  const recipientPreviewCount = form.targetScope === 'user' || form.recipientMode === 'specific'
+    ? form.targetedUsers.length
+    : recipientTotal;
 
-    return users.filter(user => {
-      const userCompanyId = getId(user.company);
-      const userBranchId = getId(user.branch);
-      const assignedBranches = Array.isArray(user.assignedBranches) ? user.assignedBranches.map(getId) : [];
-
-      if (form.targetScope !== 'user' && companyId && userCompanyId !== companyId) {
-        return false;
+  // Same audience rule as the server uses when sending: active, non-client users of the company,
+  // limited to the branch for branch feedback.
+  useEffect(() => {
+    if (form.targetScope === 'branch' && !getId(form.branch)) {
+      setRecipientOptions([]);
+      setRecipientTotal(0);
+      return undefined;
+    }
+    let active = true;
+    const timer = setTimeout(async () => {
+      setRecipientsLoading(true);
+      try {
+        const params = { limit: 50 };
+        if (getId(form.company)) params.company = getId(form.company);
+        if (form.targetScope === 'branch') params.branch = getId(form.branch);
+        if (recipientSearch.trim()) params.search = recipientSearch.trim();
+        const response = await axiosInstance.get('/feedback/recipients', { params });
+        if (!active) return;
+        setRecipientOptions(Array.isArray(response.data?.items) ? response.data.items : []);
+        setRecipientTotal(Number(response.data?.total) || 0);
+      } catch {
+        if (!active) return;
+        setRecipientOptions([]);
+        setRecipientTotal(0);
+      } finally {
+        if (active) setRecipientsLoading(false);
       }
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [form.company, form.branch, form.targetScope, recipientSearch]);
 
-      if (form.targetScope === 'branch' && branchId) {
-        return userBranchId === branchId || assignedBranches.includes(branchId);
-      }
-
-      return true;
-    });
-  }, [users, form.company, form.branch, form.targetScope]);
-
-  const recipientPreviewCount = useMemo(() => {
-    if (form.targetScope === 'user') {
-      return form.targetedUsers.length || 0;
-    }
-    if (form.recipientMode === 'specific') {
-      return form.targetedUsers.length;
-    }
-    if (form.targetScope === 'branch') {
-      const branchId = getId(form.branch);
-      return filteredUsers.filter(user => {
-        const assignedBranches = Array.isArray(user.assignedBranches) ? user.assignedBranches.map(getId) : [];
-        return getId(user.branch) === branchId || assignedBranches.includes(branchId);
-      }).length;
-    }
-    if (form.targetScope === 'company') {
-      const companyId = getId(form.company);
-      return filteredUsers.filter(user => String(user.company?._id || user.company) === companyId).length;
-    }
-    return filteredUsers.length;
-  }, [form, filteredUsers]);
+  // Keeps chosen users visible in the multi-select while the search shows other matches.
+  const recipientPickerOptions = useMemo(() => {
+    const chosen = form.targetedUsers.filter(user => !recipientOptions.some(option => getId(option) === getId(user)));
+    return [...chosen, ...recipientOptions];
+  }, [form.targetedUsers, recipientOptions]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [companyResult, userResult, questionnaireResult] = await Promise.allSettled([
+      const [companyResult, questionnaireResult] = await Promise.allSettled([
         axiosInstance.get('/superAdmin/companies'),
-        axiosInstance.get('/superAdmin/users'),
         axiosInstance.get('/feedback/questionnaires?limit=100'),
       ]);
-
-      let userResponse = userResult.status === 'fulfilled' ? userResult.value : null;
-      if (!userResponse) {
-        try {
-          userResponse = await axiosInstance.get('/users/company-users', { params: lockedCompanyId ? { companyId: lockedCompanyId } : {} });
-        } catch {
-          userResponse = null;
-        }
-      }
 
       const allCompanies = companyResult.status === 'fulfilled' ? pickArray(companyResult.value.data, ['companies']) : [];
       const matchedCompany = lockedCompanyId
@@ -237,7 +233,6 @@ const FeedbackQuestionnaireManagement = () => {
           branch: getId(prev.company) === getId(matchedCompany) ? prev.branch : null,
         }));
       }
-      setUsers(userResponse ? pickArray(userResponse.data, ['users']).filter(user => getId(user)) : []);
       setQuestionnaires(questionnaireResult.status === 'fulfilled' ? pickArray(questionnaireResult.value.data, ['questionnaires']) : []);
 
       if (questionnaireResult.status === 'rejected') {
@@ -462,7 +457,7 @@ const FeedbackQuestionnaireManagement = () => {
                   renderInput={params => <TextField {...params} label="Branch" placeholder="Select branch" />}
                 />}
                 {form.targetScope === 'user' && <Autocomplete
-                  options={filteredUsers} value={form.targetedUsers[0] || null} onChange={(_, value) => updateForm('targetedUsers', value ? [value] : [])}
+                  options={recipientPickerOptions} value={form.targetedUsers[0] || null} onChange={(_, value) => updateForm('targetedUsers', value ? [value] : [])} filterOptions={options => options} loading={recipientsLoading} onInputChange={(_, value, reason) => { if (reason !== 'reset') setRecipientSearch(value); }} onClose={() => setRecipientSearch('')}
                   getOptionLabel={option => option.name || option.email || 'User'} isOptionEqualToValue={(option, value) => getId(option) === getId(value)}
                   renderInput={params => <TextField {...params} label="Specific User" placeholder="Select user" />}
                 />}
@@ -496,7 +491,7 @@ const FeedbackQuestionnaireManagement = () => {
               <Typography className="field-label">Target Audience</Typography><Chip label={form.targetScope === 'company' ? 'Entire Company' : form.targetScope === 'branch' ? 'Selected Branch' : 'Specific User'} className="audience-chip" />
               <Typography className="field-label users-label">Total Users</Typography><Typography className="user-count"><AudienceIcon /> <strong>{recipientPreviewCount || 0}</strong> Users will receive this feedback</Typography>
               {form.targetScope !== 'user' && <FormControl className="recipient-control"><FormLabel>Send to</FormLabel><RadioGroup value={form.recipientMode} onChange={event => updateForm('recipientMode', event.target.value)}><FormControlLabel value="all" control={<Radio />} label="All matching users" /><FormControlLabel value="specific" control={<Radio />} label="Specific users" /></RadioGroup></FormControl>}
-              {(form.targetScope !== 'user' && form.recipientMode === 'specific') && <Autocomplete multiple options={filteredUsers} value={form.targetedUsers} onChange={(_, value) => updateForm('targetedUsers', value)} getOptionLabel={option => option.name || option.email || 'User'} isOptionEqualToValue={(option, value) => getId(option) === getId(value)} renderInput={params => <TextField {...params} label="Select Recipients" />} />}
+              {(form.targetScope !== 'user' && form.recipientMode === 'specific') && <Autocomplete multiple filterSelectedOptions options={recipientPickerOptions} value={form.targetedUsers} filterOptions={options => options} loading={recipientsLoading} onInputChange={(_, value, reason) => { if (reason !== 'reset') setRecipientSearch(value); }} onClose={() => setRecipientSearch('')} onChange={(_, value) => updateForm('targetedUsers', value)} getOptionLabel={option => option.name || option.email || 'User'} isOptionEqualToValue={(option, value) => getId(option) === getId(value)} renderInput={params => <TextField {...params} label="Select Recipients" />} />}
             </CardContent></Card>
 
             <Card className="FeedbackQuestionnaire-panel visibility-panel"><CardContent>

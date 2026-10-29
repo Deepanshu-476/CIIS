@@ -44,6 +44,8 @@ class SocketService {
       this.socket = io(SOCKET_URL, {
         auth: { token },
         transports: ['websocket', 'polling'],
+        // Try polling when a proxy or network blocks the initial WebSocket.
+        tryAllTransports: true,
         withCredentials: true,
         reconnection: true,
         reconnectionAttempts: 10,

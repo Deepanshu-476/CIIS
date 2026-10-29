@@ -84,7 +84,7 @@ const ApiMonitorConsole = () => {
           <div className="api-monitor-header">
             <div>
               <h2>API Console</h2>
-              <p>Screen load aur click based calls</p>
+              <p>Screen load and click-based calls</p>
             </div>
             <button
               type="button"

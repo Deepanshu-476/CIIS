@@ -71,7 +71,7 @@ export default function WorkloadDistribution() {
         setData(res.data || { agents: [], totals: {} });
       })
       .catch((err) => {
-        setError(err.response?.data?.message || 'Workload distribution report load nahi ho saki.');
+        setError(err.response?.data?.message || 'Failed to load workload distribution report.');
       })
       .finally(() => {
         setLoading(false);

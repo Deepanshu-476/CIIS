@@ -14,14 +14,21 @@ export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (isDev ? 'http://12
 // export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000/api';
 // export const API_URL_IMG = import.meta.env.VITE_API_URL_IMG || 'http://127.0.0.1:3000/';
 // export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://127.0.0.1:3000';
+
+
+
 export const CHAT_UPLOAD_ORIGINS = [
   API_URL_IMG,
   // 'https://backendappapp.ciisnetwork.in/',
   'https://backendcds.ciisnetwork.in/',
 ];
 
-export const TURN_URL = import.meta.env.VITE_TURN_URL || ''
-export const TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME || ''
-export const TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL || ''
+// The mobile app talks to a separate backend process with its own uploads
+// folder, so files uploaded from the app only exist on that origin.
+export const UPLOAD_FALLBACK_ORIGINS = [
+  API_URL_IMG,
+  'https://backendapp.ciisnetwork.in/',
+  'https://backendcds.ciisnetwork.in/',
+];
 
 export default API_URL; 

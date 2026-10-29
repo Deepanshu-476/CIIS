@@ -113,6 +113,7 @@ const ClientLayout = () => {
   };
 
   const sidebarCompanies = availableClients.length ? availableClients : (client ? [client] : []);
+  const currentLogo = client?.companyLogo || client?.logo || client?.logoUrl || '';
 
   return (
     <div className={`ClientLayout-container ${sidebarOpen ? 'ClientLayout-sidebar-open' : 'ClientLayout-sidebar-collapsed'}`}>
@@ -128,8 +129,21 @@ const ClientLayout = () => {
         </div>
 
         <div className="ClientLayout-user-panel">
-          <div className="ClientLayout-user-avatar">
-            <FiUser size={24} />
+          <div className="ClientLayout-user-avatar" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {currentLogo ? (
+              <img
+                src={currentLogo}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%', background: '#fff' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <span style={{ display: currentLogo ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+              <FiUser size={24} />
+            </span>
           </div>
           {sidebarOpen && (
             <div className="ClientLayout-user-summary">

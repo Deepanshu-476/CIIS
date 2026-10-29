@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
 import { API_URL_IMG, CHAT_UPLOAD_ORIGINS } from "../config";
+import { mentionSegments } from "./mentionUtils";
+import { taskEventText } from "./taskEventText";
+import { attachmentLabel, attachmentSource } from "./messageUtils";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
@@ -61,6 +64,8 @@ const MessageBubble = ({
     const audioUserPausedRef = useRef(false);
     const audioEndedRef = useRef(false);
     const bubbleRef = useRef(null);
+    const menuRef = useRef(null);
+    const [menuStyle, setMenuStyle] = useState(null);
     const menuButtonRef = useRef(null);
     const menuInstanceIdRef = useRef(`message-menu-${message._id || message.createdAt || Math.random()}`);
     const reactionSummary = Object.entries((message.reactions || []).reduce((summary, reaction) => {
@@ -75,6 +80,19 @@ const MessageBubble = ({
     useEffect(() => {
         setSelectedReaction(getCurrentUserReaction());
     }, [message.reactions, message.reaction, currentUser?._id, currentUser?.id]);
+
+    const updateAudioDuration = (audio) => {
+        const duration = Number(audio?.duration || 0);
+        if (Number.isFinite(duration) && duration > 0) {
+            setAudioDuration(duration);
+            return;
+        }
+
+        const fallbackDuration = Number(message.duration || message.audioDuration || message.fileDuration || 0);
+        if (Number.isFinite(fallbackDuration) && fallbackDuration > 0) {
+            setAudioDuration(fallbackDuration);
+        }
+    };
 
     useEffect(() => {
         const closeOtherMenu = event => {
@@ -100,6 +118,32 @@ const MessageBubble = ({
             document.removeEventListener("pointerdown", closeOnOutsideClick);
             document.removeEventListener("keydown", closeOnEscape);
         };
+    }, [showMenu]);
+
+    // Anchor the open menu at the ⋮ button, on whichever side has room inside the
+    // message list (it clips at the composer). A tall photo near the bottom used to
+    // open the menu below the whole bubble, leaving only "Reply" visible.
+    useLayoutEffect(() => {
+        if (!showMenu) {
+            setMenuStyle(null);
+            return;
+        }
+        const menu = menuRef.current, button = menuButtonRef.current, bubble = bubbleRef.current;
+        if (!menu || !button || !bubble) return;
+        const list = bubble.closest(".chat-messages");
+        const area = list ? list.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+        const buttonRect = button.getBoundingClientRect();
+        const bubbleRect = bubble.getBoundingClientRect();
+        const menuHeight = menu.scrollHeight;
+        const gap = 6;
+        const spaceBelow = area.bottom - buttonRect.bottom - gap * 2;
+        const spaceAbove = buttonRect.top - area.top - gap * 2;
+        const below = { top: buttonRect.bottom - bubbleRect.top + gap, bottom: "auto" };
+        const above = { top: "auto", bottom: bubbleRect.bottom - buttonRect.top + gap };
+        if (menuHeight <= spaceBelow) setMenuStyle(below);
+        else if (menuHeight <= spaceAbove) setMenuStyle(above);
+        else if (spaceBelow >= spaceAbove) setMenuStyle({ ...below, maxHeight: Math.max(spaceBelow, 120), overflowY: "auto" });
+        else setMenuStyle({ ...above, maxHeight: Math.max(spaceAbove, 120), overflowY: "auto" });
     }, [showMenu]);
 
     const toggleMessageMenu = () => {
@@ -135,7 +179,11 @@ const MessageBubble = ({
             : "sent";
     const renderDeliveryTick = () => {
         if (!isOwn) return null;
-        return deliveryState === "sent" ? <Check size={14} /> : <CheckCheck size={14} />;
+        return (
+            <span className={deliveryState === "seen" ? "delivery-tick seen" : "delivery-tick"}>
+                {deliveryState === "sent" ? <Check size={14} /> : <CheckCheck size={14} />}
+            </span>
+        );
     };
     const formattedTime = new Date(message.createdAt || Date.now()).toLocaleTimeString([], {
         hour: "2-digit",
@@ -157,7 +205,7 @@ const MessageBubble = ({
             sender: message.replyTo.sender?.name || "User",
             text: message.replyTo.deletedForEveryone
                 ? "This message was deleted"
-                : message.replyTo.text || message.replyTo.file?.split(/[\\/]/).pop() || "Attachment",
+                : taskEventText(message.replyTo) || (attachmentSource(message.replyTo) ? attachmentLabel(message.replyTo) : "Message"),
         }
         : legacyReplyMeta;
     const displayMessageText = (encodedReplyMatch
@@ -165,6 +213,10 @@ const MessageBubble = ({
         : rawMessageText
     ).replace(/\[\[ciis-expire:\d+\]\]/g, "").trim();
 
+    const mentionOffset = rawMessageText.indexOf(displayMessageText);
+    const textParts = mentionSegments(displayMessageText, (message.mentions || []).map(mention => ({
+        ...mention, start: mention.start - mentionOffset, end: mention.end - mentionOffset,
+    })));
     const isDeletedForEveryone = Boolean(message.deletedForEveryone);
     const mediaType = message.mediaType || message.type || message.fileType;
     const getRawMediaUrl = () => {
@@ -310,6 +362,8 @@ const MessageBubble = ({
     const attachmentName = getAttachmentName();
     const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !displayMessageText && !isDeletedForEveryone);
     const tryNextMediaUrl = () => {
+        setLocalMediaUrl("");
+        setIsAudioPlaying(false);
         setMediaUrlIndex((currentIndex) => {
             if (currentIndex + 1 < mediaUrlCandidates.length) return currentIndex + 1;
             setHasMediaLoadFailed(true);
@@ -439,8 +493,15 @@ const MessageBubble = ({
     const getCachedAttachmentBlob = async () => {
         if (!mediaUrl) return null;
 
-        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates : [mediaUrl];
+        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates.slice(mediaUrlIndex) : [mediaUrl];
         let lastError = null;
+        const validateResponse = response => {
+            if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+            const contentType = response.headers.get("content-type") || "";
+            if ((isAudioMedia || isVideoMedia || isImageMedia) && /text\/html|application\/json/i.test(contentType)) {
+                throw new Error("Attachment URL returned a page instead of media");
+            }
+        };
 
         for (const url of downloadUrls) {
             try {
@@ -448,20 +509,25 @@ const MessageBubble = ({
                     const cache = await caches.open(ATTACHMENT_CACHE_NAME);
                     const cachedResponse = await cache.match(url);
                     if (cachedResponse) {
-                        setMediaUrlIndex(Math.max(0, downloadUrls.indexOf(url)));
-                        return cachedResponse.blob();
+                        try {
+                            validateResponse(cachedResponse);
+                            setMediaUrlIndex(Math.max(0, mediaUrlCandidates.indexOf(url)));
+                            return await cachedResponse.blob();
+                        } catch {
+                            await cache.delete(url);
+                        }
                     }
                 }
 
                 const response = await fetch(url, { credentials: "include" });
-                if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+                validateResponse(response);
 
                 if ("caches" in window) {
                     const cache = await caches.open(ATTACHMENT_CACHE_NAME);
                     await cache.put(url, response.clone());
                 }
 
-                setMediaUrlIndex(Math.max(0, downloadUrls.indexOf(url)));
+                setMediaUrlIndex(Math.max(0, mediaUrlCandidates.indexOf(url)));
                 return response.blob();
             } catch (error) {
                 lastError = error;
@@ -540,10 +606,11 @@ const MessageBubble = ({
                 try {
                     const audioUrl = await getLocalAttachmentUrl();
                     if (!audioUrl) return;
-                    requestAnimationFrame(() => audioRef.current?.play?.().catch((error) => {
+                    audio.src = audioUrl;
+                    audio.play().catch((error) => {
                         console.warn("Voice note playback failed", error);
                         setIsAudioPlaying(false);
-                    }));
+                    });
                     return;
                 } catch (error) {
                     console.warn("Voice note download failed", error);
@@ -583,10 +650,11 @@ const MessageBubble = ({
         <div className="voice-note-player">
             <audio
                 ref={audioRef}
-                src={localMediaUrl || ""}
+                src={localMediaUrl || undefined}
                 preload="metadata"
                 controls
-                onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration || 0)}
+                onLoadedMetadata={(event) => updateAudioDuration(event.currentTarget)}
+                onDurationChange={(event) => updateAudioDuration(event.currentTarget)}
                 onTimeUpdate={(event) => setAudioCurrentTime(event.currentTarget.currentTime || 0)}
                 onPlay={() => {
                     audioUserPausedRef.current = false;
@@ -594,10 +662,7 @@ const MessageBubble = ({
                     setIsAudioPlaying(true);
                 }}
                 onPause={(event) => {
-                    if (!audioUserPausedRef.current && !audioEndedRef.current) {
-                        event.currentTarget.play().catch(() => {});
-                        return;
-                    }
+                    if (audioEndedRef.current) event.currentTarget.currentTime = 0;
                     setIsAudioPlaying(false);
                 }}
                 onEnded={() => {
@@ -606,7 +671,7 @@ const MessageBubble = ({
                     setAudioCurrentTime(0);
                 }}
                 onError={(event) => {
-                    console.warn("Voice note load error", event);
+                    if (!event.currentTarget.getAttribute("src")) return;
                     tryNextMediaUrl();
                 }}
             />
@@ -618,6 +683,7 @@ const MessageBubble = ({
                 type="button"
                 className="voice-play-btn"
                 onClick={toggleAudioPlayback}
+                disabled={isAttachmentLoading || hasMediaLoadFailed}
                 aria-label={isAudioPlaying ? "Pause voice recording" : "Play voice recording"}
             >
                 {isAudioPlaying ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
@@ -625,7 +691,7 @@ const MessageBubble = ({
             <div className="voice-note-body">
                 {renderAudioWaveform()}
                 <div className="voice-note-meta">
-                    <span>{formatAudioTime(audioDuration || audioCurrentTime)}</span>
+                    <span>{hasMediaLoadFailed ? "Voice note unavailable" : isAttachmentLoading ? "Loading..." : formatAudioTime(isAudioPlaying ? audioCurrentTime : audioDuration || audioCurrentTime)}</span>
                     <span>
                         {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {renderDeliveryTick()}
@@ -791,7 +857,9 @@ const MessageBubble = ({
                 </div>
             ) : (
                 <div className="message-content-row">
-                    {displayMessageText && <span className="message-text-content">{displayMessageText}</span>}
+                    {displayMessageText && <span className="message-text-content">{textParts.map((part, index) => part.user
+                        ? <span key={index} className="chat-member-mention" data-mentioned-user={part.user}>{part.text}</span>
+                        : <React.Fragment key={index}>{part.text}</React.Fragment>)}</span>}
                     {renderMedia()}
                     {!isAudioOnly && (
                         <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
@@ -809,7 +877,7 @@ const MessageBubble = ({
             )}
 
             {showMenu && !isDeletedForEveryone && (
-                <div className={`message-menu whatsapp-message-menu opens-${menuPlacement}`}>
+                <div ref={menuRef} style={menuStyle || { visibility: "hidden" }} className={`message-menu whatsapp-message-menu opens-${menuPlacement}`}>
                     <div className="message-reaction-strip" aria-label="Message reactions">
                         {quickReactions.map((emoji) => (
                             <button

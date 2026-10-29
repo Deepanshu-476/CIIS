@@ -319,7 +319,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
         axios.get(`${API_URL}/task/my`, { headers, _skipErrorNotify: true }),
         axios.get(`${API_URL}/task/assigned`, { headers, _skipErrorNotify: true }),
         axios.get(`${API_URL}/groups`, { headers, _skipErrorNotify: true }),
-        axios.get(`${API_URL}/alerts`, { headers, _skipErrorNotify: true }),
+        // Newest alerts only (the bell shows today's items); the full list was several MB for managers.
+        axios.get(`${API_URL}/alerts`, { headers, params: { page: 1, limit: 20 }, _skipErrorNotify: true }),
         axios.get(`${API_URL}/notifications`, {
           headers,
           params: { unreadOnly: true, limit: 100 },
@@ -464,7 +465,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       });
 
       
-      const alertData = alertsRes.value?.data?.data || [];
+      // /alerts returns `alerts`; reading `data` meant alerts never reached the bell.
+      const alertData = alertsRes.value?.data?.alerts || alertsRes.value?.data?.data || [];
       alertData.forEach((a) => {
         all.push({ 
           id: `alert-${a._id || Date.now()}`,
@@ -618,12 +620,28 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   
   const handleLogoClick = useCallback(() => {
+    try {
+      const rawSidebar = localStorage.getItem('sidebarConfig');
+      if (rawSidebar) {
+        const cfg = JSON.parse(rawSidebar);
+        const menuItems = Array.isArray(cfg?.menuItems) ? cfg.menuItems : (Array.isArray(cfg?.items) ? cfg.items : []);
+        const hasOverview = menuItems.some(item => {
+          const id = String(item?.id || '').toLowerCase();
+          const p = String(item?.path || '').toLowerCase();
+          return id === 'dashboard-overview' || p.includes('dashboard-overview');
+        });
+        if (hasOverview) {
+          navigate("/ciisUser/dashboard-overview");
+          return;
+        }
+      }
+    } catch {}
     navigate("/ciisUser/user-dashboard");
   }, [navigate]);
 
   
   const handleLogout = () => {
-    handleAppLogout({ navigate, redirectPath: "/login" });
+    handleAppLogout({ navigate, redirectPath: "/" });
   };
 
   
@@ -1087,7 +1105,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
                       }
                     }}
                   >
-                    Mark all read
+                    Mark all   read
                   </Button>
                 </Box>
               )}

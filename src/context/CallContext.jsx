@@ -18,35 +18,74 @@ const getStoredUser = () => {
   }
 };
 
+const getUserStorageIds = (user = getStoredUser()) => {
+  const ids = [user?._id, user?.id]
+    .map(value => (value || "").toString())
+    .filter(Boolean);
+  return [...new Set(ids)];
+};
+
+const getCallHistoryKeys = (user = getStoredUser()) => {
+  const ids = getUserStorageIds(user);
+  return ids.length ? ids.map(id => `ciis-call-history-${id}`) : [];
+};
+
+const readSavedCallHistory = (user = getStoredUser()) => {
+  for (const key of getCallHistoryKeys(user)) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch {
+      void 0;
+    }
+  }
+  return [];
+};
+
+const writeSavedCallHistory = (user, history) => {
+  const keys = getCallHistoryKeys(user);
+  keys.forEach(key => {
+    try {
+      localStorage.setItem(key, JSON.stringify(history));
+    } catch {
+      void 0;
+    }
+  });
+};
+
+const formatCallDuration = (seconds = 0) => {
+  const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const remainingSeconds = safeSeconds % 60;
+  const two = value => value.toString().padStart(2, "0");
+  return hours > 0
+    ? `${two(hours)}:${two(minutes)}:${two(remainingSeconds)}`
+    : `${two(minutes)}:${two(remainingSeconds)}`;
+};
+
 export const CallProvider = ({ children }) => {
   const callOverlayRef = useRef(null);
   const [callHistory, setCallHistory] = useState([]);
   const socket = useSocket()?.socket;
-  const currentUser = getStoredUser();
+  const currentUser = useMemo(() => getStoredUser(), []);
   const currentUserId = (currentUser._id || currentUser.id || "").toString();
 
   useEffect(() => {
     try {
-      const activeId = currentUserId || ((getStoredUser()._id || getStoredUser().id || "").toString());
-      const saved = JSON.parse(localStorage.getItem(`ciis-call-history-${activeId}`) || "[]");
-      setCallHistory(Array.isArray(saved) ? saved : []);
+      setCallHistory(readSavedCallHistory(currentUser));
     } catch {
       setCallHistory([]);
     }
-  }, [currentUserId]);
+  }, [currentUserId, currentUser]);
 
   const persistCallHistory = useCallback((updater) => {
     setCallHistory(prev => {
-      const activeId = currentUserId || ((getStoredUser()._id || getStoredUser().id || "").toString());
       const next = updater(prev).slice(0, 80);
-      try {
-        localStorage.setItem(`ciis-call-history-${activeId}`, JSON.stringify(next));
-      } catch {
-        void 0;
-      }
+      writeSavedCallHistory(currentUser, next);
       return next;
     });
-  }, [currentUserId]);
+  }, [currentUser]);
 
   const handleCallEvent = useCallback((event) => {
     if (!event?.callId) return;
@@ -58,7 +97,15 @@ export const CallProvider = ({ children }) => {
       if (existing) {
         return prev.map(item => (
           item.callId === event.callId
-            ? { ...item, ...event, updatedAt: now }
+            ? {
+                ...item,
+                ...event,
+                durationSeconds: event.durationSeconds ?? item.durationSeconds,
+                durationLabel: event.durationLabel || (
+                  event.durationSeconds !== undefined ? formatCallDuration(event.durationSeconds) : item.durationLabel
+                ),
+                updatedAt: now,
+              }
             : item
         ));
       }
@@ -75,6 +122,10 @@ export const CallProvider = ({ children }) => {
         isGroupCall: Boolean(event.isGroupCall),
         participantCount: event.participantCount || event.participantIds?.length || 1,
         startedAt: event.startedAt || now,
+        connectedAt: event.connectedAt || "",
+        endedAt: event.endedAt || "",
+        durationSeconds: event.durationSeconds || 0,
+        durationLabel: event.durationLabel || "",
         updatedAt: now,
       }, ...prev];
     });
@@ -82,12 +133,14 @@ export const CallProvider = ({ children }) => {
 
   const clearCallHistory = useCallback(() => {
     setCallHistory([]);
-    try {
-      localStorage.removeItem(`ciis-call-history-${currentUserId}`);
-    } catch {
-      void 0;
-    }
-  }, [currentUserId]);
+    getCallHistoryKeys(currentUser).forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        void 0;
+      }
+    });
+  }, [currentUser]);
 
   const value = useMemo(() => ({
     startCall: (callType, user) => {

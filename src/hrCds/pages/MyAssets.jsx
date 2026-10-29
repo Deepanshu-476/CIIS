@@ -1245,29 +1245,6 @@ const MyAssets = () => {
           </section>
         </div>
 
-        {/* ==================================================================
-            5. BOTTOM CTA BANNER
-            ================================================================== */}
-        <section className="MyAssets-bottom-cta-banner" aria-label="Need a new asset callout">
-          <div className="MyAssets-bottom-cta-left">
-            <div className="MyAssets-bottom-cta-icon-box">
-              <Briefcase size={24} strokeWidth={2.2} />
-            </div>
-            <div className="MyAssets-bottom-cta-text">
-              <h3>Need a new asset?</h3>
-              <p>Request an asset for your work needs. Your request will be reviewed by the admin.</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="MyAssets-bottom-cta-btn"
-            onClick={() => setIsRequestModalOpen(true)}
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            <span>Request New Asset</span>
-          </button>
-        </section>
       </div>
 
       {/* ==================================================================

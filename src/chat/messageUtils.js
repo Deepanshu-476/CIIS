@@ -57,6 +57,15 @@ export const attachmentKind = message => {
     return "document";
 };
 
+// Quoted replies and previews name an attachment by its type: stored file names are ids.
+export const attachmentLabel = message => {
+    const kind = attachmentKind(message);
+    if (kind === "image") return "📷 Photo";
+    if (kind === "video") return "🎥 Video";
+    if (kind === "audio") return "🎤 Voice message";
+    return message?.fileName ? `📄 ${message.fileName}` : "📄 Document";
+};
+
 export const deliveryState = (message, currentUserId, members = []) => {
     const recipients = members.map(entityId).filter(id => id && id !== currentUserId);
     const seenBy = (message.seenBy || []).map(entityId);

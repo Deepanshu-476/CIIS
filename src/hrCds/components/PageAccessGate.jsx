@@ -30,6 +30,8 @@ const PLAN_FREE_PATHS = new Set([
   "user-dashboard",
   "dashboard",
   "dashboard-1",
+  "dashboard-overview",
+  "dashboard-overview-preview",
   "profile",
   "user-profile",
   "change-password",
@@ -62,6 +64,8 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "profile",
   "user-dashboard",
   "dashboard-1",
+  "dashboard-overview",
+  "dashboard-overview-preview",
   "clientdashboard",
   "client-dashboard",
   "client-my-services",
@@ -87,6 +91,7 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "dashboard",
   "contact-support",
   "support-desk",
+  "bulk-email",
   "support-operations",
   "feedback-questionnaire",
   "leave-policy-master",
@@ -245,7 +250,7 @@ export const isKnownAppRoute = (pathname = "") => {
   return false;
 };
 
-const hasCompanyPlanAccess = pagePath => {
+export const hasCompanyPlanAccess = pagePath => {
   try {
     const company = JSON.parse(localStorage.getItem('companyDetails') || '{}');
     const allowed = company?.allowedPages || [];
@@ -253,6 +258,11 @@ const hasCompanyPlanAccess = pagePath => {
 
     const normalizedPath = normalizePlanKey(pagePath);
     if (PLAN_FREE_PATHS.has(normalizedPath)) return true;
+
+    const currentUser = getStoredUser();
+    if (String(currentUser?.companyRole || '').toLowerCase() === 'client' && normalizedPath.startsWith('client/')) {
+      return true;
+    }
 
     const keys = new Set(allowed.map(normalizePlanKey));
     if (/^crm\/(admin|marketing|reports)\//i.test(normalizedPath)) {

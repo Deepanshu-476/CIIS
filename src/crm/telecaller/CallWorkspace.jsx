@@ -46,6 +46,7 @@ import { localDateTime, isTerminal, outcomes, normalizeLead } from "./liveData";
 import { TELECALLER_BASE as BASE } from "./telecallerPages";
 import { useTelecaller } from "./useTelecaller";
 import { dateLabel } from "./LeadComponents";
+import MessageTemplatesModal from "./MessageTemplatesModal";
 import "./CallWorkspace.css";
 
 export const outcomeIconsMap = {
@@ -441,6 +442,7 @@ function CallWorkspaceContent({
   currentIndex,
 }) {
   const [outcome, setOutcome] = useState("");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [followUp, setFollowUp] = useState("");
   const [callType, setCallType] = useState("Outbound");
@@ -592,10 +594,6 @@ function CallWorkspaceContent({
     }
   };
 
-  const cleanPhone = (lead.phone || "").replace(/\D/g, "").replace(/^91/, "");
-  const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(
-    `Hello ${lead.name}, this is from CIIS Network regarding your inquiry for ${lead.type || "course"}.`
-  )}`;
 
   const summaryRows = [
     [Info, "Current Status", <span key="status" className={`cw-badge ${lead.status === "Converted" ? "cw-badge-success" : "cw-badge-primary"}`}>{lead.status}</span>],
@@ -788,15 +786,15 @@ function CallWorkspaceContent({
                   <Smartphone size={14} /> Dial {lead.phone}
                 </a>
 
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
                   className="cw-btn cw-btn-whatsapp"
-                  title="Open WhatsApp chat"
+                  title="Send a WhatsApp or SMS template"
+                  onClick={() => setTemplatesOpen(true)}
                 >
-                  <MessageSquare size={14} /> WhatsApp
-                </a>
+                  <MessageSquare size={14} /> Message
+                </button>
+                <MessageTemplatesModal open={templatesOpen} lead={lead} onClose={() => setTemplatesOpen(false)} />
               </>
             )}
           </div>

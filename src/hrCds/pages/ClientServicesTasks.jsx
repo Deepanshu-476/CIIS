@@ -236,7 +236,7 @@ const ServicesTasks = () => {
     localStorage.removeItem('companyCode');
     localStorage.removeItem('companyIdentifier');
     localStorage.removeItem('company');
-    window.location.href = '/login';
+    window.location.replace('/');
   };
 
   const completedTasks = allTasks.filter(task => task.completed === true);

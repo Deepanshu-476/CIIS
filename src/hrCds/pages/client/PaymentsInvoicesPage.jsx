@@ -13,6 +13,12 @@ import {
   FiPhone,
   FiSearch,
   FiUser,
+  FiUpload,
+  FiX,
+  FiTrash2,
+  FiFileText,
+  FiImage,
+  FiExternalLink
 } from "react-icons/fi";
 import CIISLoader from "../../../Loader/CIISLoader";
 import {
@@ -54,7 +60,9 @@ const PaymentsInvoicesPage = () => {
   const [receiptFile, setReceiptFile] = useState(null);
   const [selectedDueId, setSelectedDueId] = useState("");
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [deletingReceiptId, setDeletingReceiptId] = useState(null);
   const invoiceTableRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const dueInvoiceRows = payment.dueInvoices.map((invoice, index) => ({
     id: formatPublicId("INV", invoice, index),
@@ -93,6 +101,33 @@ const PaymentsInvoicesPage = () => {
       }]
       : dueInvoiceRows;
 
+  const handleClearFile = () => {
+    setReceiptFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteReceipt = async (receiptId) => {
+    if (!client?._id || !receiptId) return;
+    if (!window.confirm("Are you sure you want to remove this uploaded payment proof?")) return;
+    try {
+      setDeletingReceiptId(receiptId);
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      await axios.delete(`${API_URL}/clientsservice/${client._id}/receipt/${receiptId}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      await refetch();
+      alert("Payment proof removed successfully.");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to remove payment proof");
+    } finally {
+      setDeletingReceiptId(null);
+    }
+  };
+
   const handleUploadReceipt = async (event) => {
     event.preventDefault();
     if (!client?._id) return;
@@ -118,7 +153,7 @@ const PaymentsInvoicesPage = () => {
       });
       setReceiptAmount("");
       setTransactionId("");
-      setReceiptFile(null);
+      handleClearFile();
       setSelectedDueId("");
       await refetch();
       alert("Payment proof uploaded. Team will verify it.");
@@ -416,15 +451,97 @@ const PaymentsInvoicesPage = () => {
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
               />
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-              />
+              <div className="PaymentsPage-fileGroup">
+                <input
+                  ref={fileInputRef}
+                  id="payment-proof-input"
+                  type="file"
+                  accept="image/*,.pdf"
+                  style={{ display: "none" }}
+                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                />
+                {!receiptFile ? (
+                  <button
+                    type="button"
+                    className="PaymentsPage-chooseFileButton"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FiUpload /> Choose Payment Proof (Image/PDF)
+                  </button>
+                ) : (
+                  <div className="PaymentsPage-selectedFileCard">
+                    <div className="PaymentsPage-selectedFileInfo">
+                      <div className="PaymentsPage-fileIconBadge">
+                        {receiptFile.type?.includes("pdf") ? <FiFileText /> : <FiImage />}
+                      </div>
+                      <div className="PaymentsPage-fileMeta">
+                        <span className="PaymentsPage-fileName" title={receiptFile.name}>
+                          {receiptFile.name}
+                        </span>
+                        <span className="PaymentsPage-fileSize">
+                          {(receiptFile.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="PaymentsPage-removeFileBtn"
+                      onClick={handleClearFile}
+                      title="Remove selected file"
+                    >
+                      <FiX /> Remove
+                    </button>
+                  </div>
+                )}
+              </div>
               <button type="submit" className="PaymentsPage-primary PaymentsPage-fullButton" disabled={uploadingReceipt}>
                 {uploadingReceipt ? "Uploading..." : "Upload Proof"}
               </button>
             </form>
+
+            {payment.receipts && payment.receipts.length > 0 && (
+              <div className="PaymentsPage-uploadedReceiptsSection">
+                <h3>Uploaded Proofs ({payment.receipts.length})</h3>
+                <div className="PaymentsPage-uploadedReceiptsList">
+                  {payment.receipts.map((rec, index) => (
+                    <div className="PaymentsPage-uploadedReceiptItem" key={rec._id || index}>
+                      <div className="PaymentsPage-receiptItemLeft">
+                        <strong>{formatMoney(rec.amount || payment.subscriptionPrice)}</strong>
+                        <div className="PaymentsPage-receiptItemMeta">
+                          <span>{formatDate(rec.paymentDate || rec.createdAt)}</span>
+                          {rec.transactionId && <small>Txn: {rec.transactionId}</small>}
+                        </div>
+                        <span className={`PaymentsPage-receiptBadge PaymentsPage-receiptBadge-${String(rec.status || 'Pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                          {rec.status || 'Pending Verification'}
+                        </span>
+                      </div>
+                      <div className="PaymentsPage-receiptItemRight">
+                        {rec.receiptUrl && (
+                          <a
+                            href={rec.receiptUrl.startsWith('http') ? rec.receiptUrl : `${API_URL}${rec.receiptUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="PaymentsPage-receiptLink"
+                            title="View receipt"
+                          >
+                            <FiExternalLink /> View
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          className="PaymentsPage-removeReceiptBtn"
+                          disabled={deletingReceiptId === rec._id}
+                          onClick={() => handleDeleteReceipt(rec._id)}
+                          title="Remove this uploaded document"
+                        >
+                          <FiTrash2 /> {deletingReceiptId === rec._id ? "Removing..." : "Remove"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           {/* <section className="PaymentsPage-panel PaymentsPage-supportPanel">

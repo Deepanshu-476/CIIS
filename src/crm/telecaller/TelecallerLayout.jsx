@@ -98,8 +98,9 @@ function TelecallerSession({ slug }) {
   const followups = assigned.filter(
     (row) => row && row.followUp && !isTerminal(row),
   );
+  // Never-called leads, plus leads whose call was missed and not yet returned.
   const pending = assigned.filter(
-    (row) => row && !row.date && !isTerminal(row),
+    (row) => row && (!row.date || row.missedCallAt) && !isTerminal(row),
   );
   const converted = assigned.filter((row) => row && row.status === "Converted");
   const page = TELECALLER_PAGES.find((page) => page.slug === slug);

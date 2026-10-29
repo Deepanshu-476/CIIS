@@ -7,7 +7,17 @@ const followStatus = (row) =>
     : day(row.followUp) === todayKey()
       ? "Today"
       : "Upcoming";
+// Leads with a missed call come first (newest first); the rest keep their order.
+const missedCallsFirst = (rows) => [
+  ...rows.filter((row) => row.missedCallAt).sort((a, b) => b.missedCallAt.localeCompare(a.missedCallAt)),
+  ...rows.filter((row) => !row.missedCallAt),
+];
+
 export function filterCalls(allRows, filters, kind) {
+  return missedCallsFirst(filterRows(allRows, filters, kind));
+}
+
+function filterRows(allRows, filters, kind) {
   return allRows.filter((row) => {
     if (  
       kind === "scheduled" &&

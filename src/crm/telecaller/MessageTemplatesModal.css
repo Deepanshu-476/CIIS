@@ -1,0 +1,49 @@
+.mtm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.55);
+}
+.mtm-modal {
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+.mtm-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.mtm-header h3 { margin: 0; font-size: 18px; }
+.mtm-header p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
+.mtm-close { border: 0; background: #f1f5f9; color: #64748b; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: 700; }
+.mtm-error { background: #fef2f2; color: #b91c1c; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
+.mtm-empty { color: #64748b; text-align: center; margin: 20px 0; }
+.mtm-card { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+.mtm-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mtm-card p { margin: 6px 0 10px; color: #475569; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+.mtm-manage { display: flex; gap: 10px; }
+.mtm-manage button { border: 0; background: none; color: #1845b8; font-weight: 700; cursor: pointer; font-size: 13px; }
+.mtm-manage button.danger { color: #dc2626; }
+.mtm-send { display: flex; gap: 8px; flex-wrap: wrap; }
+.mtm-send a, .mtm-send button { border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; text-decoration: none; cursor: pointer; border: 0; }
+.mtm-whatsapp { background: #25d366; color: #fff; }
+.mtm-sms { background: #1845b8; color: #fff; }
+.mtm-copy { background: #e2e8f0; color: #0f172a; }
+.mtm-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.mtm-plain { color: #16a34a; font-weight: 700; font-size: 13px; }
+.mtm-form label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 13px; color: #334155; margin-bottom: 12px; }
+.mtm-form input, .mtm-form textarea { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font: inherit; font-weight: 400; color: #0f172a; background: #f8fafc; }
+.mtm-form small { color: #64748b; display: block; margin: -4px 0 12px; }
+.mtm-channels { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.mtm-channels button { border: 1px solid #e2e8f0; background: #fff; border-radius: 16px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.mtm-channels button.active { background: #ff7900; border-color: #ff7900; color: #fff; font-weight: 700; }
+.mtm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.mtm-primary { background: #ff7900; color: #fff; border: 0; border-radius: 10px; padding: 9px 18px; font-weight: 800; cursor: pointer; }
+.mtm-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; padding: 9px 18px; font-weight: 700; cursor: pointer; }
+.mtm-primary:disabled, .mtm-secondary:disabled { opacity: 0.6; cursor: default; }

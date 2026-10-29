@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import axiosInstance from '../../utils/axiosConfig';
+import useCrmPagedList, { optionNames, pageWindow } from '../hooks/useCrmPagedList';
 import {
   FiChevronRight,
   FiFilter,
@@ -75,40 +75,23 @@ const initialCallHistory = [
   }
 ];
 
-const CallHistory = () => {
-  const [calls, setCalls] = useState([]);
-  const [loading, setLoading] = useState(false);
+const mapCallLog = (log, idx) => ({
+  id: log._id || idx + 1,
+  leadId: `#LD-${String(log.leadId || log.lead?._id || idx + 1).slice(-3)}`,
+  name: log.leadName || log.lead?.name || 'Lead',
+  phone: log.leadPhone || log.lead?.phone || '—',
+  source: log.leadSourceName || log.lead?.leadSource?.name || log.lead?.source || 'Direct',
+  leadType: log.leadTypeName || log.lead?.leadType?.name || 'General',
+  callType: /^(inbound|incoming)$/i.test(String(log.callType || '')) ? 'Inbound' : 'Outbound',
+  outcome: log.status ? log.status.charAt(0).toUpperCase() + log.status.slice(1) : 'Answered',
+  remarks: log.notes || '—',
+  callTime: new Date(log.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+  assignedTo: log.agentName || log.agent?.name || 'Agent',
+  duration: log.duration ? `${Math.floor(log.duration / 60).toString().padStart(2, '0')}m ${(log.duration % 60).toString().padStart(2, '0')}s` : '00m 00s'
+  
+});
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchHistory = async () => {
-      setLoading(true);
-      try {
-        const res = await axiosInstance.get('/crm/admin/calls/history', { _skipErrorNotify: true });
-        if (isMounted && res.data && Array.isArray(res.data.items)) {
-          const mapped = res.data.items.map((log, idx) => ({
-            id: log._id || idx + 1,
-            leadId: `#LD-${String(log.leadId || log.lead?._id || idx + 1).slice(-3)}`,
-            name: log.leadName || log.lead?.name || 'Lead',
-            phone: log.leadPhone || log.lead?.phone || '—',
-            source: log.leadSourceName || log.lead?.leadSource?.name || log.lead?.source || 'Direct',
-            leadType: log.leadTypeName || log.lead?.leadType?.name || 'General',
-            callType: 'Outbound',
-            outcome: log.status ? log.status.charAt(0).toUpperCase() + log.status.slice(1) : 'Answered',
-            remarks: log.notes || '—',
-            callTime: new Date(log.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-            assignedTo: log.agentName || log.agent?.name || 'Agent',
-            duration: log.duration ? `${Math.floor(log.duration / 60).toString().padStart(2, '0')}m ${(log.duration % 60).toString().padStart(2, '0')}s` : '00m 00s'
-          }));
-          setCalls(mapped);
-        }
-      } catch (err) { if (isMounted) setCalls([]); } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    fetchHistory();
-    return () => { isMounted = false; };
-  }, []);
+const CallHistory = () => {
   const [filters, setFilters] = useState({
     searchLead: '',
     outcome: '',
@@ -149,50 +132,31 @@ const CallHistory = () => {
     setCurrentPage(1);
   };
 
-  const filteredCalls = useMemo(() => {
-    return calls.filter(call => {
-      if (appliedFilters.outcome && call.outcome !== appliedFilters.outcome) return false;
-      if (appliedFilters.callType && call.callType !== appliedFilters.callType) return false;
-      if (appliedFilters.source && call.source !== appliedFilters.source) return false;
-      if (appliedFilters.leadType && call.leadType !== appliedFilters.leadType) return false;
-      if (appliedFilters.from && !call.callTime.includes(appliedFilters.from)) return false;
-      if (appliedFilters.to && !call.callTime.includes(appliedFilters.to)) return false;
-
-      if (appliedFilters.searchLead.trim()) {
-        const leadQ = appliedFilters.searchLead.toLowerCase();
-        const leadMatch =
-          call.leadId.toLowerCase().includes(leadQ) ||
-          call.name.toLowerCase().includes(leadQ) ||
-          call.phone.includes(leadQ);
-        if (!leadMatch) return false;
-      }
-
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const match =
-          call.leadId.toLowerCase().includes(query) ||
-          call.name.toLowerCase().includes(query) ||
-          call.phone.includes(query) ||
-          call.source.toLowerCase().includes(query) ||
-          call.leadType.toLowerCase().includes(query) ||
-          call.outcome.toLowerCase().includes(query) ||
-          call.assignedTo.toLowerCase().includes(query) ||
-          call.remarks.toLowerCase().includes(query);
-        if (!match) return false;
-      }
-      return true;
-    });
-  }, [calls, appliedFilters, searchTerm]);
-
-  const totalEntries = filteredCalls.length;
-  const totalPages = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
+  // Server-side paging; outcome / source / type dropdowns list the values present in the company's calls.
+  const { items, total, pages, stats, options } = useCrmPagedList('/crm/admin/calls/history', {
+    page: currentPage,
+    limit: entriesPerPage,
+    search: searchTerm.trim() || appliedFilters.searchLead,
+    filters: {
+      status: appliedFilters.outcome,
+      callType: appliedFilters.callType,
+      source: appliedFilters.source,
+      leadType: appliedFilters.leadType,
+      from: appliedFilters.from,
+      to: appliedFilters.to
+    }
+  });
+  const paginatedCalls = useMemo(() => items.map(mapCallLog), [items]);
+  const totalEntries = total;
+  const totalPages = pages;
   const startIndex = (currentPage - 1) * entriesPerPage;
-  const paginatedCalls = filteredCalls.slice(startIndex, startIndex + entriesPerPage);
 
-  const totalCallsCount = calls.length;
-  const outboundCallsCount = calls.filter(c => c.callType === 'Outbound').length;
-  const inboundCallsCount = calls.filter(c => c.callType === 'Inbound').length;
-
+  const totalCallsCount = stats?.total || 0;
+  const outboundCallsCount = stats?.outbound || 0;
+  const inboundCallsCount = stats?.inbound || 0;
+  const outcomeOptions = useMemo(() => optionNames(options?.statuses), [options]);
+  const sourceOptions = useMemo(() => optionNames(options?.sources), [options]);
+  const typeOptions = useMemo(() => optionNames(options?.types), [options]);
   return (
     <div className="his-root">
       {/* Header */}
@@ -268,11 +232,7 @@ const CallHistory = () => {
               onChange={e => handleFilterChange('outcome', e.target.value)}
             >
               <option value="">All Outcomes</option>
-              <option value="Interested">Interested</option>
-              <option value="Converted">Converted</option>
-              <option value="Call Back">Call Back</option>
-              <option value="Not Interested">Not Interested</option>
-              <option value="No Answer">No Answer</option>
+              {outcomeOptions.map(value => <option key={value} value={value}>{value.charAt(0).toUpperCase() + value.slice(1)}</option>)}
             </select>
           </div>
 
@@ -295,10 +255,7 @@ const CallHistory = () => {
               onChange={e => handleFilterChange('source', e.target.value)}
             >
               <option value="">Select Lead Source</option>
-              <option value="Facebook">Facebook</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Referral">Referral</option>
-              <option value="Website">Website</option>
+              {sourceOptions.map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           </div>
 
@@ -309,9 +266,7 @@ const CallHistory = () => {
               onChange={e => handleFilterChange('leadType', e.target.value)}
             >
               <option value="">Select Lead Type</option>
-              <option value="NEET">NEET</option>
-              <option value="JEE">JEE</option>
-              <option value="CAT">CAT</option>
+              {typeOptions.map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           </div>
 
@@ -482,7 +437,7 @@ const CallHistory = () => {
             >
               ‹
             </button>
-            {Array.from({ length: totalPages }, (_, i) => (
+            {pageWindow(currentPage, totalPages).map((p, _x, _y, i = p - 1) => (
               <button
                 key={i + 1}
                 className={`his-page-btn ${currentPage === i + 1 ? 'active' : ''}`}

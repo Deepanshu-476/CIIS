@@ -11,7 +11,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   padding-bottom: 70px;
 }
-
+   
 @media (min-width: 640px) {
   .CompanyDetails {
     padding-bottom: 24px;

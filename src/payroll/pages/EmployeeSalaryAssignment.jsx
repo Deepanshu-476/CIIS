@@ -13,10 +13,15 @@ import axiosInstance from "../../utils/axiosConfig";
 import "../styles/EmployeeSalaryAssignment.css";
 
 const isHexId = (str) => /^[0-9a-fA-F]{24}$/.test(String(str || "").trim());
-const isActiveUser = (user) => (
-  user?.isActive !== false &&
-  String(user?.status || user?.employeeStatus || "active").toLowerCase() !== "inactive"
-);
+const isActiveUser = (user) => {
+  if (!user) return false;
+  if (user.isActive === false || user.isActive === "false") return false;
+  const status = String(user.status || user.employeeStatus || "").toLowerCase().trim();
+  if (["inactive", "terminated", "resigned", "suspended", "rejected"].includes(status)) return false;
+  const regStatus = String(user.registrationStatus || "").toLowerCase().trim();
+  if (regStatus === "rejected") return false;
+  return true;
+};
 
 const emptyForm = {
   user: "",
@@ -205,7 +210,7 @@ export default function EmployeeSalaryAssignment() {
         const cuList = Array.isArray(cuData) ? cuData : (cuData.users || cuData.data || []);
         if (Array.isArray(cuList) && cuList.length > 0) {
           const existingIds = new Set(loadedUsers.map(u => String(u._id)));
-          cuList.forEach(u => {
+          cuList.filter(isActiveUser).forEach(u => {
             if (!existingIds.has(String(u._id))) {
               const rawDept = typeof u.department === "object" && u.department !== null ? u.department.name : String(u.department || "");
               const rawRole = typeof u.jobRole === "object" && u.jobRole !== null ? u.jobRole.name : String(u.jobRole || u.designation || "");
@@ -797,7 +802,7 @@ export default function EmployeeSalaryAssignment() {
               required
             >
               <option value="">-- Select Employee --</option>
-              {users.map(u => (
+              {users.filter(isActiveUser).map(u => (
                 <option key={u._id} value={u._id}>
                   {u.name}
                 </option>

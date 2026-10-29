@@ -11,6 +11,7 @@ import {
   FiPhoneCall
 } from 'react-icons/fi';
 import axiosInstance from '../../utils/axiosConfig';
+import useCrmPagedList, { optionNames, pageWindow, leadAttempts, leadLastCallAt } from '../hooks/useCrmPagedList';
 import './PendingCalls.css';
 
 const initialPendingCalls = [
@@ -176,43 +177,34 @@ const initialPendingCalls = [
   }
 ];
 
+const mapPendingLead = (lead, idx) => {
+  const lastCallAt = leadLastCallAt(lead);
+  return {
+    id: lead._id || idx + 1,
+    leadId: `#LD-${String(lead._id).slice(-3)}`,
+    name: lead.name || 'Lead',
+    phone: lead.phone || '—',
+    source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
+    leadType: lead.leadTypeName || lead.leadType?.name || 'General',
+    status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Assigned',
+    lastCall: lastCallAt ? new Date(lastCallAt).toLocaleString('en-GB') : 'Never Called',
+    nextFollowup: lead.nextFollowUp ? new Date(lead.nextFollowUp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Not Scheduled',
+    assignedDate: lead.assignedAt ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+    assignedAgo: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
+    priority: lead.priority || 'Normal',
+    assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
+    attempts: leadAttempts(lead)
+  };
+};
+
 export default function PendingCalls() {
-  const [calls, setCalls] = useState([]);
   const [teamUsers, setTeamUsers] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
-    const fetchPending = async () => {
-      try {
-        const [res, teamRes] = await Promise.allSettled([
-          axiosInstance.get('/crm/admin/calls/pending', { _skipErrorNotify: true }),
-          axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
-        ]);
-        if (isMounted && res.status === 'fulfilled' && Array.isArray(res.value?.data?.items)) {
-          const items = res.value.data.items.map((lead, idx) => ({
-            id: lead._id || idx + 1,
-            leadId: `#LD-${String(lead._id).slice(-3)}`,
-            name: lead.name || 'Lead',
-            phone: lead.phone || '—',
-            source: lead.leadSourceName || lead.leadSource?.name || lead.source || 'Direct',
-            leadType: lead.leadTypeName || lead.leadType?.name || 'General',
-            status: lead.status ? lead.status.charAt(0).toUpperCase() + lead.status.slice(1) : 'Assigned',
-            lastCall: lead.callHistory?.length ? new Date(lead.callHistory.at(-1).date).toLocaleString('en-GB') : 'Never Called',
-            nextFollowup: lead.nextFollowUp ? new Date(lead.nextFollowUp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Not Scheduled',
-            assignedDate: lead.assignedAt ? new Date(lead.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
-            assignedAgo: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
-            priority: lead.priority || 'Normal',
-            assignedTo: lead.assignedToName || lead.assignedTo?.name || 'Unassigned',
-            attempts: lead.callHistory?.length || 0
-          }));
-          setCalls(items);
-        }
-        if (isMounted && teamRes.status === 'fulfilled' && Array.isArray(teamRes.value?.data?.users)) {
-          setTeamUsers(teamRes.value.data.users);
-        }
-      } catch (err) { if (isMounted) setCalls([]); }
-    };
-    fetchPending();
+    axiosInstance.get('/crm/leads/team', { _skipErrorNotify: true })
+      .then(res => { if (isMounted && Array.isArray(res.data?.users)) setTeamUsers(res.data.users); })
+      .catch(() => {});
     return () => { isMounted = false; };
   }, []);
   
@@ -254,41 +246,20 @@ export default function PendingCalls() {
     setCurrentPage(1);
   };
 
-  // Filtered & searched calls
-  const filteredCalls = useMemo(() => {
-    return calls.filter(call => {
-      // Dropdown filters
-      if (appliedFilters.assignedTo && call.assignedTo !== appliedFilters.assignedTo) return false;
-      if (appliedFilters.source && call.source !== appliedFilters.source) return false;
-      if (appliedFilters.leadType && call.leadType !== appliedFilters.leadType) return false;
-      if (appliedFilters.status && call.status !== appliedFilters.status) return false;
-      if (appliedFilters.attempts !== '') {
-        const attVal = Number(appliedFilters.attempts);
-        if (!isNaN(attVal) && call.attempts !== attVal) return false;
-      }
-
-      // Search term
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const match =
-          call.leadId.toLowerCase().includes(query) ||
-          call.name.toLowerCase().includes(query) ||
-          call.phone.includes(query) ||
-          call.source.toLowerCase().includes(query) ||
-          call.leadType.toLowerCase().includes(query) ||
-          call.assignedTo.toLowerCase().includes(query);
-        if (!match) return false;
-      }
-
-      return true;
-    });
-  }, [calls, appliedFilters, searchTerm]);
-
-  // Pagination logic
-  const totalEntries = filteredCalls.length;
-  const totalPages = Math.max(1, Math.ceil(totalEntries / entriesPerPage));
+  // Server-side filtering and paging; dropdown values come from the whole list on the server.
+  const { items, total, pages, options } = useCrmPagedList('/crm/admin/calls/pending', {
+    page: currentPage,
+    limit: entriesPerPage,
+    search: searchTerm,
+    filters: appliedFilters
+  });
+  const paginatedCalls = useMemo(() => items.map(mapPendingLead), [items]);
+  const totalEntries = total;
+  const totalPages = pages;
   const startIndex = (currentPage - 1) * entriesPerPage;
-  const paginatedCalls = filteredCalls.slice(startIndex, startIndex + entriesPerPage);
+  const optionAssignees = useMemo(() => optionNames(options?.assignees), [options]);
+  const optionSources = useMemo(() => optionNames(options?.sources), [options]);
+  const optionTypes = useMemo(() => optionNames(options?.types), [options]);
 
   return (
     <div className="pc-root">
@@ -316,7 +287,7 @@ export default function PendingCalls() {
               <option value="">All Users</option>
               {Array.from(new Set([
                 ...(teamUsers.map(u => u.name).filter(Boolean)),
-                ...(calls.map(c => c.assignedTo).filter(Boolean))
+                ...optionAssignees
               ])).map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -332,7 +303,7 @@ export default function PendingCalls() {
               <option value="">All Sources</option>
               {Array.from(new Set([
                 'Facebook', 'Instagram', 'Referral', 'Website',
-                ...(calls.map(c => c.source).filter(Boolean))
+                ...optionSources
               ])).map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -348,7 +319,7 @@ export default function PendingCalls() {
               <option value="">All Types</option>
               {Array.from(new Set([
                 'NEET', 'JEE', 'CAT',
-                ...(calls.map(c => c.leadType).filter(Boolean))
+                ...optionTypes
               ])).map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -533,7 +504,7 @@ export default function PendingCalls() {
             >
               ‹
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            {pageWindow(currentPage, totalPages).map(page => (
               <button
                 key={page}
                 className={`pc-page-btn ${currentPage === page ? 'active' : ''}`}

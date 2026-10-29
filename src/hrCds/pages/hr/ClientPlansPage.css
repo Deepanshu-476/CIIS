@@ -69,27 +69,60 @@ main:has(.cp-page-container)::-webkit-scrollbar,
 }
 
 /* Back Link Button */
-.cp-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+.cp-back-btn,
+.ClientPlansPage-back-btn,
+.ClientDetailsPage-back-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 8px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  padding: 0.35rem 0.75rem;
-  border-radius: 7px;
-  color: #475569;
-  font-size: 0.78rem;
+  border: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 10px;
+  color: #334155;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   margin-bottom: 1rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.cp-back-btn:hover {
+.cp-back-btn svg,
+.ClientPlansPage-back-btn svg,
+.ClientDetailsPage-back-btn svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.cp-back-btn:hover,
+.ClientPlansPage-back-btn:hover,
+.ClientDetailsPage-back-btn:hover {
+  background: #f8fafc;
+  color: #2563eb;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+  transform: translateX(-3px);
+}
+
+.cp-back-btn:hover svg,
+.ClientPlansPage-back-btn:hover svg,
+.ClientDetailsPage-back-btn:hover svg {
+  color: #2563eb;
+  transform: translateX(-2px);
+}
+
+.cp-back-btn:active,
+.ClientPlansPage-back-btn:active,
+.ClientDetailsPage-back-btn:active {
+  transform: scale(0.98);
   background: #f1f5f9;
-  color: #0f172a;
-  border-color: #94a3b8;
 }
 
 /* ==========================================================================

@@ -65,7 +65,7 @@ export default function AssignmentHistory() {
       setTotalEntries(data.total || 0);
       setTotalPages(data.pages || 1);
     } catch (err) {
-      setError(err.response?.data?.message || 'Assignment history load nahi hui.');
+      setError(err.response?.data?.message || 'Failed to load assignment history.');
       setItems([]);
       setTotalEntries(0);
       setTotalPages(1);

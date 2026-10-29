@@ -391,6 +391,55 @@ const RefreshOverlay = () => (
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+
+  // If the user's Job Role or company has Dynamic Dashboard Overview configured, auto open it instead of user-dashboard
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkAssignedDashboard = async () => {
+      try {
+        let rawSidebar = localStorage.getItem('sidebarConfig');
+        let cfg = rawSidebar ? JSON.parse(rawSidebar) : null;
+
+        // If sidebar config is not yet cached in localStorage, fetch it immediately
+        if (!cfg) {
+          try {
+            const res = await axios.get('/sidebar/config');
+            if (res.data?.data) {
+              cfg = res.data.data;
+              localStorage.setItem('sidebarConfig', JSON.stringify(cfg));
+            }
+          } catch (_) {}
+        }
+
+        if (cfg) {
+          const menuItems = Array.isArray(cfg?.menuItems) ? cfg.menuItems : (Array.isArray(cfg?.items) ? cfg.items : []);
+          const hasOverview = menuItems.some(item => {
+            const id = String(item?.id || '').toLowerCase();
+            const p = String(item?.path || '').toLowerCase();
+            return id === 'dashboard-overview' || p.includes('dashboard-overview');
+          });
+          if (hasOverview && !isCancelled) {
+            navigate('/ciisUser/dashboard-overview', { replace: true });
+            return;
+          }
+        }
+
+        const company = JSON.parse(localStorage.getItem('company') || localStorage.getItem('companyDetails') || '{}');
+        const allowedPages = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
+        if (allowedPages.includes('dashboard-overview') && !allowedPages.includes('user-dashboard') && !isCancelled) {
+          navigate('/ciisUser/dashboard-overview', { replace: true });
+          return;
+        }
+      } catch (e) {
+        console.warn('Dashboard auto-redirect note:', e);
+      }
+    };
+
+    checkAssignedDashboard();
+    return () => { isCancelled = true; };
+  }, [navigate]);
+
   const initialDashboardSnapshot = useMemo(readDashboardCache, []);
   const initialActiveClock = useMemo(
     () => getActiveClockState(initialDashboardSnapshot.activeClock),
@@ -481,6 +530,7 @@ const UserDashboard = () => {
   });
   const [productivityData, setProductivityData] = useState({ loading: true, refreshing: false, error: '', score: 0, label: 'Poor', tone: 'danger', series: [] });
   const productivityRequestRef = useRef(0);
+  const summaryProductivityHydratedRef = useRef(false);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRolesLoading, setJobRolesLoading] = useState(false);
   const [dashboardUser, setDashboardUser] = useState(null);
@@ -552,9 +602,12 @@ const UserDashboard = () => {
   }, [dashboardUser, user]);
 
   const fetchProductivity = useCallback(async (period = productivityPeriod, dates = productivityDates) => {
-    if (!token) return;
+    if (!token) {
+      setProductivityData(current => ({ ...current, loading: false }));
+      return;
+    }
     if (period === 'custom' && (!dates.from || !dates.to || dates.from > dates.to)) {
-      setProductivityData(current => ({ ...current, error: 'Please select a valid date range.' }));
+      setProductivityData(current => ({ ...current, error: 'Please select a valid date range.', loading: false }));
       return;
     }
     const requestId = ++productivityRequestRef.current;
@@ -566,15 +619,43 @@ const UserDashboard = () => {
         timeout: 12000,
         cache: false,
       });
-      if (requestId === productivityRequestRef.current) setProductivityData({ ...response.data.data, loading: false, refreshing: false, error: '' });
+      if (requestId === productivityRequestRef.current) {
+        const data = response.data?.data || {};
+        setProductivityData({
+          ...data,
+          series: Array.isArray(data.series) ? data.series : [],
+          loading: false,
+          refreshing: false,
+          error: ''
+        });
+      }
     } catch (error) {
-      if (requestId === productivityRequestRef.current) setProductivityData(current => ({ ...current, loading: false, refreshing: false, error: error.response?.data?.message || 'Unable to load productivity.' }));
+      if (requestId === productivityRequestRef.current) {
+        setProductivityData(current => ({
+          ...current,
+          loading: false,
+          refreshing: false,
+          error: error.response?.data?.message || 'Unable to load productivity.'
+        }));
+      }
     }
   }, [productivityDates, productivityPeriod, token]);
 
   useEffect(() => {
-    if (productivityPeriod !== 'custom') fetchProductivity(productivityPeriod, productivityDates);
-  }, [fetchProductivity, productivityDates, productivityPeriod]);
+    if (!initialLoadDone) return;
+    if (productivityPeriod === 'custom') return;
+    if (summaryProductivityHydratedRef.current && productivityPeriod === 'weekly') return;
+    fetchProductivity(productivityPeriod, productivityDates);
+  }, [fetchProductivity, initialLoadDone, productivityDates, productivityPeriod]);
+
+  // Failsafe: Productivity loading state must never remain stuck indefinitely
+  useEffect(() => {
+    if (!productivityData.loading) return;
+    const safetyTimer = window.setTimeout(() => {
+      setProductivityData(current => current.loading ? { ...current, loading: false } : current);
+    }, 10000);
+    return () => window.clearTimeout(safetyTimer);
+  }, [productivityData.loading]);
 
   const companyDetails = useMemo(() => {
     try {
@@ -1144,7 +1225,7 @@ const UserDashboard = () => {
     setProjectsLoading(true);
     try {
       const response = await axios.get('/projects', {
-        params: { companyCode, page: 1, limit: 6 },
+        params: { companyCode, page: 1, limit: 12 },
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15000
       });
@@ -1283,6 +1364,36 @@ const UserDashboard = () => {
         setDashboardUser(summary.currentUser);
       }
 
+      if (summary.focusStats) {
+        const nextFocusStats = { loading: false, ...summary.focusStats };
+        setFocusStats(nextFocusStats);
+        writeDashboardCache({ focusStats: nextFocusStats });
+      }
+
+      if (summary.taskStats) {
+        setDashboardTaskStats({ loading: false, ...summary.taskStats });
+      }
+
+      if (summary.productivity) {
+        summaryProductivityHydratedRef.current = true;
+        setProductivityData({ ...summary.productivity, loading: false, refreshing: false, error: '' });
+      } else {
+        summaryProductivityHydratedRef.current = false;
+        setProductivityData(current => ({ ...current, loading: false }));
+      }
+
+      if (Array.isArray(summary.upcomingMeetings)) {
+        setUpcomingMeetings(summary.upcomingMeetings.map(meeting => ({
+          ...meeting,
+          scheduledAt: new Date(meeting.scheduledAt || `${meeting.date}T${meeting.time || '00:00'}`)
+        })));
+      }
+
+      if (Array.isArray(summary.projects)) {
+        setDashboardProjects(summary.projects);
+        writeDashboardCache({ projects: summary.projects });
+      }
+
       let holidaysData = summary.holidays || [];
       if (userJoinDate) {
         holidaysData = holidaysData.filter(holiday => !isBeforeJoinDate(new Date(holiday.date)));
@@ -1321,6 +1432,7 @@ const UserDashboard = () => {
         .slice(0, 8)
         .map(mapTaskToActivity);
       setTaskActivity(tasks);
+      setRecentTaskEvents(tasks);
       updateRecentActivity(
         attendanceRecords.filter(record => record.inTime || record.outTime || record.isClockedIn),
         holidaysData,
@@ -1351,45 +1463,42 @@ const UserDashboard = () => {
       cancelPendingRequests();
 
       try {
-        // Attendance status is intentionally fetched independently of the larger
-        // dashboard summary so a clock-in made on another device is shown at once.
-        fetchCurrentStatus();
-        fetchFocusStats();
         const summaryLoaded = await fetchDashboardSummary();
-        if (summaryLoaded) {
-          // The summary contains only persisted attendance records, while the
-          // attendance list also fills missing weekdays as ABSENT. Refresh the
-          // calendar from the list so both dashboard and full attendance agree.
-          fetchAttendanceData(true);
-        } else {
+        if (!summaryLoaded) {
+          fetchCurrentStatus();
+          fetchFocusStats();
           await Promise.allSettled([
             fetchDashboardConfig(),
             fetchJobRoles(),
             fetchHolidays(),
             fetchAttendanceData(true),
             fetchLeaveData(),
+            fetchProductivity('weekly', productivityDates),
+            fetchDashboardProjects(),
           ]);
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
         setInitialLoadDone(true);
+        setProductivityData(prev => prev.loading ? { ...prev, loading: false } : prev);
+        setProjectsLoading(false);
       }
     };
 
     loadData();
 
     return () => cancelPendingRequests();
-  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchFocusStats, cancelPendingRequests, isUserInCurrentCompany]);
+  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchFocusStats, fetchProductivity, fetchDashboardProjects, productivityDates, cancelPendingRequests, isUserInCurrentCompany]);
 
   useEffect(() => {
     if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
 
     const timers = [];
     const idleHandle = runWhenIdle(() => {
-      timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
-      timers.push(window.setTimeout(fetchDashboardProjects, 1200));
-      timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
+      if (!upcomingMeetings.length) timers.push(window.setTimeout(fetchUpcomingMeetings, 600));
+      if (!dashboardProjects.length) timers.push(window.setTimeout(fetchDashboardProjects, 1200));
+      if (!recentTaskEvents.length) timers.push(window.setTimeout(fetchRecentTaskActivity, 1800));
     });
 
     return () => {
@@ -1401,7 +1510,10 @@ const UserDashboard = () => {
     isUserInCurrentCompany,
     fetchUpcomingMeetings,
     fetchDashboardProjects,
-    fetchRecentTaskActivity
+    fetchRecentTaskActivity,
+    upcomingMeetings.length,
+    dashboardProjects.length,
+    recentTaskEvents.length
   ]);
 
 
@@ -1538,27 +1650,32 @@ const UserDashboard = () => {
       .map(record => `${new Date(record.date).getFullYear()}-${new Date(record.date).getMonth()}-${new Date(record.date).getDate()}`);
   }, [filteredAttendanceData]);
 
-  const leaveDates = useMemo(() => {
-    const dates = [];
+  const approvedLeaveDates = useMemo(() => {
+    const approved = [];
+
     filteredLeaveData.forEach(leave => {
       const leaveStatus = String(leave.status || '').trim().toUpperCase();
-      if (['PENDING', 'APPROVED'].includes(leaveStatus)) {
-        const start = new Date(leave.startDate);
-        const end = new Date(leave.endDate);
-        const current = new Date(start);
+      if (leaveStatus !== 'APPROVED') return;
 
-        while (current <= end) {
-          if (!isBeforeJoinDate(current)) {
-            dates.push(`${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`);
-          }
-          current.setDate(current.getDate() + 1);
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      const current = new Date(start);
+
+      while (current <= end) {
+        if (!isBeforeJoinDate(current)) {
+          const key = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
+          approved.push(key);
         }
+        current.setDate(current.getDate() + 1);
       }
     });
-    return [...new Set(dates)];
+
+    return [...new Set(approved)];
   }, [filteredLeaveData, isBeforeJoinDate]);
 
-  const leaveDateSet = useMemo(() => new Set(leaveDates), [leaveDates]);
+  const leaveDateSet = useMemo(() => new Set(approvedLeaveDates), [approvedLeaveDates]);
   const absentDateSet = useMemo(() => new Set(absentDates), [absentDates]);
 
 
@@ -1591,18 +1708,19 @@ const UserDashboard = () => {
     if (holidayDateSet.has(key)) return "holiday";
     if (isBeforeJoinDate(dateObj)) return "before-join";
     if (weekendDates.includes(key) || (isWeekend && !lateDates.includes(key) && !halfDayDates.includes(key) && !markedDates.includes(key))) return "weekend";
-    if (leaveDateSet.has(key)) return "leave";
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
     if (markedDates.includes(key)) return "present";
+    if (leaveDateSet.has(key)) return "leave";
     if (absentDateSet.has(key)) return "absent";
+    if (loading.attendance) return null;
 
     const todayStart = new Date(currentDate);
     todayStart.setHours(0, 0, 0, 0);
     if (dateObj < todayStart) return "absent";
 
     return null;
-  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user]);
+  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user, loading.attendance]);
 
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
     const calculateMonth = (year, month, maxDay = null) => {
@@ -2080,7 +2198,7 @@ const UserDashboard = () => {
     const aName = String(a.projectName || a.name || a.title || '');
     const bName = String(b.projectName || b.name || b.title || '');
     return aName.localeCompare(bName, undefined, { sensitivity: 'base' });
-  }).slice(0, 3), [dashboardProjects]);
+  }).slice(0, 6), [dashboardProjects]);
 
   const quickActions = [
     { label: 'New Task', icon: <CirclePlus />, tone: 'purple', fields: [['title', 'Task title', 'text'], ['description', 'Description', 'textarea'], ['dueDateTime', 'Due date', 'datetime-local']] },
@@ -2144,11 +2262,26 @@ const UserDashboard = () => {
     const loadAssets = async () => {
       setQuickAssetsLoading(true);
       try {
-        const response = await axios.get('/company-assets', { headers: { Authorization: `Bearer ${token}` } });
-        const rows = Array.isArray(response.data?.assets) ? response.data.assets
-          : Array.isArray(response.data?.data) ? response.data.data
-            : Array.isArray(response.data) ? response.data : [];
-        if (active) setQuickAssets(rows.filter(asset => Number(asset.quantity) > 0));
+        let response;
+        try {
+          response = await axios.get('/asset-requests/available', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+        } catch (err) {
+          if (err.response?.status === 404 || err.response?.status === 403) {
+            response = await axios.get('/company-assets', {
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+          } else {
+            throw err;
+          }
+        }
+        const rows = Array.isArray(response?.data?.assets) ? response.data.assets
+          : Array.isArray(response?.data?.data) ? response.data.data
+            : Array.isArray(response?.data) ? response.data : [];
+        if (active) {
+          setQuickAssets(rows.filter(asset => asset.quantity === undefined || asset.quantity === null || Number(asset.quantity) > 0 || String(asset.status || '').toLowerCase() === 'available'));
+        }
       } catch (error) {
         console.error('Failed to load company assets:', error);
         if (active) {
@@ -2537,7 +2670,8 @@ const UserDashboard = () => {
           <section className="quick-modal" onMouseDown={event => event.stopPropagation()} role="dialog" aria-modal="true">
             <header><div className={`quick-modal-icon ${activeQuickAction.tone}`}>{activeQuickAction.icon}</div><div><span>Quick action</span><h2>{activeQuickAction.label}</h2></div><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}><FiX /></button></header>
             <form onSubmit={submitQuickAction}>
-              {activeQuickAction.label === 'Meetings' ? (
+              <div className="quick-modal-body">
+                {activeQuickAction.label === 'Meetings' ? (
                 <div className="quick-meetings-view">
                   <div className="quick-meetings-summary"><div><strong>Upcoming meetings</strong><span>Your scheduled meetings in chronological order.</span></div><em>{upcomingMeetings.length}</em></div>
                   {upcomingMeetings.length ? <div className="quick-meetings-list">
@@ -2712,6 +2846,7 @@ const UserDashboard = () => {
                   </label>)}
                 </div>
               )}
+              </div>
               {['Meetings', 'My Notes'].includes(activeQuickAction.label) ? <footer><button type="button" onClick={() => setActiveQuickAction(null)}>Close</button></footer> : <footer><button type="button" onClick={() => setActiveQuickAction(null)} disabled={quickSubmitting}>Cancel</button><button type="submit" disabled={quickSubmitting}>{quickSubmitting ? 'Saving…' : activeQuickAction.label === 'New Task' ? `Create ${quickTaskType === 'personal' ? 'Personal' : quickTaskType === 'client' ? 'Client' : 'Assigned'} Task` : activeQuickAction.label === 'Add Client' ? 'Create Client' : `Save ${activeQuickAction.label}`}</button></footer>}
             </form>
           </section>
@@ -3400,6 +3535,24 @@ const UserDashboard = () => {
                 {isClockedOutToday ? <><FiCheckCircle size={17} /> Completed</> : <><FiPlay size={17} /> Clock In</>}
               </button>
               <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
+            </div>
+          </section>
+
+          <section className="dashboard-ai-card">
+            <div className="dashboard-section-heading"><strong><FiZap /> AI Assistant</strong><span>Coming Soon</span></div>
+            <div className="dashboard-ai-summary dashboard-ai-coming-soon">
+              <div className="ai-coming-soon-visual">
+                <div className="ai-orb"><Sparkles /></div>
+                <i className="ai-orbit-dot ai-orbit-dot-one" />
+                <i className="ai-orbit-dot ai-orbit-dot-two" />
+              </div>
+              <p>Your smart work assistant is on the way</p>
+              <small>Get personalized insights, task suggestions and instant answers from your workspace.</small>
+              <div className="ai-feature-pills">
+                <span>Smart insights</span>
+                <span>Task help</span>
+                <span>Quick answers</span>
+              </div>
             </div>
           </section>
 

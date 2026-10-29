@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
 import {
   Search,
   MoreHorizontal,
@@ -14,8 +15,17 @@ import {
   Check,
   Smile,
   Sparkles,
-  ChevronDown,
   MessageCircle,
+  Phone,
+  Video,
+  Mic,
+  Camera,
+  FileText,
+  Images,
+  Paperclip,
+  MoreVertical,
+  Trash2,
+  Reply,
 } from "lucide-react";
 import {
   getConversations,
@@ -26,13 +36,22 @@ import {
   getMessages,
   sendMessage,
   markMessageSeen,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
 } from "../../services/chatService";
-import { resolveAvatarUrl } from "../../chat/messageUtils";
+import TaskDetailsModal from "./TaskDetailsModal";
+import { getClientChatTask, addClientChatRemark, openClientConversation } from "../../services/chatService";
+import ChatMentionInput from "../../chat/ChatMentionInput";
+import { mentionMembers, reconcileMentions, mentionSegments } from "../../chat/mentionUtils";
+import { attachmentLabel, attachmentSource, attachmentUrls, resolveAvatarUrl } from "../../chat/messageUtils";
+import { describeCallMessage, isCallMessage } from "../../chat/callMessage";
+import { API_URL_IMG } from "../../config";
 import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/useAuth";
 import { useMyAi } from "../../context/MyAiContext";
 import MyAiPinnedRow from "../../components/ai/MyAiPinnedRow";
 import MyAiChatView from "../../components/ai/MyAiChatView";
+import { useCall } from "../../context/CallContext";
 import "./MessengerDropdown.css";
 
 const formatRelativeTime = (timestamp) => {
@@ -71,10 +90,96 @@ const getEntityId = (value) => {
   return value.toString();
 };
 
+export const hasCompanyChatAccess = () => {
+  try {
+    const storage = typeof window !== "undefined" && window?.localStorage
+      ? window.localStorage
+      : (typeof localStorage !== "undefined" ? localStorage : null);
+    if (!storage) return true;
+    const raw = storage.getItem("companyDetails");
+    if (!raw) return true;
+    const company = JSON.parse(raw);
+    const allowed = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
+    if (!allowed.length) return true;
+    const normalize = v => String(v || "").trim().replace(/^\/+/, "").toLowerCase();
+    const set = new Set(allowed.map(normalize));
+    return set.has("chat") || set.has("ciisuser/chat");
+  } catch {
+    return true;
+  }
+};
+
+const getConversationId = (value) => (
+  value?.conversationId || value?.conversation?._id || value?._id || value?.id || ""
+).toString();
+
+const getMessageSenderId = (message) => getEntityId(message?.sender || message?.senderId);
+
+const getMessagePreview = (message) => {
+  if (!message) return "Start conversation";
+  if (message.deletedForEveryone) return "This message was deleted";
+  if (isCallMessage(message)) return describeCallMessage(message).text;
+  if (message.text) return message.text;
+  if (message.file) {
+    if (String(message.fileType || "").startsWith("image/")) return "Photo";
+    if (String(message.fileType || "").startsWith("video/")) return "Video";
+    if (String(message.fileType || "").startsWith("audio/")) return "Voice message";
+    return "Attachment";
+  }
+  return "New message";
+};
+
+const sortConversationItems = (items = []) => [...items].sort((first, second) => {
+  const firstTime = new Date(first?.lastMessage?.createdAt || first?.updatedAt || first?.createdAt || 0).getTime();
+  const secondTime = new Date(second?.lastMessage?.createdAt || second?.updatedAt || second?.createdAt || 0).getTime();
+  if (secondTime !== firstTime) return secondTime - firstTime;
+  return getConversationId(first).localeCompare(getConversationId(second));
+});
+
+const MAX_WIDGET_FILE_SIZE = 50 * 1024 * 1024;
+
+let memoryCachedConversations = null;
+let memoryCachedUsers = null;
+let memoryCachedGroups = null;
+
+export const clearMessengerMemoryCache = () => {
+  memoryCachedConversations = null;
+  memoryCachedUsers = null;
+  memoryCachedGroups = null;
+};
+
+const CHAT_EMOJI_CATEGORIES = [
+  { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
+  { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
+  { category: Categories.FOOD_DRINK, name: "Food & Drink" },
+  { category: Categories.ACTIVITIES, name: "Activities" },
+  { category: Categories.TRAVEL_PLACES, name: "Travel" },
+  { category: Categories.OBJECTS, name: "Objects" },
+  { category: Categories.SYMBOLS, name: "Symbols" },
+  { category: Categories.FLAGS, name: "Flags" },
+];
+
+const getAttachmentKind = (file) => {
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "").toLowerCase();
+  if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(name)) return "image";
+  if (type.startsWith("video/") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(name)) return "video";
+  if (type.startsWith("audio/") || /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i.test(name)) return "audio";
+  return "document";
+};
+
+const formatFileSize = (bytes = 0) => {
+  const size = Number(bytes) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { socket } = useSocket();
+  const { startCall } = useCall();
 
   const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
 
@@ -87,6 +192,16 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     /* Mounted outside MyAiProvider */
   }
 
+  const isClientUser = useMemo(() => {
+    const rawRole = currentUser?.companyRole || currentUser?.role || currentUser?.jobRoleName || currentUser?.jobRole || currentUser?.designation || '';
+    const roleName = typeof rawRole === 'object' ? (rawRole.roleName || rawRole.name || rawRole.title || '') : String(rawRole);
+    return (
+      roleName.trim().toLowerCase() === 'client' ||
+      String(currentUser?.companyRole || '').trim().toLowerCase() === 'client' ||
+      window.location.pathname.startsWith('/client')
+    );
+  }, [currentUser]);
+
   // Controlled or internal open state (synced with MyAi)
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isWidgetOpen = isOpen !== undefined ? isOpen : (isOpenInternal || Boolean(myAi?.isOpen));
@@ -97,26 +212,65 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const [activeConversationId, setActiveConversationId] = useState(null);
 
   // Data States
-  const [conversations, setConversations] = useState([]);
-  const [companyUsers, setCompanyUsers] = useState([]);
-  const [companyGroups, setCompanyGroups] = useState([]);
+  const [conversations, setConversations] = useState(() => memoryCachedConversations || []);
+  const [chatLoadError, setChatLoadError] = useState("");
+  const [companyUsers, setCompanyUsers] = useState(() => memoryCachedUsers || []);
+  const [companyGroups, setCompanyGroups] = useState(() => memoryCachedGroups || []);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(() => !memoryCachedConversations || memoryCachedConversations.length === 0);
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all"); // "all" | "unread" | "groups" | "colleagues"
+  const [activeTab, setActiveTab] = useState("all"); // "all" | "unread" | "projects" | "clients"
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [openMessageMenuId, setOpenMessageMenuId] = useState("");
+  const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(null);
+  const [pendingAttachment, setPendingAttachment] = useState(null);
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState("");
+  const [attachmentError, setAttachmentError] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Input & Sending
-  const [inputText, setInputText] = useState("");
+  const [inputText, setRawInputText] = useState("");
+  const [messageMentions, setMessageMentions] = useState([]);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [clientTask, setClientTask] = useState(null);
+  const clientRemarkRequests = useRef(new Map());
+  const setInputText = (next, mentions) => {
+    setMessageMentions(mentions ?? reconcileMentions(inputText, next, messageMentions));
+    setRawInputText(next);
+  };
+  const activeConversation = conversations.find(item => String(item._id) === String(activeConversationId)) || selectedChat?.conversation;
+  const mentionCandidates = mentionMembers(
+    activeConversation?.members || selectedChat?.members || (!selectedChat?.isGroup ? [currentUser, selectedChat?.targetUser || selectedChat] : []),
+    [...companyUsers, currentUser, ...(selectedChat?.members || [])]
+  );
   const [isSending, setIsSending] = useState(false);
+  const sendingRef = useRef(false);
 
   const messagesEndRef = useRef(null);
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
+  const documentInputRef = useRef(null);
+  const mediaInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const audioInputRef = useRef(null);
+  const receivedMessageIdsRef = useRef(new Set());
+  const initialDataRequested = useRef(false);
+
+  useEffect(() => {
+    if (!pendingAttachment?.file) {
+      setAttachmentPreviewUrl("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(pendingAttachment.file);
+    setAttachmentPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingAttachment]);
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = (smooth = true) => {
@@ -134,6 +288,24 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     if (myAi?.isOpen) {
       myAi.closeMyAi();
     }
+  };
+
+  const getSelectedChatTarget = () => {
+    if (!selectedChat) return null;
+    if (selectedChat.targetUser) return selectedChat.targetUser;
+    if (selectedChat.conversation) {
+      if (selectedChat.conversation.isGroup || selectedChat.isGroup) return selectedChat.conversation;
+      return (selectedChat.conversation.members || []).find((member) => (
+        getEntityId(member) !== currentUserId
+      )) || selectedChat.conversation;
+    }
+    if (selectedChat.isGroup) return selectedChat;
+    if (Array.isArray(selectedChat.members)) {
+      return selectedChat.members.find((member) => (
+        getEntityId(member) !== currentUserId
+      )) || selectedChat;
+    }
+    return selectedChat;
   };
 
   useEffect(() => {
@@ -186,33 +358,75 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     return conversations.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
   }, [conversations]);
 
-  // Fetch initial conversations, users, and groups
-  const loadChatData = async () => {
+  // Fetch initial conversations, users, and groups. Every page mounts this
+  // widget for the unread badge, so contacts and groups wait for the first open.
+  const contactsRequested = useRef(false);
+  const loadChatData = async ({ withContacts = contactsRequested.current } = {}) => {
     try {
-      const [convRes, usersRes, groupsRes] = await Promise.all([
-        getConversations().catch(() => ({ data: {} })),
-        getCompanyUsers().catch(() => ({ data: {} })),
-        getCompanyGroups().catch(() => ({ data: {} })),
-      ]);
+      setChatLoadError("");
+      if (!memoryCachedConversations || memoryCachedConversations.length === 0) {
+        setLoadingConversations(true);
+      }
 
-      const convList = convRes.data?.conversations || [];
-      const usersList = usersRes.data?.users || [];
-      const groupsList = groupsRes.data?.groups || groupsRes.data?.data || [];
+      // 1. Fetch conversations immediately and update state as soon as it returns
+      // (Do NOT wait for users or groups to finish before showing conversations!)
+      const convPromise = getConversations()
+        .then((convRes) => {
+          const convList = convRes.data?.conversations || [];
+          const sorted = sortConversationItems(convList);
+          memoryCachedConversations = sorted;
+          setConversations(sorted);
 
-      setConversations(convList);
-      setCompanyUsers(usersList);
-      setCompanyGroups(groupsList);
+          // Compute total unread
+          const unreadTotal = convList.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
+          onUnreadChange?.(unreadTotal);
+          return sorted;
+        })
+        .catch((err) => {
+          console.warn("Failed to load chat conversations:", err);
+          setChatLoadError("Chats could not load. Please retry.");
+          return [];
+        })
+        .finally(() => {
+          setLoadingConversations(false);
+        });
 
-      // Compute total unread
-      const unreadTotal = convList.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
-      onUnreadChange?.(unreadTotal);
+      // 2. Fetch company users and groups concurrently without blocking conversation display
+      if (!withContacts) {
+        await convPromise;
+        return;
+      }
+      contactsRequested.current = true;
+      const usersPromise = getCompanyUsers()
+        .then((usersRes) => {
+          const list = usersRes.data?.users || [];
+          memoryCachedUsers = list;
+          setCompanyUsers(list);
+          return list;
+        })
+        .catch(() => { setChatLoadError("Some contacts could not load. Please retry."); return []; });
+
+      const groupsPromise = getCompanyGroups()
+        .then((groupsRes) => {
+          const list = groupsRes.data?.groups || groupsRes.data?.data || [];
+          memoryCachedGroups = list;
+          setCompanyGroups(list);
+          return list;
+        })
+        .catch(() => { setChatLoadError("Some groups could not load. Please retry."); return []; });
+
+      await Promise.allSettled([convPromise, usersPromise, groupsPromise]);
     } catch (err) {
-      console.warn("Failed to load chat conversations:", err);
+      console.warn("Failed to load chat data:", err);
+      setLoadingConversations(false);
     }
   };
 
   useEffect(() => {
-    loadChatData();
+    if (isWidgetOpen || !initialDataRequested.current) {
+      initialDataRequested.current = true;
+      loadChatData({ withContacts: isWidgetOpen || contactsRequested.current });
+    }
   }, [isWidgetOpen]);
 
   // Socket setup for real-time presence & messages
@@ -234,13 +448,38 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       if (uid) setOnlineUserIds((prev) => prev.filter((id) => id !== uid));
     };
 
+    const updateConversationFromMessage = (msg) => {
+      const msgConvId = getConversationId(msg);
+      if (!msgConvId) return;
+      const messageId = (msg?._id || msg?.id || "").toString();
+      const alreadyHandled = messageId && receivedMessageIdsRef.current.has(messageId);
+      if (messageId) receivedMessageIdsRef.current.add(messageId);
+      const isIncoming = getMessageSenderId(msg) !== currentUserId;
+      const isViewing = activeConversationId && msgConvId === activeConversationId;
+
+      setConversations(prev => sortConversationItems(prev.map(conv => (
+        getConversationId(conv) === msgConvId
+          ? {
+              ...conv,
+              lastMessage: msg,
+              updatedAt: msg.createdAt || conv.updatedAt,
+              unreadCount: isIncoming && !isViewing && !alreadyHandled
+                ? (Number(conv.unreadCount) || 0) + 1
+                : (isViewing ? 0 : conv.unreadCount),
+            }
+          : conv
+      ))));
+    };
+
     const handleReceiveMessage = (msg) => {
       const msgConvId = (msg?.conversationId || msg?.conversation?._id || "").toString();
+      updateConversationFromMessage(msg);
 
       // If viewing this conversation currently
       if (activeConversationId && msgConvId === activeConversationId) {
+        const incomingId = String(msg?._id || msg?.id || "");
         setMessages((prev) => {
-          if (prev.some((m) => (m._id || m.id) === (msg._id || msg.id))) return prev;
+          if (incomingId && prev.some((m) => String(m._id || m.id || "") === incomingId)) return prev;
           return [...prev, msg];
         });
         setTimeout(() => scrollToBottom(true), 50);
@@ -255,12 +494,19 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         }
       }
 
-      // Refresh conversations list to update last message & unread badge
-      loadChatData();
     };
 
-    const handleUnreadUpdate = () => {
-      loadChatData();
+    const handleUnreadUpdate = (data = {}) => {
+      const conversationId = data.conversationId?.toString();
+      if (!conversationId) {
+        loadChatData();
+        return;
+      }
+      setConversations(prev => sortConversationItems(prev.map(conv => (
+        getConversationId(conv) === conversationId
+          ? { ...conv, unreadCount: Number(data.count) || 0 }
+          : conv
+      ))));
     };
 
     socket.on("chat:online-users", handleOnline);
@@ -268,10 +514,19 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     socket.on("chat:user-offline", handleUserOffline);
     socket.on("chat:receive-message", handleReceiveMessage);
     socket.on("chat:unread-update", handleUnreadUpdate);
+    const handleMembership = async (data) => {
+      await loadChatData();
+      if (String(data.conversationId) !== String(activeConversationId)) return;
+      try { await getMessages(activeConversationId, { limit: 1 }); }
+      catch { setSelectedChat(null); setActiveConversationId(null); setClientTask(null); setReplyingTo(null); setMessages([]); setActiveView("list"); }
+    };
+    socket.on("chat:project-membership-updated", handleMembership);
+    socket.on("chat:conversation-updated", loadChatData);
 
-    if (socket.connected) {
-      socket.emit("chat:get-online-users", handleOnline);
-    }
+    // The socket often connects after this effect runs; ask again on every (re)connect.
+    const requestOnlineUsers = () => socket.emit("chat:get-online-users", handleOnline);
+    socket.on("connect", requestOnlineUsers);
+    if (socket.connected) requestOnlineUsers();
 
     return () => {
       socket.off("chat:online-users", handleOnline);
@@ -279,17 +534,29 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       socket.off("chat:user-offline", handleUserOffline);
       socket.off("chat:receive-message", handleReceiveMessage);
       socket.off("chat:unread-update", handleUnreadUpdate);
+      socket.off("chat:project-membership-updated", handleMembership);
+      socket.off("chat:conversation-updated", loadChatData);
+      socket.off("connect", requestOnlineUsers);
     };
   }, [socket, activeConversationId, currentUserId]);
 
+  useEffect(() => {
+    onUnreadChange?.(totalUnread);
+  }, [totalUnread, onUnreadChange]);
+
   // Handle opening a chat (conversation or colleague)
   const handleSelectChat = async (target) => {
+    setReplyingTo(null);
+    setMessageMentions([]);
     setSelectedChat(target);
     setActiveView("chat");
     setLoadingMessages(true);
     setInputText("");
+    setShowReactions(false);
+    setShowAttachmentMenu(false);
 
     try {
+      setClientTask(null);
       let convId = target?.conversation?._id || (target?.members ? target?._id : null);
 
       // If selecting a user without an existing conversation, create/find it
@@ -299,7 +566,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         convId = res.data?.conversation?._id || res.data?._id;
       } else if (!convId && target.isGroup) {
         const groupId = getEntityId(target);
-        const res = await createGroupConversation(groupId);
+        const res = target.clientId ? await openClientConversation(target.clientId) : await createGroupConversation(groupId);
         convId = res.data?.conversation?._id || res.data?._id;
       }
 
@@ -309,14 +576,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
         const msgRes = await getMessages(convId);
         const fetchedMessages = msgRes.data?.messages || [];
+        // Loading the messages marks them all seen on the server; one call per
+        // message here only repeated that work (up to 50 requests per open).
         setMessages(fetchedMessages);
-
-        // Mark unread messages as seen
-        fetchedMessages.forEach((m) => {
-          if (m._id && getEntityId(m.sender) !== currentUserId && !m.seen) {
-            markMessageSeen(m._id).catch(() => {});
-          }
-        });
       }
     } catch (err) {
       console.warn("Error starting chat:", err);
@@ -337,38 +599,39 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     setActiveView("list");
     setSelectedChat(null);
     setActiveConversationId(null);
+    setShowReactions(false);
+    setShowAttachmentMenu(false);
     loadChatData();
   };
 
   // Handle sending a message
   const handleSendMessage = async (textToSend = inputText) => {
-    const text = String(textToSend || "").trim();
-    if (!text || !activeConversationId || isSending) return;
+    const text = String(textToSend || "");
+    if (!text.trim() || !activeConversationId || isSending || sendingRef.current) return;
 
+    sendingRef.current = true;
     setIsSending(true);
-    setInputText("");
 
     try {
       const formData = new FormData();
       formData.append("conversationId", activeConversationId);
       formData.append("text", text);
+      formData.append("mentions", JSON.stringify(messageMentions));
+      if (replyingTo?._id) formData.append("replyToMessageId", replyingTo._id);
 
       const res = await sendMessage(formData);
       const sentMsg = res.data?.message || res.data;
+      setInputText("", []);
+      setReplyingTo(null);
 
-      // Add to local state immediately
-      setMessages((prev) => [...prev, sentMsg]);
-
-      // Emit on socket for peer
-      if (socket) {
-        const receiverId = selectedChat?.isGroup
-          ? undefined
-          : getEntityId(selectedChat);
-
-        socket.emit("chat:send-message", {
-          conversationId: activeConversationId,
-          receiverId,
-          ...sentMsg,
+      // Add to local state only if not already received via socket
+      if (sentMsg) {
+        const sentId = String(sentMsg._id || sentMsg.id || "");
+        setMessages((prev) => {
+          if (sentId && prev.some((m) => String(m._id || m.id || "") === sentId)) {
+            return prev;
+          }
+          return [...prev, sentMsg];
         });
       }
 
@@ -378,22 +641,135 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       console.warn("Failed to send message:", err);
     } finally {
       setIsSending(false);
+      sendingRef.current = false;
       inputRef.current?.focus();
     }
   };
 
+  const validateAndPreviewFile = (file) => {
+    setAttachmentError("");
+    if (!file) return;
+    if (file.size > MAX_WIDGET_FILE_SIZE) {
+      setAttachmentError(`File size must be ${formatFileSize(MAX_WIDGET_FILE_SIZE)} or less.`);
+      return;
+    }
+    setPendingAttachment({
+      file,
+      kind: getAttachmentKind(file),
+    });
+    setShowAttachmentMenu(false);
+  };
+
+  const handleSendFile = async () => {
+    const file = pendingAttachment?.file;
+    if (!file || !activeConversationId || isSending || sendingRef.current) return;
+
+    sendingRef.current = true;
+    setIsSending(true);
+    setShowAttachmentMenu(false);
+    try {
+      const formData = new FormData();
+      formData.append("conversationId", activeConversationId);
+      formData.append("file", file);
+      if (replyingTo?._id) formData.append("replyToMessageId", replyingTo._id);
+      formData.append("fileType", file.type || "application/octet-stream");
+      formData.append("fileName", file.name || `attachment-${Date.now()}`);
+
+      const res = await sendMessage(formData);
+      const sentMsg = res.data?.message || res.data;
+      if (sentMsg) {
+        const sentId = String(sentMsg._id || sentMsg.id || "");
+        setMessages((prev) => (
+          (sentId && prev.some((message) => String(message._id || message.id || "") === sentId))
+            ? prev
+            : [...prev, sentMsg]
+        ));
+      }
+      setTimeout(() => scrollToBottom(true), 50);
+      loadChatData();
+      setPendingAttachment(null);
+      setReplyingTo(null);
+    } catch (err) {
+      console.warn("Failed to send attachment:", err);
+      setAttachmentError("Unable to send attachment. Please try again.");
+    } finally {
+      setIsSending(false);
+      sendingRef.current = false;
+      inputRef.current?.focus();
+    }
+  };
+
+  const handleFileInputChange = (event) => {
+    const [file] = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (file) validateAndPreviewFile(file);
+  };
+
   // Quick reaction emoji click
-  const handleReactionClick = (emoji) => {
-    handleSendMessage(emoji);
+  const handleReactionClick = (emojiData) => {
+    const emoji = emojiData?.emoji || "";
+    if (!emoji) return;
+    const input = inputRef.current;
+    const start = typeof input?.selectionStart === "number" ? input.selectionStart : inputText.length;
+    const end = typeof input?.selectionEnd === "number" ? input.selectionEnd : start;
+    const nextText = `${inputText.slice(0, start)}${emoji}${inputText.slice(end)}`;
+    setInputText(nextText);
     setShowReactions(false);
+    requestAnimationFrame(() => {
+      input?.focus();
+      const nextCursor = start + emoji.length;
+      input?.setSelectionRange?.(nextCursor, nextCursor);
+    });
+  };
+
+  const handleDeleteForMe = async (message) => {
+    if (!message?._id || isSending) return;
+    setIsSending(true);
+    try {
+      await deleteMessageForMe(message._id);
+      setMessages((prev) => prev.filter((item) => item._id !== message._id));
+      socket?.emit("chat:delete-for-me", { messageId: message._id, conversationId: activeConversationId });
+      loadChatData();
+    } catch (error) {
+      setAttachmentError(error?.response?.data?.message || "Unable to delete this message. Please try again.");
+    } finally {
+      setOpenMessageMenuId("");
+      setIsSending(false);
+    }
+  };
+
+  const confirmDeleteForEveryone = async () => {
+    const message = confirmDeleteMessage;
+    if (!message?._id || isSending) return;
+    setIsSending(true);
+    try {
+      await deleteMessageForEveryone(message._id);
+      setMessages((prev) => prev.map((item) => (
+        item._id === message._id ? { ...item, deletedForEveryone: true, text: "" } : item
+      )));
+      socket?.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: activeConversationId });
+      loadChatData();
+    } catch (error) {
+      setAttachmentError(error?.response?.data?.message || "Unable to delete this message. Please try again.");
+    } finally {
+      setConfirmDeleteMessage(null);
+      setOpenMessageMenuId("");
+      setIsSending(false);
+    }
   };
 
   // Navigate to full chat page
   const handleOpenFullPage = () => {
-    onClose();
+    handleCloseWidget();
     if (selectedChat) {
-      const uid = getEntityId(selectedChat);
-      navigate("/ciisUser/chat", { state: { selectedUserId: uid } });
+      const target = getSelectedChatTarget();
+      const uid = getEntityId(target || selectedChat);
+      navigate("/ciisUser/chat", {
+        state: {
+          selectedUserId: uid,
+          selectedConversationId: activeConversationId || selectedChat.conversation?._id || selectedChat._id,
+        },
+      });
     } else {
       navigate("/ciisUser/chat");
     }
@@ -403,7 +779,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const getChatTitle = (item) => {
     if (!item) return "Chat";
     if (item.isGroup) {
-      return item.name || item.groupName || item.title || "Group Channel";
+      return item.name || item.groupName || item.title || "Group";
     }
     return item.name || item.email || "Colleague";
   };
@@ -414,6 +790,14 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     return onlineUserIds.includes(uid) || Boolean(item.isOnline);
   };
 
+  const startWidgetCall = (callType) => {
+    const target = getSelectedChatTarget();
+    if (!target) return;
+    setShowReactions(false);
+    setShowAttachmentMenu(false);
+    startCall(callType, target);
+  };
+
   // Filtered lists for the "list" view
   const conversationItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -422,7 +806,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     const convMap = new Map();
     conversations.forEach((c) => {
       if (c.isGroup) {
-        convMap.set(`group:${getEntityId(c.groupId || c._id)}`, c);
+        convMap.set(`group:${getEntityId(c.clientId || c.projectId || c.groupId || c._id)}`, c);
       } else {
         const otherMember = (c.members || []).find((m) => getEntityId(m) !== currentUserId);
         if (otherMember) {
@@ -441,7 +825,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       let targetUser = null;
 
       if (conv.isGroup) {
-        displayName = conv.name || conv.groupName || "Group Channel";
+        displayName = `${conv.name || conv.groupName || "Group"}${conv.clientId ? " (Client)" : conv.projectId ? " (Project)" : ""}`;
         avatar = null;
       } else {
         const other = (conv.members || []).find((m) => getEntityId(m) !== currentUserId);
@@ -458,6 +842,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         id: conv._id,
         key: `conv-${conv._id}`,
         isGroup: Boolean(conv.isGroup),
+        clientId: conv.clientId,
+        projectId: conv.projectId,
         name: displayName,
         avatar,
         lastMessage: lastMsgText,
@@ -465,6 +851,23 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         unread,
         conversation: conv,
         targetUser,
+      });
+    });
+
+    // Include every accessible channel, even when absent from recent conversations.
+    companyGroups.forEach(group => {
+      const groupId = getEntityId(group.clientId || group.projectId || group);
+      if (!groupId || convMap.has(`group:${groupId}`)) return;
+      const conversation = group.conversation;
+      items.push({
+        id: groupId, key: `group-${groupId}`, isGroup: true,
+        clientId: group.clientId, projectId: group.projectId,
+        name: `${group.name || "Group"}${group.clientId ? " (Client)" : group.projectId ? " (Project)" : ""}`,
+        avatar: group.profileImage || group.avatar || group.image,
+        lastMessage: getMessagePreview(conversation?.lastMessage),
+        time: conversation?.lastMessage?.createdAt || conversation?.updatedAt,
+        unread: Number(conversation?.unreadCount) || 0,
+        conversation, targetUser: null,
       });
     });
 
@@ -490,8 +893,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     // Filter by Tab & Search
     return items.filter((item) => {
       if (activeTab === "unread" && item.unread <= 0) return false;
-      if (activeTab === "groups" && !item.isGroup) return false;
-      if (activeTab === "colleagues" && item.isGroup) return false;
+      if ((activeTab === "projects" || activeTab === "groups") && !(item.projectId || item.conversation?.projectId || (item.isGroup && !item.clientId && !item.conversation?.clientId))) return false;
+      if ((activeTab === "clients" || activeTab === "colleagues") && !(item.clientId || item.conversation?.clientId)) return false;
 
       if (query) {
         const nameMatch = item.name.toLowerCase().includes(query);
@@ -500,7 +903,37 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       }
       return true;
     });
-  }, [conversations, companyUsers, searchQuery, activeTab, currentUserId]);
+  }, [conversations, companyUsers, companyGroups, searchQuery, activeTab, currentUserId]);
+
+  const getMessageSenderName = (msg) => {
+    if (!msg) return "Member";
+    if (msg.sender && typeof msg.sender === "object") {
+      const name = msg.sender.name || msg.sender.fullName || msg.sender.username || msg.sender.email;
+      if (name) return name;
+    }
+    if (msg.senderName) return msg.senderName;
+    const senderId = getEntityId(msg.sender || msg.senderId);
+    if (senderId) {
+      if (Array.isArray(selectedChat?.members)) {
+        const member = selectedChat.members.find(
+          (m) => getEntityId(m?.user || m) === senderId
+        );
+        const userObj = member?.user && typeof member.user === "object" ? member.user : member;
+        const memberName = userObj?.name || userObj?.fullName || userObj?.username;
+        if (memberName) return memberName;
+      }
+      if (Array.isArray(companyUsers)) {
+        const found = companyUsers.find((u) => getEntityId(u) === senderId);
+        const foundName = found?.name || found?.fullName || found?.username;
+        if (foundName) return foundName;
+      }
+    }
+    return "Member";
+  };
+
+  if (isClientUser || !hasCompanyChatAccess()) {
+    return null;
+  }
 
   if (!isWidgetOpen) {
     return (
@@ -559,23 +992,15 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
-                  title="New message / Search colleagues"
+                  title="New message / Search"
                   onClick={() => {
-                    setActiveTab("colleagues");
+                    setActiveTab("all");
                     inputRef.current?.focus();
                   }}
                 >
                   <SquarePen size={17} />
                 </button>
 
-                <button
-                  type="button"
-                  className="fb-messenger-icon-btn"
-                  title="Minimize"
-                  onClick={handleCloseWidget}
-                >
-                  <ChevronDown size={19} />
-                </button>
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
@@ -655,21 +1080,26 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               </button>
               <button
                 type="button"
-                className={`fb-messenger-tab ${activeTab === "groups" ? "active" : ""}`}
-                onClick={() => setActiveTab("groups")}
+                className={`fb-messenger-tab ${activeTab === "projects" || activeTab === "groups" ? "active" : ""}`}
+                onClick={() => setActiveTab("projects")}
               >
-                Groups
+                Projects
               </button>
               <button
                 type="button"
-                className={`fb-messenger-tab ${activeTab === "colleagues" ? "active" : ""}`}
-                onClick={() => setActiveTab("colleagues")}
+                className={`fb-messenger-tab ${activeTab === "clients" || activeTab === "colleagues" ? "active" : ""}`}
+                onClick={() => setActiveTab("clients")}
               >
-                Colleagues
+                Clients
               </button>
             </div>
 
             {/* Conversations List */}
+            {chatLoadError && (
+              <div role="alert" style={{ padding: "10px 16px", color: "#b42318" }}>
+                {chatLoadError} <button type="button" onClick={loadChatData}>Retry</button>
+              </div>
+            )}
             <div className="fb-messenger-list">
               {/* Pinned My AI Task Assistant Row (Shown on all tab and search match, hidden for clients) */}
               {!myAi?.isClient && (
@@ -683,7 +1113,19 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 />
               )}
 
-              {conversationItems.length > 0 ? (
+              {loadingConversations && conversationItems.length === 0 ? (
+                <div className="fb-messenger-skeleton-list">
+                  {[1, 2, 3, 4, 5].map((idx) => (
+                    <div key={idx} className="fb-messenger-skeleton-item">
+                      <div className="fb-messenger-skeleton-avatar" />
+                      <div className="fb-messenger-skeleton-content">
+                        <div className="fb-messenger-skeleton-title" />
+                        <div className="fb-messenger-skeleton-subtitle" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : conversationItems.length > 0 ? (
                 conversationItems.map((item) => {
                   const avatarUrl = resolveAvatarUrl(item.avatar);
                   const online = !item.isGroup && isUserOnline(item.targetUser || item.avatar);
@@ -693,7 +1135,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                       key={item.key}
                       type="button"
                       className={`fb-messenger-item ${item.unread > 0 ? "unread" : ""}`}
-                      onClick={() => handleSelectChat(item.targetUser || item.conversation || item)}
+                      onClick={() => handleSelectChat(item)}
                     >
                       <div className="fb-messenger-avatar-wrap">
                         <div className={`fb-messenger-avatar ${item.isGroup ? "group" : ""}`}>
@@ -735,8 +1177,22 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <div className="fb-messenger-empty-icon">
                     <MessageSquare size={24} />
                   </div>
-                  <strong>No messages found</strong>
-                  <p>Search for a colleague or start a new conversation.</p>
+                  <strong>
+                    {activeTab === "unread"
+                      ? "No unread messages"
+                      : activeTab === "projects" || activeTab === "groups"
+                      ? "No project chats found"
+                      : activeTab === "clients" || activeTab === "colleagues"
+                      ? "No client chats found"
+                      : searchQuery
+                      ? "No matching conversations"
+                      : "No messages found"}
+                  </strong>
+                  <p>
+                    {searchQuery
+                      ? "Try searching with another name or email."
+                      : "Search for a colleague or start a new conversation."}
+                  </p>
                 </div>
               )}
             </div>
@@ -754,7 +1210,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
           </>
         ) : (
           /* ==========================================================================
-             IN-PLACE CHAT CONVERSATION VIEW ("jisse main chat bhi yhi se krr sku")
+             IN-PLACE CHAT CONVERSATION VIEW
              ========================================================================== */
           <div className="fb-chat-view">
             {/* Header */}
@@ -779,7 +1235,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                       <span>{getChatTitle(selectedChat).charAt(0).toUpperCase()}</span>
                     )}
                   </div>
-                  {!selectedChat?.isGroup && isUserOnline(selectedChat) && (
+                  {!selectedChat?.isGroup && isUserOnline(getSelectedChatTarget()) && (
                     <span className="fb-messenger-online-badge" />
                   )}
                 </div>
@@ -788,12 +1244,12 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <span className="fb-chat-header-name">{getChatTitle(selectedChat)}</span>
                   <span
                     className={`fb-chat-header-status ${
-                      isUserOnline(selectedChat) ? "online" : "offline"
+                      isUserOnline(getSelectedChatTarget()) ? "online" : "offline"
                     }`}
                   >
                     {selectedChat?.isGroup
                       ? "Group Conversation"
-                      : isUserOnline(selectedChat)
+                      : isUserOnline(getSelectedChatTarget())
                       ? "Active now"
                       : "Offline"}
                   </span>
@@ -804,18 +1260,26 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
-                  title="Open full page"
-                  onClick={handleOpenFullPage}
+                  title="Audio call"
+                  onClick={() => startWidgetCall("audio")}
                 >
-                  <Maximize2 size={16} />
+                  <Phone size={16} />
                 </button>
                 <button
                   type="button"
                   className="fb-messenger-icon-btn"
-                  title="Minimize"
-                  onClick={handleCloseWidget}
+                  title="Video call"
+                  onClick={() => startWidgetCall("video")}
                 >
-                  <ChevronDown size={18} />
+                  <Video size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="fb-messenger-icon-btn"
+                  title="Open full page"
+                  onClick={handleOpenFullPage}
+                >
+                  <Maximize2 size={16} />
                 </button>
                 <button
                   type="button"
@@ -829,7 +1293,25 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
             </div>
 
             {/* Messages Body */}
-            <div className="fb-chat-body">
+            <div
+              className={`fb-chat-body ${isDragOver ? "drag-over" : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setIsDragOver(false);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragOver(false);
+                const [file] = Array.from(event.dataTransfer.files || []);
+                if (file) validateAndPreviewFile(file);
+              }}
+            >
+              {isDragOver && <div className="fb-chat-drop-hint">Drop file to preview</div>}
               {loadingMessages ? (
                 <div className="fb-chat-empty-thread">
                   <span>Loading messages...</span>
@@ -839,15 +1321,138 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   const isMe =
                     getEntityId(msg.sender) === currentUserId ||
                     (typeof msg.sender === "string" && msg.sender === currentUserId);
+                  const messageId = msg._id || msg.id || index;
+                  const rawFileUrl = msg.file || msg.fileUrl || msg.attachmentUrl || msg.url || "";
+                  // Task updates attach relative /uploads/... paths; resolve them against the backend.
+                  const fileUrl = rawFileUrl ? (attachmentUrls(rawFileUrl, API_URL_IMG)[0] || rawFileUrl) : "";
+                  const fileType = String(msg.fileType || "").toLowerCase();
+                  const fileName = msg.fileName || msg.originalName || "Attachment";
+                  const fileKind = fileUrl
+                    ? fileType.startsWith("image/")
+                      ? "image"
+                      : fileType.startsWith("video/")
+                      ? "video"
+                      : fileType.startsWith("audio/")
+                      ? "audio"
+                      : "document"
+                    : "";
+                  const isDeleted = Boolean(msg.deletedForEveryone);
+                  const seenBy = Array.isArray(msg.seenBy) ? msg.seenBy : [];
+                  const isSeen = isMe && seenBy.some((entry) => getEntityId(entry) !== currentUserId);
+                  const showDelivered = isMe && !isSeen && !selectedChat?.isGroup && isUserOnline(getSelectedChatTarget());
+
+                  if (isCallMessage(msg)) {
+                    const callInfo = describeCallMessage(msg, currentUserId);
+                    return (
+                      <div key={messageId} id={`widget-message-${messageId}`} className={`fb-chat-call-log ${callInfo.missed ? "missed" : ""}`}>
+                        {callInfo.isVideo ? <Video size={13} /> : <Phone size={13} />}
+                        <span>{callInfo.outgoing ? "↗ " : "↙ "}{callInfo.text}</span>
+                        {msg.createdAt && <time>{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>}
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
-                      key={msg._id || index}
+                      key={messageId}
+                      id={`widget-message-${messageId}`}
                       className={`fb-chat-message-row ${isMe ? "me" : "peer"}`}
                     >
-                      <div className="fb-chat-bubble">{msg.text}</div>
-                      <span className="fb-chat-time">
+                      <div className="fb-chat-bubble-wrap">
+                        <div className={`fb-chat-bubble ${isDeleted ? "deleted" : ""}`}>
+                          {isDeleted ? (
+                            <em>This message was deleted</em>
+                          ) : (
+                            <>
+                              {selectedChat?.isGroup && !isMe && (
+                                <span className="fb-chat-sender-name">
+                                  {getMessageSenderName(msg)}
+                                </span>
+                              )}
+                              {msg.replyTo && <button type="button" className="fb-chat-quoted-reply" onClick={() => document.getElementById(`widget-message-${msg.replyTo._id}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}>
+                                <strong>{msg.replyTo.sender?.name || "User"}</strong>
+                                <span>{msg.replyTo.deletedForEveryone ? "This message was deleted" : msg.replyTo.text || (attachmentSource(msg.replyTo) ? attachmentLabel(msg.replyTo) : "Message")}</span>
+                              </button>}
+                              {msg.systemEvent?.client && <button type="button" className="fb-chat-quoted-reply" onClick={async () => {
+                                try { const result = await getClientChatTask(msg.systemEvent.client, msg.systemEvent.task); setClientTask(result.data.task); }
+                                catch { setAttachmentError("Task is unavailable or access was removed."); }
+                              }}>Open task details</button>}
+                              {msg.text && <span>{mentionSegments(msg.text, msg.mentions).map((part, index) => part.user
+                                ? <strong key={index} className="fb-chat-member-mention">{part.text}</strong>
+                                : <React.Fragment key={index}>{part.text}</React.Fragment>)}</span>}
+                              {fileKind === "image" && (
+                                <img className="fb-chat-message-image" src={fileUrl} alt={fileName} />
+                              )}
+                              {fileKind === "video" && (
+                                <video className="fb-chat-message-video" src={fileUrl} controls />
+                              )}
+                              {fileKind === "audio" && (
+                                <audio className="fb-chat-message-audio" src={fileUrl} controls />
+                              )}
+                              {fileKind === "document" && (
+                                <a
+                                  className="fb-chat-message-file"
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <FileText size={16} />
+                                  <span>{fileName}</span>
+                                </a>
+                              )}
+                              {!msg.text && !fileKind && getMessagePreview(msg)}
+                            </>
+                          )}
+                        </div>
+                        {!isDeleted && (
+                          <button
+                            type="button"
+                            className="fb-chat-message-menu-btn"
+                            title="Message options"
+                            onClick={() => setOpenMessageMenuId((prev) => (
+                              prev === messageId ? "" : messageId
+                            ))}
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                        )}
+                        {openMessageMenuId === messageId && !isDeleted && (
+                          <div className="fb-chat-message-menu">
+                            <button type="button" onClick={() => {
+                              setReplyingTo(msg); setOpenMessageMenuId("");
+                              requestAnimationFrame(() => inputRef.current?.focus());
+                            }}><Reply size={14} /> Reply</button>
+                            <button type="button" onClick={() => handleDeleteForMe(msg)}>
+                              <Trash2 size={14} /> Delete
+                            </button>
+                            {isMe && !(msg.messageType === "system" && msg.systemEvent?.task) && (
+                              <button
+                                type="button"
+                                className="danger"
+                                onClick={() => setConfirmDeleteMessage(msg)}
+                              >
+                                <Trash2 size={14} /> Delete for everyone
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`fb-chat-time ${isSeen ? "seen" : ""}`}>
                         {formatMessageTime(msg.createdAt)}
+                        {isMe && (
+                          <span
+                            className={`fb-chat-seen-mark ${
+                              isSeen ? "seen" : showDelivered ? "delivered" : "sent"
+                            }`}
+                            title={isSeen ? "Seen" : showDelivered ? "Delivered" : "Sent"}
+                          >
+                            {isSeen || showDelivered ? (
+                              <CheckCheck size={13} strokeWidth={3} />
+                            ) : (
+                              <Check size={13} strokeWidth={3} />
+                            )}
+                          </span>
+                        )}
                       </span>
                     </div>
                   );
@@ -864,24 +1469,68 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               <div ref={messagesEndRef} />
             </div>
 
+            {clientTask && <TaskDetailsModal open task={clientTask} canEdit={false} employeeInfo={currentUser}
+              onClose={() => setClientTask(null)} mentionUsers={mentionCandidates}
+              onRemarkAdded={async (task, text, _files, mentions) => {
+                const key = JSON.stringify([task.clientId, task._id, text, mentions]);
+                const requestId = clientRemarkRequests.current.get(key) || crypto.randomUUID();
+                clientRemarkRequests.current.set(key, requestId);
+                await addClientChatRemark(task.clientId, task._id, text, mentions, requestId);
+                const result = await getClientChatTask(task.clientId, task._id); setClientTask(result.data.task);
+                clientRemarkRequests.current.delete(key);
+              }} />}
             {/* Input Bar */}
             <div className="fb-chat-input-area">
+              {showAttachmentMenu && (
+                <div className="fb-chat-attachment-menu">
+                  <button type="button" onClick={() => documentInputRef.current?.click()}>
+                    <FileText size={18} /> Document
+                  </button>
+                  <button type="button" onClick={() => mediaInputRef.current?.click()}>
+                    <Images size={18} /> Photos & videos
+                  </button>
+                  <button type="button" onClick={() => cameraInputRef.current?.click()}>
+                    <Camera size={18} /> Camera
+                  </button>
+                  <button type="button" onClick={() => audioInputRef.current?.click()}>
+                    <Mic size={18} /> Audio
+                  </button>
+                </div>
+              )}
               {showReactions && (
-                <div className="fb-chat-quick-reactions">
-                  {["👍", "❤️", "😂", "🔥", "🎉", "👏", "💯", "🙏"].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className="fb-chat-reaction-btn"
-                      onClick={() => handleReactionClick(emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                <div className="fb-chat-emoji-menu">
+                  <EmojiPicker
+                    colorScheme={Theme.LIGHT}
+                    emojiStyle={EmojiStyle.NATIVE}
+                    categories={CHAT_EMOJI_CATEGORIES}
+                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
+                    searchPlaceHolder="Search emoji"
+                    lazyLoadEmojis
+                    width="100%"
+                    height={330}
+                    previewConfig={{ showPreview: false }}
+                    onEmojiClick={handleReactionClick}
+                  />
                 </div>
               )}
 
+              {replyingTo && <div className="fb-chat-reply-preview">
+                <div><strong>Replying to {replyingTo.sender?.name || "User"}</strong><span>{replyingTo.text || "Attachment"}</span></div>
+                <button type="button" aria-label="Cancel reply" onClick={() => setReplyingTo(null)}><X size={16} /></button>
+              </div>}
               <div className="fb-chat-inputbar">
+                <button
+                  type="button"
+                  className="fb-chat-attachment-btn"
+                  title="Attach"
+                  onClick={() => {
+                    setShowAttachmentMenu((prev) => !prev);
+                    setShowReactions(false);
+                  }}
+                  disabled={isSending}
+                >
+                  <Paperclip size={18} />
+                </button>
                 <button
                   type="button"
                   className="fb-messenger-search-clear"
@@ -891,9 +1540,15 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <Smile size={18} color="#65676b" />
                 </button>
 
-                <input
+                <ChatMentionInput
+                  key={activeConversationId || "new-chat"}
+                  mentions={messageMentions}
+                  members={mentionCandidates}
+                  onMentionSelect={setInputText}
+                  aria-label={replyingTo ? "Write a reply" : "Write a message"}
                   ref={inputRef}
                   type="text"
+                  className="fb-chat-input chat-input"
                   placeholder="Type a message..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
@@ -916,7 +1571,127 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   <Send size={15} />
                 </button>
               </div>
+              <input
+                ref={documentInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                onChange={handleFileInputChange}
+              />
+              <input
+                ref={mediaInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                accept="image/*,video/*"
+                onChange={handleFileInputChange}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileInputChange}
+              />
+              <input
+                ref={audioInputRef}
+                type="file"
+                className="fb-chat-file-input"
+                accept="audio/*"
+                onChange={handleFileInputChange}
+              />
             </div>
+
+            {attachmentError && (
+              <div className="fb-chat-attachment-error">{attachmentError}</div>
+            )}
+
+            {pendingAttachment && (
+              <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
+                <div className="fb-chat-preview-modal">
+                  <div className="fb-chat-preview-header">
+                    <strong>Preview attachment</strong>
+                    <button
+                      type="button"
+                      className="fb-chat-preview-close"
+                      title="Close preview"
+                      onClick={() => setPendingAttachment(null)}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="fb-chat-preview-body">
+                    {pendingAttachment.kind === "image" && (
+                      <img src={attachmentPreviewUrl} alt={pendingAttachment.file.name} />
+                    )}
+                    {pendingAttachment.kind === "video" && (
+                      <video src={attachmentPreviewUrl} controls />
+                    )}
+                    {pendingAttachment.kind === "audio" && (
+                      <audio src={attachmentPreviewUrl} controls />
+                    )}
+                    {pendingAttachment.kind === "document" && (
+                      <div className="fb-chat-document-preview">
+                        <FileText size={28} />
+                        <span>{pendingAttachment.file.name}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="fb-chat-preview-footer">
+                    <div className="fb-chat-preview-meta">
+                      <span title={pendingAttachment.file.name}>{pendingAttachment.file.name}</span>
+                      <span>{formatFileSize(pendingAttachment.file.size)}</span>
+                    </div>
+                    <div className="fb-chat-preview-actions">
+                      <button type="button" onClick={() => setPendingAttachment(null)}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={handleSendFile}
+                        disabled={isSending}
+                      >
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {confirmDeleteMessage && (
+              <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
+                <div className="fb-chat-confirm-modal">
+                  <div className="fb-chat-preview-header">
+                    <strong>Delete for everyone?</strong>
+                    <button
+                      type="button"
+                      className="fb-chat-preview-close"
+                      title="Cancel"
+                      onClick={() => setConfirmDeleteMessage(null)}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <p>This message will be removed from this conversation for all members.</p>
+                  <div className="fb-chat-preview-actions">
+                    <button type="button" onClick={() => setConfirmDeleteMessage(null)}>
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={confirmDeleteForEveryone}
+                      disabled={isSending}
+                    >
+                      Yes, delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

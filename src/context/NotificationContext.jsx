@@ -3,6 +3,8 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import '../components/notifications.css';
+import TaskReminderAlert from '../components/TaskReminderAlert';
+import {isTaskReminder, reminderAlertKey, registerReminderWorker, unlockReminderSound, playTaskReminderSound, showTaskReminderSystemNotification} from '../utils/taskReminderAlerts';
 
 const NotificationContext = createContext();
 
@@ -16,6 +18,8 @@ export const useNotification = () => {
 
 export const NotificationProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+  const [reminderQueue, setReminderQueue] = useState([]);
+  const receivedReminders = useRef(new Set());
   const recentToastKeys = useRef(new Set());
   const { onNewNotification = () => () => {} } = useSocket();
   const { isAuthenticated, user, token } = useAuth();
@@ -45,12 +49,25 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     if (!canReceivePortalNotifications) {
       recentToastKeys.current.clear();
+      receivedReminders.current.clear();
+      setReminderQueue([]);
       setToasts(prev => prev.filter(toast => !toast.requiresAuth));
       return undefined;
     }
 
     const unsubscribe = onNewNotification((notification = {}) => {
       if (!canReceivePortalNotifications) {
+        return;
+      }
+
+      if (isTaskReminder(notification)) {
+        const key = reminderAlertKey(notification);
+        if (receivedReminders.current.has(key)) return;
+        receivedReminders.current.add(key);
+        if (receivedReminders.current.size > 200) receivedReminders.current.delete(receivedReminders.current.values().next().value);
+        setReminderQueue(current => [...current, notification]);
+        void playTaskReminderSound();
+        void showTaskReminderSystemNotification(notification);
         return;
       }
 
@@ -85,6 +102,18 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [canReceivePortalNotifications, onNewNotification, showToast]);
 
+  useEffect(() => {
+    if (!canReceivePortalNotifications) return undefined;
+    void registerReminderWorker();
+    const unlock = () => { void unlockReminderSound(); };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [canReceivePortalNotifications]);
+
   const value = {
     toasts,
     showToast,
@@ -95,6 +124,7 @@ export const NotificationProvider = ({ children }) => {
     <NotificationContext.Provider value={value}>
       {children}
       <ToastContainer />
+      {canReceivePortalNotifications && <TaskReminderAlert notification={reminderQueue[0]} remaining={reminderQueue.length - 1} onDismiss={() => setReminderQueue(current => current.slice(1))} />}
     </NotificationContext.Provider>
   );
 };

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import axios from '../utils/axiosConfig';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import { sanitizeUserForStorage } from '../context/AuthContext';
+import { sanitizeUserForStorage, clearAuthStorageCaches } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Login.css'; 
 
 const clearPreviousLoginStorage = () => {
+  clearAuthStorageCaches();
   [
     'token',
     'user',
@@ -236,8 +237,13 @@ const Login = () => {
 
       if (res.data.client) {
         localStorage.setItem('client', JSON.stringify(res.data.client));
+        const clientId = String(res.data.client._id || res.data.client.id || res.data.client.clientId || '');
+        if (clientId) {
+          localStorage.setItem('client_portal_selected_client_id', clientId);
+        }
       } else {
         localStorage.removeItem('client');
+        localStorage.removeItem('client_portal_selected_client_id');
       }
 
       if (activeCompanyIdentifier) {
@@ -253,17 +259,40 @@ const Login = () => {
 
       const companyRole = String(res.data.user?.companyRole || '').toLowerCase();
       const userRole = String(res.data.user?.role || '').toLowerCase();
+      const companyAllowed = Array.isArray(companyDetails?.allowedPages) ? companyDetails.allowedPages : [];
       let redirectPath = '/ciisUser/user-dashboard';
+
+      if (res.data.redirectTo) {
+        redirectPath = res.data.redirectTo;
+      } else if (res.data.user?.assignedDashboard) {
+        redirectPath = res.data.user.assignedDashboard;
+      } else if (companyAllowed.includes('dashboard-overview') && !companyAllowed.includes('user-dashboard')) {
+        redirectPath = '/ciisUser/dashboard-overview';
+      }
+
+      // Check sidebar config dynamically right at login
+      try {
+        const sidebarRes = await axios.get('/sidebar/config');
+        if (sidebarRes.data?.data) {
+          localStorage.setItem('sidebarConfig', JSON.stringify(sidebarRes.data.data));
+          const items = Array.isArray(sidebarRes.data.data.menuItems) ? sidebarRes.data.data.menuItems : [];
+          const hasOverview = items.some(item => {
+            const id = String(item?.id || '').toLowerCase();
+            const p = String(item?.path || '').toLowerCase();
+            return id === 'dashboard-overview' || p.includes('dashboard-overview');
+          });
+          if (hasOverview && companyRole !== 'client' && userRole !== 'admin') {
+            redirectPath = '/ciisUser/dashboard-overview';
+          }
+        }
+      } catch (_) {}
 
       if (companyRole === 'client') {
         redirectPath = '/client/dashboard';
-      } else if (res.data.redirectTo) {
-        redirectPath = res.data.redirectTo;
       } else if (userRole === 'admin') {
         redirectPath = '/admin/dashboard';
       }
 
-      void 0;
       navigate(redirectPath);
       
     } catch (err) {
@@ -278,6 +307,9 @@ const Login = () => {
       });
 
       let errorMsg = 'Login failed. Please try again.';
+      if (err.name === 'QuotaExceededError') {
+        errorMsg = 'Login verified, but browser storage is full. Clear site storage and try again.';
+      }
 
       if (err.response?.data) {
         const { errorCode, message } = err.response.data;
@@ -367,8 +399,13 @@ const Login = () => {
 
         if (response.data.client) {
           localStorage.setItem('client', JSON.stringify(response.data.client));
+          const clientId = String(response.data.client._id || response.data.client.id || response.data.client.clientId || '');
+          if (clientId) {
+            localStorage.setItem('client_portal_selected_client_id', clientId);
+          }
         } else {
           localStorage.removeItem('client');
+          localStorage.removeItem('client_portal_selected_client_id');
         }
 
         
@@ -392,12 +429,36 @@ const Login = () => {
         
         const companyRole = String(response.data.user?.companyRole || '').toLowerCase();
         const userRole = String(response.data.user?.role || '').toLowerCase();
+        const companyAllowed = Array.isArray(companyDetails?.allowedPages) ? companyDetails.allowedPages : [];
         let redirectPath = '/ciisUser/user-dashboard';
+
+        if (response.data.redirectTo) {
+          redirectPath = response.data.redirectTo;
+        } else if (response.data.user?.assignedDashboard) {
+          redirectPath = response.data.user.assignedDashboard;
+        } else if (companyAllowed.includes('dashboard-overview') && !companyAllowed.includes('user-dashboard')) {
+          redirectPath = '/ciisUser/dashboard-overview';
+        }
+
+        // Check sidebar config dynamically right at login
+        try {
+          const sidebarRes = await axios.get('/sidebar/config');
+          if (sidebarRes.data?.data) {
+            localStorage.setItem('sidebarConfig', JSON.stringify(sidebarRes.data.data));
+            const items = Array.isArray(sidebarRes.data.data.menuItems) ? sidebarRes.data.data.menuItems : [];
+            const hasOverview = items.some(item => {
+              const id = String(item?.id || '').toLowerCase();
+              const p = String(item?.path || '').toLowerCase();
+              return id === 'dashboard-overview' || p.includes('dashboard-overview');
+            });
+            if (hasOverview && companyRole !== 'client' && userRole !== 'admin') {
+              redirectPath = '/ciisUser/dashboard-overview';
+            }
+          }
+        } catch (_) {}
 
         if (companyRole === 'client') {
           redirectPath = '/client/dashboard';
-        } else if (response.data.redirectTo) {
-          redirectPath = response.data.redirectTo;
         } else if (userRole === 'admin') {
           redirectPath = '/admin/dashboard';
         }

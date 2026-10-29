@@ -73,7 +73,7 @@ export default function BulkAssignment() {
       setPagination(data.pagination || { page: 1, pages: 1, total: 0 });
     } catch (err) {
       setLeads([]);
-      setError(err.response?.data?.message || 'Leads load nahi ho saki.');
+      setError(err.response?.data?.message || 'Failed to load leads.');
     } finally {
       setLoading(false);
     }
@@ -165,19 +165,19 @@ export default function BulkAssignment() {
   // Submit bulk assignment
   const handleConfirmAndAssign = async () => {
     if (!selectedIds.length) {
-      setError('Kam se kam ek lead select karein.');
+      setError('Please select at least one lead.');
       return;
     }
     if (!selectedRole) {
-      setError('Kripya pehle role select karein.');
+      setError('Please select a role first.');
       return;
     }
     if (!selectedAgentIds.length) {
-      setError('Kripya kam se kam ek user select karein.');
+      setError('Please select at least one user.');
       return;
     }
     if (filterType === 'assigned' && !transferReason.trim()) {
-      setError('Reassign karne se pehle transfer reason enter karein.');
+      setError('Please enter a transfer reason before reassigning.');
       return;
     }
 

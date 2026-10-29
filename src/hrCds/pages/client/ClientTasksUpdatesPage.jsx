@@ -226,7 +226,8 @@ const ServicesTasks = () => {
   const fetchServiceTasks = async (clientId, serviceName) => {
     try {
       const encodedService = encodeURIComponent(serviceName);
-      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`);
+      // Without a limit the API returns only the first 50 tasks of each service.
+      const response = await tasksApi.get(`/client/${clientId}/service/${encodedService}`, { params: { limit: 'all' } });
       if (response.data?.success) {
         return (response.data.data || []).map(task => ({ ...task, serviceName }));
       }
@@ -314,7 +315,30 @@ const ServicesTasks = () => {
       }
 
       const allClients = response.data.data || [];
-      const matchingClients = allClients.filter(c => isClientForLoggedInUser(c, user));
+      const parsedDetails = typeof user?.additionalDetails === 'object' && user?.additionalDetails
+        ? user.additionalDetails
+        : (() => { try { return JSON.parse(user?.additionalDetails || '{}'); } catch { return {}; } })();
+      const userAssignedClientId = normalizeMatchValue(parsedDetails?.clientId || user?.clientId);
+      const userEmail = normalizeMatchValue(user?.email);
+
+      const matchingClients = allClients
+        .filter(c => isClientForLoggedInUser(c, user))
+        .sort((a, b) => {
+          const aId = normalizeMatchValue(a?._id || a?.id || a?.clientId);
+          const bId = normalizeMatchValue(b?._id || b?.id || b?.clientId);
+          const aEmail = normalizeMatchValue(a?.email || a?.clientEmail);
+          const bEmail = normalizeMatchValue(b?.email || b?.clientEmail);
+
+          if (userAssignedClientId) {
+            if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
+            if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
+          }
+          if (userEmail) {
+            if (aEmail === userEmail && bEmail !== userEmail) return -1;
+            if (bEmail === userEmail && aEmail !== userEmail) return 1;
+          }
+          return 0;
+        });
       const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const currentClient = (
@@ -390,7 +414,7 @@ const ServicesTasks = () => {
     localStorage.removeItem('client');
     localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
     window.dispatchEvent(new Event('ciis-auth-changed'));
-    window.location.href = '/login';
+    window.location.replace('/');
   };
 
   const now = new Date();
@@ -613,14 +637,6 @@ const ServicesTasks = () => {
             <div>
               <h2>Tasks & Updates</h2>
               <p>Track tasks, milestones and latest project activity.</p>
-            </div>
-            <div className="ClientTasksUpdatesPage-topActions">
-              <button type="button" className="ClientTasksUpdatesPage-primary" onClick={() => navigate('/client/task-management')}>
-                <FiPlus /> Create Task
-              </button>
-              <button type="button" className="ClientTasksUpdatesPage-filter" onClick={() => navigate('/client/admin-task-create')}>
-                <FiGrid /> Admin Create Task
-              </button>
             </div>
           </div>
 

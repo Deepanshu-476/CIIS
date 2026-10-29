@@ -41,6 +41,26 @@
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.34), 0 0 0 4px rgba(89, 54, 220, 0.18);
 }
 
+/* Embedded: size to content and fit below the layout header, so the page itself never scrolls */
+@media (min-width: 769px) {
+  .company-register-page.embedded-mode .company-register-shell {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    border: 1px solid rgba(93, 120, 255, 0.72);
+    border-radius: 24px;
+  }
+
+  .company-register-page.embedded-mode .company-register-main {
+    max-height: calc(100vh - 166px);
+    max-height: calc(100dvh - 166px);
+  }
+
+  .company-register-page.embedded-mode .company-register-step-content {
+    flex: 0 1 auto;
+  }
+}
+
 /* Sidebar */
 .company-register-sidebar {
   padding: 20px 22px 18px;

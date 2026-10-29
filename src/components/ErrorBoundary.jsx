@@ -15,6 +15,23 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("ErrorBoundary caught an unhandled error:", error, errorInfo);
+    const msg = String(error?.message || '').toLowerCase();
+    const isChunkError =
+      msg.includes('failed to fetch dynamically imported module') ||
+      msg.includes('importing a module script failed') ||
+      msg.includes('error loading dynamically imported module') ||
+      msg.includes('loading chunk') ||
+      msg.includes("unexpected token '<'") ||
+      error?.name === 'ChunkLoadError';
+
+    if (isChunkError) {
+      const lastChunkReload = sessionStorage.getItem('last_chunk_reload');
+      const now = Date.now();
+      if (!lastChunkReload || now - parseInt(lastChunkReload, 10) > 10000) {
+        sessionStorage.setItem('last_chunk_reload', String(now));
+        window.location.reload();
+      }
+    }
   }
 
   handleReload = () => {

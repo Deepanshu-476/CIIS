@@ -82,7 +82,14 @@
   margin: 0;
 }
 
-/* 4-column Grid */
+/* 3-column & 4-column Grid */
+.scm-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px 24px;
+  margin-bottom: 20px;
+}
+
 .scm-grid-4 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -546,7 +553,8 @@
 
 /* Responsive */
 @media (max-width: 1050px) {
-  .scm-grid-4 {
+  .scm-grid-4,
+  .scm-grid-3 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -555,7 +563,8 @@
   .scm-container {
     padding: 16px;
   }
-  .scm-grid-4 {
+  .scm-grid-4,
+  .scm-grid-3 {
     grid-template-columns: 1fr;
   }
   .scm-row-2 {

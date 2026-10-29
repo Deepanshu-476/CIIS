@@ -2813,7 +2813,7 @@
   transform: translateY(150%);
   opacity: 0;
   transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  z-index: 9999;
+  z-index: 99999 !important;
   border-left: 6px solid var(--primary);
   max-width: 100%;
   pointer-events: none;

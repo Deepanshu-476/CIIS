@@ -251,6 +251,9 @@ const AdminTaskManagement = () => {
   });
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [createTaskModalError, setCreateTaskModalError] = useState('');
+  const [editTaskModalError, setEditTaskModalError] = useState('');
+  const [groupModalError, setGroupModalError] = useState('');
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -1285,18 +1288,38 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    if (!newTask.title || !newTask.description || !newTask.dueDateTime) {
-      showSnackbar('Please fill all required fields', 'error');
+    if (!newTask.title || !newTask.title.trim()) {
+      const msg = 'Please enter task title';
+      setCreateTaskModalError(msg);
+      showSnackbar(msg, 'error');
+      return;
+    }
+
+    if (!newTask.description || !newTask.description.trim()) {
+      const msg = 'Please enter task description';
+      setCreateTaskModalError(msg);
+      showSnackbar(msg, 'error');
+      return;
+    }
+
+    if (!newTask.dueDateTime) {
+      const msg = 'Please select due date and time';
+      setCreateTaskModalError(msg);
+      showSnackbar(msg, 'error');
       return;
     }
 
     if (isRecordingVoice) {
-      showSnackbar('Please stop the voice recording before creating the task', 'warning');
+      const msg = 'Please stop the voice recording before creating the task';
+      setCreateTaskModalError(msg);
+      showSnackbar(msg, 'warning');
       return;
     }
 
     if (newTask.assignedUsers.length === 0 && newTask.assignedGroups.length === 0) {
-      showSnackbar('Please assign to at least one user or group', 'error');
+      const msg = 'Please assign to at least one user or group';
+      setCreateTaskModalError(msg);
+      showSnackbar(msg, 'error');
       return;
     }
 
@@ -1385,8 +1408,24 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    if (!editTask.title || !editTask.description || !editTask.dueDateTime) {
-      showSnackbar('Please fill all required fields', 'error');
+    if (!editTask.title || !editTask.title.trim()) {
+      const msg = 'Please enter task title';
+      setEditTaskModalError(msg);
+      showSnackbar(msg, 'error');
+      return;
+    }
+
+    if (!editTask.description || !editTask.description.trim()) {
+      const msg = 'Please enter task description';
+      setEditTaskModalError(msg);
+      showSnackbar(msg, 'error');
+      return;
+    }
+
+    if (!editTask.dueDateTime) {
+      const msg = 'Please select due date and time';
+      setEditTaskModalError(msg);
+      showSnackbar(msg, 'error');
       return;
     }
 
@@ -1429,13 +1468,24 @@ const AdminTaskManagement = () => {
       return;
     }
 
-    if (!newGroup.name || !newGroup.description) {
-      showSnackbar('Please fill group name and description', 'error');
+    if (!newGroup.name || !newGroup.name.trim()) {
+      const msg = 'Please enter group name';
+      setGroupModalError(msg);
+      showSnackbar(msg, 'error');
+      return;
+    }
+
+    if (!newGroup.description || !newGroup.description.trim()) {
+      const msg = 'Please enter group description';
+      setGroupModalError(msg);
+      showSnackbar(msg, 'error');
       return;
     }
 
     if (newGroup.members.length === 0) {
-      showSnackbar('Please select at least one member', 'error');
+      const msg = 'Please select at least one member';
+      setGroupModalError(msg);
+      showSnackbar(msg, 'error');
       return;
     }
 
@@ -1790,6 +1840,7 @@ const AdminTaskManagement = () => {
     setSelectedCreateDepartment('');
     setCreateDueDateTime('');
     setActiveGroupMenu(null);
+    setCreateTaskModalError('');
   };
 
   const resetStatusForm = () => {
@@ -1809,10 +1860,12 @@ const AdminTaskManagement = () => {
     });
     setEditingGroup(null);
     setActiveGroupMenu(null);
+    setGroupModalError('');
   };
 
   
   const openEditTaskDialog = (task) => {
+    setEditTaskModalError('');
     if (!isTaskEditable(task)) {
       showSnackbar('Task cannot be edited after its status has changed from pending', 'error');
       return;
@@ -3237,6 +3290,24 @@ const AdminTaskManagement = () => {
           </div>
         </div>
         <div className="AdminTaskManagement-modal-body">
+          {createTaskModalError && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '16px'
+            }}>
+              <FiAlertCircle size={18} style={{ flexShrink: 0 }} />
+              <span>{createTaskModalError}</span>
+            </div>
+          )}
           <div className="AdminTaskManagement-form-container">
             
             <div className="AdminTaskManagement-form-group">
@@ -3253,8 +3324,12 @@ const AdminTaskManagement = () => {
                 type="text"
                 className="AdminTaskManagement-form-input"
                 placeholder="Enter task title"
+                style={{ borderColor: createTaskModalError && !newTask.title.trim() ? '#dc2626' : undefined }}
                 value={newTask.title}
-                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                onChange={(e) => {
+                  setNewTask({ ...newTask, title: e.target.value });
+                  if (createTaskModalError) setCreateTaskModalError('');
+                }}
               />
             </div>
 
@@ -3684,6 +3759,24 @@ const AdminTaskManagement = () => {
           </div>
         </div>
         <div className="AdminTaskManagement-modal-body">
+          {editTaskModalError && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '16px'
+            }}>
+              <FiAlertCircle size={18} style={{ flexShrink: 0 }} />
+              <span>{editTaskModalError}</span>
+            </div>
+          )}
           <div className="AdminTaskManagement-form-container">
             <div className="AdminTaskManagement-form-group">
               <label>Task Title *</label>
@@ -3691,8 +3784,12 @@ const AdminTaskManagement = () => {
                 type="text"
                 className="AdminTaskManagement-form-input"
                 placeholder="Enter task title"
+                style={{ borderColor: editTaskModalError && !editTask.title.trim() ? '#dc2626' : undefined }}
                 value={editTask.title}
-                onChange={(e) => setEditTask({ ...editTask, title: e.target.value })}
+                onChange={(e) => {
+                  setEditTask({ ...editTask, title: e.target.value });
+                  if (editTaskModalError) setEditTaskModalError('');
+                }}
               />
             </div>
 
@@ -3869,6 +3966,24 @@ const AdminTaskManagement = () => {
           </div>
         </div>
         <div className="AdminTaskManagement-modal-body">
+          {groupModalError && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '16px'
+            }}>
+              <FiAlertCircle size={18} style={{ flexShrink: 0 }} />
+              <span>{groupModalError}</span>
+            </div>
+          )}
           <div className="AdminTaskManagement-form-container">
             <div className="AdminTaskManagement-form-group">
               <label>Group Name *</label>
@@ -3876,8 +3991,12 @@ const AdminTaskManagement = () => {
                 type="text"
                 className="AdminTaskManagement-form-input"
                 placeholder="Enter group name"
+                style={{ borderColor: groupModalError && !newGroup.name.trim() ? '#dc2626' : undefined }}
                 value={newGroup.name}
-                onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+                onChange={(e) => {
+                  setNewGroup({ ...newGroup, name: e.target.value });
+                  if (groupModalError) setGroupModalError('');
+                }}
               />
             </div>
 
@@ -3887,8 +4006,12 @@ const AdminTaskManagement = () => {
                 className="AdminTaskManagement-form-textarea"
                 placeholder="Enter group description"
                 rows={3}
+                style={{ borderColor: groupModalError && !newGroup.description.trim() ? '#dc2626' : undefined }}
                 value={newGroup.description}
-                onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })}
+                onChange={(e) => {
+                  setNewGroup({ ...newGroup, description: e.target.value });
+                  if (groupModalError) setGroupModalError('');
+                }}
               />
             </div>
 

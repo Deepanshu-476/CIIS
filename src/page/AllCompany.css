@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-@import url("https://fonts.googleapis.com/icon?family=Material+Icons");
 
 :root {
   --ac-bg: #f5f7ff;
@@ -667,6 +665,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+}
+
+.AllCompany-icon-button.AllCompany-admin-link {
+  color: var(--ac-primary);
+  text-decoration: none;
+}
+
+.AllCompany-icon-button.AllCompany-admin-link:hover {
+  background: rgba(92, 61, 240, 0.08);
 }
 
 .AllCompany-icon-button {

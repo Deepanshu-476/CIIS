@@ -31,32 +31,26 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
+        // Only the libraries every page needs get shared vendor chunks. Heavy page-specific
+        // libraries (charts, jspdf, xlsx, html2canvas) are left to Rollup so they load with the
+        // pages that import them instead of on the login page.
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            // Large standalone export tools that don't depend on React
-            if (id.includes('jspdf') || id.includes('xlsx') || id.includes('html2canvas')) {
-              return 'vendor-export';
-            }
-            // Three.js 3D Voice Orb lazy chunk (loaded only when My AI opens)
-            if (id.includes('three') || id.includes('@react-three')) {
-              return 'vendor-three';
-            }
-            // All React and React-dependent libraries together in one unified chunk to prevent useLayoutEffect/undefined errors
-            if (
-              id.includes('react') ||
-              id.includes('react-dom') ||
-              id.includes('react-router-dom') ||
-              id.includes('@mui') ||
-              id.includes('@emotion') ||
-              id.includes('@date-io') ||
-              id.includes('lucide-react') ||
-              id.includes('sweetalert2') ||
-              id.includes('recharts') ||
-              id.includes('chart.js')
-            ) {
-              return 'vendor-react-core';
-            }
+          if (!id.includes('node_modules')) return undefined;
+          // Large standalone export tools that don't depend on React
+          if (id.includes('jspdf') || id.includes('xlsx') || id.includes('html2canvas')) {
+            return 'vendor-export';
           }
+          // Three.js 3D Voice Orb lazy chunk (loaded only when My AI opens)
+          if (id.includes('three') || id.includes('@react-three')) {
+            return 'vendor-three';
+          }
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+            return 'vendor-react';
+          }
+          if (/[\\/]node_modules[\\/](@mui|@emotion|@date-io|@popperjs)[\\/]/.test(id)) {
+            return 'vendor-mui';
+          }
+          return undefined;
         },
       },
     },

@@ -672,7 +672,29 @@ export const useClientPortalData = () => {
       }
 
       const allClients = clientsResponse.data.data || [];
-      const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, user));
+      const userAssignedClientId = normalizeMatchValue(
+        parseAdditionalDetails(user?.additionalDetails)?.clientId || user?.clientId
+      );
+      const userEmail = normalizeMatchValue(user?.email);
+
+      const matchingClients = allClients
+        .filter(item => isClientForLoggedInUser(item, user))
+        .sort((a, b) => {
+          const aId = normalizeMatchValue(a?._id || a?.id || a?.clientId);
+          const bId = normalizeMatchValue(b?._id || b?.id || b?.clientId);
+          const aEmail = normalizeMatchValue(a?.email || a?.clientEmail);
+          const bEmail = normalizeMatchValue(b?.email || b?.clientEmail);
+
+          if (userAssignedClientId) {
+            if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
+            if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
+          }
+          if (userEmail) {
+            if (aEmail === userEmail && bEmail !== userEmail) return -1;
+            if (bEmail === userEmail && aEmail !== userEmail) return 1;
+          }
+          return 0;
+        });
       const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
       const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);

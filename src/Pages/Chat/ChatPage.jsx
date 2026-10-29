@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import "./chat.css";
 import ChatSidebar from "../../chat/ChatSidebar";
 import ChatBox from "../../chat/ChatBox";
@@ -8,12 +9,14 @@ import {
   changeMyPassword,
   createCompanyGroup,
   createGroupConversation,
+  deleteCompanyGroup,
   getCompanyGroups,
   getCompanyUsers,
   getConversations,
   getMyProfile,
   getNotificationPreferences,
   updateMyProfile,
+  updateCompanyGroup,
   updateNotificationPreferences,
   getStatuses,
   createStatus,
@@ -104,8 +107,9 @@ const getCallLabel = call => {
   const type = call.type === "video" ? "video" : "voice";
   if (call.status === "missed") return `Missed ${type} call`;
   if (call.status === "declined") return `Declined ${type} call`;
+  if (call.status === "cancelled") return `Cancelled ${type} call`;
   if (call.status === "failed") return `Failed ${type} call`;
-  return `${direction} ${type} call`;
+  return `${direction} ${type} call${call.durationLabel ? ` · ${call.durationLabel}` : ""}`;
 };
 
 const ChatChannelsPanel = ({
@@ -497,7 +501,9 @@ const ChatCallsPanel = ({
                 <strong>{call.title || "User"}</strong>
                 <small className={isMissed ? "missed" : ""}>
                   {icon}
-                  {directionLabel}{call.repeatCount > 1 ? ` (${call.repeatCount})` : ""}
+                  {directionLabel}
+                  {call.durationLabel && !isMissed ? ` · ${call.durationLabel}` : ""}
+                  {call.repeatCount > 1 ? ` (${call.repeatCount})` : ""}
                 </small>
               </span>
               <span className="chat-call-time">{callTime}</span>
@@ -555,6 +561,7 @@ const ChatCallsDetail = ({ call, users, groups, startCall }) => {
           <span>Time</span><strong>{getCallTime(call.startedAt || call.updatedAt)}</strong>
           <span>Direction</span><strong>{call.direction === "incoming" ? "Incoming" : "Outgoing"}</strong>
           <span>Status</span><strong>{call.status || "ended"}</strong>
+          <span>Duration</span><strong>{call.durationLabel || (["missed", "declined", "cancelled", "failed"].includes(call.status) ? "-" : "00:00")}</strong>
           <span>Participants</span><strong>{call.participantCount || 1}</strong>
         </div>
         <div className="chat-call-detail-actions">
@@ -684,7 +691,7 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
       if (activeSection === "Profile") {
         const cleanPhone = normalizePhone(phone);
         if (phone && cleanPhone.length !== 10) {
-          setStatus("Phone number 10 digits ka hona chahiye");
+          setStatus("Phone number must be 10 digits");
           setSaving(false);
           return;
         }
@@ -1030,6 +1037,8 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
 };
 
 const ChatPage = () => {
+  const location = useLocation();
+  const openedNotification = useRef(null);
   const currentUser = JSON.parse(localStorage.getItem("user")) || {};
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -1039,6 +1048,7 @@ const ChatPage = () => {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [groups, setGroups] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [chatLoadErrors, setChatLoadErrors] = useState({});
   const [statuses, setStatuses] = useState([]);
   const [statusesLoading, setStatusesLoading] = useState(false);
   const [statusesError, setStatusesError] = useState("");
@@ -1114,7 +1124,7 @@ const ChatPage = () => {
   });
 
   const findGroupConversation = group => conversations.find(conversation => (
-    conversation.isGroup && (conversation.groupId?._id || conversation.groupId || "").toString() === (group._id || group.id).toString()
+    conversation.isGroup && (conversation.clientId || conversation.projectId || conversation.groupId?._id || conversation.groupId || "").toString() === (group._id || group.id).toString()
   ));
 
   const sortByConversation = (items, resolver) => [...items].sort((first, second) => {
@@ -1165,41 +1175,65 @@ const ChatPage = () => {
   const visibleGroups = groups.filter(isVisibleGroupForCurrentUser);
 
   const enrichedGroups = sortByConversation(visibleGroups.map(group => {
-    const conversation = findGroupConversation(group);
+    const conversation = findGroupConversation(group) || group.conversation;
     const conversationId = conversation?._id?.toString();
     const groupId = (group._id || group.id || "").toString();
     const unreadOverride = getUnreadOverride(conversationId, groupId);
+    const isClient = Boolean(group.clientId || conversation?.clientId || group.groupKind === "client");
+    const isProject = Boolean(group.projectId || conversation?.projectId || group.groupKind === "project");
+    const rawName = (group.name || conversation?.groupName || "Group").replace(/\s*\((?:Client|Project)\)$/i, "").trim();
+    const displayName = isClient ? `${rawName} (Client)` : isProject ? `${rawName} (Project)` : rawName;
+
     return {
       ...group,
+      clientId: group.clientId || conversation?.clientId || undefined,
+      projectId: group.projectId || conversation?.projectId || undefined,
+      groupKind: isClient ? "client" : isProject ? "project" : (group.groupKind || "channel"),
+      name: displayName,
       isGroup: true,
+      groupImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",
+      profileImage: group.profileImage || group.avatar || group.image || conversation?.groupImage || "",
+      avatar: group.avatar || group.profileImage || group.image || conversation?.groupImage || "",
       conversation,
       unreadCount: unreadOverride ?? conversation?.unreadCount ?? 0,
       lastMessage: conversation?.lastMessage,
     };
   }), group => group.conversation);
 
+  useEffect(() => {
+    const conversationId = location.state?.conversationId;
+    if (!conversationId || openedNotification.current === location.key) return;
+    const group = enrichedGroups.find(item => String(item.conversation?._id) === String(conversationId));
+    if (group) { openedNotification.current = location.key; setSelectedUser(group); setActiveView("chats"); }
+  }, [location.key, groups, conversations]);
+
   const fetchConversations = async () => {
     try {
       const res = await getConversations();
+      setChatLoadErrors(previous => ({ ...previous, conversations: false }));
       setConversations(res.data.conversations || []);
+      return res.data.conversations || [];
     } catch (error) {
-      void 0;
+      setChatLoadErrors(previous => ({ ...previous, conversations: true }));
     }
   };
 
   const fetchGroups = async () => {
     try {
       const res = await getCompanyGroups();
+      setChatLoadErrors(previous => ({ ...previous, groups: false }));
       const fetchedGroups = res.data.groups || res.data.data || res.data || [];
       setGroups(Array.isArray(fetchedGroups) ? fetchedGroups : []);
+      return Array.isArray(fetchedGroups) ? fetchedGroups : [];
     } catch (error) {
-      void 0;
+      setChatLoadErrors(previous => ({ ...previous, groups: true }));
     }
   };
 
   const fetchUsers = async () => {
     try {
       const res = await getCompanyUsers();
+      setChatLoadErrors(previous => ({ ...previous, users: false }));
       const nextUsers = res.data.users || [];
       setUsers(nextUsers.map(user => {
         const userId = getEntityId(user);
@@ -1228,12 +1262,12 @@ const ChatPage = () => {
         };
       });
     } catch (error) {
-      void 0;
+      setChatLoadErrors(previous => ({ ...previous, users: true }));
     }
   };
 
-  const handleCreateGroup = async ({ name, members }) => {
-    const response = await createCompanyGroup({ name, members });
+  const handleCreateGroup = async ({ name, members, avatar }) => {
+    const response = await createCompanyGroup({ name, members, avatar });
     const group = response.data.group || response.data.data || response.data;
     await fetchGroups();
 
@@ -1243,6 +1277,37 @@ const ChatPage = () => {
       setSelectedUser({ ...group, isGroup: true });
       setActiveView("chats");
     }
+  };
+
+  const handleDeleteGroup = async (group) => {
+    const groupId = (group?._id || group?.id || group?.groupId || "").toString();
+    if (!groupId || group.projectId || group.clientId) return;
+    await deleteCompanyGroup(groupId);
+    setGroups(prev => prev.filter(item => (item._id || item.id || "").toString() !== groupId));
+    setConversations(prev => prev.filter(item => (
+      (item.groupId?._id || item.groupId || "").toString() !== groupId
+    )));
+    setSelectedUser(prev => {
+      const selectedId = (prev?._id || prev?.id || prev?.groupId || "").toString();
+      return selectedId === groupId ? null : prev;
+    });
+    await Promise.allSettled([fetchGroups(), fetchConversations()]);
+  };
+
+  const handleUpdateGroup = async (group, payload) => {
+    if (group.projectId || group.clientId) return;
+    const groupId = (group?._id || group?.id || group?.groupId || "").toString();
+    if (!groupId) return null;
+    const response = await updateCompanyGroup(groupId, payload);
+    const updatedGroup = response.data.group || response.data.data || response.data;
+    await Promise.allSettled([fetchGroups(), fetchConversations()]);
+    if (updatedGroup?._id || updatedGroup?.id) {
+      setSelectedUser(prev => {
+        const selectedId = (prev?._id || prev?.id || prev?.groupId || "").toString();
+        return selectedId === groupId ? { ...prev, ...updatedGroup, isGroup: true } : prev;
+      });
+    }
+    return updatedGroup;
   };
 
   const fetchStatuses = async ({ quiet = false } = {}) => {
@@ -1372,6 +1437,16 @@ const ChatPage = () => {
     socket.on("chat:user-offline", handleChatUserOffline);
     socket.on("user:online", handleChatUserOnline);
     socket.on("user:offline", handleChatUserOffline);
+    const handleMembership = async () => {
+      const [nextGroups] = await Promise.all([fetchGroups(), fetchConversations()]);
+      if (!nextGroups) return;
+      setSelectedUser(previous => {
+        if (!previous?.projectId && !previous?.clientId) return previous;
+        const group = nextGroups.find(item => String(item.clientId || item.projectId) === String(previous.clientId || previous.projectId));
+        return group ? { ...previous, ...group, isGroup: true } : null;
+      });
+    };
+    socket.on("chat:project-membership-updated", handleMembership);
     socket.on("chat:unread-update", handleUnread);
     // socket.on("chat:status-update", handleStatusUpdate);
     socket.on("connect", refreshOnlineUsers);
@@ -1393,6 +1468,7 @@ const ChatPage = () => {
       socket.off("chat:user-offline", handleChatUserOffline);
       socket.off("user:online", handleChatUserOnline);
       socket.off("user:offline", handleChatUserOffline);
+      socket.off("chat:project-membership-updated", handleMembership);
       socket.off("chat:unread-update", handleUnread);
       // socket.off("chat:status-update", handleStatusUpdate);
       socket.off("connect", refreshOnlineUsers);
@@ -1444,14 +1520,14 @@ const ChatPage = () => {
                       }}
                     />
                   ) : null}
-                  <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                  <span className="chat-rail-avatar-initial" style={{ display: avatarSrc ? "none" : "inline-flex" }}>
                     {(currentUser?.name || "U").charAt(0).toUpperCase()}
                   </span>
                 </>
               );
             })()}
           </div>
-          <span />
+          <span className="chat-rail-status-dot" />
         </div>
         <nav className="chat-rail-nav" aria-label="Chat navigation">
           <button type="button" className={activeView === "chats" ? "active" : ""} onClick={() => setActiveView("chats")} title="Chats"><MessageCircle size={20} /><span>Chats</span></button>
@@ -1474,6 +1550,8 @@ const ChatPage = () => {
           currentUserId={currentUserId}
           companyUsers={users}
           onCreateGroup={handleCreateGroup}
+          loadError={Object.values(chatLoadErrors).some(Boolean)}
+          onRetry={() => Promise.allSettled([fetchUsers(), fetchGroups(), fetchConversations()])}
         />
       )}
 
@@ -1578,6 +1656,8 @@ const ChatPage = () => {
           socket={socket}
           onlineUsers={onlineUsers}
           onConversationChange={fetchConversations}
+          onDeleteGroup={handleDeleteGroup}
+          onUpdateGroup={handleUpdateGroup}
           onBack={() => setSelectedUser(null)}
           chatSettings={effectiveChatSettings}
         />

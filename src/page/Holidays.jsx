@@ -117,7 +117,9 @@ const Holidays = () => {
             const XLSX = await loadXlsx();
 
             const buffer = await file.arrayBuffer();
-            const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+            // cellDates:false keeps Excel serials; parseExcelDate converts them via parse_date_code without
+            // timezone drift (cellDates:true shifted dates back one day east of UTC, e.g. IST).
+            const workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 

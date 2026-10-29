@@ -60,6 +60,41 @@ const MainContent = styled('main', {
 
 const SuperAdminLayout = () => {
   useTaskRealtime();
+
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const handleSidebarMouseEnter = () => {
+    if (!isMobile) {
+      setIsSidebarHovered(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (!isMobile) {
+      setIsSidebarHovered(false);
+    }
+  };
+
+  const toggleMobileSidebar = () => {
+    setMobileSidebarOpen(!mobileSidebarOpen);
+  };
+
+  const handleCloseMobileSidebar = () => {
+    if (isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  }, [isMobile]);
+
+
   let isSuperAdmin = false;
   try {
     const superAdminRaw = localStorage.getItem('superAdmin');
@@ -97,43 +132,6 @@ const SuperAdminLayout = () => {
     }
     return <Navigate to="/SuperAdminLogin" replace />;
   }
-
-  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
-  
-  const handleSidebarMouseEnter = () => {
-    if (!isMobile) {
-      setIsSidebarHovered(true);
-    }
-  };
-  
-  const handleSidebarMouseLeave = () => {
-    if (!isMobile) {
-      setIsSidebarHovered(false);
-    }
-  };
-  
-  
-  const toggleMobileSidebar = () => {
-    setMobileSidebarOpen(!mobileSidebarOpen);
-  };
-  
-  
-  const handleCloseMobileSidebar = () => {
-    if (isMobile) {
-      setMobileSidebarOpen(false);
-    }
-  };
-  
-  
-  useEffect(() => {
-    if (!isMobile) {
-      setMobileSidebarOpen(false);
-    }
-  }, [isMobile]);
   
   return (
     <LayoutContainer>
@@ -205,6 +203,8 @@ const SuperAdminLayout = () => {
             md: 3 
           },
           mt: isMobile ? 7 : 8,
+          // the fixed header sits above main, so main only needs the remaining height
+          minHeight: isMobile ? 'calc(100vh - 56px)' : 'calc(100vh - 64px)',
           transition: theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.easeOut,
             duration: theme.transitions.duration.standard,

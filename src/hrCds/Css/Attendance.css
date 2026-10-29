@@ -605,7 +605,8 @@
   min-width: 0;
   max-width: 100%;
   width: 100%;
-  overflow: hidden;
+  /* Let the status menu extend beyond short/empty attendance tables. */
+  overflow: visible;
 }
 
 .att-table-card-header {
@@ -765,6 +766,8 @@
   border-radius: 10px;
   box-shadow: var(--att-shadow-lg);
   min-width: 160px;
+  max-height: min(320px, 60vh);
+  overflow-y: auto;
   padding: 6px;
   z-index: 50;
   animation: att-fade-in 0.15s ease-out;
@@ -801,6 +804,7 @@
 /* Table Container & Table */
 .att-table-container {
   overflow-x: auto;
+  border-radius: 0 0 var(--att-radius-lg) var(--att-radius-lg);
   width: 100%;
   max-width: 100%;
   min-width: 0;

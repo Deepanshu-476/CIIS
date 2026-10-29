@@ -31,6 +31,7 @@ import {
   MeetingRoom as MeetingRoomIcon,
   Groups as GroupsIcon,
   Chat as ChatIcon,
+  Email as EmailIcon,
   VideoCall as VideoCallIcon,
   ListAlt as ListAltIcon,
   ExpandMore,
@@ -540,6 +541,8 @@ const iconMap = {
   'groups': GroupsIcon,
   'Chat': ChatIcon,
   'chat': ChatIcon,
+  'Email': EmailIcon,
+  'email': EmailIcon,
   'ProjectIcon': GroupsIcon,
   'projecticon': GroupsIcon,
   'Project': GroupsIcon,
@@ -892,6 +895,14 @@ const fixedDefaultItems = [
     path: '/ciisUser/support-desk',
     category: 'communication',
     order: 10
+  },
+  {
+    id: 'bulk-email',
+    name: 'Bulk Email',
+    icon: 'Email',
+    path: '/ciisUser/bulk-email',
+    category: 'communication',
+    order: 10.5
   },
   {
     id: 'create-user',
@@ -1478,6 +1489,15 @@ const allPagesItems = [
     category: 'administration',
     order: 27
   },
+  // Shown when the company plan includes feedback-questionnaire (filterItemsByCompanyAccess).
+  {
+    id: 'feedback-questionnaire',
+    name: 'Feedback / Questionnaire',
+    icon: 'Assignment',
+    path: '/ciisUser/feedback-questionnaire',
+    category: 'administration',
+    order: 27.5
+  },
   {
     id: 'support-desk',
     name: 'Support Desk',
@@ -1485,6 +1505,14 @@ const allPagesItems = [
     path: '/ciisUser/support-desk',
     category: 'communication',
     order: 28
+  },
+  {
+    id: 'bulk-email',
+    name: 'Bulk Email',
+    icon: 'Email',
+    path: '/ciisUser/bulk-email',
+    category: 'communication',
+    order: 28.5
   },
   {
     id: 'create-user',
@@ -1517,6 +1545,8 @@ const allPagesItems = [
 const getPathFromName = (name) => {
   const pathMap = {
     'Dashboard': '/ciisUser/user-dashboard',
+    'Dynamic Dashboard Overview': '/ciisUser/dashboard-overview',
+    'dashboard-overview': '/ciisUser/dashboard-overview',
     'My Attendance': '/ciisUser/attendance',
     'Attendance': '/ciisUser/attendance',
     'My Leaves': '/ciisUser/my-leaves',
@@ -1544,6 +1574,7 @@ const getPathFromName = (name) => {
     'Manage Groups': '/ciisUser/manage-groups',
     'Employee Meeting': '/ciisUser/employee-meeting',
     'Client Meeting': '/ciisUser/client-meeting',
+    'Bulk Email': '/ciisUser/bulk-email',
     'Create Employee Meeting': '/ciisUser/admin-meeting',
     'Admin Projects': '/ciisUser/adminproject',
     'Manage Projects': '/ciisUser/adminproject',
@@ -2251,6 +2282,10 @@ const Sidebar = ({
   ));
   const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
   const [seenBadgeCounts, setSeenBadgeCounts] = useState({});
+  const [profileCompletionOverride, setProfileCompletionOverride] = useState(() => {
+    const savedValue = Number(userData?.profileCompletion);
+    return Number.isFinite(savedValue) ? savedValue : null;
+  });
   const sidebarRef = useRef(null);
   const hoverTimer = useRef(null);
   const leaveTimer = useRef(null);
@@ -2316,8 +2351,31 @@ const Sidebar = ({
           params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 }
         });
         const allClients = response.data?.data || response.data?.clients || [];
+        const parsedDetails = typeof userData?.additionalDetails === 'object' && userData?.additionalDetails
+          ? userData.additionalDetails
+          : (() => { try { return JSON.parse(userData?.additionalDetails || '{}'); } catch { return {}; } })();
+        const userAssignedClientId = String(parsedDetails?.clientId || userData?.clientId || '').trim().toLowerCase();
+        const userEmail = String(userData?.email || '').trim().toLowerCase();
+
         const matchingClients = Array.isArray(allClients)
-          ? allClients.filter(item => isClientForLoggedInUser(item, userData))
+          ? allClients
+              .filter(item => isClientForLoggedInUser(item, userData))
+              .sort((a, b) => {
+                const aId = String(a?._id || a?.id || a?.clientId || '').trim().toLowerCase();
+                const bId = String(b?._id || b?.id || b?.clientId || '').trim().toLowerCase();
+                const aEmail = String(a?.email || a?.clientEmail || '').trim().toLowerCase();
+                const bEmail = String(b?.email || b?.clientEmail || '').trim().toLowerCase();
+
+                if (userAssignedClientId) {
+                  if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
+                  if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
+                }
+                if (userEmail) {
+                  if (aEmail === userEmail && bEmail !== userEmail) return -1;
+                  if (bEmail === userEmail && aEmail !== userEmail) return 1;
+                }
+                return 0;
+              })
           : [];
         const companies = matchingClients.length ? matchingClients : (storedClient ? [storedClient] : []);
         const selectedId =
@@ -2388,7 +2446,13 @@ const Sidebar = ({
               const profileResponse = await axiosInstance.get(`/users/profile/${parsedUserId}`);
               const latestProfile = profileResponse.data?.user || profileResponse.data?.data || profileResponse.data;
               if (latestProfile && typeof latestProfile === 'object') {
-                parsedUser = sanitizeUserForStorage({ ...parsedUser, ...latestProfile });
+                const mergedProfile = { ...parsedUser, ...latestProfile };
+                const latestCompletion = getProfileCompletion(mergedProfile);
+                parsedUser = {
+                  ...sanitizeUserForStorage(mergedProfile),
+                  profileCompletion: latestCompletion
+                };
+                setProfileCompletionOverride(latestCompletion);
                 setUserData(parsedUser);
                 localStorage.setItem('user', JSON.stringify(parsedUser));
               }
@@ -2444,8 +2508,29 @@ const Sidebar = ({
     fetchLocalData();
   }, []);
 
-  const fetchMenuBadgeCounts = useCallback(async () => {
+  const fetchMenuBadgeCounts = useCallback(async ({ fresh = false } = {}) => {
     if (!userId) return;
+
+    // One request for every badge count (/api/badges). Older backends without it fall back to the
+    // individual requests below.
+    try {
+      const badgeRes = await axiosInstance.get('/badges', {
+        params: fresh ? { fresh: 1 } : {},
+        cache: false,
+        _skipErrorNotify: true
+      });
+      const counts = badgeRes?.data?.counts;
+      if (counts && typeof counts === 'object') {
+        setMenuBadgeCounts(current => {
+          const mergedCounts = { ...current, ...counts };
+          writeBadgeCache(userId, mergedCounts);
+          return mergedCounts;
+        });
+        return;
+      }
+    } catch {
+      // fall back below
+    }
 
     const requests = await Promise.allSettled([
       axiosInstance.get('/tasks/self/stats', { _skipErrorNotify: true }),
@@ -2455,8 +2540,8 @@ const Sidebar = ({
         params: { page: 1, limit: 100 },
         _skipErrorNotify: true
       }),
-      axiosInstance.get('/alerts', { _skipErrorNotify: true }),
-      axiosInstance.get(`/users/${userId}/groups`, { _skipErrorNotify: true }),
+      // The server applies alert visibility and read state; the full alert list was only used to count.
+      axiosInstance.get('/alerts/unread/count', { params: { mine: 1 }, cache: false, _skipErrorNotify: true }),
       axiosInstance.get('/leaves/status', { _skipErrorNotify: true })
     ]);
 
@@ -2466,7 +2551,6 @@ const Sidebar = ({
       assetsResult,
       meetingsResult,
       alertsResult,
-      groupsResult,
       leavesResult
     ] = requests;
     const nextCounts = {};
@@ -2523,27 +2607,8 @@ const Sidebar = ({
       }).length;
     }
 
-    if (alertsResult.status === 'fulfilled') {
-      const alerts = getResponseRecords(alertsResult.value, ['alerts']);
-      const userGroupIds = groupsResult.status === 'fulfilled'
-        ? getResponseRecords(groupsResult.value, ['groups']).map(group => String(group?._id || group?.id || group))
-        : [];
-      const visibleAlerts = alerts.filter(alert => {
-        const assignedUsers = Array.isArray(alert?.assignedUsers) ? alert.assignedUsers : [];
-        const assignedGroups = Array.isArray(alert?.assignedGroups) ? alert.assignedGroups : [];
-        if (assignedUsers.length === 0 && assignedGroups.length === 0) return true;
-
-        const assignedToUser = assignedUsers.some(user => String(user?._id || user?.id || user) === String(userId));
-        const assignedToGroup = assignedGroups.some(group => (
-          userGroupIds.includes(String(group?._id || group?.id || group))
-        ));
-        return assignedToUser || assignedToGroup;
-      });
-
-      nextCounts.alerts = visibleAlerts.filter(alert => (
-        !Array.isArray(alert?.readBy) ||
-        !alert.readBy.some(reader => String(reader?._id || reader?.id || reader) === String(userId))
-      )).length;
+    if (alertsResult.status === 'fulfilled' && typeof alertsResult.value?.data?.count === 'number') {
+      nextCounts.alerts = alertsResult.value.data.count;
     }
 
     setMenuBadgeCounts(current => {
@@ -2601,7 +2666,8 @@ const Sidebar = ({
       fetchMenuBadgeCounts();
     }
 
-    const refreshBadges = () => fetchMenuBadgeCounts();
+    // Fired after the user acts (read, approve, ...): skip the 30s server cache.
+    const refreshBadges = () => fetchMenuBadgeCounts({ fresh: true });
     window.addEventListener('ciis-sidebar-badges-refresh', refreshBadges);
 
     return () => {
@@ -3022,11 +3088,11 @@ const Sidebar = ({
     }
     else if (sidebarConfig && (sidebarConfig.useFixedDefault || !sidebarConfig.menuItems)) {
       void 0;
-      items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
+      items = isClientUser ? [...clientMenuItems] : [];
     }
     else {
       void 0;
-      items = isClientUser ? [...clientMenuItems] : [...fixedDefaultItems];
+      items = isClientUser ? [...clientMenuItems] : [];
     }
 
     // The dashboard is the employee's landing page. The server configuration
@@ -3037,7 +3103,9 @@ const Sidebar = ({
     if (!isClientUser && !items.some(item => (
       String(item?.id || '').toLowerCase() === 'dashboard' ||
       String(item?.id || '').toLowerCase() === 'user-dashboard' ||
-      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard'
+      String(item?.id || '').toLowerCase() === 'dashboard-overview' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/dashboard-overview'
     ))) {
       items = [{ ...fixedDefaultItems[0], order: 1 }, ...items];
     }
@@ -3144,6 +3212,8 @@ const Sidebar = ({
     const handleProfileUpdated = event => {
       const updatedProfile = event.detail;
       if (!updatedProfile || typeof updatedProfile !== 'object') return;
+      const latestCompletion = getProfileCompletion(updatedProfile);
+      setProfileCompletionOverride(latestCompletion);
       setUserData(current => ({ ...current, ...updatedProfile }));
     };
 
@@ -3152,8 +3222,14 @@ const Sidebar = ({
   }, []);
 
   const profileCompletion = useMemo(() => {
+    if (Number.isFinite(Number(profileCompletionOverride))) {
+      return Math.max(0, Math.min(100, Number(profileCompletionOverride)));
+    }
+    if (Number.isFinite(Number(userData?.profileCompletion))) {
+      return Math.max(0, Math.min(100, Number(userData.profileCompletion)));
+    }
     return getProfileCompletion(userData);
-  }, [userData]);
+  }, [profileCompletionOverride, userData]);
 
   useEffect(() => {
     if (loading || !menuItems.length) return;
@@ -3244,7 +3320,6 @@ const Sidebar = ({
             selected={selected}
             isCollapsed={false}
             aria-label={item.name}
-            title={item.name}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
@@ -3289,7 +3364,6 @@ const Sidebar = ({
             selected={selected}
             isCollapsed={true}
             aria-label={item.name}
-            title={item.name}
             onMouseEnter={() => preloadRouteByPath(item.path)}
             onFocus={() => preloadRouteByPath(item.path)}
             onClick={() => !item.disabled && handleNavigate(item.path, badgeKey)}
@@ -3348,7 +3422,6 @@ const Sidebar = ({
         selected={isTelecallerActive}
         isCollapsed={!isSidebarOpen}
         aria-label="Admin Telecaller"
-        title="Admin Telecaller"
         onClick={toggleTelecaller}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3448,7 +3521,6 @@ const Sidebar = ({
                       selected={selected}
                       isCollapsed={!isSidebarOpen}
                       aria-label="Call Workspace"
-                      title="Call Workspace"
                       aria-expanded={isSidebarOpen && telecallerWorkspaceOpen}
                       aria-controls={submenuId}
                       onClick={() => setTelecallerWorkspaceOpen(open => !open)}
@@ -3539,7 +3611,6 @@ const Sidebar = ({
         selected={isCrmActive}
         isCollapsed={!isSidebarOpen}
         aria-label="Admin CRM"
-        title="Admin CRM"
         onClick={toggleCrm}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3649,7 +3720,6 @@ const Sidebar = ({
                   selected={hasSelectedChild}
                   isCollapsed={!isSidebarOpen}
                   aria-label={group.name}
-                  title={group.name}
                   onClick={() => toggleGroup(group.id)}
                   sx={{
                     justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3753,7 +3823,6 @@ const Sidebar = ({
         selected={isPayrollActive}
         isCollapsed={!isSidebarOpen}
         aria-label="Payroll"
-        title="Payroll"
         onClick={togglePayroll}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -3974,7 +4043,6 @@ const Sidebar = ({
         selected={isActive}
         isCollapsed={!isSidebarOpen}
         aria-label={label}
-        title={label}
         onClick={handleSectionClick}
         sx={{
           justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -4618,7 +4686,6 @@ const Sidebar = ({
               onClick={handleLogout}
               isCollapsed={!isSidebarOpen}
               aria-label="Logout"
-              title="Logout"
               sx={{
                 color: 'error.main',
                 justifyContent: isSidebarOpen ? 'flex-start' : 'center',
@@ -5096,7 +5163,6 @@ const Sidebar = ({
             onClick={handleLogout}
             isCollapsed={!isSidebarOpen}
             aria-label="Logout"
-            title="Logout"
             sx={{
               color: 'error.main',
               justifyContent: isSidebarOpen ? 'flex-start' : 'center',

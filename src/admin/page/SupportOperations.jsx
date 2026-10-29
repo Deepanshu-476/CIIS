@@ -28,14 +28,6 @@ const fallbackDepartments = [
   { id: "procurement", name: "Procurement Department", description: "Handles procurement queries", employeeCount: 9, openTickets: 0, supportHeadName: "Unassigned" },
 ];
 
-const fallbackEmployees = [
-  { id: "emp-akhil", name: "Akhil Mehta", email: "akhil@ciisnetwork.com", jobRole: "IT Support Lead" },
-  { id: "emp-vikas", name: "Vikas Kumar", email: "vikas@ciisnetwork.com", jobRole: "Senior IT Engineer" },
-  { id: "emp-neha", name: "Neha Sharma", email: "neha@ciisnetwork.com", jobRole: "System Administrator" },
-  { id: "emp-rohit", name: "Rohit Verma", email: "rohit@ciisnetwork.com", jobRole: "Network Engineer" },
-  { id: "emp-priya", name: "Priya Singh", email: "priya@ciisnetwork.com", jobRole: "IT Support Executive" },
-];
-
 const fallbackTickets = [
   { id: "SUP-2208", employee: "Nisha Sharma", company: "CIIS Network", issue: "Payroll escalation", queue: "Payroll", status: "Escalated", priority: "Critical", owner: "Ritika", age: "1h 12m" },
   { id: "SUP-2204", employee: "Rahul Verma", company: "CIIS Network", issue: "VPN provisioning delay", queue: "IT", status: "In Progress", priority: "High", owner: "Akhil", age: "2h 45m" },
@@ -46,12 +38,23 @@ const fallbackTickets = [
 const statusClass = value => String(value || "Open").toLowerCase().replace(/\s+/g, "-");
 const extractList = (payload, keys = []) => {
   if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
   for (const key of keys) {
-    if (Array.isArray(payload?.[key])) return payload[key];
+    if (Array.isArray(payload[key])) return payload[key];
+    if (Array.isArray(payload.data?.[key])) return payload.data[key];
+    if (Array.isArray(payload.message?.[key])) return payload.message[key];
   }
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.users)) return payload.data.users;
-  if (Array.isArray(payload?.data?.departments)) return payload.data.departments;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.message)) return payload.message;
+  if (Array.isArray(payload.users)) return payload.users;
+  if (Array.isArray(payload.employees)) return payload.employees;
+  if (Array.isArray(payload.departments)) return payload.departments;
+  if (Array.isArray(payload.data?.users)) return payload.data.users;
+  if (Array.isArray(payload.data?.employees)) return payload.data.employees;
+  if (Array.isArray(payload.data?.departments)) return payload.data.departments;
+  if (Array.isArray(payload.message?.users)) return payload.message.users;
+  if (Array.isArray(payload.message?.employees)) return payload.message.employees;
+  if (Array.isArray(payload.message?.departments)) return payload.message.departments;
   return [];
 };
 
@@ -90,15 +93,21 @@ const mapDepartment = department => ({
   supportHeadName: department.supportHeadName || department.supportHead?.name || "Unassigned",
 });
 
-const mapEmployee = employee => ({
-  id: employee.id || employee._id,
-  name: employee.name,
-  email: employee.email,
-  jobRole: employee.jobRole || "employee",
-  employeeId: employee.employeeId,
-  department: employee.department,
-  departmentName: employee.departmentName || getEntityName(employee.department),
-});
+const mapEmployee = employee => {
+  if (!employee) return null;
+  const rawId = employee.id || employee._id || employee.userId;
+  if (!rawId) return null;
+  const rawJobRole = employee.jobRoleName || employee.jobRole?.name || employee.jobRole || employee.role || employee.companyRole;
+  return {
+    id: String(rawId),
+    name: employee.name || employee.fullName || "Employee",
+    email: employee.email || "",
+    jobRole: typeof rawJobRole === "string" ? rawJobRole : (rawJobRole?.name || "Employee"),
+    employeeId: employee.employeeId || "",
+    department: employee.department,
+    departmentName: employee.departmentName || getEntityName(employee.department),
+  };
+};
 
 const getInitials = value => String(value || "U")
   .split(/\s+/)
@@ -137,8 +146,12 @@ const SupportOperations = () => {
   const [tickets, setTickets] = useState(fallbackTickets);
   const [departments, setDepartments] = useState([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [companyEmployees, setCompanyEmployees] = useState([]);
   const [departmentEmployees, setDepartmentEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [assigningHead, setAssigningHead] = useState(false);
   const [assignmentHighlight, setAssignmentHighlight] = useState(false);
   const assignmentPanelRef = useRef(null);
   const assignmentHighlightTimerRef = useRef(null);
@@ -172,6 +185,19 @@ const SupportOperations = () => {
     }
   };
 
+  const fetchCompanyEmployees = async () => {
+    try {
+      const response = await axiosInstance.get("/users/company-users", { _skipErrorNotify: true });
+      const raw = extractList(response.data, ["users"]);
+      const mapped = raw.map(mapEmployee).filter(Boolean);
+      setCompanyEmployees(mapped);
+      return mapped;
+    } catch (error) {
+      console.warn("Fetch company users failed:", error.message);
+      return [];
+    }
+  };
+
   const fetchDepartments = async () => {
     let mapped = [];
     try {
@@ -197,69 +223,85 @@ const SupportOperations = () => {
     }
 
     setDepartments(mapped);
-    setSelectedDepartmentId(current => mapped.some(department => department.id === current) ? current : mapped[0]?.id || "");
+    setSelectedDepartmentId(current => (mapped.some(department => department.id === current) ? current : mapped[0]?.id || ""));
   };
 
-  const fetchDepartmentEmployees = async departmentId => {
+  const fetchDepartmentEmployees = async (departmentId, currentCompanyUsers = companyEmployees) => {
     if (!departmentId) {
       setDepartmentEmployees([]);
       return;
     }
 
+    setLoadingEmployees(true);
     const selected = departments.find(department => department.id === departmentId);
-
-    try {
-      const response = await axiosInstance.get(`/users/department-users?department=${encodeURIComponent(departmentId)}`, { _skipErrorNotify: true });
-      const users = extractList(response.data, ["users"]).map(mapEmployee);
-      const filteredUsers = users.filter(employee => employeeBelongsToDepartment(employee, selected));
-      const mapped = filteredUsers.length ? filteredUsers : users;
-      const currentHeadId = getEntityId(selected?.supportHead);
-      setDepartmentEmployees(mapped);
-      setSelectedEmployeeId(mapped.some(employee => String(employee.id) === currentHeadId) ? currentHeadId : mapped[0]?.id || "");
-      if (mapped.length) return;
-    } catch (error) {
-      console.warn("Department users endpoint failed:", error.message);
-    }
+    let deptEmployees = [];
 
     try {
       const response = await axiosInstance.get(`/support/admin/departments/${departmentId}/employees`, { _skipErrorNotify: true });
-      if (response.data?.success) {
-        const mapped = (response.data.employees || []).map(mapEmployee);
-        setDepartmentEmployees(mapped);
-        setSelectedEmployeeId(response.data.department?.supportHead?.id || mapped[0]?.id || "");
-        if (mapped.length) return;
+      if (response.data?.success && Array.isArray(response.data.employees)) {
+        deptEmployees = response.data.employees.map(mapEmployee).filter(Boolean);
       }
     } catch (error) {
-      console.warn("Support department employees fallback active:", error.message);
+      console.warn("Support department employees endpoint failed:", error.message);
     }
 
-    try {
-      const response = await axiosInstance.get("/users/company-users", { _skipErrorNotify: true });
-      const users = extractList(response.data, ["users"]).map(mapEmployee);
-      const filteredUsers = users.filter(employee => employeeBelongsToDepartment(employee, selected));
-      const mapped = filteredUsers.length ? filteredUsers : users;
-      setDepartmentEmployees(mapped);
-      setSelectedEmployeeId(mapped[0]?.id || "");
-    } catch (error) {
-      console.warn("Company users fallback failed:", error.message);
-      setDepartmentEmployees(fallbackEmployees);
-      setSelectedEmployeeId(fallbackEmployees[0]?.id || "");
+    if (!deptEmployees.length) {
+      try {
+        const response = await axiosInstance.get(`/users/department-users?department=${encodeURIComponent(departmentId)}`, { _skipErrorNotify: true });
+        const list = extractList(response.data, ["users"]).map(mapEmployee).filter(Boolean);
+        if (list.length) {
+          deptEmployees = list;
+        }
+      } catch (error) {
+        console.warn("Department users endpoint failed:", error.message);
+      }
     }
+
+    if (!deptEmployees.length && currentCompanyUsers.length) {
+      deptEmployees = currentCompanyUsers.filter(employee => employeeBelongsToDepartment(employee, selected));
+    }
+
+    setDepartmentEmployees(deptEmployees);
+
+    const currentHeadId = getEntityId(selected?.supportHead);
+    const currentHeadName = String(selected?.supportHeadName || "").trim().toLowerCase();
+
+    const allPool = deptEmployees.length ? [...deptEmployees, ...currentCompanyUsers] : currentCompanyUsers;
+    const matchingHead = allPool.find(emp =>
+      (currentHeadId && String(emp.id) === String(currentHeadId)) ||
+      (currentHeadName && currentHeadName !== "unassigned" && emp.name?.trim().toLowerCase() === currentHeadName)
+    );
+
+    if (matchingHead) {
+      setSelectedEmployeeId(matchingHead.id);
+    } else if (currentHeadId) {
+      setSelectedEmployeeId(currentHeadId);
+    } else if (deptEmployees.length) {
+      setSelectedEmployeeId(deptEmployees[0].id);
+    } else if (currentCompanyUsers.length) {
+      setSelectedEmployeeId(currentCompanyUsers[0].id);
+    } else {
+      setSelectedEmployeeId("");
+    }
+
+    setLoadingEmployees(false);
   };
 
   useEffect(() => {
     fetchDashboard();
     fetchDepartments();
+    fetchCompanyEmployees();
   }, []);
 
   useEffect(() => {
-    fetchDepartmentEmployees(selectedDepartmentId);
-  }, [selectedDepartmentId]);
+    fetchDepartmentEmployees(selectedDepartmentId, companyEmployees);
+  }, [selectedDepartmentId, companyEmployees]);
 
   useEffect(() => () => window.clearTimeout(assignmentHighlightTimerRef.current), []);
 
   const handleOpenHeadAssignment = department => {
     setSelectedDepartmentId(department.id);
+    setEmployeeSearch("");
     setAssignmentHighlight(true);
     window.clearTimeout(assignmentHighlightTimerRef.current);
 
@@ -276,7 +318,7 @@ const SupportOperations = () => {
     const status = window.prompt("New status: Open, In Progress, Waiting, Resolved, Closed, Escalated", ticket.status);
     if (!status) return;
     const message = window.prompt("Add reply/comment for employee", `Ticket marked as ${status}`) || "";
-    
+
     try {
       const response = await axiosInstance.patch(`/support/admin/tickets/${ticket.dbId}`, { status, message });
       if (response.data?.success) {
@@ -306,6 +348,7 @@ const SupportOperations = () => {
       return;
     }
 
+    setAssigningHead(true);
     try {
       const response = await axiosInstance.patch(`/support/admin/departments/${selectedDepartmentId}/head`, {
         employeeId: selectedEmployeeId,
@@ -313,11 +356,16 @@ const SupportOperations = () => {
       if (response.data?.success) {
         toast.success(response.data.message || "Department Head assigned");
         await fetchDepartments();
-        await fetchDepartmentEmployees(selectedDepartmentId);
+        await fetchDepartmentEmployees(selectedDepartmentId, companyEmployees);
         await fetchDashboard();
+      } else {
+        toast.error(response.data?.message || "Failed to assign Department Head");
       }
     } catch (error) {
       console.error("Assign department head failed:", error);
+      toast.error(error.response?.data?.message || error.message || "Failed to assign Department Head");
+    } finally {
+      setAssigningHead(false);
     }
   };
 
@@ -347,8 +395,24 @@ const SupportOperations = () => {
     const matchesDepartment = departmentFilter === "All Departments" || department.name === departmentFilter;
     return matchesSearch && matchesStatus && matchesDepartment;
   });
-  const assignableEmployees = departmentEmployees.length ? departmentEmployees : fallbackEmployees;
-  const selectedEmployee = assignableEmployees.find(employee => employee.id === selectedEmployeeId) || assignableEmployees[0];
+
+  const assignableEmployees = useMemo(() => {
+    const deptEmpIds = new Set(departmentEmployees.map(e => String(e.id)));
+    const otherEmployees = companyEmployees.filter(e => !deptEmpIds.has(String(e.id)));
+    const combined = [...departmentEmployees, ...otherEmployees];
+
+    const term = employeeSearch.trim().toLowerCase();
+    if (!term) return combined;
+
+    return combined.filter(emp =>
+      emp.name.toLowerCase().includes(term) ||
+      (emp.email && emp.email.toLowerCase().includes(term)) ||
+      (emp.jobRole && emp.jobRole.toLowerCase().includes(term)) ||
+      (emp.departmentName && emp.departmentName.toLowerCase().includes(term))
+    );
+  }, [departmentEmployees, companyEmployees, employeeSearch]);
+
+  const selectedEmployee = assignableEmployees.find(employee => String(employee.id) === String(selectedEmployeeId)) || assignableEmployees[0];
 
   return (
     <main className="support-ops-page">
@@ -474,37 +538,91 @@ const SupportOperations = () => {
             </div>
             <label>
               <span>Select Department</span>
-              <select value={selectedDepartmentId} onChange={event => setSelectedDepartmentId(event.target.value)}>
-                {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
+              <select
+                value={selectedDepartmentId}
+                onChange={event => {
+                  setSelectedDepartmentId(event.target.value);
+                  setEmployeeSearch("");
+                }}
+              >
+                {departments.map(department => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
               </select>
             </label>
             <label>
               <span>Select Department Head</span>
               <div className="support-ops-employee-search">
                 <Search size={16} />
-                <input placeholder="Search employee..." readOnly />
+                <input
+                  type="text"
+                  placeholder="Search employee..."
+                  value={employeeSearch}
+                  onChange={event => setEmployeeSearch(event.target.value)}
+                />
+                {employeeSearch && (
+                  <button
+                    type="button"
+                    className="support-ops-search-clear"
+                    onClick={() => setEmployeeSearch("")}
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             </label>
             <div className="support-ops-radio-list">
-              {assignableEmployees.map(employee => (
-                <button
-                  type="button"
-                  className={selectedEmployeeId === employee.id ? "active" : ""}
-                  key={employee.id}
-                  onClick={() => setSelectedEmployeeId(employee.id)}
-                >
-                  <span>{getInitials(employee.name)}</span>
-                  <div><strong>{employee.name}</strong><small>{employee.jobRole || employee.email}</small></div>
-                  <i />
-                </button>
-              ))}
+              {loadingEmployees && !assignableEmployees.length ? (
+                <div className="support-ops-empty-message">Loading employees...</div>
+              ) : assignableEmployees.length === 0 ? (
+                <div className="support-ops-empty-message">
+                  {employeeSearch ? `No employees matching "${employeeSearch}"` : "No employees available"}
+                </div>
+              ) : (
+                assignableEmployees.map(employee => {
+                  const isSelected = String(selectedEmployeeId) === String(employee.id);
+                  const isCurrentHead =
+                    selectedDepartment &&
+                    (String(selectedDepartment.supportHead?.id || selectedDepartment.supportHead) === String(employee.id) ||
+                      (selectedDepartment.supportHeadName &&
+                        selectedDepartment.supportHeadName.toLowerCase() !== "unassigned" &&
+                        selectedDepartment.supportHeadName.toLowerCase() === employee.name?.trim().toLowerCase()));
+
+                  return (
+                    <button
+                      type="button"
+                      className={`${isSelected ? "active" : ""} ${isCurrentHead ? "current-head" : ""}`}
+                      key={employee.id}
+                      onClick={() => setSelectedEmployeeId(employee.id)}
+                    >
+                      <span>{getInitials(employee.name)}</span>
+                      <div>
+                        <strong>
+                          {employee.name}
+                          {isCurrentHead && <em className="support-ops-head-badge">Current Head</em>}
+                        </strong>
+                        <small>{employee.jobRole || employee.email || "Employee"}</small>
+                      </div>
+                      <i />
+                    </button>
+                  );
+                })
+              )}
             </div>
             <div className="support-ops-note">
               <strong>About Assignment</strong>
               <p>The assigned head will receive and handle all chat queries from employees of this department.</p>
             </div>
-            <button className="support-ops-submit" type="button" onClick={handleAssignHead} disabled={!selectedEmployee?.id}>
-              Assign Department Head
+            <button
+              className="support-ops-submit"
+              type="button"
+              onClick={handleAssignHead}
+              disabled={assigningHead || !selectedEmployee?.id}
+            >
+              {assigningHead ? "Assigning..." : "Assign Department Head"}
             </button>
           </div>
 

@@ -116,18 +116,22 @@ export default function SalaryComponent() {
     event.preventDefault();
     const name = form.name.trim();
 
-    if (!name || !form.sortOrder) {
+    if (!name) {
       return setMessage({
         type: "error",
-        text: "Component name and sort order are required."
+        text: "Component name is required."
       });
     }
+
+    const autoSortOrder = editingId && form.sortOrder
+      ? Number(form.sortOrder)
+      : (components.reduce((max, c) => Math.max(max, Number(c.sortOrder) || 0), 0) + 1);
 
     const record = {
       ...form,
       name,
       code: (form.code || previewCode(name)).trim().toUpperCase(),
-      sortOrder: Number(form.sortOrder)
+      sortOrder: autoSortOrder
     };
 
     setSaving(true);
@@ -226,8 +230,8 @@ export default function SalaryComponent() {
         </div>
 
         <form onSubmit={saveComponent}>
-          {/* Row 1: 4 columns */}
-          <div className="scm-grid-4">
+          {/* Row 1: 3 columns */}
+          <div className="scm-grid-3">
             {/* Component Name */}
             <div className="scm-form-group">
               <label>
@@ -277,25 +281,6 @@ export default function SalaryComponent() {
                 <option value="earning">Earning</option>
                 <option value="deduction">Deduction</option>
               </select>
-            </div>
-
-            {/* Sort Order */}
-            <div className="scm-form-group">
-              <label>
-                Sort Order <span className="req">*</span>
-              </label>
-              <div className="scm-input-wrap">
-                <LuArrowUpDown className="scm-input-icon" />
-                <input
-                  type="number"
-                  min="1"
-                  className="scm-input"
-                  placeholder="Enter sort order"
-                  value={form.sortOrder}
-                  onChange={(e) => updateForm("sortOrder", e.target.value)}
-                  required
-                />
-              </div>
             </div>
           </div>
 

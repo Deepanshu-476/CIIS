@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import RouteBoundaryLoader from "./components/RouteBoundaryLoader.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import SpeechToTextControl from "./components/SpeechToTextControl.jsx";
 import { renderMarketingRoutes } from "./marketing";
 
@@ -50,12 +51,14 @@ const MyLeaves = lazy(() => import("./hrCds/pages/MyLeaves"));
 const Profile = lazy(() => import("./hrCds/pages/Profile"));
 const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
 const DashboardOverview = lazy(() => import("./hrCds/pages/DashboardOverview"));
+const DashboardOverviewPreview = lazy(() => import("./hrCds/pages/DashboardOverviewPreview.jsx"));
 const TaskManagement = lazy(() => import("./hrCds/pages/TaskManagement"));
 const EmployeeMeetingPage = lazy(() => import("./hrCds/pages/EmployeeMeetingPage"));
 const EmployeeProject = lazy(() => import("./hrCds/pages/EmployeeProject"));
 const ProjectDetailsPage = lazy(() => import("./hrCds/pages/ProjectDetailsPage"));
 const ClientMeeting = lazy(() => import("./hrCds/pages/ClientMeeting"));
 const DepartmentSupportDesk = lazy(() => import("./hrCds/pages/DepartmentSupportDesk"));
+const BulkEmail = lazy(() => import("./hrCds/pages/BulkEmail"));
 const SupportOperations = lazy(() => import("./admin/page/SupportOperations.jsx"));
 const ActiveClientsOverview = lazy(() => import("./hrCds/pages/ActiveClientsOverview.jsx"));
 const CreateAlerts = lazy(() => import("./hrCds/pages/CreateAlerts.jsx"));
@@ -71,6 +74,8 @@ const CompanyDetails = lazy(() => import("./admin/components/CompanyDetails.jsx"
 const CompanyAccessManagement = lazy(() => import("./admin/page/CompanyAccessManagement.jsx"));
 const AllCompany = lazy(() => import("./page/AllCompany.jsx"));
 const CompanyUsersPage = lazy(() => import("./page/CompanyUsersPage.jsx"));
+const CompanyAdminDetails = lazy(() => import("./page/CompanyAdminDetails.jsx"));
+const CompanyDataView = lazy(() => import("./page/CompanyDataView.jsx"));
 const CompanyAssetManagement = lazy(() => import("./page/CompanyAssetManagement.jsx"));
 const Holiday = lazy(() => import("./page/Holidays.jsx"));
 const BranchManagement = lazy(() => import("./admin/page/BranchManagement.jsx"));
@@ -134,8 +139,9 @@ const DevMyAiPreview = import.meta.env.DEV
 function App() {
   return (
     <>
-      <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
-        <Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
+          <Routes>
 
         {renderMarketingRoutes()}
         <Route path="/about" element={<Navigate to="/product" replace />} />
@@ -192,6 +198,48 @@ function App() {
         <Route path="/lead-management" element={<Navigate to="/ciisUser/telecaller/assigned-calls" replace />} />
         <Route path="/talicaliler" element={<Navigate to="/ciisUser/telecaller/dashboard" replace />} />
 
+        {/* Dynamic Dashboard Overview System - Dedicated Routes */}
+        <Route
+          path="/dashboard-overview"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+        <Route
+          path="/dashboard-overview/:companyId"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+        <Route
+          path="/dashboard-overview-preview"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+        <Route
+          path="/dashboard-overview-preview/:companyId"
+          element={(
+            <ThemeContextProvider>
+              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                <DashboardOverviewPreview />
+              </Suspense>
+            </ThemeContextProvider>
+          )}
+        />
+
         <Route
           path="/Ciis-network/*"
           element={
@@ -202,6 +250,10 @@ function App() {
             </ThemeContextProvider>
           }
         >
+          <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
           <Route path="company-details" element={<CompanyDetails />} />
           <Route path="RegisterCompany" element={<RegisterCompany />} />
           <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
@@ -213,6 +265,8 @@ function App() {
           <Route path="register-request" element={<RegisterRequest />} />
           <Route path="all-company" element={<AllCompany />} />
           <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
+          <Route path="all-company/:companyId/admins" element={<CompanyAdminDetails />} />
+          <Route path="all-company/:companyId/view" element={<CompanyDataView />} />
           <Route path="company-assets" element={<CompanyAssetManagement/>}/>
           <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
           <Route path="CompanyManagement" element={<CompanyManagement />} />
@@ -297,6 +351,10 @@ function App() {
             )}
           />
           <Route path="dashboard-1" element={<DashboardOverview />} />
+          <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
+          <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
           <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
           <Route path="client-dashboard" element={<ClientDashboardPage />} />
           <Route path="client-my-services" element={<MyServicesPage />} />
@@ -347,6 +405,7 @@ function App() {
           <Route path="dashboard" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
           <Route path="contact-support" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
           <Route path="support-desk" element={<DepartmentSupportDesk />} />
+          <Route path="bulk-email" element={<BulkEmail />} />
           <Route path="support-operations" element={<SupportOperations />} />
           <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
           <Route path="leave-policy-master" element={<LeavePolicy />} />
@@ -492,7 +551,8 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-    </Suspense>
+        </Suspense>
+      </ErrorBoundary>
 
     <SpeechToTextControl />
     <ToastContainer position="top-right" autoClose={3000} />

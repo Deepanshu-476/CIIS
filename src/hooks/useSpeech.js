@@ -971,10 +971,6 @@ export default function useSpeech({
     // Unified start listening (half-duplex: strictly blocked while speaking, respects userMuted)
     const start = useCallback(
         ({ force = false } = {}) => {
-            if (listening || (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') || isStartingRef.current || isTranscribingRef.current) {
-                return;
-            }
-
             if (force) {
                 // Recover from stuck or stale flags (cleared through watchdog)
                 // But never override half-duplex if agent is actively speaking right now!
@@ -991,6 +987,13 @@ export default function useSpeech({
 
                 userMutedRef.current = false;
                 setUserMuted(false);
+                isStartingRef.current = false;
+                isTranscribingRef.current = false;
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                    try {
+                        mediaRecorderRef.current.stop();
+                    } catch {}
+                }
                 if (speakTimeoutRef.current) {
                     clearTimeout(speakTimeoutRef.current);
                     speakTimeoutRef.current = null;
@@ -1002,11 +1005,17 @@ export default function useSpeech({
                 }
                 isSpeakingRef.current = false;
                 setIsSpeaking(false);
-            } else if (userMutedRef.current) {
-                if (import.meta.env.DEV) {
-                    console.info('[useSpeech] start() ignored because user tapped mute in current window');
+            } else {
+                if (listening || (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') || isStartingRef.current || isTranscribingRef.current) {
+                    return;
                 }
-                return;
+
+                if (userMutedRef.current) {
+                    if (import.meta.env.DEV) {
+                        console.info('[useSpeech] start() ignored because user tapped mute in current window');
+                    }
+                    return;
+                }
             }
 
             if (isSpeakingRef.current || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) {

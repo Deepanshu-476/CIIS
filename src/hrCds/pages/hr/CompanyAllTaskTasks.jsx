@@ -1465,11 +1465,12 @@ const CompanyAllTaskTasks = () => {
         ? { status: nextStatus, completed: nextStatus === "completed", allowCompanyAllTaskEdit: true }
         : { status: nextStatus, remarks: "Status updated from Company All Task", allowCompanyAllTaskEdit: true };
 
-    // Optimistic UI update
+    // Optimistic UI update. getDisplayStatus reads userStatus first, so it must change too
+    // or the row keeps the old status until the page is refreshed.
     setTasks((prevTasks) =>
       prevTasks.map((t) =>
         String(t._id || "") === String(task._id || "")
-          ? { ...t, status: nextStatus, overallStatus: nextStatus, completed: nextStatus === "completed" }
+          ? { ...t, status: nextStatus, userStatus: nextStatus, overallStatus: nextStatus, completed: nextStatus === "completed" }
           : t
       )
     );
@@ -1478,6 +1479,7 @@ const CompanyAllTaskTasks = () => {
       [task._id]: {
         ...(prev[task._id] || {}),
         status: nextStatus,
+        userStatus: nextStatus,
         overallStatus: nextStatus,
         completed: nextStatus === "completed",
         loading: false,
@@ -1491,6 +1493,8 @@ const CompanyAllTaskTasks = () => {
       } else {
         await axios.patch(endpoint, payload);
       }
+      // Reload quietly so the status counts, tabs and grouping match the saved status.
+      fetchTasks(true);
     } catch (err) {
       console.error("Failed to update task status:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update task status.");
@@ -1641,6 +1645,7 @@ const CompanyAllTaskTasks = () => {
             dueDate: dueDateIso,
             priority: updatedPriority,
             status: updatedStatus,
+            userStatus: updatedStatus,
             overallStatus: updatedStatus,
             completed: updatedStatus === "completed",
             checkpoints: cleanCheckpoints,
@@ -1661,6 +1666,7 @@ const CompanyAllTaskTasks = () => {
         dueDate: dueDateIso,
         priority: updatedPriority,
         status: updatedStatus,
+        userStatus: updatedStatus,
         overallStatus: updatedStatus,
         completed: updatedStatus === "completed",
         checkpoints: cleanCheckpoints,
@@ -1716,6 +1722,7 @@ const CompanyAllTaskTasks = () => {
           allowCompanyAllTaskEdit: true,
         });
       }
+      fetchTasks(true);
     } catch (err) {
       console.error("Failed to save task update to server:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || "Failed to update task.");

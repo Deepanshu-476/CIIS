@@ -4,6 +4,7 @@ import {
     isSilenceHallucination,
     isSelfEcho,
     canProcessTranscriptTurn,
+    collapseRepeatedUtterance,
 } from './taskAgentPureLogic';
 
 const getSR = () =>
@@ -27,6 +28,13 @@ export default function useSpeech({
     const [engine, setEngine] = useState(defaultEngine);
     const [lang, setLang] = useState(defaultLang);
     const [listening, setListening] = useState(false);
+    const listeningRef = useRef(false);
+
+    const setListeningTracked = useCallback((val) => {
+        const boolVal = typeof val === 'function' ? val(listeningRef.current) : Boolean(val);
+        listeningRef.current = boolVal;
+        setListening(boolVal);
+    }, []);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const isTranscribingRef = useRef(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
@@ -36,6 +44,7 @@ export default function useSpeech({
     const sessionCounterRef = useRef(0);
     const activeSessionIdRef = useRef(0);
     const abortControllerRef = useRef(null);
+    const startRef = useRef(null);
     const lastSpokenAssistantTextRef = useRef('');
     const speechEndedAtRef = useRef(0);
     const [interim, setInterim] = useState('');
@@ -44,6 +53,57 @@ export default function useSpeech({
     const [error, setError] = useState(null);
     const [notice, setNotice] = useState(null);
     const [hasHindiVoice, setHasHindiVoice] = useState(false);
+
+    // Permission tracking ('prompt' | 'granted' | 'denied')
+    const [micPermission, setMicPermission] = useState('prompt');
+    const micPermissionRef = useRef('prompt');
+
+    // DEV overlay diagnostic for manual mic capture
+    const [lastTranscriptDiag, setLastTranscriptDiag] = useState(null);
+    const lastTranscriptDiagRef = useRef(null);
+
+    const updateTranscriptDiag = useCallback((diag) => {
+        setLastTranscriptDiag(diag);
+        lastTranscriptDiagRef.current = diag;
+    }, []);
+
+    // Monitor microphone permission through navigator.permissions
+    useEffect(() => {
+        if (typeof navigator === 'undefined' || !navigator.permissions?.query) {
+            setMicPermission('prompt');
+            micPermissionRef.current = 'prompt';
+            return undefined;
+        }
+        let active = true;
+        let permStatusObj = null;
+        try {
+            navigator.permissions.query({ name: 'microphone' }).then((status) => {
+                if (!active || !status) return;
+                permStatusObj = status;
+                setMicPermission(status.state);
+                micPermissionRef.current = status.state;
+                status.onchange = () => {
+                    if (!active) return;
+                    setMicPermission(status.state);
+                    micPermissionRef.current = status.state;
+                };
+            }).catch(() => {
+                if (active) {
+                    setMicPermission('prompt');
+                    micPermissionRef.current = 'prompt';
+                }
+            });
+        } catch {
+            setMicPermission('prompt');
+            micPermissionRef.current = 'prompt';
+        }
+        return () => {
+            active = false;
+            if (permStatusObj) {
+                permStatusObj.onchange = null;
+            }
+        };
+    }, []);
 
     // Auto-dismiss errors/notices immediately whenever engine or language changes
     useEffect(() => {
@@ -150,8 +210,32 @@ export default function useSpeech({
     cbRef.current = onFinalTranscript;
 
     const dispatchFinalText = useCallback((text, sessionId = activeSessionIdRef.current) => {
-        const clean = String(text || '').trim();
-        if (!clean) return;
+        const speechDur = lastDiagRef.current.firstSpeechTime
+            ? (Date.now() - lastDiagRef.current.firstSpeechTime)
+            : (lastDiagRef.current.durationMs || 0);
+
+        const autoRearm = () => {
+            if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
+                setTimeout(() => {
+                    if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
+                        startRef.current?.({ force: true });
+                    }
+                }, 300);
+            }
+        };
+
+        if (!text || String(text).trim().length < 2) {
+            updateTranscriptDiag({ text: String(text || '').trim(), dropped: true, reason: 'too short', durationMs: speechDur });
+            autoRearm();
+            return;
+        }
+
+        const clean = collapseRepeatedUtterance(String(text || '').trim());
+        if (!clean) {
+            updateTranscriptDiag({ text: '', dropped: true, reason: 'too short', durationMs: speechDur });
+            autoRearm();
+            return;
+        }
 
         const check = canProcessTranscriptTurn({
             transcriptSessionId: sessionId,
@@ -164,15 +248,23 @@ export default function useSpeech({
             if (import.meta.env.DEV) {
                 console.info('[useSpeech] Dropped transcript due to:', check.reason, { text: clean });
             }
+            updateTranscriptDiag({
+                text: clean,
+                dropped: true,
+                reason: check.reason === 'speaking' || check.reason === 'guard_window' ? 'echo' : (check.reason || 'other'),
+                durationMs: speechDur,
+            });
+            autoRearm();
             return;
         }
 
         // Silence Hallucination guard: drop "thank you", "thanks for watching", etc. on short/quiet clips
-        const speechDur = lastDiagRef.current.firstSpeechTime ? (Date.now() - lastDiagRef.current.firstSpeechTime) : 0;
         if (isSilenceHallucination(clean, speechDur, lastDiagRef.current.peakRms)) {
             if (import.meta.env.DEV) {
                 console.info('[useSpeech] Dropped silence hallucination:', clean);
             }
+            updateTranscriptDiag({ text: clean, dropped: true, reason: 'silence hallucination', durationMs: speechDur });
+            autoRearm();
             return;
         }
 
@@ -181,15 +273,18 @@ export default function useSpeech({
             if (import.meta.env.DEV) {
                 console.info('[useSpeech] Dropped self-echo transcript:', clean);
             }
+            updateTranscriptDiag({ text: clean, dropped: true, reason: 'echo', durationMs: speechDur });
+            autoRearm();
             return;
         }
 
         if (turnDispatchedRef.current) return;
         turnDispatchedRef.current = true;
+        updateTranscriptDiag({ text: clean, dropped: false, durationMs: speechDur });
         if (cbRef.current) {
-            cbRef.current(clean);
+            cbRef.current(clean, speechDur);
         }
-    }, []);
+    }, [updateTranscriptDiag]);
 
     const inactivityPromptCbRef = useRef(onInactivityPrompt);
     inactivityPromptCbRef.current = onInactivityPrompt;
@@ -290,7 +385,7 @@ export default function useSpeech({
                     /* ignore */
                 }
             } else {
-                setListening(false);
+                setListeningTracked(false);
                 cleanupAudioNodes();
             }
         } else {
@@ -300,10 +395,14 @@ export default function useSpeech({
             } catch {
                 /* ignore */
             }
-            setListening(false);
+            setListeningTracked(false);
             cleanupAudioNodes();
-            const uncommitted = uncommittedInterimRef.current || '';
-            const text = (accumulatedTextRef.current + (uncommitted ? ' ' + uncommitted : '')).trim();
+            const uncommitted = (uncommittedInterimRef.current || '').trim();
+            let text = accumulatedTextRef.current.trim();
+            if (uncommitted && !text.endsWith(uncommitted) && text !== uncommitted) {
+                text = (text + ' ' + uncommitted).trim();
+            }
+            text = collapseRepeatedUtterance(text);
             accumulatedTextRef.current = '';
             uncommittedInterimRef.current = '';
             setInterim('');
@@ -320,6 +419,9 @@ export default function useSpeech({
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (!AudioCtx) return;
             const ctx = new AudioCtx();
+            if (ctx.state === 'suspended') {
+                try { ctx.resume(); } catch {}
+            }
             const source = ctx.createMediaStreamSource(stream);
             const analyser = ctx.createAnalyser();
             analyser.fftSize = 256;
@@ -427,9 +529,9 @@ export default function useSpeech({
                     : 0;
 
                 // 2. Speech vs Silence classification
-                // When speech has not started: sensitive threshold catches speech onset
-                // Once speech has started: only sustained speech energy resets silence timer (ambient noise/breathing peak won't reset)
-                const isSpeechOnset = !speechDetectedRef.current && (curSmoothed >= speechThresholdRef.current || (curSmoothed >= silenceThresholdRef.current + 2 && voicePeak >= 15));
+                // When speech has not started: reliable threshold catches speech onset without triggering on mic pops
+                // Once speech has started: only sustained speech energy resets silence timer
+                const isSpeechOnset = !speechDetectedRef.current && (curSmoothed >= speechThresholdRef.current && voicePeak >= 20);
                 const isSustainedSpeech = speechDetectedRef.current && (curSmoothed >= speechThresholdRef.current);
 
                 if (isSpeechOnset || isSustainedSpeech) {
@@ -452,27 +554,35 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: 1.1s (1100ms) speech pause window after speech stops, AND after at least 300ms of real speech
-                            if (silenceMs >= 1100 && speechDurationMs >= 300) {
+                            // Utterance end: 1.4s (1400ms) speech pause window after speech stops, AND after at least 400ms of real speech
+                            if (silenceMs >= 1400 && speechDurationMs >= 400) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
+                            } else if (silenceMs >= 1400 && speechDurationMs < 400) {
+                                // False onset (ambient click/breath < 400ms): reset speech detection and keep listening!
+                                speechDetectedRef.current = false;
+                                silenceStartTimeRef.current = null;
+                                lastDiagRef.current.firstSpeechTime = null;
                             }
                         }
                     } else if (onSilenceExceeded) {
-                        // Speech NOT yet detected: prompt at 6s, pause at 10s
+                        // Speech NOT yet detected: prompt at 7s, pause at 12s
                         const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
-                        if (silenceDuration >= 6000 && inactivityPhaseRef.current === 0) {
+                        if (silenceDuration >= 7000 && inactivityPhaseRef.current === 0) {
                             inactivityPhaseRef.current = 1;
                             lastSpeechOrListenStartRef.current = now;
                             if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
-                        } else if (silenceDuration >= 10000) {
-                            inactivityPhaseRef.current = 2;
-                            setIsPaused(true);
+                        } else if (silenceDuration >= 12000) {
+                            inactivityPhaseRef.current = 0;
+                            lastSpeechOrListenStartRef.current = now;
                             if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
-                            stop('inactivity');
-                            return;
+                            if (userMutedRef.current) {
+                                setIsPaused(true);
+                                stop('inactivity');
+                                return;
+                            }
                         }
                     }
                 } else if (speechDetectedRef.current) {
@@ -484,7 +594,7 @@ export default function useSpeech({
                         } else {
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
-                            if (silenceMs >= 1250 && speechDurationMs >= 300) {
+                            if (silenceMs >= 1500 && speechDurationMs >= 400) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
@@ -606,7 +716,7 @@ export default function useSpeech({
                     setError('not-allowed');
                     setNotice('Mic permission nahi mili. Aap type karke task bana sakte hain.');
                     userStoppedRef.current = true;
-                    setListening(false);
+                    setListeningTracked(false);
                     cleanupAudioNodes();
                 } else if (errType !== 'no-speech' && errType !== 'aborted') {
                     setError(errType || 'speech-error');
@@ -618,11 +728,11 @@ export default function useSpeech({
                     try {
                         createAndStart();
                     } catch {
-                        setListening(false);
+                        setListeningTracked(false);
                         cleanupAudioNodes();
                     }
                 } else {
-                    setListening(false);
+                    setListeningTracked(false);
                     cleanupAudioNodes();
                     const finalText = accumulatedTextRef.current.trim();
                     if (finalText) {
@@ -636,7 +746,7 @@ export default function useSpeech({
                 rec.start();
             } catch {
                 setError('start-failed');
-                setListening(false);
+                setListeningTracked(false);
             }
         };
 
@@ -841,12 +951,16 @@ export default function useSpeech({
                 },
             });
             audioStreamRef.current = stream;
+            setMicPermission('granted');
+            micPermissionRef.current = 'granted';
         } catch (err) {
             isStartingRef.current = false;
-            setListening(false);
+            setListeningTracked(false);
             if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                 setError('not-allowed');
                 setNotice('Mic permission nahi mili. Aap type karke task bana sakte hain.');
+                setMicPermission('denied');
+                micPermissionRef.current = 'denied';
             } else {
                 setError('mic-failed');
                 setNotice('Microphone connect nahi ho saka. Aap type karke task bana sakte hain.');
@@ -901,17 +1015,19 @@ export default function useSpeech({
         const recordingStartTime = Date.now();
         segmentStartTimeRef.current = recordingStartTime;
 
+        const recordingStream = stream;
         mediaRecorder.onstop = async () => {
-            cleanupAudioNodes();
-            setListening(false);
-
             if (activeSessionIdRef.current !== currentSessionId || currentSessionId === 0) {
                 if (import.meta.env.DEV) {
                     console.info('[useSpeech] Dropped audio blob because session was invalidated', { currentSessionId, activeSessionId: activeSessionIdRef.current });
                 }
                 audioChunksRef.current = [];
+                try { recordingStream?.getTracks().forEach((t) => t.stop()); } catch {}
                 return;
             }
+
+            cleanupAudioNodes();
+            setListeningTracked(false);
 
             const durationMs = Date.now() - recordingStartTime;
             const chunks = [...audioChunksRef.current];
@@ -929,6 +1045,13 @@ export default function useSpeech({
                 if (speechDetectedRef.current) {
                     setNotice('Awaaz bahut chhoti thi, dobara bolein');
                 }
+                if (!userMutedRef.current && activeSessionIdRef.current === currentSessionId) {
+                    setTimeout(() => {
+                        if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
+                            start({ force: true });
+                        }
+                    }, 400);
+                }
                 return;
             }
 
@@ -939,7 +1062,7 @@ export default function useSpeech({
                 // If Whisper caught no speech or returned empty, re-arm mic for user in hands-free voice mode
                 setTimeout(() => {
                     if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
-                        start();
+                        start({ force: true });
                     }
                 }, 400);
             }
@@ -949,7 +1072,7 @@ export default function useSpeech({
         lastSpeechOrListenStartRef.current = recordingStartTime;
         mediaRecorder.start();
         isStartingRef.current = false;
-        setListening(true);
+        setListeningTracked(true);
 
         startAudioAnalyser(
             stream,
@@ -972,19 +1095,17 @@ export default function useSpeech({
     const start = useCallback(
         ({ force = false } = {}) => {
             if (force) {
-                // Recover from stuck or stale flags (cleared through watchdog)
-                // But never override half-duplex if agent is actively speaking right now!
-                const isReallySpeaking = typeof window !== 'undefined' &&
-                    window.speechSynthesis &&
-                    window.speechSynthesis.speaking &&
-                    activeUtteranceRef.current &&
-                    isSpeakingRef.current;
-
-                if (isReallySpeaking) {
-                    console.warn('[useSpeech] Force start deferred: agent is actively speaking (half-duplex protected)');
-                    return;
+                // Force mode: clear all speaking, muting, and transcribing locks
+                if (typeof window !== 'undefined' && window.speechSynthesis) {
+                    try { window.speechSynthesis.cancel(); } catch {}
                 }
-
+                activeUtteranceRef.current = null;
+                if (typeof window !== 'undefined') {
+                    window.__ciisCurrentUtterance = null;
+                    window.__ciisVoiceSpeaking = false;
+                }
+                isSpeakingRef.current = false;
+                setIsSpeaking(false);
                 userMutedRef.current = false;
                 setUserMuted(false);
                 isStartingRef.current = false;
@@ -998,13 +1119,6 @@ export default function useSpeech({
                     clearTimeout(speakTimeoutRef.current);
                     speakTimeoutRef.current = null;
                 }
-                activeUtteranceRef.current = null;
-                if (typeof window !== 'undefined') {
-                    window.__ciisCurrentUtterance = null;
-                    window.__ciisVoiceSpeaking = false;
-                }
-                isSpeakingRef.current = false;
-                setIsSpeaking(false);
             } else {
                 if (listening || (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') || isStartingRef.current || isTranscribingRef.current) {
                     return;
@@ -1018,7 +1132,7 @@ export default function useSpeech({
                 }
             }
 
-            if (isSpeakingRef.current || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) {
+            if (!force && (isSpeakingRef.current || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking))) {
                 // If browser speech synthesis has actually finished, has no active utterance, or was cancelled, clear stuck speaking flags
                 if (!activeUtteranceRef.current || (ttsSupported && !window.speechSynthesis?.speaking)) {
                     isSpeakingRef.current = false;
@@ -1039,13 +1153,14 @@ export default function useSpeech({
             setNotice(null);
 
             if (engine === 'whisper') {
-                startWhisper();
+                return startWhisper();
             } else {
-                startBrowserSpeech();
+                return Promise.resolve(startBrowserSpeech());
             }
         },
         [ttsSupported, cleanupAudioNodes, engine, startWhisper, startBrowserSpeech]
     );
+    startRef.current = start;
 
     // TTS Speaking helper with onEnd completion callback (half-duplex: mutes mic)
     const speak = useCallback(
@@ -1064,10 +1179,24 @@ export default function useSpeech({
             }
 
             window.speechSynthesis.cancel();
-            if (speakTimeoutRef.current) clearTimeout(speakTimeoutRef.current);
+            if (speakTimeoutRef.current) {
+                clearInterval(speakTimeoutRef.current);
+                speakTimeoutRef.current = null;
+            }
 
-            const devanagariClean = stripEmojis(speechDevanagari);
-            const hinglishClean = stripEmojis(replyHinglish);
+            const sanitizeTtsWords = (t) => {
+                if (!t) return '';
+                return t
+                    .replace(/\bCIIS\s*AI\b/gi, 'C I I S A I')
+                    .replace(/\bCIIS\b/gi, 'C I I S')
+                    .replace(/विवरण/gu, 'Description')
+                    .replace(/डिस्क्रिप्शन/gu, 'Description')
+                    .replace(/प्राथमिकता/gu, 'Priority')
+                    .replace(/प्रायोरिटी/gu, 'Priority');
+            };
+
+            const devanagariClean = sanitizeTtsWords(stripEmojis(speechDevanagari));
+            const hinglishClean = sanitizeTtsWords(stripEmojis(replyHinglish));
             if (!devanagariClean && !hinglishClean) {
                 if (onEnd) onEnd();
                 return;
@@ -1083,42 +1212,49 @@ export default function useSpeech({
                 voices.find((x) => x.lang === 'en-IN' || x.lang === 'en_IN') ||
                 voices.find((x) => x.lang?.toLowerCase().startsWith('en'));
 
-            let utterance;
-            if (hiInVoice && devanagariClean) {
-                utterance = new SpeechSynthesisUtterance(devanagariClean);
-                utterance.voice = hiInVoice;
-                utterance.lang = hiInVoice.lang || 'hi-IN';
-            } else {
-                const textToSpeak = hinglishClean || devanagariClean;
-                utterance = new SpeechSynthesisUtterance(textToSpeak);
-                if (enInVoice) utterance.voice = enInVoice;
-                utterance.lang = enInVoice?.lang || 'en-IN';
-            }
+            // Prefer en-IN Indian English voice when English technical terms like description or priority are present
+            // so these words are pronounced in natural, authentic English rather than Hindi phonetics
+            const hasEnglishTechWords = /\b(?:description|priority|project|client|task)\b/i.test(hinglishClean || devanagariClean);
+            const voiceToUse = (hasEnglishTechWords && enInVoice) ? enInVoice : (hiInVoice || enInVoice);
+            const isHindi = Boolean(!hasEnglishTechWords && voiceToUse === hiInVoice && devanagariClean);
+            const textToSpeak = isHindi ? devanagariClean : (hinglishClean || devanagariClean);
+            const langToUse = isHindi ? (voiceToUse?.lang || 'hi-IN') : (enInVoice?.lang || 'en-IN');
 
-            utterance.rate = 1.0;
-
-            activeUtteranceRef.current = utterance;
-            if (typeof window !== 'undefined') {
-                window.__ciisCurrentUtterance = utterance;
-            }
+            // Chunk long utterances sentence-by-sentence to avoid Chromium cutoff
+            const sentenceMatches = textToSpeak.match(/[^.!?।\n]+[.!?।\n]*/g);
+            const sentenceChunks = (sentenceMatches && sentenceMatches.length > 0)
+                ? sentenceMatches.map((s) => s.trim()).filter(Boolean)
+                : [textToSpeak];
 
             isSpeakingRef.current = true;
             window.__ciisVoiceSpeaking = true;
             setIsSpeaking(true);
 
             let ended = false;
-            const handleFinish = () => {
+            let lastBoundaryTime = Date.now();
+            const startTime = Date.now();
+            const charCount = textToSpeak.length;
+            // Estimated duration: realistic speaking rate (approx 65-70ms per char + 2s grace)
+            const estimatedMs = Math.max(3000, Math.min(25000, charCount * 70 + 2000));
+
+            // Retain utterances on window so Chromium V8 never garbage-collects them mid-speech
+            if (typeof window !== 'undefined') {
+                window.__ciisUtterances = window.__ciisUtterances || [];
+            }
+
+            const handleFinish = (shouldCancel = true) => {
                 if (ended) return;
                 ended = true;
                 if (speakTimeoutRef.current) {
-                    clearTimeout(speakTimeoutRef.current);
+                    clearInterval(speakTimeoutRef.current);
                     speakTimeoutRef.current = null;
                 }
                 activeUtteranceRef.current = null;
                 if (typeof window !== 'undefined') {
                     window.__ciisCurrentUtterance = null;
+                    window.__ciisUtterances = [];
                 }
-                if (ttsSupported) {
+                if (ttsSupported && shouldCancel) {
                     try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
                 }
                 isSpeakingRef.current = false;
@@ -1129,20 +1265,58 @@ export default function useSpeech({
                 if (onEnd) onEnd();
             };
 
-            utterance.onend = handleFinish;
-            utterance.onerror = handleFinish;
-
-            const charCount = (devanagariClean || hinglishClean).length;
-            const estimatedMs = Math.max(1500, Math.min(10000, charCount * 80 + 1000));
-            speakTimeoutRef.current = setTimeout(handleFinish, estimatedMs);
-
-            try {
-                window.speechSynthesis.speak(utterance);
-                if (window.speechSynthesis.paused) {
-                    window.speechSynthesis.resume();
+            // Watchdog: restores state when estimated duration has passed and no recent progress
+            // Also prevents Chromium's 15s pause bug by un-pausing if paused
+            speakTimeoutRef.current = setInterval(() => {
+                if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+                    try { window.speechSynthesis.resume(); } catch {}
                 }
-            } catch {
-                handleFinish();
+                const elapsed = Date.now() - startTime;
+                const timeSinceLastBoundary = Date.now() - lastBoundaryTime;
+                if (elapsed >= estimatedMs && timeSinceLastBoundary >= 2000) {
+                    handleFinish(false);
+                }
+            }, 400);
+
+            sentenceChunks.forEach((chunkText, idx) => {
+                const isLast = idx === sentenceChunks.length - 1;
+                const utterance = new SpeechSynthesisUtterance(chunkText);
+                if (voiceToUse) utterance.voice = voiceToUse;
+                utterance.lang = langToUse;
+                utterance.rate = 1.0;
+
+                if (typeof window !== 'undefined' && window.__ciisUtterances) {
+                    window.__ciisUtterances.push(utterance);
+                }
+
+                utterance.onboundary = () => {
+                    lastBoundaryTime = Date.now();
+                };
+
+                if (idx === 0) {
+                    activeUtteranceRef.current = utterance;
+                    if (typeof window !== 'undefined') {
+                        window.__ciisCurrentUtterance = utterance;
+                    }
+                }
+
+                utterance.onerror = () => {
+                    if (isLast) handleFinish(false);
+                };
+
+                if (isLast) {
+                    utterance.onend = () => handleFinish(false);
+                }
+
+                try {
+                    window.speechSynthesis.speak(utterance);
+                } catch {
+                    if (isLast) handleFinish(false);
+                }
+            });
+
+            if (window.speechSynthesis.paused) {
+                try { window.speechSynthesis.resume(); } catch { /* ignore */ }
             }
         },
         [ttsSupported, stop]
@@ -1157,12 +1331,13 @@ export default function useSpeech({
             }
         }
         if (speakTimeoutRef.current) {
-            clearTimeout(speakTimeoutRef.current);
+            clearInterval(speakTimeoutRef.current);
             speakTimeoutRef.current = null;
         }
         activeUtteranceRef.current = null;
         if (typeof window !== 'undefined') {
             window.__ciisCurrentUtterance = null;
+            window.__ciisUtterances = [];
             window.__ciisVoiceSpeaking = false;
         }
         isSpeakingRef.current = false;
@@ -1243,8 +1418,10 @@ export default function useSpeech({
         sttSupported,
         ttsSupported,
         listening,
+        listeningRef,
         isTranscribing,
         isSpeaking,
+        isSpeakingRef,
         isPaused,
         setIsPaused,
         interim,
@@ -1270,5 +1447,11 @@ export default function useSpeech({
         setUserMuted,
         clearUserMute,
         lastDiag: lastDiagRef.current,
+        micPermission,
+        micPermissionRef,
+        setMicPermission,
+        lastTranscriptDiag,
+        setLastTranscriptDiag,
+        updateTranscriptDiag,
     };
 }

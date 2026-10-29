@@ -137,6 +137,10 @@ export default function MyAiChatView({ onBack, onClose }) {
     setEngine,
     lang,
     listening,
+    micSkipReason,
+    micPermission,
+    lastTranscriptDiag,
+    pendingStartRef,
     userMuted,
     isTypingRef,
     isSpeaking,
@@ -175,7 +179,8 @@ export default function MyAiChatView({ onBack, onClose }) {
 
   const [hasWebGL, setHasWebGL] = useState(true);
   const threadEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const localInputRef = useRef(null);
+  const inputRef = session?.inputRef || localInputRef;
 
   // WebGL support test
   useEffect(() => {
@@ -664,12 +669,28 @@ export default function MyAiChatView({ onBack, onClose }) {
             <span>Mic State: <strong>{
               listening ? 'active'
               : (isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'speaking'
-              : userMuted ? 'muted'
-              : (isTypingRef?.current || input?.trim?.()) ? 'typing'
-              : !autoSpeak ? 'speaker off'
-              : speechError === 'not-allowed' ? 'permission'
+              : micSkipReason ? `idle - skipped: ${micSkipReason}`
+              : userMuted ? 'idle - skipped: muted'
+              : (isTypingRef?.current || input?.trim?.()) ? 'idle - skipped: typing'
+              : !autoSpeak ? 'idle - skipped: speaker off'
+              : (micPermission === 'denied' || speechError === 'not-allowed') ? 'idle - skipped: permission'
               : 'idle'
-            }</strong></span>
+            }</strong>
+            {!listening && (
+              <span style={{ marginLeft: 6, fontSize: '0.85em', opacity: 0.85 }}>
+                (speakerOn: {autoSpeak ? 'true' : 'false'}, awaitingAnswer: {(!status || ['needs_input', 'needs_disambiguation', 'ready', 'open', 'idle'].includes(status)) ? 'true' : 'false'}, muted: {userMuted ? 'true' : 'false'}, typing: {(isTypingRef?.current || input?.trim?.()) ? 'true' : 'false'}, listening: {listening ? 'true' : 'false'}, speaking: {(isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'true' : 'false'}, permission: {micPermission || (speechError === 'not-allowed' ? 'denied' : 'prompt')}, pendingStart: {pendingStartRef?.current ? 'true' : 'false'})
+              </span>
+            )}
+            </span>
+            <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
+              <span>Last Transcript: <strong>{
+                lastTranscriptDiag ? (
+                  lastTranscriptDiag.dropped
+                    ? `"${lastTranscriptDiag.text || ''}" - DROPPED: ${lastTranscriptDiag.reason || 'other'} (${lastTranscriptDiag.durationMs || 0}ms)`
+                    : `"${lastTranscriptDiag.text}" (${lastTranscriptDiag.durationMs || 0}ms)`
+                ) : 'none'
+              }</strong></span>
+            </div>
             {listening && vadStats && (
               <>
                 <span>RMS: <strong>{vadStats.rms}</strong></span>

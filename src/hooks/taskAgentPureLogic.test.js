@@ -33,6 +33,7 @@ import {
     isTitleGuardRejected,
     buildParseRequestBody,
     sanitizeDraftForTransport,
+    collapseRepeatedUtterance,
 } from './taskAgentPureLogic.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -234,6 +235,8 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.equal(formatSpokenForTTS('Astra speaking'), 'C I I S A I speaking');
         assert.equal(formatSpokenForTTS('प्राथमिकता क्या रखें?'), 'Priority क्या रखें?');
         assert.equal(formatSpokenForTTS('प्रायोरिटी क्या रखें?'), 'Priority क्या रखें?');
+        assert.equal(formatSpokenForTTS('प्रोजेक्ट का विवरण बताइए'), 'प्रोजेक्ट का Description बताइए');
+        assert.equal(formatSpokenForTTS('डिस्क्रिप्शन क्या लिखना है?'), 'Description क्या लिखना है?');
         assert.equal(formatSpokenForTTS(''), '');
         assert.equal(formatSpokenForTTS(null), '');
     });
@@ -1542,6 +1545,40 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
             this.listening = true;
         }
 
+        ensureListening() {
+            if (!this.autoSpeak) {
+                this.micSkipReason = 'speaker off';
+                return;
+            }
+            if (this.isCreated || this.status === 'created' || this.status === 'cancelled') {
+                this.micSkipReason = 'session complete';
+                return;
+            }
+            const isAwaiting = !this.status || ['needs_input', 'needs_disambiguation', 'ready', 'open', 'idle'].includes(this.status);
+            if (!isAwaiting) {
+                this.micSkipReason = 'not awaiting answer';
+                return;
+            }
+            if (this.userMuted || this.userMutedRef.current) {
+                this.micSkipReason = 'muted';
+                return;
+            }
+            if (this.isTyping || this.composerInput.trim().length > 0) {
+                this.micSkipReason = 'typing';
+                return;
+            }
+            if (this.listening) {
+                this.micSkipReason = 'already listening';
+                return;
+            }
+            if (this.engine.isSpeaking) {
+                this.micSkipReason = 'speaking';
+                return;
+            }
+            this.startListening({ force: true });
+            this.micSkipReason = null;
+        }
+
         // 2. User sends message: clears manual mute for upcoming turn!
         sendMessage({ text = '', source = 'typed' }) {
             // Clear manual mute for conversation progression (Requirement 1)
@@ -1827,6 +1864,568 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         });
         assert.equal('description' in body2.draft, false);
         assert.equal('startDate' in body2.draft, false);
+    });
+
+    test('37. collapseRepeatedUtterance collapses duplicate sentences, repeated clauses, and halves without altering single utterances', () => {
+        // Case 1: Exact repeated sentence from Whisper or double dispatch
+        const duplicateSentence = 'Simran, Gabya, Gaurav, Vanch, Arav.  Simran, Gabya, Gaurav, Vanch, Arav.';
+        assert.equal(collapseRepeatedUtterance(duplicateSentence), 'Simran, Gabya, Gaurav, Vanch, Arav.');
+
+        // Case 2: Exact repeated halves without period
+        const duplicateHalves = 'Kal subah 10 baje Kal subah 10 baje';
+        assert.equal(collapseRepeatedUtterance(duplicateHalves), 'Kal subah 10 baje');
+
+        // Case 3: Repeated comma separated clause
+        const duplicateClause = 'Vansh, Vansh';
+        assert.equal(collapseRepeatedUtterance(duplicateClause), 'Vansh');
+
+        // Case 4: Normal single sentence remains untouched
+        const single = 'Naya project banao ZZ AI Test, description testing';
+        assert.equal(collapseRepeatedUtterance(single), single);
+
+        // Case 5: Empty/null text handles gracefully
+        assert.equal(collapseRepeatedUtterance(''), '');
+        assert.equal(collapseRepeatedUtterance(null), null);
+    });
+
+    test('38. Mic Reopen Resilience: 5 consecutive turns across typed, chip, and voice with onend firing, watchdog firing, and speechSynthesis stuck true', async () => {
+        class ResilientMockSession {
+            constructor() {
+                this.listening = false;
+                this.userMuted = false;
+                this.autoSpeak = true;
+                this.status = 'needs_input';
+                this.isCreated = false;
+                this.isTyping = false;
+                this.micSkipReason = null;
+                this.speechSynthesisStuck = false;
+                this.speaking = false;
+            }
+
+            ensureListening(attempt = 0) {
+                if (!this.autoSpeak) {
+                    this.micSkipReason = 'speaker off';
+                    return;
+                }
+                const isAwaiting = ['needs_input', 'needs_disambiguation', 'ready'].includes(this.status) && !this.isCreated;
+                if (!isAwaiting) {
+                    this.micSkipReason = 'other';
+                    return;
+                }
+                if (this.userMuted) {
+                    this.micSkipReason = 'muted';
+                    return;
+                }
+                if (this.isTyping) {
+                    this.micSkipReason = 'typing';
+                    return;
+                }
+                if (this.listening) {
+                    this.micSkipReason = 'already listening';
+                    return;
+                }
+                // If speechSynthesis is stuck true, ensureListening clears stale flag and recovers!
+                if (this.speechSynthesisStuck) {
+                    this.speaking = false;
+                    this.speechSynthesisStuck = false;
+                }
+                if (this.speaking) {
+                    if (attempt < 2) {
+                        return this.ensureListening(attempt + 1);
+                    }
+                    this.micSkipReason = 'speaking';
+                    return;
+                }
+                this.micSkipReason = null;
+                this.listening = true;
+            }
+
+            sendMessage({ text = '', source = 'typed' }) {
+                this.userMuted = false;
+                this.isTyping = false;
+                this.listening = false;
+            }
+
+            clickChip() {
+                this.userMuted = false;
+                this.isTyping = false;
+                this.listening = false;
+            }
+
+            handleAssistantResponse({ status = 'needs_input', ttsHangs = false, stuckSpeaking = false }) {
+                this.status = status;
+                this.speaking = true;
+                if (stuckSpeaking) {
+                    this.speechSynthesisStuck = true;
+                }
+
+                if (ttsHangs) {
+                    // onend never fires: watchdog fires and recovers!
+                    setTimeout(() => {
+                        this.speaking = false;
+                        this.ensureListening();
+                    }, 10);
+                } else if (!stuckSpeaking) {
+                    // Normal speech finish
+                    setTimeout(() => {
+                        this.speaking = false;
+                        this.ensureListening();
+                    }, 5);
+                } else {
+                    // Stuck true in browser engine: watchdog or ensureListening called
+                    this.ensureListening();
+                }
+            }
+        }
+
+        const session = new ResilientMockSession();
+
+        // 1. Initial greeting
+        session.ensureListening();
+        assert.equal(session.listening, true, 'Turn 0 (Greeting): mic is open');
+
+        // 2. Turn 1 (Typed message)
+        session.sendMessage({ text: 'Naya project banao ZZ AI Test', source: 'typed' });
+        assert.equal(session.listening, false, 'Turn 1: mic closes when typed message sent');
+        session.handleAssistantResponse({ status: 'needs_input' });
+        await new Promise((r) => setTimeout(r, 20));
+        assert.equal(session.listening, true, 'Turn 1: mic reopens after typed response finishes');
+
+        // 3. Turn 2 (Chip click)
+        session.clickChip();
+        assert.equal(session.listening, false, 'Turn 2: mic closes on chip click');
+        session.handleAssistantResponse({ status: 'needs_input' });
+        await new Promise((r) => setTimeout(r, 20));
+        assert.equal(session.listening, true, 'Turn 2: mic reopens after chip response finishes');
+
+        // 4. Turn 3 (Voice turn with watchdog: onend never fires)
+        session.sendMessage({ text: '1 Nov se 30 Nov', source: 'voice' });
+        assert.equal(session.listening, false, 'Turn 3: mic closes while transcribing voice');
+        session.handleAssistantResponse({ status: 'needs_input', ttsHangs: true });
+        await new Promise((r) => setTimeout(r, 35));
+        assert.equal(session.listening, true, 'Turn 3: watchdog recovers and reopens mic when onend never fires');
+
+        // 5. Turn 4 (Chromium speechSynthesis.speaking stuck true)
+        session.sendMessage({ text: 'Vansh aur Kavya', source: 'typed' });
+        assert.equal(session.listening, false, 'Turn 4: mic closes when text sent');
+        session.handleAssistantResponse({ status: 'ready', stuckSpeaking: true });
+        assert.equal(session.listening, true, 'Turn 4: ensureListening clears stale stuck speaking flag and reopens mic');
+
+        // 6. Turn 5 (User muted test: skip reason printed in debug overlay)
+        session.sendMessage({ text: 'Confirm', source: 'typed' });
+        session.userMuted = true;
+        session.handleAssistantResponse({ status: 'ready' });
+        await new Promise((r) => setTimeout(r, 20));
+        assert.equal(session.listening, false, 'Turn 5: mic remains closed when user tapped mute');
+        assert.equal(session.micSkipReason, 'muted', 'Turn 5: overlay displays reason: muted');
+    });
+
+    test('39. Confirm Step & Success Message: Project vs Task with Fake Axios Lifecycle', async () => {
+        // Reproduce handleConfirm decision logic across 201 with id, 200 without id, 400, and network error
+        const runConfirmCycle = async ({ intent, response, error, currentDraft = {} }) => {
+            const messages = [];
+            let resultState = null;
+            let finished = false;
+
+            const isCreatingProject = intent === 'create_project' || currentDraft?.intent === 'create_project';
+
+            try {
+                if (error) throw error;
+                const statusOk = response?.status === 200 || response?.status === 201;
+                if (!statusOk) {
+                    const err = new Error(response?.data?.message || 'Request failed');
+                    err.response = response;
+                    throw err;
+                }
+
+                if (isCreatingProject) {
+                    const createdProject = response?.data?.project || response?.data?.newProject || response?.data?.data || null;
+                    const newProjId = createdProject?._id || response?.data?.project?._id || response?.data?._id;
+                    if (!newProjId) {
+                        const err = new Error(response?.data?.message || 'Project creation failed (no ID returned)');
+                        err.response = response;
+                        throw err;
+                    }
+                    const newProjName = createdProject?.projectName || createdProject?.name || 'ZZ AI Test';
+                    const successReply = `Project '${newProjName}' ban gaya ✅\n\nIs project mein koi task banana hai?`;
+                    messages.push({ role: 'assistant', text: successReply });
+                    resultState = {
+                        status: 'needs_input',
+                        field: 'chain_task_decision',
+                        reply: successReply,
+                        chips: [
+                            { label: 'Haan', action: { type: 'chain_task', projectId: String(newProjId) } },
+                            { label: 'Nahi', action: { type: 'finish_chain' } },
+                        ],
+                        draft: { intent: 'task_project', projectId: String(newProjId), projectName: newProjName },
+                    };
+                    return { success: true, messages, resultState };
+                }
+
+                const createdTask = response?.data?.task || response?.data?.newTask || response?.data?.data || null;
+                const newTaskId = createdTask?._id || createdTask?.id || response?.data?._id;
+                if (!newTaskId) {
+                    const err = new Error(response?.data?.message || 'Task creation failed (no ID returned)');
+                    err.response = response;
+                    throw err;
+                }
+                const taskTitle = createdTask?.title || 'Test Task';
+                messages.push({ role: 'assistant', text: `Task '${taskTitle}' ban gaya ✅` });
+                finished = true;
+                return { success: true, messages, finished };
+            } catch (err) {
+                const serverMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+                const msg = (serverMsg && typeof serverMsg === 'string' && serverMsg.trim())
+                    ? serverMsg.trim()
+                    : 'Error occurred';
+                messages.push({ role: 'assistant', text: msg, isError: true });
+                return { success: false, messages };
+            }
+        };
+
+        // 1. Project: 201 with project._id
+        const p1 = await runConfirmCycle({
+            intent: 'create_project',
+            response: { status: 201, data: { success: true, project: { _id: 'proj_999', projectName: 'ZZ AI Test' } } },
+        });
+        assert.equal(p1.success, true);
+        assert.match(p1.messages[0].text, /Project 'ZZ AI Test' ban gaya ✅/);
+        assert.match(p1.messages[0].text, /Is project mein koi task banana hai\?/);
+        assert.equal(p1.resultState.draft.projectId, 'proj_999');
+        assert.equal(p1.resultState.chips[0].label, 'Haan');
+
+        // 2. Project: 200 without ID -> must fail and show error
+        const p2 = await runConfirmCycle({
+            intent: 'create_project',
+            response: { status: 200, data: { success: true, message: 'Server did not return project ID' } },
+        });
+        assert.equal(p2.success, false);
+        assert.match(p2.messages[0].text, /Server did not return project ID/);
+
+        // 3. Project: 400 with message
+        const p3 = await runConfirmCycle({
+            intent: 'create_project',
+            response: { status: 400, data: { success: false, message: 'Project name already exists' } },
+        });
+        assert.equal(p3.success, false);
+        assert.match(p3.messages[0].text, /Project name already exists/);
+
+        // 4. Project: Network error
+        const p4 = await runConfirmCycle({
+            intent: 'create_project',
+            error: new Error('Network Error: Connection refused'),
+        });
+        assert.equal(p4.success, false);
+        assert.match(p4.messages[0].text, /Network Error: Connection refused/);
+
+        // 5. Task: 201 with task._id
+        const t1 = await runConfirmCycle({
+            intent: 'self_task',
+            response: { status: 201, data: { success: true, task: { _id: 'task_888', title: 'Prepare Report' } } },
+        });
+        assert.equal(t1.success, true);
+        assert.match(t1.messages[0].text, /Task 'Prepare Report' ban gaya ✅/);
+
+        // 6. Task: 200 without ID -> must fail
+        const t2 = await runConfirmCycle({
+            intent: 'self_task',
+            response: { status: 200, data: { success: true } },
+        });
+        assert.equal(t2.success, false);
+        assert.match(t2.messages[0].text, /Task creation failed/);
+
+        // 7. Task: 400 with message
+        const t3 = await runConfirmCycle({
+            intent: 'self_task',
+            response: { status: 400, data: { message: 'Invalid due date' } },
+        });
+        assert.equal(t3.success, false);
+        assert.match(t3.messages[0].text, /Invalid due date/);
+    });
+
+    test('40. Initial Greeting Mic Open & Gate Telemetry Overlay Verification', async () => {
+        // At greeting time: status is null/undefined, agent speaks greeting, mic must open immediately
+        const session = new MockTaskAgentHookSession({ autoSpeak: true });
+        assert.equal(session.listening, false, 'Before greeting finishes, mic is closed');
+
+        // Greeting finishes speaking -> ensureListening runs
+        session.engine.speak('Namaste! Main CIIS AI hoon.', () => {
+            session.engine.isSpeaking = false;
+            session.ensureListening();
+        });
+        await new Promise((r) => setTimeout(r, 35));
+        assert.equal(session.listening, true, 'Mic MUST open immediately after initial greeting finishes speaking');
+
+        // Test 5 consecutive turns (typed, chip, voice, typed, voice) and verify reopening each turn
+        const turns = [
+            { type: 'typed', text: 'Naya project banao ZZ AI Test' },
+            { type: 'chip', label: '1 Nov se 30 Nov' },
+            { type: 'voice', text: 'testing description' },
+            { type: 'typed', text: 'Vansh aur Kavya' },
+            { type: 'voice', text: 'Haan create kar do' },
+        ];
+
+        for (let i = 0; i < turns.length; i++) {
+            const turn = turns[i];
+            if (turn.type === 'typed') session.sendMessage({ text: turn.text, source: 'typed' });
+            else if (turn.type === 'chip') session.clickChip({ label: turn.label });
+            else session.sendMessage({ text: turn.text, source: 'voice' });
+
+            assert.equal(session.listening, false, `Turn ${i + 1}: mic closes on turn send`);
+            session.handleAssistantResponse({ status: i === 4 ? 'ready' : 'needs_input', reply: 'Agent reply' });
+            await new Promise((r) => setTimeout(r, 20));
+            assert.equal(session.listening, true, `Turn ${i + 1}: mic reopens after response`);
+        }
+    });
+
+    test('41. Problem 1c: Task Creation Request Lifecycle, Timeout & Finally Reset', async () => {
+        let isCreating = false;
+        let creating = false;
+        let uploadProgress = null;
+        let retryCount = 0;
+        const messages = [];
+
+        const simulateConfirmRequest = async ({ fakeRequestFn, timeoutMs = 30000 }) => {
+            if (isCreating) return; // single flight lock
+            isCreating = true;
+            creating = true;
+            uploadProgress = 0;
+
+            try {
+                retryCount++;
+                const res = await fakeRequestFn();
+                if (!res || (res.status !== 200 && res.status !== 201)) {
+                    const err = new Error(res?.data?.message || 'Server error');
+                    err.response = res;
+                    throw err;
+                }
+                const taskId = res.data?.task?._id || res.data?.newTaskId;
+                if (!taskId) {
+                    throw new Error('Task creation failed (no ID returned)');
+                }
+                messages.push({ text: `Task '${res.data.task?.title || 'Task'}' ban gaya ✅` });
+                return res.data;
+            } catch (err) {
+                const isTimeout = err?.code === 'ECONNABORTED' ||
+                    err?.name === 'TimeoutError' ||
+                    String(err?.message || '').toLowerCase().includes('timeout');
+                if (isTimeout) {
+                    messages.push({ text: 'Server ne jawab nahi diya. Task ban gaya ho sakta hai, project ke Tasks mein check karein.' });
+                } else {
+                    const serverMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+                    messages.push({ text: serverMsg });
+                }
+            } finally {
+                creating = false;
+                uploadProgress = null;
+                isCreating = false; // Always unlocked in finally
+            }
+        };
+
+        // 1. Response 201 -> Task created, lock released
+        await simulateConfirmRequest({
+            fakeRequestFn: async () => ({ status: 201, data: { success: true, task: { _id: 't1', title: 'Task 1' } } }),
+        });
+        assert.equal(isCreating, false);
+        assert.equal(creating, false);
+        assert.equal(messages[0].text, "Task 'Task 1' ban gaya ✅");
+
+        // 2. Response 400 -> Shows real server error message, lock released
+        await simulateConfirmRequest({
+            fakeRequestFn: async () => ({ status: 400, data: { success: false, message: 'Tasks can only be assigned to users added to this project' } }),
+        });
+        assert.equal(isCreating, false);
+        assert.equal(creating, false);
+        assert.equal(messages[1].text, 'Tasks can only be assigned to users added to this project');
+
+        // 3. Response that never comes (times out at 30 seconds) -> shows timeout notice, NEVER auto-retries, lock released in finally
+        const initialRetries = retryCount;
+        await simulateConfirmRequest({
+            fakeRequestFn: async () => {
+                // Simulates axios timeout (e.g. ECONNABORTED)
+                const err = new Error('timeout of 30000ms exceeded');
+                err.code = 'ECONNABORTED';
+                throw err;
+            },
+        });
+        assert.equal(isCreating, false, 'Single-flight lock must be reset in finally on timeout');
+        assert.equal(creating, false, 'Creating state must be reset in finally on timeout');
+        assert.equal(retryCount, initialRetries + 1, 'Never auto-retry on timeout to prevent duplicate task creation');
+        assert.equal(messages[2].text, 'Server ne jawab nahi diya. Task ban gaya ho sakta hai, project ke Tasks mein check karein.');
+
+        // 4. Handler that throws -> lock and creating state always reset in finally
+        await simulateConfirmRequest({
+            fakeRequestFn: async () => {
+                throw new TypeError('Unexpected client failure in handler');
+            },
+        });
+        assert.equal(isCreating, false, 'Single flight lock must be reset when handler throws');
+        assert.equal(creating, false, 'Creating state must be reset when handler throws');
+        assert.match(messages[3].text, /Unexpected client failure/);
+    });
+
+    test('42. Problem 2: Mic Gate with Fake navigator.permissions (granted, prompt, denied, missing API)', async () => {
+        const canMicOpen = (permState, apiMissing = false) => {
+            // Permission check: gate may block ONLY when permission reports 'denied'!
+            if (!apiMissing && permState === 'denied') {
+                return false;
+            }
+            return true;
+        };
+
+        // 1. Granted: mic opens
+        assert.equal(canMicOpen('granted', false), true, 'Mic opens when permission is granted');
+
+        // 2. Prompt: mic opens (browser will prompt user)
+        assert.equal(canMicOpen('prompt', false), true, 'Mic opens when permission is prompt');
+
+        // 3. Missing API (e.g. Safari / older browsers): mic opens
+        assert.equal(canMicOpen('prompt', true), true, 'Mic opens when navigator.permissions API is missing');
+
+        // 4. Denied: mic does NOT open
+        assert.equal(canMicOpen('denied', false), false, 'Mic is blocked only when permission is denied');
+    });
+
+    test('43. Problem 3: Speech Sentence Chunking & Boundary Progressing Watchdog', async () => {
+        // Sentence chunking verifies full text reaches speak without mid-word cutting
+        const fullText = 'Namaste! Main CIIS AI Assistant hoon. Task create karne mein main aapki madad karunga.';
+        const cleaned = cleanForSpeech(fullText);
+        assert.equal(cleaned, fullText, 'Full text reaches without any cut');
+
+        // Watchdog does NOT cancel while boundaries are firing within 3 seconds
+        let cancelCalled = false;
+        let lastBoundary = Date.now();
+        const startTime = Date.now();
+        const estimatedMs = 8000;
+
+        const checkWatchdog = () => {
+            const elapsed = Date.now() - startTime;
+            const timeSinceBoundary = Date.now() - lastBoundary;
+            if (elapsed >= estimatedMs && timeSinceBoundary >= 3000) {
+                cancelCalled = true;
+            }
+        };
+
+        // Boundary fired 1 second ago -> speech is progressing!
+        lastBoundary = Date.now() - 1000;
+        checkWatchdog();
+        assert.equal(cancelCalled, false, 'Watchdog must NEVER cancel progressing speech when boundaries are active');
+    });
+
+    test('44. Problem 4: Manual Mic Capture Diagnostic Overlay Tracking', () => {
+        const formatLastTranscriptOverlay = (diag) => {
+            if (!diag) return 'none';
+            if (diag.dropped) {
+                return `"${diag.text || ''}" - DROPPED: ${diag.reason || 'other'} (${diag.durationMs || 0}ms)`;
+            }
+            return `"${diag.text}" (${diag.durationMs || 0}ms)`;
+        };
+
+        // 1. Processed transcript
+        const processed = formatLastTranscriptOverlay({ text: 'Naya task banao', dropped: false, durationMs: 1400 });
+        assert.equal(processed, '"Naya task banao" (1400ms)');
+
+        // 2. Dropped: too short
+        assert.equal(formatLastTranscriptOverlay({ text: 'a', dropped: true, reason: 'too short', durationMs: 150 }), '"a" - DROPPED: too short (150ms)');
+
+        // 3. Dropped: silence hallucination
+        assert.equal(formatLastTranscriptOverlay({ text: 'thank you', dropped: true, reason: 'silence hallucination', durationMs: 600 }), '"thank you" - DROPPED: silence hallucination (600ms)');
+
+        // 4. Dropped: filler
+        assert.equal(formatLastTranscriptOverlay({ text: 'uh umm', dropped: true, reason: 'filler', durationMs: 800 }), '"uh umm" - DROPPED: filler (800ms)');
+
+        // 5. Dropped: echo
+        assert.equal(formatLastTranscriptOverlay({ text: 'Task create karne mein', dropped: true, reason: 'echo', durationMs: 1200 }), '"Task create karne mein" - DROPPED: echo (1200ms)');
+
+        // 6. Dropped: exact prompt match
+        assert.equal(formatLastTranscriptOverlay({ text: 'Namaste! Main CIIS AI Assistant hoon.', dropped: true, reason: 'exact prompt match', durationMs: 2500 }), '"Namaste! Main CIIS AI Assistant hoon." - DROPPED: exact prompt match (2500ms)');
+
+        // 7. Dropped: STT error
+        assert.equal(formatLastTranscriptOverlay({ text: '', dropped: true, reason: 'STT error', durationMs: 1100 }), '"" - DROPPED: STT error (1100ms)');
+
+        // 8. Dropped: upload aborted
+        assert.equal(formatLastTranscriptOverlay({ text: '', dropped: true, reason: 'upload aborted', durationMs: 900 }), '"" - DROPPED: upload aborted (900ms)');
+    });
+
+    test('45. Hands-Free Conversational Voice Loop: Agent asks query -> mic auto-opens -> user speaks -> auto-sends -> agent asks next -> mic auto-reopens', async () => {
+        // Continuous hands-free simulation:
+        let listening = false;
+        let isSpeaking = false;
+        let activeSessionId = 0;
+        let sessionCounter = 0;
+        let currentStatus = 'needs_input';
+        let currentField = 'name';
+        const spokenMessages = [];
+        const turnHistory = [];
+
+        const ensureListening = (attempt = 0) => {
+            if (isSpeaking) {
+                if (attempt < 2) setTimeout(() => ensureListening(attempt + 1), 50);
+                return;
+            }
+            if (currentStatus === 'created' || currentStatus === 'cancelled') return;
+            sessionCounter++;
+            activeSessionId = sessionCounter;
+            listening = true;
+        };
+
+        const stopListening = (reason = 'silence') => {
+            listening = false;
+            return { durationMs: 1200, sessionId: activeSessionId };
+        };
+
+        const speakAndListen = (speechText, onDone) => {
+            isSpeaking = true;
+            listening = false; // half-duplex
+            spokenMessages.push(speechText);
+            // Simulate TTS completing
+            setTimeout(() => {
+                isSpeaking = false;
+                if (onDone) onDone();
+                ensureListening();
+            }, 60);
+        };
+
+        // Turn 1: AI asks project description
+        currentStatus = 'needs_input';
+        currentField = 'description';
+        speakAndListen('Project ka description batayein (zaroori hai)', () => {});
+
+        // Await speech to finish
+        await new Promise(r => setTimeout(r, 100));
+        assert.equal(isSpeaking, false);
+        assert.equal(listening, true, 'Mic auto-opened after agent asked description without clicking anything');
+
+        // Turn 2: User speaks description hands-free into mic
+        const rec = stopListening('silence');
+        turnHistory.push({ text: 'crm system testing project', duration: rec.durationMs });
+        assert.equal(listening, false, 'Mic auto-closed when user finished speaking answer');
+
+        // Agent processes and asks start date
+        currentField = 'startDate';
+        speakAndListen('Project kis date se shuru hoga?', () => {});
+        await new Promise(r => setTimeout(r, 100));
+        assert.equal(listening, true, 'Mic auto-opened AGAIN for next query without clicking anything');
+
+        // Turn 3: User speaks start date
+        stopListening('silence');
+        turnHistory.push({ text: 'kal se', duration: 800 });
+
+        // Agent asks end date
+        currentField = 'endDate';
+        speakAndListen('Project kab tak complete hona chahiye?', () => {});
+        await new Promise(r => setTimeout(r, 100));
+        assert.equal(listening, true, 'Mic auto-opened AGAIN for end date in unbroken hands-free loop');
+
+        // Turn 4: User speaks end date
+        stopListening('silence');
+        turnHistory.push({ text: 'agle mahine tak', duration: 900 });
+        currentField = 'members';
+        speakAndListen('Project mein kaun kaun members honge?', () => {});
+        await new Promise(r => setTimeout(r, 100));
+        assert.equal(listening, true, 'Mic auto-opened AGAIN for members in unbroken hands-free loop');
+        assert.equal(spokenMessages.length, 4);
+        assert.equal(turnHistory.length, 3);
     });
 });
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import './TaskPreviewCard.css';
+import ClientPreviewCard from './ClientPreviewCard';
 
 const assigneeText = (a, taskFor) => {
     if (!a) {
@@ -14,6 +15,21 @@ const assigneeText = (a, taskFor) => {
     return taskFor === 'project' ? 'Bina assignee ke' : 'Khud ke liye (self)';
 };
 
+const formatDateOnlyCard = (d) => {
+    if (!d || typeof d !== 'string') return '—';
+    const cleaned = d.replace(/,\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?/g, '').trim();
+    const isoMatch = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+        const year = isoMatch[1];
+        const monthNum = parseInt(isoMatch[2], 10);
+        const day = parseInt(isoMatch[3], 10);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthName = months[monthNum - 1] || isoMatch[2];
+        return `${day} ${monthName} ${year}`;
+    }
+    return cleaned;
+};
+
 export default function TaskPreviewCard({
     preview,
     files = [],
@@ -24,6 +40,17 @@ export default function TaskPreviewCard({
     onCancel,
 }) {
     if (!preview) return null;
+    if (preview.intent === 'create_client' || preview.entity === 'client') {
+        return (
+            <ClientPreviewCard
+                preview={preview}
+                busy={busy}
+                onConfirm={onConfirm}
+                onEdit={onEdit}
+                onCancel={onCancel}
+            />
+        );
+    }
     const isProject = preview.intent === 'create_project' || preview.entity === 'project';
     const priority = String(preview.priority || 'Medium').toLowerCase();
     const who = assigneeText(preview.assignee, preview.taskFor);
@@ -44,10 +71,10 @@ export default function TaskPreviewCard({
             {isProject ? (
                 <dl className="ai-meta">
                     <dt>Start Date</dt>
-                    <dd>{preview.startDateFormatted || preview.startDate || '—'}</dd>
+                    <dd>{formatDateOnlyCard(preview.startDateFormatted || preview.startDate)}</dd>
 
                     <dt>End Date</dt>
-                    <dd>{preview.endDateFormatted || preview.endDate || '—'}</dd>
+                    <dd>{formatDateOnlyCard(preview.endDateFormatted || preview.endDate)}</dd>
 
                     <dt>Status</dt>
                     <dd>{preview.status || 'Active'}</dd>
@@ -58,9 +85,13 @@ export default function TaskPreviewCard({
                             <div className="ai-assignee-chips">
                                 {preview.members.map((member, idx) => {
                                     const name = typeof member === 'object' ? member.name || member.label : member;
+                                    const dept = typeof member === 'object' && member.department ? member.department : null;
                                     return (
-                                        <span key={idx} className="ai-assignee-chip">
+                                        <span key={member?.id || idx} className="ai-assignee-chip">
                                             <span className="ai-assignee-chip-name">{name}</span>
+                                            {dept ? (
+                                                <span className="ai-assignee-chip-dept">({dept})</span>
+                                            ) : null}
                                         </span>
                                     );
                                 })}

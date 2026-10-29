@@ -7,6 +7,47 @@ export const MAX_FILES = 10;
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 export const ALLOWED_EXTS = new Set(['jpg', 'jpeg', 'png', 'pdf', 'mp4', 'mp3', 'wav', 'avi', 'mkv', 'webm']);
 
+/**
+ * Collapses duplicate repeated sentences or utterances back-to-back:
+ * e.g. "Simran, Gabya, Gaurav, Vanch, Arav.  Simran, Gabya, Gaurav, Vanch, Arav." -> "Simran, Gabya, Gaurav, Vanch, Arav."
+ */
+export const collapseRepeatedUtterance = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    const trimmed = text.trim();
+    if (!trimmed) return trimmed;
+
+    // 1. Direct split by sentence delimiters like ". ", ".\n", "? ", "! "
+    const sentenceSplit = trimmed.split(/(?<=[.!?])\s+/);
+    if (sentenceSplit.length >= 2) {
+        const first = sentenceSplit[0].trim().replace(/[.!?]+$/, '').toLowerCase();
+        const allIdentical = sentenceSplit.every(s => s.trim().replace(/[.!?]+$/, '').toLowerCase() === first);
+        if (allIdentical) {
+            return sentenceSplit[0].trim();
+        }
+    }
+
+    // 2. Exact repeated halves: "X X" or "X, X" or "X. X"
+    const halfLen = Math.floor(trimmed.length / 2);
+    for (let offset = -5; offset <= 5; offset += 1) {
+        const mid = halfLen + offset;
+        if (mid > 3 && mid < trimmed.length - 3) {
+            const part1 = trimmed.slice(0, mid).trim().replace(/[,;.!?]+$/, '').trim();
+            const part2 = trimmed.slice(mid).trim().replace(/^[,;.!?]+/, '').trim().replace(/[,;.!?]+$/, '').trim();
+            if (part1 && part1.toLowerCase() === part2.toLowerCase()) {
+                return part1;
+            }
+        }
+    }
+
+    // 3. Repeated clauses separated by comma or semicolon
+    const clauses = trimmed.split(/\s*[,;]\s*/);
+    if (clauses.length === 2 && clauses[0].trim().toLowerCase() === clauses[1].trim().toLowerCase()) {
+        return clauses[0].trim();
+    }
+
+    return trimmed;
+};
+
 export const candidateId = (c) => c?.id || c?._id || c?.userId || c?.assigneeId || c?.projectId || '';
 
 export const formatCandidateDate = (dateVal) => {
@@ -151,8 +192,98 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
     }
 
     const intent = draft.intent;
+    const isCreatingClient = intent === 'create_client' || (fallbackPayload?.endpoint === '/clientsservice');
+    const isCreatingProject = intent === 'create_project' || (fallbackPayload?.endpoint === '/projects');
     const isProject = intent === 'task_project' || Boolean(draft.projectId);
     const isAssigned = intent === 'task_assigned_user' || (draft.taskFor === 'others' && draft.assigneeId);
+
+    if (isCreatingClient) {
+        let pmNames = [];
+        if (Array.isArray(draft.projectManager) && draft.projectManager.length > 0) {
+            pmNames = draft.projectManager.map(m => (typeof m === 'object' ? (m.name || m.label || '') : String(m))).filter(Boolean);
+        } else if (Array.isArray(draft.team) && draft.team.length > 0) {
+            pmNames = draft.team.map(m => (typeof m === 'object' ? (m.name || m.label || '') : String(m))).filter(Boolean);
+        } else if (Array.isArray(draft.members) && draft.members.length > 0) {
+            pmNames = draft.members.map(m => (typeof m === 'object' ? (m.name || m.label || '') : String(m))).filter(Boolean);
+        } else if (Array.isArray(fallbackPayload?.fields?.projectManager)) {
+            pmNames = fallbackPayload.fields.projectManager;
+        }
+
+        const fields = {
+            client: draft.client || draft.clientName || fallbackPayload?.fields?.client || '',
+            parentClientId: draft.parentClientId || fallbackPayload?.fields?.parentClientId || null,
+            parentClientName: draft.parentClientName || draft.client || draft.clientName || fallbackPayload?.fields?.parentClientName || '',
+            company: draft.company || draft.companyName || fallbackPayload?.fields?.company || '',
+            city: draft.city || fallbackPayload?.fields?.city || '',
+            projectManager: pmNames,
+            services: [],
+            status: draft.status || fallbackPayload?.fields?.status || 'Active',
+            progress: draft.progress || fallbackPayload?.fields?.progress || '0/0 (0%)',
+            email: draft.email || fallbackPayload?.fields?.email || '',
+            phone: draft.phone ? String(draft.phone).replace(/\D/g, '').slice(-10) : (fallbackPayload?.fields?.phone || ''),
+            companyLogo: draft.companyLogo || fallbackPayload?.fields?.companyLogo || '',
+            industry: draft.industry || fallbackPayload?.fields?.industry || '',
+            gst: draft.gst ? String(draft.gst).trim().toUpperCase() : (fallbackPayload?.fields?.gst || ''),
+            pan: draft.pan ? String(draft.pan).trim().toUpperCase() : (fallbackPayload?.fields?.pan || ''),
+            website: draft.website || fallbackPayload?.fields?.website || '',
+            state: draft.state || fallbackPayload?.fields?.state || '',
+            country: draft.country || fallbackPayload?.fields?.country || 'India',
+            pincode: draft.pincode || fallbackPayload?.fields?.pincode || '',
+            address: draft.address || fallbackPayload?.fields?.address || '',
+            description: draft.description || fallbackPayload?.fields?.description || '',
+            notes: draft.notes || fallbackPayload?.fields?.notes || '',
+            companyCode: fallbackPayload?.fields?.companyCode || '',
+            subscription: [],
+            ...(fallbackPayload?.fields?.branch ? { branch: fallbackPayload.fields.branch } : {}),
+            ...(fallbackPayload?.fields?.branchId ? { branchId: fallbackPayload.fields.branchId } : {}),
+        };
+
+        return {
+            endpoint: '/clientsservice',
+            method: 'POST',
+            multipart: false,
+            fields,
+            body: fields,
+        };
+    }
+
+    if (isCreatingProject) {
+        let memberIds = [];
+        if (Array.isArray(draft.members) && draft.members.length > 0) {
+            memberIds = draft.members.map(m => String(m.id || m._id || m));
+        }
+        if (Array.isArray(draft.assignedUsers) && draft.assignedUsers.length > 0) {
+            memberIds = [...new Set([...memberIds, ...draft.assignedUsers.map(String)])];
+        }
+        if (fallbackPayload?.fields?.users) {
+            try {
+                const parsed = JSON.parse(fallbackPayload.fields.users);
+                if (Array.isArray(parsed)) {
+                    memberIds = [...new Set([...memberIds, ...parsed.map(String)])];
+                }
+            } catch (_) {}
+        }
+        return {
+            endpoint: '/projects',
+            method: 'POST',
+            multipart: true,
+            fileField: 'pdfFile',
+            maxFiles: 1,
+            accept: ['.pdf'],
+            fields: {
+                projectName: draft.name || draft.projectName || fallbackPayload?.fields?.projectName || '',
+                description: draft.description || fallbackPayload?.fields?.description || '',
+                startDate: draft.startDate || fallbackPayload?.fields?.startDate || '',
+                endDate: draft.endDate || fallbackPayload?.fields?.endDate || '',
+                priority: draft.priority ? (draft.priority.charAt(0).toUpperCase() + draft.priority.slice(1).toLowerCase()) : (fallbackPayload?.fields?.priority || 'Medium'),
+                status: draft.status || fallbackPayload?.fields?.status || 'Active',
+                users: JSON.stringify(memberIds),
+                companyCode: fallbackPayload?.fields?.companyCode || '',
+                ...(fallbackPayload?.fields?.branchId ? { branchId: fallbackPayload.fields.branchId, branch: fallbackPayload.fields.branch } : {}),
+                ...(fallbackPayload?.fields?.companyIdentifier ? { companyIdentifier: fallbackPayload.fields.companyIdentifier, companyId: fallbackPayload.fields.companyId } : {}),
+            },
+        };
+    }
 
     if (isProject) {
         const projectId = draft.projectId ? String(draft.projectId) : '';
@@ -306,26 +437,40 @@ export const shouldAutoListenAfterTurn = ({ status, userMuted = false, isCreated
  * If onend never fires (e.g. Chrome garbage-collected SpeechSynthesisUtterance or silent audio device),
  * triggers fallback finish within bounded timeout so the mic reopens.
  */
-export const createTtsWatchdog = (onFinish, textLength = 0, maxTimeoutMs = 8000) => {
+export const createTtsWatchdog = (onFinish, textLength = 0, maxTimeoutMs = 30000) => {
     let triggered = false;
-    const calculated = Math.max(50, textLength * 100 + 1500);
+    let lastProgressTime = 0;
+    const startTime = Date.now();
+    const calculated = Math.max(50, textLength * 70 + 2000);
     const estimatedMs = Math.min(maxTimeoutMs, calculated);
-    const timer = setTimeout(() => {
-        if (!triggered) {
+
+    let timer = null;
+    const trigger = () => {
+        if (triggered) return;
+        const timeSinceBoundary = Date.now() - lastProgressTime;
+        // If boundary events are actively firing within the last 3s, speech is progressing: wait!
+        if (lastProgressTime > 0 && timeSinceBoundary < 3000) {
+            timer = setTimeout(trigger, 500);
+        } else {
             triggered = true;
             onFinish();
         }
-    }, estimatedMs);
+    };
+
+    timer = setTimeout(trigger, estimatedMs);
 
     return {
+        recordProgress: () => {
+            lastProgressTime = Date.now();
+        },
         cancel: () => {
             triggered = true;
-            clearTimeout(timer);
+            if (timer) clearTimeout(timer);
         },
         triggerNow: () => {
             if (!triggered) {
                 triggered = true;
-                clearTimeout(timer);
+                if (timer) clearTimeout(timer);
                 onFinish();
             }
         },
@@ -518,8 +663,8 @@ export const buildTaskFormDataEntries = ({
         if (filesToUpload.length > 0) {
             const file = filesToUpload[0];
             const ext = file.name ? file.name.substring(file.name.lastIndexOf('.')) : '.pdf';
-            const safeTaskTitle = sanitizeDocName(payload.fields?.title || 'Task', 'Task');
-            const customFileName = `${safeTaskTitle}_Document${(ext || '.pdf').toLowerCase()}`;
+            const safeTitle = sanitizeDocName(payload.fields?.projectName || payload.fields?.title || 'Project', 'Project');
+            const customFileName = `${safeTitle}_Document${(ext || '.pdf').toLowerCase()}`;
             entries.push(['pdfFile', file, customFileName]);
         }
     } else {
@@ -556,8 +701,10 @@ export const formatSpokenForTTS = (text) => {
         .replace(/\bCIIS\s*AI\b/gi, 'C I I S A I')
         .replace(/\bCIIS\b/gi, 'C I I S')
         .replace(/\bAstra\b/gi, 'C I I S A I')
-        .replace(/प्राथमिकता/g, 'Priority')
-        .replace(/प्रायोरिटी/g, 'Priority');
+        .replace(/विवरण/gu, 'Description')
+        .replace(/डिस्क्रिप्शन/gu, 'Description')
+        .replace(/प्राथमिकता/gu, 'Priority')
+        .replace(/प्रायोरिटी/gu, 'Priority');
 };
 
 /**
@@ -635,14 +782,13 @@ export const cleanForSpeech = (raw) => {
     // 6. Collapse multiple spaces and newlines
     text = text.replace(/\s+/g, ' ').trim();
 
-    // 7. Cap length for speech: long messages (like 11 point intro) must not be read in full
-    // If text > 200 characters, cut at the nearest sentence boundary within ~220 chars, or 200 chars max
-    if (text.length > 200) {
-        const sentences = text.match(/[^.!?।]+[.!?।]+/g);
+    // 7. Cap length for speech: cut ONLY at a sentence boundary!
+    if (text.length > 220) {
+        const sentences = text.match(/[^.!?।\n]+[.!?।\n]*/g);
         if (sentences && sentences.length > 0) {
             let accum = '';
             for (const s of sentences) {
-                if ((accum + s).length <= 220) {
+                if ((accum + s).trim().length <= 220) {
                     accum += s;
                 } else {
                     break;
@@ -651,10 +797,14 @@ export const cleanForSpeech = (raw) => {
             if (accum.trim()) {
                 text = accum.trim();
             } else {
-                text = text.slice(0, 197).trim() + '...';
+                const firstSentence = sentences[0];
+                const lastSpace = firstSentence.lastIndexOf(' ', 220);
+                if (lastSpace > 80) {
+                    text = firstSentence.slice(0, lastSpace).trim();
+                } else {
+                    text = firstSentence.trim();
+                }
             }
-        } else {
-            text = text.slice(0, 197).trim() + '...';
         }
     }
 

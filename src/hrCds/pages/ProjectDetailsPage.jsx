@@ -7,7 +7,7 @@ import TaskReminderControl, { buildReminderPayload, createDefaultReminderSetting
 import ProjectBulkImportModal from '../components/ProjectBulkImportModal';
 import { FiUploadCloud } from "react-icons/fi";
 
-const SHOW_TASK_DOCUMENTS = true;
+const SHOW_TASK_DOCUMENTS = false;
 
 const parseStoredJson = (key) => {
   try {
@@ -1377,7 +1377,9 @@ const ProjectDetailsPage = () => {
     (task) => hasAttachmentFile(task?.pdfFile) && !isImagePath(task.pdfFile)
   );
   const taskDocumentCount = taskDocumentTasks.length;
-  const documentCount = (hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0) + taskDocumentCount;
+  const documentCount =
+    (hasAttachmentFile(projectDetails?.pdfFile) ? 1 : 0) +
+    (SHOW_TASK_DOCUMENTS ? taskDocumentCount : 0);
 
   const taskAssigneeOptions = useMemo(
     () => [

@@ -236,7 +236,8 @@ const AddClientPage = () => {
             phone: initialClient.phone || '',
             address: initialClient.address || '',
             description: initialClient.description || '',
-            notes: initialClient.notes || ''
+            notes: initialClient.notes || '',
+            companyLogo: initialClient.companyLogo || initialClient.logo || ''
           }));
         }
 

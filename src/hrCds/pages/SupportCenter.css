@@ -2368,9 +2368,59 @@
   color: #667085;
 }
 
+.support-ops-search-clear {
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.support-ops-search-clear:hover {
+  color: #475569;
+}
+
 .support-ops-radio-list {
   display: grid;
   gap: 10px;
+  max-height: 290px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.support-ops-radio-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.support-ops-radio-list::-webkit-scrollbar-thumb {
+  background: #dbeafe;
+  border-radius: 999px;
+}
+
+.support-ops-empty-message {
+  padding: 16px 8px;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+}
+
+.support-ops-head-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6d45e8;
+  background: #ede9fe;
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .support-ops-radio-list button {
@@ -2379,11 +2429,21 @@
   align-items: center;
   gap: 10px;
   border: 0;
-  padding: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
   color: #172033;
   background: transparent;
   text-align: left;
   cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.support-ops-radio-list button:hover {
+  background: #f8fafc;
+}
+
+.support-ops-radio-list button.active {
+  background: #f5f3ff;
 }
 
 .support-ops-radio-list i {

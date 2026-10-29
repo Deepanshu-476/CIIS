@@ -339,6 +339,32 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 14px rgba(124, 58, 237, 0.28);
+  overflow: hidden;
+}
+
+.ClientDashboard-profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+  border-radius: 50%;
+  padding: 4px;
+}
+
+.ClientDashboard-profile-avatar-initial {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ClientDashboard-company-badge-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .ClientDashboard-online-dot {

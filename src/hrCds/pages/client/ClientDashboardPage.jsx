@@ -1667,23 +1667,6 @@ const Dashboard = () => {
             {/* Action 3 */}
             <div
               className="ClientDashboard-action-tile"
-              onClick={() => navigate('/ciisUser/client-meeting')}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="ClientDashboard-action-tile-icon green">
-                <FiCalendar />
-              </div>
-              <div className="ClientDashboard-action-tile-copy">
-                <span>Book Meeting</span>
-                <p>Schedule with team</p>
-              </div>
-              <FiChevronRight className="ClientDashboard-action-tile-chevron" />
-            </div>
-
-            {/* Action 4 */}
-            <div
-              className="ClientDashboard-action-tile"
               onClick={() => navigate('/client/support-tickets')}
               role="button"
               tabIndex={0}

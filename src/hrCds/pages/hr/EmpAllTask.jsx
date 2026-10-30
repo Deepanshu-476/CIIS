@@ -28,7 +28,7 @@ import {
   FiChevronDown, FiChevronUp, FiStar, FiAward, FiBarChart,
   FiEdit3, FiExternalLink, FiMoreVertical, FiShare2, FiInfo, FiHash,
   FiPlay, FiPause, FiStopCircle, FiUserCheck, FiUserX, FiClock as FiTime, FiLogIn,
-   FiClipboard, FiMonitor,
+  FiClipboard, FiMonitor,
   FiPaperclip, FiMic, FiFileText, FiZap
 } from "react-icons/fi";
 
@@ -502,12 +502,12 @@ const getSourceAwareTaskDate = (task, logs = []) => getTaskRelevantDate(task, lo
 
 const getStatusObject = (status) => {
   const normalized = normalizeStatus(status);
-  
-  
+
+
   const found = STATUS_OPTIONS.find(s => s.value === normalized);
   if (found) return found;
-  
-  
+
+
   const defaultStatus = {
     'pending': { value: 'pending', label: 'Pending', color: '#ffc107', bgColor: '#fff3cd' },
     'in-progress': { value: 'in-progress', label: 'In Progress', color: '#17a2b8', bgColor: '#d1ecf1' },
@@ -518,7 +518,7 @@ const getStatusObject = (status) => {
     'reopen': { value: 'reopen', label: 'Reopen', color: '#e83e8c', bgColor: '#fcdce8' },
     'cancelled': { value: 'cancelled', label: 'Cancelled', color: '#6c757d', bgColor: '#f8f9fa' }
   };
-  
+
   return defaultStatus[normalized] || defaultStatus.pending;
 };
 
@@ -609,10 +609,10 @@ const getImageUrl = (imagePath) => {
   }
 
   const baseUrl = API_URL;
-  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, ''); 
+  const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
   let cleanPath = String(imagePath).replace(/\\/g, '/').replace(/^\/+/, '');
-  
+
   if (cleanPath.startsWith('uploads/client-remarks/')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
@@ -631,7 +631,7 @@ const getImageUrl = (imagePath) => {
   if (cleanPath.includes('client-remarks')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;
   }
-  
+
   const filename = cleanPath.split('/').pop();
   return `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`;
 };
@@ -702,7 +702,7 @@ const TaskDetails = () => {
     };
   }, []);
 
-  
+
   const isMounted = useRef(true);
   const hasFetchedUsers = useRef(false);
   const fetchUsersTimeoutRef = useRef(null);
@@ -712,7 +712,7 @@ const TaskDetails = () => {
   const usersFetchRequestRef = useRef(0);
   const usersRef = useRef([]);
 
-  
+
   const [users, setUsers] = useState([]);
   useEffect(() => {
     usersRef.current = users;
@@ -724,30 +724,30 @@ const TaskDetails = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState("");
 
-  
+
   const [departmentMap, setDepartmentMap] = useState({});
   const [jobRoleMap, setJobRoleMap] = useState({});
 
-  
+
   const [activityLogs, setActivityLogs] = useState([]);
   const [allTaskLogs, setAllTaskLogs] = useState({});
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [selectedTaskForActivity, setSelectedTaskForActivity] = useState(null);
 
-  
+
   const [remarksDialog, setRemarksDialog] = useState({ open: false, taskId: null, remarks: [] });
   const [zoomImage, setZoomImage] = useState(null);
   const [loadingRemarks, setLoadingRemarks] = useState(false);
 
-  
+
   const [taskTimeTracking, setTaskTimeTracking] = useState({});
   const [todayTotalTime, setTodayTotalTime] = useState({
     totalSeconds: 0,
     displayText: '0s'
   });
 
-  
+
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState("");
   const [currentUserCompanyRole, setCurrentUserCompanyRole] = useState("");
@@ -815,11 +815,11 @@ const TaskDetails = () => {
     });
   }, [dateFilter, globalFromDate, globalToDate, navigate, users, taskTypeFilter]);
 
-  
+
   useEffect(() => {
     isMounted.current = true;
 
-    
+
     return () => {
       isMounted.current = false;
       if (fetchUsersTimeoutRef.current) {
@@ -831,7 +831,7 @@ const TaskDetails = () => {
     };
   }, []);
 
-  
+
   const showSnackbar = useCallback((message, severity = 'info') => {
     if (snackbarTimerRef.current) {
       clearTimeout(snackbarTimerRef.current);
@@ -848,7 +848,7 @@ const TaskDetails = () => {
     }, 3000);
   }, []);
 
-  
+
 
   const isOwner = useCallback(() => {
     const role = String(currentUserRole || '').trim().toLowerCase();
@@ -915,7 +915,7 @@ const TaskDetails = () => {
     return roleValues.some((value) => normalize(value) === 'client') || departmentName === 'client';
   };
 
-  
+
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -999,7 +999,7 @@ const TaskDetails = () => {
     return checkDate >= start && checkDate <= end;
   };
 
-  
+
 
   const formatTimeFromSeconds = (totalSeconds) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -1109,16 +1109,16 @@ const TaskDetails = () => {
     };
   }, [calculateTaskActiveTime]);
 
-  
-  
-  
+
+
+
   const fetchTaskLogsByType = useCallback(async (task) => {
     const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
     const taskId = task._id;
-    
+
     try {
       let response;
-      
+
       if (source === 'client') {
         void 0;
         response = await axios.get(`/tasks/client-tasks/${taskId}/client-activity-logs`);
@@ -1129,7 +1129,7 @@ const TaskDetails = () => {
         void 0;
         response = await axios.get(`/task/${taskId}/activity-logs`);
       }
-      
+
       if (response.data.success && isMounted.current) {
         return response.data.logs || [];
       }
@@ -1140,7 +1140,7 @@ const TaskDetails = () => {
     }
   }, []);
 
-  
+
   const fetchAllTaskLogs = useCallback(async (tasksList) => {
     if (!tasksList || tasksList.length === 0) return;
 
@@ -1149,7 +1149,7 @@ const TaskDetails = () => {
 
     if (tasksNeedingLogs.length === 0) return;
 
-    
+
     for (const task of tasksNeedingLogs) {
       const logs = await fetchTaskLogsByType(task);
       if (isMounted.current) {
@@ -1161,7 +1161,7 @@ const TaskDetails = () => {
       setAllTaskLogs(prevLogs => {
         const newLogs = { ...prevLogs, ...logsMap };
 
-        
+
         const todayTotal = calculateTodayTotalTime(tasksList, newLogs);
         setTodayTotalTime(todayTotal);
 
@@ -1170,7 +1170,7 @@ const TaskDetails = () => {
     }
   }, [allTaskLogs, calculateTodayTotalTime, fetchTaskLogsByType]);
 
-  
+
 
   const [assignModal, setAssignModal] = useState({
     open: false,
@@ -1509,7 +1509,7 @@ const TaskDetails = () => {
     cancelled: 0
   });
 
-  
+
   const [filteredTaskStats, setFilteredTaskStats] = useState({
     total: 0,
     pending: { count: 0, percentage: 0 },
@@ -1704,7 +1704,7 @@ const TaskDetails = () => {
     fetchJobRoles();
   }, []);
 
-  
+
 
   const fetchUsersWithTasks = useCallback(async () => {
     if (fetchUsersTimeoutRef.current) {
@@ -1931,9 +1931,9 @@ const TaskDetails = () => {
                 totalTasks,
                 avgCompletion: usersWithStats.length > 0
                   ? Math.round(
-                      totalCompleted /
-                      Math.max(totalTasks, 1) * 100
-                    )
+                    totalCompleted /
+                    Math.max(totalTasks, 1) * 100
+                  )
                   : 0,
                 pendingTasks: totalPending,
                 activeEmployees: usersWithStats.reduce((sum, user) => sum + ((user?.taskStats?.total || 0) > 0 ? 1 : 0), 0),
@@ -1970,11 +1970,11 @@ const TaskDetails = () => {
           setUsersLoading(false);
         }
       }
-    }, 300); 
+    }, 300);
 
   }, [currentUser, isOwner, calculateOverallStats, globalFromDate, globalToDate, jobRoleMap, pageScope, dateFilter, taskTypeFilter]);
 
-  
+
   useEffect(() => {
     if (currentUser && isMounted.current && pageAccessReady) {
       hasFetchedUsers.current = true;
@@ -1988,7 +1988,7 @@ const TaskDetails = () => {
     };
   }, [currentUser, fetchUsersWithTasks, pageAccessReady]);
 
-  
+
 
   const departmentOptions = useMemo(() => {
     const set = new Set();
@@ -2442,7 +2442,7 @@ const TaskDetails = () => {
     });
   }, [overallStats]);
 
-  
+
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks)) return [];
     return [...tasks].sort((a, b) => {
@@ -2454,7 +2454,7 @@ const TaskDetails = () => {
     });
   }, [allTaskLogs, tasks]);
 
-  
+
   useEffect(() => {
     if (!filteredTasks || filteredTasks.length === 0) {
       setFilteredTaskStats({
@@ -2536,7 +2536,7 @@ const TaskDetails = () => {
     if (fromDate || toDate) setDateFilter("all");
   }, [fromDate, toDate]);
 
-  
+
 
   const fetchTaskStatusCounts = useCallback(async (userId) => {
     try {
@@ -2551,7 +2551,7 @@ const TaskDetails = () => {
       }
 
       const response = await axios.get(`/tasks/all/user/${userId}/stats`, {
-            noCache: true,
+        noCache: true,
         params: {
           period: fromDate || toDate || dateFilter === 'overdue' ? 'all' : dateFilter,
           fromDate,
@@ -2585,7 +2585,7 @@ const TaskDetails = () => {
     }
   }, [activeStatusFilters, dateFilter, fromDate, priorityFilter, searchQuery, toDate]);
 
-  
+
   const calculateStatsFromTasks = useCallback(() => {
     if (!tasks || tasks.length === 0) {
       setUserTaskStats({
@@ -2677,10 +2677,10 @@ const TaskDetails = () => {
       } else {
         return [...newFilters, status];
       }
-    }); 
+    });
   };
 
-  
+
   const fetchUserTasks = useCallback(async (userId, page = taskPage, options = {}) => {
     if (fetchingTasksForUser.current === `${userId}-${page}`) {
       return;
@@ -2703,7 +2703,7 @@ const TaskDetails = () => {
       setSelectedUserId(userId);
       setOpenDialog(isTaskPageMode);
       if (options.reset) {
-        setTasks([]); 
+        setTasks([]);
         setTaskTotal(0);
         setTaskTotalPages(1);
         setTaskPage(1);
@@ -2713,7 +2713,7 @@ const TaskDetails = () => {
       }
     }
 
-    setLoading(true); 
+    setLoading(true);
     setError("");
 
     try {
@@ -2726,7 +2726,7 @@ const TaskDetails = () => {
       }
 
       const response = await axios.get(`/tasks/all/user/${userId}`, {
-            noCache: true,
+        noCache: true,
         params: {
           page,
           limit: taskLimit,
@@ -2767,23 +2767,23 @@ const TaskDetails = () => {
       }
 
       return;
-      
+
     } catch (err) {
       console.error("❌ Error fetching user tasks:", err);
       console.error("Error details:", err.response?.data);
-      
-      
+
+
       if (err.response?.status === 404 || err.code === 'ECONNABORTED' || err.response?.status === 500) {
-        
+
         void 0;
-        
+
         try {
-          
+
           let personalTasks = [];
           try {
             const personalRes = await axios.get(`/task/user/${userId}/tasks`);
             void 0;
-            
+
             if (personalRes.data) {
               if (personalRes.data.success && personalRes.data.tasks) {
                 personalTasks = personalRes.data.tasks;
@@ -2795,19 +2795,19 @@ const TaskDetails = () => {
                 personalTasks = personalRes.data.data;
               }
             }
-            
+
             personalTasks = personalTasks.map(task => ({ ...task, source: 'personal' }));
           } catch (personalErr) {
             void 0;
           }
-          
-          
+
+
           let assignedTasks = [];
           try {
-            
+
             const assignedRes = await axios.get(`/tasks/user/${userId}/assigned-tasks`);
             void 0;
-            
+
             if (assignedRes.data) {
               if (assignedRes.data.success && assignedRes.data.tasks) {
                 assignedTasks = assignedRes.data.tasks;
@@ -2819,16 +2819,16 @@ const TaskDetails = () => {
                 assignedTasks = assignedRes.data.data;
               }
             }
-            
+
             assignedTasks = assignedTasks.map(task => ({ ...task, source: 'assigned' }));
           } catch (assignedErr) {
             void 0;
           }
-          
+
           void 0;
           void 0;
-          
-          
+
+
           const mergedTasksMap = new Map();
           personalTasks.forEach(task => {
             if (task._id) mergedTasksMap.set(task._id, task);
@@ -2838,28 +2838,28 @@ const TaskDetails = () => {
               mergedTasksMap.set(task._id, task);
             }
           });
-          
+
           let mergedTasks = Array.from(mergedTasksMap.values());
-          
-          
+
+
           mergedTasks.sort((a, b) => {
             const aDate = a.createdAt ? new Date(a.createdAt) : new Date(0);
             const bDate = b.createdAt ? new Date(b.createdAt) : new Date(0);
             return bDate - aDate;
           });
-          
+
           if (isMounted.current && mergedTasks.length > 0) {
             setTasks(mergedTasks);
             await fetchAllTaskLogs(mergedTasks);
             await fetchTaskStatusCounts(userId);
-            
-            
+
+
             showSnackbar(`Loaded ${mergedTasks.length} tasks (some APIs may be unavailable)`, 'warning');
           } else if (isMounted.current && mergedTasks.length === 0) {
             setTasks([]);
             showSnackbar(`No tasks found for ${user.name}`, 'info');
           }
-          
+
         } catch (fallbackErr) {
           console.error("❌ Fallback also failed:", fallbackErr);
           if (isMounted.current) {
@@ -2905,10 +2905,10 @@ const TaskDetails = () => {
     users,
   ]);
 
-  
-  
 
-  
+
+
+
   useEffect(() => {
     if (!isTaskPageMode || !selectedUserId) return;
     if (skipNextTaskFetchRef.current) {
@@ -2937,7 +2937,7 @@ const TaskDetails = () => {
     });
   }, [fetchUserTasks, isTaskPageMode, routeUserId, selectedUserId, users.length]);
 
-  
+
   useEffect(() => {
     if (tasks.length > 0) {
       void 0;
@@ -2947,13 +2947,13 @@ const TaskDetails = () => {
     }
   }, [tasks]);
 
-  
-  
-  
+
+
+
   const fetchTaskRemarks = useCallback(async (taskId) => {
     if (!taskId) return;
 
-    
+
     const task = tasks.find(t => t._id === taskId);
     if (!task) {
       console.error("❌ Task not found for remarks:", taskId);
@@ -2963,10 +2963,10 @@ const TaskDetails = () => {
 
     const taskType = getTaskType(task);
     setLoadingRemarks(true);
-    
+
     try {
       let response;
-      
+
       const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
       if (source === 'client') {
         void 0;
@@ -2984,10 +2984,10 @@ const TaskDetails = () => {
         void 0;
         response = await axios.get(`/task/${taskId}/remarks`);
       }
-      
+
       void 0;
-      
-      
+
+
       const remarks = response.data.data || response.data.remarks || [];
       remarks.forEach((remark, index) => {
         if (remark.image) {
@@ -2995,19 +2995,19 @@ const TaskDetails = () => {
           void 0;
         }
       });
-      
-      setRemarksDialog({ 
-        open: true, 
-        taskId, 
+
+      setRemarksDialog({
+        open: true,
+        taskId,
         remarks: remarks
       });
     } catch (error) {
       console.error(`Error fetching remarks for task ${taskId} (${taskType}):`, error);
       showSnackbar('Failed to load remarks', 'error');
-      setRemarksDialog({ 
-        open: true, 
-        taskId, 
-        remarks: [] 
+      setRemarksDialog({
+        open: true,
+        taskId,
+        remarks: []
       });
     } finally {
       setLoadingRemarks(false);
@@ -3023,13 +3023,13 @@ const TaskDetails = () => {
     setRemarksDialog({ open: false, taskId: null, remarks: [] });
   }, []);
 
-  
-  
-  
+
+
+
   const fetchActivityLogs = useCallback(async (taskId) => {
     if (!taskId) return;
 
-    
+
     const task = tasks.find(t => t._id === taskId);
     if (!task) {
       console.error("❌ Task not found for activity logs:", taskId);
@@ -3040,10 +3040,10 @@ const TaskDetails = () => {
     const taskType = getTaskType(task);
     const source = task.__taskSource || task.taskSource || task.source || getTaskType(task);
     setLoadingActivity(true);
-    
+
     try {
       let response;
-      
+
       if (source === 'client') {
         void 0;
         response = await axios.get(`/tasks/client-tasks/${taskId}/client-activity-logs`);
@@ -3089,7 +3089,7 @@ const TaskDetails = () => {
     setActivityLogs([]);
   }, []);
 
-  
+
   const resetFilters = useCallback(() => {
     setSearchQuery('');
     setActiveStatusFilters(['all']);
@@ -3118,9 +3118,9 @@ const TaskDetails = () => {
     fetchUsersWithTasks();
   }, [fetchUsersWithTasks]);
 
-  
+
   const refreshContent = useCallback(() => {
-    
+
     setSelectedUserId(null);
     setSelectedUser(null);
     setTasks([]);
@@ -3132,24 +3132,24 @@ const TaskDetails = () => {
     setShowActivityLog(false);
     setActivityLogs([]);
     setRemarksDialog({ open: false, taskId: null, remarks: [] });
-    
-    
+
+
     resetFilters();
-    
-    
+
+
     setError("");
-    
-    
+
+
     setShowStatusFilters(true);
-    
-    
+
+
     if (currentUser) {
       hasFetchedUsers.current = false;
       fetchUsersWithTasks();
     }
   }, [resetFilters, currentUser, fetchUsersWithTasks]);
 
-  
+
   const handleCloseDialog = useCallback(() => {
     if (isTaskPageMode) {
       navigate('/ciisUser/company-all-task');
@@ -3160,11 +3160,11 @@ const TaskDetails = () => {
     refreshContent();
   }, [isTaskPageMode, navigate, refreshContent]);
 
-  
+
   useEffect(() => {
     if (isTaskPageMode) return;
     if (!openDialog) {
-      
+
       setTasks([]);
       setTaskTotal(0);
       setTaskTotalPages(1);
@@ -3174,13 +3174,13 @@ const TaskDetails = () => {
       setShowActivityLog(false);
       setActivityLogs([]);
       setRemarksDialog({ open: false, taskId: null, remarks: [] });
-      
-      
+
+
       setError("");
     }
   }, [isTaskPageMode, openDialog]);
 
-  
+
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "Not set";
@@ -3219,7 +3219,7 @@ const TaskDetails = () => {
     }
   };
 
-  
+
   const getStatusCount = (status) => {
     switch (status) {
       case 'total': return filteredTaskStats.total || 0;
@@ -3265,7 +3265,7 @@ const TaskDetails = () => {
     return '#6b7280';
   };
 
-  
+
 
   const renderOverallStats = () => {
     const statusGradients = {
@@ -3361,7 +3361,7 @@ const TaskDetails = () => {
     );
   };
 
-  
+
   const renderStatusCards = () => {
     const statusGradients = {
       'pending': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -3375,7 +3375,7 @@ const TaskDetails = () => {
       'all': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     };
 
-    
+
     const allStatuses = STATUS_OPTIONS;
 
     return (
@@ -3421,7 +3421,7 @@ const TaskDetails = () => {
               const percentage = status.value !== 'all' ? filteredTaskStats[status.value]?.percentage || 0 : 0;
               const gradient = statusGradients[status.value] || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
 
-              
+
               const isZeroCount = count === 0;
               const cardOpacity = isZeroCount ? 0.5 : 1;
 
@@ -3540,7 +3540,7 @@ const TaskDetails = () => {
     );
   };
 
-  
+
   const renderEnhancedUserCard = (user) => {
     const isSelected = selectedUserId === (user._id || user.id);
     const isLoading = loading && fetchingTasksForUser.current?.startsWith(`${user._id || user.id}-`);
@@ -3668,8 +3668,8 @@ const TaskDetails = () => {
     );
   };
 
-  
-    const renderActivityLogModal = () => {
+
+  const renderActivityLogModal = () => {
     if (!showActivityLog || !selectedTaskForActivity) return null;
 
     return (
@@ -3785,8 +3785,8 @@ const TaskDetails = () => {
     );
   };
 
-  
-    const renderRemarksDialog = () => {
+
+  const renderRemarksDialog = () => {
     if (!remarksDialog.open) return null;
 
     const task = tasks.find(t => t._id === remarksDialog.taskId);
@@ -3960,7 +3960,7 @@ const TaskDetails = () => {
     return (
       // Opened from the remarks modal (z-index 99999), so it must sit above it.
       <div className="TaskDetails-activity-modal-overlay" style={{ zIndex: 100001 }} onClick={() => setZoomImage(null)}>
-        <div style={{ 
+        <div style={{
           position: 'relative',
           maxWidth: '90vw',
           maxHeight: '90vh',
@@ -4311,8 +4311,8 @@ const TaskDetails = () => {
                 </div>
                 <h4>No tasks found</h4>
                 <p>
-                  {tasks.length === 0 
-                    ? 'No personal or assigned tasks available for this employee' 
+                  {tasks.length === 0
+                    ? 'No personal or assigned tasks available for this employee'
                     : 'Try adjusting your search or filters'}
                 </p>
                 {tasks.length === 0 && (
@@ -4341,7 +4341,7 @@ const TaskDetails = () => {
 
                   // Get complete status object with color and bgColor
                   const statusObject = getStatusObject(status);
-                  
+
                   const isToday = isSameDay(getSourceAwareTaskDate(task, allTaskLogs[task._id] || []), today);
                   const isOverdue = isTaskOverdueByDate(dueDate, status);
 
@@ -4354,7 +4354,7 @@ const TaskDetails = () => {
                       key={task._id}
                       className={`TaskDetails-modal-task-card ${isToday ? 'today' : ''
                         } ${isOverdue ? 'overdue' : ''}`}
-                      style={{ 
+                      style={{
                         '--status-color': statusObject.color,
                         backgroundColor: statusObject.bgColor,
                         borderLeft: `3px solid ${statusObject.color}`
@@ -4841,8 +4841,8 @@ const TaskDetails = () => {
                   </div>
                   <h4>No tasks found</h4>
                   <p>
-                    {tasks.length === 0 
-                      ? 'No personal or assigned tasks available for this employee' 
+                    {tasks.length === 0
+                      ? 'No personal or assigned tasks available for this employee'
                       : 'Try adjusting your search or filters'}
                   </p>
                   {tasks.length === 0 && (
@@ -4871,7 +4871,7 @@ const TaskDetails = () => {
 
                     // Get complete status object with color and bgColor
                     const statusObject = getStatusObject(status);
-                    
+
                     const isToday = isSameDay(getSourceAwareTaskDate(task, allTaskLogs[task._id] || []), today);
                     const isOverdue = isTaskOverdueByDate(dueDate, status);
 
@@ -4884,7 +4884,7 @@ const TaskDetails = () => {
                         key={task._id}
                         className={`TaskDetails-modal-task-card ${isToday ? 'today' : ''
                           } ${isOverdue ? 'overdue' : ''}`}
-                        style={{ 
+                        style={{
                           '--status-color': statusObject.color,
                           backgroundColor: statusObject.bgColor,
                           borderLeft: `3px solid ${statusObject.color}`
@@ -5104,7 +5104,7 @@ const TaskDetails = () => {
     );
   };
 
-  
+
   // ==================== MAIN RENDER ====================
 
   if (isTaskPageMode) {
@@ -5116,7 +5116,7 @@ const TaskDetails = () => {
         {renderActivityLogModal()}
         {renderRemarksDialog()}
         {renderImageZoomModal()}
-      {renderAssignTaskModal()}
+        {renderAssignTaskModal()}
       </div>
     );
   }
@@ -5359,7 +5359,7 @@ const TaskDetails = () => {
             }}
           />
         </div>
-        
+
         <div className="new-filter-group">
           <div className={`new-filter-item ${dateFilter !== 'today' ? 'active' : ''}`}>
             <label>Timeframe</label>
@@ -5647,7 +5647,7 @@ const TaskDetails = () => {
                     {isExpanded ? <FiChevronUp size={18} className="chevron" /> : <FiChevronDown size={18} className="chevron" />}
                   </div>
                 </div>
-                
+
                 {isExpanded && (
                   group.users.length === 0 ? (
                     <div
@@ -5673,12 +5673,12 @@ const TaskDetails = () => {
                         const hasTasks = (userStats.total || 0) > 0;
                         const rateColor = !hasTasks ? '#ea580c'
                           : completionRate >= 80
-                          ? '#16a34a'
-                          : completionRate >= 50
-                          ? '#f59e0b'
-                          : '#ea580c';
+                            ? '#16a34a'
+                            : completionRate >= 50
+                              ? '#f59e0b'
+                              : '#ea580c';
                         const progressColor = completionRate >= 80 ? '#10b981' : '#f59e0b';
-                        
+
                         return (
                           <div
                             className="new-user-card"
@@ -5706,7 +5706,7 @@ const TaskDetails = () => {
                                 <FiMoreVertical size={16} />
                               </button>
                             </div>
-                            
+
                             <div className="new-user-stats">
                               <div className="stat stat-assigned">
                                 <h5 className="val-blue">{userStats.total || 0}</h5>
@@ -5733,7 +5733,7 @@ const TaskDetails = () => {
                                 {(userStats.client || 0) > 0 && <span>💼 Client: <strong style={{ color: '#1e293b' }}>{userStats.client}</strong></span>}
                               </div>
                             )}
-                            
+
                             <div className="new-user-progress">
                               <div className="progress-track">
                                 {hasTasks && completionRate > 0 ? (
@@ -5747,7 +5747,7 @@ const TaskDetails = () => {
                                 ) : null}
                               </div>
                             </div>
-                            
+
                             <div className="new-user-actions">
                               <button
                                 type="button"

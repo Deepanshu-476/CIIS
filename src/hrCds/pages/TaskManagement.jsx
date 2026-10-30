@@ -8687,8 +8687,13 @@ const UserCreateTask = () => {
                             : 'Supports JPG, PNG, GIF (single image)'}
                         </div>
                         <button
+                          type="button"
                           className="user-create-task-button user-create-task-button-outlined"
                           style={{ marginTop: '8px', padding: isMobile ? '8px 12px' : '10px 16px' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            document.getElementById('remark-image-upload')?.click();
+                          }}
                         >
                           <FiCamera />
                           {!isMobile && "Choose Image"}

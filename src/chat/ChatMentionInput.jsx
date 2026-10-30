@@ -55,7 +55,15 @@ const ChatMentionInput = forwardRef(function ChatMentionInput({ value, mentions,
         <textarea {...props} className={`chat-input ${props.className || ""}`.trim()} ref={inputRef} value={value} rows={1} role="combobox" aria-autocomplete="list"
             aria-expanded={Boolean(trigger && options.length)} aria-controls={trigger && options.length ? listId : undefined}
             aria-activedescendant={trigger && options.length ? `${listId}-${selectedIndex}` : undefined}
-            autoComplete="off" onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+            autoComplete="off"
+            onFocus={(e) => {
+                setFocused(true);
+                props.onFocus?.(e);
+            }}
+            onBlur={(e) => {
+                setFocused(false);
+                props.onBlur?.(e);
+            }}
             onSelect={event => {
                 const nextCaret = event.currentTarget.selectionStart;
                 if (nextCaret !== caret) { setCaret(nextCaret); setActiveIndex(0); }

@@ -879,6 +879,37 @@
   gap: 4px;
 }
 
+.fb-chat-attachment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fb-chat-attachment-close {
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.fb-chat-attachment-close:hover {
+  background: #f1f5f9;
+  color: #ef4444;
+}
+
 .fb-chat-emoji-menu {
   width: min(320px, calc(100% - 12px));
   max-height: min(372px, calc(100vh - 190px));
@@ -1244,6 +1275,13 @@
   cursor: pointer;
   flex: 0 0 auto;
   box-shadow: 0 0 0 1px rgba(24, 119, 242, 0.14);
+  transition: all 0.18s ease;
+}
+
+.fb-chat-attachment-btn.active {
+  background: #1877f2;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(24, 119, 242, 0.35);
 }
 
 .fb-chat-attachment-btn:hover:not(:disabled) {

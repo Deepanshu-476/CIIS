@@ -81,22 +81,47 @@ const ProjectBulkImportModal = ({
 
       const response = await axios.get("/projects/sample-excel", {
         responseType: "blob",
+        cache: false,
+        noCache: true,
       });
 
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = window.URL.createObjectURL(blob);
+      const blobData = response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+
+      if (!blobData || blobData.size === 0) {
+        throw new Error("Downloaded file is empty");
+      }
+
+      const url = window.URL.createObjectURL(blobData);
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", "CIIS_Project_Tasks_Template.xlsx");
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        try {
+          window.URL.revokeObjectURL(url);
+        } catch (_) {}
+      }, 1000);
     } catch (err) {
       console.error("Failed to download demo excel template:", err);
-      setErrorMessage("Failed to download template. Please check your connection and try again.");
+      let message = "Failed to download template. Please check your connection and try again.";
+      try {
+        if (err.response?.data instanceof Blob) {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.message) message = parsed.message;
+        } else if (err.response?.data?.message) {
+          message = err.response.data.message;
+        } else if (err.message) {
+          message = err.message;
+        }
+      } catch (_) {}
+      setErrorMessage(message);
     } finally {
       setIsDownloadingTemplate(false);
     }

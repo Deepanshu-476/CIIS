@@ -721,7 +721,7 @@ useEffect(() => {
             const senderId = getEntityId(message.sender);
             const currentUserId = getEntityId(currentUser);
             const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
-            if (incomingConversationId && incomingConversationId !== currentConversationId) return;
+            if (!incomingConversationId || incomingConversationId !== currentConversationId) return;
             if (message?._id && senderId && senderId !== currentUserId && (message.messageType !== "system" || message.systemEvent?.task)) {
                 markMessageSeen(message._id).catch(() => {});
                 socket.emit(
@@ -968,6 +968,8 @@ useEffect(() => {
                     conversationId,
                     { limit: 50 }
                 );
+
+            if (activeConversationIdRef.current && activeConversationIdRef.current !== conversationId) return;
 
             setMessages(
                 sortMessagesByCreatedAt(
@@ -2605,12 +2607,15 @@ useEffect(() => {
                         <button
                             type="button"
                             className={`file-upload-btn ${showAttachmentMenu ? "active" : ""}`}
-                            onClick={() => setShowAttachmentMenu((prev) => !prev)}
-                            title="Attach"
-                            aria-label="Attach"
+                            onClick={() => {
+                                setShowAttachmentMenu((prev) => !prev);
+                                setShowEmojiPicker(false);
+                            }}
+                            title={showAttachmentMenu ? "Close attachment menu" : "Attach"}
+                            aria-label={showAttachmentMenu ? "Close attachment menu" : "Attach"}
                             aria-expanded={showAttachmentMenu}
                         >
-                            <Paperclip size={19} />
+                            {showAttachmentMenu ? <X size={19} /> : <Paperclip size={19} />}
                         </button>
 
                         {showAttachmentMenu && (
@@ -2629,6 +2634,18 @@ useEffect(() => {
                                     boxShadow: "0 10px 25px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.05)"
                                 }}
                             >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 8px 6px", borderBottom: "1px solid #f1f5f9", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                    <span>Attach</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAttachmentMenu(false)}
+                                        style={{ border: 0, background: "transparent", cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", padding: 2 }}
+                                        title="Close"
+                                        aria-label="Close attachment menu"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
                                 <button
                                     type="button"
                                     className="attachment-menu-item"
@@ -2799,6 +2816,10 @@ useEffect(() => {
                                 }
                             }
                             placeholder="Type your message..."
+                            onFocus={() => {
+                                setShowAttachmentMenu(false);
+                                setShowEmojiPicker(false);
+                            }}
                             onKeyDown={(e) => {
                                 if (
                                     e.key === "Enter"
@@ -2829,7 +2850,10 @@ useEffect(() => {
                             title="Emoji"
                             aria-label="Emoji"
                             aria-expanded={showEmojiPicker}
-                            onClick={() => setShowEmojiPicker((prev) => !prev)}
+                            onClick={() => {
+                                setShowEmojiPicker((prev) => !prev);
+                                setShowAttachmentMenu(false);
+                            }}
                         >
                             <Smile size={20} />
                         </button>

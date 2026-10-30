@@ -1150,7 +1150,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             const activeCall = activeCallRef.current;
             if (!activeCall || activeCall.callId !== data.callId) return;
 
-            const activeNextCall = activateCall(activeCall);
+            const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
+            const activeNextCall = activateCall(activeCall, connectedAt ? { connectedAt } : {});
 
             (data.participants || []).forEach(participant => {
                 upsertRemoteParticipant(participant.userId, { user: participant.user });
@@ -1162,10 +1163,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 const activeCall = activeCallRef.current;
                 if (!activeCall || activeCall.callId !== data.callId || !data.fromUserId || data.fromUserId === currentUserId) return;
 
+                const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
                 const activeNextCall = activateCall({
                     ...activeCall,
                     participantIds: uniqueIds([...activeCall.participantIds, data.fromUserId]),
-                });
+                }, connectedAt ? { connectedAt } : {});
                 window.clearTimeout(callTimeoutRef.current);
                 callTimeoutRef.current = null;
                 upsertRemoteParticipant(data.fromUserId, { user: data.fromUser });

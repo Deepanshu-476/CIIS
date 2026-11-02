@@ -513,13 +513,13 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       setConversations(prev => sortConversationItems(prev.map(conv => (
         getConversationId(conv) === msgConvId
           ? {
-              ...conv,
-              lastMessage: msg,
-              updatedAt: msg.createdAt || conv.updatedAt,
-              unreadCount: isIncoming && !isViewing && !alreadyHandled
-                ? (Number(conv.unreadCount) || 0) + 1
-                : (isViewing ? 0 : conv.unreadCount),
-            }
+            ...conv,
+            lastMessage: msg,
+            updatedAt: msg.createdAt || conv.updatedAt,
+            unreadCount: isIncoming && !isViewing && !alreadyHandled
+              ? (Number(conv.unreadCount) || 0) + 1
+              : (isViewing ? 0 : conv.unreadCount),
+          }
           : conv
       ))));
     };
@@ -539,7 +539,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
         // Mark as seen
         if (msg._id && getEntityId(msg.sender) !== currentUserId) {
-          markMessageSeen(msg._id).catch(() => {});
+          markMessageSeen(msg._id).catch(() => { });
           socket.emit("chat:seen", {
             messageId: msg._id,
             senderId: getEntityId(msg.sender),
@@ -1236,12 +1236,12 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                     {activeTab === "unread"
                       ? "No unread messages"
                       : activeTab === "projects" || activeTab === "groups"
-                      ? "No project chats found"
-                      : activeTab === "clients" || activeTab === "colleagues"
-                      ? "No client chats found"
-                      : searchQuery
-                      ? "No matching conversations"
-                      : "No messages found"}
+                        ? "No project chats found"
+                        : activeTab === "clients" || activeTab === "colleagues"
+                          ? "No client chats found"
+                          : searchQuery
+                            ? "No matching conversations"
+                            : "No messages found"}
                   </strong>
                   <p>
                     {searchQuery
@@ -1298,15 +1298,14 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 <div className="fb-chat-header-info">
                   <span className="fb-chat-header-name">{getChatTitle(selectedChat)}</span>
                   <span
-                    className={`fb-chat-header-status ${
-                      isUserOnline(getSelectedChatTarget()) ? "online" : "offline"
-                    }`}
+                    className={`fb-chat-header-status ${isUserOnline(getSelectedChatTarget()) ? "online" : "offline"
+                      }`}
                   >
                     {selectedChat?.isGroup
                       ? "Group Conversation"
                       : isUserOnline(getSelectedChatTarget())
-                      ? "Active now"
-                      : "Offline"}
+                        ? "Active now"
+                        : "Offline"}
                   </span>
                 </div>
               </div>
@@ -1386,10 +1385,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                     ? fileType.startsWith("image/")
                       ? "image"
                       : fileType.startsWith("video/")
-                      ? "video"
-                      : fileType.startsWith("audio/")
-                      ? "audio"
-                      : "document"
+                        ? "video"
+                        : fileType.startsWith("audio/")
+                          ? "audio"
+                          : "document"
                     : "";
                   const isDeleted = Boolean(msg.deletedForEveryone);
                   const seenBy = Array.isArray(msg.seenBy) ? msg.seenBy : [];
@@ -1501,9 +1500,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                         {formatMessageTime(msg.createdAt)}
                         {isMe && (
                           <span
-                            className={`fb-chat-seen-mark ${
-                              isSeen ? "seen" : showDelivered ? "delivered" : "sent"
-                            }`}
+                            className={`fb-chat-seen-mark ${isSeen ? "seen" : showDelivered ? "delivered" : "sent"
+                              }`}
                             title={isSeen ? "Seen" : showDelivered ? "Delivered" : "Sent"}
                           >
                             {isSeen || showDelivered ? (
@@ -1596,18 +1594,18 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               {showReactions && (
                 <div className="fb-chat-emoji-menu" ref={reactionsRef}>
                   <Suspense fallback={null}>
-                  <EmojiPicker
-                    colorScheme={"light"}
-                    emojiStyle={"native"}
-                    categories={CHAT_EMOJI_CATEGORIES}
-                    skinTonePickerLocation={"SEARCH"}
-                    searchPlaceHolder="Search emoji"
-                    lazyLoadEmojis
-                    width="100%"
-                    height={330}
-                    previewConfig={{ showPreview: false }}
-                    onEmojiClick={handleReactionClick}
-                  />
+                    <EmojiPicker
+                      colorScheme={"light"}
+                      emojiStyle={"native"}
+                      categories={CHAT_EMOJI_CATEGORIES}
+                      skinTonePickerLocation={"SEARCH"}
+                      searchPlaceHolder="Search emoji"
+                      lazyLoadEmojis
+                      width="100%"
+                      height={330}
+                      previewConfig={{ showPreview: false }}
+                      onEmojiClick={handleReactionClick}
+                    />
                   </Suspense>
                 </div>
               )}

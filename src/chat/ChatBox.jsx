@@ -2180,9 +2180,12 @@ useEffect(() => {
         : (typeof isUserOnlineNow === "function"
             ? isUserOnlineNow(selectedUser)
             : (presenceReady ? isIdOnline(selectedUserId) : (Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId))));
+    // The server rings every signed-in device and wakes offline ones by push, so a call must not
+    // depend on the live "online" dot (since presence became strict, it blocked calling anyone whose
+    // app was in the background).
     const canStartCall = selectedUser?.isGroup
-        ? onlineGroupCount > 0 || groupMemberCount === 0
-        : isSelectedUserOnline;
+        ? groupMemberCount > 0 || onlineGroupCount > 0
+        : Boolean(selectedUserId);
 
     const startDirectCall = (callType) => {
         if (!canStartCall) return;
@@ -2331,7 +2334,7 @@ useEffect(() => {
                 <div className="chat-header-actions" ref={headerMenuRef}>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group members") : "Start video call"}
                         onClick={() => startDirectCall("video")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
                     >
@@ -2339,7 +2342,7 @@ useEffect(() => {
                     </button>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group members") : "Start voice call"}
                         onClick={() => startDirectCall("audio")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
                     >

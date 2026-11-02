@@ -834,11 +834,16 @@ export const AdminProject = () => {
     }
 
     const downloadName = filename || (rawPath ? rawPath.split('/').pop() : "") || 'document.pdf';
+    const isImage = isImageFile(downloadName || rawPath);
     const candidateUrls = [];
-    if (projectId && taskId) {
-      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document`);
-    } else if (projectId) {
-      candidateUrls.push(`/projects/${projectId}/document`);
+    if (!isImage) {
+      if (projectId && taskId) {
+        candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/document`);
+      } else if (projectId) {
+        candidateUrls.push(`/projects/${projectId}/document`);
+      }
+    } else if (projectId && taskId && rawPath) {
+      candidateUrls.push(`/projects/${projectId}/tasks/${taskId}/files?path=${encodeURIComponent(rawPath)}&name=${encodeURIComponent(downloadName)}`);
     }
     if (rawPath) {
       candidateUrls.push(getProjectFileUrl(rawPath));
@@ -848,7 +853,10 @@ export const AdminProject = () => {
       let response = null;
       for (const url of candidateUrls) {
         try {
-          response = await axios.get(url, { responseType: 'blob' });
+          response = await axios.get(url, { responseType: 'blob', cache: false, noCache: true });
+          if (isImage && response?.data?.type?.startsWith("application/pdf")) {
+            continue;
+          }
           break;
         } catch (err) {
           if (url === candidateUrls[candidateUrls.length - 1]) throw err;
@@ -864,7 +872,11 @@ export const AdminProject = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(blobUrl);
+        } catch (_) {}
+      }, 1000);
     } catch (error) {
       console.error("Error downloading file:", error);
       const directUrl = resolveApiPreviewUrl((rawPath ? getProjectFileUrl(rawPath) : "") || candidateUrls[0]);

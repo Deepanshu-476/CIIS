@@ -303,22 +303,26 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
+      // The bell keeps only today's items. Attendance is limited to this month (without month/year
+      // the API returns the whole history). /task/assigned and /groups were also requested here,
+      // but their replies have no `data` field, so they never added anything and were dropped.
+      const currentMonth = new Date();
       const [
         attendanceRes,
         leavesRes,
         assetsRes,
         myTasksRes,
-        assignedTasksRes,
-        groupsRes,
         alertsRes,
         systemNotificationsRes,
       ] = await Promise.allSettled([
-        axios.get(`${API_URL}/attendance/list`, { headers, _skipErrorNotify: true }),
+        axios.get(`${API_URL}/attendance/list`, {
+          headers,
+          params: { month: currentMonth.getMonth(), year: currentMonth.getFullYear() },
+          _skipErrorNotify: true
+        }),
         axios.get(`${API_URL}/leaves/status`, { headers, _skipErrorNotify: true }),
         axios.get(`${API_URL}/asset-requests/my-requests`, { headers, _skipErrorNotify: true }),
         axios.get(`${API_URL}/task/my`, { headers, _skipErrorNotify: true }),
-        axios.get(`${API_URL}/task/assigned`, { headers, _skipErrorNotify: true }),
-        axios.get(`${API_URL}/groups`, { headers, _skipErrorNotify: true }),
         // Newest alerts only (the bell shows today's items); the full list was several MB for managers.
         axios.get(`${API_URL}/alerts`, { headers, params: { page: 1, limit: 20 }, _skipErrorNotify: true }),
         axios.get(`${API_URL}/notifications`, {
@@ -433,34 +437,6 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
             dueDateTime: combineDateTime(t.dueDate, t.dueTime),
             taskData: t
           });
-        });
-      });
-
-      
-      const assignedTaskData = assignedTasksRes.value?.data?.data || [];
-      assignedTaskData.forEach((t) => {
-        if (t.status?.toLowerCase() === "completed") return;
-        
-        all.push({
-          id: `assigned-${t._id || Date.now()}`,
-          msg: `📋 New Task Assigned: ${t.title} (${t.status})`,
-          time: t.createdAt,
-          type: 'info',
-          read: false,
-          category: 'task'
-        });
-      });
-
-      
-      const groupData = groupsRes.value?.data?.data || [];
-      groupData.forEach((g) => {
-        all.push({ 
-          id: `group-${g._id || Date.now()}`,
-          msg: `👥 New Group Created: ${g.groupName}`, 
-          time: g.createdAt,
-          type: 'info',
-          read: false,
-          category: 'group'
         });
       });
 

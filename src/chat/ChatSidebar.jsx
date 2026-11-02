@@ -17,7 +17,9 @@ const ChatSidebar = ({
     onCreateGroup,
     loadError = false,
     onRetry,
-    className = ""
+    className = "",
+    presenceReady = false,
+    isUserOnlineNow,
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [newChatUserId, setNewChatUserId] = useState("");
@@ -100,7 +102,12 @@ const ChatSidebar = ({
     };
 
     const isUserOnline = user => {
+        if (typeof isUserOnlineNow === "function") {
+            return isUserOnlineNow(user);
+        }
         const userId = getItemId(user);
+        if (!userId) return false;
+        if (presenceReady) return isIdOnline(userId);
         return Boolean(user?.isOnline) || isIdOnline(userId);
     };
 

@@ -1042,9 +1042,14 @@ const ChatPage = () => {
   const currentUser = JSON.parse(localStorage.getItem("user")) || {};
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const selectedUserRef = useRef(selectedUser);
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
   const [activeView, setActiveView] = useState("chats");
   const [selectedCallId, setSelectedCallId] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [presenceReady, setPresenceReady] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [groups, setGroups] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -1200,6 +1205,13 @@ const ChatPage = () => {
     };
   }), group => group.conversation);
 
+  const isUserOnlineNow = useCallback(user => {
+    const id = getEntityId(user);
+    if (!id) return false;
+    if (presenceReady) return onlineUsers.includes(id);
+    return isTruthyOnline(user?.isOnline || user?.online || user?.status);
+  }, [presenceReady, onlineUsers]);
+
   useEffect(() => {
     const conversationId = location.state?.conversationId;
     if (!conversationId || openedNotification.current === location.key) return;
@@ -1235,29 +1247,26 @@ const ChatPage = () => {
       const res = await getCompanyUsers();
       setChatLoadErrors(previous => ({ ...previous, users: false }));
       const nextUsers = res.data.users || [];
-      setUsers(nextUsers.map(user => {
-        const userId = getEntityId(user);
-        return {
-          ...user,
-          isOnline: isTruthyOnline(user.isOnline || user.online || user.status) || onlineUsers.includes(userId),
-        };
-      }));
+      setUsers(nextUsers.map(user => ({
+        ...user,
+        isOnline: isTruthyOnline(user.isOnline || user.online || user.status),
+      })));
       setSelectedUser(prev => {
         if (!prev || prev.isGroup) return prev;
         const previousId = (prev._id || prev.id || "").toString();
         const freshUser = nextUsers.find(user => (user._id || user.id || "").toString() === previousId);
         if (!freshUser) return prev;
 
-        const nextIsOnline = isTruthyOnline(freshUser.isOnline || freshUser.online || freshUser.status) || onlineUsers.includes(previousId);
-        if (Boolean(prev.isOnline) === nextIsOnline && prev.lastSeen === freshUser.lastSeen) {
+        const nextProfileImage = freshUser.profileImage || freshUser.avatar || prev.profileImage;
+        const nextAvatar = freshUser.avatar || freshUser.profileImage || prev.avatar;
+        if (prev.profileImage === nextProfileImage && prev.avatar === nextAvatar && prev.lastSeen === freshUser.lastSeen) {
           return prev;
         }
 
         return {
           ...prev,
-          profileImage: freshUser.profileImage || freshUser.avatar || prev.profileImage,
-          avatar: freshUser.avatar || freshUser.profileImage || prev.avatar,
-          isOnline: nextIsOnline,
+          profileImage: nextProfileImage,
+          avatar: nextAvatar,
           lastSeen: freshUser.lastSeen,
         };
       });
@@ -1366,22 +1375,10 @@ const ChatPage = () => {
   useEffect(() => {
     if (!socket) return undefined;
 
-    const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
-    const selectedConversationId = selectedUser?.conversation?._id?.toString();
-
     const handleOnline = nextUsers => {
       const onlineIds = normalizeOnlineUserIds(nextUsers);
       setOnlineUsers(onlineIds);
-      setUsers(prev => prev.map(user => {
-        const userId = getEntityId(user);
-        return {...user, isOnline: Boolean(userId && onlineIds.includes(userId))};
-      }));
-      setSelectedUser(prev => {
-        if (!prev || prev.isGroup) return prev;
-        const selectedId = (prev._id || prev.id || "").toString();
-        const nextIsOnline = Boolean(selectedId && onlineIds.includes(selectedId));
-        return Boolean(prev.isOnline) === nextIsOnline ? prev : {...prev, isOnline: nextIsOnline};
-      });
+      setPresenceReady(true);
     };
 
     const setSingleUserPresence = (payload, nextIsOnline) => {
@@ -1392,24 +1389,23 @@ const ChatPage = () => {
         const withoutUser = prev.filter(id => id?.toString() !== userId);
         return nextIsOnline ? [...withoutUser, userId] : withoutUser;
       });
-      setUsers(prev => prev.map(user => (
-        getEntityId(user) === userId ? { ...user, isOnline: nextIsOnline } : user
-      )));
-      setSelectedUser(prev => (
-        prev && !prev.isGroup && getEntityId(prev) === userId
-          ? { ...prev, isOnline: nextIsOnline }
-          : prev
-      ));
+      if (!nextIsOnline && payload?.lastSeen) {
+        setSelectedUser(prev => (
+          prev && !prev.isGroup && getEntityId(prev) === userId
+            ? { ...prev, lastSeen: payload.lastSeen }
+            : prev
+        ));
+      }
     };
 
-    const handleDisconnect = () => handleOnline([]);
+    const handleDisconnect = () => setPresenceReady(false);
     const handleChatUserOnline = data => setSingleUserPresence(data, true);
     const handleChatUserOffline = data => setSingleUserPresence(data, false);
     const handleStatusUpdate = () => fetchStatuses({ quiet: true });
 
     const refreshOnlineUsers = () => {
       if (!socket.connected) {
-        handleOnline([]);
+        setPresenceReady(false);
         return;
       }
       socket.emit("chat:get-online-users", users => {
@@ -1417,7 +1413,20 @@ const ChatPage = () => {
       });
     };
 
+    // A burst of messages sends one unread update each; reload the conversation list once.
+    let conversationsReloadTimer = null;
+    const scheduleConversationsReload = () => {
+      if (conversationsReloadTimer) return;
+      conversationsReloadTimer = window.setTimeout(() => {
+        conversationsReloadTimer = null;
+        fetchConversations();
+      }, 1500);
+    };
+
     const handleUnread = data => {
+      const currentSelected = selectedUserRef.current;
+      const selectedUserId = (currentSelected?._id || currentSelected?.id || "").toString();
+      const selectedConversationId = currentSelected?.conversation?._id?.toString();
       const conversationId = data.conversationId?.toString();
       const senderId = data.senderId?.toString();
       const nextCount = conversationId === selectedConversationId || senderId === selectedUserId
@@ -1429,7 +1438,7 @@ const ChatPage = () => {
         ...(conversationId ? {[conversationId]: nextCount} : {}),
         ...(senderId ? {[senderId]: nextCount} : {}),
       }));
-      fetchConversations();
+      scheduleConversationsReload();
     };
 
     socket.on("chat:online-users", handleOnline);
@@ -1475,13 +1484,11 @@ const ChatPage = () => {
       socket.off("disconnect", handleDisconnect);
       socket.io?.off("reconnect", refreshOnlineUsers);
       window.clearInterval(refreshTimer);
+      window.clearTimeout(conversationsReloadTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
     socket,
-    selectedUser?._id,
-    selectedUser?.id,
-    selectedUser?.conversation?._id,
     isSocketConnected,
   ]);
 
@@ -1544,6 +1551,8 @@ const ChatPage = () => {
           users={enrichedUsers}
           groups={enrichedGroups}
           onlineUsers={onlineUsers}
+          presenceReady={presenceReady}
+          isUserOnlineNow={isUserOnlineNow}
           unreadCounts={unreadCounts}
           selectedUser={selectedUser}
           setSelectedUser={setSelectedUser}
@@ -1655,6 +1664,8 @@ const ChatPage = () => {
           users={users}
           socket={socket}
           onlineUsers={onlineUsers}
+          presenceReady={presenceReady}
+          isUserOnlineNow={isUserOnlineNow}
           onConversationChange={fetchConversations}
           onDeleteGroup={handleDeleteGroup}
           onUpdateGroup={handleUpdateGroup}

@@ -237,6 +237,12 @@ export const getCompanyGroups = () => chatRead('groups', token => axios.get(`${A
     headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
 }));
 
+// Who has read / received one of your own messages ("Message info").
+export const getMessageInfo = (messageId) => axios.get(`${API}/message/${messageId}/info`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+    timeout: 20000,
+});
+
 export const markMessageSeen = async (messageId) => {
     return axios.patch(
         `${API}/message/${messageId}/seen`,

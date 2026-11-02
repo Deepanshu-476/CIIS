@@ -19,7 +19,7 @@ function fixture({permission = 'granted', worker = true} = {}) {
   const navigator = worker ? {serviceWorker: {getRegistration: async () => registration, register: async () => registration}} : {};
   const context = {window: {AudioContext: Audio, Notification}, Notification, navigator};
   const source = fs.readFileSync('src/utils/taskReminderAlerts.js', 'utf8').replaceAll('export const ', 'const ');
-  const api = vm.runInNewContext(`${source}\n({isTaskReminder, reminderAlertKey, prepareReminderAlerts, playTaskReminderSound, showTaskReminderSystemNotification})`, context);
+  const api = vm.runInNewContext(`${source}\n({isTaskReminder, getReminderTaskId, getReminderTaskKey, reminderAlertKey, prepareReminderAlerts, playTaskReminderSound, showTaskReminderSystemNotification})`, context);
   return {api, calls};
 }
 const reminder = {_id: 'reminder-id', type: 'task_due_reminder', title: 'Task Reminder', message: 'Finish report'};
@@ -59,4 +59,6 @@ test('blocked permission is respected; pending reminders and stable IDs are reco
   assert.equal(api.isTaskReminder({type: 'task_pending_reminder'}), true);
   assert.equal(api.isTaskReminder({type: 'chat'}), false);
   assert.equal(api.reminderAlertKey(reminder), api.reminderAlertKey({...reminder}));
+  assert.equal(api.getReminderTaskKey({data: {taskId: 'task-1'}, createdAt: '2026-10-30T10:00:00Z'}), 'task:task-1');
+  assert.equal(api.getReminderTaskKey({data: {taskId: 'task-1'}, createdAt: '2026-10-30T10:02:00Z'}), 'task:task-1');
 });

@@ -272,6 +272,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const endedCallIdsRef = useRef(new Set());
     const reconnectTimersRef = useRef(new Map());
     const floatingDragRef = useRef(null);
+    const pendingInviteIdsRef = useRef([]);
     const iceServersRef = useRef(getFallbackIceServers());
     const iceServersLoadedAtRef = useRef(0);
     const currentUserId = getUserId(currentUser) || getUserId(getStoredUser());
@@ -555,6 +556,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         setShowAddPeople(false);
         setSelectedInviteIds([]);
         setIsInvitingPeople(false);
+        pendingInviteIdsRef.current = [];
         setElapsedSeconds(0);
         setConnectionStatus("");
         connectedAtRef.current = null;
@@ -736,6 +738,19 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         setRemoteParticipants(prev => prev.filter(participant => participant.userId !== peerUserId));
     };
 
+    // Drop people who left, declined or could not be added, so they can be invited again.
+    const dropCallParticipants = (userIds) => {
+        const activeCall = activeCallRef.current;
+        if (!activeCall || !userIds.length) return;
+        userIds.forEach(removePeer);
+        const nextCall = {
+            ...activeCall,
+            participantIds: (activeCall.participantIds || []).filter(id => !userIds.includes(id)),
+        };
+        activeCallRef.current = nextCall;
+        setCall(nextCall);
+    };
+
     const getMediaStream = async (callType) => {
         try {
             if (!navigator.mediaDevices?.getUserMedia) {
@@ -839,6 +854,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 upsertRemoteParticipant(userId, { user: user || { _id: userId, name: "Participant" } });
             });
 
+            pendingInviteIdsRef.current = targetIds;
             socket.emit("call:add-participants", {
                 callId: activeCall.callId,
                 participantIds: targetIds,
@@ -1136,12 +1152,30 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         const handleRinging = (data) => {
             const activeCall = activeCallRef.current;
             if (!activeCall || activeCall.callId !== data.callId) return;
+            const pendingIds = pendingInviteIdsRef.current;
+            pendingInviteIdsRef.current = [];
+            if (pendingIds.length) {
+                const ringingIds = uniqueIds(data.toUserIds || []);
+                const notAddedIds = pendingIds.filter(id => !ringingIds.includes(id));
+                dropCallParticipants(notAddedIds);
+                if (!ringingIds.length) {
+                    setError("Selected users could not be added. They may have already declined or left this call.");
+                    return;
+                }
+            }
             setError(data.unavailableIds?.length ? "Some participants are offline; ringing the remaining participants." : "");
         };
 
         const handleUnavailable = (data) => {
             const activeCall = activeCallRef.current;
             if (activeCall && data.callId && activeCall.callId !== data.callId) return;
+            // A failed "add people" must not end a call that is already connected.
+            if (activeCall?.status === "active" && pendingInviteIdsRef.current.length) {
+                dropCallParticipants(pendingInviteIdsRef.current);
+                pendingInviteIdsRef.current = [];
+                setError(data.reason || "Selected users are unavailable.");
+                return;
+            }
             resetCall();
             setError(data.reason || "Users are not available for the call.");
         };
@@ -1150,7 +1184,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             const activeCall = activeCallRef.current;
             if (!activeCall || activeCall.callId !== data.callId) return;
 
-            const activeNextCall = activateCall(activeCall);
+            const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
+            const activeNextCall = activateCall(activeCall, connectedAt ? { connectedAt } : {});
 
             (data.participants || []).forEach(participant => {
                 upsertRemoteParticipant(participant.userId, { user: participant.user });
@@ -1162,10 +1197,13 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 const activeCall = activeCallRef.current;
                 if (!activeCall || activeCall.callId !== data.callId || !data.fromUserId || data.fromUserId === currentUserId) return;
 
+                const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
+                // Someone added mid-call turns a one-to-one call into a group call for everyone.
                 const activeNextCall = activateCall({
                     ...activeCall,
+                    isGroupCall: activeCall.isGroupCall || !(activeCall.participantIds || []).includes(data.fromUserId),
                     participantIds: uniqueIds([...activeCall.participantIds, data.fromUserId]),
-                });
+                }, connectedAt ? { connectedAt } : {});
                 window.clearTimeout(callTimeoutRef.current);
                 callTimeoutRef.current = null;
                 upsertRemoteParticipant(data.fromUserId, { user: data.fromUser });
@@ -1239,8 +1277,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             const activeCall = activeCallRef.current;
             if (!activeCall || activeCall.callId !== data.callId) return;
 
-            if (data.fromUserId && activeCall.isGroupCall) {
-                removePeer(data.fromUserId);
+            // In a call with others still connected (e.g. a person added to a 1:1 call
+            // declined or left), only that person drops out.
+            const hasOtherPeers = [...peerConnectionsRef.current.keys()].some(id => id !== data.fromUserId);
+            if (data.fromUserId && activeCall.status !== "incoming" && (activeCall.isGroupCall || hasOtherPeers)) {
+                dropCallParticipants([data.fromUserId]);
                 return;
             }
 
@@ -1256,6 +1297,26 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             handleCallClosed({ ...data, status: "missed" });
         };
 
+        const handleAnsweredElsewhere = (data) => {
+            const activeCall = activeCallRef.current;
+            if (activeCall && (!data?.callId || activeCall.callId === data.callId)) {
+                logCall("Call answered on another device", data);
+                stopRingtone();
+                completeCall("answered-elsewhere");
+                resetCall();
+            }
+        };
+
+        const handleConnect = () => {
+            socket.emit("chat:get-online-users");
+            const activeCall = activeCallRef.current;
+            if (activeCall?.callId) {
+                socket.emit("call:rebind", { callId: activeCall.callId });
+            }
+        };
+
+        socket.on("connect", handleConnect);
+        socket.on("call:answered-elsewhere", handleAnsweredElsewhere);
         socket.on("call:incoming", handleIncoming);
         socket.on("call:ringing", handleRinging);
         socket.on("call:unavailable", handleUnavailable);
@@ -1269,6 +1330,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         socket.on("call:missed", handleCallMissed);
 
         return () => {
+            socket.off("connect", handleConnect);
+            socket.off("call:answered-elsewhere", handleAnsweredElsewhere);
             socket.off("call:incoming", handleIncoming);
             socket.off("call:ringing", handleRinging);
             socket.off("call:unavailable", handleUnavailable);

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
+// This dropdown is on every portal page; the picker is only needed once someone opens it.
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 import {
   Search,
   MoreHorizontal,
@@ -26,7 +27,9 @@ import {
   MoreVertical,
   Trash2,
   Reply,
+  Info,
 } from "lucide-react";
+import MessageInfoModal from "../../chat/MessageInfoModal";
 import {
   getConversations,
   getCompanyUsers,
@@ -149,14 +152,14 @@ export const clearMessengerMemoryCache = () => {
 };
 
 const CHAT_EMOJI_CATEGORIES = [
-  { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
-  { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
-  { category: Categories.FOOD_DRINK, name: "Food & Drink" },
-  { category: Categories.ACTIVITIES, name: "Activities" },
-  { category: Categories.TRAVEL_PLACES, name: "Travel" },
-  { category: Categories.OBJECTS, name: "Objects" },
-  { category: Categories.SYMBOLS, name: "Symbols" },
-  { category: Categories.FLAGS, name: "Flags" },
+  { category: "smileys_people", name: "Smileys & People" },
+  { category: "animals_nature", name: "Animals & Nature" },
+  { category: "food_drink", name: "Food & Drink" },
+  { category: "activities", name: "Activities" },
+  { category: "travel_places", name: "Travel" },
+  { category: "objects", name: "Objects" },
+  { category: "symbols", name: "Symbols" },
+  { category: "flags", name: "Flags" },
 ];
 
 const getAttachmentKind = (file) => {
@@ -228,6 +231,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const [showReactions, setShowReactions] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [openMessageMenuId, setOpenMessageMenuId] = useState("");
+  const [infoMessageId, setInfoMessageId] = useState("");
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(null);
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState("");
@@ -259,6 +263,12 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const mediaInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const audioInputRef = useRef(null);
+  const attachmentMenuRef = useRef(null);
+  const attachmentBtnRef = useRef(null);
+  const reactionsRef = useRef(null);
+  const reactionsBtnRef = useRef(null);
+  const moreMenuRef = useRef(null);
+  const moreBtnRef = useRef(null);
   const receivedMessageIdsRef = useRef(new Set());
   const initialDataRequested = useRef(false);
 
@@ -283,6 +293,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   };
 
   const handleCloseWidget = () => {
+    setShowAttachmentMenu(false);
+    setShowReactions(false);
+    setShowMoreMenu(false);
+    setOpenMessageMenuId("");
     if (onClose) onClose();
     setIsOpenInternal(false);
     if (myAi?.isOpen) {
@@ -337,21 +351,95 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     return () => window.removeEventListener("open-messenger-widget-my-ai", handleOpenMyAiEvent);
   }, []);
 
-  // Close when clicking outside the widget
+  // Close when clicking outside widget/menus or on Escape
   useEffect(() => {
     if (!isWidgetOpen) return;
     const handleOutsideClick = (event) => {
+      // 1. If clicking outside entire widget:
+      // If any menu/popup is open, dismiss it first without closing the entire chat window
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        if (showAttachmentMenu || showReactions || showMoreMenu || openMessageMenuId) {
+          setShowAttachmentMenu(false);
+          setShowReactions(false);
+          setShowMoreMenu(false);
+          setOpenMessageMenuId("");
+          return;
+        }
         handleCloseWidget();
+        return;
+      }
+
+      // 2. If clicking outside attachment menu and button
+      if (
+        attachmentMenuRef.current &&
+        !attachmentMenuRef.current.contains(event.target) &&
+        (!attachmentBtnRef.current || !attachmentBtnRef.current.contains(event.target))
+      ) {
+        setShowAttachmentMenu(false);
+      }
+
+      // 3. If clicking outside emoji menu and button
+      if (
+        reactionsRef.current &&
+        !reactionsRef.current.contains(event.target) &&
+        (!reactionsBtnRef.current || !reactionsBtnRef.current.contains(event.target))
+      ) {
+        setShowReactions(false);
+      }
+
+      // 4. If clicking outside more options menu and button
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(event.target) &&
+        (!moreBtnRef.current || !moreBtnRef.current.contains(event.target))
+      ) {
+        setShowMoreMenu(false);
+      }
+
+      // 5. If clicking outside message menu
+      if (
+        openMessageMenuId &&
+        !event.target.closest?.(".fb-chat-message-menu") &&
+        !event.target.closest?.(".fb-chat-more-btn")
+      ) {
+        setOpenMessageMenuId("");
       }
     };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        if (pendingAttachment) {
+          setPendingAttachment(null);
+          return;
+        }
+        if (showAttachmentMenu) {
+          setShowAttachmentMenu(false);
+          return;
+        }
+        if (showReactions) {
+          setShowReactions(false);
+          return;
+        }
+        if (showMoreMenu) {
+          setShowMoreMenu(false);
+          return;
+        }
+        if (openMessageMenuId) {
+          setOpenMessageMenuId("");
+          return;
+        }
+      }
+    };
+
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("touchstart", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("touchstart", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isWidgetOpen]);
+  }, [isWidgetOpen, pendingAttachment, showAttachmentMenu, showReactions, showMoreMenu, openMessageMenuId]);
 
   // Total unread count
   const totalUnread = useMemo(() => {
@@ -496,10 +584,21 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
     };
 
+    // Every message sent to any of the user's chats emits chat:conversation-updated, and each
+    // reload walks every conversation page; coalesce bursts into one reload.
+    let reloadTimer = null;
+    const scheduleChatReload = () => {
+      if (reloadTimer) return;
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null;
+        loadChatData();
+      }, 1500);
+    };
+
     const handleUnreadUpdate = (data = {}) => {
       const conversationId = data.conversationId?.toString();
       if (!conversationId) {
-        loadChatData();
+        scheduleChatReload();
         return;
       }
       setConversations(prev => sortConversationItems(prev.map(conv => (
@@ -521,7 +620,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       catch { setSelectedChat(null); setActiveConversationId(null); setClientTask(null); setReplyingTo(null); setMessages([]); setActiveView("list"); }
     };
     socket.on("chat:project-membership-updated", handleMembership);
-    socket.on("chat:conversation-updated", loadChatData);
+    socket.on("chat:conversation-updated", scheduleChatReload);
 
     // The socket often connects after this effect runs; ask again on every (re)connect.
     const requestOnlineUsers = () => socket.emit("chat:get-online-users", handleOnline);
@@ -535,8 +634,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       socket.off("chat:receive-message", handleReceiveMessage);
       socket.off("chat:unread-update", handleUnreadUpdate);
       socket.off("chat:project-membership-updated", handleMembership);
-      socket.off("chat:conversation-updated", loadChatData);
+      socket.off("chat:conversation-updated", scheduleChatReload);
       socket.off("connect", requestOnlineUsers);
+      if (reloadTimer) clearTimeout(reloadTimer);
     };
   }, [socket, activeConversationId, currentUserId]);
 
@@ -606,6 +706,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
   // Handle sending a message
   const handleSendMessage = async (textToSend = inputText) => {
+    setShowAttachmentMenu(false);
+    setShowReactions(false);
     const text = String(textToSend || "");
     if (!text.trim() || !activeConversationId || isSending || sendingRef.current) return;
 
@@ -702,6 +804,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const handleFileInputChange = (event) => {
     const [file] = Array.from(event.target.files || []);
     event.target.value = "";
+    setShowAttachmentMenu(false);
     if (file) validateAndPreviewFile(file);
   };
 
@@ -972,6 +1075,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               <h2 className="fb-messenger-title">Chats</h2>
               <div className="fb-messenger-header-actions">
                 <button
+                  ref={moreBtnRef}
                   type="button"
                   className="fb-messenger-icon-btn"
                   title="More options"
@@ -1011,7 +1115,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 </button>
 
                 {showMoreMenu && (
-                  <div className="fb-messenger-more-menu">
+                  <div className="fb-messenger-more-menu" ref={moreMenuRef}>
                     <button
                       type="button"
                       onClick={() => {
@@ -1422,6 +1526,11 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                               setReplyingTo(msg); setOpenMessageMenuId("");
                               requestAnimationFrame(() => inputRef.current?.focus());
                             }}><Reply size={14} /> Reply</button>
+                            {isMe && msg._id && (
+                              <button type="button" onClick={() => {
+                                setInfoMessageId(String(msg._id)); setOpenMessageMenuId("");
+                              }}><Info size={14} /> Info</button>
+                            )}
                             <button type="button" onClick={() => handleDeleteForMe(msg)}>
                               <Trash2 size={14} /> Delete
                             </button>
@@ -1482,28 +1591,65 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
             {/* Input Bar */}
             <div className="fb-chat-input-area">
               {showAttachmentMenu && (
-                <div className="fb-chat-attachment-menu">
-                  <button type="button" onClick={() => documentInputRef.current?.click()}>
+                <div className="fb-chat-attachment-menu" ref={attachmentMenuRef}>
+                  <div className="fb-chat-attachment-header">
+                    <span>Attach</span>
+                    <button
+                      type="button"
+                      className="fb-chat-attachment-close"
+                      onClick={() => setShowAttachmentMenu(false)}
+                      title="Close"
+                      aria-label="Close attachment menu"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachmentMenu(false);
+                      documentInputRef.current?.click();
+                    }}
+                  >
                     <FileText size={18} /> Document
                   </button>
-                  <button type="button" onClick={() => mediaInputRef.current?.click()}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachmentMenu(false);
+                      mediaInputRef.current?.click();
+                    }}
+                  >
                     <Images size={18} /> Photos & videos
                   </button>
-                  <button type="button" onClick={() => cameraInputRef.current?.click()}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachmentMenu(false);
+                      cameraInputRef.current?.click();
+                    }}
+                  >
                     <Camera size={18} /> Camera
                   </button>
-                  <button type="button" onClick={() => audioInputRef.current?.click()}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachmentMenu(false);
+                      audioInputRef.current?.click();
+                    }}
+                  >
                     <Mic size={18} /> Audio
                   </button>
                 </div>
               )}
               {showReactions && (
-                <div className="fb-chat-emoji-menu">
+                <div className="fb-chat-emoji-menu" ref={reactionsRef}>
+                  <Suspense fallback={null}>
                   <EmojiPicker
-                    colorScheme={Theme.LIGHT}
-                    emojiStyle={EmojiStyle.NATIVE}
+                    colorScheme={"light"}
+                    emojiStyle={"native"}
                     categories={CHAT_EMOJI_CATEGORIES}
-                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
+                    skinTonePickerLocation={"SEARCH"}
                     searchPlaceHolder="Search emoji"
                     lazyLoadEmojis
                     width="100%"
@@ -1511,6 +1657,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                     previewConfig={{ showPreview: false }}
                     onEmojiClick={handleReactionClick}
                   />
+                  </Suspense>
                 </div>
               )}
 
@@ -1520,22 +1667,27 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               </div>}
               <div className="fb-chat-inputbar">
                 <button
+                  ref={attachmentBtnRef}
                   type="button"
-                  className="fb-chat-attachment-btn"
-                  title="Attach"
+                  className={`fb-chat-attachment-btn ${showAttachmentMenu ? "active" : ""}`}
+                  title={showAttachmentMenu ? "Close attachment menu" : "Attach"}
                   onClick={() => {
                     setShowAttachmentMenu((prev) => !prev);
                     setShowReactions(false);
                   }}
                   disabled={isSending}
                 >
-                  <Paperclip size={18} />
+                  {showAttachmentMenu ? <X size={18} /> : <Paperclip size={18} />}
                 </button>
                 <button
+                  ref={reactionsBtnRef}
                   type="button"
                   className="fb-messenger-search-clear"
                   title="Quick reactions"
-                  onClick={() => setShowReactions((prev) => !prev)}
+                  onClick={() => {
+                    setShowReactions((prev) => !prev);
+                    setShowAttachmentMenu(false);
+                  }}
                 >
                   <Smile size={18} color="#65676b" />
                 </button>
@@ -1545,6 +1697,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   mentions={messageMentions}
                   members={mentionCandidates}
                   onMentionSelect={setInputText}
+                  onFocus={() => {
+                    setShowAttachmentMenu(false);
+                    setShowReactions(false);
+                  }}
                   aria-label={replyingTo ? "Write a reply" : "Write a message"}
                   ref={inputRef}
                   type="text"
@@ -1661,6 +1817,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               </div>
             )}
 
+            {infoMessageId && (
+              <MessageInfoModal messageId={infoMessageId} socket={socket} onClose={() => setInfoMessageId("")} />
+            )}
             {confirmDeleteMessage && (
               <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
                 <div className="fb-chat-confirm-modal">

@@ -49,13 +49,97 @@ import {
   FiCalendar as FiRangeCalendar
 } from "react-icons/fi";
 
-const getIndiaDateKey = (value) => {
+export const getIndiaDateKey = (value) => {
   if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
   const d = new Date(value);
   if (isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(d);
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(d);
+  } catch {
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(d.getTime() + istOffsetMs);
+    const y = istDate.getUTCFullYear();
+    const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istDate.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+};
+
+export const normalizeAttendanceStatusForSave = (status) => {
+  if (!status) return 'ABSENT';
+  const clean = String(status).trim().toUpperCase().replace(/[\s_-]+/g, '');
+  if (clean === 'PRESENT') return 'PRESENT';
+  if (clean === 'LATE') return 'LATE';
+  if (clean === 'HALFDAY') return 'HALF DAY';
+  if (clean === 'ABSENT') return 'ABSENT';
+  if (clean === 'UNINFORMEDLEAVE') return 'UNINFORMED LEAVE';
+  if (clean === 'HOLIDAY') return 'HOLIDAY';
+  if (clean === 'WEEKEND') return 'WEEKEND';
+  if (clean === 'SHORTLEAVE') return 'SHORT LEAVE';
+  return String(status).trim().toUpperCase();
+};
+
+export const formatTimeForInput = (dateValue) => {
+  if (!dateValue) return '';
+  const d = new Date(dateValue);
+  if (isNaN(d.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(d);
+  } catch {
+    return d.toTimeString().slice(0, 5);
+  }
+};
+
+const parseTimeToMinutes = (timeStr, fallback = 0) => {
+  if (!timeStr) return fallback;
+  const [h, m] = String(timeStr).split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return fallback;
+  return h * 60 + m;
+};
+
+const formatMinutesToDuration = (minutes) => {
+  const totalMins = Math.max(0, Math.round(minutes));
+  const h = String(Math.floor(totalMins / 60)).padStart(2, '0');
+  const m = String(totalMins % 60).padStart(2, '0');
+  return `${h}:${m}:00`;
+};
+
+const formatMinutesToTime = (minutes) => {
+  const totalMins = Math.max(0, Math.min(1439, Math.round(minutes)));
+  const h = String(Math.floor(totalMins / 60)).padStart(2, '0');
+  const m = String(totalMins % 60).padStart(2, '0');
+  return `${h}:${m}`;
+};
+
+const resolveRecordShift = (record = {}) => {
+  const shiftStart = record.shiftStart || record.shiftWindow?.startTime || record.user?.shift?.startTime || record.user?.shiftWindow?.startTime || '09:00';
+  const shiftEnd = record.shiftEnd || record.shiftWindow?.endTime || record.user?.shift?.endTime || record.user?.shiftWindow?.endTime || '19:00';
+  const lateGrace = record.lateGraceLimit || record.shiftWindow?.lateGraceLimit || null;
+  const startMins = parseTimeToMinutes(shiftStart, 9 * 60);
+  const endMins = parseTimeToMinutes(shiftEnd, 19 * 60);
+  const graceMins = lateGrace ? parseTimeToMinutes(lateGrace, startMins + 15) : (startMins + 15);
+  const shiftDuration = endMins >= startMins ? (endMins - startMins) : (1440 - startMins + endMins);
+  const halfDayMins = Math.round(shiftDuration / 2) || 300;
+
+  return {
+    shiftStart,
+    shiftEnd,
+    startMins,
+    endMins,
+    graceMins,
+    halfDayMins,
+    lateGraceStr: formatMinutesToTime(graceMins)
+  };
 };
 
 const MonthlyAttendanceModal = ({ state, onClose }) => {
@@ -284,8 +368,8 @@ const DateRangeFilter = ({ startDate, endDate, onStartDateChange, onEndDateChang
       start.setDate(start.getDate() - preset.days);
     }
     
-    onStartDateChange(start.toISOString().split('T')[0]);
-    onEndDateChange(end.toISOString().split('T')[0]);
+    onStartDateChange(getIndiaDateKey(start));
+    onEndDateChange(getIndiaDateKey(end));
     setIsOpen(false);
   };
 
@@ -709,60 +793,178 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
   });
   const [loading, setLoading] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [statusTouched, setStatusTouched] = useState(false);
+  const [dateTouched, setDateTouched] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  
   const canEditRecord = Boolean(canEdit);
   const canDeleteRecord = Boolean(canEdit);
+
+  const shiftInfo = useMemo(() => resolveRecordShift(record), [record]);
 
   useEffect(() => {
     if (record) {
       setEditedRecord({
         user: record.user?.id || record.user?._id || record.user || '',
-        date: record.date ? new Date(record.date).toISOString().split('T')[0] : '',
-        inTime: record.inTime ? new Date(record.inTime).toTimeString().slice(0, 5) : '',
-        outTime: record.outTime ? new Date(record.outTime).toTimeString().slice(0, 5) : '',
+        date: record.date ? getIndiaDateKey(record.date) : '',
+        inTime: formatTimeForInput(record.inTime),
+        outTime: formatTimeForInput(record.outTime),
         status: normalizeAttendanceStatus(record.status),
         lateBy: record.lateBy || '00:00:00',
         earlyLeave: record.earlyLeave || '00:00:00',
         overTime: record.overTime || '00:00:00',
         notes: record.notes || ''
       });
+      setStatusTouched(false);
+      setDateTouched(false);
+      setErrorMessage('');
     }
   }, [record]);
 
+  const isAbsentType = useMemo(() => {
+    return ['absent', 'uninformedleave', 'holiday', 'weekend'].includes(normalizeAttendanceStatus(editedRecord.status));
+  }, [editedRecord.status]);
+
+  const handleStatusChange = (newStatus) => {
+    setStatusTouched(true);
+    setErrorMessage('');
+    const norm = normalizeAttendanceStatus(newStatus);
+    setEditedRecord(current => {
+      let nextIn = current.inTime;
+      let nextOut = current.outTime;
+
+      if (['absent', 'uninformedleave', 'holiday', 'weekend'].includes(norm)) {
+        nextIn = '';
+        nextOut = '';
+      } else if (norm === 'present') {
+        if (!nextIn) nextIn = shiftInfo.shiftStart;
+        if (!nextOut) nextOut = shiftInfo.shiftEnd;
+      } else if (norm === 'late') {
+        const inMins = parseTimeToMinutes(nextIn, 0);
+        if (!nextIn || inMins <= shiftInfo.graceMins) {
+          nextIn = formatMinutesToTime(shiftInfo.graceMins + 1);
+        }
+        if (!nextOut) nextOut = shiftInfo.shiftEnd;
+      } else if (norm === 'halfday') {
+        if (!nextIn) nextIn = shiftInfo.shiftStart;
+        if (!nextOut) {
+          const inMins = parseTimeToMinutes(nextIn, shiftInfo.startMins);
+          nextOut = formatMinutesToTime(inMins + shiftInfo.halfDayMins);
+        }
+      }
+
+      return {
+        ...current,
+        status: norm,
+        inTime: nextIn,
+        outTime: nextOut
+      };
+    });
+  };
+
+  const handleTimeChange = (field, value) => {
+    setErrorMessage('');
+    setEditedRecord(current => ({ ...current, [field]: value }));
+  };
+
+  // Live recalculations for metrics:
+  const liveMetrics = useMemo(() => {
+    if (isAbsentType) {
+      return {
+        lateBy: '00:00:00',
+        earlyLeave: '00:00:00',
+        overTime: '00:00:00',
+        hoursWorked: '00:00:00'
+      };
+    }
+
+    let lateBy = '00:00:00';
+    let earlyLeave = '00:00:00';
+    let overTime = '00:00:00';
+    let hoursWorked = null;
+
+    if (editedRecord.inTime) {
+      const inMins = parseTimeToMinutes(editedRecord.inTime);
+      if (inMins > shiftInfo.graceMins) {
+        lateBy = formatMinutesToDuration(inMins - shiftInfo.startMins);
+      }
+    }
+
+    if (editedRecord.inTime && editedRecord.outTime) {
+      const inMins = parseTimeToMinutes(editedRecord.inTime);
+      const outMins = parseTimeToMinutes(editedRecord.outTime);
+      const totalMinutes = outMins >= inMins ? (outMins - inMins) : (1440 - inMins + outMins);
+      hoursWorked = formatMinutesToDuration(totalMinutes);
+
+      if (outMins < shiftInfo.endMins) {
+        earlyLeave = formatMinutesToDuration(shiftInfo.endMins - outMins);
+      }
+      if (outMins > shiftInfo.endMins) {
+        overTime = formatMinutesToDuration(outMins - shiftInfo.endMins);
+      }
+    }
+
+    return { lateBy, earlyLeave, overTime, hoursWorked };
+  }, [editedRecord.inTime, editedRecord.outTime, isAbsentType, shiftInfo]);
+
+  // Warning check: if check-in is late while status is 'present'
+  const lateCheck = useMemo(() => {
+    if (isAbsentType || !editedRecord.inTime) return { isLate: false, diffLabel: '' };
+    const inMins = parseTimeToMinutes(editedRecord.inTime);
+    if (inMins > shiftInfo.graceMins) {
+      const diff = inMins - shiftInfo.startMins;
+      const h = Math.floor(diff / 60);
+      const m = diff % 60;
+      return {
+        isLate: true,
+        diffLabel: `${h > 0 ? `${h}h ` : ''}${m}m`
+      };
+    }
+    return { isLate: false, diffLabel: '' };
+  }, [editedRecord.inTime, isAbsentType, shiftInfo]);
+
   const handleSave = async () => {
     setLoading(true);
+    setErrorMessage('');
     try {
-      const targetDate = editedRecord.date || (record.date ? new Date(record.date).toISOString().split('T')[0] : '');
+      const targetDate = editedRecord.date || (record.date ? getIndiaDateKey(record.date) : '');
       let inIso = null;
       let outIso = null;
 
-      if (editedRecord.inTime) {
-        const inDateTime = new Date(`${targetDate}T${editedRecord.inTime}`);
+      if (!isAbsentType && editedRecord.inTime) {
+        const inDateTime = new Date(`${targetDate}T${editedRecord.inTime}:00`);
         if (!isNaN(inDateTime.getTime())) {
           inIso = inDateTime.toISOString();
         }
       }
 
-      if (editedRecord.outTime) {
-        const outDateTime = new Date(`${targetDate}T${editedRecord.outTime}`);
+      if (!isAbsentType && editedRecord.outTime) {
+        const outDateTime = new Date(`${targetDate}T${editedRecord.outTime}:00`);
         if (!isNaN(outDateTime.getTime())) {
           outIso = outDateTime.toISOString();
         }
       }
       
       const payload = {
-        inTime: inIso,
-        outTime: outIso,
-        status: editedRecord.status ? editedRecord.status.toUpperCase() : undefined,
-        notes: editedRecord.notes,
-        date: targetDate
+        inTime: isAbsentType ? null : inIso,
+        outTime: isAbsentType ? null : outIso,
+        notes: editedRecord.notes
       };
+
+      if (statusTouched) {
+        payload.status = normalizeAttendanceStatusForSave(editedRecord.status);
+      }
+
+      if (dateTouched && editedRecord.date) {
+        payload.date = targetDate;
+      }
 
       await onSave(record._id, payload);
       onClose();
     } catch (error) {
       console.error("Error saving attendance:", error);
+      const msg = error.response?.data?.message || error.message || "Failed to save attendance record";
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -775,13 +977,11 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
       onClose();
     } catch (error) {
       console.error("Error deleting attendance:", error);
+      const msg = error.response?.data?.message || error.message || "Failed to delete attendance record";
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTimeChange = (field, value) => {
-    setEditedRecord(current => ({ ...current, [field]: value }));
   };
 
   const getEmployeeName = () => {
@@ -789,24 +989,13 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
     return record.user.name || record.user.email || "Unknown Employee";
   };
 
-  const calculatedHoursWorked = useMemo(() => {
-    if (!editedRecord.inTime || !editedRecord.outTime) return null;
-    const [inHour, inMinute] = editedRecord.inTime.split(':').map(Number);
-    const [outHour, outMinute] = editedRecord.outTime.split(':').map(Number);
-    const totalMinutes = (outHour * 60 + outMinute) - (inHour * 60 + inMinute);
-    if (totalMinutes < 0) return null;
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-  }, [editedRecord.inTime, editedRecord.outTime]);
-
   if (!record) return null;
 
   const empName = getEmployeeName();
   const empInitials = empName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || "EM";
   const departmentName = record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || "General";
   const empType = record.user?.employeeType?.toUpperCase() || "FULL-TIME";
-  const attendanceDateFormatted = record.date ? new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A";
+  const attendanceDateFormatted = record.date ? new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : "N/A";
 
   return (
     <div className="EmppAttendence-modal-overlay" onClick={onClose}>
@@ -869,7 +1058,11 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                   type="date"
                   className="EmppAttendence-form-input EmppAttendence-edit-input"
                   value={editedRecord.date}
-                  onChange={(e) => setEditedRecord(prev => ({ ...prev, date: e.target.value }))}
+                  onChange={(e) => {
+                    setDateTouched(true);
+                    setEditedRecord(prev => ({ ...prev, date: e.target.value }));
+                  }}
+                  disabled={!canEditRecord}
                 />
               </div>
 
@@ -881,7 +1074,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                 <select
                   className="EmppAttendence-form-input EmppAttendence-edit-select"
                   value={editedRecord.status}
-                  onChange={(e) => setEditedRecord(prev => ({ ...prev, status: e.target.value }))}
+                  onChange={(e) => handleStatusChange(e.target.value)}
                   disabled={!canEditRecord}
                 >
                   <option value="present">🟢 Present</option>
@@ -891,6 +1084,22 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                   <option value="uninformedleave">🟠 Uninformed Leave</option>
                   <option value="holiday">🟣 Holiday</option>
                 </select>
+                {lateCheck.isLate && normalizeAttendanceStatus(editedRecord.status) === 'present' && (
+                  <div className="EmppAttendence-edit-warning-banner" style={{ marginTop: '8px', padding: '8px 12px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', color: '#92400e', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FiAlertTriangle size={15} color="#d97706" />
+                      <span>Check-in is <strong>{lateCheck.diffLabel}</strong> late — did you mean Late?</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="EmppAttendence-btn EmppAttendence-btn-sm"
+                      style={{ padding: '2px 8px', fontSize: '12px', backgroundColor: '#d97706', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      onClick={() => handleStatusChange('late')}
+                    >
+                      Set to Late
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Check In Time */}
@@ -903,6 +1112,8 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                   className="EmppAttendence-form-input EmppAttendence-edit-input"
                   value={editedRecord.inTime}
                   onChange={(e) => handleTimeChange('inTime', e.target.value)}
+                  disabled={!canEditRecord || isAbsentType}
+                  placeholder={isAbsentType ? "Cleared for absent status" : ""}
                 />
                 <LocationMeta location={record?.inLocation} label="Login" />
               </div>
@@ -916,7 +1127,9 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                   type="time"
                   className="EmppAttendence-form-input EmppAttendence-edit-input"
                   value={editedRecord.outTime}
-                  onChange={(e) => setEditedRecord(prev => ({ ...prev, outTime: e.target.value }))}
+                  onChange={(e) => handleTimeChange('outTime', e.target.value)}
+                  disabled={!canEditRecord || isAbsentType}
+                  placeholder={isAbsentType ? "Cleared for absent status" : ""}
                 />
                 <LocationMeta location={record?.outLocation} label="Logout" />
               </div>
@@ -926,26 +1139,26 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
             <div className="EmppAttendence-edit-metrics-wrap">
               <div className="EmppAttendence-edit-metric-card">
                 <span className="metric-title">Late By</span>
-                <span className={`metric-value ${editedRecord.lateBy && editedRecord.lateBy !== '00:00:00' ? 'has-val warn' : ''}`}>
-                  {editedRecord.lateBy || '00:00:00'}
+                <span className={`metric-value ${liveMetrics.lateBy && liveMetrics.lateBy !== '00:00:00' ? 'has-val warn' : ''}`}>
+                  {liveMetrics.lateBy || '00:00:00'}
                 </span>
               </div>
               <div className="EmppAttendence-edit-metric-card">
                 <span className="metric-title">Early Leave</span>
-                <span className={`metric-value ${editedRecord.earlyLeave && editedRecord.earlyLeave !== '00:00:00' ? 'has-val danger' : ''}`}>
-                  {editedRecord.earlyLeave || '00:00:00'}
+                <span className={`metric-value ${liveMetrics.earlyLeave && liveMetrics.earlyLeave !== '00:00:00' ? 'has-val danger' : ''}`}>
+                  {liveMetrics.earlyLeave || '00:00:00'}
                 </span>
               </div>
               <div className="EmppAttendence-edit-metric-card">
                 <span className="metric-title">Overtime</span>
-                <span className={`metric-value ${editedRecord.overTime && editedRecord.overTime !== '00:00:00' ? 'has-val success' : ''}`}>
-                  {editedRecord.overTime || '00:00:00'}
+                <span className={`metric-value ${liveMetrics.overTime && liveMetrics.overTime !== '00:00:00' ? 'has-val success' : ''}`}>
+                  {liveMetrics.overTime || '00:00:00'}
                 </span>
               </div>
               <div className="EmppAttendence-edit-metric-card highlight">
                 <span className="metric-title">Working Hours</span>
                 <span className="metric-value">
-                  {calculatedHoursWorked || '--:--'}
+                  {liveMetrics.hoursWorked || '--:--'}
                 </span>
               </div>
             </div>
@@ -970,6 +1183,14 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
             <FiAlertCircle size={16} />
             <span>Shift status and timing violations are automatically recalculated upon saving.</span>
           </div>
+
+          {/* Error Banner */}
+          {errorMessage && (
+            <div className="EmppAttendence-edit-error-banner" style={{ margin: '14px 0', padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FiAlertTriangle size={18} color="#ef4444" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
           {/* Delete Confirmation Box */}
           {showConfirmDelete && (
@@ -1303,9 +1524,9 @@ const EmployeeAttendance = () => {
   const [departmentsMap, setDepartmentsMap] = useState({});
   
   
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedStartDate, setSelectedStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedEndDate, setSelectedEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getIndiaDateKey(new Date()));
+  const [selectedStartDate, setSelectedStartDate] = useState(getIndiaDateKey(new Date()));
+  const [selectedEndDate, setSelectedEndDate] = useState(getIndiaDateKey(new Date()));
   const [dateRangeMode, setDateRangeMode] = useState(false);
   
   const [selectedEmployeeType, setSelectedEmployeeType] = useState("all");
@@ -1831,7 +2052,7 @@ const EmployeeAttendance = () => {
       const end = new Date(endDate);
       const dateRange = [];
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dateRange.push(new Date(d).toISOString().split('T')[0]);
+        dateRange.push(getIndiaDateKey(d));
       }
       
       const allRecords = [];
@@ -2043,7 +2264,7 @@ const EmployeeAttendance = () => {
 
   const handleDateRangeClear = () => {
     setDateRangeMode(false);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getIndiaDateKey(new Date());
     setSelectedDate(today);
     setSelectedStartDate(today);
     setSelectedEndDate(today);
@@ -2109,8 +2330,8 @@ const EmployeeAttendance = () => {
     }
 
     filtered.sort((a, b) => {
-      const dateA = a.displayDate || (a.date ? new Date(a.date).toISOString().split('T')[0] : '');
-      const dateB = b.displayDate || (b.date ? new Date(b.date).toISOString().split('T')[0] : '');
+      const dateA = a.displayDate || (a.date ? getIndiaDateKey(a.date) : '');
+      const dateB = b.displayDate || (b.date ? getIndiaDateKey(b.date) : '');
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
       
@@ -2160,7 +2381,7 @@ const EmployeeAttendance = () => {
     if (!dateRangeMode) return null;
     
     return filteredRecords.reduce((acc, record) => {
-      const dateKey = record.displayDate || (record.date ? new Date(record.date).toISOString().split('T')[0] : 'unknown');
+      const dateKey = record.displayDate || (record.date ? getIndiaDateKey(record.date) : 'unknown');
       if (!acc[dateKey]) {
         acc[dateKey] = [];
       }
@@ -2211,21 +2432,37 @@ const EmployeeAttendance = () => {
   const handleSaveRecord = async (recordId, updatedData) => {
     try {
       setLoading(true);
-      
+      let res;
       if (recordId.startsWith('absent_')) {
         const parts = recordId.split('_');
         const userId = parts[1];
         const date = parts[2];
 
-        await axios.post('/attendance/manual', {
+        res = await axios.post('/attendance/manual', {
           user: userId,
           date: date,
           ...updatedData
         });
       } else {
-        await axios.put(`/attendance/${recordId}`, updatedData);
+        res = await axios.put(`/attendance/${recordId}`, updatedData);
       }
       
+      const savedRecord = res.data?.data || res.data?.record || res.data;
+      if (savedRecord && savedRecord._id) {
+        setRecords(prev => prev.map(r => {
+          if (r._id === recordId) return { ...r, ...savedRecord };
+          if (recordId.startsWith('absent_')) {
+            const [, uid, dt] = recordId.split('_');
+            const rUid = r.user?._id || r.user?.id || r.user;
+            const rDt = getIndiaDateKey(r.date);
+            if (String(rUid) === String(uid) && rDt === dt) {
+              return { ...r, ...savedRecord };
+            }
+          }
+          return r;
+        }));
+      }
+
       showSnackbar("Attendance record saved successfully!", "success");
       
       if (dateRangeMode) {
@@ -2233,9 +2470,12 @@ const EmployeeAttendance = () => {
       } else {
         fetchAttendanceData(selectedDate);
       }
+      return savedRecord;
     } catch (error) {
       console.error("Error saving attendance:", error);
-      showSnackbar("Failed to save attendance record", "error");
+      const serverMsg = error.response?.data?.message || error.message || "Failed to save attendance record";
+      showSnackbar(serverMsg, "error");
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -2244,7 +2484,7 @@ const EmployeeAttendance = () => {
   const handleAddNewRecord = async (data) => {
     try {
       setLoading(true);
-      await axios.post('/attendance/manual', data);
+      const res = await axios.post('/attendance/manual', data);
       
       showSnackbar("Attendance record added successfully!", "success");
       
@@ -2253,9 +2493,12 @@ const EmployeeAttendance = () => {
       } else {
         fetchAttendanceData(selectedDate);
       }
+      return res.data;
     } catch (error) {
       console.error("Error adding attendance:", error);
-      showSnackbar("Failed to add attendance record", "error");
+      const serverMsg = error.response?.data?.message || error.message || "Failed to add attendance record";
+      showSnackbar(serverMsg, "error");
+      throw error;
     } finally {
       setLoading(false);
     }

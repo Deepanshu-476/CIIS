@@ -1013,6 +1013,7 @@ const ProjectDetailsPage = () => {
         url: fallbackUrl,
         path: rawPath || "",
         name: displayName,
+        context,
       });
       setOpenPdfDialog(false);
       setDetailTaskId(null);
@@ -1112,6 +1113,77 @@ const ProjectDetailsPage = () => {
     }
   };
 
+  const downloadImage = async (preview) => {
+    if (!preview || (!preview.path && !preview.url)) {
+      showSnackbar("No image file available", "warning");
+      return;
+    }
+
+    const rawPath = preview.path || "";
+    const filename = preview.name || (rawPath ? rawPath.split("/").pop() : "image.png") || "image.png";
+    const activeContext = preview.context || selectedPdfContext || {};
+    const currentProjId = activeContext?.projectId || (activeContext?.project ? activeContext.project._id || activeContext.project.id : null) || projectId;
+    const taskId = activeContext?.taskId || (activeContext?.task ? activeContext.task._id || activeContext.task.id : null);
+
+    let downloaded = false;
+
+    if (currentProjId && taskId && rawPath) {
+      try {
+        const response = await axios.get(
+          `/projects/${currentProjId}/tasks/${taskId}/files?path=${encodeURIComponent(rawPath)}&name=${encodeURIComponent(filename)}`,
+          { responseType: "blob", cache: false, noCache: true }
+        );
+        if (response.data && response.data.size > 0) {
+          const type = response.data.type || "";
+          if (!type.startsWith("application/pdf")) {
+            const blobUrl = URL.createObjectURL(response.data);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            downloaded = true;
+          }
+        }
+      } catch (err) {
+        console.warn("Protected task file download fallback to fetch:", err);
+      }
+    }
+
+    const directUrl = preview.url || (rawPath ? getUploadUrl(rawPath) || getLiveUploadUrl(rawPath) : "");
+    if (!downloaded && directUrl) {
+      try {
+        const res = await fetch(directUrl, { mode: "cors" });
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob && blob.size > 0 && !blob.type.startsWith("application/pdf")) {
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            downloaded = true;
+          }
+        }
+      } catch (err) {
+        console.warn("Direct image fetch failed:", err);
+      }
+    }
+
+    if (!downloaded) {
+      if (directUrl) {
+        window.open(directUrl, "_blank");
+      } else {
+        showSnackbar("Unable to download image", "error");
+      }
+    }
+  };
+
   const downloadPdf = async (pdfPath, filename, context = null) => {
     const activeContext = context || selectedPdfContext || {};
     const rawPath = pdfPath || activeContext?.path;
@@ -1135,6 +1207,10 @@ const ProjectDetailsPage = () => {
     const pathParts = rawPath ? String(rawPath).split("/") : [];
     const pdfFilename = pathParts[pathParts.length - 1];
     const downloadName = filename || pdfFilename || "document.pdf";
+
+    if (isImagePath(downloadName || rawPath)) {
+      return downloadImage({ path: rawPath, name: downloadName, context: activeContext });
+    }
 
     const candidateUrls = [];
     if (currentProjId && taskId) {
@@ -1798,7 +1874,7 @@ const ProjectDetailsPage = () => {
             <button
               className="pdp-button pdp-button-primary"
               onClick={() =>
-                downloadPdf(imagePreview.path, imagePreview.name)
+                downloadImage(imagePreview)
               }
             >
               <Icons.Download />

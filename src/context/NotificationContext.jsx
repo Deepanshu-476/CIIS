@@ -4,7 +4,7 @@ import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import '../components/notifications.css';
 import TaskReminderAlert from '../components/TaskReminderAlert';
-import {isTaskReminder, reminderAlertKey, registerReminderWorker, unlockReminderSound, playTaskReminderSound, showTaskReminderSystemNotification} from '../utils/taskReminderAlerts';
+import {isTaskReminder, reminderAlertKey, getReminderTaskKey, registerReminderWorker, unlockReminderSound, playTaskReminderSound, showTaskReminderSystemNotification} from '../utils/taskReminderAlerts';
 
 const NotificationContext = createContext();
 
@@ -65,7 +65,18 @@ export const NotificationProvider = ({ children }) => {
         if (receivedReminders.current.has(key)) return;
         receivedReminders.current.add(key);
         if (receivedReminders.current.size > 200) receivedReminders.current.delete(receivedReminders.current.values().next().value);
-        setReminderQueue(current => [...current, notification]);
+        
+        const taskKey = getReminderTaskKey(notification);
+        setReminderQueue(current => {
+          const existingIndex = current.findIndex(item => getReminderTaskKey(item) === taskKey);
+          if (existingIndex >= 0) {
+            const next = [...current];
+            next[existingIndex] = notification;
+            return next;
+          }
+          return [...current, notification];
+        });
+
         void playTaskReminderSound();
         void showTaskReminderSystemNotification(notification);
         return;
@@ -124,7 +135,14 @@ export const NotificationProvider = ({ children }) => {
     <NotificationContext.Provider value={value}>
       {children}
       <ToastContainer />
-      {canReceivePortalNotifications && <TaskReminderAlert notification={reminderQueue[0]} remaining={reminderQueue.length - 1} onDismiss={() => setReminderQueue(current => current.slice(1))} />}
+      {canReceivePortalNotifications && reminderQueue.length > 0 && (
+        <TaskReminderAlert
+          reminders={reminderQueue}
+          notification={reminderQueue[0]}
+          remaining={reminderQueue.length - 1}
+          onDismiss={() => setReminderQueue([])}
+        />
+      )}
     </NotificationContext.Provider>
   );
 };

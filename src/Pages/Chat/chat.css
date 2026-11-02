@@ -9260,3 +9260,42 @@ body.chat-sidebar-resizing * {
     opacity: 0.65;
     cursor: wait;
 }
+
+/* Call window: the 16:9 stage used to grow past the window height (always in fullscreen), pushing
+   the name and the call buttons under it. Keep the stage within the viewport and the controls visible. */
+.call-overlay.video-call .call-panel {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 48px);
+}
+.call-overlay.video-call .call-remote-stage {
+    flex: 1 1 auto;
+    min-height: 200px;
+    max-height: calc(100dvh - 300px);
+}
+.call-overlay .call-panel:fullscreen {
+    box-sizing: border-box;
+    width: 100vw;
+    height: 100vh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 22px 22px;
+}
+.call-overlay .call-panel:fullscreen .call-remote-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+}
+.call-overlay .call-panel:fullscreen .call-actions,
+.call-overlay .call-panel:fullscreen .call-info {
+    flex: 0 0 auto;
+}
+/* No self-view box while the camera is off (it was an empty black rectangle). */
+.call-overlay .call-local-video.is-camera-off {
+    visibility: hidden;
+}

@@ -335,6 +335,8 @@ const ChatBox = ({
 
     const [messages, setMessages] =
         useState([]);
+    // Which conversation's first page has arrived, so "no messages yet" never flashes while loading.
+    const [loadedConversationId, setLoadedConversationId] = useState(null);
     const [messagePagination, setMessagePagination] = useState({
         hasMore: false,
         nextBefore: null,
@@ -983,6 +985,7 @@ useEffect(() => {
                 hasMore: Boolean(res.data.pagination?.hasMore),
                 nextBefore: res.data.pagination?.nextBefore || null,
             });
+            setLoadedConversationId(String(conversationId));
             onConversationChange?.();
             queueScrollToLatestMessage("auto");
 
@@ -2534,6 +2537,24 @@ useEffect(() => {
                     })
                 }
 
+                {displayedMessages.length === 0
+                    && !normalizedSearchTerm
+                    && conversation?._id
+                    && loadedConversationId === String(conversation._id) && (
+                    <div className="chat-thread-empty">
+                        <span className="chat-thread-empty-icon"><MessageCircle size={26} /></span>
+                        <strong>No messages yet</strong>
+                        <p>
+                            {selectedUser?.isGroup
+                                ? "Start the conversation with this group."
+                                : `Start the conversation with ${selectedUser?.name || "this person"}.`}
+                        </p>
+                        <button type="button" onClick={() => chatInputRef.current?.focus()}>
+                            Start conversation
+                        </button>
+                    </div>
+                )}
+
             </div>
 
             {projectTask && <TaskDetailsModal open task={projectTask} canEdit={false}
@@ -2839,7 +2860,7 @@ useEffect(() => {
                     </div>
 
                     <button
-                        className="recording-btn"
+                        className="recording-btn composer-video-btn"
                         onClick={() => startRecording("video")}
                         disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
                         title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : "Record video"}
@@ -2881,7 +2902,7 @@ useEffect(() => {
                     </div>
 
                     <button
-                        className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}
+                        className={recorderMode === "audio" ? "recording-btn composer-voice-btn active" : "recording-btn composer-voice-btn"}
                         onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
                         disabled={isSendingAction || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
                         title={recorderMode === "audio" ? "End voice recording" : "Start voice recording"}

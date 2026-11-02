@@ -50,7 +50,7 @@
 .chat-page .chat-mention-composer { align-self: center; }
 .chat-page .attachment-menu-wrap,
 .chat-page .emoji-picker-wrap > .emoji-btn,
-.chat-page .chat-composer > .recording-btn:nth-child(5) {
+.chat-page .chat-composer > .composer-voice-btn {
     position: absolute;
     z-index: 2;
     top: 50%;
@@ -72,8 +72,9 @@
     max-width: none;
     max-height: min(420px, calc(100dvh - 180px));
 }
-.chat-page .chat-composer > .recording-btn:nth-child(3) { display: none; }
-.chat-page .chat-composer > .recording-btn:nth-child(5) { right: 49px; }
+/* Named, not nth-child: an extra composer child must never move the mic or show the hidden camera. */
+.chat-page .chat-composer > .composer-video-btn { display: none; }
+.chat-page .chat-composer > .composer-voice-btn { right: 49px; }
 .chat-page .chat-composer > .send-btn { flex: 0 0 40px; }
 .chat-mention-dropdown {
     position: absolute;
@@ -385,3 +386,84 @@
     background: rgba(96, 165, 250, 0.12);
 }
 
+
+/* Task update cards: one shared width so every card's edges line up down the thread, and the
+   Reply action sits just outside the card (on hover) instead of shifting the card off-centre. */
+.chat-page .chat-task-update {
+    position: relative;
+    display: block;
+    width: min(560px, 86%);
+    margin: 8px auto;
+}
+.chat-page .chat-task-update .chat-task-card {
+    width: 100%;
+    max-width: none;
+}
+.chat-page .chat-task-card-text {
+    font-size: 12px;
+    line-height: 1.45;
+}
+.chat-page .chat-task-update .chat-task-reply {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 6px);
+    transform: translateY(-50%);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+.chat-page .chat-task-update:hover .chat-task-reply,
+.chat-page .chat-task-update .chat-task-reply:focus-visible {
+    opacity: 1;
+}
+@media (hover: none), (max-width: 900px) {
+    .chat-page .chat-task-update { width: min(560px, 94%); }
+    .chat-page .chat-task-update .chat-task-reply {
+        position: static;
+        display: flex;
+        width: fit-content;
+        margin: 2px 0 0 auto;
+        transform: none;
+        opacity: 1;
+    }
+}
+
+/* An open conversation with no messages yet. */
+.chat-page .chat-thread-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 60%;
+    padding: 24px 16px;
+    text-align: center;
+    color: #64748b;
+}
+.chat-page .chat-thread-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 6px;
+    border-radius: 50%;
+    background: #e8f0fe;
+    color: #1d4ed8;
+}
+.chat-page .chat-thread-empty strong { color: #0f172a; font-size: 16px; }
+.chat-page .chat-thread-empty p { margin: 0; font-size: 13px; }
+.chat-page .chat-thread-empty button {
+    margin-top: 10px;
+    border: 0;
+    border-radius: 999px;
+    padding: 9px 18px;
+    background: #1d4ed8;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+.chat-page .chat-thread-empty button:hover { background: #1e40af; }
+.chat-page.chat-theme-dark .chat-thread-empty strong { color: #e2e8f0; }
+.chat-page.chat-theme-dark .chat-thread-empty-icon { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }

@@ -1591,7 +1591,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                     )}
 
                     {showsVideoStage && (
-                        <video ref={localVideoRef} autoPlay muted playsInline className="call-local-video" />
+                        <video ref={localVideoRef} autoPlay muted playsInline className={isCameraOff ? "call-local-video is-camera-off" : "call-local-video"} />
                     )}
                 </div>
 

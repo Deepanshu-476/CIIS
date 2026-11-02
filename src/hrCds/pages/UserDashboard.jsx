@@ -11,7 +11,7 @@ import useIsMobile from '../../hooks/useIsMobile';
 import {
   CirclePlus, Umbrella, BriefcaseBusiness, UserPlus, Folder, CalendarDays,
   NotebookPen, Clock3, Play, ClipboardCheck, Video, Coffee, CheckCircle2,
-  LogOut, LayoutDashboard, Smartphone, CalendarClock, Phone
+  LogOut, LayoutDashboard, Smartphone, CalendarClock, Phone, Sparkles
 } from 'lucide-react';
 
 import {

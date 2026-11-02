@@ -1,9 +1,10 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCheck, Copy, Download, FileText, Forward, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
+import { Check, CheckCheck, Copy, Download, FileText, Forward, Info, Maximize2, Mic, MoreVertical, Pause, Play, Reply, Trash2, X } from "lucide-react";
 import { API_URL_IMG, CHAT_UPLOAD_ORIGINS } from "../config";
 import { mentionSegments } from "./mentionUtils";
 import { taskEventText } from "./taskEventText";
 import { attachmentLabel, attachmentSource } from "./messageUtils";
+import MessageInfoModal from "./MessageInfoModal";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
@@ -34,7 +35,8 @@ const MessageBubble = ({
     onReply,
     onReplyJump,
     onReact,
-    isStarredMessage
+    isStarredMessage,
+    socket
 }) => {
 
 
@@ -44,6 +46,7 @@ const MessageBubble = ({
     const [showMenu, setShowMenu] = useState(false);
     const [menuPlacement, setMenuPlacement] = useState("above");
     const [showForwardModal, setShowForwardModal] = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState([]);
     const [previewMedia, setPreviewMedia] = useState(null);
     const getCurrentUserReaction = () => (
@@ -462,6 +465,12 @@ const MessageBubble = ({
             run: () => onDeleteForMe(message),
             danger: true
         },
+        ...(isOwn && message._id && !message.deletedForEveryone ? [{
+            key: "info",
+            label: "Info",
+            icon: Info,
+            run: () => setShowInfo(true)
+        }] : []),
         ...(isOwn ? [{
             key: "delete-everyone",
             label: "Delete for everyone",
@@ -913,6 +922,10 @@ const MessageBubble = ({
                     </div>
                 </div>
             )}
+
+        {showInfo && (
+            <MessageInfoModal messageId={message._id} socket={socket} onClose={() => setShowInfo(false)} />
+        )}
 
         {showForwardModal && (
             <div className="forward-modal-overlay" onClick={() => setShowForwardModal(false)}>

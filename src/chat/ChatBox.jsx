@@ -2521,6 +2521,7 @@ useEffect(() => {
                                             onReact={handleReaction}
                                             isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
                                             onToggleStar={toggleStarredMessage}
+                                            socket={socket}
                                         />
                                     </div>
                                 )}

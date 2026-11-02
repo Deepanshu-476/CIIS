@@ -1417,6 +1417,16 @@ const ChatPage = () => {
       });
     };
 
+    // A burst of messages sends one unread update each; reload the conversation list once.
+    let conversationsReloadTimer = null;
+    const scheduleConversationsReload = () => {
+      if (conversationsReloadTimer) return;
+      conversationsReloadTimer = window.setTimeout(() => {
+        conversationsReloadTimer = null;
+        fetchConversations();
+      }, 1500);
+    };
+
     const handleUnread = data => {
       const conversationId = data.conversationId?.toString();
       const senderId = data.senderId?.toString();
@@ -1429,7 +1439,7 @@ const ChatPage = () => {
         ...(conversationId ? {[conversationId]: nextCount} : {}),
         ...(senderId ? {[senderId]: nextCount} : {}),
       }));
-      fetchConversations();
+      scheduleConversationsReload();
     };
 
     socket.on("chat:online-users", handleOnline);
@@ -1475,6 +1485,7 @@ const ChatPage = () => {
       socket.off("disconnect", handleDisconnect);
       socket.io?.off("reconnect", refreshOnlineUsers);
       window.clearInterval(refreshTimer);
+      window.clearTimeout(conversationsReloadTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [

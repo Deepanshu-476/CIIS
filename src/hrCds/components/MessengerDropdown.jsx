@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
+// This dropdown is on every portal page; the picker is only needed once someone opens it.
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 import {
   Search,
   MoreHorizontal,
@@ -26,7 +27,9 @@ import {
   MoreVertical,
   Trash2,
   Reply,
+  Info,
 } from "lucide-react";
+import MessageInfoModal from "../../chat/MessageInfoModal";
 import {
   getConversations,
   getCompanyUsers,
@@ -146,14 +149,14 @@ export const clearMessengerMemoryCache = () => {
 };
 
 const CHAT_EMOJI_CATEGORIES = [
-  { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
-  { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
-  { category: Categories.FOOD_DRINK, name: "Food & Drink" },
-  { category: Categories.ACTIVITIES, name: "Activities" },
-  { category: Categories.TRAVEL_PLACES, name: "Travel" },
-  { category: Categories.OBJECTS, name: "Objects" },
-  { category: Categories.SYMBOLS, name: "Symbols" },
-  { category: Categories.FLAGS, name: "Flags" },
+  { category: "smileys_people", name: "Smileys & People" },
+  { category: "animals_nature", name: "Animals & Nature" },
+  { category: "food_drink", name: "Food & Drink" },
+  { category: "activities", name: "Activities" },
+  { category: "travel_places", name: "Travel" },
+  { category: "objects", name: "Objects" },
+  { category: "symbols", name: "Symbols" },
+  { category: "flags", name: "Flags" },
 ];
 
 const getAttachmentKind = (file) => {
@@ -216,6 +219,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const [showReactions, setShowReactions] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [openMessageMenuId, setOpenMessageMenuId] = useState("");
+  const [infoMessageId, setInfoMessageId] = useState("");
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(null);
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState("");
@@ -509,13 +513,13 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       setConversations(prev => sortConversationItems(prev.map(conv => (
         getConversationId(conv) === msgConvId
           ? {
-              ...conv,
-              lastMessage: msg,
-              updatedAt: msg.createdAt || conv.updatedAt,
-              unreadCount: isIncoming && !isViewing && !alreadyHandled
-                ? (Number(conv.unreadCount) || 0) + 1
-                : (isViewing ? 0 : conv.unreadCount),
-            }
+            ...conv,
+            lastMessage: msg,
+            updatedAt: msg.createdAt || conv.updatedAt,
+            unreadCount: isIncoming && !isViewing && !alreadyHandled
+              ? (Number(conv.unreadCount) || 0) + 1
+              : (isViewing ? 0 : conv.unreadCount),
+          }
           : conv
       ))));
     };
@@ -535,7 +539,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
         // Mark as seen
         if (msg._id && getEntityId(msg.sender) !== currentUserId) {
-          markMessageSeen(msg._id).catch(() => {});
+          markMessageSeen(msg._id).catch(() => { });
           socket.emit("chat:seen", {
             messageId: msg._id,
             senderId: getEntityId(msg.sender),
@@ -545,10 +549,21 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
     };
 
+    // Every message sent to any of the user's chats emits chat:conversation-updated, and each
+    // reload walks every conversation page; coalesce bursts into one reload.
+    let reloadTimer = null;
+    const scheduleChatReload = () => {
+      if (reloadTimer) return;
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null;
+        loadChatData();
+      }, 1500);
+    };
+
     const handleUnreadUpdate = (data = {}) => {
       const conversationId = data.conversationId?.toString();
       if (!conversationId) {
-        loadChatData();
+        scheduleChatReload();
         return;
       }
       setConversations(prev => sortConversationItems(prev.map(conv => (
@@ -570,7 +585,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       catch { setSelectedChat(null); setActiveConversationId(null); setClientTask(null); setReplyingTo(null); setMessages([]); setActiveView("list"); }
     };
     socket.on("chat:project-membership-updated", handleMembership);
-    socket.on("chat:conversation-updated", loadChatData);
+    socket.on("chat:conversation-updated", scheduleChatReload);
 
     // The socket often connects after this effect runs; ask again on every (re)connect.
     const requestOnlineUsers = () => socket.emit("chat:get-online-users", handleOnline);
@@ -584,8 +599,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
       socket.off("chat:receive-message", handleReceiveMessage);
       socket.off("chat:unread-update", handleUnreadUpdate);
       socket.off("chat:project-membership-updated", handleMembership);
-      socket.off("chat:conversation-updated", loadChatData);
+      socket.off("chat:conversation-updated", scheduleChatReload);
       socket.off("connect", requestOnlineUsers);
+      if (reloadTimer) clearTimeout(reloadTimer);
     };
   }, [socket, activeConversationId, currentUserId]);
 
@@ -1220,12 +1236,12 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                     {activeTab === "unread"
                       ? "No unread messages"
                       : activeTab === "projects" || activeTab === "groups"
-                      ? "No project chats found"
-                      : activeTab === "clients" || activeTab === "colleagues"
-                      ? "No client chats found"
-                      : searchQuery
-                      ? "No matching conversations"
-                      : "No messages found"}
+                        ? "No project chats found"
+                        : activeTab === "clients" || activeTab === "colleagues"
+                          ? "No client chats found"
+                          : searchQuery
+                            ? "No matching conversations"
+                            : "No messages found"}
                   </strong>
                   <p>
                     {searchQuery
@@ -1282,15 +1298,14 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                 <div className="fb-chat-header-info">
                   <span className="fb-chat-header-name">{getChatTitle(selectedChat)}</span>
                   <span
-                    className={`fb-chat-header-status ${
-                      isUserOnline(getSelectedChatTarget()) ? "online" : "offline"
-                    }`}
+                    className={`fb-chat-header-status ${isUserOnline(getSelectedChatTarget()) ? "online" : "offline"
+                      }`}
                   >
                     {selectedChat?.isGroup
                       ? "Group Conversation"
                       : isUserOnline(getSelectedChatTarget())
-                      ? "Active now"
-                      : "Offline"}
+                        ? "Active now"
+                        : "Offline"}
                   </span>
                 </div>
               </div>
@@ -1370,10 +1385,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                     ? fileType.startsWith("image/")
                       ? "image"
                       : fileType.startsWith("video/")
-                      ? "video"
-                      : fileType.startsWith("audio/")
-                      ? "audio"
-                      : "document"
+                        ? "video"
+                        : fileType.startsWith("audio/")
+                          ? "audio"
+                          : "document"
                     : "";
                   const isDeleted = Boolean(msg.deletedForEveryone);
                   const seenBy = Array.isArray(msg.seenBy) ? msg.seenBy : [];
@@ -1461,6 +1476,11 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                               setReplyingTo(msg); setOpenMessageMenuId("");
                               requestAnimationFrame(() => inputRef.current?.focus());
                             }}><Reply size={14} /> Reply</button>
+                            {isMe && msg._id && (
+                              <button type="button" onClick={() => {
+                                setInfoMessageId(String(msg._id)); setOpenMessageMenuId("");
+                              }}><Info size={14} /> Info</button>
+                            )}
                             <button type="button" onClick={() => handleDeleteForMe(msg)}>
                               <Trash2 size={14} /> Delete
                             </button>
@@ -1480,9 +1500,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                         {formatMessageTime(msg.createdAt)}
                         {isMe && (
                           <span
-                            className={`fb-chat-seen-mark ${
-                              isSeen ? "seen" : showDelivered ? "delivered" : "sent"
-                            }`}
+                            className={`fb-chat-seen-mark ${isSeen ? "seen" : showDelivered ? "delivered" : "sent"
+                              }`}
                             title={isSeen ? "Seen" : showDelivered ? "Delivered" : "Sent"}
                           >
                             {isSeen || showDelivered ? (
@@ -1574,18 +1593,20 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               )}
               {showReactions && (
                 <div className="fb-chat-emoji-menu" ref={reactionsRef}>
-                  <EmojiPicker
-                    colorScheme={Theme.LIGHT}
-                    emojiStyle={EmojiStyle.NATIVE}
-                    categories={CHAT_EMOJI_CATEGORIES}
-                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
-                    searchPlaceHolder="Search emoji"
-                    lazyLoadEmojis
-                    width="100%"
-                    height={330}
-                    previewConfig={{ showPreview: false }}
-                    onEmojiClick={handleReactionClick}
-                  />
+                  <Suspense fallback={null}>
+                    <EmojiPicker
+                      colorScheme={"light"}
+                      emojiStyle={"native"}
+                      categories={CHAT_EMOJI_CATEGORIES}
+                      skinTonePickerLocation={"SEARCH"}
+                      searchPlaceHolder="Search emoji"
+                      lazyLoadEmojis
+                      width="100%"
+                      height={330}
+                      previewConfig={{ showPreview: false }}
+                      onEmojiClick={handleReactionClick}
+                    />
+                  </Suspense>
                 </div>
               )}
 
@@ -1745,6 +1766,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               </div>
             )}
 
+            {infoMessageId && (
+              <MessageInfoModal messageId={infoMessageId} socket={socket} onClose={() => setInfoMessageId("")} />
+            )}
             {confirmDeleteMessage && (
               <div className="fb-chat-preview-overlay" role="dialog" aria-modal="true">
                 <div className="fb-chat-confirm-modal">

@@ -80,6 +80,7 @@ const ProjectBulkImportModal = ({
       setErrorMessage("");
 
       const response = await axios.get("/projects/sample-excel", {
+        params: { mode },
         responseType: "blob",
         cache: false,
         noCache: true,
@@ -95,10 +96,14 @@ const ProjectBulkImportModal = ({
         throw new Error("Downloaded file is empty");
       }
 
+      const fileName = mode === "existing"
+        ? "CIIS_Task_Import_Template.xlsx"
+        : "CIIS_Project_Tasks_Template.xlsx";
+
       const url = window.URL.createObjectURL(blobData);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "CIIS_Project_Tasks_Template.xlsx");
+      link.setAttribute("download", fileName);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -344,7 +349,9 @@ const ProjectBulkImportModal = ({
               <div>
                 <h4 className="pbim-template-title">Download Demo Excel File</h4>
                 <p className="pbim-template-hint">
-                  Pre-formatted with required columns: Task Title, Assignee Email/Phone, Due Date, etc.
+                  {mode === "existing"
+                    ? "Pre-formatted template with Task columns: Task Title*, Assignee Email/Phone*, Due Date*, etc."
+                    : "Pre-formatted template with Project & Task columns: Project Name, Task Title*, Assignee, Due Date*, etc."}
                 </p>
               </div>
             </div>

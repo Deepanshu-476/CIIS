@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
+import { getSidebarConfigParams, saveSidebarConfig } from '../../utils/sidebarConfigStore';
 import { ToastContainer, toast } from 'react-toastify';
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
 import 'react-toastify/dist/ReactToastify.css';
@@ -389,6 +390,20 @@ const RefreshOverlay = () => (
   </div>
 );
 
+// The running work timer ticks here, so only these few characters re-render every second
+// instead of the whole dashboard. `seconds` is the elapsed time at the last (re)load.
+const LiveTime = ({ seconds, running }) => {
+  const [extra, setExtra] = useState(0);
+  useEffect(() => {
+    setExtra(0);
+    if (!running) return undefined;
+    const startedAt = Date.now();
+    const id = window.setInterval(() => setExtra(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, [seconds, running]);
+  return <>{formatTime((Number(seconds) || 0) + extra)}</>;
+};
+
 const UserDashboard = () => {
   const navigate = useNavigate();
 
@@ -401,15 +416,20 @@ const UserDashboard = () => {
         let rawSidebar = localStorage.getItem('sidebarConfig');
         let cfg = rawSidebar ? JSON.parse(rawSidebar) : null;
 
-        // If sidebar config is not yet cached in localStorage, fetch it immediately
+        // If sidebar config is not yet cached in localStorage, fetch it immediately (with
+        // company and role: without them the API answers 400).
         if (!cfg) {
           try {
-            const res = await axios.get('/sidebar/config');
-            if (res.data?.data) {
-              cfg = res.data.data;
-              localStorage.setItem('sidebarConfig', JSON.stringify(cfg));
+            const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+            const storedCompany = JSON.parse(localStorage.getItem('companyDetails') || 'null');
+            const sidebarParams = getSidebarConfigParams(storedUser, storedCompany);
+            const res = sidebarParams ? await axios.get('/sidebar/config', { params: sidebarParams }) : null;
+            if (res?.data?.data) {
+              cfg = saveSidebarConfig(res.data.data, storedUser?._id || storedUser?.id, sidebarParams);
             }
-          } catch (_) {}
+          } catch {
+            // Keep the default landing page when the config cannot be read.
+          }
         }
 
         if (cfg) {
@@ -1531,16 +1551,6 @@ const UserDashboard = () => {
   }, [attendanceData, holidays, recentTaskEvents, updateRecentActivity]);
 
 
-  useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimer(prev => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(intervalRef.current);
-    }
-    return () => clearInterval(intervalRef.current);
-  }, [isRunning]);
 
   useEffect(() => {
     if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
@@ -2111,7 +2121,7 @@ const UserDashboard = () => {
   );
   const hasTodayAttendance = Boolean(todayAttendance);
   const totalWorkingDisplay = isRunning
-    ? formatTime(timer)
+    ? <LiveTime seconds={timer} running />
     : formatTotalTimeValue(todayAttendance?.totalTime) || '00:00:00';
   const displayTimer = isRunning ? timer : getTotalTimeSeconds(todayAttendance?.totalTime);
 
@@ -2627,7 +2637,7 @@ const UserDashboard = () => {
             </p>
             <div className="confirmation-timer">
               <FiClock size={16} />
-              <span>Current session: {formatTime(displayTimer)}</span>
+              <span>Current session: <LiveTime seconds={displayTimer} running={isRunning} /></span>
             </div>
             <div className="confirmation-buttons">
               <button className="confirmation-btn confirmation-btn-cancel" onClick={() => setShowClockOutConfirm(false)} disabled={isProcessing}>
@@ -2952,7 +2962,7 @@ const UserDashboard = () => {
           <section className="MobileDashV2-clock">
             <div>
               <span>Work session</span>
-              <strong>{formatTime(displayTimer)}</strong>
+              <strong><LiveTime seconds={displayTimer} running={isRunning} /></strong>
               <small>{isWorkingToday ? 'Timer is running' : isClockedOutToday ? 'Session completed for today' : 'Start when you’re ready'}</small>
             </div>
             <button
@@ -3147,7 +3157,7 @@ const UserDashboard = () => {
 
               <div className="dashboard-clock-section dashboard-clock-inline">
                 <div className="dashboard-timer-display">
-                  <div className="dashboard-timer-value">{formatTime(displayTimer)}</div>
+                  <div className="dashboard-timer-value"><LiveTime seconds={displayTimer} running={isRunning} /></div>
                   <div className={`dashboard-timer-status ${isWorkingToday ? 'status-active-text' : 'status-inactive-text'}`}>
                     <div className={`dashboard-timer-dot ${isWorkingToday ? 'dot-active' : 'dot-inactive'}`}></div>
                     {isWorkingToday ? 'Active Timer • Live' : isClockedOutToday ? 'Attendance Completed' : 'Timer Stopped'}
@@ -3585,7 +3595,7 @@ const UserDashboard = () => {
           <section className="dashboard-clock-section dashboard-clock-rail">
             <div className="dashboard-live-label"><i /> {isWorkingToday ? 'Live' : isClockedOutToday ? 'Completed' : isWeekendOrHolidayToday ? 'Weekly Off' : 'Not Clocked In'}</div>
             <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value">{formatTime(displayTimer)} <small>hrs</small></div>
+              <div className="dashboard-timer-value"><LiveTime seconds={displayTimer} running={isRunning} /> <small>hrs</small></div>
               <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
             </div>
             <div className="dashboard-clock-buttons">

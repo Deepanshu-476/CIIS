@@ -102,6 +102,7 @@ import {
   isClientForLoggedInUser
 } from './utils/clientPortalData';
 import { getProfileCompletion } from './utils/profileCompletion';
+import { readFreshSidebarConfig, saveSidebarConfig } from '../utils/sidebarConfigStore';
 
 const drawerWidthOpen = 236;
 const drawerWidthClosed = 70;
@@ -2436,8 +2437,25 @@ const Sidebar = ({
         let parsedUser = null;
         let parsedCompany = null;
 
+        const getCompanyId = (company, profile) =>
+          company?._id ||
+          company?.id ||
+          profile?.companyDetails?._id ||
+          profile?.companyDetails?.id ||
+          profile?.companyId ||
+          (typeof profile?.company === "object" ? profile.company?._id || profile.company?.id : profile?.company);
+
+        // The company refresh used to wait for the profile refresh; start it alongside when the
+        // stored data already names the company.
+        const storedUser = user ? JSON.parse(user) : null;
+        const storedCompany = companyDetails ? JSON.parse(companyDetails) : null;
+        const earlyCompanyId = getCompanyId(storedCompany, storedUser);
+        const fetchCompany = id => axiosInstance.get(`/company/${id}`)
+          .then(response => ({ response }), companyError => ({ companyError }));
+        const earlyCompanyRequest = earlyCompanyId ? fetchCompany(earlyCompanyId) : null;
+
         if (user) {
-          parsedUser = JSON.parse(user);
+          parsedUser = storedUser;
           setUserData(parsedUser);
 
           const parsedUserId = parsedUser?._id || parsedUser?.id;
@@ -2463,20 +2481,19 @@ const Sidebar = ({
         }
 
         if (companyDetails) {
-          parsedCompany = JSON.parse(companyDetails);
+          parsedCompany = storedCompany;
         }
 
-        const companyId =
-          parsedCompany?._id ||
-          parsedCompany?.id ||
-          parsedUser?.companyDetails?._id ||
-          parsedUser?.companyDetails?.id ||
-          parsedUser?.companyId ||
-          (typeof parsedUser?.company === "object" ? parsedUser.company?._id || parsedUser.company?.id : parsedUser?.company);
+        const companyId = getCompanyId(parsedCompany, parsedUser);
 
         if (companyId) {
           try {
-            const response = await axiosInstance.get(`/company/${companyId}`);
+            const { response, companyError } = await (
+              earlyCompanyRequest && String(companyId) === String(earlyCompanyId)
+                ? earlyCompanyRequest
+                : fetchCompany(companyId)
+            );
+            if (companyError) throw companyError;
             const latestCompany = response.data?.company || response.data?.data || response.data;
 
             if (latestCompany?._id || latestCompany?.id) {
@@ -2676,8 +2693,22 @@ const Sidebar = ({
   }, [userId, fetchMenuBadgeCounts, isAlertsPage]);
 
 
-  const fetchSidebarConfig = useCallback(async () => {
+  const fetchSidebarConfig = useCallback(async ({ force = false } = {}) => {
     if (!userId || !sidebarCompanyId) return;
+
+    const configParams = {
+      companyId: sidebarCompanyId,
+      ...(sidebarBranchId ? { branchId: sidebarBranchId } : {}),
+      ...(sidebarDepartmentId ? { departmentId: sidebarDepartmentId } : {}),
+      role: sidebarRoleKey
+    };
+    // Login fetched this a moment ago; use that copy instead of asking again.
+    const freshConfig = !force && readFreshSidebarConfig(userId, configParams);
+    if (freshConfig) {
+      setSidebarConfig(freshConfig);
+      setLoading(false);
+      return;
+    }
 
     try {
       setError(null);
@@ -2704,12 +2735,7 @@ const Sidebar = ({
 
       if (response.data && response.data.success) {
         if (response.data.data) {
-          const nextConfig = {
-            ...response.data.data,
-            _cacheContext: { userId, companyId: sidebarCompanyId }
-          };
-          setSidebarConfig(nextConfig);
-          localStorage.setItem('sidebarConfig', JSON.stringify(nextConfig));
+          setSidebarConfig(saveSidebarConfig(response.data.data, userId, configParams));
         } else {
           const fallbackConfig = {
             useFixedDefault: true,
@@ -2932,7 +2958,7 @@ const Sidebar = ({
   const handleRetry = () => {
     setError(null);
     if (userData && companyData) {
-      fetchSidebarConfig();
+      fetchSidebarConfig({ force: true });
     }
   };
 

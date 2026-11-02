@@ -5,6 +5,7 @@ import { useAuth } from '../context/useAuth';
 import { sanitizeUserForStorage, clearAuthStorageCaches } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Login.css'; 
+import { getSidebarConfigParams, saveSidebarConfig } from '../utils/sidebarConfigStore';
 
 const clearPreviousLoginStorage = () => {
   clearAuthStorageCaches();
@@ -270,11 +271,13 @@ const Login = () => {
         redirectPath = '/ciisUser/dashboard-overview';
       }
 
-      // Check sidebar config dynamically right at login
+      // Check sidebar config dynamically right at login. Without company and role the API
+      // answers 400, so this used to fail silently; the saved copy is reused by the sidebar.
       try {
-        const sidebarRes = await axios.get('/sidebar/config');
-        if (sidebarRes.data?.data) {
-          localStorage.setItem('sidebarConfig', JSON.stringify(sidebarRes.data.data));
+        const sidebarParams = getSidebarConfigParams(res.data.user, companyDetails);
+        const sidebarRes = sidebarParams ? await axios.get('/sidebar/config', { params: sidebarParams }) : null;
+        if (sidebarRes?.data?.data) {
+          saveSidebarConfig(sidebarRes.data.data, res.data.user?._id || res.data.user?.id, sidebarParams);
           const items = Array.isArray(sidebarRes.data.data.menuItems) ? sidebarRes.data.data.menuItems : [];
           const hasOverview = items.some(item => {
             const id = String(item?.id || '').toLowerCase();
@@ -440,11 +443,12 @@ const Login = () => {
           redirectPath = '/ciisUser/dashboard-overview';
         }
 
-        // Check sidebar config dynamically right at login
+        // Check sidebar config dynamically right at login (see the password login above).
         try {
-          const sidebarRes = await axios.get('/sidebar/config');
-          if (sidebarRes.data?.data) {
-            localStorage.setItem('sidebarConfig', JSON.stringify(sidebarRes.data.data));
+          const sidebarParams = getSidebarConfigParams(response.data.user, response.data.companyDetails || companyDetails);
+          const sidebarRes = sidebarParams ? await axios.get('/sidebar/config', { params: sidebarParams }) : null;
+          if (sidebarRes?.data?.data) {
+            saveSidebarConfig(sidebarRes.data.data, response.data.user?._id || response.data.user?.id, sidebarParams);
             const items = Array.isArray(sidebarRes.data.data.menuItems) ? sidebarRes.data.data.menuItems : [];
             const hasOverview = items.some(item => {
               const id = String(item?.id || '').toLowerCase();

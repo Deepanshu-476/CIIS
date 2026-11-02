@@ -2063,8 +2063,9 @@ const EmployeeDirectory = () => {
   }, [currentUserCompanyId, user.getAuthToken]);
 
   const fetchAllEmployeesFromEndpoint = useCallback(async (url, rawParams, config) => {
-    // Family/bank fields are only returned on request; the server still allows it for owner/admin/HR only.
-    const params = { ...rawParams, includeSensitive: true };
+    // The list no longer carries family/bank/document fields for every employee; they are
+    // fetched for one employee when that employee is opened or edited (loadSensitiveDetails).
+    const params = { ...rawParams };
     const firstResponse = await axios.get(url, {
       ...config,
       params: { ...params, page: 1, limit: 100 }
@@ -2310,10 +2311,34 @@ const EmployeeDirectory = () => {
     fetchData();
   }, [fetchData, pageAccessReady]);
   
+  // Family/bank fields come only with includeSensitive, which the server allows for
+  // owner/admin/HR. Without that access (or on error) the list record is used as before.
+  const loadSensitiveDetails = useCallback(async (userData) => {
+    const targetId = getValueId(userData?._id || userData?.id);
+    if (!targetId || !canSeeAllCompanyUsers) return userData;
+    try {
+      const response = await axios.get('/users/company-users', {
+        headers: { Authorization: `Bearer ${user.getAuthToken()}` },
+        params: { companyId: currentUserCompanyId, includeInactive: true, includeSensitive: true, userId: targetId },
+        _skipErrorNotify: true,
+      });
+      const [fullRecord] = getArrayFromApiResponse(response.data || {}, ['message.users', 'users', 'message', 'data']);
+      return fullRecord && sameId(fullRecord._id || fullRecord.id, targetId) ? { ...userData, ...fullRecord } : userData;
+    } catch (requestError) {
+      console.error('Failed to load employee details:', requestError);
+      return userData;
+    }
+  }, [canSeeAllCompanyUsers, currentUserCompanyId, user]);
+
   // Handle view user
   const handleOpenUser = useCallback((userData) => {
     setSelectedUser(userData);
-  }, []);
+    loadSensitiveDetails(userData).then(fullUser => {
+      setSelectedUser(current => (
+        current && sameId(current._id || current.id, fullUser?._id || fullUser?.id) ? fullUser : current
+      ));
+    });
+  }, [loadSensitiveDetails]);
   
   const handleCloseUser = useCallback(() => {
     setSelectedUser(null);
@@ -2378,8 +2403,9 @@ const EmployeeDirectory = () => {
   }, [handleMenuClose, menuAnchorEl]);
   
   // Handle edit
-  const handleEdit = useCallback((userData) => {
-    if (!userData) return;
+  const handleEdit = useCallback(async (listUserData) => {
+    if (!listUserData) return;
+    const userData = await loadSensitiveDetails(listUserData);
 
     setEditFormErrors([]);
     setEditingUser(userData);
@@ -2442,7 +2468,7 @@ const EmployeeDirectory = () => {
     
     resetEditForm(formDataToSet);
     handleMenuClose();
-  }, [resetEditForm, handleMenuClose, currentUserId, user, jobRoles]);
+  }, [resetEditForm, handleMenuClose, currentUserId, user, jobRoles, loadSensitiveDetails]);
   
   const handleCancelEdit = useCallback(() => {
     setEditingUser(null);

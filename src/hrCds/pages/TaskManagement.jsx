@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from '../../utils/axiosConfig';
 import { createTaskStatusSaver } from '../../utils/taskStatusSave';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FiPlus, FiCalendar, FiInfo, FiPaperclip, FiMic, FiFileText,
   FiCheck, FiX, FiAlertCircle, FiUser, FiBell, FiRefreshCw,
@@ -1154,6 +1154,7 @@ const UserCreateTask = () => {
   const [loadingOverdue, setLoadingOverdue] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const socketContext = useSocket();
   const snackbarTimerRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -2184,6 +2185,23 @@ const UserCreateTask = () => {
     }
     return null;
   }, [myTasksGrouped, assignedToMeTasksGrouped, clientTasksGrouped, projectTasksGrouped, allTasksGrouped]);
+
+  const searchTaskId = useMemo(() => {
+    try {
+      const params = new URLSearchParams(location?.search || '');
+      return params.get('taskId') || params.get('id');
+    } catch {
+      return null;
+    }
+  }, [location?.search]);
+
+  useEffect(() => {
+    if (!searchTaskId) return;
+    const task = findTaskInGroups(searchTaskId);
+    if (task && (!selectedTaskDetails || String(selectedTaskDetails._id || selectedTaskDetails.id) !== String(searchTaskId))) {
+      openTaskDetails(task);
+    }
+  }, [searchTaskId, findTaskInGroups, openTaskDetails, selectedTaskDetails]);
 
   const getProjectTaskContext = useCallback((taskOrId) => {
     const taskId = getTaskId(taskOrId);

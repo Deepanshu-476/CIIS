@@ -1,5 +1,15 @@
 let audioContext;
 export const isTaskReminder = notification => ['task_due_reminder', 'task_pending_reminder'].includes(notification?.type || notification?.data?.type);
+
+export const getReminderTaskId = notification =>
+  String(notification?.data?.taskId || notification?.taskId || notification?.task?._id || notification?.data?.task?._id || '');
+
+export const getReminderTaskKey = notification => {
+  const taskId = getReminderTaskId(notification);
+  if (taskId) return `task:${taskId}`;
+  return String(notification?._id || notification?.id || notification?.data?.notificationId || '');
+};
+
 export const reminderAlertKey = notification => String(notification?._id || notification?.id || notification?.data?.notificationId || `${notification?.data?.taskId}:${notification?.data?.reminderOption}:${notification?.createdAt || notification?.message}`);
 
 export const unlockReminderSound = async () => {
@@ -42,9 +52,10 @@ export const playTaskReminderSound = async () => {
 export const showTaskReminderSystemNotification = async notification => {
   if (!('Notification' in window) || Notification.permission !== 'granted') return false;
   const title = notification.title || 'Task Reminder';
+  const tag = getReminderTaskKey(notification) || reminderAlertKey(notification);
   const options = {
     body: notification.message || notification.body || '', icon: '/favicon.ico',
-    tag: reminderAlertKey(notification), silent: false,
+    tag, silent: false,
     data: {url: '/ciisUser/task-management'},
   };
   try {

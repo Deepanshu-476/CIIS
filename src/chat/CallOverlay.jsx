@@ -1150,7 +1150,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             const activeCall = activeCallRef.current;
             if (!activeCall || activeCall.callId !== data.callId) return;
 
-            const activeNextCall = activateCall(activeCall);
+            const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
+            const activeNextCall = activateCall(activeCall, connectedAt ? { connectedAt } : {});
 
             (data.participants || []).forEach(participant => {
                 upsertRemoteParticipant(participant.userId, { user: participant.user });
@@ -1162,10 +1163,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 const activeCall = activeCallRef.current;
                 if (!activeCall || activeCall.callId !== data.callId || !data.fromUserId || data.fromUserId === currentUserId) return;
 
+                const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
                 const activeNextCall = activateCall({
                     ...activeCall,
                     participantIds: uniqueIds([...activeCall.participantIds, data.fromUserId]),
-                });
+                }, connectedAt ? { connectedAt } : {});
                 window.clearTimeout(callTimeoutRef.current);
                 callTimeoutRef.current = null;
                 upsertRemoteParticipant(data.fromUserId, { user: data.fromUser });
@@ -1256,6 +1258,26 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             handleCallClosed({ ...data, status: "missed" });
         };
 
+        const handleAnsweredElsewhere = (data) => {
+            const activeCall = activeCallRef.current;
+            if (activeCall && (!data?.callId || activeCall.callId === data.callId)) {
+                logCall("Call answered on another device", data);
+                stopRingtone();
+                completeCall("answered-elsewhere");
+                resetCall();
+            }
+        };
+
+        const handleConnect = () => {
+            socket.emit("chat:get-online-users");
+            const activeCall = activeCallRef.current;
+            if (activeCall?.callId) {
+                socket.emit("call:rebind", { callId: activeCall.callId });
+            }
+        };
+
+        socket.on("connect", handleConnect);
+        socket.on("call:answered-elsewhere", handleAnsweredElsewhere);
         socket.on("call:incoming", handleIncoming);
         socket.on("call:ringing", handleRinging);
         socket.on("call:unavailable", handleUnavailable);
@@ -1269,6 +1291,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         socket.on("call:missed", handleCallMissed);
 
         return () => {
+            socket.off("connect", handleConnect);
+            socket.off("call:answered-elsewhere", handleAnsweredElsewhere);
             socket.off("call:incoming", handleIncoming);
             socket.off("call:ringing", handleRinging);
             socket.off("call:unavailable", handleUnavailable);

@@ -304,8 +304,9 @@ const cachedGet = async (requester, url, config = {}) => {
   pruneExpiredGetCacheEntries();
   // Task statuses can change outside this browser (cron jobs or backend updates).
   // Always fetch them fresh instead of displaying persisted status snapshots.
+  const isBlobOrBinary = config.responseType === "blob" || config.responseType === "arraybuffer" || config.responseType === "stream";
   const isTaskRequest = /\/(?:tasks|task)(?:\/|\?|$)/i.test(normalizeGetUrl(url));
-  const useCache = !isTaskRequest && config.cache !== false && config.noCache !== true && config._skipRequestCache !== true;
+  const useCache = !isBlobOrBinary && !isTaskRequest && config.cache !== false && config.noCache !== true && config._skipRequestCache !== true;
   const cacheKey = useCache ? makeGetCacheKey(url, config) : null;
   const usePersistentCache = useCache && shouldUsePersistentCache(url, config);
 

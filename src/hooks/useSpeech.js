@@ -5,6 +5,8 @@ import {
     isSelfEcho,
     canProcessTranscriptTurn,
     collapseRepeatedUtterance,
+    selectPreferredVoice,
+    waitForVoices,
 } from './taskAgentPureLogic';
 
 const getSR = () =>
@@ -293,6 +295,55 @@ export default function useSpeech({
     inactivityPauseCbRef.current = onInactivityPause;
 
     const voicesRef = useRef([]);
+    const cachedVoiceRef = useRef(null);
+    const [voiceInfo, setVoiceInfo] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const savedName = localStorage.getItem('ciis_preferred_voice');
+                if (savedName) return { name: savedName, lang: 'en-IN', isFallback: false };
+            } catch {
+                /* ignore */
+            }
+        }
+        return null;
+    });
+
+    const resolveVoice = useCallback(async () => {
+        if (cachedVoiceRef.current) {
+            return cachedVoiceRef.current;
+        }
+        const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+        if (!synth) return null;
+
+        const voices = await waitForVoices(synth, 1500);
+        voicesRef.current = voices;
+
+        if (typeof window !== 'undefined' && !window.__ciisVoicesLogged && voices.length > 0) {
+            window.__ciisVoicesLogged = true;
+            console.log('[CIIS Voice] Available voices:', voices.map((v) => `${v.name} (${v.lang})`));
+        }
+
+        let savedName = null;
+        try {
+            savedName = localStorage.getItem('ciis_preferred_voice');
+        } catch {
+            /* ignore */
+        }
+
+        const result = selectPreferredVoice(voices, savedName);
+        if (result?.voice) {
+            cachedVoiceRef.current = result.voice;
+            setVoiceInfo(result.voiceInfo);
+            try {
+                localStorage.setItem('ciis_preferred_voice', result.voice.name);
+            } catch {
+                /* ignore */
+            }
+            return result.voice;
+        }
+        return null;
+    }, []);
+
     const sttSupported = Boolean(SR) || (typeof window !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia));
     const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -304,6 +355,20 @@ export default function useSpeech({
             voicesRef.current = vList;
             const hi = vList.some((v) => v.lang && v.lang.toLowerCase().startsWith('hi'));
             setHasHindiVoice(hi);
+            if (hi) {
+                try {
+                    const saved = localStorage.getItem('ciis_preferred_voice') || '';
+                    if (/neerja|david|mark|george|zira|samantha/i.test(saved)) {
+                        localStorage.removeItem('ciis_preferred_voice');
+                        cachedVoiceRef.current = null;
+                    }
+                } catch {
+                    /* ignore */
+                }
+            }
+            if (!cachedVoiceRef.current && vList.length > 0) {
+                resolveVoice();
+            }
         };
         load();
         window.speechSynthesis.addEventListener?.('voiceschanged', load);
@@ -311,7 +376,7 @@ export default function useSpeech({
             window.speechSynthesis.removeEventListener?.('voiceschanged', load);
             window.speechSynthesis.cancel();
         };
-    }, [ttsSupported]);
+    }, [ttsSupported, resolveVoice]);
 
     // Cleanup helper for audio stream and analyser
     const cleanupAudioNodes = useCallback(() => {
@@ -1164,7 +1229,7 @@ export default function useSpeech({
 
     // TTS Speaking helper with onEnd completion callback (half-duplex: mutes mic)
     const speak = useCallback(
-        (speechDevanagari, replyHinglish, onEnd) => {
+        async (speechDevanagari, replyHinglish, onEnd) => {
             // Half-duplex: stop listening immediately before speaking begins
             stop('agent-speaking');
             try {
@@ -1204,44 +1269,29 @@ export default function useSpeech({
 
             lastSpokenAssistantTextRef.current = hinglishClean || devanagariClean;
 
-            const voices = voicesRef.current.length > 0 ? voicesRef.current : (window.speechSynthesis.getVoices() || []);
-            const hiInVoice =
-                voices.find((x) => x.lang === 'hi-IN' || x.lang === 'hi_IN') ||
-                voices.find((x) => x.lang?.toLowerCase().startsWith('hi'));
-            const enInVoice =
-                voices.find((x) => x.lang === 'en-IN' || x.lang === 'en_IN') ||
-                voices.find((x) => x.lang?.toLowerCase().startsWith('en'));
+            const chosenVoice = await resolveVoice();
+            const voiceLang = chosenVoice?.lang || 'en-IN';
+            const isHindiVoice = voiceLang.toLowerCase().startsWith('hi') || /hindi|swara|heera/i.test(chosenVoice?.name || '');
+            const textToSpeak = isHindiVoice ? (devanagariClean || hinglishClean) : (hinglishClean || devanagariClean);
+            const voiceToUse = chosenVoice;
+            const langToUse = isHindiVoice ? 'hi-IN' : voiceLang;
 
-            // Prefer en-IN Indian English voice when English technical terms like description or priority are present
-            // so these words are pronounced in natural, authentic English rather than Hindi phonetics
-            const hasEnglishTechWords = /\b(?:description|priority|project|client|task)\b/i.test(hinglishClean || devanagariClean);
-            const voiceToUse = (hasEnglishTechWords && enInVoice) ? enInVoice : (hiInVoice || enInVoice);
-            const isHindi = Boolean(!hasEnglishTechWords && voiceToUse === hiInVoice && devanagariClean);
-            const textToSpeak = isHindi ? devanagariClean : (hinglishClean || devanagariClean);
-            const langToUse = isHindi ? (voiceToUse?.lang || 'hi-IN') : (enInVoice?.lang || 'en-IN');
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            if (voiceToUse) utterance.voice = voiceToUse;
+            utterance.lang = langToUse;
+            utterance.rate = 1.05;
 
-            // Chunk long utterances sentence-by-sentence to avoid Chromium cutoff
-            const sentenceMatches = textToSpeak.match(/[^.!?।\n]+[.!?।\n]*/g);
-            const sentenceChunks = (sentenceMatches && sentenceMatches.length > 0)
-                ? sentenceMatches.map((s) => s.trim()).filter(Boolean)
-                : [textToSpeak];
+            // Retain utterance on window so Chromium V8 never garbage-collects it mid-speech
+            if (typeof window !== 'undefined') {
+                window.__ciisCurrentUtterance = utterance;
+            }
+            activeUtteranceRef.current = utterance;
 
             isSpeakingRef.current = true;
             window.__ciisVoiceSpeaking = true;
             setIsSpeaking(true);
 
             let ended = false;
-            let lastBoundaryTime = Date.now();
-            const startTime = Date.now();
-            const charCount = textToSpeak.length;
-            // Estimated duration: realistic speaking rate (approx 65-70ms per char + 2s grace)
-            const estimatedMs = Math.max(3000, Math.min(25000, charCount * 70 + 2000));
-
-            // Retain utterances on window so Chromium V8 never garbage-collects them mid-speech
-            if (typeof window !== 'undefined') {
-                window.__ciisUtterances = window.__ciisUtterances || [];
-            }
-
             const handleFinish = (shouldCancel = true) => {
                 if (ended) return;
                 ended = true;
@@ -1265,61 +1315,31 @@ export default function useSpeech({
                 if (onEnd) onEnd();
             };
 
-            // Watchdog: restores state when estimated duration has passed and no recent progress
-            // Also prevents Chromium's 15s pause bug by un-pausing if paused
+            // Chromium keep-alive: pulse resume to prevent 15s pause bug; generous fallback timeout
+            const startTime = Date.now();
             speakTimeoutRef.current = setInterval(() => {
                 if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
                     try { window.speechSynthesis.resume(); } catch {}
                 }
-                const elapsed = Date.now() - startTime;
-                const timeSinceLastBoundary = Date.now() - lastBoundaryTime;
-                if (elapsed >= estimatedMs && timeSinceLastBoundary >= 2000) {
-                    handleFinish(false);
+                if (Date.now() - startTime > 35000) {
+                    handleFinish(true);
                 }
-            }, 400);
+            }, 3000);
 
-            sentenceChunks.forEach((chunkText, idx) => {
-                const isLast = idx === sentenceChunks.length - 1;
-                const utterance = new SpeechSynthesisUtterance(chunkText);
-                if (voiceToUse) utterance.voice = voiceToUse;
-                utterance.lang = langToUse;
-                utterance.rate = 1.0;
+            utterance.onend = () => handleFinish(false);
+            utterance.onerror = () => handleFinish(false);
 
-                if (typeof window !== 'undefined' && window.__ciisUtterances) {
-                    window.__ciisUtterances.push(utterance);
-                }
-
-                utterance.onboundary = () => {
-                    lastBoundaryTime = Date.now();
-                };
-
-                if (idx === 0) {
-                    activeUtteranceRef.current = utterance;
-                    if (typeof window !== 'undefined') {
-                        window.__ciisCurrentUtterance = utterance;
-                    }
-                }
-
-                utterance.onerror = () => {
-                    if (isLast) handleFinish(false);
-                };
-
-                if (isLast) {
-                    utterance.onend = () => handleFinish(false);
-                }
-
-                try {
-                    window.speechSynthesis.speak(utterance);
-                } catch {
-                    if (isLast) handleFinish(false);
-                }
-            });
+            try {
+                window.speechSynthesis.speak(utterance);
+            } catch {
+                handleFinish(false);
+            }
 
             if (window.speechSynthesis.paused) {
                 try { window.speechSynthesis.resume(); } catch { /* ignore */ }
             }
         },
-        [ttsSupported, stop]
+        [ttsSupported, stop, resolveVoice]
     );
 
     const cancelSpeech = useCallback(() => {
@@ -1453,5 +1473,6 @@ export default function useSpeech({
         lastTranscriptDiag,
         setLastTranscriptDiag,
         updateTranscriptDiag,
+        voiceInfo,
     };
 }

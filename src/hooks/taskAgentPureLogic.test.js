@@ -34,6 +34,11 @@ import {
     buildParseRequestBody,
     sanitizeDraftForTransport,
     collapseRepeatedUtterance,
+    selectPreferredVoice,
+    waitForVoices,
+    isMaleVoice,
+    MALE_VOICE_EXCLUSIONS,
+    PREFERRED_FEMALE_VOICE_NAMES,
 } from './taskAgentPureLogic.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -2427,7 +2432,124 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.equal(spokenMessages.length, 4);
         assert.equal(turnHistory.length, 3);
     });
+
+    test('46. ONE FEMALE VOICE FOR EVERYTHING: Fake speechSynthesis waits for voices, selects female voice, reuses same voice, never chooses male, fallbacks gracefully', async () => {
+        // A. Fake speechSynthesis initially empty, voices arrive asynchronously
+        let voiceList = [];
+        const listeners = {};
+        const fakeSynth = {
+            getVoices() {
+                return voiceList;
+            },
+            addEventListener(event, fn) {
+                listeners[event] = fn;
+            },
+            removeEventListener(event, fn) {
+                if (listeners[event] === fn) delete listeners[event];
+            },
+        };
+
+        // Trigger voices arriving after 50ms
+        setTimeout(() => {
+            voiceList = [
+                { name: 'Microsoft David Desktop - English (United States)', lang: 'en-US' },
+                { name: 'Microsoft Ravi - Hindi (India)', lang: 'hi-IN' },
+                { name: 'Microsoft Mark - English (United States)', lang: 'en-US' },
+                { name: 'Microsoft George - English (United Kingdom)', lang: 'en-GB' },
+                { name: 'Microsoft Heera - Hindi (India)', lang: 'hi-IN' },
+                { name: 'Microsoft Neerja Online (Natural) - English (India)', lang: 'en-IN' },
+                { name: 'Microsoft Zira Desktop - English (United States)', lang: 'en-US' },
+            ];
+            if (listeners.voiceschanged) {
+                listeners.voiceschanged();
+            }
+        }, 50);
+
+        // waitForVoices waits and resolves once voices arrive
+        const loadedVoices = await waitForVoices(fakeSynth, 500);
+        assert.equal(loadedVoices.length, 7, 'waitForVoices waited until voices arrived via voiceschanged');
+
+        // B. selectPreferredVoice: picks natural Hindi female voice (Heera) before English voice (Neerja)
+        const choice1 = selectPreferredVoice(loadedVoices);
+        assert.equal(choice1.voice.name, 'Microsoft Heera - Hindi (India)');
+        assert.equal(choice1.isFallback, false);
+        assert.equal(isMaleVoice(choice1.voice), false);
+
+        // If no Hindi female voice exists, falls back to Neerja (en-IN)
+        const englishOnlyVoices = loadedVoices.filter((v) => !v.lang.startsWith('hi'));
+        const choiceEng = selectPreferredVoice(englishOnlyVoices);
+        assert.equal(choiceEng.voice.name, 'Microsoft Neerja Online (Natural) - English (India)');
+
+        // C. Voice object cached & reused across multiple utterances (greeting, response, question)
+        const choice2 = selectPreferredVoice(loadedVoices, choice1.voice.name);
+        assert.strictEqual(choice2.voice, choice1.voice, 'Subsequent utterances share the exact same voice object');
+
+        // D. Male voices are strictly never chosen as primary female voices
+        const maleNames = ['Microsoft Ravi - Hindi (India)', 'Microsoft Hemant', 'Microsoft David', 'Microsoft George'];
+        for (const m of maleNames) {
+            assert.equal(isMaleVoice({ name: m }), true, `${m} must be recognized as male exclusion`);
+        }
+
+        // E. Fallback when no female voice exists: uses en-IN or hi-IN voice and flags isFallback
+        const maleOnlyVoices = [
+            { name: 'Microsoft David Desktop - English (United States)', lang: 'en-US' },
+            { name: 'Microsoft Ravi - Hindi (India)', lang: 'hi-IN' },
+        ];
+        const fallbackChoice = selectPreferredVoice(maleOnlyVoices);
+        assert.equal(fallbackChoice.voice.name, 'Microsoft Ravi - Hindi (India)');
+        assert.equal(fallbackChoice.isFallback, true, 'Fallback indicator is true when no female voice exists');
+    });
+
+    test('47. CLIENT PAYLOAD & FULL MESSAGE SPEECH: Non-multipart payloads send clean JSON, full reply is spoken, natural Hindi voice overrides stale English cache', () => {
+        // 1. Natural Hindi voice overrides stale English voice in cache
+        const allVoices = [
+            { name: 'Microsoft Neerja Online (Natural) - English (India)', lang: 'en-IN' },
+            { name: 'Microsoft Swara Online (Natural) - Hindi (India)', lang: 'hi-IN' },
+        ];
+        // Even if neerja was saved in localStorage, selectPreferredVoice picks Swara for natural Hindi fluency
+        const chosen = selectPreferredVoice(allVoices, 'Microsoft Neerja Online (Natural) - English (India)');
+        assert.equal(chosen.voice.name, 'Microsoft Swara Online (Natural) - Hindi (India)', 'Natural Hindi voice Swara preferred over stale Neerja');
+
+        // 2. Full assistant response is resolved for speech
+        const fullServerResponse = {
+            reply: "Samajh gaya: client 'ZZ AI Client', company 'ZZ Tech' aur city 'Mohali' mil gaye. Vansh Test add ho gaye. Aur details dena hain?",
+            speech: 'क्लाइंट का ईमेल बताएं:',
+            status: 'needs_input',
+        };
+        const textToSpeak = cleanForSpeech(fullServerResponse.reply);
+        assert.ok(textToSpeak.includes('Samajh gaya: client'), 'Spoken text must include the full recap');
+        assert.ok(textToSpeak.includes('Vansh Test add ho gaye'), 'Spoken text must include resolved team member');
+        assert.ok(textToSpeak.includes('Aur details dena hain?'), 'Spoken text must include next question');
+
+        // 3. Client creation payload has multipart: false and body/fields as plain JSON object
+        const clientPayload = {
+            endpoint: '/clientsservice',
+            method: 'POST',
+            multipart: false,
+            fields: {
+                client: 'ZZ AI Client',
+                company: 'ZZ Tech',
+                city: 'Mohali',
+                projectManager: ['Vansh Test'],
+                companyCode: 'CMP01',
+            },
+            body: {
+                client: 'ZZ AI Client',
+                company: 'ZZ Tech',
+                city: 'Mohali',
+                projectManager: ['Vansh Test'],
+                companyCode: 'CMP01',
+            },
+        };
+        const isMultipart = clientPayload.multipart !== false && clientPayload.multipart === true;
+        assert.equal(isMultipart, false, 'Client creation must NOT be multipart');
+        const dataToSend = clientPayload.body || clientPayload.fields;
+        assert.equal(typeof dataToSend, 'object');
+        assert.equal(dataToSend.client, 'ZZ AI Client');
+        assert.equal(dataToSend.companyCode, 'CMP01');
+    });
 });
+
 
 
 

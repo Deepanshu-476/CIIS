@@ -152,6 +152,7 @@ export default function useTaskAgentSession({
         setMicPermission,
         lastTranscriptDiag,
         updateTranscriptDiag,
+        voiceInfo,
     } = useSpeech({
         defaultEngine: 'whisper',
         defaultLang: 'auto', // Defaults to auto language detection
@@ -472,8 +473,10 @@ export default function useTaskAgentSession({
                     setHighlightPaperclip(false);
                 }
 
-                const spokenText = resolveSpokenText(data, data.reply);
-                const spokenSpeech = data.speech ? cleanForSpeech(data.speech) : spokenText;
+                const spokenText = cleanForSpeech(data.reply || resolveSpokenText(data, data.reply));
+                const spokenSpeech = data.speechDevanagari
+                    ? cleanForSpeech(data.speechDevanagari)
+                    : ((data.speech && !data.reply) ? cleanForSpeech(data.speech) : spokenText);
 
                 const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
 
@@ -501,14 +504,7 @@ export default function useTaskAgentSession({
                     spokenMessageIdsRef.current.add(assistantMsgId);
                     cancelSpeech();
 
-                    const charLen = spokenText.length;
-                    const watchdog = createTtsWatchdog(() => {
-                        cancelSpeech();
-                        (ensureListeningRef.current || ensureListening)();
-                    }, charLen);
-
                     speak(spokenSpeech, spokenText, () => {
-                        watchdog.cancel();
                         (ensureListeningRef.current || ensureListening)();
                     });
                 } else {
@@ -854,20 +850,31 @@ export default function useTaskAgentSession({
         setUploadProgress(0);
 
         try {
-            const entries = buildTaskFormDataEntries({ payload, files, voiceNoteBlob });
-            const formData = new FormData();
-            entries.forEach(([key, val, filename]) => {
-                if (filename) {
-                    formData.append(key, val, filename);
-                } else {
-                    formData.append(key, val);
-                }
-            });
+            const isMultipart = payload.multipart !== false && (files.length > 0 || Boolean(voiceNoteBlob) || payload.multipart === true);
+            let requestData;
+            const requestHeaders = {};
+
+            if (isMultipart) {
+                const entries = buildTaskFormDataEntries({ payload, files, voiceNoteBlob });
+                const formData = new FormData();
+                entries.forEach(([key, val, filename]) => {
+                    if (filename) {
+                        formData.append(key, val, filename);
+                    } else {
+                        formData.append(key, val);
+                    }
+                });
+                requestData = formData;
+            } else {
+                requestData = payload.body || payload.fields || {};
+                requestHeaders['Content-Type'] = 'application/json';
+            }
 
             const response = await axiosInstance.request({
                 url: payload.endpoint,
                 method: payload.method || 'POST',
-                data: formData,
+                data: requestData,
+                headers: requestHeaders,
                 timeout: 30000,
                 onUploadProgress: (progressEvent) => {
                     if (progressEvent.total) {
@@ -1556,5 +1563,6 @@ export default function useTaskAgentSession({
         browserHint,
         orbState,
         formatDueChip,
+        voiceInfo,
     };
 }

@@ -151,6 +151,7 @@ export default function MyAiChatView({ onBack, onClose }) {
     setNotice,
     cancelSpeech,
     recordingVoiceNote,
+    voiceInfo,
     handleAddFiles,
     handleRemoveFile,
     toggleVoiceNote,
@@ -682,6 +683,9 @@ export default function MyAiChatView({ onBack, onClose }) {
               </span>
             )}
             </span>
+            <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
+              <span>Voice: <strong>{voiceInfo?.name ? `${voiceInfo.name} (${voiceInfo.lang})${voiceInfo.isFallback ? ' [fallback]' : ''}` : 'none'}</strong></span>
+            </div>
             <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
               <span>Last Transcript: <strong>{
                 lastTranscriptDiag ? (

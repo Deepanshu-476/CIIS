@@ -906,4 +906,160 @@ export const buildParseRequestBody = ({ text = '', action, pick, draft, language
     };
 };
 
+export const MALE_VOICE_EXCLUSIONS = [
+    'ravi',
+    'hemant',
+    'prabhat',
+    'rishi',
+    'madhur',
+    'david',
+    'mark',
+    'george',
+    'male',
+];
+
+export const PREFERRED_FEMALE_VOICE_NAMES = [
+    'swara',
+    'google हिन्दी',
+    'google hindi',
+    'google hi',
+    'heera',
+    'kalpana',
+    'veena',
+    'priya',
+    'neerja',
+    'google uk english female',
+    'zira',
+    'samantha',
+];
+
+export const isMaleVoice = (voice) => {
+    if (!voice || !voice.name) return false;
+    const lower = voice.name.toLowerCase();
+    return MALE_VOICE_EXCLUSIONS.some((term) => lower.includes(term));
+};
+
+export const selectPreferredVoice = (voices = [], savedVoiceName = null) => {
+    if (!Array.isArray(voices) || voices.length === 0) {
+        return { voice: null, isFallback: false, voiceInfo: null };
+    }
+
+    // Filter out male voices
+    const eligibleVoices = voices.filter((v) => !isMaleVoice(v));
+
+    // Natural Hindi female voice check (e.g. Swara, Google हिन्दी, Heera)
+    const naturalHindiVoice = eligibleVoices.find((v) => {
+        const n = (v.name || '').toLowerCase();
+        const l = (v.lang || '').toLowerCase();
+        const isHi = l.startsWith('hi');
+        return isHi || /swara|heera|kalpana|veena|हिन्दी|hindi/i.test(n);
+    });
+
+    // 1. Check if savedVoiceName matches an available non-male voice (unless saved was non-Hindi and Hindi natural is available)
+    if (savedVoiceName) {
+        const saved = voices.find((v) => v.name === savedVoiceName);
+        const savedIsEnglish = saved && !(saved.lang || '').toLowerCase().startsWith('hi') && !/swara|heera|kalpana|veena|हिन्दी|hindi/i.test(saved.name || '');
+        if (saved && !isMaleVoice(saved) && (!naturalHindiVoice || !savedIsEnglish)) {
+            return {
+                voice: saved,
+                isFallback: false,
+                voiceInfo: { name: saved.name, lang: saved.lang, isFallback: false },
+            };
+        }
+    }
+
+    // 2. Priority check: preferred female names with en-IN or hi-IN first
+    for (const preferred of PREFERRED_FEMALE_VOICE_NAMES) {
+        const matchInd = eligibleVoices.find((v) => {
+            const n = (v.name || '').toLowerCase();
+            const l = (v.lang || '').toLowerCase();
+            const isIndic = l.startsWith('en-in') || l.startsWith('en_in') || l.startsWith('hi');
+            return n.includes(preferred) && isIndic;
+        });
+        if (matchInd) {
+            return {
+                voice: matchInd,
+                isFallback: false,
+                voiceInfo: { name: matchInd.name, lang: matchInd.lang, isFallback: false },
+            };
+        }
+    }
+
+    // 3. Preferred female names with any lang (e.g. Google UK English Female, Zira, Samantha)
+    for (const preferred of PREFERRED_FEMALE_VOICE_NAMES) {
+        const match = eligibleVoices.find((v) => (v.name || '').toLowerCase().includes(preferred));
+        if (match) {
+            return {
+                voice: match,
+                isFallback: false,
+                voiceInfo: { name: match.name, lang: match.lang, isFallback: false },
+            };
+        }
+    }
+
+    // 4. Any other female English voice
+    const otherFemaleEn = eligibleVoices.find((v) => {
+        const n = (v.name || '').toLowerCase();
+        const l = (v.lang || '').toLowerCase();
+        return l.startsWith('en') && n.includes('female');
+    });
+    if (otherFemaleEn) {
+        return {
+            voice: otherFemaleEn,
+            isFallback: false,
+            voiceInfo: { name: otherFemaleEn.name, lang: otherFemaleEn.lang, isFallback: false },
+        };
+    }
+
+    // 5. Fallback: If no female voice exists, use any en-IN or hi-IN voice (marked as fallback)
+    const indicFallback = voices.find((v) => {
+        const l = (v.lang || '').toLowerCase();
+        return l.startsWith('en-in') || l.startsWith('en_in') || l.startsWith('hi');
+    });
+    if (indicFallback) {
+        return {
+            voice: indicFallback,
+            isFallback: true,
+            voiceInfo: { name: indicFallback.name, lang: indicFallback.lang, isFallback: true },
+        };
+    }
+
+    // 6. Generic non-male or first available voice fallback
+    const anyNonMale = eligibleVoices[0] || voices[0];
+    return {
+        voice: anyNonMale,
+        isFallback: true,
+        voiceInfo: { name: anyNonMale?.name || 'Unknown', lang: anyNonMale?.lang || 'en-US', isFallback: true },
+    };
+};
+
+export const waitForVoices = (speechSynth, timeoutMs = 1500) => {
+    return new Promise((resolve) => {
+        if (!speechSynth || typeof speechSynth.getVoices !== 'function') {
+            resolve([]);
+            return;
+        }
+        const immediate = speechSynth.getVoices() || [];
+        if (immediate.length > 0) {
+            resolve(immediate);
+            return;
+        }
+        let timer = null;
+        const onVoicesChanged = () => {
+            const v = speechSynth.getVoices() || [];
+            if (v.length > 0) {
+                if (timer) clearTimeout(timer);
+                speechSynth.removeEventListener?.('voiceschanged', onVoicesChanged);
+                resolve(v);
+            }
+        };
+        speechSynth.addEventListener?.('voiceschanged', onVoicesChanged);
+        timer = setTimeout(() => {
+            speechSynth.removeEventListener?.('voiceschanged', onVoicesChanged);
+            resolve(speechSynth.getVoices() || []);
+        }, timeoutMs);
+    });
+};
+
+
 

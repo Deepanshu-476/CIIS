@@ -639,7 +639,9 @@ const MessageBubble = ({
     };
 
     const renderAudioWaveform = () => {
-        const bars = [8, 13, 17, 11, 22, 26, 18, 30, 34, 21, 28, 37, 32, 24, 18, 31, 36, 26, 20, 29, 35, 24, 16, 12];
+        // Enough bars to span the whole bubble; CSS spreads them edge to edge.
+        const bars = [8, 13, 17, 11, 22, 26, 18, 30, 34, 21, 28, 37, 32, 24, 18, 31, 36, 26, 20, 29, 35, 24, 16, 12,
+            15, 23, 30, 19, 27, 33, 22, 14, 25, 31, 18, 10];
         const progress = audioDuration ? audioCurrentTime / audioDuration : 0;
 
         return (

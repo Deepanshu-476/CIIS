@@ -36,7 +36,8 @@ const MessageBubble = ({
     onReplyJump,
     onReact,
     isStarredMessage,
-    socket
+    socket,
+    isGroupChat = false
 }) => {
 
 
@@ -174,7 +175,9 @@ const MessageBubble = ({
     const seenBy = Array.isArray(message.seenBy)
         ? message.seenBy.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
         : [];
-    const isSeenBySomeoneElse = seenBy.some(id => id && id !== currentUserId);
+    // The server decides "seen": every other member has read it (one reader in a group is not enough).
+    // Without a server flag, fall back to seenBy only in a one-to-one chat.
+    const isSeenBySomeoneElse = !isGroupChat && seenBy.some(id => id && id !== currentUserId);
     const deliveryState = message.seen || (isOwn && isSeenBySomeoneElse)
         ? "seen"
         : message.delivered || deliveredTo.some(id => id !== currentUserId)

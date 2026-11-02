@@ -813,7 +813,8 @@ useEffect(() => {
 
                 ? {
                     ...msg,
-                    seen: true,
+                    // In a group, blue only once every other member has read it (server sends allSeen).
+                    seen: Boolean(msg.seen) || data?.allSeen !== false,
                     seenBy: Array.from(new Set([
                         ...(Array.isArray(msg.seenBy) ? msg.seenBy : []),
                         seenBy
@@ -2532,6 +2533,7 @@ useEffect(() => {
                                             isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
                                             onToggleStar={toggleStarredMessage}
                                             socket={socket}
+                                            isGroupChat={Boolean(selectedUser?.isGroup || conversation?.isGroup)}
                                         />
                                     </div>
                                 )}

@@ -1345,6 +1345,17 @@
   max-width: 480px;
 }
 
+.EmppAttendence-modal-form,
+.EmppAttendence-modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  width: 100%;
+}
+
 .EmppAttendence-modal-header {
   padding: 20px 24px;
   border-bottom: 1px solid #f1f5f9;
@@ -1353,6 +1364,9 @@
   align-items: center;
   background: #ffffff;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .EmppAttendence-modal-header h3 {
@@ -1389,8 +1403,9 @@
   padding: 24px;
   overflow-y: auto !important;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
   background: #ffffff;
+  overscroll-behavior: contain;
 }
 
 .EmppAttendence-modal-body::-webkit-scrollbar {
@@ -1415,6 +1430,9 @@
   align-items: center;
   background: #f8fafc;
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 .EmppAttendence-footer-left {

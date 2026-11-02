@@ -19,71 +19,106 @@ import {
   Button
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  CalendarToday as CalendarIcon,
-  EventNote as EventNoteIcon,
-  Computer as ComputerIcon,
-  LogoutOutlined,
-  Settings as SettingsIcon,
-  Notifications as NotificationsIcon,
-  Person as PersonIcon,
-  Task as TaskIcon,
-  MeetingRoom as MeetingRoomIcon,
-  Groups as GroupsIcon,
-  Chat as ChatIcon,
-  Email as EmailIcon,
-  VideoCall as VideoCallIcon,
-  ListAlt as ListAltIcon,
   ExpandMore,
   ExpandLess,
-  CreditCard as CreditCardIcon,
-  Folder as FolderIcon,
-  SupportAgent as SupportAgentIcon,
-  PhoneInTalk as PhoneInTalkIcon,
-  Speed as CallOverviewIcon,
-  AssignmentInd as AssignedCallsIcon,
-  AccessTime as PendingCallsIcon,
-  EventAvailable as ScheduledCallsIcon,
-  CheckCircle as CompletedCallsIcon,
-  Verified as ConvertedCallsIcon,
-  SwapHoriz as TransferredCallsIcon,
-  History as CallHistoryIcon,
-  AccountBalanceWalletOutlined as SalaryComponentIcon,
-  LayersOutlined as SalaryStructureIcon,
-  ManageAccountsOutlined as EmployeeSalaryIcon,
-  AssignmentIndOutlined as AssignSalaryIcon,
-  CreditScoreOutlined as PayrollProcessIcon,
-  ReceiptLongOutlined as PayslipIcon,
-  AnalyticsOutlined as PayrollReportsIcon,
-  AccountBalanceOutlined as PayrollHeaderIcon,
-  ContactPage as ContactPageIcon,
-  ContactPhone as ContactPhoneIcon,
-  Leaderboard as LeaderboardIcon,
-  PersonAdd as PersonAddIcon,
-  AltRoute as AltRouteIcon,
-  Category as CategoryIcon,
-  ImportExport as ImportExportIcon,
-  EventRepeat as EventRepeatIcon,
-  AssignmentTurnedIn as AssignmentTurnedInIcon,
-  Assignment as AssignmentIcon,
-  PlaylistAddCheck as PlaylistAddCheckIcon,
-  WorkHistory as WorkHistoryIcon,
-  Balance as BalanceIcon,
-  Assessment as AssessmentIcon,
-  Analytics as AnalyticsIcon,
-  TrendingUp as TrendingUpIcon,
-  PhoneCallback as PhoneCallbackIcon,
-  DateRange as DateRangeIcon,
-  WorkspacePremium as WorkspacePremiumIcon,
-  FilterList as FilterListIcon,
-  Timeline as TimelineIcon,
-  DesignServices as DesignServicesIcon,
-  Storefront as StorefrontIcon,
-  Description as DescriptionIcon,
-  ReceiptLong as ReceiptLongIcon,
-  Subscriptions as SubscriptionsIcon,
   DragIndicator as DragIndicatorIcon,
 } from '@mui/icons-material';
+import {
+  LayoutDashboard,
+  Clock,
+  CalendarOff,
+  Laptop,
+  ListTodo,
+  ListPlus,
+  ListChecks,
+  ClipboardCheck,
+  FolderKanban,
+  Briefcase,
+  Video,
+  Presentation,
+  CalendarPlus,
+  MessageSquare,
+  Bell,
+  Megaphone,
+  Mails,
+  Contact,
+  CalendarDays,
+  CalendarCheck,
+  ScrollText,
+  Boxes,
+  Network,
+  IdCard,
+  Users,
+  UserPlus,
+  FileCheck,
+  PanelLeft,
+  LifeBuoy,
+  Wrench,
+  MessageSquareQuote,
+  KeyRound,
+  Handshake,
+  Building2,
+  Crown,
+  Coins,
+  Layers,
+  Calculator,
+  Wallet,
+  Banknote,
+  ReceiptText,
+  FileBarChart,
+  Target,
+  Gauge,
+  Compass,
+  UserSearch,
+  UserRoundPlus,
+  GitFork,
+  Tags,
+  ArrowDownUp,
+  PhoneCall,
+  Activity,
+  PhoneIncoming,
+  Phone,
+  PhoneMissed,
+  CalendarClock,
+  PhoneOutgoing,
+  Trophy,
+  PhoneForwarded,
+  History,
+  CalendarSync,
+  ListOrdered,
+  FolderInput,
+  Archive,
+  Scale,
+  BarChart3,
+  TrendingUp,
+  Radio,
+  CalendarRange,
+  Medal,
+  Filter,
+  Timer,
+  Mic,
+  LayoutGrid,
+  Sparkles,
+  CheckSquare2,
+  ShoppingBag,
+  ScreenShare,
+  FileText,
+  CreditCard,
+  Building,
+  Globe2,
+  ShieldCheck,
+  MapPin,
+  Server,
+  ToggleRight,
+  MailCheck,
+  ArrowUpCircle,
+  MonitorPlay,
+  PartyPopper,
+  Settings,
+  LogOut,
+  UserCheck,
+  Headset
+} from 'lucide-react';
 import Swal from "sweetalert2";
 import { handleAppLogout } from '../utils/logoutModal';
 import axiosInstance from '../utils/axiosConfig';
@@ -501,342 +536,408 @@ const CollapsedHeading = styled(Box)(({ theme }) => ({
 
 
 const iconMap = {
-  'CallOverview': CallOverviewIcon,
-  'AssignedCalls': AssignedCallsIcon,
-  'TodaysCalls': PhoneInTalkIcon,
-  'PendingCalls': PendingCallsIcon,
-  'ScheduledCalls': ScheduledCallsIcon,
-  'CompletedCalls': CompletedCallsIcon,
-  'ConvertedCalls': ConvertedCallsIcon,
-  'TransferredCalls': TransferredCallsIcon,
-  'CallHistory': CallHistoryIcon,
-  'Dashboard': DashboardIcon,
-  'dashboard': DashboardIcon,
-  'Calendar': CalendarIcon,
-  'CalendarToday': CalendarIcon,
-  'calendar': CalendarIcon,
-  'calendartoday': CalendarIcon,
-  'Event': EventNoteIcon,
-  'EventNote': EventNoteIcon,
-  'event': EventNoteIcon,
-  'eventnote': EventNoteIcon,
-  'Computer': ComputerIcon,
-  'computer': ComputerIcon,
-  'Notifications': NotificationsIcon,
-  'notifications': NotificationsIcon,
-  'Alert': NotificationsIcon,
-  'alert': NotificationsIcon,
-  'Person': PersonIcon,
-  'person': PersonIcon,
-  'Task': TaskIcon,
-  'task': TaskIcon,
-  'ListAlt': ListAltIcon,
-  'listalt': ListAltIcon,
-  'MeetingRoom': MeetingRoomIcon,
-  'meetingroom': MeetingRoomIcon,
-  'VideoCall': VideoCallIcon,
-  'videocall': VideoCallIcon,
-  'Meeting': VideoCallIcon,
-  'meeting': VideoCallIcon,
-  'Groups': GroupsIcon,
-  'groups': GroupsIcon,
-  'Chat': ChatIcon,
-  'chat': ChatIcon,
-  'Email': EmailIcon,
-  'email': EmailIcon,
-  'ProjectIcon': GroupsIcon,
-  'projecticon': GroupsIcon,
-  'Project': GroupsIcon,
-  'project': GroupsIcon,
-  'Apartment': GroupsIcon,
-  'apartment': GroupsIcon,
-  'Work': TaskIcon,
-  'work': TaskIcon,
-  'Settings': SettingsIcon,
-  'settings': SettingsIcon,
-  'Logout': LogoutOutlined,
-  'logout': LogoutOutlined,
-  'CreditCard': CreditCardIcon,
-  'creditcard': CreditCardIcon,
-  'Payment': CreditCardIcon,
-  'payment': CreditCardIcon,
-  'Folder': FolderIcon,
-  'folder': FolderIcon,
-  'Services': FolderIcon,
-  'services': FolderIcon,
-  'Support': SupportAgentIcon,
-  'support': SupportAgentIcon,
-  'SupportAgent': SupportAgentIcon,
-  'supportagent': SupportAgentIcon,
-  'Call': PhoneInTalkIcon,
-  'call': PhoneInTalkIcon,
-  'SalaryComponent': SalaryComponentIcon,
-  'salarycomponent': SalaryComponentIcon,
-  'SalaryStructure': SalaryStructureIcon,
-  'salarystructure': SalaryStructureIcon,
-  'EmployeeSalary': EmployeeSalaryIcon,
-  'employeesalary': EmployeeSalaryIcon,
-  'AssignSalary': AssignSalaryIcon,
-  'assignsalary': AssignSalaryIcon,
-  'PayrollProcess': PayrollProcessIcon,
-  'payrollprocess': PayrollProcessIcon,
-  'Payslip': PayslipIcon,
-  'payslip': PayslipIcon,
-  'PayrollReports': PayrollReportsIcon,
-  'payrollreports': PayrollReportsIcon,
-  'PayrollHeader': PayrollHeaderIcon,
-  'payrollheader': PayrollHeaderIcon,
-  'AccountBalanceOutlined': PayrollHeaderIcon,
-  'ContactPage': ContactPageIcon,
-  'contactpage': ContactPageIcon,
-  'ContactPhone': ContactPhoneIcon,
-  'contactphone': ContactPhoneIcon,
-  'Leaderboard': LeaderboardIcon,
-  'leaderboard': LeaderboardIcon,
-  'PersonAdd': PersonAddIcon,
-  'personadd': PersonAddIcon,
-  'AltRoute': AltRouteIcon,
-  'altroute': AltRouteIcon,
-  'Category': CategoryIcon,
-  'category': CategoryIcon,
-  'ImportExport': ImportExportIcon,
-  'importexport': ImportExportIcon,
-  'EventRepeat': EventRepeatIcon,
-  'eventrepeat': EventRepeatIcon,
-  'AssignmentTurnedIn': AssignmentTurnedInIcon,
-  'assignmentturnedin': AssignmentTurnedInIcon,
-  'Assignment': AssignmentIcon,
-  'assignment': AssignmentIcon,
-  'PlaylistAddCheck': PlaylistAddCheckIcon,
-  'playlistaddcheck': PlaylistAddCheckIcon,
-  'WorkHistory': WorkHistoryIcon,
-  'workhistory': WorkHistoryIcon,
-  'Balance': BalanceIcon,
-  'balance': BalanceIcon,
-  'Assessment': AssessmentIcon,
-  'assessment': AssessmentIcon,
-  'Analytics': AnalyticsIcon,
-  'analytics': AnalyticsIcon,
-  'TrendingUp': TrendingUpIcon,
-  'trendingup': TrendingUpIcon,
-  'PhoneCallback': PhoneCallbackIcon,
-  'phonecallback': PhoneCallbackIcon,
-  'DateRange': DateRangeIcon,
-  'daterange': DateRangeIcon,
-  'WorkspacePremium': WorkspacePremiumIcon,
-  'workspacepremium': WorkspacePremiumIcon,
-  'FilterList': FilterListIcon,
-  'filterlist': FilterListIcon,
-  'Timeline': TimelineIcon,
-  'timeline': TimelineIcon,
-  'DesignServices': DesignServicesIcon,
-  'designservices': DesignServicesIcon,
-  'MyServices': DesignServicesIcon,
-  'myservices': DesignServicesIcon,
-  'Storefront': StorefrontIcon,
-  'storefront': StorefrontIcon,
-  'Marketplace': StorefrontIcon,
-  'marketplace': StorefrontIcon,
-  'Description': DescriptionIcon,
-  'description': DescriptionIcon,
-  'Documents': DescriptionIcon,
-  'documents': DescriptionIcon,
-  'ReceiptLong': ReceiptLongIcon,
-  'receiptlong': ReceiptLongIcon,
-  'Subscriptions': SubscriptionsIcon,
-  'subscriptions': SubscriptionsIcon,
+  // Lucide icon components
+  'LayoutDashboard': LayoutDashboard,
+  'Clock': Clock,
+  'CalendarOff': CalendarOff,
+  'Laptop': Laptop,
+  'ListTodo': ListTodo,
+  'ListPlus': ListPlus,
+  'ListChecks': ListChecks,
+  'ClipboardCheck': ClipboardCheck,
+  'FolderKanban': FolderKanban,
+  'Briefcase': Briefcase,
+  'Video': Video,
+  'Presentation': Presentation,
+  'CalendarPlus': CalendarPlus,
+  'MessageSquare': MessageSquare,
+  'Bell': Bell,
+  'Megaphone': Megaphone,
+  'Mails': Mails,
+  'Contact': Contact,
+  'CalendarDays': CalendarDays,
+  'CalendarCheck': CalendarCheck,
+  'ScrollText': ScrollText,
+  'Boxes': Boxes,
+  'Network': Network,
+  'IdCard': IdCard,
+  'Users': Users,
+  'UserPlus': UserPlus,
+  'FileCheck': FileCheck,
+  'PanelLeft': PanelLeft,
+  'LifeBuoy': LifeBuoy,
+  'Wrench': Wrench,
+  'MessageSquareQuote': MessageSquareQuote,
+  'KeyRound': KeyRound,
+  'Handshake': Handshake,
+  'Building2': Building2,
+  'Crown': Crown,
+  'Coins': Coins,
+  'Layers': Layers,
+  'Calculator': Calculator,
+  'Wallet': Wallet,
+  'Banknote': Banknote,
+  'ReceiptText': ReceiptText,
+  'FileBarChart': FileBarChart,
+  'Target': Target,
+  'Gauge': Gauge,
+  'Compass': Compass,
+  'UserSearch': UserSearch,
+  'UserRoundPlus': UserRoundPlus,
+  'GitFork': GitFork,
+  'Tags': Tags,
+  'ArrowDownUp': ArrowDownUp,
+  'PhoneCall': PhoneCall,
+  'Activity': Activity,
+  'PhoneIncoming': PhoneIncoming,
+  'Phone': Phone,
+  'PhoneMissed': PhoneMissed,
+  'CalendarClock': CalendarClock,
+  'PhoneOutgoing': PhoneOutgoing,
+  'Trophy': Trophy,
+  'PhoneForwarded': PhoneForwarded,
+  'History': History,
+  'CalendarSync': CalendarSync,
+  'ListOrdered': ListOrdered,
+  'FolderInput': FolderInput,
+  'Archive': Archive,
+  'Scale': Scale,
+  'BarChart3': BarChart3,
+  'TrendingUp': TrendingUp,
+  'Radio': Radio,
+  'CalendarRange': CalendarRange,
+  'Medal': Medal,
+  'Filter': Filter,
+  'Timer': Timer,
+  'Mic': Mic,
+  'UserCheck': UserCheck,
+  'LayoutGrid': LayoutGrid,
+  'Sparkles': Sparkles,
+  'CheckSquare2': CheckSquare2,
+  'ShoppingBag': ShoppingBag,
+  'ScreenShare': ScreenShare,
+  'FileText': FileText,
+  'CreditCard': CreditCard,
+  'Building': Building,
+  'Globe2': Globe2,
+  'ShieldCheck': ShieldCheck,
+  'MapPin': MapPin,
+  'Server': Server,
+  'ToggleRight': ToggleRight,
+  'MailCheck': MailCheck,
+  'ArrowUpCircle': ArrowUpCircle,
+  'MonitorPlay': MonitorPlay,
+  'PartyPopper': PartyPopper,
+  'Settings': Settings,
+  'LogOut': LogOut,
+  'Headset': Headset,
+
+  // Legacy backwards-compatibility aliases:
+  'Dashboard': LayoutDashboard,
+  'dashboard': LayoutDashboard,
+  'Calendar': CalendarDays,
+  'calendar': CalendarDays,
+  'CalendarToday': Clock,
+  'calendartoday': Clock,
+  'Event': CalendarOff,
+  'event': CalendarOff,
+  'EventNote': CalendarCheck,
+  'eventnote': CalendarCheck,
+  'Computer': Laptop,
+  'computer': Laptop,
+  'Notifications': Bell,
+  'notifications': Bell,
+  'Alert': Bell,
+  'alert': Bell,
+  'Person': Contact,
+  'person': Contact,
+  'PersonAdd': UserPlus,
+  'personadd': UserPlus,
+  'Task': ListTodo,
+  'task': ListTodo,
+  'ListAlt': ListChecks,
+  'listalt': ListChecks,
+  'MeetingRoom': CalendarPlus,
+  'meetingroom': CalendarPlus,
+  'VideoCall': Video,
+  'videocall': Video,
+  'Meeting': Video,
+  'meeting': Video,
+  'Groups': Users,
+  'groups': Users,
+  'Chat': MessageSquare,
+  'chat': MessageSquare,
+  'Email': Mails,
+  'email': Mails,
+  'ProjectIcon': FolderKanban,
+  'projecticon': FolderKanban,
+  'Project': FolderKanban,
+  'project': FolderKanban,
+  'Apartment': Building2,
+  'apartment': Building2,
+  'Work': Briefcase,
+  'work': Briefcase,
+  'SettingsIcon': Settings,
+  'Logout': LogOut,
+  'logout': LogOut,
+  'Payment': CreditCard,
+  'payment': CreditCard,
+  'Folder': FolderKanban,
+  'folder': FolderKanban,
+  'Services': Sparkles,
+  'services': Sparkles,
+  'Support': LifeBuoy,
+  'support': LifeBuoy,
+  'SupportAgent': LifeBuoy,
+  'supportagent': LifeBuoy,
+  'Call': PhoneCall,
+  'call': PhoneCall,
+  'CallOverview': Activity,
+  'AssignedCalls': PhoneIncoming,
+  'TodaysCalls': Phone,
+  'PendingCalls': PhoneMissed,
+  'ScheduledCalls': CalendarClock,
+  'CompletedCalls': PhoneOutgoing,
+  'ConvertedCalls': Trophy,
+  'TransferredCalls': PhoneForwarded,
+  'CallHistory': History,
+  'SalaryComponent': Coins,
+  'salarycomponent': Coins,
+  'SalaryStructure': Layers,
+  'salarystructure': Layers,
+  'EmployeeSalary': Calculator,
+  'employeesalary': Calculator,
+  'AssignSalary': Wallet,
+  'assignsalary': Wallet,
+  'PayrollProcess': Banknote,
+  'payrollprocess': Banknote,
+  'Payslip': ReceiptText,
+  'payslip': ReceiptText,
+  'PayrollReports': FileBarChart,
+  'payrollreports': FileBarChart,
+  'PayrollHeader': Banknote,
+  'payrollheader': Banknote,
+  'AccountBalanceOutlined': Banknote,
+  'ContactPage': Contact,
+  'contactpage': Contact,
+  'ContactPhone': PhoneCall,
+  'contactphone': PhoneCall,
+  'Leaderboard': Compass,
+  'leaderboard': Compass,
+  'AltRoute': GitFork,
+  'altroute': GitFork,
+  'Category': Tags,
+  'category': Tags,
+  'ImportExport': ArrowDownUp,
+  'importexport': ArrowDownUp,
+  'EventRepeat': CalendarSync,
+  'eventrepeat': CalendarSync,
+  'AssignmentTurnedIn': ListOrdered,
+  'assignmentturnedin': ListOrdered,
+  'Assignment': ListOrdered,
+  'assignment': ListOrdered,
+  'PlaylistAddCheck': FolderInput,
+  'playlistaddcheck': FolderInput,
+  'WorkHistory': Archive,
+  'workhistory': Archive,
+  'Balance': Scale,
+  'balance': Scale,
+  'Assessment': BarChart3,
+  'assessment': BarChart3,
+  'Analytics': BarChart3,
+  'analytics': BarChart3,
+  'trendingup': TrendingUp,
+  'PhoneCallback': Radio,
+  'phonecallback': Radio,
+  'DateRange': CalendarRange,
+  'daterange': CalendarRange,
+  'WorkspacePremium': Medal,
+  'workspacepremium': Medal,
+  'FilterList': Filter,
+  'filterlist': Filter,
+  'Timeline': Timer,
+  'timeline': Timer,
+  'DesignServices': Sparkles,
+  'designservices': Sparkles,
+  'MyServices': Sparkles,
+  'myservices': Sparkles,
+  'Storefront': ShoppingBag,
+  'storefront': ShoppingBag,
+  'Marketplace': ShoppingBag,
+  'marketplace': ShoppingBag,
+  'Description': FileText,
+  'description': FileText,
+  'Documents': FileText,
+  'documents': FileText,
+  'ReceiptLong': ReceiptText,
+  'receiptlong': ReceiptText,
+  'Subscriptions': Crown,
+  'subscriptions': Crown,
 };
 
 const getMenuItemIcon = (item) => {
-  const id = String(item?.id || '').toLowerCase();
-  const path = String(item?.path || '').toLowerCase();
-  const name = String(item?.name || '').toLowerCase();
+  const id = String(item?.id || '').toLowerCase().trim();
+  const path = String(item?.path || '').toLowerCase().trim().replace(/\/+$/, '');
+  const name = String(item?.name || '').toLowerCase().trim();
 
-  const crmIconMap = {
-    'admin-crm-dashboard': 'Dashboard',
-    'admin-crm-lead-overview': 'Leaderboard',
-    'admin-crm-all-leads': 'Groups',
-    'admin-crm-add-lead': 'PersonAdd',
-    'admin-crm-lead-sources': 'AltRoute',
-    'admin-crm-lead-types': 'Category',
-    'admin-crm-import-export-leads': 'ImportExport',
-    'admin-crm-call-overview': 'CallOverview',
-    'admin-crm-assigned-calls': 'AssignedCalls',
-    'admin-crm-todays-calls': 'TodaysCalls',
-    'admin-crm-pending-calls': 'PendingCalls',
-    'admin-crm-scheduled-calls': 'ScheduledCalls',
-    'admin-crm-completed-calls': 'CompletedCalls',
-    'admin-crm-converted-calls': 'ConvertedCalls',
-    'admin-crm-transferred-calls': 'TransferredCalls',
-    'admin-crm-call-history': 'CallHistory',
-    'admin-crm-follow-ups': 'EventRepeat',
-    'admin-crm-assignments': 'Assignment',
-    'admin-crm-assignment-bulk': 'PlaylistAddCheck',
-    'admin-crm-assignment-history': 'WorkHistory',
-    'admin-crm-workload': 'Balance',
-    'admin-crm-reports-overview': 'Analytics',
-    'admin-crm-reports-leads': 'TrendingUp',
-    'admin-crm-reports-calls': 'PhoneCallback',
-    'admin-crm-reports-follow-ups': 'DateRange',
-    'admin-crm-reports-team-performance': 'WorkspacePremium',
-    'admin-crm-reports-conversion-funnel': 'FilterList',
-    'admin-crm-reports-user-activity': 'Timeline',
-  };
+  // 1. Client Portal
+  if (path.includes('/client/dashboard') || id === 'client-dashboard') return 'LayoutGrid';
+  if (path.includes('/client/my-services') || id === 'client-my-services' || name === 'my services') return 'Sparkles';
+  if (path.includes('/client/tasks-updates') || id === 'client-tasks-updates' || name.includes('tasks & updates') || name.includes('tasks and updates')) return 'CheckSquare2';
+  if (path.includes('/client/marketplace') || id === 'client-marketplace' || name.includes('explore services') || name.includes('marketplace')) return 'ShoppingBag';
+  if (path.includes('/client/support-tickets') || id === 'client-support-tickets' || (path.startsWith('/client') && name === 'meetings')) return 'ScreenShare';
+  if (path.includes('/client/documents') || id === 'client-documents' || (path.startsWith('/client') && name === 'documents')) return 'FileText';
+  if (path.includes('/client/payments') || path.includes('/client/payment') || id === 'client-payments' || id === 'client-payment' || (path.startsWith('/client') && name === 'payments')) return 'CreditCard';
 
-  if (crmIconMap[id]) {
-    return crmIconMap[id];
-  }
-  if (path.includes('/crm/admin/dashboard')) return 'Dashboard';
-  if (path.includes('/crm/admin/lead-overview')) return 'Leaderboard';
-  if (path.includes('/crm/admin/all-leads')) return 'Groups';
-  if (path.includes('/crm/admin/add-lead')) return 'PersonAdd';
-  if (path.includes('/crm/admin/lead-sources')) return 'AltRoute';
-  if (path.includes('/crm/admin/lead-types')) return 'Category';
-  if (path.includes('/crm/admin/import-export-leads')) return 'ImportExport';
-  if (path.includes('/crm/admin/call-overview')) return 'CallOverview';
-  if (path.includes('/crm/admin/assigned-calls')) return 'AssignedCalls';
-  if (path.includes('/crm/admin/todays-calls')) return 'TodaysCalls';
-  if (path.includes('/crm/admin/pending-calls')) return 'PendingCalls';
-  if (path.includes('/crm/admin/scheduled-calls')) return 'ScheduledCalls';
-  if (path.includes('/crm/admin/completed-calls')) return 'CompletedCalls';
-  if (path.includes('/crm/admin/converted-calls')) return 'ConvertedCalls';
-  if (path.includes('/crm/admin/transferred-calls')) return 'TransferredCalls';
-  if (path.includes('/crm/admin/call-history')) return 'CallHistory';
-  if (path.includes('/crm/admin/follow-ups')) return 'EventRepeat';
-  if (path.includes('/crm/admin/assignments')) return 'Assignment';
-  if (path.includes('/crm/admin/assignment-bulk')) return 'PlaylistAddCheck';
-  if (path.includes('/crm/admin/assignment-history')) return 'WorkHistory';
-  if (path.includes('/crm/admin/workload')) return 'Balance';
-  if (path.includes('/crm/reports/overview')) return 'Analytics';
-  if (path.includes('/crm/reports/leads')) return 'TrendingUp';
-  if (path.includes('/crm/reports/calls')) return 'PhoneCallback';
-  if (path.includes('/crm/reports/follow-ups')) return 'DateRange';
-  if (path.includes('/crm/reports/team-performance')) return 'WorkspacePremium';
-  if (path.includes('/crm/reports/conversion-funnel')) return 'FilterList';
-  if (path.includes('/crm/reports/user-activity')) return 'Timeline';
+  // 2. CRM Leads
+  if (id === 'admin-crm-dashboard' || path.includes('/crm/admin/dashboard')) return 'Gauge';
+  if (id === 'admin-crm-lead-overview' || path.includes('/crm/admin/lead-overview') || name === 'lead overview') return 'Compass';
+  if (id === 'admin-crm-all-leads' || path.includes('/crm/admin/all-leads') || name === 'all leads') return 'UserSearch';
+  if (id === 'admin-crm-add-lead' || path.includes('/crm/admin/add-lead') || name === 'add lead') return 'UserRoundPlus';
+  if (id === 'admin-crm-lead-sources' || path.includes('/crm/admin/lead-sources') || name === 'lead sources') return 'GitFork';
+  if (id === 'admin-crm-lead-types' || path.includes('/crm/admin/lead-types') || name === 'lead types') return 'Tags';
+  if (id === 'admin-crm-import-export-leads' || path.includes('/crm/admin/import-export-leads') || name.includes('import & export') || name.includes('import and export')) return 'ArrowDownUp';
 
-  if (id === 'salary-component' || path.includes('/salary-component') || name === 'salary component') {
-    return 'SalaryComponent';
-  }
-  if (id === 'salary-structure' || path.includes('/salary-structure') || name === 'salary structure') {
-    return 'SalaryStructure';
-  }
-  if (id === 'salary-assignment' || path.includes('/salary-assignment') || name === 'employee salary') {
-    return 'EmployeeSalary';
-  }
-  if (id === 'assign-salary' || path.includes('/assign-salary') || name === 'assign salary') {
-    return 'AssignSalary';
-  }
-  if (id === 'payroll-process' || path.includes('/payroll-process') || name === 'payroll process') {
-    return 'PayrollProcess';
-  }
-  if (id === 'payslip' || path.includes('/payslip') || name === 'payslip') {
-    return 'Payslip';
-  }
-  if (id === 'payroll-reports' || path.includes('/payroll-reports') || name === 'payroll reports') {
-    return 'PayrollReports';
+  // 3. CRM & Telecaller Calls
+  if (id === 'admin-crm-call-overview' || path.includes('/crm/admin/call-overview') || path.includes('/telecaller/call-dashboard') || name === 'call overview' || name === 'call dashboard') return 'Activity';
+  if (id === 'admin-crm-assigned-calls' || id === 'admin-telecaller-assigned-calls' || path.includes('assigned-calls') || name.includes('assigned calls')) return 'PhoneIncoming';
+  if (id === 'admin-crm-todays-calls' || id === 'admin-telecaller-todays-calls' || path.includes('todays-calls') || name.includes("today's calls") || name.includes('todays calls')) return 'Phone';
+  if (id === 'admin-crm-pending-calls' || id === 'admin-telecaller-pending-calls' || path.includes('pending-calls') || name.includes('pending calls')) return 'PhoneMissed';
+  if (id === 'admin-crm-scheduled-calls' || id === 'admin-telecaller-scheduled-calls' || path.includes('scheduled-calls') || name.includes('scheduled calls')) return 'CalendarClock';
+  if (id === 'admin-crm-completed-calls' || id === 'admin-telecaller-completed-calls' || path.includes('completed-calls') || name.includes('completed calls')) return 'PhoneOutgoing';
+  if (id === 'admin-crm-converted-calls' || id === 'admin-telecaller-converted-leads' || path.includes('converted-calls') || path.includes('converted-leads') || name.includes('converted')) return 'Trophy';
+  if (id === 'admin-crm-transferred-calls' || path.includes('transferred-calls') || name.includes('transferred calls')) return 'PhoneForwarded';
+  if (id === 'admin-crm-call-history' || id === 'admin-telecaller-call-history' || path.includes('call-history') || name.includes('call history')) return 'History';
+
+  // 4. CRM Follow-ups
+  if (id === 'admin-crm-follow-ups' || id === 'admin-telecaller-follow-ups' || path.includes('follow-ups') || name.includes('follow-up') || name.includes('follow ups')) return 'CalendarSync';
+
+  // 5. CRM Assignments
+  if (id === 'admin-crm-assignments' || path.includes('/crm/admin/assignments') || name.includes('assignments overview')) return 'ListOrdered';
+  if (id === 'admin-crm-assignment-bulk' || path.includes('/crm/admin/assignment-bulk') || name.includes('bulk assignment')) return 'FolderInput';
+  if (id === 'admin-crm-assignment-history' || path.includes('/crm/admin/assignment-history') || name.includes('assignment history')) return 'Archive';
+  if (id === 'admin-crm-workload' || path.includes('/crm/admin/workload') || name.includes('workload')) return 'Scale';
+
+  // 6. CRM Reports
+  if (id === 'admin-crm-reports-overview' || path.includes('/crm/reports/overview') || name === 'reports overview') return 'BarChart3';
+  if (id === 'admin-crm-reports-leads' || path.includes('/crm/reports/leads') || name.includes('lead reports')) return 'TrendingUp';
+  if (id === 'admin-crm-reports-calls' || path.includes('/crm/reports/calls') || name.includes('call reports')) return 'Radio';
+  if (id === 'admin-crm-reports-follow-ups' || path.includes('/crm/reports/follow-ups') || name.includes('follow-up reports')) return 'CalendarRange';
+  if (id === 'admin-crm-reports-team-performance' || path.includes('/crm/reports/team-performance') || name.includes('team performance')) return 'Medal';
+  if (id === 'admin-crm-reports-conversion-funnel' || path.includes('/crm/reports/conversion-funnel') || name.includes('conversion funnel')) return 'Filter';
+  if (id === 'admin-crm-reports-user-activity' || path.includes('/crm/reports/user-activity') || name.includes('user activity')) return 'Timer';
+
+  // 7. Telecaller specific
+  if (id === 'admin-telecaller-call-workspace' || path.includes('/telecaller/call-workspace') || name.includes('call workspace')) return 'Mic';
+  if (id === 'admin-telecaller-lead-detail' || path.includes('/telecaller/lead-detail') || name.includes('lead detail')) return 'UserCheck';
+  if (path.includes('/telecaller/dashboard')) return 'Gauge';
+
+  // 8. Payroll
+  if (id === 'salary-component' || path.includes('/salary-component') || name.includes('salary component')) return 'Coins';
+  if (id === 'salary-structure' || path.includes('/salary-structure') || name.includes('salary structure')) return 'Layers';
+  if (id === 'salary-assignment' || path.includes('/salary-assignment') || name.includes('employee salary')) return 'Calculator';
+  if (id === 'assign-salary' || path.includes('/assign-salary') || name.includes('assign salary')) return 'Wallet';
+  if (id === 'payroll-process' || path.includes('/payroll-process') || name.includes('payroll process')) return 'Banknote';
+  if (id === 'payslip' || path.includes('/payslip') || name.includes('payslip')) return 'ReceiptText';
+  if (id === 'payroll-reports' || path.includes('/payroll-reports') || name.includes('payroll reports')) return 'FileBarChart';
+
+  // 9. Main / User & Admin Pages
+  if (id === 'dashboard' || path.includes('/user-dashboard') || path.includes('/dashboard-overview') || name === 'dashboard') return 'LayoutDashboard';
+  if (id === 'attendance' || path.endsWith('/attendance') || name === 'attendance') return 'Clock';
+  if (id === 'my-leaves' || path.includes('/my-leaves') || name === 'my leaves') return 'CalendarOff';
+  if (id === 'employee-leaves' || id === 'emp-leaves' || path.includes('/emp-leaves') || name.includes('leave management') || name.includes('employee leaves') || name.includes('employees leaves')) return 'CalendarCheck';
+  if (id === 'leave-policy' || path.includes('/leave-policy') || name.includes('leave policy')) return 'ScrollText';
+  if (id === 'my-assets' || path.includes('/my-assets') || name === 'my assets') return 'Laptop';
+  if (id === 'employee-assets' || id === 'emp-assets' || path.includes('/emp-assets') || path.includes('/company-assets') || path.includes('/asset-management') || name.includes('company assets') || name.includes('employee assets') || name.includes('assets management')) return 'Boxes';
+  if (id === 'employee-attendance' || id === 'emp-attendance' || path.includes('/emp-attendance') || name.includes('employee attendance') || name.includes('employees attendance')) return 'CalendarDays';
+  if (id === 'chat' || path.includes('/chat') || name === 'chat') return 'MessageSquare';
+  if (id === 'alerts' || id === 'alert' || (path.includes('/alert') && !path.includes('create-alert')) || name === 'alerts' || name === 'alert') return 'Bell';
+  if (id === 'create-alert' || path.includes('/create-alert') || name.includes('create alert')) return 'Megaphone';
+  if (id === 'support-desk' || path.includes('/support-desk') || name.includes('support desk')) return 'LifeBuoy';
+  if (id === 'support-operations' || path.includes('/support-operations') || name.includes('support operations')) return 'Wrench';
+  if (id === 'bulk-email' || path.includes('/bulk-email') || name.includes('bulk email')) return 'Mails';
+  if (id === 'create-user' || path.includes('/create-user') || name.includes('create user')) return 'UserPlus';
+  if (id === 'register-request' || path.includes('/register-request') || name.includes('register request')) return 'FileCheck';
+  if (id === 'change-password' || path.includes('/change-password') || name.includes('change password')) return 'KeyRound';
+  if (id === 'feedback-questionnaire' || path.includes('/feedback-questionnaire') || name.includes('feedback') || name.includes('questionnaire')) return 'MessageSquareQuote';
+  if (id === 'sidebarmanagement' || id === 'sidebar-management' || path.includes('sidebarmanagement') || name.includes('sidebar management')) return 'PanelLeft';
+  if (id === 'department' || path.includes('/department') || name.includes('department')) return 'Network';
+  if (id === 'jobrolemanagement' || id === 'job-role-management' || path.includes('jobrolemanagement') || name.includes('job role')) return 'IdCard';
+
+  // 10. Tasks
+  if (id === 'create-task' || path.includes('/task-management') || name === 'create task' || name === 'my tasks') return 'ListTodo';
+  if (id === 'admin-create-task' || id === 'admin-task-create' || path.includes('/admin-task-create') || name.includes('admin create task') || name.includes('assign task')) return 'ListPlus';
+  if (id === 'company-all-tasks' || id === 'company-all-task' || path.includes('/company-all-task') || name.includes('company all tasks')) return 'ListChecks';
+  if (id === 'department-all-tasks' || id === 'department-all-task' || path.includes('/department-all-task') || name.includes('department all tasks')) return 'ClipboardCheck';
+
+  // 11. Projects
+  if (id === 'admin-projects' || id === 'adminproject' || path.includes('/adminproject') || name.includes('manage projects') || name.includes('admin project')) return 'Briefcase';
+  if (id === 'projects' || id === 'project' || path.includes('/project') || name.includes('project')) return 'FolderKanban';
+
+  // 12. Groups & Teams
+  if (id === 'manage-groups' || path.includes('/manage-groups') || name.includes('group')) return 'Users';
+
+  // 13. Meetings
+  if (id === 'client-meeting' || path.includes('/client-meeting') || name.includes('client meeting')) return 'Presentation';
+  if (id === 'create-employee-meeting' || id === 'admin-meeting' || path.includes('/admin-meeting') || name.includes('create employee meeting') || name.includes('admin meeting')) return 'CalendarPlus';
+  if (id === 'employee-meeting' || path.includes('/employee-meeting') || name.includes('meeting')) return 'Video';
+
+  // 14. Employees directory
+  if (id === 'employee-details' || id === 'emp-details' || path.includes('/emp-details') || name.includes('employee details')) return 'Contact';
+
+  // 15. Clients
+  if (id === 'client-plans' || path.includes('/client-plans') || name.includes('client plan')) return 'Crown';
+  if (id === 'active-clients' || path.includes('/active-clients') || name.includes('active client')) return 'Building2';
+  if (id === 'client-management' || id === 'emp-client' || path.includes('/emp-client') || name.includes('client')) return 'Handshake';
+
+  // Fallback: use item icon if string and known, or clean default
+  if (item?.icon && typeof item.icon === 'string') {
+    return item.icon;
   }
 
-  // Client Portal pages
-  if (id === 'client-dashboard' || path === '/client/dashboard' || path === '/client' || name === 'dashboard') {
-    return 'Dashboard';
-  }
-  if (id === 'client-my-services' || path.includes('/client/my-services') || name === 'my services') {
-    return 'DesignServices';
-  }
-  if (id === 'client-tasks-updates' || path.includes('/client/tasks-updates') || name.includes('tasks & updates')) {
-    return 'Task';
-  }
-  if (id === 'client-marketplace' || path.includes('/client/marketplace') || name.includes('explore services') || name.includes('marketplace')) {
-    return 'Storefront';
-  }
-  if (id === 'client-support-tickets' || path.includes('/client/support-tickets')) {
-    return (name === 'meetings' || item?.name === 'Meetings') ? 'VideoCall' : 'SupportAgent';
-  }
-  if (id === 'client-documents' || path.includes('/client/documents') || name === 'documents') {
-    return 'Description';
-  }
-  if (id === 'client-payments' || path.includes('/client/payments') || path.includes('/client/payment') || name === 'payments') {
-    return 'CreditCard';
-  }
-  if (id === 'client-plans' || path.includes('/client-plans')) {
-    return 'Subscriptions';
-  }
-  if (id === 'active-clients' || path.includes('/active-clients')) {
-    return 'Groups';
-  }
-
-  return item?.icon || 'Dashboard';
+  return 'LayoutDashboard';
 };
 
 // Admin CRM sidebar scaffold. Add new page ids to a group's itemIds when its
 // route is added to the normal sidebar configuration.
 const ADMIN_CRM_MENU_GROUPS = [
-  { id: 'lead-management', name: 'Lead Management', icon: 'ContactPage', itemIds: ['admin-crm-lead-overview', 'admin-crm-all-leads', 'admin-crm-add-lead', 'admin-crm-lead-sources', 'admin-crm-lead-types', 'admin-crm-import-export-leads'] },
-  { id: 'call-management', name: 'Call Management', icon: 'Call', itemIds: ['admin-crm-call-overview', 'admin-crm-assigned-calls', 'admin-crm-todays-calls', 'admin-crm-pending-calls', 'admin-crm-scheduled-calls', 'admin-crm-completed-calls', 'admin-crm-converted-calls', 'admin-crm-transferred-calls', 'admin-crm-call-history'] },
-  { id: 'follow-up-center', name: 'Follow-Up Center', icon: 'EventRepeat', itemIds: ['admin-crm-follow-ups'], direct: true },
-  { id: 'assignments', name: 'Assignments', icon: 'AssignmentTurnedIn', itemIds: ['admin-crm-assignments', 'admin-crm-assignment-bulk', 'admin-crm-assignment-history', 'admin-crm-workload'] },
-  { id: 'reports', name: 'Reports', icon: 'Assessment', itemIds: ['admin-crm-reports-overview', 'admin-crm-reports-leads', 'admin-crm-reports-calls', 'admin-crm-reports-follow-ups', 'admin-crm-reports-team-performance', 'admin-crm-reports-conversion-funnel', 'admin-crm-reports-user-activity'] },
+  { id: 'lead-management', name: 'Lead Management', icon: 'Target', itemIds: ['admin-crm-lead-overview', 'admin-crm-all-leads', 'admin-crm-add-lead', 'admin-crm-lead-sources', 'admin-crm-lead-types', 'admin-crm-import-export-leads'] },
+  { id: 'call-management', name: 'Call Management', icon: 'PhoneCall', itemIds: ['admin-crm-call-overview', 'admin-crm-assigned-calls', 'admin-crm-todays-calls', 'admin-crm-pending-calls', 'admin-crm-scheduled-calls', 'admin-crm-completed-calls', 'admin-crm-converted-calls', 'admin-crm-transferred-calls', 'admin-crm-call-history'] },
+  { id: 'follow-up-center', name: 'Follow-Up Center', icon: 'CalendarSync', itemIds: ['admin-crm-follow-ups'], direct: true },
+  { id: 'assignments', name: 'Assignments', icon: 'ListOrdered', itemIds: ['admin-crm-assignments', 'admin-crm-assignment-bulk', 'admin-crm-assignment-history', 'admin-crm-workload'] },
+  { id: 'reports', name: 'Reports', icon: 'BarChart3', itemIds: ['admin-crm-reports-overview', 'admin-crm-reports-leads', 'admin-crm-reports-calls', 'admin-crm-reports-follow-ups', 'admin-crm-reports-team-performance', 'admin-crm-reports-conversion-funnel', 'admin-crm-reports-user-activity'] },
 ];
 
-
-const getIconComponent = (iconName) => {
+const getIconComponent = (iconName, extraProps = {}) => {
   if (!iconName) {
-    return <DashboardIcon />;
+    return <LayoutDashboard size={20} strokeWidth={1.9} {...extraProps} />;
   }
 
-  let IconComponent = iconMap[iconName];
-
-  if (!IconComponent) {
-    const lowerIconName = iconName.toLowerCase();
-    IconComponent = Object.keys(iconMap).find(key =>
-      key.toLowerCase() === lowerIconName
-    ) ? iconMap[Object.keys(iconMap).find(key =>
-      key.toLowerCase() === lowerIconName
-    )] : null;
+  if (React.isValidElement(iconName)) {
+    return iconName;
   }
 
+  if (typeof iconName === 'function') {
+    const Component = iconName;
+    return <Component size={20} strokeWidth={1.9} {...extraProps} />;
+  }
+
+  const rawKey = String(iconName).trim();
+  let IconComponent = iconMap[rawKey];
+
   if (!IconComponent) {
-    if (iconName.toLowerCase().includes('calendar') || iconName.toLowerCase().includes('attendance')) {
-      IconComponent = CalendarIcon;
-    } else if (iconName.toLowerCase().includes('event') || iconName.toLowerCase().includes('leave')) {
-      IconComponent = EventNoteIcon;
-    } else if (iconName.toLowerCase().includes('dashboard')) {
-      IconComponent = DashboardIcon;
-    } else if (iconName.toLowerCase().includes('computer') || iconName.toLowerCase().includes('asset')) {
-      IconComponent = ComputerIcon;
-    } else if (iconName.toLowerCase().includes('notification') || iconName.toLowerCase().includes('alert')) {
-      IconComponent = NotificationsIcon;
-    } else if (iconName.toLowerCase().includes('person') || iconName.toLowerCase().includes('employee')) {
-      IconComponent = PersonIcon;
-    } else if (iconName.toLowerCase().includes('task')) {
-      IconComponent = TaskIcon;
-    } else if (iconName.toLowerCase().includes('meeting')) {
-      IconComponent = VideoCallIcon;
-    } else if (iconName.toLowerCase().includes('project')) {
-      IconComponent = GroupsIcon;
-    } else if (iconName.toLowerCase().includes('settings') || iconName.toLowerCase().includes('password')) {
-      IconComponent = SettingsIcon;
-    } else if (iconName.toLowerCase().includes('credit') || iconName.toLowerCase().includes('payment')) {
-      IconComponent = CreditCardIcon;
-    } else if (iconName.toLowerCase().includes('document') || iconName.toLowerCase().includes('file')) {
-      IconComponent = DescriptionIcon;
-    } else if (iconName.toLowerCase().includes('store') || iconName.toLowerCase().includes('market')) {
-      IconComponent = StorefrontIcon;
-    } else if (iconName.toLowerCase().includes('design') || iconName.toLowerCase().includes('myservice')) {
-      IconComponent = DesignServicesIcon;
-    } else if (iconName.toLowerCase().includes('subscription')) {
-      IconComponent = SubscriptionsIcon;
-    } else if (iconName.toLowerCase().includes('folder') || iconName.toLowerCase().includes('service')) {
-      IconComponent = FolderIcon;
-    } else if (iconName.toLowerCase().includes('support')) {
-      IconComponent = SupportAgentIcon;
-    } else {
-      IconComponent = DashboardIcon;
+    const lower = rawKey.toLowerCase();
+    const match = Object.keys(iconMap).find(k => k.toLowerCase() === lower);
+    if (match) {
+      IconComponent = iconMap[match];
     }
   }
 
-  return <IconComponent />;
+  if (!IconComponent) {
+    IconComponent = LayoutDashboard;
+  }
+
+  return <IconComponent size={20} strokeWidth={1.9} {...extraProps} />;
 };
 
 
@@ -844,7 +945,7 @@ const fixedDefaultItems = [
   {
     id: 'dashboard',
     name: 'Dashboard',
-    icon: 'Dashboard',
+    icon: 'LayoutDashboard',
     path: '/ciisUser/user-dashboard',
     category: 'main',
     order: 1
@@ -852,7 +953,7 @@ const fixedDefaultItems = [
   {
     id: 'attendance',
     name: 'Attendance',
-    icon: 'Calendar',
+    icon: 'Clock',
     path: '/ciisUser/attendance',
     category: 'main',
     order: 2
@@ -860,7 +961,7 @@ const fixedDefaultItems = [
   {
     id: 'my-leaves',
     name: 'My Leaves',
-    icon: 'Event',
+    icon: 'CalendarOff',
     path: '/ciisUser/my-leaves',
     category: 'main',
     order: 3
@@ -868,7 +969,7 @@ const fixedDefaultItems = [
   {
     id: 'my-assets',
     name: 'My Assets',
-    icon: 'Computer',
+    icon: 'Laptop',
     path: '/ciisUser/my-assets',
     category: 'main',
     order: 4
@@ -876,7 +977,7 @@ const fixedDefaultItems = [
   {
     id: 'chat',
     name: 'Chat',
-    icon: 'Chat',
+    icon: 'MessageSquare',
     path: '/ciisUser/chat',
     category: 'communication',
     order: 7
@@ -884,7 +985,7 @@ const fixedDefaultItems = [
   {
     id: 'active-clients',
     name: 'Active Clients',
-    icon: 'Folder',
+    icon: 'Building2',
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 9
@@ -892,7 +993,7 @@ const fixedDefaultItems = [
   {
     id: 'support-desk',
     name: 'Support Desk',
-    icon: 'Support',
+    icon: 'LifeBuoy',
     path: '/ciisUser/support-desk',
     category: 'communication',
     order: 10
@@ -900,7 +1001,7 @@ const fixedDefaultItems = [
   {
     id: 'bulk-email',
     name: 'Bulk Email',
-    icon: 'Email',
+    icon: 'Mails',
     path: '/ciisUser/bulk-email',
     category: 'communication',
     order: 10.5
@@ -908,7 +1009,7 @@ const fixedDefaultItems = [
   {
     id: 'create-user',
     name: 'Create User',
-    icon: 'Person',
+    icon: 'UserPlus',
     path: '/ciisUser/create-user',
     category: 'admin',
     order: 11
@@ -918,7 +1019,7 @@ const fixedDefaultItems = [
 const crmSidebarItems = CRM_PAGES.map((page, index) => ({
   id: page.id,
   name: page.name,
-  icon: page.icon || 'Dashboard',
+  icon: page.icon || 'Gauge',
   path: `/ciisUser/${page.path}`,
   category: page.category || 'admin-crm',
   order: 31 + index / 100
@@ -928,7 +1029,7 @@ const clientMenuItems = [
   {
     id: 'client-dashboard',
     name: 'Dashboard',
-    icon: 'Dashboard',
+    icon: 'LayoutGrid',
     path: '/client/dashboard',
     category: 'main',
     order: 1
@@ -936,7 +1037,7 @@ const clientMenuItems = [
   {
     id: 'client-my-services',
     name: 'My Services',
-    icon: 'DesignServices',
+    icon: 'Sparkles',
     path: '/client/my-services',
     category: 'main',
     order: 2
@@ -944,7 +1045,7 @@ const clientMenuItems = [
   {
     id: 'client-tasks-updates',
     name: 'Tasks & Updates',
-    icon: 'Task',
+    icon: 'CheckSquare2',
     path: '/client/tasks-updates',
     category: 'main',
     order: 3
@@ -952,7 +1053,7 @@ const clientMenuItems = [
   {
     id: 'client-marketplace',
     name: 'Explore Services',
-    icon: 'Storefront',
+    icon: 'ShoppingBag',
     path: '/client/marketplace',
     category: 'main',
     order: 4
@@ -960,7 +1061,7 @@ const clientMenuItems = [
   {
     id: 'client-support-tickets',
     name: 'Meetings',
-    icon: 'VideoCall',
+    icon: 'ScreenShare',
     path: '/client/support-tickets',
     category: 'main',
     order: 5
@@ -968,7 +1069,7 @@ const clientMenuItems = [
   {
     id: 'client-documents',
     name: 'Documents',
-    icon: 'Description',
+    icon: 'FileText',
     path: '/client/documents',
     category: 'main',
     order: 6
@@ -989,7 +1090,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-scheduled-calls',
     name: 'Scheduled Calls',
-    icon: 'ScheduledCalls',
+    icon: 'CalendarClock',
     path: '/ciisUser/crm/admin/scheduled-calls',
     category: 'crm',
     order: 24.6135
@@ -997,7 +1098,7 @@ const allPagesItems = [
   {
     id: 'dashboard',
     name: 'Dashboard',
-    icon: 'Dashboard',
+    icon: 'LayoutDashboard',
     path: '/ciisUser/user-dashboard',
     category: 'main',
     order: 1
@@ -1005,7 +1106,7 @@ const allPagesItems = [
   {
     id: 'attendance',
     name: 'Attendance',
-    icon: 'Calendar',
+    icon: 'Clock',
     path: '/ciisUser/attendance',
     category: 'main',
     order: 2
@@ -1013,7 +1114,7 @@ const allPagesItems = [
   {
     id: 'my-leaves',
     name: 'My Leaves',
-    icon: 'Event',
+    icon: 'CalendarOff',
     path: '/ciisUser/my-leaves',
     category: 'main',
     order: 3
@@ -1021,7 +1122,7 @@ const allPagesItems = [
   {
     id: 'my-assets',
     name: 'My Assets',
-    icon: 'Computer',
+    icon: 'Laptop',
     path: '/ciisUser/my-assets',
     category: 'main',
     order: 4
@@ -1029,7 +1130,7 @@ const allPagesItems = [
   {
     id: 'alerts',
     name: 'Alerts',
-    icon: 'Notifications',
+    icon: 'Bell',
     path: '/ciisUser/alert',
     category: 'communication',
     order: 5
@@ -1037,7 +1138,7 @@ const allPagesItems = [
   {
     id: 'create-alert',
     name: 'Create Alert',
-    icon: 'NotificationsActive',
+    icon: 'Megaphone',
     path: '/ciisUser/create-alert',
     category: 'communication',
     order: 6
@@ -1045,7 +1146,7 @@ const allPagesItems = [
   {
     id: 'projects',
     name: 'My Projects',
-    icon: 'Groups',
+    icon: 'FolderKanban',
     path: '/ciisUser/project',
     category: 'projects',
     order: 7
@@ -1053,7 +1154,7 @@ const allPagesItems = [
   {
     id: 'employee-details',
     name: 'Employee Details',
-    icon: 'Person',
+    icon: 'Contact',
     path: '/ciisUser/emp-details',
     category: 'administration',
     order: 8
@@ -1061,7 +1162,7 @@ const allPagesItems = [
   {
     id: 'SidebarManagement',
     name: 'Sidebar Management',
-    icon: 'Settings',
+    icon: 'PanelLeft',
     path: '/ciisUser/SidebarManagement',
     category: 'administration',
     order: 9
@@ -1069,7 +1170,7 @@ const allPagesItems = [
   {
     id: 'employee-leaves',
     name: 'Leave Management',
-    icon: 'Event',
+    icon: 'CalendarCheck',
     path: '/ciisUser/emp-leaves',
     category: 'administration',
     order: 10
@@ -1077,7 +1178,7 @@ const allPagesItems = [
   {
     id: 'leave-policy',
     name: 'Leave Policy',
-    icon: 'Event',
+    icon: 'ScrollText',
     path: '/ciisUser/leave-policy',
     category: 'administration',
     order: 10.1
@@ -1085,7 +1186,7 @@ const allPagesItems = [
   {
     id: 'employee-assets',
     name: 'Employee Assets',
-    icon: 'Computer',
+    icon: 'Boxes',
     path: '/ciisUser/emp-assets',
     category: 'administration',
     order: 11
@@ -1093,7 +1194,7 @@ const allPagesItems = [
   {
     id: 'employee-attendance',
     name: 'Employee Attendance',
-    icon: 'Calendar',
+    icon: 'CalendarDays',
     path: '/ciisUser/emp-attendance',
     category: 'administration',
     order: 12
@@ -1101,7 +1202,7 @@ const allPagesItems = [
   {
     id: 'department',
     name: 'Department Management',
-    icon: 'Apartment',
+    icon: 'Network',
     path: '/ciisUser/department',
     category: 'administration',
     order: 12.1
@@ -1109,7 +1210,7 @@ const allPagesItems = [
   {
     id: 'JobRoleManagement',
     name: 'Job Role Management',
-    icon: 'Work',
+    icon: 'IdCard',
     path: '/ciisUser/JobRoleManagement',
     category: 'administration',
     order: 12.2
@@ -1117,7 +1218,7 @@ const allPagesItems = [
   {
     id: 'create-task',
     name: 'Create Task',
-    icon: 'Task',
+    icon: 'ListTodo',
     path: '/ciisUser/task-management',
     category: 'tasks',
     order: 13
@@ -1125,7 +1226,7 @@ const allPagesItems = [
   {
     id: 'admin-create-task',
     name: 'Admin Create Task',
-    icon: 'Task',
+    icon: 'ListPlus',
     path: '/ciisUser/admin-task-create',
     category: 'tasks',
     order: 14
@@ -1133,7 +1234,7 @@ const allPagesItems = [
   {
     id: 'manage-groups',
     name: 'Manage Groups',
-    icon: 'Groups',
+    icon: 'Users',
     path: '/ciisUser/manage-groups',
     category: 'administration',
     order: 15
@@ -1141,7 +1242,7 @@ const allPagesItems = [
   {
     id: 'employee-meeting',
     name: 'Employee Meeting',
-    icon: 'VideoCall',
+    icon: 'Video',
     path: '/ciisUser/employee-meeting',
     category: 'meetings',
     order: 16
@@ -1149,7 +1250,7 @@ const allPagesItems = [
   {
     id: 'client-meeting',
     name: 'Client Meeting',
-    icon: 'VideoCall',
+    icon: 'Presentation',
     path: '/ciisUser/client-meeting',
     category: 'meetings',
     order: 17
@@ -1157,7 +1258,7 @@ const allPagesItems = [
   {
     id: 'create-employee-meeting',
     name: 'Create Employee Meeting',
-    icon: 'VideoCall',
+    icon: 'CalendarPlus',
     path: '/ciisUser/admin-meeting',
     category: 'meetings',
     order: 18
@@ -1165,7 +1266,7 @@ const allPagesItems = [
   {
     id: 'admin-projects',
     name: 'Manage Projects',
-    icon: 'Groups',
+    icon: 'Briefcase',
     path: '/ciisUser/adminproject',
     category: 'projects',
     order: 19
@@ -1173,7 +1274,7 @@ const allPagesItems = [
   {
     id: 'company-all-tasks',
     name: 'Company All Tasks',
-    icon: 'Task',
+    icon: 'ListChecks',
     path: '/ciisUser/company-all-task',
     category: 'tasks',
     order: 20
@@ -1181,7 +1282,7 @@ const allPagesItems = [
   {
     id: 'department-all-tasks',
     name: 'Department All Tasks',
-    icon: 'Task',
+    icon: 'ClipboardCheck',
     path: '/ciisUser/department-all-task',
     category: 'tasks',
     order: 21
@@ -1189,7 +1290,7 @@ const allPagesItems = [
   {
     id: 'client-management',
     name: 'Client Management',
-    icon: 'Person',
+    icon: 'Handshake',
     path: '/ciisUser/emp-client',
     category: 'clients',
     order: 22
@@ -1197,7 +1298,7 @@ const allPagesItems = [
   {
     id: 'active-clients',
     name: 'Active Clients',
-    icon: 'Folder',
+    icon: 'Building2',
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 23
@@ -1205,7 +1306,7 @@ const allPagesItems = [
   {
     id: 'salary-component',
     name: 'Salary Component',
-    icon: 'SalaryComponent',
+    icon: 'Coins',
     path: '/ciisUser/salary-component',
     category: 'payroll',
     order: 24
@@ -1213,7 +1314,7 @@ const allPagesItems = [
   {
     id: 'salary-structure',
     name: 'Salary Structure',
-    icon: 'SalaryStructure',
+    icon: 'Layers',
     path: '/ciisUser/salary-structure',
     category: 'payroll',
     order: 24.1
@@ -1221,7 +1322,7 @@ const allPagesItems = [
   {
     id: 'salary-assignment',
     name: 'Employee Salary',
-    icon: 'EmployeeSalary',
+    icon: 'Calculator',
     path: '/ciisUser/salary-assignment',
     category: 'payroll',
     order: 24.2
@@ -1229,7 +1330,7 @@ const allPagesItems = [
   {
     id: 'assign-salary',
     name: 'Assign Salary',
-    icon: 'AssignSalary',
+    icon: 'Wallet',
     path: '/ciisUser/assign-salary',
     category: 'payroll',
     order: 24.25
@@ -1237,7 +1338,7 @@ const allPagesItems = [
   {
     id: 'payroll-process',
     name: 'Payroll Process',
-    icon: 'PayrollProcess',
+    icon: 'Banknote',
     path: '/ciisUser/payroll-process',
     category: 'payroll',
     order: 24.3
@@ -1245,7 +1346,7 @@ const allPagesItems = [
   {
     id: 'payslip',
     name: 'Payslip',
-    icon: 'Payslip',
+    icon: 'ReceiptText',
     path: '/ciisUser/payslip',
     category: 'payroll',
     order: 24.4
@@ -1253,7 +1354,7 @@ const allPagesItems = [
   {
     id: 'payroll-reports',
     name: 'Payroll Reports',
-    icon: 'PayrollReports',
+    icon: 'FileBarChart',
     path: '/ciisUser/payroll-reports',
     category: 'payroll',
     order: 24.5
@@ -1261,7 +1362,7 @@ const allPagesItems = [
   {
     id: 'chat',
     name: 'Chat',
-    icon: 'Chat',
+    icon: 'MessageSquare',
     path: '/ciisUser/chat',
     category: 'communication',
     order: 25
@@ -1269,7 +1370,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-dashboard',
     name: 'Admin CRM',
-    icon: 'Dashboard',
+    icon: 'Gauge',
     path: '/ciisUser/crm/admin/dashboard',
     category: 'crm',
     order: 24.6
@@ -1277,7 +1378,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-lead-overview',
     name: 'Lead Overview',
-    icon: 'Dashboard',
+    icon: 'Compass',
     path: '/ciisUser/crm/admin/lead-overview',
     category: 'crm',
     order: 24.6005
@@ -1285,7 +1386,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-all-leads',
     name: 'All Leads',
-    icon: 'ListAlt',
+    icon: 'UserSearch',
     path: '/ciisUser/crm/admin/all-leads',
     category: 'crm',
     order: 24.6008
@@ -1293,7 +1394,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-add-lead',
     name: 'Add Lead',
-    icon: 'Person',
+    icon: 'UserRoundPlus',
     path: '/ciisUser/crm/admin/add-lead',
     category: 'crm',
     order: 24.601
@@ -1301,7 +1402,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-lead-sources',
     name: 'Lead Sources',
-    icon: 'ListAlt',
+    icon: 'GitFork',
     path: '/ciisUser/crm/admin/lead-sources',
     category: 'crm',
     order: 24.602
@@ -1309,7 +1410,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-lead-types',
     name: 'Lead Types',
-    icon: 'ListAlt',
+    icon: 'Tags',
     path: '/ciisUser/crm/admin/lead-types',
     category: 'crm',
     order: 24.603
@@ -1317,7 +1418,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-import-export-leads',
     name: 'Import & Export',
-    icon: 'Folder',
+    icon: 'ArrowDownUp',
     path: '/ciisUser/crm/admin/import-export-leads',
     category: 'crm',
     order: 24.604
@@ -1325,7 +1426,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-assigned-calls',
     name: 'Assigned Calls',
-    icon: 'AssignedCalls',
+    icon: 'PhoneIncoming',
     path: '/ciisUser/crm/admin/assigned-calls',
     category: 'crm',
     order: 24.61
@@ -1333,7 +1434,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-call-overview',
     name: 'Call Overview',
-    icon: 'CallOverview',
+    icon: 'Activity',
     path: '/ciisUser/crm/admin/call-overview',
     category: 'crm',
     order: 24.605
@@ -1341,7 +1442,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-todays-calls',
     name: "Today's Calls",
-    icon: 'TodaysCalls',
+    icon: 'Phone',
     path: '/ciisUser/crm/admin/todays-calls',
     category: 'crm',
     order: 24.612
@@ -1349,7 +1450,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-pending-calls',
     name: 'Pending Calls',
-    icon: 'PendingCalls',
+    icon: 'PhoneMissed',
     path: '/ciisUser/crm/admin/pending-calls',
     category: 'crm',
     order: 24.613
@@ -1357,7 +1458,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-completed-calls',
     name: 'Completed Calls',
-    icon: 'CompletedCalls',
+    icon: 'PhoneOutgoing',
     path: '/ciisUser/crm/admin/completed-calls',
     category: 'crm',
     order: 24.614
@@ -1365,7 +1466,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-converted-calls',
     name: 'Converted Calls',
-    icon: 'ConvertedCalls',
+    icon: 'Trophy',
     path: '/ciisUser/crm/admin/converted-calls',
     category: 'crm',
     order: 24.615
@@ -1373,7 +1474,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-transferred-calls',
     name: 'Transferred Calls',
-    icon: 'TransferredCalls',
+    icon: 'PhoneForwarded',
     path: '/ciisUser/crm/admin/transferred-calls',
     category: 'crm',
     order: 24.616
@@ -1381,7 +1482,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-call-history',
     name: 'Call History',
-    icon: 'CallHistory',
+    icon: 'History',
     path: '/ciisUser/crm/admin/call-history',
     category: 'crm',
     order: 24.617
@@ -1389,7 +1490,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-follow-ups',
     name: 'Follow-Up Center',
-    icon: 'EventNote',
+    icon: 'CalendarSync',
     path: '/ciisUser/crm/admin/follow-ups',
     category: 'crm',
     order: 24.618
@@ -1397,7 +1498,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-assignments',
     name: 'Assignments Overview',
-    icon: 'Assignment',
+    icon: 'ListOrdered',
     path: '/ciisUser/crm/admin/assignments',
     category: 'crm',
     order: 24.619
@@ -1405,7 +1506,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-assignment-bulk',
     name: 'Bulk Assignment',
-    icon: 'Folder',
+    icon: 'FolderInput',
     path: '/ciisUser/crm/admin/assignment-bulk',
     category: 'crm',
     order: 24.620
@@ -1413,7 +1514,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-assignment-history',
     name: 'Assignment History',
-    icon: 'History',
+    icon: 'Archive',
     path: '/ciisUser/crm/admin/assignment-history',
     category: 'crm',
     order: 24.621
@@ -1421,7 +1522,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-workload',
     name: 'Workload Distribution',
-    icon: 'BarChart',
+    icon: 'Scale',
     path: '/ciisUser/crm/admin/workload',
     category: 'crm',
     order: 24.622
@@ -1429,7 +1530,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-reports-overview',
     name: 'Reports Overview',
-    icon: 'BarChart',
+    icon: 'BarChart3',
     path: '/ciisUser/crm/reports/overview',
     category: 'crm',
     order: 24.627
@@ -1437,7 +1538,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-reports-leads',
     name: 'Lead Reports',
-    icon: 'ListAlt',
+    icon: 'TrendingUp',
     path: '/ciisUser/crm/reports/leads',
     category: 'crm',
     order: 24.628
@@ -1445,7 +1546,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-reports-calls',
     name: 'Call Reports',
-    icon: 'Call',
+    icon: 'Radio',
     path: '/ciisUser/crm/reports/calls',
     category: 'crm',
     order: 24.629
@@ -1453,7 +1554,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-reports-follow-ups',
     name: 'Follow-Up Reports',
-    icon: 'EventNote',
+    icon: 'CalendarRange',
     path: '/ciisUser/crm/reports/follow-ups',
     category: 'crm',
     order: 24.631
@@ -1461,7 +1562,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-reports-team-performance',
     name: 'Team Performance',
-    icon: 'Groups',
+    icon: 'Medal',
     path: '/ciisUser/crm/reports/team-performance',
     category: 'crm',
     order: 24.632
@@ -1469,7 +1570,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-reports-conversion-funnel',
     name: 'Conversion Funnel',
-    icon: 'BarChart',
+    icon: 'Filter',
     path: '/ciisUser/crm/reports/conversion-funnel',
     category: 'crm',
     order: 24.633
@@ -1477,7 +1578,7 @@ const allPagesItems = [
   {
     id: 'admin-crm-reports-user-activity',
     name: 'User Activity',
-    icon: 'History',
+    icon: 'Timer',
     path: '/ciisUser/crm/reports/user-activity',
     category: 'crm',
     order: 24.634
@@ -1485,7 +1586,7 @@ const allPagesItems = [
   {
     id: 'support-operations',
     name: 'Support Operations',
-    icon: 'Support',
+    icon: 'Wrench',
     path: '/ciisUser/support-operations',
     category: 'administration',
     order: 27
@@ -1494,7 +1595,7 @@ const allPagesItems = [
   {
     id: 'feedback-questionnaire',
     name: 'Feedback / Questionnaire',
-    icon: 'Assignment',
+    icon: 'MessageSquareQuote',
     path: '/ciisUser/feedback-questionnaire',
     category: 'administration',
     order: 27.5
@@ -1502,7 +1603,7 @@ const allPagesItems = [
   {
     id: 'support-desk',
     name: 'Support Desk',
-    icon: 'Support',
+    icon: 'LifeBuoy',
     path: '/ciisUser/support-desk',
     category: 'communication',
     order: 28
@@ -1510,7 +1611,7 @@ const allPagesItems = [
   {
     id: 'bulk-email',
     name: 'Bulk Email',
-    icon: 'Email',
+    icon: 'Mails',
     path: '/ciisUser/bulk-email',
     category: 'communication',
     order: 28.5
@@ -1518,7 +1619,7 @@ const allPagesItems = [
   {
     id: 'create-user',
     name: 'Create User',
-    icon: 'Person',
+    icon: 'UserPlus',
     path: '/ciisUser/create-user',
     category: 'admin',
     order: 29
@@ -1526,7 +1627,7 @@ const allPagesItems = [
   {
     id: 'register-request',
     name: 'Register Request',
-    icon: 'Assignment',
+    icon: 'FileCheck',
     path: '/ciisUser/register-request',
     category: 'administration',
     order: 29.1
@@ -1534,7 +1635,7 @@ const allPagesItems = [
   {
     id: 'change-password',
     name: 'Change Password',
-    icon: 'Settings',
+    icon: 'KeyRound',
     path: '/ciisUser/change-password',
     category: 'settings',
     order: 30
@@ -1663,35 +1764,35 @@ const canonicalSidebarItems = [
   {
     id: 'my-leaves',
     name: 'My Leaves',
-    icon: 'Event',
+    icon: 'CalendarOff',
     path: '/ciisUser/my-leaves',
     category: 'work'
   },
   {
     id: 'emp-leaves',
     name: 'Leave Management',
-    icon: 'Event',
+    icon: 'CalendarCheck',
     path: '/ciisUser/emp-leaves',
     category: 'admin'
   },
   {
     id: 'client-management',
     name: 'Client Management',
-    icon: 'Person',
+    icon: 'Handshake',
     path: '/ciisUser/emp-client',
     category: 'clients'
   },
   {
     id: 'active-clients',
     name: 'Active Clients',
-    icon: 'Groups',
+    icon: 'Building2',
     path: '/ciisUser/active-clients',
     category: 'clients'
   },
   {
     id: 'client-plans',
     name: 'Client Plans',
-    icon: 'Subscriptions',
+    icon: 'Crown',
     path: '/ciisUser/client-plans',
     category: 'clients'
   }
@@ -1768,7 +1869,7 @@ const companyAccessFallbackItems = [
   {
     id: 'active-clients',
     name: 'Active Clients',
-    icon: 'Folder',
+    icon: 'Building2',
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 22.5
@@ -1776,7 +1877,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-dashboard',
     name: 'Admin CRM',
-    icon: 'Dashboard',
+    icon: 'Gauge',
     path: '/ciisUser/crm/admin/dashboard',
     category: 'crm',
     order: 24.6
@@ -1784,7 +1885,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-lead-overview',
     name: 'Lead Overview',
-    icon: 'Dashboard',
+    icon: 'Compass',
     path: '/ciisUser/crm/admin/lead-overview',
     category: 'crm',
     order: 24.6005
@@ -1792,7 +1893,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-all-leads',
     name: 'All Leads',
-    icon: 'ListAlt',
+    icon: 'UserSearch',
     path: '/ciisUser/crm/admin/all-leads',
     category: 'crm',
     order: 24.6008
@@ -1800,7 +1901,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-add-lead',
     name: 'Add Lead',
-    icon: 'Person',
+    icon: 'UserRoundPlus',
     path: '/ciisUser/crm/admin/add-lead',
     category: 'crm',
     order: 24.601
@@ -1808,7 +1909,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-lead-sources',
     name: 'Lead Sources',
-    icon: 'ListAlt',
+    icon: 'GitFork',
     path: '/ciisUser/crm/admin/lead-sources',
     category: 'crm',
     order: 24.602
@@ -1816,7 +1917,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-lead-types',
     name: 'Lead Types',
-    icon: 'ListAlt',
+    icon: 'Tags',
     path: '/ciisUser/crm/admin/lead-types',
     category: 'crm',
     order: 24.603
@@ -1824,7 +1925,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-import-export-leads',
     name: 'Import & Export',
-    icon: 'Folder',
+    icon: 'ArrowDownUp',
     path: '/ciisUser/crm/admin/import-export-leads',
     category: 'crm',
     order: 24.604
@@ -1832,7 +1933,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-assigned-calls',
     name: 'Assigned Calls',
-    icon: 'AssignedCalls',
+    icon: 'PhoneIncoming',
     path: '/ciisUser/crm/admin/assigned-calls',
     category: 'crm',
     order: 24.61
@@ -1840,7 +1941,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-call-overview',
     name: 'Call Overview',
-    icon: 'CallOverview',
+    icon: 'Activity',
     path: '/ciisUser/crm/admin/call-overview',
     category: 'crm',
     order: 24.605
@@ -1848,7 +1949,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-todays-calls',
     name: "Today's Calls",
-    icon: 'TodaysCalls',
+    icon: 'Phone',
     path: '/ciisUser/crm/admin/todays-calls',
     category: 'crm',
     order: 24.612
@@ -1856,7 +1957,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-pending-calls',
     name: 'Pending Calls',
-    icon: 'PendingCalls',
+    icon: 'PhoneMissed',
     path: '/ciisUser/crm/admin/pending-calls',
     category: 'crm',
     order: 24.613
@@ -1864,7 +1965,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-completed-calls',
     name: 'Completed Calls',
-    icon: 'CompletedCalls',
+    icon: 'PhoneOutgoing',
     path: '/ciisUser/crm/admin/completed-calls',
     category: 'crm',
     order: 24.614
@@ -1872,7 +1973,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-converted-calls',
     name: 'Converted Calls',
-    icon: 'ConvertedCalls',
+    icon: 'Trophy',
     path: '/ciisUser/crm/admin/converted-calls',
     category: 'crm',
     order: 24.615
@@ -1880,7 +1981,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-transferred-calls',
     name: 'Transferred Calls',
-    icon: 'TransferredCalls',
+    icon: 'PhoneForwarded',
     path: '/ciisUser/crm/admin/transferred-calls',
     category: 'crm',
     order: 24.616
@@ -1888,7 +1989,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-call-history',
     name: 'Call History',
-    icon: 'CallHistory',
+    icon: 'History',
     path: '/ciisUser/crm/admin/call-history',
     category: 'crm',
     order: 24.617
@@ -1896,7 +1997,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-reports-overview',
     name: 'Reports Overview',
-    icon: 'BarChart',
+    icon: 'BarChart3',
     path: '/ciisUser/crm/reports/overview',
     category: 'crm',
     order: 24.627
@@ -1904,7 +2005,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-reports-leads',
     name: 'Lead Reports',
-    icon: 'ListAlt',
+    icon: 'TrendingUp',
     path: '/ciisUser/crm/reports/leads',
     category: 'crm',
     order: 24.628
@@ -1912,7 +2013,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-reports-calls',
     name: 'Call Reports',
-    icon: 'Call',
+    icon: 'Radio',
     path: '/ciisUser/crm/reports/calls',
     category: 'crm',
     order: 24.629
@@ -1920,7 +2021,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-reports-follow-ups',
     name: 'Follow-Up Reports',
-    icon: 'EventNote',
+    icon: 'CalendarRange',
     path: '/ciisUser/crm/reports/follow-ups',
     category: 'crm',
     order: 24.631
@@ -1928,7 +2029,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-reports-team-performance',
     name: 'Team Performance',
-    icon: 'Groups',
+    icon: 'Medal',
     path: '/ciisUser/crm/reports/team-performance',
     category: 'crm',
     order: 24.632
@@ -1936,7 +2037,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-reports-conversion-funnel',
     name: 'Conversion Funnel',
-    icon: 'BarChart',
+    icon: 'Filter',
     path: '/ciisUser/crm/reports/conversion-funnel',
     category: 'crm',
     order: 24.633
@@ -1944,7 +2045,7 @@ const companyAccessFallbackItems = [
   {
     id: 'admin-crm-reports-user-activity',
     name: 'User Activity',
-    icon: 'History',
+    icon: 'Timer',
     path: '/ciisUser/crm/reports/user-activity',
     category: 'crm',
     order: 24.634
@@ -1952,7 +2053,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-component',
     name: 'Salary Component',
-    icon: 'SalaryComponent',
+    icon: 'Coins',
     path: '/ciisUser/salary-component',
     category: 'payroll',
     order: 24.0
@@ -1960,7 +2061,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-structure',
     name: 'Salary Structure',
-    icon: 'SalaryStructure',
+    icon: 'Layers',
     path: '/ciisUser/salary-structure',
     category: 'payroll',
     order: 24.1
@@ -1968,7 +2069,7 @@ const companyAccessFallbackItems = [
   {
     id: 'salary-assignment',
     name: 'Employee Salary',
-    icon: 'EmployeeSalary',
+    icon: 'Calculator',
     path: '/ciisUser/salary-assignment',
     category: 'payroll',
     order: 24.2
@@ -1976,7 +2077,7 @@ const companyAccessFallbackItems = [
   {
     id: 'assign-salary',
     name: 'Assign Salary',
-    icon: 'AssignSalary',
+    icon: 'Wallet',
     path: '/ciisUser/assign-salary',
     category: 'payroll',
     order: 24.25
@@ -1984,7 +2085,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payroll-process',
     name: 'Payroll Process',
-    icon: 'PayrollProcess',
+    icon: 'Banknote',
     path: '/ciisUser/payroll-process',
     category: 'payroll',
     order: 24.3
@@ -1992,7 +2093,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payslip',
     name: 'Payslip',
-    icon: 'Payslip',
+    icon: 'ReceiptText',
     path: '/ciisUser/payslip',
     category: 'payroll',
     order: 24.4
@@ -2000,167 +2101,7 @@ const companyAccessFallbackItems = [
   {
     id: 'payroll-reports',
     name: 'Payroll Reports',
-    icon: 'PayrollReports',
-    path: '/ciisUser/payroll-reports',
-    category: 'payroll',
-    order: 24.5
-  },
-  {
-    id: 'admin-crm-todays-calls',
-    name: "Today's Calls",
-    icon: 'TodaysCalls',
-    path: '/ciisUser/crm/admin/todays-calls',
-    category: 'crm',
-    order: 24.612
-  },
-  {
-    id: 'admin-crm-pending-calls',
-    name: 'Pending Calls',
-    icon: 'PendingCalls',
-    path: '/ciisUser/crm/admin/pending-calls',
-    category: 'crm',
-    order: 24.613
-  },
-  {
-    id: 'admin-crm-completed-calls',
-    name: 'Completed Calls',
-    icon: 'CompletedCalls',
-    path: '/ciisUser/crm/admin/completed-calls',
-    category: 'crm',
-    order: 24.614
-  },
-  {
-    id: 'admin-crm-converted-calls',
-    name: 'Converted Calls',
-    icon: 'ConvertedCalls',
-    path: '/ciisUser/crm/admin/converted-calls',
-    category: 'crm',
-    order: 24.615
-  },
-  {
-    id: 'admin-crm-transferred-calls',
-    name: 'Transferred Calls',
-    icon: 'TransferredCalls',
-    path: '/ciisUser/crm/admin/transferred-calls',
-    category: 'crm',
-    order: 24.616
-  },
-  {
-    id: 'admin-crm-call-history',
-    name: 'Call History',
-    icon: 'CallHistory',
-    path: '/ciisUser/crm/admin/call-history',
-    category: 'crm',
-    order: 24.617
-  },
-  {
-    id: 'admin-crm-reports-overview',
-    name: 'Reports Overview',
-    icon: 'BarChart',
-    path: '/ciisUser/crm/reports/overview',
-    category: 'crm',
-    order: 24.627
-  },
-  {
-    id: 'admin-crm-reports-leads',
-    name: 'Lead Reports',
-    icon: 'ListAlt',
-    path: '/ciisUser/crm/reports/leads',
-    category: 'crm',
-    order: 24.628
-  },
-  {
-    id: 'admin-crm-reports-calls',
-    name: 'Call Reports',
-    icon: 'Call',
-    path: '/ciisUser/crm/reports/calls',
-    category: 'crm',
-    order: 24.629
-  },
-  {
-    id: 'admin-crm-reports-follow-ups',
-    name: 'Follow-Up Reports',
-    icon: 'EventNote',
-    path: '/ciisUser/crm/reports/follow-ups',
-    category: 'crm',
-    order: 24.631
-  },
-  {
-    id: 'admin-crm-reports-team-performance',
-    name: 'Team Performance',
-    icon: 'Groups',
-    path: '/ciisUser/crm/reports/team-performance',
-    category: 'crm',
-    order: 24.632
-  },
-  {
-    id: 'admin-crm-reports-conversion-funnel',
-    name: 'Conversion Funnel',
-    icon: 'BarChart',
-    path: '/ciisUser/crm/reports/conversion-funnel',
-    category: 'crm',
-    order: 24.633
-  },
-  {
-    id: 'admin-crm-reports-user-activity',
-    name: 'User Activity',
-    icon: 'History',
-    path: '/ciisUser/crm/reports/user-activity',
-    category: 'crm',
-    order: 24.634
-  },
-  {
-    id: 'salary-component',
-    name: 'Salary Component',
-    icon: 'SalaryComponent',
-    path: '/ciisUser/salary-component',
-    category: 'payroll',
-    order: 24.0
-  },
-  {
-    id: 'salary-structure',
-    name: 'Salary Structure',
-    icon: 'SalaryStructure',
-    path: '/ciisUser/salary-structure',
-    category: 'payroll',
-    order: 24.1
-  },
-  {
-    id: 'salary-assignment',
-    name: 'Employee Salary',
-    icon: 'EmployeeSalary',
-    path: '/ciisUser/salary-assignment',
-    category: 'payroll',
-    order: 24.2
-  },
-  {
-    id: 'assign-salary',
-    name: 'Assign Salary',
-    icon: 'AssignSalary',
-    path: '/ciisUser/assign-salary',
-    category: 'payroll',
-    order: 24.25
-  },
-  {
-    id: 'payroll-process',
-    name: 'Payroll Process',
-    icon: 'PayrollProcess',
-    path: '/ciisUser/payroll-process',
-    category: 'payroll',
-    order: 24.3
-  },
-  {
-    id: 'payslip',
-    name: 'Payslip',
-    icon: 'Payslip',
-    path: '/ciisUser/payslip',
-    category: 'payroll',
-    order: 24.4
-  },
-  {
-    id: 'payroll-reports',
-    name: 'Payroll Reports',
-    icon: 'PayrollReports',
+    icon: 'FileBarChart',
     path: '/ciisUser/payroll-reports',
     category: 'payroll',
     order: 24.5
@@ -3480,7 +3421,7 @@ const Sidebar = ({
           alignItems: 'center',
           color: isTelecallerActive ? 'primary.main' : '#475569'
         }}>
-          <PhoneInTalkIcon />
+          <Headset size={20} strokeWidth={1.9} />
         </StyledListItemIcon>
         {isSidebarOpen && (
           <>
@@ -3563,7 +3504,7 @@ const Sidebar = ({
                         justifyContent: 'center',
                         alignItems: 'center'
                       }}>
-                        <SupportAgentIcon />
+                        <Mic size={20} strokeWidth={1.9} />
                       </StyledListItemIcon>
                       {isSidebarOpen && (
                         <>
@@ -3669,7 +3610,7 @@ const Sidebar = ({
           alignItems: 'center',
           color: isCrmActive ? 'primary.main' : '#475569'
         }}>
-          <ContactPhoneIcon />
+          <Target size={20} strokeWidth={1.9} />
         </StyledListItemIcon>
         {isSidebarOpen && (
           <>
@@ -3881,7 +3822,7 @@ const Sidebar = ({
           alignItems: 'center',
           color: isPayrollActive ? 'primary.main' : '#475569'
         }}>
-          <PayrollHeaderIcon />
+          <Banknote size={20} strokeWidth={1.9} />
         </StyledListItemIcon>
         {isSidebarOpen && (
           <>
@@ -3954,79 +3895,79 @@ const Sidebar = ({
       case 'main':
       case 'dashboard':
       case 'home':
-        return <DashboardIcon />;
+        return <LayoutDashboard size={20} strokeWidth={1.9} />;
       case 'tasks':
       case 'task':
-        return <TaskIcon />;
+        return <ListChecks size={20} strokeWidth={1.9} />;
       case 'projects':
       case 'project':
-        return <GroupsIcon />;
+        return <FolderKanban size={20} strokeWidth={1.9} />;
       case 'meetings':
       case 'meeting':
-        return <VideoCallIcon />;
+        return <Video size={20} strokeWidth={1.9} />;
       case 'communication':
       case 'chat':
       case 'messages':
-        return <ChatIcon />;
+        return <MessageSquare size={20} strokeWidth={1.9} />;
       case 'work':
       case 'workplace':
-        return <CalendarIcon />;
+        return <Briefcase size={20} strokeWidth={1.9} />;
       case 'attendance':
-        return <CalendarIcon />;
+        return <Clock size={20} strokeWidth={1.9} />;
       case 'leaves':
       case 'my-leaves':
-        return <EventNoteIcon />;
+        return <CalendarOff size={20} strokeWidth={1.9} />;
       case 'assets':
       case 'my-assets':
-        return <ComputerIcon />;
+        return <Laptop size={20} strokeWidth={1.9} />;
       case 'clients':
       case 'client':
-        return <StorefrontIcon />;
+        return <Handshake size={20} strokeWidth={1.9} />;
       case 'administration':
       case 'admin':
-        return <PersonIcon />;
+        return <Contact size={20} strokeWidth={1.9} />;
       case 'settings':
       case 'setting':
-        return <SettingsIcon />;
+        return <Settings size={20} strokeWidth={1.9} />;
       case 'payroll':
       case 'salary':
-        return <PayrollHeaderIcon />;
+        return <Banknote size={20} strokeWidth={1.9} />;
       case 'crm':
-        return <ContactPhoneIcon />;
+        return <Target size={20} strokeWidth={1.9} />;
       case 'admin-telecaller':
       case 'telecaller':
-        return <PhoneInTalkIcon />;
+        return <Headset size={20} strokeWidth={1.9} />;
       case 'reports':
       case 'analytics':
-        return <AnalyticsIcon />;
+        return <BarChart3 size={20} strokeWidth={1.9} />;
       case 'billing':
       case 'payments':
       case 'finance':
-        return <CreditCardIcon />;
+        return <CreditCard size={20} strokeWidth={1.9} />;
       case 'support':
       case 'help':
-        return <SupportAgentIcon />;
+        return <LifeBuoy size={20} strokeWidth={1.9} />;
       case 'documents':
       case 'files':
-        return <DescriptionIcon />;
+        return <FileText size={20} strokeWidth={1.9} />;
       default: {
-        if (key.includes('task')) return <TaskIcon />;
-        if (key.includes('meet')) return <VideoCallIcon />;
-        if (key.includes('comm') || key.includes('chat') || key.includes('message')) return <ChatIcon />;
-        if (key.includes('proj') || key.includes('group')) return <GroupsIcon />;
-        if (key.includes('work')) return <CalendarIcon />;
-        if (key.includes('main') || key.includes('dash') || key.includes('home')) return <DashboardIcon />;
-        if (key.includes('admin') || key.includes('user') || key.includes('people') || key.includes('member')) return <PersonIcon />;
-        if (key.includes('set') || key.includes('config')) return <SettingsIcon />;
-        if (key.includes('client') || key.includes('customer')) return <StorefrontIcon />;
-        if (key.includes('pay') || key.includes('sal') || key.includes('wage')) return <PayrollHeaderIcon />;
-        if (key.includes('call') || key.includes('tele') || key.includes('phone')) return <PhoneInTalkIcon />;
-        if (key.includes('report') || key.includes('analyt')) return <AnalyticsIcon />;
-        if (key.includes('leave')) return <EventNoteIcon />;
-        if (key.includes('attend')) return <CalendarIcon />;
-        if (key.includes('asset') || key.includes('device')) return <ComputerIcon />;
-        if (key.includes('alert') || key.includes('notif')) return <NotificationsIcon />;
-        return <FolderIcon />;
+        if (key.includes('task')) return <ListChecks size={20} strokeWidth={1.9} />;
+        if (key.includes('meet')) return <Video size={20} strokeWidth={1.9} />;
+        if (key.includes('comm') || key.includes('chat') || key.includes('message')) return <MessageSquare size={20} strokeWidth={1.9} />;
+        if (key.includes('proj') || key.includes('group')) return <FolderKanban size={20} strokeWidth={1.9} />;
+        if (key.includes('work')) return <Briefcase size={20} strokeWidth={1.9} />;
+        if (key.includes('main') || key.includes('dash') || key.includes('home')) return <LayoutDashboard size={20} strokeWidth={1.9} />;
+        if (key.includes('admin') || key.includes('user') || key.includes('people') || key.includes('member')) return <Contact size={20} strokeWidth={1.9} />;
+        if (key.includes('set') || key.includes('config')) return <Settings size={20} strokeWidth={1.9} />;
+        if (key.includes('client') || key.includes('customer')) return <Handshake size={20} strokeWidth={1.9} />;
+        if (key.includes('pay') || key.includes('sal') || key.includes('wage')) return <Banknote size={20} strokeWidth={1.9} />;
+        if (key.includes('call') || key.includes('tele') || key.includes('phone')) return <Headset size={20} strokeWidth={1.9} />;
+        if (key.includes('report') || key.includes('analyt')) return <BarChart3 size={20} strokeWidth={1.9} />;
+        if (key.includes('leave')) return <CalendarCheck size={20} strokeWidth={1.9} />;
+        if (key.includes('attend')) return <Clock size={20} strokeWidth={1.9} />;
+        if (key.includes('asset') || key.includes('device')) return <Boxes size={20} strokeWidth={1.9} />;
+        if (key.includes('alert') || key.includes('notif')) return <Bell size={20} strokeWidth={1.9} />;
+        return <LayoutDashboard size={20} strokeWidth={1.9} />;
       }
     }
   };
@@ -4660,7 +4601,7 @@ const Sidebar = ({
                   <Button
                     size="small"
                     onClick={() => handleNavigate('/client/account-settings')}
-                    startIcon={<PersonIcon fontSize="small" />}
+                    startIcon={<UserCheck size={16} strokeWidth={1.9} />}
                     sx={{
                       flex: '0 0 auto',
                       minWidth: 86,
@@ -4742,7 +4683,7 @@ const Sidebar = ({
                 alignItems: 'center',
                 transition: 'all 0.2s ease'
               }}>
-                <LogoutOutlined sx={{ fontSize: 22 }} />
+                <LogOut size={20} strokeWidth={1.9} />
               </StyledListItemIcon>
               {isSidebarOpen && (
                 <ListItemText
@@ -4865,7 +4806,7 @@ const Sidebar = ({
       return (
         <Tooltip title="Your Company" placement="right">
           <CollapsedHeading>
-            <FolderIcon />
+            <Building2 size={20} strokeWidth={1.9} />
           </CollapsedHeading>
         </Tooltip>
       );
@@ -4879,7 +4820,7 @@ const Sidebar = ({
             sx={{ minHeight: 44 }}
           >
             <StyledListItemIcon>
-              <FolderIcon />
+              <Building2 size={20} strokeWidth={1.9} />
             </StyledListItemIcon>
             <ListItemText
               primary="Your Company"
@@ -4930,7 +4871,7 @@ const Sidebar = ({
                     }}
                   >
                     <StyledListItemIcon sx={{ marginRight: 1.5, fontSize: '1rem' }}>
-                      <FolderIcon fontSize="small" />
+                      <Building2 size={16} strokeWidth={1.9} />
                     </StyledListItemIcon>
                     <ListItemText
                       primary={getClientDisplayName(item)}
@@ -5043,7 +4984,7 @@ const Sidebar = ({
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, fontSize: '0.78rem', lineHeight: 1 }}>
-                      <PersonIcon sx={{ fontSize: 20 }} />
+                      <UserCheck size={18} strokeWidth={1.9} />
                       <span>Profile</span>
                     </Box>
                     <Divider orientation="vertical" flexItem sx={{ mx: 0.55 }} />
@@ -5219,7 +5160,7 @@ const Sidebar = ({
               alignItems: 'center',
               transition: 'all 0.2s ease'
             }}>
-              <LogoutOutlined sx={{ fontSize: 22 }} />
+              <LogOut size={20} strokeWidth={1.9} />
             </StyledListItemIcon>
             {isSidebarOpen && (
               <ListItemText

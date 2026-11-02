@@ -448,39 +448,74 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }, 5000);
     };
 
+    // Browsers keep an AudioContext created without a user gesture suspended, so an incoming call
+    // on a page nobody had clicked yet rang silently. Create/resume it on the first interaction.
+    const getRingtoneContext = () => {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+            audioContextRef.current = new AudioContextClass();
+        }
+        return audioContextRef.current;
+    };
+
+    useEffect(() => {
+        const unlock = () => {
+            const audioCtx = getRingtoneContext();
+            if (!audioCtx) return;
+            if (audioCtx.state === "suspended") {
+                // Keep it suspended again unless a ringtone is playing.
+                audioCtx.resume().then(() => {
+                    if (!ringtoneTimerRef.current) audioCtx.suspend().catch(() => {});
+                }).catch(() => {});
+            }
+            window.removeEventListener("pointerdown", unlock);
+            window.removeEventListener("keydown", unlock);
+        };
+        window.addEventListener("pointerdown", unlock);
+        window.addEventListener("keydown", unlock);
+        return () => {
+            window.removeEventListener("pointerdown", unlock);
+            window.removeEventListener("keydown", unlock);
+        };
+    }, []);
+
     const startRingtone = () => {
         stopRingtone();
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
+        const audioCtx = getRingtoneContext();
+        if (!audioCtx) return;
 
-        let audioCtx = audioContextRef.current;
-        if (!audioCtx || audioCtx.state === "closed") {
-            audioCtx = new AudioContext();
-            audioContextRef.current = audioCtx;
-        }
-
-        const createTone = () => {
-            const oscillator = audioCtx.createOscillator();
+        // Phone-style double ring: two short 440+480Hz bursts, then a pause.
+        const playBurst = startAt => {
             const gain = audioCtx.createGain();
-            oscillator.type = "sine";
-            oscillator.frequency.value = 440;
-            gain.gain.value = 0.25;
-            oscillator.connect(gain);
+            gain.gain.setValueAtTime(0.0001, startAt);
+            gain.gain.exponentialRampToValueAtTime(0.35, startAt + 0.02);
+            gain.gain.setValueAtTime(0.35, startAt + 0.38);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.4);
             gain.connect(audioCtx.destination);
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.25);
-            oscillator.onended = () => {
-                oscillator.disconnect();
-                gain.disconnect();
-            };
+            [440, 480].forEach(frequency => {
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = "sine";
+                oscillator.frequency.value = frequency;
+                oscillator.connect(gain);
+                oscillator.start(startAt);
+                oscillator.stop(startAt + 0.4);
+                oscillator.onended = () => oscillator.disconnect();
+            });
+            window.setTimeout(() => gain.disconnect(), 600 + (startAt - audioCtx.currentTime) * 1000);
+        };
+        const ring = () => {
+            const now = audioCtx.currentTime;
+            playBurst(now);
+            playBurst(now + 0.6);
         };
 
         if (audioCtx.state === "suspended") {
             audioCtx.resume().catch(() => {});
         }
 
-        createTone();
-        ringtoneTimerRef.current = window.setInterval(createTone, 1100);
+        ring();
+        ringtoneTimerRef.current = window.setInterval(ring, 2400);
     };
 
     const attachLocalStream = (stream) => {

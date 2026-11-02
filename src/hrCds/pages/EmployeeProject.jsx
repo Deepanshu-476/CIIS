@@ -840,23 +840,21 @@ const EmployeeProject = () => {
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <button
                           type="button"
-                          className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-outline"
+                          className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-success"
                           style={{
-                            background: "#ffffff",
-                            borderColor: "#cbd5e1",
-                            color: "#475569",
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "4px",
+                            gap: "5px",
                             fontWeight: 600,
+                            whiteSpace: "nowrap",
                           }}
-                          title="Add a task to this project"
+                          title="Create a task in this project"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenCreateTask(p);
                           }}
                         >
-                          <Icons.Add /> Task
+                          <Icons.Add /> Create Task
                         </button>
                         <button
                           type="button"

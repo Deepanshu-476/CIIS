@@ -325,7 +325,9 @@ const ChatBox = ({
     onDeleteGroup,
     onUpdateGroup,
     onBack,
-    chatSettings = {}
+    chatSettings = {},
+    presenceReady = false,
+    isUserOnlineNow,
 }) => {
 
     const [conversation, setConversation] =
@@ -2172,7 +2174,9 @@ useEffect(() => {
     const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
     const isSelectedUserOnline = selectedUser?.isGroup
         ? onlineGroupCount > 0
-        : Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId);
+        : (typeof isUserOnlineNow === "function"
+            ? isUserOnlineNow(selectedUser)
+            : (presenceReady ? isIdOnline(selectedUserId) : (Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId))));
     const canStartCall = selectedUser?.isGroup
         ? onlineGroupCount > 0 || groupMemberCount === 0
         : isSelectedUserOnline;

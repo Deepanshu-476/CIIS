@@ -310,6 +310,22 @@ const cachedGet = async (requester, url, config = {}) => {
   const cacheKey = useCache ? makeGetCacheKey(url, config) : null;
   const usePersistentCache = useCache && shouldUsePersistentCache(url, config);
 
+  // Task GETs are never cached, but identical ones fired together (several widgets on one page)
+  // share the request that is already on the wire, which still returns fresh data.
+  // Requests that can be cancelled keep their own call, so one caller's abort can't fail another.
+  if (isTaskRequest && !isBlobOrBinary && config._skipRequestCache !== true && !config.signal && !config.cancelToken) {
+    const dedupeKey = `task-dedupe|${makeGetCacheKey(url, config)}`;
+    const inFlight = inFlightGetRequests.get(dedupeKey);
+    if (inFlight) {
+      return inFlight.then(cloneResponse);
+    }
+    const taskPromise = requester(url, config).finally(() => {
+      inFlightGetRequests.delete(dedupeKey);
+    });
+    inFlightGetRequests.set(dedupeKey, taskPromise);
+    return taskPromise;
+  }
+
   if (useCache) {
     const cached = completedGetRequests.get(cacheKey);
     if (cached && (Date.now() - cached.createdAt) < cached.ttlMs) {

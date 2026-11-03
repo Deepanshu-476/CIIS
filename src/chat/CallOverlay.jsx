@@ -8,7 +8,9 @@ import {
     Phone,
     PhoneOff,
     ScreenShareOff,
+    UserMinus,
     UserPlus,
+    Users,
     Video,
     VideoOff,
     X,
@@ -241,6 +243,15 @@ const RemoteAudioTrack = ({ participant }) => {
     return <audio ref={audioRef} autoPlay playsInline />;
 };
 
+const ROSTER_STATUS = {
+    joined: { label: "In call", tone: "ok" },
+    invited: { label: "Ringing…", tone: "ringing" },
+    missed: { label: "No answer", tone: "warn" },
+    rejected: { label: "Declined", tone: "warn" },
+    ended: { label: "Left", tone: "muted" },
+    removed: { label: "Removed", tone: "bad" },
+};
+
 const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [call, setCall] = useState(null);
     const [error, setError] = useState("");
@@ -253,6 +264,10 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [floatingPosition, setFloatingPosition] = useState({ x: 24, y: 90 });
     const [remoteParticipants, setRemoteParticipants] = useState([]);
     const [showAddPeople, setShowAddPeople] = useState(false);
+    // Group call roster from the server: who is in, ringing, missed, left or removed (and by whom).
+    const [callRoster, setCallRoster] = useState([]);
+    const [showRoster, setShowRoster] = useState(false);
+    const [callNotices, setCallNotices] = useState([]);
     const [availableUsers, setAvailableUsers] = useState([]);
     const [selectedInviteIds, setSelectedInviteIds] = useState([]);
     const [isInvitingPeople, setIsInvitingPeople] = useState(false);
@@ -448,39 +463,74 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }, 5000);
     };
 
+    // Browsers keep an AudioContext created without a user gesture suspended, so an incoming call
+    // on a page nobody had clicked yet rang silently. Create/resume it on the first interaction.
+    const getRingtoneContext = () => {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+            audioContextRef.current = new AudioContextClass();
+        }
+        return audioContextRef.current;
+    };
+
+    useEffect(() => {
+        const unlock = () => {
+            const audioCtx = getRingtoneContext();
+            if (!audioCtx) return;
+            if (audioCtx.state === "suspended") {
+                // Keep it suspended again unless a ringtone is playing.
+                audioCtx.resume().then(() => {
+                    if (!ringtoneTimerRef.current) audioCtx.suspend().catch(() => {});
+                }).catch(() => {});
+            }
+            window.removeEventListener("pointerdown", unlock);
+            window.removeEventListener("keydown", unlock);
+        };
+        window.addEventListener("pointerdown", unlock);
+        window.addEventListener("keydown", unlock);
+        return () => {
+            window.removeEventListener("pointerdown", unlock);
+            window.removeEventListener("keydown", unlock);
+        };
+    }, []);
+
     const startRingtone = () => {
         stopRingtone();
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
+        const audioCtx = getRingtoneContext();
+        if (!audioCtx) return;
 
-        let audioCtx = audioContextRef.current;
-        if (!audioCtx || audioCtx.state === "closed") {
-            audioCtx = new AudioContext();
-            audioContextRef.current = audioCtx;
-        }
-
-        const createTone = () => {
-            const oscillator = audioCtx.createOscillator();
+        // Phone-style double ring: two short 440+480Hz bursts, then a pause.
+        const playBurst = startAt => {
             const gain = audioCtx.createGain();
-            oscillator.type = "sine";
-            oscillator.frequency.value = 440;
-            gain.gain.value = 0.25;
-            oscillator.connect(gain);
+            gain.gain.setValueAtTime(0.0001, startAt);
+            gain.gain.exponentialRampToValueAtTime(0.35, startAt + 0.02);
+            gain.gain.setValueAtTime(0.35, startAt + 0.38);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.4);
             gain.connect(audioCtx.destination);
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.25);
-            oscillator.onended = () => {
-                oscillator.disconnect();
-                gain.disconnect();
-            };
+            [440, 480].forEach(frequency => {
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = "sine";
+                oscillator.frequency.value = frequency;
+                oscillator.connect(gain);
+                oscillator.start(startAt);
+                oscillator.stop(startAt + 0.4);
+                oscillator.onended = () => oscillator.disconnect();
+            });
+            window.setTimeout(() => gain.disconnect(), 600 + (startAt - audioCtx.currentTime) * 1000);
+        };
+        const ring = () => {
+            const now = audioCtx.currentTime;
+            playBurst(now);
+            playBurst(now + 0.6);
         };
 
         if (audioCtx.state === "suspended") {
             audioCtx.resume().catch(() => {});
         }
 
-        createTone();
-        ringtoneTimerRef.current = window.setInterval(createTone, 1100);
+        ring();
+        ringtoneTimerRef.current = window.setInterval(ring, 2400);
     };
 
     const attachLocalStream = (stream) => {
@@ -494,7 +544,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         if (localVideoRef.current && localStreamRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
         }
-    }, [call?.status, call?.type]);
+    }, [call?.status, call?.type, isMinimized]);
 
     const upsertRemoteParticipant = (userId, patch) => {
         setRemoteParticipants(prev => {
@@ -554,6 +604,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         setIsScreenSharing(false);
         setIsMinimized(false);
         setShowAddPeople(false);
+        setCallRoster([]);
+        setShowRoster(false);
+        setCallNotices([]);
         setSelectedInviteIds([]);
         setIsInvitingPeople(false);
         pendingInviteIdsRef.current = [];
@@ -874,6 +927,26 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }
     };
 
+    const removeCallParticipant = (userId) => {
+        const activeCall = activeCallRef.current;
+        if (!activeCall?.callId || !userId) return;
+        socket?.emit("call:remove-participant", { callId: activeCall.callId, userId });
+    };
+
+    // Ring someone again who missed, declined, left or was removed.
+    const reinviteCallParticipant = (userId) => {
+        const activeCall = activeCallRef.current;
+        if (!activeCall?.callId || !userId) return;
+        socket?.emit("call:add-participants", {
+            callId: activeCall.callId,
+            participantIds: [userId],
+            callType: activeCall.type,
+            title: activeCall.title,
+            isGroupCall: true,
+            callerUser: getCurrentUserPublicInfo(currentUser),
+        });
+    };
+
     const startCall = async (callType, user) => {
         if (!socket || !user) {
             setError("Unable to start the call.");
@@ -1186,6 +1259,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
             const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
             const activeNextCall = activateCall(activeCall, connectedAt ? { connectedAt } : {});
+            socket.emit("call:get-roster", { callId: data.callId }, payload => {
+                if (payload?.participants && activeCallRef.current?.callId === data.callId) setCallRoster(payload.participants);
+            });
 
             (data.participants || []).forEach(participant => {
                 upsertRemoteParticipant(participant.userId, { user: participant.user });
@@ -1297,6 +1373,26 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             handleCallClosed({ ...data, status: "missed" });
         };
 
+        const handleRoster = (data) => {
+            if (!data?.callId || activeCallRef.current?.callId !== data.callId) return;
+            setCallRoster(Array.isArray(data.participants) ? data.participants : []);
+        };
+
+        const handleNotice = (data) => {
+            if (!data?.callId || activeCallRef.current?.callId !== data.callId || !data.text) return;
+            const id = `${data.at || Date.now()}-${Math.random()}`;
+            setCallNotices(prev => [...prev.slice(-2), { id, text: data.text, type: data.type }]);
+            window.setTimeout(() => setCallNotices(prev => prev.filter(item => item.id !== id)), 5000);
+        };
+
+        const handleRemoved = (data) => {
+            const activeCall = activeCallRef.current;
+            if (!activeCall || activeCall.callId !== data?.callId) return;
+            completeCall("removed");
+            resetCall();
+            setError(data.reason || "You were removed from the call");
+        };
+
         const handleAnsweredElsewhere = (data) => {
             const activeCall = activeCallRef.current;
             if (activeCall && (!data?.callId || activeCall.callId === data.callId)) {
@@ -1328,6 +1424,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         socket.on("call:rejected", handleCallRejected);
         socket.on("call:ended", handleCallClosed);
         socket.on("call:missed", handleCallMissed);
+        socket.on("call:roster", handleRoster);
+        socket.on("call:notice", handleNotice);
+        socket.on("call:removed", handleRemoved);
 
         return () => {
             socket.off("connect", handleConnect);
@@ -1343,6 +1442,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.off("call:rejected", handleCallRejected);
             socket.off("call:ended", handleCallClosed);
             socket.off("call:missed", handleCallMissed);
+            socket.off("call:roster", handleRoster);
+            socket.off("call:notice", handleNotice);
+            socket.off("call:removed", handleRemoved);
         };
     }, [socket, currentUserId, currentUser, onCallEvent]);
 
@@ -1432,6 +1534,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         ) : null;
     }
 
+    const rosterOthers = callRoster.filter(person => person.userId && person.userId !== currentUserId);
+    const rosterJoinedCount = rosterOthers.filter(person => person.status === "joined").length;
     const avatarSrc = getAvatarSrc(call.peerUser?.avatar || call.peerUser?.profileImage || call.peerUser?.image);
     const isVideoCall = call.type === "video";
     const connectedCount = remoteParticipants.filter(participant => participant.stream).length;
@@ -1486,7 +1590,12 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     };
 
     if (isMinimized) {
+        // Keep remote audio mounted while minimized, otherwise the voice drops.
         return (
+            <>
+            {remoteParticipants.map(participant => (
+                <RemoteAudioTrack key={participant.userId} participant={participant} />
+            ))}
             <button
                 type="button"
                 className="call-floating-window"
@@ -1507,6 +1616,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 </span>
                 <Maximize2 size={16} />
             </button>
+            </>
         );
     }
 
@@ -1516,11 +1626,71 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 <div className="call-topbar">
                     <span>{callDuration}</span>
                     <div>
+                        {rosterOthers.length > 0 && (
+                            <button
+                                type="button"
+                                className={showRoster ? "call-icon-btn call-roster-toggle active" : "call-icon-btn call-roster-toggle"}
+                                onClick={() => setShowRoster(prev => !prev)}
+                                title="People in this call"
+                                aria-expanded={showRoster}
+                            >
+                                <Users size={17} />
+                                <span className="call-roster-count">{rosterJoinedCount}</span>
+                            </button>
+                        )}
                         <button type="button" className="call-icon-btn" onClick={() => setIsMinimized(true)} title="Minimize call">
                             <Minimize2 size={17} />
                         </button>
                     </div>
                 </div>
+                {callNotices.length > 0 && (
+                    <div className="call-notices" role="status" aria-live="polite">
+                        {callNotices.map(notice => (
+                            <div key={notice.id} className={`call-notice notice-${notice.type || "info"}`}>{notice.text}</div>
+                        ))}
+                    </div>
+                )}
+                {showRoster && rosterOthers.length > 0 && (
+                    <div className="call-roster-panel">
+                        <div className="call-roster-header">
+                            <strong>People ({rosterJoinedCount + 1} in call)</strong>
+                            <button type="button" className="call-roster-close" onClick={() => setShowRoster(false)} aria-label="Close"><X size={15} /></button>
+                        </div>
+                        <div className="call-roster-list">
+                            {rosterOthers.map(person => {
+                                const status = ROSTER_STATUS[person.status] || { label: person.status, tone: "muted" };
+                                const name = person.user?.name || "Participant";
+                                const isActive = person.status === "joined" || person.status === "invited";
+                                const detail = person.status === "removed" && person.removedByName
+                                    ? `Removed by ${person.removedByName}`
+                                    : person.addedByName && person.addedBy !== currentUserId
+                                        ? `Added by ${person.addedByName}`
+                                        : person.addedBy === currentUserId ? "Added by you" : "";
+                                return (
+                                    <div key={person.userId} className="call-roster-row">
+                                        <span className="call-roster-avatar">{name.charAt(0).toUpperCase()}</span>
+                                        <span className="call-roster-info">
+                                            <strong>{name}</strong>
+                                            <small>
+                                                <span className={`call-roster-status tone-${status.tone}`}>{status.label}</span>
+                                                {detail ? ` · ${detail}` : ""}
+                                            </small>
+                                        </span>
+                                        {isActive ? (
+                                            <button type="button" className="call-roster-action remove" onClick={() => removeCallParticipant(person.userId)} title={person.status === "invited" ? "Stop ringing" : "End this person's call"}>
+                                                <UserMinus size={15} /> {person.status === "invited" ? "Cancel" : "Remove"}
+                                            </button>
+                                        ) : (
+                                            <button type="button" className="call-roster-action add" onClick={() => reinviteCallParticipant(person.userId)} title="Call again">
+                                                <UserPlus size={15} /> Add again
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 <div className={call.isGroupCall ? "call-remote-stage group-stage" : "call-remote-stage"}>
                     {showsVideoStage ? (
                         remoteParticipants.length > 0 ? (
@@ -1556,7 +1726,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                     )}
 
                     {showsVideoStage && (
-                        <video ref={localVideoRef} autoPlay muted playsInline className="call-local-video" />
+                        <video ref={localVideoRef} autoPlay muted playsInline className={isCameraOff ? "call-local-video is-camera-off" : "call-local-video"} />
                     )}
                 </div>
 

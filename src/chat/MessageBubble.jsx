@@ -36,7 +36,8 @@ const MessageBubble = ({
     onReplyJump,
     onReact,
     isStarredMessage,
-    socket
+    socket,
+    isGroupChat = false
 }) => {
 
 
@@ -174,7 +175,9 @@ const MessageBubble = ({
     const seenBy = Array.isArray(message.seenBy)
         ? message.seenBy.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
         : [];
-    const isSeenBySomeoneElse = seenBy.some(id => id && id !== currentUserId);
+    // The server decides "seen": every other member has read it (one reader in a group is not enough).
+    // Without a server flag, fall back to seenBy only in a one-to-one chat.
+    const isSeenBySomeoneElse = !isGroupChat && seenBy.some(id => id && id !== currentUserId);
     const deliveryState = message.seen || (isOwn && isSeenBySomeoneElse)
         ? "seen"
         : message.delivered || deliveredTo.some(id => id !== currentUserId)
@@ -639,7 +642,9 @@ const MessageBubble = ({
     };
 
     const renderAudioWaveform = () => {
-        const bars = [8, 13, 17, 11, 22, 26, 18, 30, 34, 21, 28, 37, 32, 24, 18, 31, 36, 26, 20, 29, 35, 24, 16, 12];
+        // Enough bars to span the whole bubble; CSS spreads them edge to edge.
+        const bars = [8, 13, 17, 11, 22, 26, 18, 30, 34, 21, 28, 37, 32, 24, 18, 31, 36, 26, 20, 29, 35, 24, 16, 12,
+            15, 23, 30, 19, 27, 33, 22, 14, 25, 31, 18, 10];
         const progress = audioDuration ? audioCurrentTime / audioDuration : 0;
 
         return (
@@ -817,173 +822,173 @@ const MessageBubble = ({
 
     return (
 
-    <div
-        className={
-            isOwn
-            ? "message-row own"
-            : "message-row other"
-        }
-    >
+        <div
+            className={
+                isOwn
+                    ? "message-row own"
+                    : "message-row other"
+            }
+        >
 
-        <div ref={bubbleRef} className={`${isAudioOnly ? "message-bubble voice-message-bubble" : "message-bubble"} ${isStarred ? "is-starred" : ""}`}>
+            <div ref={bubbleRef} className={`${isAudioOnly ? "message-bubble voice-message-bubble" : "message-bubble"} ${isStarred ? "is-starred" : ""}`}>
 
-            {!isAudioOnly && (
-                <div className="message-top-row">
-                    <span className="message-sender">{senderName}</span>
-                    <button ref={menuButtonRef} className={`message-menu-btn ${showMenu ? "active" : ""}`} onClick={toggleMessageMenu} title="Message options">
-                        <MoreVertical size={15} />
+                {!isAudioOnly && (
+                    <div className="message-top-row">
+                        <span className="message-sender">{senderName}</span>
+                        <button ref={menuButtonRef} className={`message-menu-btn ${showMenu ? "active" : ""}`} onClick={toggleMessageMenu} title="Message options">
+                            <MoreVertical size={15} />
+                        </button>
+                    </div>
+                )}
+
+                {message.isForwarded && <div className="forwarded-label">Forwarded</div>}
+                {!!reactionSummary.length && (
+                    <div className="message-reaction-badge">
+                        {reactionSummary.map(([emoji, count]) => (
+                            <span key={emoji}>{emoji}{count > 1 ? count : ""}</span>
+                        ))}
+                    </div>
+                )}
+                {replyMeta && (
+                    <button
+                        type="button"
+                        className="whatsapp-quoted-message"
+                        onClick={() => onReplyJump?.(replyMeta.id)}
+                        title="Go to replied message"
+                    >
+                        <strong>{replyMeta.sender || "User"}</strong>
+                        <span>{replyMeta.text || "Message"}</span>
                     </button>
-                </div>
-            )}
+                )}
 
-            {message.isForwarded && <div className="forwarded-label">Forwarded</div>}
-            {!!reactionSummary.length && (
-                <div className="message-reaction-badge">
-                    {reactionSummary.map(([emoji, count]) => (
-                        <span key={emoji}>{emoji}{count > 1 ? count : ""}</span>
-                    ))}
-                </div>
-            )}
-            {replyMeta && (
-                <button
-                    type="button"
-                    className="whatsapp-quoted-message"
-                    onClick={() => onReplyJump?.(replyMeta.id)}
-                    title="Go to replied message"
-                >
-                    <strong>{replyMeta.sender || "User"}</strong>
-                    <span>{replyMeta.text || "Message"}</span>
-                </button>
-            )}
-
-            {isDeletedForEveryone ? (
-                <div className="message-content-row">
-                    <span className="deleted-text">This message was deleted</span>
-                    <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
-                        <time>{formattedTime}</time>
-                        {renderDeliveryTick()}
-                    </span>
-                </div>
-            ) : (
-                <div className="message-content-row">
-                    {displayMessageText && <span className="message-text-content">{textParts.map((part, index) => part.user
-                        ? <span key={index} className="chat-member-mention" data-mentioned-user={part.user}>{part.text}</span>
-                        : <React.Fragment key={index}>{part.text}</React.Fragment>)}</span>}
-                    {renderMedia()}
-                    {!isAudioOnly && (
+                {isDeletedForEveryone ? (
+                    <div className="message-content-row">
+                        <span className="deleted-text">This message was deleted</span>
                         <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
                             <time>{formattedTime}</time>
                             {renderDeliveryTick()}
                         </span>
-                    )}
-                </div>
-            )}
-
-            {isAudioOnly && (
-                <button ref={menuButtonRef} className="message-menu-btn voice-message-menu-btn" onClick={toggleMessageMenu} title="Message options">
-                    <MoreVertical size={16} />
-                </button>
-            )}
-
-            {showMenu && !isDeletedForEveryone && (
-                <div ref={menuRef} style={menuStyle || { visibility: "hidden" }} className={`message-menu whatsapp-message-menu opens-${menuPlacement}`}>
-                    <div className="message-reaction-strip" aria-label="Message reactions">
-                        {quickReactions.map((emoji) => (
-                            <button
-                                type="button"
-                                key={emoji}
-                                className={selectedReaction === emoji ? "active" : ""}
-                                onClick={() => {
-                                    const nextReaction = selectedReaction === emoji ? "" : emoji;
-                                    setSelectedReaction(nextReaction);
-                                    onReact?.(message, nextReaction);
-                                    closeMenu();
-                                }}
-                            >
-                                {emoji}
-                            </button>
-                        ))}
                     </div>
-                    <div className="message-menu-list">
-                        {menuActions.map(({ key, label, icon, run, danger }) => (
-                            <button
-                                type="button"
-                                key={key}
-                                className={danger ? "danger" : ""}
-                                onClick={() => {
-                                    run?.();
-                                    closeMenu();
-                                }}
-                            >
-                                {React.createElement(icon, { size: 17 })}
-                                <span>{label}</span>
-                            </button>
-                        ))}
+                ) : (
+                    <div className="message-content-row">
+                        {displayMessageText && <span className="message-text-content">{textParts.map((part, index) => part.user
+                            ? <span key={index} className="chat-member-mention" data-mentioned-user={part.user}>{part.text}</span>
+                            : <React.Fragment key={index}>{part.text}</React.Fragment>)}</span>}
+                        {renderMedia()}
+                        {!isAudioOnly && (
+                            <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
+                                <time>{formattedTime}</time>
+                                {renderDeliveryTick()}
+                            </span>
+                        )}
                     </div>
-                </div>
-            )}
+                )}
 
-        {showInfo && (
-            <MessageInfoModal messageId={message._id} socket={socket} onClose={() => setShowInfo(false)} />
-        )}
-
-        {showForwardModal && (
-            <div className="forward-modal-overlay" onClick={() => setShowForwardModal(false)}>
-                <div className="forward-modal" onClick={(e) => e.stopPropagation()}>
-                    <h4>Select users to forward</h4>
-                    <div className="forward-user-list">
-                        {forwardCandidates.map((user) => (
-                            <label key={user._id} className="forward-user-item">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedTargets.includes(user._id)}
-                                    onChange={() => toggleTarget(user._id)}
-                                />
-                                {user.name}
-                            </label>
-                        ))}
-                    </div>
-                    <button className="forward-confirm-btn" onClick={handleForward}>Forward</button>
-                </div>
-            </div>
-        )}
-
-        {previewMedia && (
-            <div className="chat-media-preview-overlay" onClick={() => setPreviewMedia(null)}>
-                <div className="chat-media-preview" onClick={(e) => e.stopPropagation()}>
-                    <a
-                        href={previewMedia.url}
-                        download={attachmentName}
-                        className="chat-media-preview-download"
-                        title="Download"
-                        onClick={(event) => {
-                            event.preventDefault();
-                            downloadAttachment();
-                        }}
-                    >
-                        <Download size={20} />
-                    </a>
-                    <button
-                        type="button"
-                        className="chat-media-preview-close"
-                        onClick={() => setPreviewMedia(null)}
-                        aria-label="Close media preview"
-                    >
-                        <X size={22} />
+                {isAudioOnly && (
+                    <button ref={menuButtonRef} className="message-menu-btn voice-message-menu-btn" onClick={toggleMessageMenu} title="Message options">
+                        <MoreVertical size={16} />
                     </button>
-                    {previewMedia.kind === "image" ? (
-                        <img src={previewMedia.url} alt="attachment preview" />
-                    ) : (
-                        <video src={previewMedia.url} controls autoPlay className="chat-media-preview-video" />
-                    )}
-                </div>
+                )}
+
+                {showMenu && !isDeletedForEveryone && (
+                    <div ref={menuRef} style={menuStyle || { visibility: "hidden" }} className={`message-menu whatsapp-message-menu opens-${menuPlacement}`}>
+                        <div className="message-reaction-strip" aria-label="Message reactions">
+                            {quickReactions.map((emoji) => (
+                                <button
+                                    type="button"
+                                    key={emoji}
+                                    className={selectedReaction === emoji ? "active" : ""}
+                                    onClick={() => {
+                                        const nextReaction = selectedReaction === emoji ? "" : emoji;
+                                        setSelectedReaction(nextReaction);
+                                        onReact?.(message, nextReaction);
+                                        closeMenu();
+                                    }}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="message-menu-list">
+                            {menuActions.map(({ key, label, icon, run, danger }) => (
+                                <button
+                                    type="button"
+                                    key={key}
+                                    className={danger ? "danger" : ""}
+                                    onClick={() => {
+                                        run?.();
+                                        closeMenu();
+                                    }}
+                                >
+                                    {React.createElement(icon, { size: 17 })}
+                                    <span>{label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {showInfo && (
+                    <MessageInfoModal messageId={message._id} socket={socket} onClose={() => setShowInfo(false)} />
+                )}
+
+                {showForwardModal && (
+                    <div className="forward-modal-overlay" onClick={() => setShowForwardModal(false)}>
+                        <div className="forward-modal" onClick={(e) => e.stopPropagation()}>
+                            <h4>Select users to forward</h4>
+                            <div className="forward-user-list">
+                                {forwardCandidates.map((user) => (
+                                    <label key={user._id} className="forward-user-item">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedTargets.includes(user._id)}
+                                            onChange={() => toggleTarget(user._id)}
+                                        />
+                                        {user.name}
+                                    </label>
+                                ))}
+                            </div>
+                            <button className="forward-confirm-btn" onClick={handleForward}>Forward</button>
+                        </div>
+                    </div>
+                )}
+
+                {previewMedia && (
+                    <div className="chat-media-preview-overlay" onClick={() => setPreviewMedia(null)}>
+                        <div className="chat-media-preview" onClick={(e) => e.stopPropagation()}>
+                            <a
+                                href={previewMedia.url}
+                                download={attachmentName}
+                                className="chat-media-preview-download"
+                                title="Download"
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    downloadAttachment();
+                                }}
+                            >
+                                <Download size={20} />
+                            </a>
+                            <button
+                                type="button"
+                                className="chat-media-preview-close"
+                                onClick={() => setPreviewMedia(null)}
+                                aria-label="Close media preview"
+                            >
+                                <X size={22} />
+                            </button>
+                            {previewMedia.kind === "image" ? (
+                                <img src={previewMedia.url} alt="attachment preview" />
+                            ) : (
+                                <video src={previewMedia.url} controls autoPlay className="chat-media-preview-video" />
+                            )}
+                        </div>
+                    </div>
+                )}
+
             </div>
-        )}
 
         </div>
-
-    </div>
-);
+    );
 };
 
 export default MessageBubble;

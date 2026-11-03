@@ -580,12 +580,12 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
       <div className="EmppAttendence-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="EmppAttendence-modal-header">
           <h3>Add New Attendance</h3>
-          <button className="EmppAttendence-modal-close" onClick={onClose}>
+          <button type="button" className="EmppAttendence-modal-close" onClick={onClose} title="Close">
             <FiX size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form className="EmppAttendence-modal-form" onSubmit={handleSubmit}>
           <div className="EmppAttendence-modal-body">
             <div className="EmppAttendence-form-group EmppAttendence-full-width">
               <label>Select Employee *</label>
@@ -740,20 +740,23 @@ const AddAttendanceModal = ({ onClose, onSave, users, selectedDate, currentUserD
           </div>
 
           <div className="EmppAttendence-modal-footer">
-            <button 
-              className="EmppAttendence-btn EmppAttendence-btn-outlined" 
-              type="button" 
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button 
-              className="EmppAttendence-btn EmppAttendence-btn-contained" 
-              type="submit"
-              disabled={loading || !formData.user}
-            >
-              {loading ? 'Saving...' : 'Save Attendance'}
-            </button>
+            <div className="EmppAttendence-footer-left"></div>
+            <div className="EmppAttendence-footer-right">
+              <button 
+                className="EmppAttendence-btn EmppAttendence-btn-outlined" 
+                type="button" 
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button 
+                className="EmppAttendence-btn EmppAttendence-btn-contained" 
+                type="submit"
+                disabled={loading || !formData.user}
+              >
+                {loading ? 'Saving...' : 'Save Attendance'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

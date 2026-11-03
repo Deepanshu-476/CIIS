@@ -111,7 +111,14 @@ const TASK_UPDATE_LABELS = {
     task_file_added: ["File Attached", "update"],
     task_file_removed: ["File Removed", "delete"],
     task_deleted: ["Task Deleted", "delete"],
+    subscription_expired: ["Subscription Expired", "delete"],
+    plan_tasks_created: ["Plan Tasks Created", "create"],
 };
+
+// Task updates, plus whole-subscription notices (plan tasks created, expiry) that list tasks but open none.
+const SUBSCRIPTION_NOTICE_TYPES = ["subscription_expired", "plan_tasks_created"];
+const isTaskUpdateMessage = message => message?.messageType === "system"
+    && Boolean(message.systemEvent?.task || SUBSCRIPTION_NOTICE_TYPES.includes(message.systemEvent?.type));
 
 const getTaskEventMeta = (message) => {
     const eventType = message?.systemEvent?.type;
@@ -335,6 +342,8 @@ const ChatBox = ({
 
     const [messages, setMessages] =
         useState([]);
+    // Which conversation's first page has arrived, so "no messages yet" never flashes while loading.
+    const [loadedConversationId, setLoadedConversationId] = useState(null);
     const [messagePagination, setMessagePagination] = useState({
         hasMore: false,
         nextBefore: null,
@@ -811,7 +820,8 @@ useEffect(() => {
 
                 ? {
                     ...msg,
-                    seen: true,
+                    // In a group, blue only once every other member has read it (server sends allSeen).
+                    seen: Boolean(msg.seen) || data?.allSeen !== false,
                     seenBy: Array.from(new Set([
                         ...(Array.isArray(msg.seenBy) ? msg.seenBy : []),
                         seenBy
@@ -983,6 +993,7 @@ useEffect(() => {
                 hasMore: Boolean(res.data.pagination?.hasMore),
                 nextBefore: res.data.pagination?.nextBefore || null,
             });
+            setLoadedConversationId(String(conversationId));
             onConversationChange?.();
             queueScrollToLatestMessage("auto");
 
@@ -2177,9 +2188,12 @@ useEffect(() => {
         : (typeof isUserOnlineNow === "function"
             ? isUserOnlineNow(selectedUser)
             : (presenceReady ? isIdOnline(selectedUserId) : (Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId))));
+    // The server rings every signed-in device and wakes offline ones by push, so a call must not
+    // depend on the live "online" dot (since presence became strict, it blocked calling anyone whose
+    // app was in the background).
     const canStartCall = selectedUser?.isGroup
-        ? onlineGroupCount > 0 || groupMemberCount === 0
-        : isSelectedUserOnline;
+        ? groupMemberCount > 0 || onlineGroupCount > 0
+        : Boolean(selectedUserId);
 
     const startDirectCall = (callType) => {
         if (!canStartCall) return;
@@ -2328,7 +2342,7 @@ useEffect(() => {
                 <div className="chat-header-actions" ref={headerMenuRef}>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group members") : "Start video call"}
                         onClick={() => startDirectCall("video")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
                     >
@@ -2336,7 +2350,7 @@ useEffect(() => {
                     </button>
                     <button
                         type="button"
-                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
+                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group members") : "Start voice call"}
                         onClick={() => startDirectCall("audio")}
                         disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
                     >
@@ -2457,15 +2471,15 @@ useEffect(() => {
                                             </span>
                                         </div>
                                     );
-                                })() : message.messageType === "system" && message.systemEvent?.task ? (() => {
+                                })() : isTaskUpdateMessage(message) ? (() => {
                                     const taskMeta = getTaskEventMeta(message);
                                     return (
                                         <div className="chat-task-update" data-message-id={message._id}>
                                             <button
                                                 type="button"
                                                 className={`chat-task-card event-${taskMeta.eventCategory}`}
-                                                onClick={() => openProjectTask(message.systemEvent)}
-                                                title="Click to view task details"
+                                                onClick={() => message.systemEvent?.task && openProjectTask(message.systemEvent)}
+                                                title={message.systemEvent?.task ? "Click to view task details" : undefined}
                                             >
                                                 <div className="chat-task-card-header">
                                                     <div className="chat-task-card-header-left">
@@ -2481,7 +2495,7 @@ useEffect(() => {
                                                 <div className="chat-task-card-body">
                                                     <FileText size={15} className="chat-task-card-icon" />
                                                     <span className="chat-task-card-text">{taskEventText(message)}</span>
-                                                    <ChevronRight size={14} className="chat-task-card-chevron" />
+                                                    {message.systemEvent?.task && <ChevronRight size={14} className="chat-task-card-chevron" />}
                                                 </div>
                                             </button>
                                             <button
@@ -2526,6 +2540,7 @@ useEffect(() => {
                                             isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
                                             onToggleStar={toggleStarredMessage}
                                             socket={socket}
+                                            isGroupChat={Boolean(selectedUser?.isGroup || conversation?.isGroup)}
                                         />
                                     </div>
                                 )}
@@ -2533,6 +2548,24 @@ useEffect(() => {
                         );
                     })
                 }
+
+                {displayedMessages.length === 0
+                    && !normalizedSearchTerm
+                    && conversation?._id
+                    && loadedConversationId === String(conversation._id) && (
+                    <div className="chat-thread-empty">
+                        <span className="chat-thread-empty-icon"><MessageCircle size={26} /></span>
+                        <strong>No messages yet</strong>
+                        <p>
+                            {selectedUser?.isGroup
+                                ? "Start the conversation with this group."
+                                : `Start the conversation with ${selectedUser?.name || "this person"}.`}
+                        </p>
+                        <button type="button" onClick={() => chatInputRef.current?.focus()}>
+                            Start conversation
+                        </button>
+                    </div>
+                )}
 
             </div>
 
@@ -2839,7 +2872,7 @@ useEffect(() => {
                     </div>
 
                     <button
-                        className="recording-btn"
+                        className="recording-btn composer-video-btn"
                         onClick={() => startRecording("video")}
                         disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
                         title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : "Record video"}
@@ -2881,7 +2914,7 @@ useEffect(() => {
                     </div>
 
                     <button
-                        className={recorderMode === "audio" ? "recording-btn active" : "recording-btn"}
+                        className={recorderMode === "audio" ? "recording-btn composer-voice-btn active" : "recording-btn composer-voice-btn"}
                         onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
                         disabled={isSendingAction || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
                         title={recorderMode === "audio" ? "End voice recording" : "Start voice recording"}

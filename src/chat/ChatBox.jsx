@@ -112,11 +112,13 @@ const TASK_UPDATE_LABELS = {
     task_file_removed: ["File Removed", "delete"],
     task_deleted: ["Task Deleted", "delete"],
     subscription_expired: ["Subscription Expired", "delete"],
+    plan_tasks_created: ["Plan Tasks Created", "create"],
 };
 
-// Task updates, plus group-level notices (a subscription expiry) that list tasks but open none.
+// Task updates, plus whole-subscription notices (plan tasks created, expiry) that list tasks but open none.
+const SUBSCRIPTION_NOTICE_TYPES = ["subscription_expired", "plan_tasks_created"];
 const isTaskUpdateMessage = message => message?.messageType === "system"
-    && Boolean(message.systemEvent?.task || message.systemEvent?.type === "subscription_expired");
+    && Boolean(message.systemEvent?.task || SUBSCRIPTION_NOTICE_TYPES.includes(message.systemEvent?.type));
 
 const getTaskEventMeta = (message) => {
     const eventType = message?.systemEvent?.type;

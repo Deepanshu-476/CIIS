@@ -257,6 +257,7 @@
 .chat-task-card-text {
     flex: 1;
     word-break: break-word;
+    white-space: pre-line;
     color: #334155;
     font-size: 11px;
     font-weight: 500;

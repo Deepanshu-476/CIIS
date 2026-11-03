@@ -111,7 +111,12 @@ const TASK_UPDATE_LABELS = {
     task_file_added: ["File Attached", "update"],
     task_file_removed: ["File Removed", "delete"],
     task_deleted: ["Task Deleted", "delete"],
+    subscription_expired: ["Subscription Expired", "delete"],
 };
+
+// Task updates, plus group-level notices (a subscription expiry) that list tasks but open none.
+const isTaskUpdateMessage = message => message?.messageType === "system"
+    && Boolean(message.systemEvent?.task || message.systemEvent?.type === "subscription_expired");
 
 const getTaskEventMeta = (message) => {
     const eventType = message?.systemEvent?.type;
@@ -2464,15 +2469,15 @@ useEffect(() => {
                                             </span>
                                         </div>
                                     );
-                                })() : message.messageType === "system" && message.systemEvent?.task ? (() => {
+                                })() : isTaskUpdateMessage(message) ? (() => {
                                     const taskMeta = getTaskEventMeta(message);
                                     return (
                                         <div className="chat-task-update" data-message-id={message._id}>
                                             <button
                                                 type="button"
                                                 className={`chat-task-card event-${taskMeta.eventCategory}`}
-                                                onClick={() => openProjectTask(message.systemEvent)}
-                                                title="Click to view task details"
+                                                onClick={() => message.systemEvent?.task && openProjectTask(message.systemEvent)}
+                                                title={message.systemEvent?.task ? "Click to view task details" : undefined}
                                             >
                                                 <div className="chat-task-card-header">
                                                     <div className="chat-task-card-header-left">
@@ -2488,7 +2493,7 @@ useEffect(() => {
                                                 <div className="chat-task-card-body">
                                                     <FileText size={15} className="chat-task-card-icon" />
                                                     <span className="chat-task-card-text">{taskEventText(message)}</span>
-                                                    <ChevronRight size={14} className="chat-task-card-chevron" />
+                                                    {message.systemEvent?.task && <ChevronRight size={14} className="chat-task-card-chevron" />}
                                                 </div>
                                             </button>
                                             <button

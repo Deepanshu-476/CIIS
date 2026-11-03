@@ -139,417 +139,417 @@ function App() {
         <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
           <Routes>
 
-        {renderMarketingRoutes()}
-        <Route path="/about" element={<Navigate to="/product" replace />} />
-        <Route path="/cookies" element={<Navigate to="/terms" replace />} />
-        <Route path="/features" element={<Navigate to="/product" replace />} />
-        <Route path="/feature" element={<Navigate to="/features" replace />} />
-        <Route path="/solution" element={<Navigate to="/solutions" replace />} />
-        <Route path="/how-it-works" element={<Navigate to="/product" replace />} />
-        <Route path="/howitworks" element={<Navigate to="/how-it-works" replace />} />
-        <Route path="/security" element={<Navigate to="/privacy-policy" replace />} />
-        <Route path="/employee-management" element={<Navigate to="/people/employees" replace />} />
-        <Route path="/employee" element={<Navigate to="/employee-management" replace />} />
-        <Route path="/crm-telecaller" element={<Navigate to="/clients/client-management" replace />} />
-        <Route path="/crm" element={<Navigate to="/crm-telecaller" replace />} />
-        <Route path="/telecaller" element={<Navigate to="/crm-telecaller" replace />} />
-        <Route path="/payroll-management" element={<Navigate to="/people/payroll" replace />} />
-        <Route path="/payroll" element={<Navigate to="/people/payroll" replace />} />
-        <Route path="/smart-attendance" element={<Navigate to="/people/attendance" replace />} />
-        <Route path="/attendance" element={<Navigate to="/people/attendance" replace />} />
-        <Route path="/shift-management" element={<Navigate to="/people/shifts" replace />} />
-        <Route path="/leave-management" element={<Navigate to="/people/leave" replace />} />
-        <Route path="/leave-policy" element={<Navigate to="/leave-management" replace />} />
-        <Route path="/asset-management" element={<Navigate to="/people/assets" replace />} />
-        <Route path="/assets-management" element={<Navigate to="/asset-management" replace />} />
-        <Route path="/mobile-app" element={<Navigate to="/" replace />} />
-        <Route path="/mobile" element={<Navigate to="/mobile-app" replace />} />
-        <Route path="/team-communication" element={<Navigate to="/work/chat" replace />} />
-        <Route path="/communication" element={<Navigate to="/team-communication" replace />} />
-        <Route path="/business-automation" element={<Navigate to="/work" replace />} />
-        <Route path="/automation" element={<Navigate to="/business-automation" replace />} />
-        <Route path="/product-overview" element={<Navigate to="/product" replace />} />
-        <Route path="/task-management" element={<Navigate to="/work/tasks" replace />} />
-        <Route path="/project-management" element={<Navigate to="/work/projects" replace />} />
-        <Route path="/meetings" element={<Navigate to="/work/meetings" replace />} />
-        <Route path="/chat" element={<Navigate to="/work/chat" replace />} />
-        <Route path="/alerts" element={<Navigate to="/work/alerts" replace />} />
-        <Route path="/client-management" element={<Navigate to="/clients/client-management" replace />} />
-        <Route path="/support" element={<Navigate to="/clients/support" replace />} />
-        <Route path="/book-a-demo" element={<Navigate to="/book-demo" replace />} />
-        <Route path="/leadform" element={<Navigate to="/contact" replace />} />
-        <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
-        <Route path="/superadminlogin" element={<Navigate to="/SuperAdminLogin" replace />} />
-        <Route path="/superadmin-login" element={<Navigate to="/SuperAdminLogin" replace />} />
-        <Route path="/super-admin-login" element={<Navigate to="/SuperAdminLogin" replace />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/Login" element={<Navigate to="/login" replace />} />
-        <Route path="/company/:companyCode/login" element={<Login />} />
-        <Route path="company/:companyCode/login" element={<Login />} />
-        <Route path="/self-register" element={<SelfRegister />} />
-        <Route path="/:companyCode/register" element={<SelfRegister />} />
-        <Route path="/company/:companyCode/register" element={<SelfRegister />} />
-        <Route path="/RegisterCompany" element={<RegisterCompany />} />
-        <Route path="/call-management" element={<Navigate to="/ciisUser/telecaller/call-dashboard" replace />} />
-        <Route path="/lead-management" element={<Navigate to="/ciisUser/telecaller/assigned-calls" replace />} />
-        <Route path="/talicaliler" element={<Navigate to="/ciisUser/telecaller/dashboard" replace />} />
+            {renderMarketingRoutes()}
+            <Route path="/about" element={<Navigate to="/product" replace />} />
+            <Route path="/cookies" element={<Navigate to="/terms" replace />} />
+            <Route path="/features" element={<Navigate to="/product" replace />} />
+            <Route path="/feature" element={<Navigate to="/features" replace />} />
+            <Route path="/solution" element={<Navigate to="/solutions" replace />} />
+            <Route path="/how-it-works" element={<Navigate to="/product" replace />} />
+            <Route path="/howitworks" element={<Navigate to="/how-it-works" replace />} />
+            <Route path="/security" element={<Navigate to="/privacy-policy" replace />} />
+            <Route path="/employee-management" element={<Navigate to="/people/employees" replace />} />
+            <Route path="/employee" element={<Navigate to="/employee-management" replace />} />
+            <Route path="/crm-telecaller" element={<Navigate to="/clients/client-management" replace />} />
+            <Route path="/crm" element={<Navigate to="/crm-telecaller" replace />} />
+            <Route path="/telecaller" element={<Navigate to="/crm-telecaller" replace />} />
+            <Route path="/payroll-management" element={<Navigate to="/people/payroll" replace />} />
+            <Route path="/payroll" element={<Navigate to="/people/payroll" replace />} />
+            <Route path="/smart-attendance" element={<Navigate to="/people/attendance" replace />} />
+            <Route path="/attendance" element={<Navigate to="/people/attendance" replace />} />
+            <Route path="/shift-management" element={<Navigate to="/people/shifts" replace />} />
+            <Route path="/leave-management" element={<Navigate to="/people/leave" replace />} />
+            <Route path="/leave-policy" element={<Navigate to="/leave-management" replace />} />
+            <Route path="/asset-management" element={<Navigate to="/people/assets" replace />} />
+            <Route path="/assets-management" element={<Navigate to="/asset-management" replace />} />
+            <Route path="/mobile-app" element={<Navigate to="/" replace />} />
+            <Route path="/mobile" element={<Navigate to="/mobile-app" replace />} />
+            <Route path="/team-communication" element={<Navigate to="/work/chat" replace />} />
+            <Route path="/communication" element={<Navigate to="/team-communication" replace />} />
+            <Route path="/business-automation" element={<Navigate to="/work" replace />} />
+            <Route path="/automation" element={<Navigate to="/business-automation" replace />} />
+            <Route path="/product-overview" element={<Navigate to="/product" replace />} />
+            <Route path="/task-management" element={<Navigate to="/work/tasks" replace />} />
+            <Route path="/project-management" element={<Navigate to="/work/projects" replace />} />
+            <Route path="/meetings" element={<Navigate to="/work/meetings" replace />} />
+            <Route path="/chat" element={<Navigate to="/work/chat" replace />} />
+            <Route path="/alerts" element={<Navigate to="/work/alerts" replace />} />
+            <Route path="/client-management" element={<Navigate to="/clients/client-management" replace />} />
+            <Route path="/support" element={<Navigate to="/clients/support" replace />} />
+            <Route path="/book-a-demo" element={<Navigate to="/book-demo" replace />} />
+            <Route path="/leadform" element={<Navigate to="/contact" replace />} />
+            <Route path="/SuperAdminLogin" element={<SuperAdminLogin />} />
+            <Route path="/superadminlogin" element={<Navigate to="/SuperAdminLogin" replace />} />
+            <Route path="/superadmin-login" element={<Navigate to="/SuperAdminLogin" replace />} />
+            <Route path="/super-admin-login" element={<Navigate to="/SuperAdminLogin" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/Login" element={<Navigate to="/login" replace />} />
+            <Route path="/company/:companyCode/login" element={<Login />} />
+            <Route path="company/:companyCode/login" element={<Login />} />
+            <Route path="/self-register" element={<SelfRegister />} />
+            <Route path="/:companyCode/register" element={<SelfRegister />} />
+            <Route path="/company/:companyCode/register" element={<SelfRegister />} />
+            <Route path="/RegisterCompany" element={<RegisterCompany />} />
+            <Route path="/call-management" element={<Navigate to="/ciisUser/telecaller/call-dashboard" replace />} />
+            <Route path="/lead-management" element={<Navigate to="/ciisUser/telecaller/assigned-calls" replace />} />
+            <Route path="/talicaliler" element={<Navigate to="/ciisUser/telecaller/dashboard" replace />} />
 
-        {/* Dynamic Dashboard Overview System - Dedicated Routes */}
-        <Route
-          path="/dashboard-overview"
-          element={(
-            <ThemeContextProvider>
-              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
-                <DashboardOverviewPreview />
-              </Suspense>
-            </ThemeContextProvider>
-          )}
-        />
-        <Route
-          path="/dashboard-overview/:companyId"
-          element={(
-            <ThemeContextProvider>
-              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
-                <DashboardOverviewPreview />
-              </Suspense>
-            </ThemeContextProvider>
-          )}
-        />
-        <Route
-          path="/dashboard-overview-preview"
-          element={(
-            <ThemeContextProvider>
-              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
-                <DashboardOverviewPreview />
-              </Suspense>
-            </ThemeContextProvider>
-          )}
-        />
-        <Route
-          path="/dashboard-overview-preview/:companyId"
-          element={(
-            <ThemeContextProvider>
-              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
-                <DashboardOverviewPreview />
-              </Suspense>
-            </ThemeContextProvider>
-          )}
-        />
+            {/* Dynamic Dashboard Overview System - Dedicated Routes */}
+            <Route
+              path="/dashboard-overview"
+              element={(
+                <ThemeContextProvider>
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                    <DashboardOverviewPreview />
+                  </Suspense>
+                </ThemeContextProvider>
+              )}
+            />
+            <Route
+              path="/dashboard-overview/:companyId"
+              element={(
+                <ThemeContextProvider>
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                    <DashboardOverviewPreview />
+                  </Suspense>
+                </ThemeContextProvider>
+              )}
+            />
+            <Route
+              path="/dashboard-overview-preview"
+              element={(
+                <ThemeContextProvider>
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                    <DashboardOverviewPreview />
+                  </Suspense>
+                </ThemeContextProvider>
+              )}
+            />
+            <Route
+              path="/dashboard-overview-preview/:companyId"
+              element={(
+                <ThemeContextProvider>
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard overview..." />}>
+                    <DashboardOverviewPreview />
+                  </Suspense>
+                </ThemeContextProvider>
+              )}
+            />
 
-        <Route
-          path="/Ciis-network/*"
-          element={
-            <ThemeContextProvider>
-              <ProtectedRoute>
-                <SuperLayout />
-              </ProtectedRoute>
-            </ThemeContextProvider>
-          }
-        >
-          <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
-          <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
-          <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
-          <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
-          <Route path="company-details" element={<CompanyDetails />} />
-          <Route path="RegisterCompany" element={<RegisterCompany />} />
-          <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
-          <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
-          <Route path="department" element={<Department />} />
-          <Route path="department/branch/:branchId" element={<Department />} />
-          <Route path="JobRoleManagement" element={<JobRoleManagement />} />
-          <Route path="create-user" element={<CreateUser />} />
-          <Route path="register-request" element={<RegisterRequest />} />
-          <Route path="all-company" element={<AllCompany />} />
-          <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
-          <Route path="all-company/:companyId/admins" element={<CompanyAdminDetails />} />
-          <Route path="all-company/:companyId/view" element={<CompanyDataView />} />
-          <Route path="company-assets" element={<CompanyAssetManagement/>}/>
-          <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement/>}/>
-          <Route path="CompanyManagement" element={<CompanyManagement />} />
-          <Route path="SidebarManagement" element={<SidebarManagement />} />
-          <Route path="page-management" element={<PageManagement />} />
-          <Route path="plans" element={<PlanManagement />} />
-          <Route path="holiday" element={<Holiday />} />
-          <Route path="branch" element={<BranchManagement />} />
-          <Route path="support-operations" element={<SupportOperations />} />
-          <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="email-settings" element={<EmailSettings />} />
-          <Route
-            path="app-version-control"
-            element={
-              <ProtectedSuperAdminRoute>
-                <AppVersionControl />
-              </ProtectedSuperAdminRoute>
-            }
-          />
-          <Route path="leave-policy-master" element={<LeavePolicy />} />
-          <Route path="leave-policy" element={<LeavePolicy />} />
-          <Route
-            path="demo-requests"
-            element={
-              <ProtectedSuperAdminRoute>
-                <DemoRequests />
-              </ProtectedSuperAdminRoute>
-            }
-          />
-        </Route>
+            <Route
+              path="/Ciis-network/*"
+              element={
+                <ThemeContextProvider>
+                  <ProtectedRoute>
+                    <SuperLayout />
+                  </ProtectedRoute>
+                </ThemeContextProvider>
+              }
+            >
+              <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
+              <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
+              <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
+              <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
+              <Route path="company-details" element={<CompanyDetails />} />
+              <Route path="RegisterCompany" element={<RegisterCompany />} />
+              <Route path="CompanyAccessManagement" element={<CompanyAccessManagement />} />
+              <Route path="CompanyAccessManagement/:companyId" element={<CompanyAccessManagement />} />
+              <Route path="department" element={<Department />} />
+              <Route path="department/branch/:branchId" element={<Department />} />
+              <Route path="JobRoleManagement" element={<JobRoleManagement />} />
+              <Route path="create-user" element={<CreateUser />} />
+              <Route path="register-request" element={<RegisterRequest />} />
+              <Route path="all-company" element={<AllCompany />} />
+              <Route path="all-company/:companyId/users" element={<CompanyUsersPage />} />
+              <Route path="all-company/:companyId/admins" element={<CompanyAdminDetails />} />
+              <Route path="all-company/:companyId/view" element={<CompanyDataView />} />
+              <Route path="company-assets" element={<CompanyAssetManagement />} />
+              <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement />} />
+              <Route path="CompanyManagement" element={<CompanyManagement />} />
+              <Route path="SidebarManagement" element={<SidebarManagement />} />
+              <Route path="page-management" element={<PageManagement />} />
+              <Route path="plans" element={<PlanManagement />} />
+              <Route path="holiday" element={<Holiday />} />
+              <Route path="branch" element={<BranchManagement />} />
+              <Route path="support-operations" element={<SupportOperations />} />
+              <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="email-settings" element={<EmailSettings />} />
+              <Route
+                path="app-version-control"
+                element={
+                  <ProtectedSuperAdminRoute>
+                    <AppVersionControl />
+                  </ProtectedSuperAdminRoute>
+                }
+              />
+              <Route path="leave-policy-master" element={<LeavePolicy />} />
+              <Route path="leave-policy" element={<LeavePolicy />} />
+              <Route
+                path="demo-requests"
+                element={
+                  <ProtectedSuperAdminRoute>
+                    <DemoRequests />
+                  </ProtectedSuperAdminRoute>
+                }
+              />
+            </Route>
 
-        
-        <Route
-          path="/ciisUser/*"
-          element={
-            <ThemeContextProvider>
-              <ProtectedRoute>
-                <Layout2 />
-              </ProtectedRoute>
-            </ThemeContextProvider>
-          }
-        >
-          
-          
-          
-          <Route path="change-password" element={<ChangePassword />} />
-          <Route path="emp-details" element={<EmppDetail />} />
-          <Route path="emp-leaves" element={<EmppLeave />} />
-          <Route path="emp-assets" element={<EmppAsset />} />
-          <Route path="company-assets" element={<CompanyAssetManagement />} />
-          <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement />} />
-          <Route path="asset-management" element={<CompanyAssetManagement />} />
-          <Route path="asset-management/branch/:branchId" element={<CompanyAssetManagement />} />
-          <Route path="emp-attendance" element={<EmppAttendence />} />
-          <Route path="emp-task-details" element={<TaskDeatils />} />
-          <Route path="admin-task-create" element={<AdminTaskCreate />} />
-          <Route path="manage-groups" element={<ManageGroups />} />
-          <Route path="admin-meeting" element={<AdminMeetingPage />} />
-          <Route path="adminproject" element={<AdminProject />} />
-          <Route path="company-all-task" element={<EmpAllTask />} />
-          <Route path="department-all-task" element={<EmpDepartmentAllTask />} />
-          <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
-          <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
-          <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
-          <Route path="emp-client" element={<Client />} />
-          <Route path="emp-client/add-new" element={<AddClientPage />} />
-          <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
-          <Route path="client-plans" element={<ClientPlansPage />} />
-          <Route path="active-clients" element={<ActiveClientsOverview />} />
-          <Route path="alert" element={<Alerts />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="my-assets" element={<MyAssets />} />
-          <Route path="my-leaves" element={<MyLeaves />} />
-          <Route path="profile" element={<Profile />} />
-          <Route
-            path="user-dashboard"
-            element={(
-              <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard..." />}>
-                <UserDashboard />
-              </Suspense>
-            )}
-          />
-          <Route path="dashboard-1" element={<DashboardOverview />} />
-          <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
-          <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
-          <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
-          <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
-          <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
-          <Route path="client-dashboard" element={<ClientDashboardPage />} />
-          <Route path="client-my-services" element={<MyServicesPage />} />
-          <Route path="client-payments" element={<PaymentsInvoicesPage />} />
-          <Route path="client-documents" element={<DocumentsPage />} />
-          <Route path="client-support-tickets" element={<SupportTicketsPage />} />
-          <Route path="client-marketplace" element={<ServiceMarketplacePage />} />
-          <Route path="client-tasks-updates" element={<ClientTasksUpdatesPage />} />
-          <Route path="project" element={<EmployeeProject />} />
-          <Route path="project-details" element={<Navigate to="/ciisUser/project" replace />} />
-          <Route
-            path="project/:projectId"
-            element={(
-              <Suspense fallback={<RouteBoundaryLoader label="Loading project details..." />}>
-                <ProjectDetailsPage />
-              </Suspense>
-            )}
-          />
-          <Route
-            path="project-details/:projectId"
-            element={(
-              <Suspense fallback={<RouteBoundaryLoader label="Loading project details..." />}>
-                <ProjectDetailsPage />
-              </Suspense>
-            )}
-          />
-          <Route
-            path="task-management"
-            element={(
-              <Suspense fallback={<RouteBoundaryLoader label="Loading tasks..." />}>
-                <TaskManagement />
-              </Suspense>
-            )}
-          />
-          <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
-          <Route path="client-meeting" element={<ClientMeeting />} />
-          <Route path="create-user" element={<CreateUser />} />
-          <Route path="register-request" element={<RegisterRequest />} />
-          <Route path="department" element={<Department />} />
-          <Route path="department/branch/:branchId" element={<Department />} />
-          <Route path="JobRoleManagement" element={<JobRoleManagement />} />
-          <Route path="jobrolemanagement" element={<Navigate to="/ciisUser/JobRoleManagement" replace />} />
-          <Route path="job-role-management" element={<Navigate to="/ciisUser/JobRoleManagement" replace />} />
-          <Route path="SidebarManagement" element={<SidebarManagement />} />
-          <Route path="create-alert" element={<CreateAlerts />} />
-          <Route path="user-profile" element={<UserProfile/>} />
-          <Route path="chat" element={<ChatPage />} />
-          <Route path="dashboard" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
-          <Route path="contact-support" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
-          <Route path="support-desk" element={<DepartmentSupportDesk />} />
-          <Route path="bulk-email" element={<BulkEmail />} />
-          <Route path="support-operations" element={<SupportOperations />} />
-          <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
-          <Route path="leave-policy-master" element={<LeavePolicy />} />
-          <Route path="leave-policy" element={<LeavePolicy />} />
-          <Route path="salary-component" element={<SalaryComponent />} />
-          <Route path="salary-structure" element={<SalaryStructure />} />
-          <Route path="salary-assignment" element={<EmployeeSalaryAssignment />} />
-          <Route path="assign-salary" element={<AssignSalary />} />
-          <Route path="payroll-process" element={<PayrollProcess />} />
-          <Route path="payslip" element={<Payslip />} />
-          <Route path="payroll-reports" element={<PayrollReports />} />
-          <Route path="crm/admin/dashboard" element={<AdminCrmDashboard />} />
-        <Route path="telecaller" element={<TelecallerLayout/>}>
-            <Route index element={<Navigate to="dashboard" replace/>}/>
-            <Route path="dashboard" element={<TelecallerDashboard/>}/>
-            <Route path="call-dashboard" element={<TelecallerCallDashboard/>}/>
-            <Route path="assigned-calls" element={<TelecallerAssignedCalls/>}/>
-            <Route path="todays-calls" element={<TelecallerTodaysCalls/>}/>
-            <Route path="pending-calls" element={<TelecallerPendingCalls/>}/>
-            <Route path="scheduled-calls" element={<TelecallerScheduledCalls/>}/>
-            <Route path="completed-calls" element={<TelecallerCompletedCalls/>}/>
-            <Route path="call-history" element={<TelecallerCallHistory/>}/>
-            <Route path="follow-ups" element={<TelecallerMyFollowUps/>}/>
-            <Route path="converted-leads" element={<TelecallerConvertedLeads/>}/>
-            <Route path="call-workspace/:leadId?" element={<TelecallerCallWorkspace/>}/>
-            <Route path="lead-detail/:leadId?" element={<TelecallerLeadDetail/>}/>
-            <Route path="call-logs" element={<CallLogs/>}/>
-          </Route>
-          <Route path="call-logs" element={<CallLogs/>}/>
-          <Route path="crm" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
-          <Route path="crm/admin" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
-          <Route path="crm/leads" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
-          <Route path="crm/marketing" element={<Navigate to="/ciisUser/crm/marketing/overview" replace />} />
-          <Route path="crm/followups" element={<Navigate to="/ciisUser/crm/admin/follow-ups" replace />} />
-          <Route path="crm/admin/lead-overview" element={<LeadOverview />} />
-          <Route path="crm/admin/all-leads" element={<AllLeads />} />
-          <Route path="crm/leads/all" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
-          <Route path="crm/all-leads" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
-          <Route path="crm/lead-overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
-          <Route path="crm/leads/overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
-          <Route path="crm/admin/add-lead" element={<AddLead />} />
-          <Route path="crm/admin/lead-sources" element={<LeadSources />} />
-          <Route path="crm/admin/lead-types" element={<LeadTypes />} />
-          <Route path="crm/admin/import-export-leads" element={<ImportExportLeads />} />
-          <Route path="crm/leads/import" element={<ImportExportLeads />} />
-          <Route path="crm/import-leads" element={<ImportExportLeads />} />
-          <Route path="crm/leads/export" element={<ImportExportLeads />} />
-          <Route path="crm/leads/sources" element={<LeadSources />} />
-          <Route path="crm/lead-sources" element={<LeadSources />} />
-          <Route path="crm/leads/add" element={<AddLead />} />
-          <Route path="crm/add-lead" element={<AddLead />} />
-          <Route path="crm/admin/call-overview" element={<CallOverview />} />
-          <Route path="crm/call-overview" element={<CallOverview />} />
-          <Route path="crm/calls/overview" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
-          <Route path="crm/admin/assigned-calls" element={<AdminAssignedCalls />} />
-          <Route path="crm/calls/assigned" element={<Navigate to="/ciisUser/crm/admin/assigned-calls" replace />} />
-          <Route path="crm/admin/todays-calls" element={<TodaysCalls />} />
-          <Route path="crm/todays-calls" element={<TodaysCalls />} />
-          <Route path="crm/calls/today" element={<Navigate to="/ciisUser/crm/admin/todays-calls" replace />} />
-          <Route path="todays-calls" element={<Navigate to="/ciisUser/crm/admin/todays-calls" replace />} />
-          <Route path="crm/admin/pending-calls" element={<PendingCalls />} />
-          <Route path="crm/pending-calls" element={<PendingCalls />} />
-          <Route path="crm/calls/pending" element={<Navigate to="/ciisUser/crm/admin/pending-calls" replace />} />
-          <Route path="crm/admin/scheduled-calls" element={<ScheduledCalls />} />
-          <Route path="crm/scheduled-calls" element={<ScheduledCalls />} />
-          <Route path="crm/calls/scheduled" element={<Navigate to="/ciisUser/crm/admin/scheduled-calls" replace />} />
-          <Route path="scheduled-calls" element={<Navigate to="/ciisUser/crm/admin/scheduled-calls" replace />} />
-          <Route path="crm/admin/completed-calls" element={<CompletedCalls />} />
-          <Route path="crm/completed-calls" element={<CompletedCalls />} />
-          <Route path="crm/calls/completed" element={<Navigate to="/ciisUser/crm/admin/completed-calls" replace />} />
-          <Route path="crm/admin/converted-calls" element={<ConvertedCalls />} />
-          <Route path="crm/converted-calls" element={<ConvertedCalls />} />
-          <Route path="crm/calls/converted" element={<Navigate to="/ciisUser/crm/admin/converted-calls" replace />} />
-          <Route path="crm/admin/transferred-calls" element={<TransferredCalls />} />
-          <Route path="crm/transferred-calls" element={<TransferredCalls />} />
-          <Route path="crm/calls/transferred" element={<Navigate to="/ciisUser/crm/admin/transferred-calls" replace />} />
-          <Route path="crm/admin/call-history" element={<CallHistory />} />
-          <Route path="crm/call-history" element={<CallHistory />} />
-          <Route path="crm/calls/history" element={<Navigate to="/ciisUser/crm/admin/call-history" replace />} />
-          <Route path="crm/admin/follow-ups" element={<FollowUpCenter />} />
-          <Route path="crm/follow-ups" element={<Navigate to="/ciisUser/crm/admin/follow-ups" replace />} />
-          <Route path="crm/admin/assignments" element={<AssignmentsOverview />} />
-          <Route path="crm/assignments" element={<Navigate to="/ciisUser/crm/admin/assignments" replace />} />
-          <Route path="crm/admin/assignment-bulk" element={<BulkAssignment />} />
-          <Route path="crm/assignment-bulk" element={<Navigate to="/ciisUser/crm/admin/assignment-bulk" replace />} />
-          <Route path="crm/admin/assignment-history" element={<AssignmentHistory />} />
-          <Route path="crm/assignment-history" element={<Navigate to="/ciisUser/crm/admin/assignment-history" replace />} />
-          <Route path="crm/admin/workload" element={<WorkloadDistribution />} />
-          <Route path="crm/workload" element={<Navigate to="/ciisUser/crm/admin/workload" replace />} />
-          <Route path="crm/calls" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
 
-          <Route path="crm/reports/overview" element={<LiveCrmReport type="overview" title="Reports Overview" />} />
-          <Route path="crm/reports/leads" element={<LiveCrmReport type="leads" title="Lead Reports" />} />
-          <Route path="crm/reports/calls" element={<LiveCrmReport type="calls" title="Call Reports" />} />
-          <Route path="crm/reports/visits" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
-          <Route path="crm/reports/follow-ups" element={<LiveCrmReport type="follow-ups" title="Follow-Up Reports" />} />
-          <Route path="crm/reports/team-performance" element={<LiveCrmReport type="team-performance" title="Team Performance" />} />
-          <Route path="crm/reports/team" element={<Navigate to="/ciisUser/crm/reports/team-performance" replace />} />
-          <Route path="crm/reports/conversion-funnel" element={<LiveCrmReport type="conversion-funnel" title="Conversion Funnel" />} />
-          <Route path="crm/reports/funnel" element={<Navigate to="/ciisUser/crm/reports/conversion-funnel" replace />} />
-          <Route path="crm/reports/user-activity" element={<LiveCrmReport type="user-activity" title="User Activity" />} />
-          <Route path="crm/reports" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
-          <Route path="*" element={<PageStatusCard status={404} reason="not_found" />} />
-        </Route>
-        <Route
-          path="/client/*"
-          element={
-            <ThemeContextProvider>
-              <ProtectedRoute>
-                <Layout2 />
-              </ProtectedRoute>
-            </ThemeContextProvider>
-          }
-        >
-          <Route index element={<ClientDashboardPage />} />
-          <Route path="dashboard" element={<ClientDashboardPage />} />
-          <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
-          <Route
-            path="task-management"
-            element={(
-              <Suspense fallback={<RouteBoundaryLoader label="Loading tasks..." />}>
-                <TaskManagement />
-              </Suspense>
-            )}
-          />
-          <Route path="admin-task-create" element={<AdminTaskCreate />} />
-          <Route path="my-services" element={<MyServicesPage />} />
-          <Route path="services-tasks" element={<ClientServicesTasks />} />
-          <Route path="account-settings" element={<ClientAccountSettingsPage />} />
-          <Route path="marketplace" element={<ServiceMarketplacePage />} />
-          <Route path="payment" element={<Navigate to="/client/payments" replace />} />
-          <Route path="support-tickets" element={<SupportTicketsPage />} />
-          <Route path="documents" element={<DocumentsPage />} />
-          <Route path="payments" element={<PaymentsInvoicesPage />} />
-          <Route path="change-password" element={<ChangePassword />} />
-          <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
-        </Route>
+            <Route
+              path="/ciisUser/*"
+              element={
+                <ThemeContextProvider>
+                  <ProtectedRoute>
+                    <Layout2 />
+                  </ProtectedRoute>
+                </ThemeContextProvider>
+              }
+            >
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+
+
+              <Route path="change-password" element={<ChangePassword />} />
+              <Route path="emp-details" element={<EmppDetail />} />
+              <Route path="emp-leaves" element={<EmppLeave />} />
+              <Route path="emp-assets" element={<EmppAsset />} />
+              <Route path="company-assets" element={<CompanyAssetManagement />} />
+              <Route path="company-assets/branch/:branchId" element={<CompanyAssetManagement />} />
+              <Route path="asset-management" element={<CompanyAssetManagement />} />
+              <Route path="asset-management/branch/:branchId" element={<CompanyAssetManagement />} />
+              <Route path="emp-attendance" element={<EmppAttendence />} />
+              <Route path="emp-task-details" element={<TaskDeatils />} />
+              <Route path="admin-task-create" element={<AdminTaskCreate />} />
+              <Route path="manage-groups" element={<ManageGroups />} />
+              <Route path="admin-meeting" element={<AdminMeetingPage />} />
+              <Route path="adminproject" element={<AdminProject />} />
+              <Route path="company-all-task" element={<EmpAllTask />} />
+              <Route path="department-all-task" element={<EmpDepartmentAllTask />} />
+              <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
+              <Route path="company-all-task/tasks/:userId" element={<CompanyAllTaskTasks />} />
+              <Route path="company-all-task/:userId/tasks" element={<CompanyAllTaskTasks />} />
+              <Route path="emp-client" element={<Client />} />
+              <Route path="emp-client/add-new" element={<AddClientPage />} />
+              <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
+              <Route path="client-plans" element={<ClientPlansPage />} />
+              <Route path="active-clients" element={<ActiveClientsOverview />} />
+              <Route path="alert" element={<Alerts />} />
+              <Route path="attendance" element={<Attendance />} />
+              <Route path="my-assets" element={<MyAssets />} />
+              <Route path="my-leaves" element={<MyLeaves />} />
+              <Route path="profile" element={<Profile />} />
+              <Route
+                path="user-dashboard"
+                element={(
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading dashboard..." />}>
+                    <UserDashboard />
+                  </Suspense>
+                )}
+              />
+              <Route path="dashboard-1" element={<DashboardOverview />} />
+              <Route path="dashboard-overview" element={<DashboardOverviewPreview />} />
+              <Route path="dashboard-overview/:companyId" element={<DashboardOverviewPreview />} />
+              <Route path="dashboard-overview-preview" element={<DashboardOverviewPreview />} />
+              <Route path="dashboard-overview-preview/:companyId" element={<DashboardOverviewPreview />} />
+              <Route path="ClientDashboard" element={<Navigate to="/client/dashboard" replace />} />
+              <Route path="client-dashboard" element={<ClientDashboardPage />} />
+              <Route path="client-my-services" element={<MyServicesPage />} />
+              <Route path="client-payments" element={<PaymentsInvoicesPage />} />
+              <Route path="client-documents" element={<DocumentsPage />} />
+              <Route path="client-support-tickets" element={<SupportTicketsPage />} />
+              <Route path="client-marketplace" element={<ServiceMarketplacePage />} />
+              <Route path="client-tasks-updates" element={<ClientTasksUpdatesPage />} />
+              <Route path="project" element={<EmployeeProject />} />
+              <Route path="project-details" element={<Navigate to="/ciisUser/project" replace />} />
+              <Route
+                path="project/:projectId"
+                element={(
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading project details..." />}>
+                    <ProjectDetailsPage />
+                  </Suspense>
+                )}
+              />
+              <Route
+                path="project-details/:projectId"
+                element={(
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading project details..." />}>
+                    <ProjectDetailsPage />
+                  </Suspense>
+                )}
+              />
+              <Route
+                path="task-management"
+                element={(
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading tasks..." />}>
+                    <TaskManagement />
+                  </Suspense>
+                )}
+              />
+              <Route path="employee-meeting" element={<EmployeeMeetingPage />} />
+              <Route path="client-meeting" element={<ClientMeeting />} />
+              <Route path="create-user" element={<CreateUser />} />
+              <Route path="register-request" element={<RegisterRequest />} />
+              <Route path="department" element={<Department />} />
+              <Route path="department/branch/:branchId" element={<Department />} />
+              <Route path="JobRoleManagement" element={<JobRoleManagement />} />
+              <Route path="jobrolemanagement" element={<Navigate to="/ciisUser/JobRoleManagement" replace />} />
+              <Route path="job-role-management" element={<Navigate to="/ciisUser/JobRoleManagement" replace />} />
+              <Route path="SidebarManagement" element={<SidebarManagement />} />
+              <Route path="create-alert" element={<CreateAlerts />} />
+              <Route path="user-profile" element={<UserProfile />} />
+              <Route path="chat" element={<ChatPage />} />
+              <Route path="dashboard" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
+              <Route path="contact-support" element={<Navigate to="/ciisUser/user-dashboard" replace />} />
+              <Route path="support-desk" element={<DepartmentSupportDesk />} />
+              <Route path="bulk-email" element={<BulkEmail />} />
+              <Route path="support-operations" element={<SupportOperations />} />
+              <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
+              <Route path="leave-policy-master" element={<LeavePolicy />} />
+              <Route path="leave-policy" element={<LeavePolicy />} />
+              <Route path="salary-component" element={<SalaryComponent />} />
+              <Route path="salary-structure" element={<SalaryStructure />} />
+              <Route path="salary-assignment" element={<EmployeeSalaryAssignment />} />
+              <Route path="assign-salary" element={<AssignSalary />} />
+              <Route path="payroll-process" element={<PayrollProcess />} />
+              <Route path="payslip" element={<Payslip />} />
+              <Route path="payroll-reports" element={<PayrollReports />} />
+              <Route path="crm/admin/dashboard" element={<AdminCrmDashboard />} />
+              <Route path="telecaller" element={<TelecallerLayout />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<TelecallerDashboard />} />
+                <Route path="call-dashboard" element={<TelecallerCallDashboard />} />
+                <Route path="assigned-calls" element={<TelecallerAssignedCalls />} />
+                <Route path="todays-calls" element={<TelecallerTodaysCalls />} />
+                <Route path="pending-calls" element={<TelecallerPendingCalls />} />
+                <Route path="scheduled-calls" element={<TelecallerScheduledCalls />} />
+                <Route path="completed-calls" element={<TelecallerCompletedCalls />} />
+                <Route path="call-history" element={<TelecallerCallHistory />} />
+                <Route path="follow-ups" element={<TelecallerMyFollowUps />} />
+                <Route path="converted-leads" element={<TelecallerConvertedLeads />} />
+                <Route path="call-workspace/:leadId?" element={<TelecallerCallWorkspace />} />
+                <Route path="lead-detail/:leadId?" element={<TelecallerLeadDetail />} />
+                <Route path="call-logs" element={<CallLogs />} />
+              </Route>
+              <Route path="call-logs" element={<CallLogs />} />
+              <Route path="crm" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
+              <Route path="crm/admin" element={<Navigate to="/ciisUser/crm/admin/dashboard" replace />} />
+              <Route path="crm/leads" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
+              <Route path="crm/marketing" element={<Navigate to="/ciisUser/crm/marketing/overview" replace />} />
+              <Route path="crm/followups" element={<Navigate to="/ciisUser/crm/admin/follow-ups" replace />} />
+              <Route path="crm/admin/lead-overview" element={<LeadOverview />} />
+              <Route path="crm/admin/all-leads" element={<AllLeads />} />
+              <Route path="crm/leads/all" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
+              <Route path="crm/all-leads" element={<Navigate to="/ciisUser/crm/admin/all-leads" replace />} />
+              <Route path="crm/lead-overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
+              <Route path="crm/leads/overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
+              <Route path="crm/admin/add-lead" element={<AddLead />} />
+              <Route path="crm/admin/lead-sources" element={<LeadSources />} />
+              <Route path="crm/admin/lead-types" element={<LeadTypes />} />
+              <Route path="crm/admin/import-export-leads" element={<ImportExportLeads />} />
+              <Route path="crm/leads/import" element={<ImportExportLeads />} />
+              <Route path="crm/import-leads" element={<ImportExportLeads />} />
+              <Route path="crm/leads/export" element={<ImportExportLeads />} />
+              <Route path="crm/leads/sources" element={<LeadSources />} />
+              <Route path="crm/lead-sources" element={<LeadSources />} />
+              <Route path="crm/leads/add" element={<AddLead />} />
+              <Route path="crm/add-lead" element={<AddLead />} />
+              <Route path="crm/admin/call-overview" element={<CallOverview />} />
+              <Route path="crm/call-overview" element={<CallOverview />} />
+              <Route path="crm/calls/overview" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
+              <Route path="crm/admin/assigned-calls" element={<AdminAssignedCalls />} />
+              <Route path="crm/calls/assigned" element={<Navigate to="/ciisUser/crm/admin/assigned-calls" replace />} />
+              <Route path="crm/admin/todays-calls" element={<TodaysCalls />} />
+              <Route path="crm/todays-calls" element={<TodaysCalls />} />
+              <Route path="crm/calls/today" element={<Navigate to="/ciisUser/crm/admin/todays-calls" replace />} />
+              <Route path="todays-calls" element={<Navigate to="/ciisUser/crm/admin/todays-calls" replace />} />
+              <Route path="crm/admin/pending-calls" element={<PendingCalls />} />
+              <Route path="crm/pending-calls" element={<PendingCalls />} />
+              <Route path="crm/calls/pending" element={<Navigate to="/ciisUser/crm/admin/pending-calls" replace />} />
+              <Route path="crm/admin/scheduled-calls" element={<ScheduledCalls />} />
+              <Route path="crm/scheduled-calls" element={<ScheduledCalls />} />
+              <Route path="crm/calls/scheduled" element={<Navigate to="/ciisUser/crm/admin/scheduled-calls" replace />} />
+              <Route path="scheduled-calls" element={<Navigate to="/ciisUser/crm/admin/scheduled-calls" replace />} />
+              <Route path="crm/admin/completed-calls" element={<CompletedCalls />} />
+              <Route path="crm/completed-calls" element={<CompletedCalls />} />
+              <Route path="crm/calls/completed" element={<Navigate to="/ciisUser/crm/admin/completed-calls" replace />} />
+              <Route path="crm/admin/converted-calls" element={<ConvertedCalls />} />
+              <Route path="crm/converted-calls" element={<ConvertedCalls />} />
+              <Route path="crm/calls/converted" element={<Navigate to="/ciisUser/crm/admin/converted-calls" replace />} />
+              <Route path="crm/admin/transferred-calls" element={<TransferredCalls />} />
+              <Route path="crm/transferred-calls" element={<TransferredCalls />} />
+              <Route path="crm/calls/transferred" element={<Navigate to="/ciisUser/crm/admin/transferred-calls" replace />} />
+              <Route path="crm/admin/call-history" element={<CallHistory />} />
+              <Route path="crm/call-history" element={<CallHistory />} />
+              <Route path="crm/calls/history" element={<Navigate to="/ciisUser/crm/admin/call-history" replace />} />
+              <Route path="crm/admin/follow-ups" element={<FollowUpCenter />} />
+              <Route path="crm/follow-ups" element={<Navigate to="/ciisUser/crm/admin/follow-ups" replace />} />
+              <Route path="crm/admin/assignments" element={<AssignmentsOverview />} />
+              <Route path="crm/assignments" element={<Navigate to="/ciisUser/crm/admin/assignments" replace />} />
+              <Route path="crm/admin/assignment-bulk" element={<BulkAssignment />} />
+              <Route path="crm/assignment-bulk" element={<Navigate to="/ciisUser/crm/admin/assignment-bulk" replace />} />
+              <Route path="crm/admin/assignment-history" element={<AssignmentHistory />} />
+              <Route path="crm/assignment-history" element={<Navigate to="/ciisUser/crm/admin/assignment-history" replace />} />
+              <Route path="crm/admin/workload" element={<WorkloadDistribution />} />
+              <Route path="crm/workload" element={<Navigate to="/ciisUser/crm/admin/workload" replace />} />
+              <Route path="crm/calls" element={<Navigate to="/ciisUser/crm/admin/call-overview" replace />} />
+
+              <Route path="crm/reports/overview" element={<LiveCrmReport type="overview" title="Reports Overview" />} />
+              <Route path="crm/reports/leads" element={<LiveCrmReport type="leads" title="Lead Reports" />} />
+              <Route path="crm/reports/calls" element={<LiveCrmReport type="calls" title="Call Reports" />} />
+              <Route path="crm/reports/visits" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
+              <Route path="crm/reports/follow-ups" element={<LiveCrmReport type="follow-ups" title="Follow-Up Reports" />} />
+              <Route path="crm/reports/team-performance" element={<LiveCrmReport type="team-performance" title="Team Performance" />} />
+              <Route path="crm/reports/team" element={<Navigate to="/ciisUser/crm/reports/team-performance" replace />} />
+              <Route path="crm/reports/conversion-funnel" element={<LiveCrmReport type="conversion-funnel" title="Conversion Funnel" />} />
+              <Route path="crm/reports/funnel" element={<Navigate to="/ciisUser/crm/reports/conversion-funnel" replace />} />
+              <Route path="crm/reports/user-activity" element={<LiveCrmReport type="user-activity" title="User Activity" />} />
+              <Route path="crm/reports" element={<Navigate to="/ciisUser/crm/reports/overview" replace />} />
+              <Route path="*" element={<PageStatusCard status={404} reason="not_found" />} />
+            </Route>
+            <Route
+              path="/client/*"
+              element={
+                <ThemeContextProvider>
+                  <ProtectedRoute>
+                    <Layout2 />
+                  </ProtectedRoute>
+                </ThemeContextProvider>
+              }
+            >
+              <Route index element={<ClientDashboardPage />} />
+              <Route path="dashboard" element={<ClientDashboardPage />} />
+              <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
+              <Route
+                path="task-management"
+                element={(
+                  <Suspense fallback={<RouteBoundaryLoader label="Loading tasks..." />}>
+                    <TaskManagement />
+                  </Suspense>
+                )}
+              />
+              <Route path="admin-task-create" element={<AdminTaskCreate />} />
+              <Route path="my-services" element={<MyServicesPage />} />
+              <Route path="services-tasks" element={<ClientServicesTasks />} />
+              <Route path="account-settings" element={<ClientAccountSettingsPage />} />
+              <Route path="marketplace" element={<ServiceMarketplacePage />} />
+              <Route path="payment" element={<Navigate to="/client/payments" replace />} />
+              <Route path="support-tickets" element={<SupportTicketsPage />} />
+              <Route path="documents" element={<DocumentsPage />} />
+              <Route path="payments" element={<PaymentsInvoicesPage />} />
+              <Route path="change-password" element={<ChangePassword />} />
+              <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
 
         </Suspense>
       </ErrorBoundary>
 
-    <SpeechToTextControl />
-    <ToastContainer position="top-right" autoClose={3000} />
-  </>
-);
+      <SpeechToTextControl />
+      <ToastContainer position="top-right" autoClose={3000} />
+    </>
+  );
 }
 
 export default App;

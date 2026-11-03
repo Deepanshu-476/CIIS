@@ -697,19 +697,22 @@
 }
 
 .UserDetails-modal-overlay {
-  position: fixed;
-  inset: 64px 0 0 70px;
-  z-index: 1400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   padding: 24px;
-  background: rgba(15, 23, 42, 0.54);
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  animation: att-fade-in 0.2s ease-out;
 }
 
 .UserDetails-modal {
   width: min(920px, 96vw);
-  max-height: calc(100dvh - 88px);
+  max-height: calc(100dvh - 64px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -721,11 +724,12 @@
 
 @media (max-width: 899px) {
   .UserDetails-modal-overlay {
-    inset: 56px 0 0;
+    inset: 0 !important;
+    padding: 16px;
   }
 
   .UserDetails-modal {
-    max-height: calc(100dvh - 76px);
+    max-height: calc(100dvh - 40px);
   }
 }
 
@@ -965,6 +969,48 @@
   grid-template-columns: 1fr;
 }
 
+.UserDetails-password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.UserDetails-password-input-wrapper input {
+  width: 100% !important;
+  padding-right: 44px !important;
+}
+
+.UserDetails-password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.UserDetails-password-toggle-btn:hover {
+  color: #1e293b;
+  background: #f1f5f9;
+}
+
+.UserDetails-password-toggle-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  color: #2563eb;
+}
+
 .UserDetails-form-grid label,
 .UserDetails-field-head label {
   display: grid;
@@ -1151,7 +1197,7 @@
   }
 
   .UserDetails-modal-overlay {
-    inset: 56px 0 0;
+    inset: 0 !important;
     padding: 10px;
   }
 

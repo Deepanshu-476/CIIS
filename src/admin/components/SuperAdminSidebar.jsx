@@ -15,28 +15,28 @@ import {
   Divider
 } from '@mui/material';
 import {
-  Apartment as CompanyDetailsIcon,
-  Public as AllCompanyIcon,
-  VpnKey as CompanyAccessIcon,
-  AccountTree as DepartmentIcon,
-  Place as BranchIcon,
-  Badge as JobRoleIcon,
-  PersonAdd as CreateUserIcon,
-  HowToReg as RegisterRequestIcon,
-  Devices as AssetsIcon,
-  ViewSidebar as SidebarManagementIcon,
-  Layers as PageManagementIcon,
-  CardMembership as PlansIcon,
-  Email as EmailIcon,
-  SystemUpdateAlt as AppUpdateIcon,
-  SupportAgent as SupportAgentIcon,
-  RateReview as FeedbackIcon,
-  CalendarMonth as LeavePolicyIcon,
-  VideoCall as DemoIcon,
-  Celebration as HolidayIcon,
+  Building as CompanyDetailsIcon,
+  Globe2 as AllCompanyIcon,
+  ShieldCheck as CompanyAccessIcon,
+  Network as DepartmentIcon,
+  MapPin as BranchIcon,
+  IdCard as JobRoleIcon,
+  UserPlus as CreateUserIcon,
+  FileCheck as RegisterRequestIcon,
+  Boxes as AssetsIcon,
+  PanelLeft as SidebarManagementIcon,
+  ToggleRight as PageManagementIcon,
+  Crown as PlansIcon,
+  MailCheck as EmailIcon,
+  ArrowUpCircle as AppUpdateIcon,
+  Wrench as SupportAgentIcon,
+  MessageSquareQuote as FeedbackIcon,
+  ScrollText as LeavePolicyIcon,
+  MonitorPlay as DemoIcon,
+  PartyPopper as HolidayIcon,
   Settings as SettingsIcon,
-  ExitToApp as LogoutIcon,
-} from '@mui/icons-material';
+  LogOut as LogoutIcon,
+} from 'lucide-react';
 import { preloadRouteChunk } from '../../utils/routePreloader';
 import { useAuth } from '../../context/AuthContext';
 
@@ -130,7 +130,7 @@ const StyledListItemButton = styled(ListItemButton, {
   '&:hover .MuiListItemIcon-root': {
     color: '#2563eb',
   },
-  '& .MuiSvgIcon-root': {
+  '& .MuiSvgIcon-root, & svg': {
     fontSize: isCollapsed ? 22 : 21,
     width: isCollapsed ? 22 : 21,
     height: isCollapsed ? 22 : 21,
@@ -178,7 +178,7 @@ const LogoutListItemButton = styled(ListItemButton, {
     alignItems: 'center',
     color: theme.palette.error.main,
   },
-  '& .MuiSvgIcon-root': {
+  '& .MuiSvgIcon-root, & svg': {
     fontSize: isCollapsed ? 22 : 21,
     width: isCollapsed ? 22 : 21,
     height: isCollapsed ? 22 : 21,
@@ -243,121 +243,121 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const ciisUserMenuItems = [
     { heading: 'MPA Management' },
     { 
-      icon: <CompanyDetailsIcon />, 
+      icon: <CompanyDetailsIcon size={20} strokeWidth={1.9} />, 
       name: 'Company Details', 
       route: '/Ciis-network/company-details',
       showForAll: true
     },
     { 
-      icon: <AllCompanyIcon />, 
+      icon: <AllCompanyIcon size={20} strokeWidth={1.9} />, 
       name: 'All Company', 
       route: '/Ciis-network/all-company',
       showForOwnerSuperAdmin: true
     },
     { 
-      icon: <CompanyAccessIcon />, 
+      icon: <CompanyAccessIcon size={20} strokeWidth={1.9} />, 
       name: 'Company Access', 
       route: '/Ciis-network/CompanyAccessManagement',
       showForOwnerSuperAdmin: true
     },
     { 
-      icon: <DepartmentIcon />, 
+      icon: <DepartmentIcon size={20} strokeWidth={1.9} />, 
       name: 'Department', 
       route: '/Ciis-network/department',
       showForAll: true
     },
     { 
-      icon: <BranchIcon />, 
+      icon: <BranchIcon size={20} strokeWidth={1.9} />, 
       name: 'Manage Branches', 
       route: '/Ciis-network/branch',
       showForAll: true
     },
     { 
-      icon: <JobRoleIcon />, 
+      icon: <JobRoleIcon size={20} strokeWidth={1.9} />, 
       name: 'Job Roles', 
       route: '/Ciis-network/JobRoleManagement',
       showForAll: true
     },
     { 
-      icon: <CreateUserIcon />, 
+      icon: <CreateUserIcon size={20} strokeWidth={1.9} />, 
       name: 'Create User', 
       route: '/Ciis-network/create-user',
       showForAll: true
     },
     {
-      icon: <RegisterRequestIcon />,
+      icon: <RegisterRequestIcon size={20} strokeWidth={1.9} />,
       name: 'Register Request',
       route: '/Ciis-network/register-request',
       showForAll: true
     },
     { 
-      icon: <AssetsIcon />, 
+      icon: <AssetsIcon size={20} strokeWidth={1.9} />, 
       name: 'Assets Management', 
       route: '/Ciis-network/company-assets',
       showForAll: true
     },
     { 
-      icon: <SidebarManagementIcon />, 
+      icon: <SidebarManagementIcon size={20} strokeWidth={1.9} />, 
       name: 'Sidebar Management', 
       route: '/Ciis-network/SidebarManagement',
       showForAll: true
     },
     {
-      icon: <PageManagementIcon />, 
+      icon: <PageManagementIcon size={20} strokeWidth={1.9} />, 
       name: 'Page Management',
       route: '/Ciis-network/page-management',
       showForAll: true
     },
     {
-      icon: <PlansIcon />, 
+      icon: <PlansIcon size={20} strokeWidth={1.9} />, 
       name: 'Plans',
       route: '/Ciis-network/plans',
       showForOwnerSuperAdmin: true
     },
     {
-      icon: <EmailIcon />, 
+      icon: <EmailIcon size={20} strokeWidth={1.9} />, 
       name: 'Email Settings',
       route: '/Ciis-network/email-settings',
       showForOwnerSuperAdmin: true
     },
     {
-      icon: <AppUpdateIcon />, 
+      icon: <AppUpdateIcon size={20} strokeWidth={1.9} />, 
       name: 'App Version',
       route: '/Ciis-network/app-version-control',
       showForOwnerSuperAdmin: true
     },
     {
-      icon: <SupportAgentIcon />, 
+      icon: <SupportAgentIcon size={20} strokeWidth={1.9} />, 
       name: 'Support Operations',
       route: '/Ciis-network/support-operations',
       showForAll: true
     },
     {
-      icon: <FeedbackIcon />, 
+      icon: <FeedbackIcon size={20} strokeWidth={1.9} />, 
       name: 'Feedback / Questionnaire',
       route: '/Ciis-network/feedback-questionnaire',
       showForAll: true
     },
     {
-      icon: <LeavePolicyIcon />, 
+      icon: <LeavePolicyIcon size={20} strokeWidth={1.9} />, 
       name: 'Leave Policy',
       route: '/Ciis-network/leave-policy',
       showForAll: true
     },
     {
-      icon: <DemoIcon />, 
+      icon: <DemoIcon size={20} strokeWidth={1.9} />, 
       name: 'Demo Requests',
       route: '/Ciis-network/demo-requests',
       showForSuperAdmin: true
     },
     { 
-      icon: <HolidayIcon />, 
+      icon: <HolidayIcon size={20} strokeWidth={1.9} />, 
       name: 'Holiday', 
       route: '/Ciis-network/holiday',
       showForAll: true
     },
     { 
-      icon: <SettingsIcon />, 
+      icon: <SettingsIcon size={20} strokeWidth={1.9} />, 
       name: 'Settings', 
       route: '/Ciis-network/settings',
       showForAll: true
@@ -501,7 +501,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
             {isOpen ? (
               <LogoutListItemButton onClick={handleLogout} isCollapsed={false}>
                 <StyledListItemIcon>
-                  <LogoutIcon />
+                  <LogoutIcon size={20} strokeWidth={1.9} />
                 </StyledListItemIcon>
                 <ListItemText
                   primary="Logout"
@@ -518,7 +518,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                   isCollapsed={true}
                 >
                   <StyledListItemIcon>
-                    <LogoutIcon />
+                    <LogoutIcon size={20} strokeWidth={1.9} />
                   </StyledListItemIcon>
                 </LogoutListItemButton>
               </Tooltip>

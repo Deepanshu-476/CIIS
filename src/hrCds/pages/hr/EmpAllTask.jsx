@@ -5347,20 +5347,21 @@ const TaskDetails = () => {
 
       {/* Filters Bar */}
       <div className="new-filters-bar">
-        <div className="new-search-box">
-          <FiSearch size={15} color="#94a3b8" />
-          <input
-            type="text"
-            placeholder="Search employee by name, email..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
+        <div className="new-filter-controls">
+          <div className="new-search-box">
+            <FiSearch size={15} color="#94a3b8" />
+            <input
+              type="text"
+              placeholder="Search employee by name, email..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
 
-        <div className="new-filter-group">
+          <div className="new-filter-group">
           <div className={`new-filter-item ${dateFilter !== 'today' ? 'active' : ''}`}>
             <label>Timeframe</label>
             <select
@@ -5469,6 +5470,7 @@ const TaskDetails = () => {
               <option value="tasks-asc">Lowest Tasks</option>
               <option value="rate-desc">Highest Completion</option>
             </select>
+          </div>
           </div>
         </div>
 

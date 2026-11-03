@@ -15,24 +15,29 @@ import {
   useTheme
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  CalendarToday as CalendarIcon,
-  EventNote as EventNoteIcon,
-  Computer as ComputerIcon,
-  Task as TaskIcon,
-  Groups as GroupsIcon,
-  Notifications as NotificationsIcon,
-  VideoCall as VideoCallIcon,
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  ListAlt as ListAltIcon,
-  MeetingRoom as MeetingRoomIcon,
-  Apartment as ApartmentIcon,
-  PersonAdd as PersonAddIcon,
-  CreditCard as CreditCardIcon,
-  Folder as FolderIcon,
-  LogoutOutlined
-} from '@mui/icons-material';
+  LayoutDashboard,
+  Clock,
+  CalendarOff,
+  Laptop,
+  ListTodo,
+  FolderKanban,
+  Megaphone,
+  Video,
+  Contact,
+  CalendarDays,
+  CalendarCheck,
+  Boxes,
+  ListPlus,
+  Handshake,
+  ListChecks,
+  Presentation,
+  Briefcase,
+  UserPlus,
+  LayoutGrid,
+  CreditCard,
+  ShoppingBag,
+  LogOut
+} from 'lucide-react';
 import Swal from "sweetalert2";
 import { handleAppLogout } from "../../utils/logoutModal";
 
@@ -224,21 +229,21 @@ const Sidebar = ({ isMobile = false }) => {
   const clientMenuItems = useMemo(() => [
     {
       id: 'client-dashboard',
-      icon: <DashboardIcon />,
+      icon: <LayoutGrid size={20} strokeWidth={1.9} />,
       name: 'Dashboard',
       path: '/client/dashboard',
       category: 'main'
     },
     {
       id: 'client-payment',
-      icon: <CreditCardIcon />,
+      icon: <CreditCard size={20} strokeWidth={1.9} />,
       name: 'Payment',
       path: '/client/payment',
       category: 'main'
     },
     {
       id: 'client-services-tasks',
-      icon: <FolderIcon />,
+      icon: <ShoppingBag size={20} strokeWidth={1.9} />,
       name: 'Services & Tasks',
       path: '/client/services-tasks',
       category: 'main'
@@ -250,7 +255,7 @@ const Sidebar = ({ isMobile = false }) => {
     
     {
       id: 'dashboard',
-      icon: <DashboardIcon />, 
+      icon: <LayoutDashboard size={20} strokeWidth={1.9} />, 
       name: 'Dashboard', 
       path: '/cds/user-dashboard', 
       category: 'main',
@@ -261,7 +266,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'attendance',
-      icon: <CalendarIcon />, 
+      icon: <Clock size={20} strokeWidth={1.9} />, 
       name: 'Attendance', 
       path: '/cds/attendance', 
       category: 'main',
@@ -272,7 +277,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'my-leaves',
-      icon: <EventNoteIcon />, 
+      icon: <CalendarOff size={20} strokeWidth={1.9} />, 
       name: 'My Leaves', 
       path: '/cds/my-leaves', 
       category: 'main',
@@ -283,7 +288,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'my-assets',
-      icon: <ComputerIcon />, 
+      icon: <Laptop size={20} strokeWidth={1.9} />, 
       name: 'My Assets', 
       path: '/cds/my-assets', 
       category: 'main',
@@ -296,7 +301,7 @@ const Sidebar = ({ isMobile = false }) => {
     
     {
       id: 'create-task',
-      icon: <TaskIcon />, 
+      icon: <ListTodo size={20} strokeWidth={1.9} />, 
       name: 'Create Task', 
       path: '/cds/task-management', 
       category: 'tasks',
@@ -306,7 +311,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'employee-project',
-      icon: <GroupsIcon />, 
+      icon: <FolderKanban size={20} strokeWidth={1.9} />, 
       name: 'My Projects', 
       path: '/cds/project', 
       category: 'tasks',
@@ -318,7 +323,7 @@ const Sidebar = ({ isMobile = false }) => {
     
     {
       id: 'alerts',
-      icon: <NotificationsIcon />, 
+      icon: <Megaphone size={20} strokeWidth={1.9} />, 
       name: 'Alerts', 
       path: '/cds/alert', 
       category: 'communication',
@@ -328,7 +333,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'employee-meeting',
-      icon: <VideoCallIcon />, 
+      icon: <Video size={20} strokeWidth={1.9} />, 
       name: 'Employee Meeting', 
       path: '/cds/employee-meeting', 
       category: 'communication',
@@ -340,7 +345,7 @@ const Sidebar = ({ isMobile = false }) => {
     
     {
       id: 'emp-details',
-      icon: <PersonIcon />, 
+      icon: <Contact size={20} strokeWidth={1.9} />, 
       name: 'Employee Details', 
       path: '/cds/admin/emp-details', 
       category: 'admin',
@@ -351,7 +356,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'emp-attendance',
-      icon: <CalendarIcon />, 
+      icon: <CalendarDays size={20} strokeWidth={1.9} />, 
       name: 'Employees Attendance', 
       path: '/cds/admin/emp-attendance', 
       category: 'admin',
@@ -362,7 +367,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'emp-leaves',
-      icon: <EventNoteIcon />, 
+      icon: <CalendarCheck size={20} strokeWidth={1.9} />, 
       name: 'Employees Leaves', 
       path: '/cds/admin/emp-leaves', 
       category: 'admin',
@@ -373,7 +378,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'emp-assets',
-      icon: <ComputerIcon />, 
+      icon: <Boxes size={20} strokeWidth={1.9} />, 
       name: 'Employees Assets', 
       path: '/cds/admin/emp-assets', 
       category: 'admin',
@@ -384,7 +389,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'admin-task-create',
-      icon: <TaskIcon />, 
+      icon: <ListPlus size={20} strokeWidth={1.9} />, 
       name: 'Create Task', 
       path: '/cds/admin/task-create', 
       category: 'admin',
@@ -395,7 +400,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'emp-client',
-      icon: <BusinessIcon />, 
+      icon: <Handshake size={20} strokeWidth={1.9} />, 
       name: 'Client Management', 
       path: '/cds/admin/client', 
       category: 'admin',
@@ -405,7 +410,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'emp-all-task',
-      icon: <ListAltIcon />, 
+      icon: <ListChecks size={20} strokeWidth={1.9} />, 
       name: 'All Tasks', 
       path: '/cds/admin/all-tasks', 
       category: 'admin',
@@ -415,7 +420,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'admin-meeting',
-      icon: <MeetingRoomIcon />, 
+      icon: <Presentation size={20} strokeWidth={1.9} />, 
       name: 'Admin Meeting', 
       path: '/cds/admin/meeting', 
       category: 'admin',
@@ -425,7 +430,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'admin-projects',
-      icon: <ApartmentIcon />, 
+      icon: <Briefcase size={20} strokeWidth={1.9} />, 
       name: 'Manage Projects', 
       path: '/cds/admin/adminp', 
       category: 'admin',
@@ -435,7 +440,7 @@ const Sidebar = ({ isMobile = false }) => {
     },
     {
       id: 'create-user',
-      icon: <PersonAddIcon />, 
+      icon: <UserPlus size={20} strokeWidth={1.9} />, 
       name: 'Create User', 
       path: '/cds/admin/create-user', 
       category: 'admin',
@@ -637,7 +642,7 @@ const Sidebar = ({ isMobile = false }) => {
             }}
           >
             <StyledListItemIcon>
-              <LogoutOutlined sx={{ fontSize: '1.2rem' }} />
+              <LogOut size={20} strokeWidth={1.9} />
             </StyledListItemIcon>
             <ListItemText
               primary="Logout"
@@ -663,7 +668,7 @@ const Sidebar = ({ isMobile = false }) => {
                 }
               }}
             >
-              <LogoutOutlined sx={{ fontSize: '1.2rem' }} />
+              <LogOut size={20} strokeWidth={1.9} />
             </IconButton>
           </Tooltip>
         )}

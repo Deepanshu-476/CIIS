@@ -52,7 +52,7 @@
 
 .chat-page .attachment-menu-wrap,
 .chat-page .emoji-picker-wrap > .emoji-btn,
-.chat-page .chat-composer > .recording-btn:nth-child(5) {
+.chat-page .chat-composer > .composer-voice-btn {
     position: absolute;
     z-index: 2;
     top: 50%;
@@ -124,39 +124,10 @@
     max-width: none;
     max-height: min(420px, calc(100dvh - 180px));
 }
-.chat-page .chat-composer > .recording-btn:nth-child(3) { display: none !important; }
-.chat-page .chat-composer > .recording-btn:nth-child(5) {
-    display: inline-flex !important;
-    right: 52px;
-}
-.chat-page .chat-composer > .send-btn {
-    flex: 0 0 38px;
-    width: 38px !important;
-    min-width: 38px !important;
-    height: 38px !important;
-    border-radius: 50% !important;
-}
-
-/* Dark mode styling */
-.chat-page.chat-theme-dark .chat-input-wrapper {
-    background: #1f2937;
-    border-color: #334155;
-}
-.chat-page.chat-theme-dark .file-upload-btn,
-.chat-page.chat-theme-dark .emoji-picker-wrap > .emoji-btn,
-.chat-page.chat-theme-dark .chat-composer > .recording-btn {
-    color: #94a3b8 !important;
-}
-.chat-page.chat-theme-dark .file-upload-btn:hover,
-.chat-page.chat-theme-dark .emoji-picker-wrap > .emoji-btn:hover,
-.chat-page.chat-theme-dark .chat-composer > .recording-btn:hover {
-    background: #334155 !important;
-    color: #f8fafc !important;
-}
-.chat-page.chat-theme-dark .file-upload-btn.active {
-    background: #1e3a5f !important;
-    color: #38bdf8 !important;
-}
+/* Named, not nth-child: an extra composer child must never move the mic or show the hidden camera. */
+.chat-page .chat-composer > .composer-video-btn { display: none; }
+.chat-page .chat-composer > .composer-voice-btn { right: 49px; }
+.chat-page .chat-composer > .send-btn { flex: 0 0 40px; }
 .chat-mention-dropdown {
     position: absolute;
     bottom: calc(100% + 6px);
@@ -467,3 +438,145 @@
     background: rgba(96, 165, 250, 0.12);
 }
 
+
+/* Task update cards: one shared width so every card's edges line up down the thread, and the
+   Reply action sits just outside the card (on hover) instead of shifting the card off-centre. */
+.chat-page .chat-task-update {
+    position: relative;
+    display: block;
+    width: min(560px, 86%);
+    margin: 8px auto;
+}
+.chat-page .chat-task-update .chat-task-card {
+    width: 100%;
+    max-width: none;
+}
+.chat-page .chat-task-card-text {
+    font-size: 12px;
+    line-height: 1.45;
+}
+.chat-page .chat-task-update .chat-task-reply {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 6px);
+    transform: translateY(-50%);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+.chat-page .chat-task-update:hover .chat-task-reply,
+.chat-page .chat-task-update .chat-task-reply:focus-visible {
+    opacity: 1;
+}
+@media (hover: none), (max-width: 900px) {
+    .chat-page .chat-task-update { width: min(560px, 94%); }
+    .chat-page .chat-task-update .chat-task-reply {
+        position: static;
+        display: flex;
+        width: fit-content;
+        margin: 2px 0 0 auto;
+        transform: none;
+        opacity: 1;
+    }
+}
+
+/* An open conversation with no messages yet. */
+.chat-page .chat-thread-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 60%;
+    padding: 24px 16px;
+    text-align: center;
+    color: #64748b;
+}
+.chat-page .chat-thread-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 6px;
+    border-radius: 50%;
+    background: #e8f0fe;
+    color: #1d4ed8;
+}
+.chat-page .chat-thread-empty strong { color: #0f172a; font-size: 16px; }
+.chat-page .chat-thread-empty p { margin: 0; font-size: 13px; }
+.chat-page .chat-thread-empty button {
+    margin-top: 10px;
+    border: 0;
+    border-radius: 999px;
+    padding: 9px 18px;
+    background: #1d4ed8;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+.chat-page .chat-thread-empty button:hover { background: #1e40af; }
+.chat-page.chat-theme-dark .chat-thread-empty strong { color: #e2e8f0; }
+.chat-page.chat-theme-dark .chat-thread-empty-icon { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }
+
+/* Composer icons: several older rules (44px bordered squares, 27px circles, 42px tinted tiles)
+   fought each other, so the attach/emoji circles overlapped and the mic touched the input edge.
+   One definitive size and spacing for the icons that sit inside the input. */
+.chat-page .chat-input-wrapper {
+    padding-left: 86px;
+    padding-right: 48px;
+}
+.chat-page .attachment-menu-wrap { left: 10px; }
+.chat-page .emoji-picker-wrap > .emoji-btn { left: 46px; }
+.chat-page .chat-composer > .composer-voice-btn { right: 54px; }
+.chat-page .attachment-menu-wrap .file-upload-btn,
+.chat-page .emoji-picker-wrap > .emoji-btn,
+.chat-page .chat-composer > .composer-voice-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #475569;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.chat-page .attachment-menu-wrap .file-upload-btn:hover,
+.chat-page .emoji-picker-wrap > .emoji-btn:hover,
+.chat-page .chat-composer > .composer-voice-btn:hover:not(:disabled) {
+    background: #eef2f7;
+    color: #1d4ed8;
+}
+.chat-page .attachment-menu-wrap .file-upload-btn.active,
+.chat-page .emoji-picker-wrap > .emoji-btn[aria-expanded="true"] {
+    background: #1d4ed8;
+    color: #fff;
+}
+.chat-page .chat-composer > .composer-voice-btn.active {
+    background: #dc2626;
+    color: #fff;
+}
+.chat-page .chat-composer > .composer-voice-btn:disabled { opacity: 0.45; }
+.chat-page.chat-theme-dark .attachment-menu-wrap .file-upload-btn,
+.chat-page.chat-theme-dark .emoji-picker-wrap > .emoji-btn,
+.chat-page.chat-theme-dark .chat-composer > .composer-voice-btn { color: #cbd5e1; }
+.chat-page.chat-theme-dark .attachment-menu-wrap .file-upload-btn:hover,
+.chat-page.chat-theme-dark .emoji-picker-wrap > .emoji-btn:hover,
+.chat-page.chat-theme-dark .chat-composer > .composer-voice-btn:hover:not(:disabled) { background: rgba(148, 163, 184, 0.16); color: #93c5fd; }
+
+/* Voice note: spread the waveform across the full width of the bubble. */
+.chat-page .voice-waveform {
+    justify-content: space-between;
+    gap: 2px;
+}
+.chat-page .voice-waveform span {
+    flex: 0 1 4px;
+    width: auto;
+    min-width: 2px;
+}

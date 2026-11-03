@@ -18,12 +18,11 @@ import {
   VolumeX,
   AlertCircle,
   Clock,
-  Sparkles,
   Square,
 } from 'lucide-react';
 import { useMyAi } from '../../context/MyAiContext';
 import useTaskAgentSession from '../../hooks/useTaskAgentSession';
-import { formatCandidateDate } from '../../hooks/taskAgentPureLogic';
+import { formatCandidateDate, shouldShowDebugOverlay } from '../../hooks/taskAgentPureLogic';
 import TaskPreviewCard from './TaskPreviewCard';
 import './MyAiChatView.css';
 
@@ -82,16 +81,6 @@ function AssistantMessageContent({ text, isLatest, isError }) {
     </div>
   );
 }
-
-/**
- * Initial Quick Suggestion Chips (displayed only underneath initial greeting)
- */
-const EXAMPLE_CHIPS = [
-  'Kal subah 10 baje team meeting rakh do',
-  'Urgent task banao: Client proposal review',
-  'Project Website Redesign mein task banao',
-  'Call follow-up task 2 din baad',
-];
 
 export default function MyAiChatView({ onBack, onClose }) {
   const { isExpanded, toggleExpanded, closeMyAi } = useMyAi();
@@ -152,6 +141,8 @@ export default function MyAiChatView({ onBack, onClose }) {
     cancelSpeech,
     recordingVoiceNote,
     voiceInfo,
+    allVoices,
+    speakDiag,
     handleAddFiles,
     handleRemoveFile,
     toggleVoiceNote,
@@ -179,9 +170,90 @@ export default function MyAiChatView({ onBack, onClose }) {
   } = session;
 
   const [hasWebGL, setHasWebGL] = useState(true);
+  const [selectedMultiChips, setSelectedMultiChips] = useState([]);
   const threadEndRef = useRef(null);
   const localInputRef = useRef(null);
   const inputRef = session?.inputRef || localInputRef;
+
+  // Reset selected chips when moving to another field
+  const currentField = result?.field;
+  useEffect(() => {
+    setSelectedMultiChips([]);
+  }, [currentField]);
+
+  const isMultiSelectFlow = Boolean(
+    result?.field === 'services' ||
+    result?.field === 'team' ||
+    result?.field === 'projectManager' ||
+    result?.field === 'members' ||
+    chips.some((c) => c.action?.type === 'add_member' || c.action?.type === 'add_client_service') ||
+    chips.some((c) => c.label === 'Done' || c.label === 'Ho gaya' || c.action?.type === 'finish_members' || c.action?.type === 'finish_client_services')
+  );
+
+  const handleChipClick = (c) => {
+    if (!isMultiSelectFlow) {
+      handleChip(c);
+      return;
+    }
+
+    const isHoGaya = c.label.includes('Done') || c.label.includes('Ho gaya') || c.action?.type === 'finish_members' || c.action?.type === 'finish_client_services';
+    const isControlChip = c.label === 'Cancel' || c.label === 'Abhi nahi' || c.label === 'Sirf main' || c.label === 'Aur dikhao' || c.action?.type === 'cancel' || c.action?.type === 'show_more_members';
+
+    if (isControlChip) {
+      setSelectedMultiChips([]);
+      handleChip(c);
+      return;
+    }
+
+    if (isHoGaya) {
+      if (selectedMultiChips.length > 0) {
+        const isMemberField = Boolean(
+          result?.field === 'team' ||
+          result?.field === 'projectManager' ||
+          result?.field === 'members' ||
+          chips.some((ch) => ch.action?.type === 'add_member' || ch.action?.userId)
+        );
+        if (isMemberField) {
+          sendTurn({
+            action: {
+              type: 'set_team_members',
+              members: selectedMultiChips.map((ch) => ch.action?.name || ch.label.replace(/^[✓\s]+/, '').split(' (')[0].trim()),
+              userIds: selectedMultiChips.map((ch) => ch.action?.userId).filter(Boolean),
+            },
+            display: selectedMultiChips.map((ch) => ch.action?.name || ch.label.replace(/^[✓\s]+/, '').split(' (')[0].trim()).join(', '),
+            source: 'chip',
+          });
+        } else {
+          sendTurn({
+            action: {
+              type: 'set_client_services',
+              services: selectedMultiChips.map((ch) => ch.action?.service || ch.label.replace(/^[✓\s]+/, '')),
+            },
+            display: selectedMultiChips.map((ch) => ch.action?.service || ch.label.replace(/^[✓\s]+/, '')).join(', '),
+            source: 'chip',
+          });
+        }
+        setSelectedMultiChips([]);
+      } else {
+        handleChip(c);
+      }
+      return;
+    }
+
+    // Toggle chip in selectedMultiChips
+    const chipKey = c.action?.name || c.action?.service || c.action?.userId || c.label;
+    const isAlreadySelected = selectedMultiChips.some(
+      (sc) => (sc.action?.name || sc.action?.service || sc.action?.userId || sc.label) === chipKey
+    );
+
+    if (isAlreadySelected) {
+      setSelectedMultiChips((prev) =>
+        prev.filter((sc) => (sc.action?.name || sc.action?.service || sc.action?.userId || sc.label) !== chipKey)
+      );
+    } else {
+      setSelectedMultiChips((prev) => [...prev, c]);
+    }
+  };
 
   // WebGL support test
   useEffect(() => {
@@ -201,11 +273,6 @@ export default function MyAiChatView({ onBack, onClose }) {
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, result, readyCountdown, interim]);
-
-  // Handle click on example suggestion chip
-  const handleExampleChipClick = (chipText) => {
-    sendTurn({ text: chipText, source: 'typed' });
-  };
 
   // Derive human-friendly status text for the header: Listening -> Transcribing -> Thinking
   let statusText = 'Tap to talk';
@@ -354,27 +421,6 @@ export default function MyAiChatView({ onBack, onClose }) {
             );
           })}
 
-          {/* Example suggestion chips: Shown ONLY underneath initial greeting (when messages <= 1) */}
-          {messages.length <= 1 && (
-            <div className="my-ai-example-chips-tray">
-              <span className="my-ai-example-chips-heading">
-                <Sparkles size={13} /> Try asking:
-              </span>
-              <div className="my-ai-example-chips-list">
-                {EXAMPLE_CHIPS.map((chip, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className="my-ai-example-chip"
-                    onClick={() => handleExampleChipClick(chip)}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Thinking bubble when waiting for parse / task creation */}
           {loading && (
             <div className="my-ai-message-row assistant">
@@ -426,17 +472,61 @@ export default function MyAiChatView({ onBack, onClose }) {
           {/* Slot-filling choice chips */}
           {chips.length > 0 && (
             <div className="my-ai-chips-container">
-              {chips.map((c) => (
-                <button
-                  key={`${c.label}-${c.value || ''}`}
-                  type="button"
-                  className="my-ai-choice-chip"
-                  disabled={loading}
-                  onClick={() => handleChip(c)}
-                >
-                  {c.label}
-                </button>
-              ))}
+              {(() => {
+                const hasHoGayaInChips = chips.some(
+                  (c) => c.label.includes('Done') || c.label.includes('Ho gaya') || c.action?.type === 'finish_members' || c.action?.type === 'finish_client_services'
+                );
+
+                const renderChipButton = (c, keyPrefix = '') => {
+                  const chipKey = c.action?.name || c.action?.service || c.action?.userId || c.label;
+                  const isSelected = selectedMultiChips.some(
+                    (sc) => (sc.action?.name || sc.action?.service || sc.action?.userId || sc.label) === chipKey
+                  );
+                  const isHoGaya = c.label.includes('Done') || c.label.includes('Ho gaya') || c.action?.type === 'finish_members' || c.action?.type === 'finish_client_services';
+
+                  let buttonLabel = c.label === 'Ho gaya' ? 'Done' : c.label;
+                  if (isHoGaya && selectedMultiChips.length > 0) {
+                    buttonLabel = `✓ Done (${selectedMultiChips.length} selected)`;
+                  } else if (isSelected) {
+                    buttonLabel = `✓ ${c.label.replace(/^[✓\s]+/, '')}`;
+                  }
+
+                  const chipClass = [
+                    'my-ai-choice-chip',
+                    isSelected ? 'is-selected' : '',
+                    (isHoGaya && selectedMultiChips.length > 0) ? 'my-ai-submit-multi-chip' : '',
+                  ].filter(Boolean).join(' ');
+
+                  return (
+                    <button
+                      key={`${keyPrefix}${c.label}-${c.value || ''}-${c.action?.userId || ''}`}
+                      type="button"
+                      className={chipClass}
+                      disabled={loading}
+                      onClick={() => handleChipClick(c)}
+                    >
+                      {buttonLabel}
+                    </button>
+                  );
+                };
+
+                return (
+                  <>
+                    {isMultiSelectFlow && !hasHoGayaInChips && selectedMultiChips.length > 0 && (
+                      <button
+                        key="multi-submit-fallback"
+                        type="button"
+                        className="my-ai-choice-chip my-ai-submit-multi-chip"
+                        disabled={loading}
+                        onClick={() => handleChipClick({ label: 'Done', action: { type: 'finish_client_services' } })}
+                      >
+                        {`✓ Done (${selectedMultiChips.length} selected)`}
+                      </button>
+                    )}
+                    {chips.map((c) => renderChipButton(c))}
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -652,8 +742,8 @@ export default function MyAiChatView({ onBack, onClose }) {
           )}
         </form>
 
-        {/* Dev-only live VAD diagnostic overlay */}
-        {import.meta.env?.DEV && (
+        {/* Dev-only live VAD diagnostic overlay - hidden by default unless ?aidebug=1 or localStorage 'ciis_ai_debug' === '1' */}
+        {shouldShowDebugOverlay() && (
           <div style={{
             padding: '3px 8px',
             background: 'rgba(17, 24, 39, 0.95)',
@@ -684,7 +774,14 @@ export default function MyAiChatView({ onBack, onClose }) {
             )}
             </span>
             <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
-              <span>Voice: <strong>{voiceInfo?.name ? `${voiceInfo.name} (${voiceInfo.lang})${voiceInfo.isFallback ? ' [fallback]' : ''}` : 'none'}</strong></span>
+              <span>Speak: <strong>{speakDiag ? (speakDiag.status === 'skipped' ? `skipped(${speakDiag.reason})` : speakDiag.status) : 'idle'}</strong></span>
+            </div>
+            <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
+              <span>Voice: <strong>{voiceInfo?.name ? `${voiceInfo.name} (${voiceInfo.lang})${voiceInfo.isFallback ? ' [fallback]' : ''}` : 'none'}</strong>
+              {allVoices && allVoices.length > 0 && (
+                <span style={{ marginLeft: 6, opacity: 0.8 }}>| All: [{allVoices.map((v) => v.name).join(', ')}]</span>
+              )}
+              </span>
             </div>
             <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
               <span>Last Transcript: <strong>{

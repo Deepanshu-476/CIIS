@@ -490,6 +490,34 @@
   color: #1d4ed8;
 }
 
+.my-ai-choice-chip.is-selected {
+  background: #2563eb !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
+}
+
+.my-ai-choice-chip.is-selected:hover {
+  background: #1d4ed8 !important;
+  border-color: #1e40af !important;
+  color: #ffffff !important;
+}
+
+.my-ai-choice-chip.my-ai-submit-multi-chip {
+  background: #16a34a !important;
+  border-color: #15803d !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.35);
+}
+
+.my-ai-choice-chip.my-ai-submit-multi-chip:hover {
+  background: #15803d !important;
+  border-color: #166534 !important;
+  color: #ffffff !important;
+}
+
 /* Preview Card & Countdown Banner */
 .my-ai-preview-card-wrap {
   width: 100%;

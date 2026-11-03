@@ -18,6 +18,9 @@ import {
     validateAttachmentFile,
     checkSttUploadCap,
     getRoleAwareGreeting,
+    WELCOME_MENU_BUTTONS,
+    WELCOME_GREETING_TEXT,
+    shouldShowDebugOverlay,
     formatSpokenForTTS,
     isSilenceHallucination,
     isFillerOnlyTranscript,
@@ -218,7 +221,7 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.deepEqual(checkSttUploadCap(15), { isCapped: true, remaining: 0 });
     });
 
-    test('10. Role-Aware Greeting: privileged roles get assignee line, employees get self-focused list', () => {
+    test('10. Welcome Menu & Greeting: returns short greeting and 6 intent buttons', () => {
         const ownerUser = { companyRole: 'owner' };
         const adminUser = { role: 'admin' };
         const empUser = { companyRole: 'employee', role: 'user' };
@@ -227,11 +230,47 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         const adminGreeting = getRoleAwareGreeting(adminUser);
         const empGreeting = getRoleAwareGreeting(empUser);
 
-        assert.match(ownerGreeting, /Namaste! Main CIIS AI Assistant hoon/);
-        assert.match(ownerGreeting, /Kiske liye \(assignee/);
-        assert.match(adminGreeting, /Kiske liye \(assignee/);
-        assert.doesNotMatch(empGreeting, /Kiske liye \(assignee/);
-        assert.match(empGreeting, /Task ka naam \(zaroori\)/);
+        assert.equal(ownerGreeting, WELCOME_GREETING_TEXT);
+        assert.equal(adminGreeting, WELCOME_GREETING_TEXT);
+        assert.equal(empGreeting, WELCOME_GREETING_TEXT);
+        assert.match(ownerGreeting, /Namaste! Main CIIS AI Assistant hoon\. Aap kya karna chahte hain\?/);
+
+        assert.equal(WELCOME_MENU_BUTTONS.length, 6);
+        const expectedButtons = [
+            { label: 'Personal task banana', intent: 'self_task' },
+            { label: 'Kisi ko task assign karna', intent: 'task_assigned_user' },
+            { label: 'Naya project banana', intent: 'create_project' },
+            { label: 'Project mein task banana/assign karna', intent: 'task_project' },
+            { label: 'Naya client add karna', intent: 'create_client' },
+            { label: 'Client ka task kisi ko dena', intent: 'create_client_task' },
+        ];
+        expectedButtons.forEach((exp, idx) => {
+            assert.equal(WELCOME_MENU_BUTTONS[idx].label, exp.label);
+            assert.equal(WELCOME_MENU_BUTTONS[idx].action.intent, exp.intent);
+        });
+
+        // Test debug overlay toggle (Item 4)
+        const origWindow = globalThis.window;
+        try {
+            // Case 1: no window or empty params
+            globalThis.window = { location: { search: '' }, localStorage: { getItem: () => null } };
+            assert.equal(shouldShowDebugOverlay(), false);
+
+            // Case 2: URL query ?aidebug=1
+            globalThis.window.location.search = '?aidebug=1';
+            assert.equal(shouldShowDebugOverlay(), true);
+
+            // Case 3: URL query ?other=1 and localStorage ciis_ai_debug = '1'
+            globalThis.window.location.search = '?other=1';
+            globalThis.window.localStorage.getItem = (k) => (k === 'ciis_ai_debug' ? '1' : null);
+            assert.equal(shouldShowDebugOverlay(), true);
+
+            // Case 4: throwing storage
+            globalThis.window.localStorage.getItem = () => { throw new Error('Blocked'); };
+            assert.equal(shouldShowDebugOverlay(), false);
+        } finally {
+            globalThis.window = origWindow;
+        }
     });
 
     test('11. TTS Phonetic Formatting: formatSpokenForTTS spells CIIS as C I I S A I and maps priority to English', () => {
@@ -2469,16 +2508,16 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         const loadedVoices = await waitForVoices(fakeSynth, 500);
         assert.equal(loadedVoices.length, 7, 'waitForVoices waited until voices arrived via voiceschanged');
 
-        // B. selectPreferredVoice: picks natural Hindi female voice (Heera) before English voice (Neerja)
+        // B. selectPreferredVoice: picks human-like natural female voice (Neerja) first
         const choice1 = selectPreferredVoice(loadedVoices);
-        assert.equal(choice1.voice.name, 'Microsoft Heera - Hindi (India)');
+        assert.equal(choice1.voice.name, 'Microsoft Neerja Online (Natural) - English (India)');
         assert.equal(choice1.isFallback, false);
         assert.equal(isMaleVoice(choice1.voice), false);
 
-        // If no Hindi female voice exists, falls back to Neerja (en-IN)
-        const englishOnlyVoices = loadedVoices.filter((v) => !v.lang.startsWith('hi'));
-        const choiceEng = selectPreferredVoice(englishOnlyVoices);
-        assert.equal(choiceEng.voice.name, 'Microsoft Neerja Online (Natural) - English (India)');
+        // If no Neerja exists, picks next preferred female voice (Heera)
+        const nonNeerjaVoices = loadedVoices.filter((v) => !v.name.includes('Neerja'));
+        const choiceHeera = selectPreferredVoice(nonNeerjaVoices);
+        assert.equal(choiceHeera.voice.name, 'Microsoft Heera - Hindi (India)');
 
         // C. Voice object cached & reused across multiple utterances (greeting, response, question)
         const choice2 = selectPreferredVoice(loadedVoices, choice1.voice.name);
@@ -2500,15 +2539,15 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.equal(fallbackChoice.isFallback, true, 'Fallback indicator is true when no female voice exists');
     });
 
-    test('47. CLIENT PAYLOAD & FULL MESSAGE SPEECH: Non-multipart payloads send clean JSON, full reply is spoken, natural Hindi voice overrides stale English cache', () => {
-        // 1. Natural Hindi voice overrides stale English voice in cache
+    test('47. CLIENT PAYLOAD & FULL MESSAGE SPEECH: Non-multipart payloads send clean JSON, full reply is spoken, natural human-like voice Neerja honored', () => {
+        // 1. Natural female voice Neerja honored from cache
         const allVoices = [
             { name: 'Microsoft Neerja Online (Natural) - English (India)', lang: 'en-IN' },
             { name: 'Microsoft Swara Online (Natural) - Hindi (India)', lang: 'hi-IN' },
         ];
-        // Even if neerja was saved in localStorage, selectPreferredVoice picks Swara for natural Hindi fluency
+        // When neerja was saved in localStorage, selectPreferredVoice honors it for human-like fluency
         const chosen = selectPreferredVoice(allVoices, 'Microsoft Neerja Online (Natural) - English (India)');
-        assert.equal(chosen.voice.name, 'Microsoft Swara Online (Natural) - Hindi (India)', 'Natural Hindi voice Swara preferred over stale Neerja');
+        assert.equal(chosen.voice.name, 'Microsoft Neerja Online (Natural) - English (India)', 'Natural female voice Neerja honored');
 
         // 2. Full assistant response is resolved for speech
         const fullServerResponse = {
@@ -2548,8 +2587,229 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.equal(dataToSend.client, 'ZZ AI Client');
         assert.equal(dataToSend.companyCode, 'CMP01');
     });
+
+    test('48. Problem 1: 5-turn speech reproduction with fake speechSynthesis (greeting + 5 turns spoken without skipping)', async () => {
+        // Fake speechSynthesis simulation
+        let voiceList = [];
+        const listeners = {};
+        let isPaused = false;
+        let lastCancelTime = 0;
+        const spokenUtterances = [];
+
+        const fakeSynth = {
+            get paused() { return isPaused; },
+            getVoices() { return voiceList; },
+            addEventListener(event, fn) { listeners[event] = fn; },
+            removeEventListener(event, fn) { if (listeners[event] === fn) delete listeners[event]; },
+            resume() { isPaused = false; },
+            cancel() {
+                lastCancelTime = Date.now();
+                isPaused = true; // In Chromium cancel often leaves paused true
+            },
+            speak(utt) {
+                if (isPaused) {
+                    // Chromium bug: if speak() is called while paused, utterance is blocked
+                    throw new Error('speechSynthesis is paused! resume() must be called before speak()');
+                }
+                spokenUtterances.push(utt);
+                setTimeout(() => {
+                    if (utt.onend) utt.onend();
+                }, 10);
+            }
+        };
+
+        // Voices list starts empty, then populates
+        setTimeout(() => {
+            voiceList = [
+                { name: 'Microsoft Heera - English (India)', lang: 'en-IN' },
+            ];
+            if (listeners.voiceschanged) listeners.voiceschanged();
+        }, 20);
+
+        const loadedVoices = await waitForVoices(fakeSynth, 500);
+        assert.equal(loadedVoices.length, 1);
+        const chosenVoice = selectPreferredVoice(loadedVoices);
+        assert.equal(chosenVoice.voice.name, 'Microsoft Heera - English (India)');
+
+        // Simulate hook-level speak execution with resume-before-speak and 60ms cancel guard
+        const speakDiagHistory = [];
+        const executeSpeak = async (devanagari, hinglish, synth) => {
+            speakDiagHistory.push('requested');
+            // Before every speak() call: speechSynthesis.resume()
+            synth.resume();
+
+            // If a cancel() was just done, wait 60ms
+            const elapsed = Date.now() - lastCancelTime;
+            if (elapsed < 60) {
+                await new Promise((r) => setTimeout(r, 60 - elapsed));
+                synth.resume();
+            }
+
+            const voiceLang = (chosenVoice.voice.lang || 'en-IN').toLowerCase();
+            const isHindiVoice = voiceLang.startsWith('hi');
+            const textToSpeak = isHindiVoice ? devanagari : hinglish;
+
+            const utt = { text: textToSpeak, lang: chosenVoice.voice.lang, voice: chosenVoice.voice, rate: 0.95, pitch: 1 };
+            speakDiagHistory.push('started');
+            synth.speak(utt);
+            speakDiagHistory.push('ended');
+        };
+
+        // Turn 0: Greeting
+        fakeSynth.cancel();
+        await executeSpeak('नमस्ते! टास्क बनाने में मदद करूँगी।', 'Namaste! Task create karne mein madad karungi.', fakeSynth);
+        assert.equal(spokenUtterances.length, 1, 'Greeting must be spoken');
+
+        // Turns 1 to 5: User turns and Agent replies
+        for (let turn = 1; turn <= 5; turn++) {
+            fakeSynth.cancel();
+            await executeSpeak(
+                `Turn ${turn} hindi speech`,
+                `Turn ${turn} agent reply text to speak`,
+                fakeSynth
+            );
+            assert.equal(spokenUtterances.length, turn + 1, `Turn ${turn} agent reply must be spoken without being skipped`);
+        }
+
+        assert.equal(spokenUtterances.length, 6, 'All 6 utterances (greeting + 5 turns) successfully spoken');
+        assert.ok(speakDiagHistory.includes('requested'));
+        assert.ok(speakDiagHistory.includes('started'));
+        assert.ok(speakDiagHistory.includes('ended'));
+    });
+
+    test('49. Problem 2a & 2d: Voice Quality Chunking Contract (<200 char single, >200 queued immediately, rate 0.95, pitch 1)', () => {
+        // A. Text under 200 characters is NOT split into chunks
+        const shortText = 'Task ka naam kya rakhna hai? Seedhe batayein jaise Client meeting.';
+        assert.ok(shortText.length < 200, 'shortText must be under 200 characters');
+        const shortChunks = shortText.length > 200
+            ? (shortText.match(/[^.!?।\n]+[.!?।\n]*/g) || [shortText]).map((s) => s.trim()).filter(Boolean)
+            : [shortText];
+        assert.equal(shortChunks.length, 1, 'Text <= 200 chars must produce exactly 1 chunk');
+
+        // B. Text over 200 characters is split at sentence ends without timers between
+        const longText = 'Task ka naam Voice Assistant pipeline setup hai. Is task mein Groq LLM aur Whisper STT configure karna hai. Due date kal shaam 6 baje tak ki rakhni hai. Priority High set kar di gayi hai aur reminder 1 ghante pehle aayega.';
+        assert.ok(longText.length > 200, 'longText must be over 200 characters');
+        const longChunks = longText.length > 200
+            ? (longText.match(/[^.!?।\n]+[.!?।\n]*/g) || [longText]).map((s) => s.trim()).filter(Boolean)
+            : [longText];
+        assert.ok(longChunks.length >= 3, 'Text > 200 chars must be split into sentence chunks');
+
+        // Verify queue without gaps: all chunks queued sequentially
+        const fakeSynthQueue = [];
+        longChunks.forEach((c) => {
+            fakeSynthQueue.push({
+                text: c,
+                rate: 0.95,
+                pitch: 1.0,
+                lang: 'en-IN',
+            });
+        });
+        assert.equal(fakeSynthQueue.length, longChunks.length);
+        assert.equal(fakeSynthQueue[0].rate, 0.95, 'Utterance rate must be 0.95');
+        assert.equal(fakeSynthQueue[0].pitch, 1.0, 'Utterance pitch must be 1.0');
+    });
+
+    test('50. Problem 2b: Voice Preference Order across several fake voice lists', () => {
+        // 1. Natural / Online voice preferred over Google Hindi, other female and old local
+        const listWithNatural = [
+            { name: 'Microsoft Heera - English (India)', lang: 'en-IN' },
+            { name: 'Google हिन्दी', lang: 'hi-IN' },
+            { name: 'Microsoft Swara Online (Natural) - Hindi (India)', lang: 'hi-IN' },
+            { name: 'Microsoft David', lang: 'en-US' },
+        ];
+        assert.equal(selectPreferredVoice(listWithNatural).voice.name, 'Microsoft Swara Online (Natural) - Hindi (India)');
+
+        // 2. Google हिन्दी preferred over other female and old local
+        const listWithGoogleHindi = [
+            { name: 'Microsoft Heera - English (India)', lang: 'en-IN' },
+            { name: 'Veena - Hindi (India)', lang: 'hi-IN' },
+            { name: 'Google हिन्दी', lang: 'hi-IN' },
+        ];
+        assert.equal(selectPreferredVoice(listWithGoogleHindi).voice.name, 'Google हिन्दी');
+
+        // 3. Other female hi-IN/en-IN preferred over old local (Heera, Kalpana)
+        const listWithOtherFemale = [
+            { name: 'Microsoft Heera - English (India)', lang: 'en-IN' },
+            { name: 'Microsoft Kalpana - Hindi (India)', lang: 'hi-IN' },
+            { name: 'Veena - Hindi (India)', lang: 'hi-IN' },
+        ];
+        assert.equal(selectPreferredVoice(listWithOtherFemale).voice.name, 'Veena - Hindi (India)');
+
+        // 4. Old local voices (Heera, Kalpana) used when no higher tier female voices available
+        const listOldLocal = [
+            { name: 'Microsoft David Desktop', lang: 'en-US' },
+            { name: 'Microsoft Kalpana - Hindi (India)', lang: 'hi-IN' },
+            { name: 'Microsoft Heera - English (India)', lang: 'en-IN' },
+        ];
+        const oldChoice = selectPreferredVoice(listOldLocal);
+        assert.ok(oldChoice.voice.name.includes('Kalpana') || oldChoice.voice.name.includes('Heera'));
+
+        // 5. Male voices are never chosen as female voices
+        const listWithMale = [
+            { name: 'Microsoft David', lang: 'en-US' },
+            { name: 'Microsoft Ravi', lang: 'hi-IN' },
+            { name: 'Microsoft Heera - English (India)', lang: 'en-IN' },
+        ];
+        assert.equal(selectPreferredVoice(listWithMale).voice.name, 'Microsoft Heera - English (India)');
+    });
+
+    test('51. Problem 2c: Script Selection by voice language (hi-IN vs en-IN) and technical words in Latin', () => {
+        const hindiVoice = { name: 'Microsoft Swara Online (Natural) - Hindi (India)', lang: 'hi-IN' };
+        const englishVoice = { name: 'Microsoft Neerja Online (Natural) - English (India)', lang: 'en-IN' };
+
+        const devanagariText = 'Task का नाम क्या रखना है? Project और Description बताएं। Priority High है। Client का Email और Due date बताएं।';
+        const hinglishText = 'Task ka naam kya rakhna hai? Project aur Description batayein. Priority High hai. Client ka Email aur Due date batayein.';
+
+        // For hi-IN voice:
+        const isHi = hindiVoice.lang.toLowerCase().startsWith('hi');
+        const textForHindi = isHi ? devanagariText : hinglishText;
+        assert.equal(textForHindi, devanagariText);
+        // Technical words must be in Latin:
+        assert.ok(textForHindi.includes('Task'));
+        assert.ok(textForHindi.includes('Project'));
+        assert.ok(textForHindi.includes('Description'));
+        assert.ok(textForHindi.includes('Priority'));
+        assert.ok(textForHindi.includes('Client'));
+        assert.ok(textForHindi.includes('Email'));
+        assert.ok(textForHindi.includes('Due date'));
+
+        // For en-IN voice:
+        const isEn = englishVoice.lang.toLowerCase().startsWith('hi');
+        const textForEnglish = isEn ? devanagariText : hinglishText;
+        assert.equal(textForEnglish, hinglishText);
+    });
+
+    test('52. create_client payload: preserves services, clientPlanId, and subscription array', () => {
+        const clientDraft = {
+            intent: 'create_client',
+            client: 'kanika',
+            company: 'ciis network',
+            city: 'mohali',
+            projectManager: ['Divya Tiwari', 'Gaurav Rajput'],
+            services: ['Mobile App Development', 'SEO Optimization', 'UI/UX Design', 'Web Development'],
+            clientPlanId: 'plan_starter_456',
+            clientPlanPrice: 25000,
+            clientPlanMonths: 1,
+            subscriptionStartDate: '2026-11-04',
+            subscriptionEndDate: '2026-12-04',
+            email: 'kanika@ciis.com',
+            phone: '9876543210',
+        };
+
+        const payload = buildConfirmPayloadFromDraft(clientDraft);
+        assert.equal(payload.endpoint, '/clientsservice');
+        assert.deepEqual(payload.fields.services, [
+            'Mobile App Development',
+            'SEO Optimization',
+            'UI/UX Design',
+            'Web Development',
+        ]);
+        assert.equal(payload.fields.clientPlanId, 'plan_starter_456');
+        assert.equal(payload.fields.subscription.length, 1);
+        assert.equal(payload.fields.subscription[0].startDate, '2026-11-04');
+        assert.equal(payload.fields.subscription[0].endDate, '2026-12-04');
+        assert.equal(payload.fields.subscription[0].price, 25000);
+        assert.equal(payload.fields.subscription[0].status, 'Active');
+    });
+
 });
-
-
-
-

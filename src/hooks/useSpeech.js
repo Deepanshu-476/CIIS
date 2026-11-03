@@ -197,6 +197,8 @@ export default function useSpeech({
     const isSpeakingRef = useRef(false);
     const speakTimeoutRef = useRef(null);
     const activeUtteranceRef = useRef(null);
+    const lastCancelTimeRef = useRef(0);
+    const [speakDiag, setSpeakDiag] = useState({ status: "idle", reason: null });
 
     // Turn dispatch & STT cap guards
     const turnDispatchedRef = useRef(false);
@@ -308,6 +310,38 @@ export default function useSpeech({
         return null;
     });
 
+    const getChosenVoice = useCallback(() => {
+        if (cachedVoiceRef.current) {
+            return cachedVoiceRef.current;
+        }
+        const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+        const vList = (voicesRef.current && voicesRef.current.length > 0)
+            ? voicesRef.current
+            : (synth?.getVoices() || []);
+
+        if (vList.length === 0) return null;
+
+        let savedName = null;
+        try {
+            savedName = localStorage.getItem('ciis_preferred_voice');
+        } catch {
+            /* ignore */
+        }
+
+        const result = selectPreferredVoice(vList, savedName);
+        if (result?.voice) {
+            cachedVoiceRef.current = result.voice;
+            setVoiceInfo(result.voiceInfo);
+            try {
+                localStorage.setItem('ciis_preferred_voice', result.voice.name);
+            } catch {
+                /* ignore */
+            }
+            return result.voice;
+        }
+        return null;
+    }, []);
+
     const resolveVoice = useCallback(async () => {
         if (cachedVoiceRef.current) {
             return cachedVoiceRef.current;
@@ -323,26 +357,8 @@ export default function useSpeech({
             console.log('[CIIS Voice] Available voices:', voices.map((v) => `${v.name} (${v.lang})`));
         }
 
-        let savedName = null;
-        try {
-            savedName = localStorage.getItem('ciis_preferred_voice');
-        } catch {
-            /* ignore */
-        }
-
-        const result = selectPreferredVoice(voices, savedName);
-        if (result?.voice) {
-            cachedVoiceRef.current = result.voice;
-            setVoiceInfo(result.voiceInfo);
-            try {
-                localStorage.setItem('ciis_preferred_voice', result.voice.name);
-            } catch {
-                /* ignore */
-            }
-            return result.voice;
-        }
-        return null;
-    }, []);
+        return getChosenVoice();
+    }, [getChosenVoice]);
 
     const sttSupported = Boolean(SR) || (typeof window !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia));
     const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -358,7 +374,7 @@ export default function useSpeech({
             if (hi) {
                 try {
                     const saved = localStorage.getItem('ciis_preferred_voice') || '';
-                    if (/neerja|david|mark|george|zira|samantha/i.test(saved)) {
+                    if (/david|mark|george|ravi|hemant|prabhat|rishi|madhur|male/i.test(saved)) {
                         localStorage.removeItem('ciis_preferred_voice');
                         cachedVoiceRef.current = null;
                     }
@@ -375,6 +391,7 @@ export default function useSpeech({
         return () => {
             window.speechSynthesis.removeEventListener?.('voiceschanged', load);
             window.speechSynthesis.cancel();
+            lastCancelTimeRef.current = Date.now();
         };
     }, [ttsSupported, resolveVoice]);
 
@@ -1239,57 +1256,77 @@ export default function useSpeech({
             }
 
             if (!ttsSupported) {
+                setSpeakDiag({ status: 'skipped', reason: 'unsupported' });
                 if (onEnd) onEnd();
                 return;
             }
 
-            window.speechSynthesis.cancel();
-            if (speakTimeoutRef.current) {
-                clearInterval(speakTimeoutRef.current);
-                speakTimeoutRef.current = null;
-            }
+            setSpeakDiag({ status: 'requested', reason: null });
 
             const sanitizeTtsWords = (t) => {
                 if (!t) return '';
                 return t
                     .replace(/\bCIIS\s*AI\b/gi, 'C I I S A I')
                     .replace(/\bCIIS\b/gi, 'C I I S')
-                    .replace(/विवरण/gu, 'Description')
-                    .replace(/डिस्क्रिप्शन/gu, 'Description')
-                    .replace(/प्राथमिकता/gu, 'Priority')
-                    .replace(/प्रायोरिटी/gu, 'Priority');
+                    .replace(/\bAI\b/g, 'A I')
+                    .replace(/\bटास्क\b/gu, 'Task')
+                    .replace(/\bप्रोजेक्ट\b/gu, 'Project')
+                    .replace(/\bडिस्क्रिप्शन\b/gu, 'Description')
+                    .replace(/\bविवरण\b/gu, 'Description')
+                    .replace(/\bप्रायोरिटी\b/gu, 'Priority')
+                    .replace(/\bप्राथमिकता\b/gu, 'Priority')
+                    .replace(/\bईमेल\b/gu, 'Email')
+                    .replace(/\bक्लाइंट\b/gu, 'Client')
+                    .replace(/\bड्यू\s*डेट\b/gu, 'Due date');
             };
 
             const devanagariClean = sanitizeTtsWords(stripEmojis(speechDevanagari));
             const hinglishClean = sanitizeTtsWords(stripEmojis(replyHinglish));
             if (!devanagariClean && !hinglishClean) {
+                setSpeakDiag({ status: 'skipped', reason: 'no text' });
                 if (onEnd) onEnd();
                 return;
             }
 
+            // Before every speak() call: speechSynthesis.resume()
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                try { window.speechSynthesis.resume(); } catch {}
+            }
+
+            // If a cancel() was just done wait 60 ms before speak()
+            const timeSinceCancel = Date.now() - lastCancelTimeRef.current;
+            if (timeSinceCancel < 60) {
+                await new Promise((resolve) => setTimeout(resolve, 60 - timeSinceCancel));
+                if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+                    try { window.speechSynthesis.resume(); } catch {}
+                }
+            }
+
             lastSpokenAssistantTextRef.current = hinglishClean || devanagariClean;
 
-            const chosenVoice = await resolveVoice();
-            const voiceLang = chosenVoice?.lang || 'en-IN';
-            const isHindiVoice = voiceLang.toLowerCase().startsWith('hi') || /hindi|swara|heera/i.test(chosenVoice?.name || '');
-            const textToSpeak = isHindiVoice ? (devanagariClean || hinglishClean) : (hinglishClean || devanagariClean);
+            const chosenVoice = getChosenVoice() || voicesRef.current?.[0] || window.speechSynthesis?.getVoices()?.[0];
+            const voiceLang = (chosenVoice?.lang || 'en-IN').toLowerCase();
+            const isHindiVoice = voiceLang.startsWith('hi');
+
+            // Script selection:
+            // hi-IN voice -> Devanagari speech text for Hindi words, English technical words in Latin
+            // en-IN voice -> Roman Hinglish text
+            const textToSpeak = isHindiVoice
+                ? (devanagariClean || hinglishClean)
+                : ((hinglishClean && /[a-zA-Z]/.test(hinglishClean)) ? hinglishClean : (hinglishClean || devanagariClean));
             const voiceToUse = chosenVoice;
-            const langToUse = isHindiVoice ? 'hi-IN' : voiceLang;
+            const langToUse = chosenVoice?.lang || (isHindiVoice ? 'hi-IN' : 'en-IN');
 
-            const utterance = new SpeechSynthesisUtterance(textToSpeak);
-            if (voiceToUse) utterance.voice = voiceToUse;
-            utterance.lang = langToUse;
-            utterance.rate = 1.05;
-
-            // Retain utterance on window so Chromium V8 never garbage-collects it mid-speech
-            if (typeof window !== 'undefined') {
-                window.__ciisCurrentUtterance = utterance;
-            }
-            activeUtteranceRef.current = utterance;
+            // Do not split a message into chunks unless longer than 200 characters;
+            // then split at sentence ends and queue the next utterance immediately (no timers between).
+            const sentenceChunks = textToSpeak.length > 200
+                ? (textToSpeak.match(/[^.!?।\n]+[.!?।\n]*/g) || [textToSpeak]).map((s) => s.trim()).filter(Boolean)
+                : [textToSpeak];
 
             isSpeakingRef.current = true;
             window.__ciisVoiceSpeaking = true;
             setIsSpeaking(true);
+            setSpeakDiag({ status: 'started', reason: null });
 
             let ended = false;
             const handleFinish = (shouldCancel = true) => {
@@ -1305,41 +1342,70 @@ export default function useSpeech({
                     window.__ciisUtterances = [];
                 }
                 if (ttsSupported && shouldCancel) {
-                    try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+                    try {
+                        window.speechSynthesis.cancel();
+                        lastCancelTimeRef.current = Date.now();
+                    } catch {}
                 }
                 isSpeakingRef.current = false;
                 window.__ciisVoiceSpeaking = false;
                 speechEndedAtRef.current = Date.now();
                 setIsSpeaking(false);
+                setSpeakDiag({ status: 'ended', reason: null });
                 lastSpeechOrListenStartRef.current = Date.now();
                 if (onEnd) onEnd();
             };
 
-            // Chromium keep-alive: pulse resume to prevent 15s pause bug; generous fallback timeout
+            // Watchdog fallback
             const startTime = Date.now();
             speakTimeoutRef.current = setInterval(() => {
                 if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
                     try { window.speechSynthesis.resume(); } catch {}
                 }
-                if (Date.now() - startTime > 35000) {
+                if (Date.now() - startTime > 45000) {
                     handleFinish(true);
                 }
-            }, 3000);
+            }, 2500);
 
-            utterance.onend = () => handleFinish(false);
-            utterance.onerror = () => handleFinish(false);
+            sentenceChunks.forEach((chunkText, idx) => {
+                const isLast = idx === sentenceChunks.length - 1;
+                const utterance = new SpeechSynthesisUtterance(chunkText);
+                if (voiceToUse) utterance.voice = voiceToUse;
+                utterance.lang = langToUse;
+                utterance.rate = 0.95;
+                utterance.pitch = 1.0;
 
-            try {
-                window.speechSynthesis.speak(utterance);
-            } catch {
-                handleFinish(false);
-            }
+                if (typeof window !== 'undefined') {
+                    window.__ciisUtterances = window.__ciisUtterances || [];
+                    window.__ciisUtterances.push(utterance);
+                }
 
-            if (window.speechSynthesis.paused) {
-                try { window.speechSynthesis.resume(); } catch { /* ignore */ }
-            }
+                if (idx === 0) {
+                    activeUtteranceRef.current = utterance;
+                    if (typeof window !== 'undefined') {
+                        window.__ciisCurrentUtterance = utterance;
+                    }
+                }
+
+                utterance.onerror = () => {
+                    if (isLast) handleFinish(false);
+                };
+
+                if (isLast) {
+                    utterance.onend = () => handleFinish(false);
+                }
+
+                try {
+                    window.speechSynthesis.speak(utterance);
+                    if (window.speechSynthesis.paused) {
+                        window.speechSynthesis.resume();
+                    }
+                } catch {
+                    if (isLast) handleFinish(false);
+                }
+            });
         },
-        [ttsSupported, stop, resolveVoice]
+        [ttsSupported, stop, getChosenVoice]
     );
 
     const cancelSpeech = useCallback(() => {

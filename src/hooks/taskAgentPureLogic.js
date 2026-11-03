@@ -209,6 +209,26 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
             pmNames = fallbackPayload.fields.projectManager;
         }
 
+        const servicesList = (Array.isArray(draft.services) && draft.services.length > 0)
+            ? draft.services
+            : (Array.isArray(fallbackPayload?.fields?.services) ? fallbackPayload.fields.services : []);
+
+        let subscriptionArray = [];
+        const planMonths = draft.clientPlanMonths || 1;
+        if (draft.clientPlanId && draft.subscriptionStartDate) {
+            subscriptionArray = [{
+                startDate: draft.subscriptionStartDate,
+                endDate: draft.subscriptionEndDate || '',
+                price: Number(draft.clientPlanPrice || 0),
+                status: 'Active',
+                months: planMonths
+            }];
+        } else if (Array.isArray(draft.subscription) && draft.subscription.length > 0) {
+            subscriptionArray = draft.subscription;
+        } else if (Array.isArray(fallbackPayload?.fields?.subscription)) {
+            subscriptionArray = fallbackPayload.fields.subscription;
+        }
+
         const fields = {
             client: draft.client || draft.clientName || fallbackPayload?.fields?.client || '',
             parentClientId: draft.parentClientId || fallbackPayload?.fields?.parentClientId || null,
@@ -216,7 +236,7 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
             company: draft.company || draft.companyName || fallbackPayload?.fields?.company || '',
             city: draft.city || fallbackPayload?.fields?.city || '',
             projectManager: pmNames,
-            services: [],
+            services: servicesList,
             status: draft.status || fallbackPayload?.fields?.status || 'Active',
             progress: draft.progress || fallbackPayload?.fields?.progress || '0/0 (0%)',
             email: draft.email || fallbackPayload?.fields?.email || '',
@@ -233,7 +253,8 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
             description: draft.description || fallbackPayload?.fields?.description || '',
             notes: draft.notes || fallbackPayload?.fields?.notes || '',
             companyCode: fallbackPayload?.fields?.companyCode || '',
-            subscription: [],
+            clientPlanId: draft.clientPlanId || fallbackPayload?.fields?.clientPlanId || '',
+            subscription: subscriptionArray,
             ...(fallbackPayload?.fields?.branch ? { branch: fallbackPayload.fields.branch } : {}),
             ...(fallbackPayload?.fields?.branchId ? { branchId: fallbackPayload.fields.branchId } : {}),
         };
@@ -261,7 +282,9 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
                 if (Array.isArray(parsed)) {
                     memberIds = [...new Set([...memberIds, ...parsed.map(String)])];
                 }
-            } catch (_) {}
+            } catch {
+                // ignore parse failure
+            }
         }
         return {
             endpoint: '/projects',
@@ -707,52 +730,52 @@ export const formatSpokenForTTS = (text) => {
         .replace(/प्रायोरिटी/gu, 'Priority');
 };
 
+export const WELCOME_GREETING_TEXT = 'Namaste! Main CIIS AI Assistant hoon. Aap kya karna chahte hain?';
+export const WELCOME_GREETING_HINDI = 'नमस्ते! मैं सी आई आई एस ए आई असिस्टेंट हूँ। आप क्या करना चाहते हैं?';
+
+export const WELCOME_MENU_BUTTONS = [
+    { label: 'Personal task banana', action: { type: 'set_intent', intent: 'self_task' } },
+    { label: 'Kisi ko task assign karna', action: { type: 'set_intent', intent: 'task_assigned_user' } },
+    { label: 'Naya project banana', action: { type: 'set_intent', intent: 'create_project' } },
+    { label: 'Project mein task banana/assign karna', action: { type: 'set_intent', intent: 'task_project' } },
+    { label: 'Naya client add karna', action: { type: 'set_intent', intent: 'create_client' } },
+    { label: 'Client ka task kisi ko dena', action: { type: 'set_intent', intent: 'create_client_task' } },
+];
+
 /**
  * Returns role-aware static greeting text.
+ * Item 1: Short greeting text for welcome menu.
  */
-export const getRoleAwareGreeting = (user) => {
-    const role = String(user?.companyRole || user?.role || user?.userRole || '').toLowerCase();
-    const isPrivileged = ['owner', 'admin', 'super_admin', 'super-admin', 'manager', 'hr'].includes(role);
+export const getRoleAwareGreeting = () => {
+    return WELCOME_GREETING_TEXT;
+};
 
-    return isPrivileged
-        ? `Namaste! Main CIIS AI Assistant hoon.
-
-Task create karne ke liye mujhe ye jaankari chahiye:
-1. Kiske liye (assignee - khud ke liye ya kisi aur ke liye)
-2. Task ka naam (zaroori)
-3. Description
-4. Due date aur time (zaroori)
-5. Priority (Low / Medium / High)
-6. Status (Pending / In Progress / Completed / On Hold)
-7. Reminder
-8. Priority Days
-9. Repeat Task
-10. Checkpoints
-11. Attachments (photo / file / voice note)
-
-Aap sab ek saath bol sakte hain ya main ek ek karke poochunga. Jo nahi dena, 'koi nahi' bol dein, wo blank rahega.`
-        : `Namaste! Main CIIS AI Assistant hoon.
-
-Task create karne ke liye mujhe ye jaankari chahiye:
-1. Task ka naam (zaroori)
-2. Description
-3. Due date aur time (zaroori)
-4. Priority (Low / Medium / High)
-5. Status (Pending / In Progress / Completed / On Hold)
-6. Reminder
-7. Priority Days
-8. Repeat Task
-9. Checkpoints
-10. Attachments (photo / file / voice note)
-
-Aap sab ek saath bol sakte hain ya main ek ek karke poochunga. Jo nahi dena, 'koi nahi' bol dein, wo blank rahega.`;
+/**
+ * Helper to determine whether the diagnostic debug overlay should render.
+ * Item 4: Show only when URL has ?aidebug=1 or localStorage.getItem('ciis_ai_debug') === '1'.
+ */
+export const shouldShowDebugOverlay = () => {
+    try {
+        if (typeof window !== 'undefined') {
+            const search = window.location?.search || '';
+            if (new URLSearchParams(search).get('aidebug') === '1') {
+                return true;
+            }
+            if (window.localStorage?.getItem('ciis_ai_debug') === '1') {
+                return true;
+            }
+        }
+    } catch {
+        // Safe fallback in non-browser or sandbox environments
+    }
+    return false;
 };
 
 /**
  * Strips markdown, emojis, bullet points, chip labels, debug "Kya samjha" lines,
  * and caps long messages to 1-2 sentences (at most ~200 characters) for natural TTS output.
  */
-export const cleanForSpeech = (raw) => {
+export const cleanForSpeech = (raw, maxLen = 220) => {
     if (!raw || typeof raw !== 'string') return '';
     let text = raw;
 
@@ -782,13 +805,13 @@ export const cleanForSpeech = (raw) => {
     // 6. Collapse multiple spaces and newlines
     text = text.replace(/\s+/g, ' ').trim();
 
-    // 7. Cap length for speech: cut ONLY at a sentence boundary!
-    if (text.length > 220) {
+    // 7. Cap length for speech: cut ONLY at a sentence boundary if extraordinarily long
+    if (text.length > maxLen) {
         const sentences = text.match(/[^.!?।\n]+[.!?।\n]*/g);
         if (sentences && sentences.length > 0) {
             let accum = '';
             for (const s of sentences) {
-                if ((accum + s).trim().length <= 220) {
+                if ((accum + s).trim().length <= maxLen) {
                     accum += s;
                 } else {
                     break;
@@ -798,7 +821,7 @@ export const cleanForSpeech = (raw) => {
                 text = accum.trim();
             } else {
                 const firstSentence = sentences[0];
-                const lastSpace = firstSentence.lastIndexOf(' ', 220);
+                const lastSpace = firstSentence.lastIndexOf(' ', maxLen);
                 if (lastSpace > 80) {
                     text = firstSentence.slice(0, lastSpace).trim();
                 } else {
@@ -817,6 +840,9 @@ export const cleanForSpeech = (raw) => {
 export const resolveSpokenText = (data, fallbackBubbleText = '') => {
     if (data?.speakText && typeof data.speakText === 'string' && data.speakText.trim()) {
         return cleanForSpeech(data.speakText);
+    }
+    if (data?.speechText && typeof data.speechText === 'string' && data.speechText.trim()) {
+        return cleanForSpeech(data.speechText);
     }
     if (data?.speech && typeof data.speech === 'string' && data.speech.trim()) {
         return cleanForSpeech(data.speech);
@@ -919,18 +945,19 @@ export const MALE_VOICE_EXCLUSIONS = [
 ];
 
 export const PREFERRED_FEMALE_VOICE_NAMES = [
+    'neerja',
+    'google uk english female',
+    'swara online (natural)',
     'swara',
-    'google हिन्दी',
-    'google hindi',
-    'google hi',
+    'google us english',
     'heera',
     'kalpana',
     'veena',
     'priya',
-    'neerja',
-    'google uk english female',
-    'zira',
+    'jenny online (natural)',
+    'sonia online (natural)',
     'samantha',
+    'zira',
 ];
 
 export const isMaleVoice = (voice) => {
@@ -939,97 +966,81 @@ export const isMaleVoice = (voice) => {
     return MALE_VOICE_EXCLUSIONS.some((term) => lower.includes(term));
 };
 
+export const getVoiceRank = (voice) => {
+    if (!voice || !voice.name) return 999;
+    if (isMaleVoice(voice)) return 999;
+
+    const lower = voice.name.toLowerCase();
+    const lang = (voice.lang || '').toLowerCase();
+
+    // 1. Voices whose name contains "Natural" or "Online"
+    if (lower.includes('natural') || lower.includes('online')) {
+        if (lang.startsWith('hi') || lang.startsWith('en-in') || lang.startsWith('en_in')) {
+            return 1;
+        }
+        return 2;
+    }
+
+    // 2. then "Google हिन्दी"
+    if (lower.includes('google हिन्दी') || lower.includes('google hindi')) {
+        return 3;
+    }
+
+    const isOldLocal = lower.includes('heera') || lower.includes('kalpana');
+
+    // 3. then other female hi-IN or en-IN voices
+    if (!isOldLocal && (lang.startsWith('hi') || lang.startsWith('en-in') || lang.startsWith('en_in'))) {
+        return 4;
+    }
+
+    // 4. old local voices (Heera, Kalpana)
+    if (isOldLocal) {
+        return 5;
+    }
+
+    // 5. any other female / non-male voice (foreign, etc.)
+    return 6;
+};
+
 export const selectPreferredVoice = (voices = [], savedVoiceName = null) => {
     if (!Array.isArray(voices) || voices.length === 0) {
         return { voice: null, isFallback: false, voiceInfo: null };
     }
 
-    // Filter out male voices
     const eligibleVoices = voices.filter((v) => !isMaleVoice(v));
+    if (eligibleVoices.length === 0) {
+        const indicFallback = voices.find((v) => {
+            const l = (v.lang || '').toLowerCase();
+            return l.startsWith('en-in') || l.startsWith('en_in') || l.startsWith('hi');
+        });
+        const fallbackVoice = indicFallback || voices[0];
+        return {
+            voice: fallbackVoice,
+            isFallback: true,
+            voiceInfo: { name: fallbackVoice?.name || 'Default', lang: fallbackVoice?.lang || 'en-IN', isFallback: true },
+        };
+    }
 
-    // Natural Hindi female voice check (e.g. Swara, Google हिन्दी, Heera)
-    const naturalHindiVoice = eligibleVoices.find((v) => {
-        const n = (v.name || '').toLowerCase();
-        const l = (v.lang || '').toLowerCase();
-        const isHi = l.startsWith('hi');
-        return isHi || /swara|heera|kalpana|veena|हिन्दी|hindi/i.test(n);
-    });
+    const sorted = [...eligibleVoices].sort((a, b) => getVoiceRank(a) - getVoiceRank(b));
+    const bestRank = getVoiceRank(sorted[0]);
 
-    // 1. Check if savedVoiceName matches an available non-male voice (unless saved was non-Hindi and Hindi natural is available)
     if (savedVoiceName) {
-        const saved = voices.find((v) => v.name === savedVoiceName);
-        const savedIsEnglish = saved && !(saved.lang || '').toLowerCase().startsWith('hi') && !/swara|heera|kalpana|veena|हिन्दी|hindi/i.test(saved.name || '');
-        if (saved && !isMaleVoice(saved) && (!naturalHindiVoice || !savedIsEnglish)) {
+        const saved = eligibleVoices.find((v) => v.name === savedVoiceName);
+        if (saved && getVoiceRank(saved) <= bestRank) {
             return {
                 voice: saved,
-                isFallback: false,
-                voiceInfo: { name: saved.name, lang: saved.lang, isFallback: false },
+                isFallback: getVoiceRank(saved) >= 6,
+                voiceInfo: { name: saved.name, lang: saved.lang, isFallback: getVoiceRank(saved) >= 6 },
             };
         }
     }
 
-    // 2. Priority check: preferred female names with en-IN or hi-IN first
-    for (const preferred of PREFERRED_FEMALE_VOICE_NAMES) {
-        const matchInd = eligibleVoices.find((v) => {
-            const n = (v.name || '').toLowerCase();
-            const l = (v.lang || '').toLowerCase();
-            const isIndic = l.startsWith('en-in') || l.startsWith('en_in') || l.startsWith('hi');
-            return n.includes(preferred) && isIndic;
-        });
-        if (matchInd) {
-            return {
-                voice: matchInd,
-                isFallback: false,
-                voiceInfo: { name: matchInd.name, lang: matchInd.lang, isFallback: false },
-            };
-        }
-    }
-
-    // 3. Preferred female names with any lang (e.g. Google UK English Female, Zira, Samantha)
-    for (const preferred of PREFERRED_FEMALE_VOICE_NAMES) {
-        const match = eligibleVoices.find((v) => (v.name || '').toLowerCase().includes(preferred));
-        if (match) {
-            return {
-                voice: match,
-                isFallback: false,
-                voiceInfo: { name: match.name, lang: match.lang, isFallback: false },
-            };
-        }
-    }
-
-    // 4. Any other female English voice
-    const otherFemaleEn = eligibleVoices.find((v) => {
-        const n = (v.name || '').toLowerCase();
-        const l = (v.lang || '').toLowerCase();
-        return l.startsWith('en') && n.includes('female');
-    });
-    if (otherFemaleEn) {
-        return {
-            voice: otherFemaleEn,
-            isFallback: false,
-            voiceInfo: { name: otherFemaleEn.name, lang: otherFemaleEn.lang, isFallback: false },
-        };
-    }
-
-    // 5. Fallback: If no female voice exists, use any en-IN or hi-IN voice (marked as fallback)
-    const indicFallback = voices.find((v) => {
-        const l = (v.lang || '').toLowerCase();
-        return l.startsWith('en-in') || l.startsWith('en_in') || l.startsWith('hi');
-    });
-    if (indicFallback) {
-        return {
-            voice: indicFallback,
-            isFallback: true,
-            voiceInfo: { name: indicFallback.name, lang: indicFallback.lang, isFallback: true },
-        };
-    }
-
-    // 6. Generic non-male or first available voice fallback
-    const anyNonMale = eligibleVoices[0] || voices[0];
+    const chosen = sorted[0];
+    const isFallback = getVoiceRank(chosen) >= 6;
     return {
-        voice: anyNonMale,
-        isFallback: true,
-        voiceInfo: { name: anyNonMale?.name || 'Unknown', lang: anyNonMale?.lang || 'en-US', isFallback: true },
+        voice: chosen,
+        isFallback,
+        voiceInfo: { name: chosen.name, lang: chosen.lang, isFallback },
     };
 };
 

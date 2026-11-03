@@ -62,6 +62,49 @@ export default function ClientPreviewCard({
                     )}
                 </dd>
 
+                {Array.isArray(preview.services) && preview.services.length > 0 && (
+                    <>
+                        <dt>Services</dt>
+                        <dd>
+                            <div className="ai-assignee-chips">
+                                {preview.services.map((service, idx) => (
+                                    <span key={idx} className="ai-assignee-chip">
+                                        <span className="ai-assignee-chip-name">{service}</span>
+                                    </span>
+                                ))}
+                            </div>
+                        </dd>
+                    </>
+                )}
+
+                {preview.planName && (
+                    <>
+                        <dt>Plan</dt>
+                        <dd><strong>{preview.planName}</strong></dd>
+                    </>
+                )}
+
+                {preview.price !== null && preview.price !== undefined && (
+                    <>
+                        <dt>Price</dt>
+                        <dd>₹{Number(preview.price).toLocaleString('en-IN')}</dd>
+                    </>
+                )}
+
+                {preview.subscriptionStartDate && (
+                    <>
+                        <dt>Start Date</dt>
+                        <dd>{preview.subscriptionStartDate}</dd>
+                    </>
+                )}
+
+                {(preview.companyLogoName || preview.companyLogo) && (
+                    <>
+                        <dt>Logo</dt>
+                        <dd>📎 {preview.companyLogoName || String(preview.companyLogo).split('/').pop()}</dd>
+                    </>
+                )}
+
                 {preview.email && (
                     <>
                         <dt>Email</dt>

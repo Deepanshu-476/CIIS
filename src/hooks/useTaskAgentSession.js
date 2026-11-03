@@ -17,6 +17,9 @@ import {
     validateAttachmentFile,
     buildTaskFormDataEntries,
     getRoleAwareGreeting,
+    WELCOME_MENU_BUTTONS,
+    WELCOME_GREETING_TEXT,
+    WELCOME_GREETING_HINDI,
     cleanForSpeech,
     resolveSpokenText,
     determineTurnSpeechAndMicAction,
@@ -153,6 +156,9 @@ export default function useTaskAgentSession({
         lastTranscriptDiag,
         updateTranscriptDiag,
         voiceInfo,
+        allVoices,
+        speakDiag,
+        setSpeakDiag,
     } = useSpeech({
         defaultEngine: 'whisper',
         defaultLang: 'auto', // Defaults to auto language detection
@@ -264,7 +270,7 @@ export default function useTaskAgentSession({
             window.speechSynthesis?.speaking &&
             window.__ciisCurrentUtterance
         );
-        if (isActivelySpeaking && attempt < 4) {
+        if (isActivelySpeaking) {
             setTimeout(() => ensureListening(attempt + 1), 300);
             return;
         }
@@ -341,24 +347,6 @@ export default function useTaskAgentSession({
             setLoading(true);
             cancelSpeech();
             stop('turn-send');
-
-            // Check if user is responding to post-creation chain questions
-            if (result?.field === 'chain_client_project_decision' && text && !action && !pick) {
-                setLoading(false);
-                if (isConfirmationIntent(text) || /^(?:haan|yes|ha|kar\s*do|banao)/i.test(text.trim())) {
-                    const notice = 'Ye feature abhi jald aa raha hai';
-                    pushMsg('assistant', notice);
-                    if (autoSpeak) {
-                        cancelSpeech();
-                        speak('यह फीचर अभी जल्द आ रहा है', notice);
-                    }
-                    setResult(null);
-                    return;
-                } else {
-                    setResult(null);
-                    return;
-                }
-            }
 
             // When ready to create, check if message is a field change, confirmation, or refusal
             const isReady = readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready';
@@ -473,10 +461,12 @@ export default function useTaskAgentSession({
                     setHighlightPaperclip(false);
                 }
 
-                const spokenText = cleanForSpeech(data.reply || resolveSpokenText(data, data.reply));
-                const spokenSpeech = data.speechDevanagari
+                const spokenText = resolveSpokenText(data, data.reply);
+                const spokenSpeech = data.speakTextHi
+                    ? cleanForSpeech(data.speakTextHi)
+                    : (data.speechDevanagari
                     ? cleanForSpeech(data.speechDevanagari)
-                    : ((data.speech && !data.reply) ? cleanForSpeech(data.speech) : spokenText);
+                    : ((data.speech && !data.reply) ? cleanForSpeech(data.speech) : spokenText));
 
                 const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
 
@@ -502,7 +492,6 @@ export default function useTaskAgentSession({
 
                 if (shouldSpeak && assistantMsgId && !spokenMessageIdsRef.current.has(assistantMsgId)) {
                     spokenMessageIdsRef.current.add(assistantMsgId);
-                    cancelSpeech();
 
                     speak(spokenSpeech, spokenText, () => {
                         (ensureListeningRef.current || ensureListening)();
@@ -742,8 +731,22 @@ export default function useTaskAgentSession({
         (newFilesList) => {
             setFileError(null);
             const valid = [];
-            const maxFilesLimit = resultRef.current?.payload?.maxFiles || result?.payload?.maxFiles || (resultRef.current?.draft?.intent === 'task_project' || result?.draft?.intent === 'task_project' ? 1 : MAX_FILES);
+            const isClientFlow = resultRef.current?.draft?.intent === 'create_client' || result?.draft?.intent === 'create_client';
+            const clientAllowedExts = ['.png', '.jpg', '.jpeg', '.webp'];
+            const clientMaxSizeBytes = 2 * 1024 * 1024;
+            const maxFilesLimit = isClientFlow ? 1 : (resultRef.current?.payload?.maxFiles || result?.payload?.maxFiles || (resultRef.current?.draft?.intent === 'task_project' || result?.draft?.intent === 'task_project' ? 1 : MAX_FILES));
             for (const file of newFilesList) {
+                if (isClientFlow) {
+                    const ext = (file.name ? '.' + file.name.split('.').pop() : '').toLowerCase();
+                    if (!clientAllowedExts.includes(ext)) {
+                        setFileError('Logo file type invalid hai. Sirf PNG, JPG, JPEG ya WEBP files allowed hain.');
+                        continue;
+                    }
+                    if (file.size > clientMaxSizeBytes) {
+                        setFileError('Logo file size is too large. Maximum size is 2MB.');
+                        continue;
+                    }
+                }
                 const validation = validateAttachmentFile(file, files.length + valid.length, maxFilesLimit);
                 if (!validation.valid) {
                     setFileError(validation.error);
@@ -758,15 +761,15 @@ export default function useTaskAgentSession({
                     setFileError(`Sirf maximum ${maxFilesLimit} file${maxFilesLimit === 1 ? '' : 's'} attach kar sakte hain.`);
                     const limited = combined.slice(0, maxFilesLimit);
                     sendRef.current?.({
-                        action: { type: 'attachments', count: limited.length },
-                        display: `📎 ${limited.length} file(s) attached`,
+                        action: isClientFlow ? { type: 'set', field: 'companyLogoName', value: limited[0]?.name } : { type: 'attachments', count: limited.length },
+                        display: isClientFlow ? `📎 Logo: ${limited[0]?.name} attached` : `📎 ${limited.length} file(s) attached`,
                     });
                     return limited;
                 }
                 if (valid.length > 0) {
                     sendRef.current?.({
-                        action: { type: 'attachments', count: combined.length },
-                        display: `📎 ${combined.length} file(s) attached`,
+                        action: isClientFlow ? { type: 'set', field: 'companyLogoName', value: combined[0]?.name } : { type: 'attachments', count: combined.length },
+                        display: isClientFlow ? `📎 Logo: ${combined[0]?.name} attached` : `📎 ${combined.length} file(s) attached`,
                     });
                 }
                 return combined;
@@ -850,7 +853,32 @@ export default function useTaskAgentSession({
         setUploadProgress(0);
 
         try {
-            const isMultipart = payload.multipart !== false && (files.length > 0 || Boolean(voiceNoteBlob) || payload.multipart === true);
+            const isCreatingClient = payload.endpoint === '/clientsservice' || currentDraft?.intent === 'create_client';
+            let uploadedLogoUrl = null;
+            if (isCreatingClient && files.length > 0) {
+                const logoForm = new FormData();
+                logoForm.append('logo', files[0]);
+                try {
+                    const logoRes = await axiosInstance.post('/company/upload-logo', logoForm, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                        timeout: 30000,
+                    });
+                    if (logoRes?.data?.success && logoRes?.data?.logoUrl) {
+                        uploadedLogoUrl = logoRes.data.logoUrl;
+                    } else {
+                        throw new Error(logoRes?.data?.message || 'Logo upload failed');
+                    }
+                } catch (logoErr) {
+                    console.error('[useTaskAgentSession] Logo upload error:', logoErr);
+                    const errMsg = logoErr.response?.data?.message || logoErr.message || 'Logo upload fail ho gaya';
+                    pushMsg('assistant', `Logo upload error: ${errMsg}. Client create nahi ho saka.`, { isError: true });
+                    setCreating(false);
+                    isCreatingRef.current = false;
+                    return;
+                }
+            }
+
+            const isMultipart = !isCreatingClient && payload.multipart !== false && (files.length > 0 || Boolean(voiceNoteBlob) || payload.multipart === true);
             let requestData;
             const requestHeaders = {};
 
@@ -866,7 +894,10 @@ export default function useTaskAgentSession({
                 });
                 requestData = formData;
             } else {
-                requestData = payload.body || payload.fields || {};
+                requestData = { ...(payload.body || payload.fields || {}) };
+                if (uploadedLogoUrl) {
+                    requestData.companyLogo = uploadedLogoUrl;
+                }
                 requestHeaders['Content-Type'] = 'application/json';
             }
 
@@ -892,7 +923,6 @@ export default function useTaskAgentSession({
                 throw err;
             }
 
-            const isCreatingClient = payload.endpoint === '/clientsservice' || currentDraft?.intent === 'create_client';
             if (isCreatingClient) {
                 const createdClient = response?.data?.data?.client || response?.data?.client || response?.data?.data || null;
                 const newClientId = createdClient?._id || response?.data?.client?._id || response?.data?.data?._id || createdClient?.id;
@@ -911,36 +941,21 @@ export default function useTaskAgentSession({
                     window.dispatchEvent(new CustomEvent('client:created', { detail }));
                 }
 
-                const successReply = `Client '${newClientName}' ban gaya ✅\n\nIs client ko kisi project mein add karna hai?`;
-                pushMsg('assistant', successReply);
+                const hasServices = Array.isArray(payload.fields?.services) && payload.fields.services.length > 0;
+                let clientSuccessText = `Client '${newClientName}' successfully ban gaya ✅`;
+                if (!hasServices) {
+                    clientSuccessText += '\n\nIs client ke liye abhi koi service nahi hai, isliye client task tab tak nahi ban payega.';
+                }
+                pushMsg('assistant', clientSuccessText);
                 if (autoSpeak) {
                     cancelSpeech();
-                    speak('क्लाइंट बन गया। क्या इस क्लाइंट को किसी प्रोजेक्ट में ऐड करना है?', `Client '${newClientName}' ban gaya. Is client ko kisi project mein add karna hai?`, () => {
-                        (ensureListeningRef.current || ensureListening)();
-                    });
-                } else {
-                    (ensureListeningRef.current || ensureListening)();
+                    const spokenMsg = hasServices
+                        ? `Client '${newClientName}' successfully ban gaya`
+                        : `Client '${newClientName}' ban gaya. Is client ke liye abhi koi service nahi hai, isliye client task tab tak nahi ban payega.`;
+                    speak(hasServices ? 'क्लाइंट सफलतापूर्वक बन गया' : 'क्लाइंट बन गया। इसके लिए कोई सर्विस नहीं है।', spokenMsg);
                 }
-
-                setResult({
-                    status: 'needs_input',
-                    field: 'chain_client_project_decision',
-                    reply: successReply,
-                    speech: 'क्लाइंट बन गया। क्या इस क्लाइंट को किसी प्रोजेक्ट में ऐड करना है?',
-                    speakText: `Client '${newClientName}' ban gaya. Is client ko kisi project mein add karna hai?`,
-                    chips: [
-                        {
-                            label: 'Haan',
-                            action: {
-                                type: 'chain_client_project_notice',
-                            },
-                        },
-                        {
-                            label: 'Nahi',
-                            action: { type: 'finish_chain' },
-                        },
-                    ],
-                });
+                stop('created');
+                resetFlow();
                 return;
             }
 
@@ -1132,16 +1147,6 @@ export default function useTaskAgentSession({
             resetFlow();
             return;
         }
-        if (chip.action?.type === 'chain_client_project_notice') {
-            const notice = 'Ye feature abhi jald aa raha hai';
-            pushMsg('assistant', notice);
-            if (autoSpeak) {
-                cancelSpeech();
-                speak('यह फीचर अभी जल्द आ रहा है', notice);
-            }
-            setResult(null);
-            return;
-        }
         if (chip.action?.type === 'finish_chain') {
             setResult(null);
             return;
@@ -1157,7 +1162,7 @@ export default function useTaskAgentSession({
             return;
         }
         if (chip.action) {
-            sendTurn({ action: chip.action, display: chip.label, source: turnSource });
+            sendTurn({ action: chip.action, text: chip.label, display: chip.label, source: turnSource });
         } else if (chip.type === 'due') {
             sendTurn({
                 action: { type: 'set', field: 'dueDateTime', value: chip.value },
@@ -1249,8 +1254,8 @@ export default function useTaskAgentSession({
             const greetingId = pushMsg('assistant', greeting);
 
             // Short spoken version (<= 200 characters) for natural TTS:
-            const shortGreetingHinglish = 'Namaste! Main CIIS AI Assistant hoon. Task create karne mein main aapki madad karunga. Kripya task details batayein.';
-            const shortGreetingHindi = 'नमस्ते! मैं सी आई आई एस ए आई असिस्टेंट हूँ। टास्क बनाने में मैं आपकी मदद करूँगा। कृपया टास्क बताएं।';
+            const shortGreetingHinglish = WELCOME_GREETING_TEXT;
+            const shortGreetingHindi = WELCOME_GREETING_HINDI;
 
             if (autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
                 spokenMessageIdsRef.current.add(greetingId);
@@ -1383,7 +1388,9 @@ export default function useTaskAgentSession({
     };
 
     const status = result?.status;
-    const chips = Array.isArray(result?.chips) ? result.chips : [];
+    const chips = Array.isArray(result?.chips) && result?.chips.length > 0
+        ? result.chips
+        : (messages.length <= 1 && (!result?.draft || !result?.draft?.intent) ? WELCOME_MENU_BUTTONS : []);
     const candidates = status === 'needs_disambiguation' ? result?.candidates || [] : [];
     const currentDraft = result?.draft || draftRef.current || {};
 

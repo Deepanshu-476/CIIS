@@ -335,6 +335,8 @@ const ChatBox = ({
 
     const [messages, setMessages] =
         useState([]);
+    // Which conversation's first page has arrived, so "no messages yet" never flashes while loading.
+    const [loadedConversationId, setLoadedConversationId] = useState(null);
     const [messagePagination, setMessagePagination] = useState({
         hasMore: false,
         nextBefore: null,
@@ -809,6 +811,7 @@ const ChatBox = ({
                     String(msg._id || "") ===
                         String(data?.messageId || "")
 
+<<<<<<< HEAD
                         ? {
                             ...msg,
                             seen: true,
@@ -817,6 +820,17 @@ const ChatBox = ({
                                 seenBy
                             ].filter(Boolean)))
                         }
+=======
+                ? {
+                    ...msg,
+                    // In a group, blue only once every other member has read it (server sends allSeen).
+                    seen: Boolean(msg.seen) || data?.allSeen !== false,
+                    seenBy: Array.from(new Set([
+                        ...(Array.isArray(msg.seenBy) ? msg.seenBy : []),
+                        seenBy
+                    ].filter(Boolean)))
+                }
+>>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
 
                         : msg
                 )
@@ -988,9 +1002,31 @@ const ChatBox = ({
 
             } catch (error) {
 
+<<<<<<< HEAD
                 void 0;
             }
         };
+=======
+            setMessages(
+                sortMessagesByCreatedAt(
+                    (Array.isArray(res.data.messages) ? res.data.messages : [])
+                        .map(message => normalizeMessageForChat(message, getEntityId(currentUser)))
+                )
+            );
+            setMessagePagination({
+                hasMore: Boolean(res.data.pagination?.hasMore),
+                nextBefore: res.data.pagination?.nextBefore || null,
+            });
+            setLoadedConversationId(String(conversationId));
+            onConversationChange?.();
+            queueScrollToLatestMessage("auto");
+
+        } catch (error) {
+
+            void 0;
+        }
+    };
+>>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
 
     const loadOlderMessages = async () => {
         if (!conversation?._id || isLoadingOlderMessages || !messagePagination.hasMore || !messagePagination.nextBefore) return;
@@ -2177,9 +2213,15 @@ const ChatBox = ({
         : (typeof isUserOnlineNow === "function"
             ? isUserOnlineNow(selectedUser)
             : (presenceReady ? isIdOnline(selectedUserId) : (Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId))));
+<<<<<<< HEAD
+=======
+    // The server rings every signed-in device and wakes offline ones by push, so a call must not
+    // depend on the live "online" dot (since presence became strict, it blocked calling anyone whose
+    // app was in the background).
+>>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
     const canStartCall = selectedUser?.isGroup
-        ? onlineGroupCount > 0 || groupMemberCount === 0
-        : isSelectedUserOnline;
+        ? groupMemberCount > 0 || onlineGroupCount > 0
+        : Boolean(selectedUserId);
 
     const startDirectCall = (callType) => {
         if (!canStartCall) return;
@@ -2322,6 +2364,7 @@ const ChatBox = ({
                                             ? groupStatusLabel
                                             : (isSelectedUserOnline ? "Online" : "Offline")}
                                 </span>
+<<<<<<< HEAD
                             </span>
                         </button>
                     </div>
@@ -2357,6 +2400,65 @@ const ChatBox = ({
                                 <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
                                     <Info size={17} />
                                     {selectedUser.isGroup ? "Group info" : "Contact info"}
+=======
+                        </span>
+                    </button>
+                </div>
+                <div className="chat-header-actions" ref={headerMenuRef}>
+                    <button
+                        type="button"
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group members") : "Start video call"}
+                        onClick={() => startDirectCall("video")}
+                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
+                    >
+                        <Video size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group members") : "Start voice call"}
+                        onClick={() => startDirectCall("audio")}
+                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
+                    >
+                        <Phone size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        title="Search"
+                        onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}
+                    >
+                        <Search size={18} />
+                    </button>
+                    <button type="button" title="More" onClick={() => setShowHeaderMenu(value => !value)}>
+                        <MoreVertical size={18} />
+                    </button>
+                    {showHeaderMenu && (
+                        <div className="chat-profile-menu">
+                            <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
+                                <Info size={17} />
+                                {selectedUser.isGroup ? "Group info" : "Contact info"}
+                            </button>
+                            <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
+                                <Search size={17} />
+                                Search messages
+                            </button>
+                            <button type="button" onClick={() => { setContactPanelView("media"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
+                                <Images size={17} />
+                                Media, links and docs
+                            </button>
+                            <button type="button" onClick={() => { setMuteState(!isMuted); setShowHeaderMenu(false); }}>
+                                <Bell size={17} />
+                                {isMuted ? "Unmute notifications" : "Mute notifications"}
+                            </button>
+                            <span className="chat-profile-menu-divider" />
+                            <button type="button" className="danger" onClick={clearCurrentChat} disabled={!messages.length || isSendingAction}>
+                                <Trash2 size={17} />
+                                Clear chat
+                            </button>
+                            {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
+                                <button type="button" className="danger" onClick={deleteCurrentChannel} disabled={isSendingAction}>
+                                    <Trash2 size={17} />
+                                    Delete channel
+>>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
                                 </button>
                                 <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
                                     <Search size={17} />
@@ -2903,6 +3005,546 @@ const ChatBox = ({
                 </div>
             </div>
 
+<<<<<<< HEAD
+=======
+            <div className="chat-topic-bar">
+                <strong>Chat Topic: {getCurrentTopic()}</strong>
+                <button type="button">Change Topic</button>
+            </div>
+
+            <div
+                className="chat-messages"
+                ref={chatMessagesRef}
+                onScroll={updateActiveChatDate}
+                style={(contactWallpaper || effectiveChatSettings.chats.wallpaper) ? { backgroundImage: `linear-gradient(rgba(255,255,255,0.76), rgba(255,255,255,0.76)), url("${contactWallpaper || effectiveChatSettings.chats.wallpaper}")` } : undefined}
+            >
+                {isContactSearchOpen && (
+                    <div className="chat-message-search-bar">
+                        <Search size={16} />
+                        <input
+                            value={contactSearchTerm}
+                            onChange={(event) => setContactSearchTerm(event.target.value)}
+                            placeholder="Search messages"
+                            autoFocus
+                        />
+                        <button type="button" onClick={() => { setIsContactSearchOpen(false); setContactSearchTerm(""); }}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+                {showActiveChatDate && activeChatDateLabel && (
+                    <div className="chat-active-date">
+                        <span>{activeChatDateLabel}</span>
+                    </div>
+                )}
+
+                {messagePagination.hasMore && !normalizedSearchTerm && (
+                    <div className="chat-load-older-wrap">
+                        <button
+                            type="button"
+                            className="chat-load-older-btn"
+                            onClick={loadOlderMessages}
+                            disabled={isLoadingOlderMessages}
+                        >
+                            {isLoadingOlderMessages ? "Loading..." : "Load older messages"}
+                        </button>
+                    </div>
+                )}
+
+                {
+                    displayedMessages.map((message, index) => {
+                        const previousMessage = displayedMessages[index - 1];
+                        const disappearingNotice = getDisappearingSystemNotice(message);
+                        const shouldShowDateSeparator = !previousMessage
+                            || getMessageDateKey(previousMessage.createdAt) !== getMessageDateKey(message.createdAt);
+                        const messageDateLabel = formatMessageDateSeparator(message.createdAt);
+
+                        return (
+                            <React.Fragment key={message._id || `${message.createdAt}-${index}`}>
+                                {shouldShowDateSeparator && (
+                                    <div className="chat-date-separator" data-date-label={messageDateLabel}>
+                                        <span>{messageDateLabel}</span>
+                                    </div>
+                                )}
+
+                                {isCallMessage(message) ? (() => {
+                                    const callInfo = describeCallMessage(message, currentUser?._id || currentUser?.id);
+                                    const CallIcon = callInfo.isVideo ? Video : Phone;
+                                    return (
+                                        <div className="chat-disappearing-notice" data-message-id={message._id || ""} style={callInfo.missed ? { color: "#dc2626" } : undefined}>
+                                            <CallIcon size={14} />
+                                            <span>
+                                                {callInfo.outgoing ? "↗ " : "↙ "}{callInfo.text} · {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                            </span>
+                                        </div>
+                                    );
+                                })() : message.messageType === "system" && message.systemEvent?.task ? (() => {
+                                    const taskMeta = getTaskEventMeta(message);
+                                    return (
+                                        <div className="chat-task-update" data-message-id={message._id}>
+                                            <button
+                                                type="button"
+                                                className={`chat-task-card event-${taskMeta.eventCategory}`}
+                                                onClick={() => openProjectTask(message.systemEvent)}
+                                                title="Click to view task details"
+                                            >
+                                                <div className="chat-task-card-header">
+                                                    <div className="chat-task-card-header-left">
+                                                        <Clock size={12} className="chat-task-card-clock" />
+                                                        <span className="chat-task-event-badge">{taskMeta.label}</span>
+                                                    </div>
+                                                    {taskMeta.formattedTime && (
+                                                        <time className="chat-task-card-time" title={taskMeta.fullDateTime}>
+                                                            {taskMeta.formattedTime}
+                                                        </time>
+                                                    )}
+                                                </div>
+                                                <div className="chat-task-card-body">
+                                                    <FileText size={15} className="chat-task-card-icon" />
+                                                    <span className="chat-task-card-text">{taskEventText(message)}</span>
+                                                    <ChevronRight size={14} className="chat-task-card-chevron" />
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="chat-task-reply"
+                                                onClick={() => handleMessageReply(message)}
+                                                aria-label="Reply to task update"
+                                                title="Reply to task update"
+                                            >
+                                                <Reply size={14} /> Reply
+                                            </button>
+                                        </div>
+                                    );
+                                })() : disappearingNotice ? (
+                                    <div className="chat-disappearing-notice" data-message-id={message._id || ""}>
+                                        <TimerReset size={14} />
+                                        <span>
+                                            <strong>
+                                                {String(disappearingNotice.actorId || "") === String(currentUser?._id || currentUser?.id || "")
+                                                    ? "You"
+                                                    : disappearingNotice.actorName || "A participant"}
+                                            </strong>
+                                            {disappearingNotice.mode === "off"
+                                                ? " turned off disappearing messages"
+                                                : ` turned on disappearing messages. New messages disappear after ${
+                                                    disappearingNotice.mode === "24h" ? "24 hours" : disappearingNotice.mode === "7d" ? "7 days" : "90 days"
+                                                }`}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="chat-message-date-anchor" data-date-label={messageDateLabel} data-message-id={message._id || ""}>
+                                        <MessageBubble
+                                            message={message}
+                                            currentUser={currentUser}
+                                            users={users}
+                                            onDeleteForMe={handleDeleteForMe}
+                                            onDeleteForEveryone={handleDeleteForEveryone}
+                                            onForward={handleForward}
+                                            onReply={handleMessageReply}
+                                            onReplyJump={scrollToRepliedMessage}
+                                            onReact={handleReaction}
+                                            isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
+                                            onToggleStar={toggleStarredMessage}
+                                            socket={socket}
+                                            isGroupChat={Boolean(selectedUser?.isGroup || conversation?.isGroup)}
+                                        />
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        );
+                    })
+                }
+
+                {displayedMessages.length === 0
+                    && !normalizedSearchTerm
+                    && conversation?._id
+                    && loadedConversationId === String(conversation._id) && (
+                    <div className="chat-thread-empty">
+                        <span className="chat-thread-empty-icon"><MessageCircle size={26} /></span>
+                        <strong>No messages yet</strong>
+                        <p>
+                            {selectedUser?.isGroup
+                                ? "Start the conversation with this group."
+                                : `Start the conversation with ${selectedUser?.name || "this person"}.`}
+                        </p>
+                        <button type="button" onClick={() => chatInputRef.current?.focus()}>
+                            Start conversation
+                        </button>
+                    </div>
+                )}
+
+            </div>
+
+            {projectTask && <TaskDetailsModal open task={projectTask} canEdit={false}
+                employeeInfo={currentUser} onClose={() => setProjectTask(null)}
+                mentionUsers={selectedUser?.members || []}
+                onRemarkAdded={async (task, text, _files, mentions) => {
+                    const key = JSON.stringify([task.clientId || task.projectId, task._id, text, mentions]);
+                    const requestId = remarkRequests.current.get(key) || crypto.randomUUID();
+                    remarkRequests.current.set(key, requestId);
+                    if (task.clientId) await addClientChatRemark(task.clientId, task._id, text, mentions, requestId);
+                    else await addProjectChatRemark(task.projectId, task._id, text, mentions, requestId);
+                    const result = task.clientId ? await getClientChatTask(task.clientId, task._id) : await getProjectChatTask(task.projectId, task._id);
+                    setProjectTask(result.data.task);
+                    remarkRequests.current.delete(key);
+                }} />}
+            <div className="chat-input-area">
+                <div className="chat-quick-replies">
+                    {quickReplies.map(reply => (
+                        <button type="button" key={reply} onClick={() => setText(reply)}>
+                            {reply}
+                        </button>
+                    ))}
+                </div>
+
+                {recorderMode === "audio" ? (
+                    <div className="voice-recorder-bar">
+                        <div className="voice-recorder-cancel-wrap">
+                            <div className="voice-recorder-tooltip">Cancel</div>
+                            <button
+                                type="button"
+                                className="voice-recorder-cancel-btn"
+                                onClick={cancelVoiceRecording}
+                                title="Cancel recording"
+                                aria-label="Cancel recording"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+
+                        <div className="voice-recorder-status">
+                            <span className={`voice-recorder-dot ${isRecordingPaused ? "paused" : "blinking"}`} />
+                            <span className="voice-recorder-time">
+                                {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+                            </span>
+                        </div>
+
+                        <VoiceRecordingWaveform
+                            stream={recordingStreamRef.current}
+                            isPaused={isRecordingPaused}
+                        />
+
+                        <button
+                            type="button"
+                            className={`voice-recorder-pause-btn ${isRecordingPaused ? "paused" : ""}`}
+                            onClick={togglePauseVoiceRecording}
+                            title={isRecordingPaused ? "Resume recording" : "Pause recording"}
+                            aria-label={isRecordingPaused ? "Resume recording" : "Pause recording"}
+                        >
+                            {isRecordingPaused ? <Mic size={18} /> : <Pause size={18} />}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="voice-recorder-send-btn"
+                            onClick={sendVoiceRecordingImmediately}
+                            disabled={isSendingAction}
+                            title="Send voice message"
+                            aria-label="Send voice message"
+                        >
+                            <SendHorizontal size={19} />
+                        </button>
+                    </div>
+                ) : (
+                <div className="chat-composer">
+                    <div className="attachment-menu-wrap" ref={attachmentMenuRef}>
+                        <button
+                            type="button"
+                            className={`file-upload-btn ${showAttachmentMenu ? "active" : ""}`}
+                            onClick={() => {
+                                setShowAttachmentMenu((prev) => !prev);
+                                setShowEmojiPicker(false);
+                            }}
+                            title={showAttachmentMenu ? "Close attachment menu" : "Attach"}
+                            aria-label={showAttachmentMenu ? "Close attachment menu" : "Attach"}
+                            aria-expanded={showAttachmentMenu}
+                        >
+                            {showAttachmentMenu ? <X size={19} /> : <Paperclip size={19} />}
+                        </button>
+
+                        {showAttachmentMenu && (
+                            <div
+                                className="attachment-menu-popup"
+                                role="menu"
+                                style={{
+                                    width: 170,
+                                    minWidth: 170,
+                                    maxWidth: 185,
+                                    background: "#ffffff",
+                                    borderRadius: 12,
+                                    padding: "6px 4px",
+                                    boxSizing: "border-box",
+                                    border: "1px solid #e2e8f0",
+                                    boxShadow: "0 10px 25px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.05)"
+                                }}
+                            >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 8px 6px", borderBottom: "1px solid #f1f5f9", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                    <span>Attach</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAttachmentMenu(false)}
+                                        style={{ border: 0, background: "transparent", cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", padding: 2 }}
+                                        title="Close"
+                                        aria-label="Close attachment menu"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        documentInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-document">
+                                        <FileText size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Document</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        photosVideosInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-photos">
+                                        <Images size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Photos & videos</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        startRecording("video");
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-camera">
+                                        <Camera size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Camera</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        audioInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-audio">
+                                        <Headphones size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Audio</span>
+                                </button>
+                            </div>
+                        )}
+
+                        <input
+                            ref={documentInputRef}
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip,.rar,.7z"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={photosVideosInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*,video/*"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={audioInputRef}
+                            type="file"
+                            multiple
+                            accept="audio/*"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                    </div>
+
+                    <div className="chat-input-wrapper">
+                        {replyingTo && (
+                            <div className="chat-reply-preview">
+                                <div>
+                                    <strong>
+                                        {String(replyingTo.sender?._id || replyingTo.sender || "") === currentUserId
+                                            ? "You"
+                                            : replyingTo.sender?.name || selectedName || "User"}
+                                    </strong>
+                                    <span>{taskEventText(replyingTo) || (attachmentSource(replyingTo) ? attachmentLabel(replyingTo) : "Message")}</span>
+                                </div>
+                                <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
+                                    <X size={17} />
+                                </button>
+                            </div>
+                        )}
+                        {files.length > 0 && (
+                            <div className="selected-files-wrap">
+                                <div className="selected-files-list">
+                                    {files.map((fileItem, index) => {
+                                        const file = getUploadFile(fileItem);
+                                        return (
+                                        <div
+                                            className="selected-file-info"
+                                            key={`${file.name}-${file.lastModified}-${index}`}
+                                            title={file.name}
+                                        >
+                                            <span>{file.name}</span>
+                                            {getMediaCompressionType(file) && (
+                                                <small>{fileItem.compressionMode === "hd" ? "HD" : "Normal"}</small>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index))}
+                                                aria-label={`Deselect ${file.name}`}
+                                                title="Deselect file"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    );})}
+                                </div>
+                                {files.length > 1 && (
+                                    <button
+                                        type="button"
+                                        className="selected-files-clear"
+                                        onClick={() => setFiles([])}
+                                    >
+                                        Clear all
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {recordingError && (
+                            <div className="recording-error">{recordingError}</div>
+                        )}
+                        <ChatMentionInput
+                            ref={chatInputRef}
+                            mentions={messageMentions}
+                            members={availableMentionMembers}
+                            onMentionSelect={setText}
+                            aria-label={replyingTo ? "Write a reply" : "Write a message"}
+                            type="text"
+                            className="chat-input"
+                            value={text}
+                            onChange={(e) =>
+                                {
+                                    setText(e.target.value);
+                                    if (conversation?._id) {
+                                        socket?.emit("chat:typing", { conversationId: conversation._id });
+                                        clearTimeout(typingTimerRef.current);
+                                        typingTimerRef.current = setTimeout(() => {
+                                            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+                                        }, 900);
+                                    }
+                                }
+                            }
+                            placeholder="Type your message..."
+                            onFocus={() => {
+                                setShowAttachmentMenu(false);
+                                setShowEmojiPicker(false);
+                            }}
+                            onKeyDown={(e) => {
+                                if (
+                                    e.key === "Enter"
+                                    && effectiveChatSettings.chats.enterToSend
+                                    && (!effectiveChatSettings.keyboard.enabled || !e.shiftKey)
+                                ) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        className="recording-btn composer-video-btn"
+                        onClick={() => startRecording("video")}
+                        disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : "Record video"}
+                        type="button"
+                    >
+                        <Camera size={18} />
+                    </button>
+
+                    <div className="emoji-picker-wrap" ref={emojiPickerRef}>
+                        <button
+                            type="button"
+                            className="emoji-btn"
+                            title="Emoji"
+                            aria-label="Emoji"
+                            aria-expanded={showEmojiPicker}
+                            onClick={() => {
+                                setShowEmojiPicker((prev) => !prev);
+                                setShowAttachmentMenu(false);
+                            }}
+                        >
+                            <Smile size={20} />
+                        </button>
+                        {showEmojiPicker && (
+                            <div className="emoji-picker-panel">
+                                <EmojiPicker
+                                    colorScheme={Theme.DARK}
+                                    emojiStyle={EmojiStyle.NATIVE}
+                                    categories={CHAT_EMOJI_CATEGORIES}
+                                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
+                                    searchPlaceHolder="Search emoji"
+                                    lazyLoadEmojis
+                                    width="100%"
+                                    height="min(420px, calc(100dvh - 180px))"
+                                    previewConfig={{ showPreview: false }}
+                                    onEmojiClick={handleEmojiSelect}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        className={recorderMode === "audio" ? "recording-btn composer-voice-btn active" : "recording-btn composer-voice-btn"}
+                        onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
+                        disabled={isSendingAction || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
+                        title={recorderMode === "audio" ? "End voice recording" : "Start voice recording"}
+                        type="button"
+                    >
+                        {recorderMode === "audio" ? <Square size={17} /> : <Mic size={18} />}
+                    </button>
+
+                    <button
+                        className="send-btn"
+                        onClick={handleSend}
+                        disabled={isSendingAction}
+                        title="Send message"
+                        type="button"
+                    >
+                        <SendHorizontal size={20} />
+                    </button>
+                </div>
+                )}
+            </div>
+            </div>
+
+>>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
             {showContactInfo && (
                 <div
                     className="chat-contact-resizer"

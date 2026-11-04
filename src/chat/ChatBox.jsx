@@ -31,8 +31,6 @@ const CHAT_FILE_ACCEPT = [
 ].join(",");
 
 const VOICE_RECORDING_MAX_SECONDS = 5 * 60;
-const AUTO_COMPRESS_IMAGE_BYTES = 10 * 1024 * 1024;
-const AUTO_COMPRESS_VIDEO_BYTES = 200 * 1024 * 1024;
 const CHAT_EMOJI_CATEGORIES = [
     { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
     { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
@@ -54,20 +52,9 @@ const getMediaCompressionType = (file) => {
     return "";
 };
 
-const shouldAutoCompress = (file) => {
-    const mediaType = getMediaCompressionType(file);
-    if (mediaType === "image") return Number(file?.size || 0) > AUTO_COMPRESS_IMAGE_BYTES;
-    if (mediaType === "video") return Number(file?.size || 0) > AUTO_COMPRESS_VIDEO_BYTES;
-    return false;
-};
-
-const chooseCompressionMode = (file) => {
-    const mediaType = getMediaCompressionType(file);
-    if (!mediaType || shouldAutoCompress(file)) return "normal";
-    return window.confirm(`${file.name}\n\nSend this file in HD quality?\nOK = HD, Cancel = Normal`)
-        ? "hd"
-        : "normal";
-};
+// Picked photos and videos are sent as they are (same file, size and format);
+// "hd" tells the backend not to re-encode them. Other files keep the old mode.
+const chooseCompressionMode = (file) => (getMediaCompressionType(file) ? "hd" : "normal");
 
 const appendCompressionMode = (formData, mode = "normal") => {
     formData.append("compressionMode", mode === "hd" ? "hd" : "normal");
@@ -1832,7 +1819,7 @@ useEffect(() => {
                 title={item.name}
             >
                 {canPreviewImage ? (
-                    <img src={item.message?.localPreviewUrl || item.url} alt={item.name} />
+                    <img src={item.message?.localPreviewUrl || item.message?.previewFile || item.url} alt={item.name} />
                 ) : item.kind === "video" ? (
                     <><Video size={22} /><span className="chat-contact-play"><Play size={15} fill="currentColor" /></span></>
                 ) : item.kind === "audio" ? (
@@ -2929,7 +2916,7 @@ useEffect(() => {
                                         >
                                             <span>{file.name}</span>
                                             {getMediaCompressionType(file) && (
-                                                <small>{fileItem.compressionMode === "hd" ? "HD" : "Normal"}</small>
+                                                <small>Original</small>
                                             )}
                                             <button
                                                 type="button"

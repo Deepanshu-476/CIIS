@@ -1197,8 +1197,16 @@ const CompanyAllTaskTasks = () => {
       endpoints.push({ key: "remarks", url: `/task/${task._id}/remarks` });
     }
 
-    // Universal Activity Logs endpoint works for all task types
-    endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
+    // Activity Logs endpoint by task source with project route support
+    if (source === "project" && task.projectId) {
+      endpoints.push({ key: "activityLogs", url: `/tasks/project/${task.projectId}/tasks/${task._id}/activity` });
+    } else if (source === "client") {
+      endpoints.push({ key: "activityLogs", url: `/tasks/client-tasks/${task._id}/client-activity-logs` });
+    } else if (source === "self") {
+      endpoints.push({ key: "activityLogs", url: `/tasks/self/${task._id}/activity-logs` });
+    } else {
+      endpoints.push({ key: "activityLogs", url: `/task/${task._id}/activity-logs` });
+    }
 
     const fallbackLogs = Array.isArray(task.activityLogs) && task.activityLogs.length > 0
       ? task.activityLogs

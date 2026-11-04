@@ -3323,7 +3323,6 @@ useEffect(() => {
                     </div>
                 </div>
             )}
-<<<<<<< HEAD
             {pastedImageModal && (
                 <div
                     className="whatsapp-image-preview-overlay"
@@ -3488,7 +3487,9 @@ useEffect(() => {
                                 <SendHorizontal size={20} style={{ marginLeft: "2px" }} />
                             </button>
                         </div>
-=======
+                    </div>
+                </div>
+            )}
 
             {assignModal.open && (
                 <div className="chat-assign-modal-overlay" onClick={closeAssignModal}>
@@ -3601,7 +3602,6 @@ useEffect(() => {
                                 </button>
                             </div>
                         </form>
->>>>>>> 44643d87c35120d023589e999f275b4479a6d0b4
                     </div>
                 </div>
             )}

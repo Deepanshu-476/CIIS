@@ -871,10 +871,10 @@ const MessageBubble = ({
                     </div>
                 ) : (
                     <div className="message-content-row">
-                        {displayMessageText && <span className="message-text-content">{textParts.map((part, index) => part.user
+                        {renderMedia()}
+                        {displayMessageText && <span className={`message-text-content ${mediaUrl ? "has-media-caption" : ""}`}>{textParts.map((part, index) => part.user
                             ? <span key={index} className="chat-member-mention" data-mentioned-user={part.user}>{part.text}</span>
                             : <React.Fragment key={index}>{part.text}</React.Fragment>)}</span>}
-                        {renderMedia()}
                         {!isAudioOnly && (
                             <span className={deliveryState === "seen" ? "whatsapp-message-meta seen" : "whatsapp-message-meta"}>
                                 <time>{formattedTime}</time>

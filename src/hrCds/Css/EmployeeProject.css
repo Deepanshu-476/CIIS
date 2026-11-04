@@ -382,6 +382,10 @@
 
 .EmployeeProject-card-content {
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .EmployeeProject-card-header {
@@ -419,17 +423,35 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1rem;
+  margin-top: auto;
   padding-top: 1rem;
   border-top: 1px solid rgba(0,0,0,0.08);
+  gap: 12px;
 }
 
 .EmployeeProject-card-date {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #666;
-  font-size: 0.875rem;
+  gap: 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  min-width: 0;
+  flex: 1;
+}
+
+.EmployeeProject-card-date svg {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.EmployeeProject-card-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .EmployeeProject-card-pdf {

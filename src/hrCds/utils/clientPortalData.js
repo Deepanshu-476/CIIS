@@ -2,6 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
 
+// A subscription ending "3 Nov" is valid through 3 Nov in India (until 23:59:59 IST), as on the server.
+export const isSubscriptionEnded = (endDate, now = new Date()) => {
+  const time = new Date(endDate ?? NaN).getTime();
+  if (Number.isNaN(time)) return false;
+  const istDay = value => Math.floor((value + 330 * 60 * 1000) / (24 * 60 * 60 * 1000));
+  return istDay(now.getTime()) > istDay(time);
+};
+
 export const rupee = '\u20b9';
 export const CLIENT_PORTAL_REQUEST_TIMEOUT_MS = 30000;
 
@@ -415,7 +423,7 @@ export const calculatePaymentSummary = client => {
     sum + Number(receipt.amount || receipt.price || receipt.paidAmount || subscriptionPrice || 0)
   ), 0);
   const endDate = latest?.endDate || client?.subscriptionEndDate || '';
-  const isExpired = endDate ? new Date(endDate) < new Date() : false;
+  const isExpired = endDate ? isSubscriptionEnded(endDate) : false;
   const dueAmount = dueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
   const outstanding = dueAmount || (isExpired ? subscriptionPrice : 0);
 

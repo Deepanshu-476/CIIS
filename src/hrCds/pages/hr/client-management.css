@@ -3159,9 +3159,17 @@ textarea.ClientManagement-form-input {
   background: #ffffff;
 }
 
+/* The overlay starts below the 88px app header, so a height based on the full viewport pushed
+   the Save footer off screen. Fit the overlay instead; the form body scrolls inside. */
+.ClientManagement-edit-modal-overlay .ClientManagement-edit-modal {
+  max-height: 100%;
+  margin: 0 auto;
+}
+
 .ClientManagement-edit-modal form {
   flex: 1 1 auto;
   min-height: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiFolder,
@@ -17,11 +17,24 @@ import {
   FiTrendingUp,
   FiUploadCloud,
   FiPlus,
-  FiPaperclip
+  FiPaperclip,
+  FiTrash2,
+  FiEye,
+  FiImage
 } from "react-icons/fi";
 import axios from "../../utils/axiosConfig";
 import "../Css/EmployeeProject.css";
 import ProjectBulkImportModal from "../components/ProjectBulkImportModal";
+
+const getMinDateTimeLocal = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 const parseStoredJson = (key) => {
   try {
@@ -188,6 +201,26 @@ const EmployeeProject = () => {
     priority: "Medium",
   });
   const [taskFile, setTaskFile] = useState(null);
+  const [isDraggingTaskFile, setIsDraggingTaskFile] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const taskFileInputRef = useRef(null);
+
+  const taskFilePreviewUrl = useMemo(() => {
+    if (!taskFile) return null;
+    try {
+      return URL.createObjectURL(taskFile);
+    } catch {
+      return null;
+    }
+  }, [taskFile]);
+
+  useEffect(() => {
+    return () => {
+      if (taskFilePreviewUrl) {
+        URL.revokeObjectURL(taskFilePreviewUrl);
+      }
+    };
+  }, [taskFilePreviewUrl]);
   const [taskErrors, setTaskErrors] = useState({});
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [companyUsers, setCompanyUsers] = useState([]);
@@ -224,6 +257,8 @@ const EmployeeProject = () => {
       priority: "Medium",
     });
     setTaskFile(null);
+    setIsPreviewOpen(false);
+    if (taskFileInputRef.current) taskFileInputRef.current.value = "";
     setTaskErrors({});
     setIsCreateTaskOpen(true);
     if (companyUsers.length === 0) {
@@ -254,9 +289,20 @@ const EmployeeProject = () => {
     const newErrors = {};
     if (!targetProjectId) newErrors.project = "Please select a target project";
     if (!taskForm.title.trim()) newErrors.title = "Task title is required";
+    if (taskForm.dueDate) {
+      const selectedTime = new Date(taskForm.dueDate).getTime();
+      if (Number.isNaN(selectedTime)) {
+        newErrors.dueDate = "Please select a valid date/time";
+      } else if (selectedTime < Date.now() - 60000) {
+        newErrors.dueDate = "Due date cannot be in the past";
+      }
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setTaskErrors(newErrors);
+      if (newErrors.dueDate) {
+        setSnackbar({ open: true, message: newErrors.dueDate, severity: "error" });
+      }
       return;
     }
 
@@ -837,16 +883,22 @@ const EmployeeProject = () => {
                           {p.endDate ? ` • Due: ${formatProjectDate(p.endDate)}` : ""}
                         </span>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div className="EmployeeProject-card-footer-actions">
                         <button
                           type="button"
-                          className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-success"
+                          className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-primary"
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
                             gap: "5px",
                             fontWeight: 600,
                             whiteSpace: "nowrap",
+                            height: "32px",
+                            minHeight: "32px",
+                            padding: "0 12px",
+                            fontSize: "11.5px",
+                            borderRadius: "6px",
+                            lineHeight: 1
                           }}
                           title="Create a task in this project"
                           onClick={(e) => {
@@ -859,6 +911,19 @@ const EmployeeProject = () => {
                         <button
                           type="button"
                           className="EmployeeProject-button EmployeeProject-button-sm EmployeeProject-button-primary"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                            height: "32px",
+                            minHeight: "32px",
+                            padding: "0 12px",
+                            fontSize: "11.5px",
+                            borderRadius: "6px",
+                            lineHeight: 1
+                          }}
                           title="Open project details and tasks"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1039,9 +1104,20 @@ const EmployeeProject = () => {
                       className="EmployeeProject-input"
                       style={{ width: "100%", padding: "9px 12px", borderRadius: "7px", border: "1px solid #cbd5e1", fontSize: "13px" }}
                       value={taskForm.dueDate}
-                      onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                      min={getMinDateTimeLocal()}
+                      onChange={(e) => {
+                        setTaskForm({ ...taskForm, dueDate: e.target.value });
+                        if (taskErrors.dueDate) {
+                          setTaskErrors((prev) => ({ ...prev, dueDate: "" }));
+                        }
+                      }}
                       disabled={isSubmittingTask}
                     />
+                    {taskErrors.dueDate && (
+                      <span style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px", display: "block" }}>
+                        {taskErrors.dueDate}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1126,22 +1202,255 @@ const EmployeeProject = () => {
                   </div>
                 </div>
 
-                {/* Optional Attachment */}
+                {/* Modern Attachment Upload Card */}
                 <div className="EmployeeProject-form-group" style={{ marginTop: "14px" }}>
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
-                    Attachment (PDF / Document)
+                    Attachment / Screenshot
                   </label>
+
                   <input
+                    ref={taskFileInputRef}
+                    id="employee-project-task-file-input"
                     type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={(e) => setTaskFile(e.target.files[0] || null)}
-                    style={{ fontSize: "12px" }}
+                    accept=".pdf,application/pdf,image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      if (f) setTaskFile(f);
+                    }}
+                    style={{ display: "none" }}
                     disabled={isSubmittingTask}
                   />
-                  {taskFile && (
-                    <span style={{ fontSize: "11px", color: "#059669", display: "block", marginTop: "4px" }}>
-                      Selected: {taskFile.name} ({(taskFile.size / 1024).toFixed(1)} KB)
-                    </span>
+
+                  {!taskFile ? (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => !isSubmittingTask && taskFileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if ((e.key === "Enter" || e.key === " ") && !isSubmittingTask) {
+                          e.preventDefault();
+                          taskFileInputRef.current?.click();
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (!isSubmittingTask) setIsDraggingTaskFile(true);
+                      }}
+                      onDragLeave={() => setIsDraggingTaskFile(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingTaskFile(false);
+                        if (isSubmittingTask) return;
+                        const droppedFile = e.dataTransfer.files?.[0];
+                        if (
+                          droppedFile &&
+                          (droppedFile.type.startsWith("image/") ||
+                            droppedFile.type === "application/pdf" ||
+                            /\.(pdf|png|jpe?g|webp|gif)$/i.test(droppedFile.name || ""))
+                        ) {
+                          setTaskFile(droppedFile);
+                        }
+                      }}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "16px 14px",
+                        borderRadius: "8px",
+                        border: isDraggingTaskFile ? "2px dashed #4f46e5" : "1.5px dashed #cbd5e1",
+                        background: isDraggingTaskFile ? "#eff6ff" : "#f8fafc",
+                        cursor: isSubmittingTask ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        textAlign: "center"
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "38px",
+                          height: "38px",
+                          borderRadius: "50%",
+                          background: "#e0e7ff",
+                          color: "#4f46e5",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "18px",
+                          marginBottom: "8px"
+                        }}
+                      >
+                        <FiUploadCloud />
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b", marginBottom: "2px" }}>
+                        <span style={{ color: "#4f46e5", textDecoration: "underline" }}>Click to upload</span> or drag and drop
+                      </div>
+                      <div style={{ fontSize: "11.5px", color: "#64748b" }}>
+                        PNG, JPG, Screenshot or PDF document
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: "8px",
+                        border: "1px solid #c7d2fe",
+                        background: "#f5f7ff",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
+                        {/* Visual Thumbnail / Icon */}
+                        {(taskFile.type?.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(taskFile.name || "")) && taskFilePreviewUrl ? (
+                          <div
+                            onClick={() => setIsPreviewOpen(true)}
+                            style={{
+                              width: "42px",
+                              height: "42px",
+                              borderRadius: "8px",
+                              overflow: "hidden",
+                              border: "1.5px solid #a5b4fc",
+                              flexShrink: 0,
+                              cursor: "pointer",
+                              background: "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center"
+                            }}
+                            title="Click to preview"
+                          >
+                            <img
+                              src={taskFilePreviewUrl}
+                              alt="preview"
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => taskFilePreviewUrl && setIsPreviewOpen(true)}
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              borderRadius: "8px",
+                              background: "#fee2e2",
+                              color: "#dc2626",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "20px",
+                              flexShrink: 0,
+                              cursor: taskFilePreviewUrl ? "pointer" : "default"
+                            }}
+                            title={taskFilePreviewUrl ? "Click to preview" : "Document"}
+                          >
+                            <FiFileText />
+                          </div>
+                        )}
+
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div
+                            onClick={() => taskFilePreviewUrl && setIsPreviewOpen(true)}
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              color: "#0f172a",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              cursor: taskFilePreviewUrl ? "pointer" : "default"
+                            }}
+                            title={taskFile.name}
+                          >
+                            {taskFile.name}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span>{(taskFile.size / 1024).toFixed(1)} KB</span>
+                            <span style={{ color: "#16a34a", display: "inline-flex", alignItems: "center", gap: "3px", fontWeight: 600 }}>
+                              <FiCheckCircle size={12} /> Ready to upload
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0, marginLeft: "12px" }}>
+                        {/* Preview Button */}
+                        {taskFilePreviewUrl && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setIsPreviewOpen(true);
+                            }}
+                            style={{
+                              fontSize: "11.5px",
+                              color: "#0284c7",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              padding: "5px 9px",
+                              borderRadius: "6px",
+                              background: "#e0f2fe",
+                              border: "none",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
+                            title="Preview file"
+                          >
+                            <FiEye size={13} />
+                            Preview
+                          </button>
+                        )}
+
+                        {/* Change Button */}
+                        <button
+                          type="button"
+                          onClick={() => !isSubmittingTask && taskFileInputRef.current?.click()}
+                          disabled={isSubmittingTask}
+                          style={{
+                            fontSize: "11.5px",
+                            color: "#4f46e5",
+                            fontWeight: 600,
+                            cursor: isSubmittingTask ? "not-allowed" : "pointer",
+                            padding: "5px 9px",
+                            borderRadius: "6px",
+                            background: "#e0e7ff",
+                            border: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}
+                        >
+                          Change
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTaskFile(null);
+                            if (taskFileInputRef.current) taskFileInputRef.current.value = "";
+                          }}
+                          disabled={isSubmittingTask}
+                          style={{
+                            background: "#fee2e2",
+                            color: "#dc2626",
+                            border: "none",
+                            width: "28px",
+                            height: "28px",
+                            borderRadius: "6px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: isSubmittingTask ? "not-allowed" : "pointer"
+                          }}
+                          title="Remove file"
+                        >
+                          <FiTrash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1164,6 +1473,157 @@ const EmployeeProject = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* In-Page Attachment / Screenshot Preview Modal */}
+      {isPreviewOpen && taskFilePreviewUrl && (
+        <div
+          onClick={() => setIsPreviewOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999999,
+            background: "rgba(15, 23, 42, 0.78)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px"
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#ffffff",
+              borderRadius: "14px",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)",
+              maxWidth: "min(880px, 94vw)",
+              width: "100%",
+              maxHeight: "88vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              border: "1px solid rgba(255, 255, 255, 0.2)"
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 18px",
+                borderBottom: "1px solid #e2e8f0",
+                background: "#f8fafc"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                <span
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "8px",
+                    background: (taskFile?.type?.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(taskFile?.name || "")) ? "#e0e7ff" : "#fee2e2",
+                    color: (taskFile?.type?.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(taskFile?.name || "")) ? "#4338ca" : "#dc2626",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "16px",
+                    flexShrink: 0
+                  }}
+                >
+                  {(taskFile?.type?.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(taskFile?.name || "")) ? (
+                    <FiImage />
+                  ) : (
+                    <FiFileText />
+                  )}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: "13.5px",
+                      fontWeight: 600,
+                      color: "#0f172a",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap"
+                    }}
+                    title={taskFile?.name}
+                  >
+                    {taskFile?.name}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#64748b" }}>
+                    {taskFile?.size ? `${(taskFile.size / 1024).toFixed(1)} KB` : ""}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  style={{
+                    width: "30px",
+                    height: "30px",
+                    borderRadius: "8px",
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    color: "#475569",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: "16px"
+                  }}
+                  title="Close preview"
+                >
+                  <FiX />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#f1f5f9",
+                padding: "16px",
+                overflow: "auto"
+              }}
+            >
+              {(taskFile?.type?.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(taskFile?.name || "")) ? (
+                <img
+                  src={taskFilePreviewUrl}
+                  alt={taskFile?.name || "Preview"}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "70vh",
+                    objectFit: "contain",
+                    borderRadius: "6px",
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.12)"
+                  }}
+                />
+              ) : (
+                <iframe
+                  src={taskFilePreviewUrl}
+                  title="Document Preview"
+                  style={{
+                    width: "100%",
+                    height: "70vh",
+                    border: "none",
+                    borderRadius: "6px",
+                    background: "#ffffff"
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

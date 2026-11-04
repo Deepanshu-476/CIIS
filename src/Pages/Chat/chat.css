@@ -612,7 +612,7 @@
     position: relative;
     display: block;
     max-width: 100%;
-    margin-top: 8px;
+    margin-top: 4px;
     padding: 0;
     border: 0;
     border-radius: 8px;
@@ -6970,6 +6970,12 @@ body.chat-contact-resizing * {
 .message-text-content {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+}
+
+.message-text-content.has-media-caption {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 0 2px;
 }
 
 .whatsapp-message-meta {

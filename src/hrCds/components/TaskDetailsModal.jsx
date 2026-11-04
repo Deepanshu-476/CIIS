@@ -206,6 +206,15 @@ const STATUS_CONFIG = {
   rejected: { label: 'Rejected', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
   overdue: { label: 'Overdue', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
   reopen: { label: 'Reopen', color: '#8b5cf6', bg: '#f5f3ff', border: '#ddd6fe' },
+  remark: { label: 'Remark', color: '#0284c7', bg: '#f0f9ff', border: '#bae6fd' },
+};
+
+const getLogTimestamp = (item) => {
+  if (!item) return null;
+  const raw = item.performedAt || item.createdAt || item.changedAt || item.timestamp || item.date;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
 };
 
 const normalizeStatus = (status = 'pending') => {
@@ -229,11 +238,7 @@ const PRIORITY_CONFIG = {
 
 // Helper to accurately resolve log event status destination
 const resolveLogEventType = (log) => {
-  // ActivityLog records expose the destination in `newValues.status`, while
-  // status-history fallback records expose it directly as `status`. Support
-  // both shapes; otherwise a hold/resume event is silently treated as generic
-  // activity and the time journey cannot be reconstructed.
-  const newS = String(log?.newValues?.status || log?.status || '').toLowerCase().trim();
+  const newS = String(log?.newValue || log?.newValues?.status || log?.status || '').toLowerCase().trim();
   if (newS) {
     if (newS === 'in-progress' || newS === 'inprogress' || newS === 'in progress' || newS === 'in_progress') return 'in-progress';
     if (newS === 'onhold' || newS === 'on-hold' || newS === 'on hold' || newS === 'on_hold') return 'onhold';
@@ -251,17 +256,18 @@ const resolveLogEventType = (log) => {
     if (dest.includes('pending')) return 'pending';
   }
 
-  const desc = String(log?.description || log?.details || log?.remarks || '').toLowerCase().trim();
+  const desc = String(log?.description || log?.details || log?.remarks || log?.remark || '').toLowerCase().trim();
   if (desc.includes('to completed') || desc.includes('marked as complete')) return 'completed';
   if (desc.includes('to on hold') || desc.includes('to on-hold') || desc.includes('to onhold') || desc.includes('tracking paused')) return 'onhold';
   if (desc.includes('to in progress') || desc.includes('to in-progress') || desc.includes('to inprogress') || desc.includes('tracking resumed') || desc.includes('tracking started')) return 'in-progress';
+  if (desc.includes('start working') || desc.includes('started working') || desc.includes('start work') || desc.includes('working on this task')) return 'in-progress';
   if (desc.includes('to pending') || desc.includes('task created')) return 'pending';
 
-  const act = String(log?.action || log?.status || '').toLowerCase().trim();
+  const act = String(log?.action || log?.type || log?.status || '').toLowerCase().trim();
   if (act === 'completed' || act.includes('complete')) return 'completed';
   if (act === 'onhold' || act === 'on-hold' || act.includes('hold') || act.includes('pause')) return 'onhold';
   if (act === 'in-progress' || act === 'inprogress' || act.includes('progress') || act.includes('start') || act.includes('resume')) return 'in-progress';
-  if (act === 'pending' || act.includes('create')) return 'pending';
+  if (act === 'pending' || act.includes('create') || act === 'creation') return 'pending';
 
   return 'other';
 };
@@ -458,8 +464,8 @@ const TaskDetailsModal = ({
       const inProgressLogs = rawActivities.filter(log => resolveLogEventType(log) === 'in-progress');
       if (inProgressLogs.length > 0) {
         const lastLog = inProgressLogs[inProgressLogs.length - 1];
-        const logDate = new Date(lastLog.createdAt || lastLog.changedAt || lastLog.timestamp || lastLog.date);
-        if (!isNaN(logDate.getTime())) {
+        const logDate = getLogTimestamp(lastLog);
+        if (logDate && !isNaN(logDate.getTime())) {
           return logDate;
         }
       }
@@ -502,8 +508,8 @@ const TaskDetailsModal = ({
   // 1. Comprehensive Lifecycle & Work Sessions Extraction from Activity Logs
   const lifecycleData = useMemo(() => {
     const sortedLogs = [...rawActivities].sort((a, b) => {
-      const tA = new Date(a.createdAt || a.changedAt || a.timestamp || a.date || 0).getTime();
-      const tB = new Date(b.createdAt || b.changedAt || b.timestamp || b.date || 0).getTime();
+      const tA = getLogTimestamp(a)?.getTime() || 0;
+      const tB = getLogTimestamp(b)?.getTime() || 0;
       return tA - tB;
     });
 
@@ -514,15 +520,15 @@ const TaskDetailsModal = ({
     let firstSessionStartTime = null;
     let firstHoldStartTime = null;
     let resumeSessionStartTime = null;
-    let completedTimestamp = task?.completedAt ? new Date(task.completedAt) : null;
+    let completedTimestamp = task?.completedAt ? new Date(task.completedAt) : (task?.completionDate ? new Date(task.completionDate) : null);
 
     if (task?.holdStartedAt) {
       firstHoldStartTime = new Date(task.holdStartedAt);
     }
 
     sortedLogs.forEach((log) => {
-      const logDate = new Date(log.createdAt || log.changedAt || log.timestamp || log.date || 0);
-      if (isNaN(logDate.getTime())) return;
+      const logDate = getLogTimestamp(log);
+      if (!logDate || isNaN(logDate.getTime())) return;
 
       const eventType = resolveLogEventType(log);
 
@@ -561,19 +567,46 @@ const TaskDetailsModal = ({
         }
       } else if (eventType === 'completed') {
         completedTimestamp = logDate;
-        if (activeSessionStartTime) {
-          const durSec = Math.max(0, Math.floor((logDate.getTime() - activeSessionStartTime.getTime()) / 1000));
+        let sessionStart = activeSessionStartTime;
+
+        // Smart fallback: if activeSessionStartTime wasn't explicitly started, check earlier logs / remarks / createdDate
+        if (!sessionStart) {
+          const startCandidate = sortedLogs.find(l => {
+            const desc = String(l.description || l.details || l.remark || l.remarks || '').toLowerCase();
+            return desc.includes('start') || desc.includes('working') || desc.includes('progress');
+          });
+          if (startCandidate) {
+            sessionStart = getLogTimestamp(startCandidate);
+          }
+          if (!sessionStart && task?.startedAt) {
+            const d = new Date(task.startedAt);
+            if (!isNaN(d.getTime())) sessionStart = d;
+          }
+          if (!sessionStart && task?.inProgressSince) {
+            const d = new Date(task.inProgressSince);
+            if (!isNaN(d.getTime())) sessionStart = d;
+          }
+          if (!sessionStart && createdDate) {
+            const d = new Date(createdDate);
+            if (!isNaN(d.getTime())) sessionStart = d;
+          }
+        }
+
+        if (sessionStart && logDate.getTime() > sessionStart.getTime()) {
+          const durSec = Math.max(0, Math.floor((logDate.getTime() - sessionStart.getTime()) / 1000));
           completedSessionsList.push({
             id: completedSessionsList.length + 1,
-            startStr: formatTimeOnly(activeSessionStartTime),
+            startStr: formatTimeOnly(sessionStart),
             endStr: formatTimeOnly(logDate),
             durationStr: formatDuration(durSec),
             durationSeconds: durSec,
-            start: activeSessionStartTime,
+            start: sessionStart,
             end: logDate
           });
-          activeSessionStartTime = null;
+          if (!firstSessionStartTime) firstSessionStartTime = sessionStart;
         }
+        activeSessionStartTime = null;
+
         if (lastHoldStartTime) {
           const holdDiff = Math.max(0, Math.floor((logDate.getTime() - lastHoldStartTime.getTime()) / 1000));
           holdDurationSum += holdDiff;
@@ -581,6 +614,30 @@ const TaskDetailsModal = ({
         }
       }
     });
+
+    // Fallback if completed but completedSessionsList is still empty
+    if (completedSessionsList.length === 0 && (currentStatus === 'completed' || task?.completedAt || task?.completionDate)) {
+      const compDate = completedTimestamp || (task?.completedAt ? new Date(task.completedAt) : (task?.completionDate ? new Date(task.completionDate) : new Date(updatedDate)));
+      const startCandidate = sortedLogs.find(l => {
+        const desc = String(l.description || l.details || l.remark || l.remarks || '').toLowerCase();
+        return desc.includes('start') || desc.includes('working') || desc.includes('progress');
+      });
+      const startDate = (startCandidate ? getLogTimestamp(startCandidate) : null) || (createdDate ? new Date(createdDate) : null);
+      if (compDate && startDate && compDate.getTime() > startDate.getTime()) {
+        const durSec = Math.max(0, Math.floor((compDate.getTime() - startDate.getTime()) / 1000));
+        completedSessionsList.push({
+          id: 1,
+          startStr: formatTimeOnly(startDate),
+          endStr: formatTimeOnly(compDate),
+          durationStr: formatDuration(durSec),
+          durationSeconds: durSec,
+          start: startDate,
+          end: compDate
+        });
+        if (!firstSessionStartTime) firstSessionStartTime = startDate;
+        if (!completedTimestamp) completedTimestamp = compDate;
+      }
+    }
 
     if (isCurrentlyRunning) {
       const runningStart = activeSessionStartTime || resolvedInProgressStart;
@@ -608,7 +665,7 @@ const TaskDetailsModal = ({
       resumeSessionStartTime,
       completedTimestamp
     };
-  }, [rawActivities, isCurrentlyRunning, resolvedInProgressStart, updatedDate, currentStatus, task?.holdStartedAt, task?.completedAt]);
+  }, [rawActivities, isCurrentlyRunning, resolvedInProgressStart, updatedDate, currentStatus, task, createdDate]);
 
   // Dynamically compute static sessions from task.workSessions or logs
   const computedSessions = useMemo(() => {
@@ -876,19 +933,24 @@ const TaskDetailsModal = ({
 
     if (rawActivities.length > 0) {
       const sorted = [...rawActivities].sort((a, b) => {
-        const tA = new Date(a.createdAt || a.changedAt || a.timestamp || 0).getTime();
-        const tB = new Date(b.createdAt || b.changedAt || b.timestamp || 0).getTime();
+        const tA = getLogTimestamp(a)?.getTime() || 0;
+        const tB = getLogTimestamp(b)?.getTime() || 0;
         return tA - tB;
       });
 
       let hasCreationEvent = false;
       const rawMapped = sorted.map((ev, idx) => {
-        const d = ev.createdAt || ev.changedAt || ev.timestamp || ev.date || new Date();
-        const action = ev.action || ev.status || 'Status Update';
-        const desc = ev.description || ev.details || ev.remarks || `Status updated to ${action}`;
-        const user = ev.userName || ev.user?.name || ev.changedBy?.name || assigneeName;
-        const title = parseActionTitle(action, desc, ev.oldValues, ev.newValues);
-        const status = resolveStatusFromEvent(title, action, desc, ev.newValues, ev.status);
+        const d = getLogTimestamp(ev) || new Date();
+        const action = ev.action || ev.type || ev.status || 'Status Update';
+        const desc = ev.description || ev.details || ev.remarks || ev.remark || `Status updated to ${action}`;
+        const user = ev.userName || ev.user?.name || ev.changedBy?.name || getUserName(ev.performedBy) || assigneeName;
+        const oldVals = ev.oldValues || (ev.oldValue ? { status: ev.oldValue } : null);
+        const newVals = ev.newValues || (ev.newValue ? { status: ev.newValue } : null);
+        const title = parseActionTitle(action, desc, oldVals, newVals);
+        let status = resolveStatusFromEvent(title, action, desc, newVals, ev.status);
+        if (title === 'Remark Added' || String(action).toLowerCase().includes('remark') || ev.type === 'remark') {
+          status = 'remark';
+        }
 
         if (title === 'Task Created') {
           hasCreationEvent = true;

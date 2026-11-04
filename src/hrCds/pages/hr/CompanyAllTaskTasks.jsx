@@ -2894,8 +2894,22 @@ const CompanyAllTaskTasks = () => {
                                 : 0;
                         const isCPExpanded = Boolean(expandedCheckpoints[task._id]);
 
-                        // Dynamic calculation of time spent (from task.workTime, task.timeSpent, or task.timeTracking)
-                        const rawSeconds = Number(task.workTime?.seconds || task.timeSpent || task.timeTracking?.totalSeconds || 0);
+                        // Dynamic calculation of time spent (from task.workTime, task.timeSpent, task.timeTracking, or activityLogs/completionDate)
+                        let rawSeconds = Number(task.workTime?.seconds || task.timeSpent || task.timeTracking?.totalSeconds || 0);
+                        if (rawSeconds === 0 && (dispStatus === 'completed' || task.status === 'completed' || task.completionDate)) {
+                          const compDate = task.completionDate ? new Date(task.completionDate) : (task.completedAt ? new Date(task.completedAt) : null);
+                          if (compDate && !isNaN(compDate.getTime())) {
+                            const logs = Array.isArray(task.activityLogs) ? task.activityLogs : [];
+                            const startLog = logs.find(l => {
+                              const desc = String(l.description || l.details || l.remark || l.remarks || '').toLowerCase();
+                              return desc.includes('start') || desc.includes('working') || desc.includes('progress');
+                            });
+                            const startDate = (startLog ? new Date(startLog.performedAt || startLog.createdAt || startLog.changedAt || startLog.timestamp || 0) : null) || (task.createdAt ? new Date(task.createdAt) : null);
+                            if (startDate && !isNaN(startDate.getTime()) && compDate.getTime() > startDate.getTime()) {
+                              rawSeconds = Math.max(0, Math.floor((compDate.getTime() - startDate.getTime()) / 1000));
+                            }
+                          }
+                        }
                         const timeSpentStr = rawSeconds > 0
                           ? `${String(Math.floor(rawSeconds / 3600)).padStart(2, "0")}:${String(Math.floor((rawSeconds % 3600) / 60)).padStart(2, "0")}:${String(rawSeconds % 60).padStart(2, "0")}`
                           : (task.workTime?.label || "00:00:00");

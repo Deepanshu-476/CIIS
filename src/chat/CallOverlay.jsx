@@ -544,7 +544,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         if (localVideoRef.current && localStreamRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
         }
-    }, [call?.status, call?.type]);
+    }, [call?.status, call?.type, isMinimized]);
 
     const upsertRemoteParticipant = (userId, patch) => {
         setRemoteParticipants(prev => {
@@ -1590,7 +1590,12 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     };
 
     if (isMinimized) {
+        // Keep remote audio mounted while minimized, otherwise the voice drops.
         return (
+            <>
+            {remoteParticipants.map(participant => (
+                <RemoteAudioTrack key={participant.userId} participant={participant} />
+            ))}
             <button
                 type="button"
                 className="call-floating-window"
@@ -1611,6 +1616,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 </span>
                 <Maximize2 size={16} />
             </button>
+            </>
         );
     }
 

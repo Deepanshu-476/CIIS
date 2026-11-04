@@ -101,6 +101,16 @@ const ClientDetailsPage = () => {
     };
 
     if (clientId) loadClientDetails();
+
+    const handleTaskCreated = (e) => {
+      if (String(e?.detail?.clientId) === String(clientId)) {
+        fetchAllClientTasks(clientId).then(tasksRes => {
+          setClientTasks(Array.isArray(tasksRes) ? tasksRes : []);
+        }).catch(() => {});
+      }
+    };
+    window.addEventListener('clientTask:created', handleTaskCreated);
+    return () => window.removeEventListener('clientTask:created', handleTaskCreated);
   }, [clientId]);
 
   useEffect(() => {

@@ -67,11 +67,22 @@ export default function ClientPreviewCard({
                         <dt>Services</dt>
                         <dd>
                             <div className="ai-assignee-chips">
-                                {preview.services.map((service, idx) => (
-                                    <span key={idx} className="ai-assignee-chip">
-                                        <span className="ai-assignee-chip-name">{service}</span>
-                                    </span>
-                                ))}
+                                {preview.services.map((service, idx) => {
+                                    const sName = typeof service === 'string' ? service : (service.service || service.name || '');
+                                    const cTasks = Array.isArray(preview.customTasks) ? preview.customTasks.filter(ct => ct.service === sName) : [];
+                                    return (
+                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span className="ai-assignee-chip">
+                                                <span className="ai-assignee-chip-name">{sName}</span>
+                                                {cTasks.length > 0 && (
+                                                    <span style={{ marginLeft: 4, fontSize: '11px', color: '#6366f1' }}>
+                                                        ({cTasks.length} task{cTasks.length > 1 ? 's' : ''})
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </dd>
                     </>

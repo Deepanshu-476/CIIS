@@ -1359,6 +1359,16 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
     fetchTasks();
   }, [clientId, service, startDate, endDate, subscriptionId, subscriptionNo, initialTasks]);
 
+  useEffect(() => {
+    const handleTaskCreated = (e) => {
+      if (String(e?.detail?.clientId) === String(clientId) && (!e?.detail?.service || e?.detail?.service === service)) {
+        fetchTasks();
+      }
+    };
+    window.addEventListener('clientTask:created', handleTaskCreated);
+    return () => window.removeEventListener('clientTask:created', handleTaskCreated);
+  }, [clientId, service]);
+
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
   const remainingTasks = Math.max(totalTasks - completedTasks, 0);

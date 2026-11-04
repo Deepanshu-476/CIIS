@@ -901,8 +901,13 @@ export default function useTaskAgentSession({
                 requestHeaders['Content-Type'] = 'application/json';
             }
 
+            let targetEndpoint = payload.endpoint;
+            if (targetEndpoint.startsWith('/api/')) {
+                targetEndpoint = targetEndpoint.slice(4);
+            }
+
             const response = await axiosInstance.request({
-                url: payload.endpoint,
+                url: targetEndpoint,
                 method: payload.method || 'POST',
                 data: requestData,
                 headers: requestHeaders,
@@ -954,8 +959,133 @@ export default function useTaskAgentSession({
                         : `Client '${newClientName}' ban gaya. Is client ke liye abhi koi service nahi hai, isliye client task tab tak nahi ban payega.`;
                     speak(hasServices ? 'क्लाइंट सफलतापूर्वक बन गया' : 'क्लाइंट बन गया। इसके लिए कोई सर्विस नहीं है।', spokenMsg);
                 }
+
+                const clientChips = [
+                    ...(hasServices ? [{
+                        label: 'Is Client Ke Liye Task Banayein',
+                        action: {
+                            type: 'set_intent',
+                            intent: 'create_client_task',
+                            client: newClientName,
+                            clientId: String(newClientId),
+                            clientServices: payload.fields?.services || createdClient?.services || []
+                        }
+                    }] : []),
+                    { label: 'Naya Client Banayein', action: { type: 'set_intent', intent: 'create_client' } },
+                    { label: 'Main Menu', action: { type: 'reset' } },
+                ];
+                setResult({
+                    status: 'needs_input',
+                    field: 'post_client_creation',
+                    reply: clientSuccessText,
+                    speech: hasServices ? 'क्लाइंट सफलतापूर्वक बन गया।' : 'क्लाइंट बन गया। इसके लिए कोई सर्विस नहीं है।',
+                    speakText: clientSuccessText,
+                    chips: clientChips,
+                    draft: {
+                        intent: 'create_client_task',
+                        client: newClientName,
+                        clientId: String(newClientId),
+                        clientServices: payload.fields?.services || createdClient?.services || []
+                    }
+                });
                 stop('created');
-                resetFlow();
+                return;
+            }
+
+            const isCreatingClientPlan = payload.endpoint === '/api/client-plans' || payload.endpoint === '/client-plans' || currentDraft?.intent === 'create_client_plan';
+            if (isCreatingClientPlan) {
+                const createdPlan = response?.data?.data || response?.data?.plan || response?.data || null;
+                const newPlanId = createdPlan?._id || createdPlan?.id || 'plan_' + Date.now();
+                const planName = createdPlan?.name || payload.fields?.name || currentDraft?.name || 'Client Plan';
+
+                clearAllCaches();
+                if (typeof window !== 'undefined') {
+                    const detail = { plan: createdPlan || { _id: newPlanId, ...payload.fields } };
+                    window.dispatchEvent(new CustomEvent('clientPlan:created', { detail }));
+                }
+
+                const planSuccessText = `Client Plan "${planName}" successfully create aur save ho gaya hai! ✅\n\nAb yeh plan "Add Client" me bhi available hai.`;
+                pushMsg('assistant', planSuccessText);
+                if (autoSpeak) {
+                    cancelSpeech();
+                    speak('क्लाइंट प्लान सफलतापूर्वक बन गया और सेव हो गया है।', `Client Plan "${planName}" successfully create aur save ho gaya hai!`);
+                }
+
+                const planChips = [
+                    { label: 'Naya Client Banayein', action: { type: 'set_intent', intent: 'create_client' } },
+                    { label: 'Aur Ek Plan Banayein', action: { type: 'set_intent', intent: 'create_client_plan' } },
+                    { label: 'Main Menu', action: { type: 'reset' } },
+                ];
+                setResult({
+                    status: 'needs_input',
+                    field: 'post_plan_creation',
+                    reply: planSuccessText,
+                    speech: 'क्लाइंट प्लान सफलतापूर्वक बन गया और सेव हो गया है।',
+                    speakText: `Client Plan "${planName}" successfully create aur save ho gaya hai!`,
+                    chips: planChips,
+                    draft: { intent: 'create_client' }
+                });
+                stop('created');
+                return;
+            }
+
+            const isCreatingClientTask = payload.endpoint?.includes('/tasks/client-tasks') || currentDraft?.intent === 'create_client_task';
+            if (isCreatingClientTask) {
+                const createdTask = response?.data?.data || response?.data?.task || response?.data || null;
+                const taskTitle = createdTask?.name || payload.fields?.name || currentDraft?.title || 'Client Task';
+                const serviceName = currentDraft?.service || 'service';
+                const clientName = currentDraft?.client || 'Client';
+
+                clearAllCaches();
+                if (typeof window !== 'undefined') {
+                    const detail = { task: createdTask, clientId: currentDraft?.clientId, service: serviceName };
+                    window.dispatchEvent(new CustomEvent('clientTask:created', { detail }));
+                }
+
+                const taskSuccessText = `"${taskTitle}" task "${clientName}" ki "${serviceName}" service mein successfully add ho gaya! ✅`;
+                pushMsg('assistant', taskSuccessText);
+                if (autoSpeak) {
+                    cancelSpeech();
+                    speak('क्लाइंट सर्विस टास्क सफलतापूर्वक बन गया है।', taskSuccessText);
+                }
+
+                const postChips = [
+                    {
+                        label: `${serviceName} mein aur task add karein`,
+                        action: {
+                            type: 'set_client_task_service',
+                            service: serviceName,
+                        }
+                    },
+                    {
+                        label: 'Kisi aur service mein',
+                        action: {
+                            type: 'set_intent',
+                            intent: 'create_client_task',
+                            client: clientName,
+                            clientId: currentDraft?.clientId,
+                            clientServices: currentDraft?.clientServices || []
+                        }
+                    },
+                    { label: 'Main Menu', action: { type: 'reset' } },
+                ];
+
+                setResult({
+                    status: 'needs_input',
+                    field: 'post_client_task_creation',
+                    reply: taskSuccessText,
+                    speech: 'क्लाइंट सर्विस टास्क सफलतापूर्वक बन गया है।',
+                    speakText: taskSuccessText,
+                    chips: postChips,
+                    draft: {
+                        intent: 'create_client_task',
+                        client: clientName,
+                        clientId: currentDraft?.clientId,
+                        clientServices: currentDraft?.clientServices || [],
+                        service: serviceName
+                    }
+                });
+                stop('created');
                 return;
             }
 
@@ -1104,14 +1234,28 @@ export default function useTaskAgentSession({
     const handleCancel = useCallback(() => {
         cancelReadyCountdown();
         stop('button-click');
+        const activeDraft = resultRef.current?.draft || draftRef.current || result?.draft;
+        const activeIntent = activeDraft?.intent;
+        let cancelText = 'Theek hai, task cancel kar diya.';
+        let cancelSpoken = 'टास्क कैंसिल कर दिया गया';
+        if (activeIntent === 'create_client') {
+            cancelText = 'Theek hai, client add karna cancel kar diya.';
+            cancelSpoken = 'क्लाइंट जोड़ना कैंसिल कर दिया गया';
+        } else if (activeIntent === 'create_client_plan') {
+            cancelText = 'Theek hai, client plan banana cancel kar diya.';
+            cancelSpoken = 'क्लाइंट प्लान बनाना कैंसिल कर दिया गया';
+        } else if (activeIntent === 'create_project') {
+            cancelText = 'Theek hai, project banana cancel kar diya.';
+            cancelSpoken = 'प्रोजेक्ट बनाना कैंसिल कर दिया गया';
+        }
         resetFlow();
-        const msgId = pushMsg('assistant', 'Theek hai, task cancel kar diya.');
+        const msgId = pushMsg('assistant', cancelText);
         if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
             spokenMessageIdsRef.current.add(msgId);
             cancelSpeech();
-            speak('टास्क कैंसिल कर दिया गया', 'Theek hai, task cancel kar diya');
+            speak(cancelSpoken, cancelText);
         }
-    }, [resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak, stop, cancelSpeech]);
+    }, [result, resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak, stop, cancelSpeech]);
 
     const handleEdit = useCallback(() => {
         cancelReadyCountdown();
@@ -1145,6 +1289,22 @@ export default function useTaskAgentSession({
         }
         if (chip.action?.type === 'reset') {
             resetFlow();
+            const welcomeText = WELCOME_GREETING_TEXT;
+            const msgId = pushMsg('assistant', welcomeText);
+            if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                spokenMessageIdsRef.current.add(msgId);
+                cancelSpeech();
+                speak(WELCOME_GREETING_HINDI, welcomeText);
+            }
+            setResult({
+                status: 'open',
+                field: 'welcome',
+                reply: welcomeText,
+                speech: WELCOME_GREETING_HINDI,
+                speakText: welcomeText,
+                chips: WELCOME_MENU_BUTTONS,
+                draft: null,
+            });
             return;
         }
         if (chip.action?.type === 'finish_chain') {
@@ -1390,7 +1550,7 @@ export default function useTaskAgentSession({
     const status = result?.status;
     const chips = Array.isArray(result?.chips) && result?.chips.length > 0
         ? result.chips
-        : (messages.length <= 1 && (!result?.draft || !result?.draft?.intent) ? WELCOME_MENU_BUTTONS : []);
+        : ((!result?.draft || !result?.draft?.intent) ? WELCOME_MENU_BUTTONS : []);
     const candidates = status === 'needs_disambiguation' ? result?.candidates || [] : [];
     const currentDraft = result?.draft || draftRef.current || {};
 

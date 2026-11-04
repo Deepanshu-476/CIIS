@@ -242,7 +242,7 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
             { label: 'Naya project banana', intent: 'create_project' },
             { label: 'Project mein task banana/assign karna', intent: 'task_project' },
             { label: 'Naya client add karna', intent: 'create_client' },
-            { label: 'Client ka task kisi ko dena', intent: 'create_client_task' },
+            { label: 'Client plan banana', intent: 'create_client_plan' },
         ];
         expectedButtons.forEach((exp, idx) => {
             assert.equal(WELCOME_MENU_BUTTONS[idx].label, exp.label);

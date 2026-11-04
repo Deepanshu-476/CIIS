@@ -1,6 +1,8 @@
 import React from 'react';
 import './TaskPreviewCard.css';
 import ClientPreviewCard from './ClientPreviewCard';
+import ClientPlanPreviewCard from './ClientPlanPreviewCard';
+import ClientTaskPreviewCard from './ClientTaskPreviewCard';
 
 const assigneeText = (a, taskFor) => {
     if (!a) {
@@ -43,6 +45,28 @@ export default function TaskPreviewCard({
     if (preview.intent === 'create_client' || preview.entity === 'client') {
         return (
             <ClientPreviewCard
+                preview={preview}
+                busy={busy}
+                onConfirm={onConfirm}
+                onEdit={onEdit}
+                onCancel={onCancel}
+            />
+        );
+    }
+    if (preview.intent === 'create_client_plan' || preview.entity === 'client_plan') {
+        return (
+            <ClientPlanPreviewCard
+                preview={preview}
+                busy={busy}
+                onConfirm={onConfirm}
+                onEdit={onEdit}
+                onCancel={onCancel}
+            />
+        );
+    }
+    if (preview.intent === 'create_client_task' || preview.entity === 'client_task') {
+        return (
+            <ClientTaskPreviewCard
                 preview={preview}
                 busy={busy}
                 onConfirm={onConfirm}
@@ -120,8 +144,12 @@ export default function TaskPreviewCard({
                     <dt>Due</dt>
                     <dd>{preview.dueLabel || preview.dueDate || preview.dueDateTime || '—'}</dd>
 
-                    <dt>Status</dt>
-                    <dd>{preview.statusLabel || preview.status || 'Pending'}</dd>
+                    {preview.taskFor !== 'others' && (
+                        <>
+                            <dt>Status</dt>
+                            <dd>{preview.statusLabel || preview.status || 'Pending'}</dd>
+                        </>
+                    )}
 
                     <dt>Kiske liye</dt>
                     <dd>
@@ -150,7 +178,9 @@ export default function TaskPreviewCard({
                         </>
                     )}
 
-                    <dt>Reminder</dt>
+                    {preview.taskFor === 'self' && (
+                        <>
+                            <dt>Reminder</dt>
                     <dd>
                         {preview.reminder && preview.reminder !== 'Nahi (No)' && preview.reminder !== 'Nahi' && preview.reminder !== 'No' && preview.reminder !== false
                             ? (typeof preview.reminder === 'string' && !['Yes', 'Haan', 'true'].includes(preview.reminder)
@@ -163,6 +193,8 @@ export default function TaskPreviewCard({
                         <>
                             <dt>Repeat</dt>
                             <dd>{preview.repeatPattern !== 'none' ? preview.repeatPattern : 'No repeat'}</dd>
+                        </>
+                    )}
                         </>
                     )}
 

@@ -192,10 +192,43 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
     }
 
     const intent = draft.intent;
+    const isCreatingClientPlan = intent === 'create_client_plan' || (fallbackPayload?.endpoint === '/api/client-plans') || (fallbackPayload?.endpoint === '/client-plans');
     const isCreatingClient = intent === 'create_client' || (fallbackPayload?.endpoint === '/clientsservice');
     const isCreatingProject = intent === 'create_project' || (fallbackPayload?.endpoint === '/projects');
     const isProject = intent === 'task_project' || Boolean(draft.projectId);
     const isAssigned = intent === 'task_assigned_user' || (draft.taskFor === 'others' && draft.assigneeId);
+
+    if (isCreatingClientPlan) {
+        const rawServices = fallbackPayload?.fields?.services || (Array.isArray(draft.services) ? draft.services : []);
+        return {
+            endpoint: '/client-plans',
+            method: 'POST',
+            multipart: false,
+            fields: {
+                name: String(draft.name || fallbackPayload?.fields?.name || '').trim(),
+                price: Number(draft.price ?? fallbackPayload?.fields?.price ?? 0),
+                months: Number(draft.months ?? fallbackPayload?.fields?.months ?? 1),
+                status: draft.status || fallbackPayload?.fields?.status || 'Active',
+                description: String(draft.description || fallbackPayload?.fields?.description || '').trim(),
+                services: rawServices.map(item => {
+                    const sName = typeof item === 'string' ? item.trim() : String(item.service || item.name || '').trim();
+                    const sTasks = Array.isArray(item.tasks) && item.tasks.length > 0
+                        ? item.tasks
+                        : (draft.serviceTasks && Array.isArray(draft.serviceTasks[sName]) ? draft.serviceTasks[sName] : []);
+                    return {
+                        service: sName,
+                        tasks: sTasks.map(t => ({
+                            name: String(t.name || t.title || '').trim(),
+                            description: String(t.description || '').trim(),
+                            priority: ['Low', 'Medium', 'High'].includes(t.priority) ? t.priority : 'Medium',
+                            dueInDays: Number(t.dueInDays || 30),
+                        })).filter(t => t.name)
+                    };
+                }).filter(s => s && s.service),
+                isActive: draft.status === 'Inactive' ? false : true,
+            }
+        };
+    }
 
     if (isCreatingClient) {
         let pmNames = [];
@@ -305,6 +338,27 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
                 ...(fallbackPayload?.fields?.branchId ? { branchId: fallbackPayload.fields.branchId, branch: fallbackPayload.fields.branch } : {}),
                 ...(fallbackPayload?.fields?.companyIdentifier ? { companyIdentifier: fallbackPayload.fields.companyIdentifier, companyId: fallbackPayload.fields.companyId } : {}),
             },
+        };
+    }
+
+    const isClientTask = draft.intent === 'create_client_task' || fallbackPayload?.entity === 'client_task' || fallbackPayload?.endpoint?.includes('/tasks/client-tasks');
+    if (isClientTask) {
+        const clientId = draft.clientId || fallbackPayload?.clientId || '';
+        const service = draft.service || fallbackPayload?.service || '';
+        const encodedService = encodeURIComponent(service);
+        return {
+            endpoint: `/tasks/client-tasks/client/${clientId}/service/${encodedService}`,
+            method: 'POST',
+            multipart: false,
+            fields: {
+                name: String(draft.title || draft.name || fallbackPayload?.fields?.name || '').trim(),
+                description: String(draft.description || fallbackPayload?.fields?.description || '').trim(),
+                dueDate: draft.dueDate || (draft.dueDateTime ? draft.dueDateTime.split('T')[0] : (fallbackPayload?.fields?.dueDate || null)),
+                dueDateTime: draft.dueDateTime || fallbackPayload?.fields?.dueDateTime || null,
+                assignee: draft.assignee || draft.assigneeName || fallbackPayload?.fields?.assignee || '',
+                assigneeId: draft.assigneeId || fallbackPayload?.fields?.assigneeId || null,
+                priority: draft.priority || fallbackPayload?.fields?.priority || 'Medium',
+            }
         };
     }
 
@@ -739,7 +793,7 @@ export const WELCOME_MENU_BUTTONS = [
     { label: 'Naya project banana', action: { type: 'set_intent', intent: 'create_project' } },
     { label: 'Project mein task banana/assign karna', action: { type: 'set_intent', intent: 'task_project' } },
     { label: 'Naya client add karna', action: { type: 'set_intent', intent: 'create_client' } },
-    { label: 'Client ka task kisi ko dena', action: { type: 'set_intent', intent: 'create_client_task' } },
+    { label: 'Client plan banana', action: { type: 'set_intent', intent: 'create_client_plan' } },
 ];
 
 /**

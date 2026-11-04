@@ -1015,7 +1015,7 @@ const TaskDetails = () => {
     }
   };
 
-  const calculateTaskActiveTime = useCallback((logs) => {
+  const calculateTaskActiveTime = useCallback((logs, task = null) => {
     if (!logs || logs.length === 0) return {
       totalSeconds: 0,
       displayText: '0s',
@@ -1023,56 +1023,64 @@ const TaskDetails = () => {
       statusHistory: []
     };
 
-    const sortedLogs = [...logs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    // Task, client and project logs name statuses differently ("in progress",
+    // "in_progress", "In-Progress"); compare one form.
+    const normalizeStatus = (value) => {
+      const key = String(value || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+      return ({ inprogress: 'in-progress', onhold: 'onhold', completed: 'completed', pending: 'pending', reopen: 'reopen', overdue: 'overdue', cancelled: 'cancelled', rejected: 'rejected' })[key] || '';
+    };
+    const statusActions = new Set(['status_updated', 'status_changed', 'status_change', 'creation', 'task_created']);
+    const logTimeOf = (log) => new Date(log.performedAt || log.createdAt || log.timestamp);
+
+    const sortedLogs = [...logs]
+      .filter((log) => !Number.isNaN(logTimeOf(log).getTime()))
+      .sort((a, b) => logTimeOf(a) - logTimeOf(b));
+
+    const events = [];
+    sortedLogs.forEach((log) => {
+      const action = log.action || log.type;
+      let newStatus = normalizeStatus(log.newValues?.status || log.newValue || log.status);
+      if (!newStatus && statusActions.has(action) && action !== 'creation' && action !== 'task_created' && log.description) {
+        const match = String(log.description).match(/\bto\s+["']?(in[\s_-]?progress|on[\s_-]?hold|completed|pending|reopen|overdue)\b/i);
+        newStatus = normalizeStatus(match?.[1]);
+      }
+      if (!newStatus) return;
+      events.push({
+        status: newStatus,
+        oldStatus: normalizeStatus(log.oldValues?.status || log.oldValue),
+        time: logTimeOf(log),
+        description: log.description
+      });
+    });
+
+    // Created straight as "in progress" (older project tasks have no status on the
+    // creation log): the first change comes *from* in progress, or there is none yet.
+    const createdTime = new Date(task?.createdAt || sortedLogs[0]?.createdAt || sortedLogs[0]?.performedAt);
+    const taskStatusNow = normalizeStatus(task?.userStatus || task?.status);
+    const startedAtCreation = !Number.isNaN(createdTime.getTime()) && (events.length
+      ? events[0].oldStatus === 'in-progress' && events[0].status !== 'in-progress'
+      : taskStatusNow === 'in-progress');
+    if (startedAtCreation) events.unshift({ status: 'in-progress', time: createdTime, description: 'Started at creation' });
 
     let totalActiveSeconds = 0;
     let lastStartTime = null;
     let currentStatus = 'pending';
     const statusHistory = [];
 
-    sortedLogs.forEach((log) => {
-      const logTime = new Date(log.createdAt);
-
-      if (log.action === 'status_updated' || log.action === 'status_changed') {
-        let newStatus = null;
-
-        if (log.newValues?.status) {
-          newStatus = log.newValues.status;
-        } else if (log.description) {
-          if (log.description.includes('in-progress')) newStatus = 'in-progress';
-          else if (log.description.includes('onhold')) newStatus = 'onhold';
-          else if (log.description.includes('completed')) newStatus = 'completed';
-          else if (log.description.includes('pending')) newStatus = 'pending';
-        }
-
-        if (newStatus && newStatus !== currentStatus) {
-          statusHistory.push({
-            from: currentStatus,
-            to: newStatus,
-            time: logTime,
-            description: log.description
-          });
-
-          if (newStatus === 'in-progress' && currentStatus !== 'in-progress') {
-            lastStartTime = logTime;
-          }
-          else if (currentStatus === 'in-progress' && (newStatus === 'onhold' || newStatus === 'completed' || newStatus === 'pending')) {
-            if (lastStartTime) {
-              const activeSeconds = Math.floor((logTime - lastStartTime) / 1000);
-              totalActiveSeconds += activeSeconds;
-              lastStartTime = null;
-            }
-          }
-
-          currentStatus = newStatus;
-        }
+    events.forEach(({ status: newStatus, time: logTime, description }) => {
+      if (newStatus === currentStatus) return;
+      statusHistory.push({ from: currentStatus, to: newStatus, time: logTime, description });
+      if (newStatus === 'in-progress') {
+        lastStartTime = logTime;
+      } else if (currentStatus === 'in-progress' && lastStartTime) {
+        totalActiveSeconds += Math.max(0, Math.floor((logTime - lastStartTime) / 1000));
+        lastStartTime = null;
       }
+      currentStatus = newStatus;
     });
 
     if (currentStatus === 'in-progress' && lastStartTime) {
-      const now = new Date();
-      const activeSeconds = Math.floor((now - lastStartTime) / 1000);
-      totalActiveSeconds += activeSeconds;
+      totalActiveSeconds += Math.max(0, Math.floor((new Date() - lastStartTime) / 1000));
     }
 
     return {
@@ -1097,7 +1105,7 @@ const TaskDetails = () => {
       if (taskDate.getTime() === today.getTime()) {
         todayTasksCount++;
         const taskLogs = logsMap[task._id] || [];
-        const timeData = calculateTaskActiveTime(taskLogs);
+        const timeData = calculateTaskActiveTime(taskLogs, task);
         totalTodaySeconds += timeData.totalSeconds;
       }
     });
@@ -4346,7 +4354,7 @@ const TaskDetails = () => {
                   const isOverdue = isTaskOverdueByDate(dueDate, status);
 
                   const taskLogs = allTaskLogs[task._id] || [];
-                  const timeData = calculateTaskActiveTime(taskLogs);
+                  const timeData = calculateTaskActiveTime(taskLogs, task);
                   const taskType = getTaskType(task);
 
                   return (
@@ -4876,7 +4884,7 @@ const TaskDetails = () => {
                     const isOverdue = isTaskOverdueByDate(dueDate, status);
 
                     const taskLogs = allTaskLogs[task._id] || [];
-                    const timeData = calculateTaskActiveTime(taskLogs);
+                    const timeData = calculateTaskActiveTime(taskLogs, task);
                     const taskType = getTaskType(task);
 
                     return (

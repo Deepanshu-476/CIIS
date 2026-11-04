@@ -5,7 +5,8 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
-import { ArrowLeft, Bell, Camera, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import axios from "../utils/axiosConfig";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
@@ -30,8 +31,6 @@ const CHAT_FILE_ACCEPT = [
 ].join(",");
 
 const VOICE_RECORDING_MAX_SECONDS = 5 * 60;
-const AUTO_COMPRESS_IMAGE_BYTES = 10 * 1024 * 1024;
-const AUTO_COMPRESS_VIDEO_BYTES = 200 * 1024 * 1024;
 const CHAT_EMOJI_CATEGORIES = [
     { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
     { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
@@ -53,20 +52,9 @@ const getMediaCompressionType = (file) => {
     return "";
 };
 
-const shouldAutoCompress = (file) => {
-    const mediaType = getMediaCompressionType(file);
-    if (mediaType === "image") return Number(file?.size || 0) > AUTO_COMPRESS_IMAGE_BYTES;
-    if (mediaType === "video") return Number(file?.size || 0) > AUTO_COMPRESS_VIDEO_BYTES;
-    return false;
-};
-
-const chooseCompressionMode = (file) => {
-    const mediaType = getMediaCompressionType(file);
-    if (!mediaType || shouldAutoCompress(file)) return "normal";
-    return window.confirm(`${file.name}\n\nSend this file in HD quality?\nOK = HD, Cancel = Normal`)
-        ? "hd"
-        : "normal";
-};
+// Picked photos and videos are sent as they are (same file, size and format);
+// "hd" tells the backend not to re-encode them. Other files keep the old mode.
+const chooseCompressionMode = (file) => (getMediaCompressionType(file) ? "hd" : "normal");
 
 const appendCompressionMode = (formData, mode = "normal") => {
     formData.append("compressionMode", mode === "hd" ? "hd" : "normal");
@@ -342,6 +330,16 @@ const ChatBox = ({
 
     const [messages, setMessages] =
         useState([]);
+    const [assignModal, setAssignModal] = useState({
+        open: false,
+        title: "",
+        description: "",
+        priority: "medium",
+        dueDateTime: "",
+        targetUserId: "",
+        submitting: false,
+        error: "",
+    });
     // Which conversation's first page has arrived, so "no messages yet" never flashes while loading.
     const [loadedConversationId, setLoadedConversationId] = useState(null);
     const [messagePagination, setMessagePagination] = useState({
@@ -1434,6 +1432,106 @@ useEffect(() => {
         }
     };
 
+    const openAssignModal = () => {
+        const defaultDue = new Date();
+        defaultDue.setHours(19, 0, 0, 0);
+        const tzOffset = defaultDue.getTimezoneOffset() * 60000;
+        const localISOTime = new Date(defaultDue.getTime() - tzOffset).toISOString().slice(0, 16);
+
+        const groupList = selectedUser?.isGroup
+            ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
+            : [];
+        const myId = (currentUser?._id || currentUser?.id || "").toString();
+        const initialTargetId = selectedUser?.isGroup
+            ? (groupList.find(m => (m?._id || m?.id || "").toString() !== myId)?._id || groupList[0]?._id || groupList[0]?.id || "")
+            : (selectedUser?._id || selectedUser?.id || selectedUser?.userId || "");
+
+        setAssignModal({
+            open: true,
+            title: "",
+            description: "",
+            priority: "medium",
+            dueDateTime: localISOTime,
+            targetUserId: initialTargetId ? String(initialTargetId) : "",
+            submitting: false,
+            error: "",
+        });
+    };
+
+    const closeAssignModal = () => {
+        setAssignModal(prev => ({ ...prev, open: false, submitting: false, error: "" }));
+    };
+
+    const handleAssignSubmit = async (e) => {
+        e?.preventDefault();
+        if (assignModal.submitting) return;
+
+        const title = assignModal.title.trim();
+        if (!title) {
+            setAssignModal(prev => ({ ...prev, error: "Task title is required." }));
+            return;
+        }
+
+        const targetUserId = assignModal.targetUserId || (!selectedUser?.isGroup ? (selectedUser?._id || selectedUser?.id || selectedUser?.userId) : "");
+        if (!targetUserId) {
+            setAssignModal(prev => ({ ...prev, error: "Please select an assignee." }));
+            return;
+        }
+
+        setAssignModal(prev => ({ ...prev, submitting: true, error: "" }));
+
+        try {
+            const payload = {
+                title,
+                description: assignModal.description.trim() || undefined,
+                assignedTo: [targetUserId],
+                assignedUsers: [targetUserId],
+                priority: assignModal.priority || "medium",
+                dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
+            };
+
+            await axios.post("/task/create-for-others", payload);
+
+            const groupList = selectedUser?.isGroup
+                ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
+                : [];
+            const targetMember = selectedUser?.isGroup
+                ? groupList.find(m => String(m?._id || m?.id) === String(targetUserId))
+                : selectedUser;
+            const targetName = targetMember?.name || selectedUser?.name || "Employee";
+
+            closeAssignModal();
+            showToast?.(`Task assigned to ${targetName} successfully!`, "success");
+
+            if (conversation?._id) {
+                try {
+                    const dueFormatted = assignModal.dueDateTime
+                        ? new Date(assignModal.dueDateTime).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+                        : "";
+                    const chatText = `📋 *Task Assigned: ${title}*\nAssigned to: ${targetName}\nPriority: ${(assignModal.priority || "medium").toUpperCase()}${dueFormatted ? `\nDue: ${dueFormatted}` : ""}${assignModal.description?.trim() ? `\nDetails: ${assignModal.description.trim()}` : ""}`;
+                    const formData = new FormData();
+                    formData.append("conversationId", conversation._id);
+                    formData.append("text", chatText);
+                    formData.append("compressionMode", "normal");
+                    const res = await sendMessage(formData);
+                    if (res?.data?.message) {
+                        emitSentMessage(res.data.message);
+                        appendSentMessages([res.data.message]);
+                        onConversationChange?.();
+                    }
+                } catch (chatErr) {
+                    console.error("Chat message for task assignment failed:", chatErr);
+                }
+            }
+        } catch (err) {
+            setAssignModal(prev => ({
+                ...prev,
+                submitting: false,
+                error: err?.response?.data?.message || err?.response?.data?.error || "Failed to assign task.",
+            }));
+        }
+    };
+
     const handleDeleteForMe = async (message) => {
         try {
             setIsSendingAction(true);
@@ -1829,7 +1927,7 @@ useEffect(() => {
                 title={item.name}
             >
                 {canPreviewImage ? (
-                    <img src={item.message?.localPreviewUrl || item.url} alt={item.name} />
+                    <img src={item.message?.localPreviewUrl || item.message?.previewFile || item.url} alt={item.name} />
                 ) : item.kind === "video" ? (
                     <><Video size={22} /><span className="chat-contact-play"><Play size={15} fill="currentColor" /></span></>
                 ) : item.kind === "audio" ? (
@@ -2847,6 +2945,20 @@ useEffect(() => {
                                     </span>
                                     <span className="attachment-label">Audio</span>
                                 </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        openAssignModal();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-assign">
+                                        <CheckSquare size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Assign Task</span>
+                                </button>
                             </div>
                         )}
 
@@ -2912,7 +3024,7 @@ useEffect(() => {
                                         >
                                             <span>{file.name}</span>
                                             {getMediaCompressionType(file) && (
-                                                <small>{fileItem.compressionMode === "hd" ? "HD" : "Normal"}</small>
+                                                <small>Original</small>
                                             )}
                                             <button
                                                 type="button"
@@ -3211,6 +3323,7 @@ useEffect(() => {
                     </div>
                 </div>
             )}
+<<<<<<< HEAD
             {pastedImageModal && (
                 <div
                     className="whatsapp-image-preview-overlay"
@@ -3375,6 +3488,120 @@ useEffect(() => {
                                 <SendHorizontal size={20} style={{ marginLeft: "2px" }} />
                             </button>
                         </div>
+=======
+
+            {assignModal.open && (
+                <div className="chat-assign-modal-overlay" onClick={closeAssignModal}>
+                    <div className="chat-assign-modal" onClick={e => e.stopPropagation()}>
+                        <div className="chat-assign-modal-header">
+                            <div className="chat-assign-modal-title">
+                                <CheckSquare size={20} className="chat-assign-modal-title-icon" />
+                                <h3>
+                                    {selectedUser?.isGroup
+                                        ? `Assign Task (${selectedUser.name || "Group"})`
+                                        : `Assign Task to ${selectedUser?.name || "Employee"}`}
+                                </h3>
+                            </div>
+                            <button type="button" className="chat-assign-modal-close" onClick={closeAssignModal} aria-label="Close">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleAssignSubmit} className="chat-assign-modal-form">
+                            {assignModal.error && (
+                                <div className="chat-assign-error">{assignModal.error}</div>
+                            )}
+
+                            {selectedUser?.isGroup && (
+                                <div className="chat-assign-form-group">
+                                    <label>Assign To <span style={{ color: "#ef4444" }}>*</span></label>
+                                    <select
+                                        value={assignModal.targetUserId}
+                                        onChange={e => setAssignModal(prev => ({ ...prev, targetUserId: e.target.value }))}
+                                        className="chat-assign-select"
+                                        required
+                                    >
+                                        <option value="">Select Group Member</option>
+                                        {(selectedUser?.members || selectedUser?.groupMembers || conversation?.members || []).map(member => {
+                                            const mId = member?._id || member?.id;
+                                            return (
+                                                <option key={mId} value={mId}>
+                                                    {member.name || "Member"} {member.email ? `(${member.email})` : ""}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="chat-assign-form-group">
+                                <label>Task Title <span style={{ color: "#ef4444" }}>*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Enter task title"
+                                    value={assignModal.title}
+                                    onChange={e => setAssignModal(prev => ({ ...prev, title: e.target.value }))}
+                                    className="chat-assign-input"
+                                />
+                            </div>
+
+                            <div className="chat-assign-form-group">
+                                <label>Description</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Add details, instructions or expectations..."
+                                    value={assignModal.description}
+                                    onChange={e => setAssignModal(prev => ({ ...prev, description: e.target.value }))}
+                                    className="chat-assign-textarea"
+                                />
+                            </div>
+
+                            <div className="chat-assign-form-row">
+                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
+                                    <label>Priority</label>
+                                    <select
+                                        value={assignModal.priority}
+                                        onChange={e => setAssignModal(prev => ({ ...prev, priority: e.target.value }))}
+                                        className="chat-assign-select"
+                                    >
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+
+                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
+                                    <label>Due Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
+                                    <input
+                                        type="datetime-local"
+                                        required
+                                        value={assignModal.dueDateTime}
+                                        onChange={e => setAssignModal(prev => ({ ...prev, dueDateTime: e.target.value }))}
+                                        className="chat-assign-input"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="chat-assign-modal-footer">
+                                <button
+                                    type="button"
+                                    className="chat-assign-btn-cancel"
+                                    disabled={assignModal.submitting}
+                                    onClick={closeAssignModal}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="chat-assign-btn-submit"
+                                    disabled={assignModal.submitting}
+                                >
+                                    {assignModal.submitting ? "Assigning..." : "Assign Task"}
+                                </button>
+                            </div>
+                        </form>
+>>>>>>> 44643d87c35120d023589e999f275b4479a6d0b4
                     </div>
                 </div>
             )}

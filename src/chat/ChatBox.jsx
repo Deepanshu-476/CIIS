@@ -811,16 +811,6 @@ const ChatBox = ({
                     String(msg._id || "") ===
                         String(data?.messageId || "")
 
-<<<<<<< HEAD
-                        ? {
-                            ...msg,
-                            seen: true,
-                            seenBy: Array.from(new Set([
-                                ...(Array.isArray(msg.seenBy) ? msg.seenBy : []),
-                                seenBy
-                            ].filter(Boolean)))
-                        }
-=======
                 ? {
                     ...msg,
                     // In a group, blue only once every other member has read it (server sends allSeen).
@@ -830,7 +820,6 @@ const ChatBox = ({
                         seenBy
                     ].filter(Boolean)))
                 }
->>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
 
                         : msg
                 )
@@ -1002,11 +991,6 @@ const ChatBox = ({
 
             } catch (error) {
 
-<<<<<<< HEAD
-                void 0;
-            }
-        };
-=======
             setMessages(
                 sortMessagesByCreatedAt(
                     (Array.isArray(res.data.messages) ? res.data.messages : [])
@@ -1026,7 +1010,6 @@ const ChatBox = ({
             void 0;
         }
     };
->>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
 
     const loadOlderMessages = async () => {
         if (!conversation?._id || isLoadingOlderMessages || !messagePagination.hasMore || !messagePagination.nextBefore) return;
@@ -2213,12 +2196,9 @@ const ChatBox = ({
         : (typeof isUserOnlineNow === "function"
             ? isUserOnlineNow(selectedUser)
             : (presenceReady ? isIdOnline(selectedUserId) : (Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId))));
-<<<<<<< HEAD
-=======
     // The server rings every signed-in device and wakes offline ones by push, so a call must not
     // depend on the live "online" dot (since presence became strict, it blocked calling anyone whose
     // app was in the background).
->>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
     const canStartCall = selectedUser?.isGroup
         ? groupMemberCount > 0 || onlineGroupCount > 0
         : Boolean(selectedUserId);
@@ -2364,43 +2344,6 @@ const ChatBox = ({
                                             ? groupStatusLabel
                                             : (isSelectedUserOnline ? "Online" : "Offline")}
                                 </span>
-<<<<<<< HEAD
-                            </span>
-                        </button>
-                    </div>
-                    <div className="chat-header-actions" ref={headerMenuRef}>
-                        <button
-                            type="button"
-                            title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group member online") : isSelectedUserOnline ? "Start video call" : "User is offline"}
-                            onClick={() => startDirectCall("video")}
-                            disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
-                        >
-                            <Video size={18} />
-                        </button>
-                        <button
-                            type="button"
-                            title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group member online") : isSelectedUserOnline ? "Start voice call" : "User is offline"}
-                            onClick={() => startDirectCall("audio")}
-                            disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
-                        >
-                            <Phone size={18} />
-                        </button>
-                        <button
-                            type="button"
-                            title="Search"
-                            onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}
-                        >
-                            <Search size={18} />
-                        </button>
-                        <button type="button" title="More" onClick={() => setShowHeaderMenu(value => !value)}>
-                            <MoreVertical size={18} />
-                        </button>
-                        {showHeaderMenu && (
-                            <div className="chat-profile-menu">
-                                <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
-                                    <Info size={17} />
-                                    {selectedUser.isGroup ? "Group info" : "Contact info"}
-=======
                         </span>
                     </button>
                 </div>
@@ -2458,7 +2401,6 @@ const ChatBox = ({
                                 <button type="button" className="danger" onClick={deleteCurrentChannel} disabled={isSendingAction}>
                                     <Trash2 size={17} />
                                     Delete channel
->>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
                                 </button>
                                 <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
                                     <Search size={17} />
@@ -3005,8 +2947,6 @@ const ChatBox = ({
                 </div>
             </div>
 
-<<<<<<< HEAD
-=======
             <div className="chat-topic-bar">
                 <strong>Chat Topic: {getCurrentTopic()}</strong>
                 <button type="button">Change Topic</button>
@@ -3544,7 +3484,6 @@ const ChatBox = ({
             </div>
             </div>
 
->>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
             {showContactInfo && (
                 <div
                     className="chat-contact-resizer"

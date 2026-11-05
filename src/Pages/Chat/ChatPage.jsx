@@ -25,8 +25,10 @@ import {
 } from "../../services/chatService";
 import { useSocket } from "../../context/SocketContext";
 import { useCall } from "../../context/CallContext";
+import ImageAdjustModal from "../../chat/ImageAdjustModal";
 import {
   ArrowLeft,
+  Camera,
   Check,
   MessageCircle,
   MoreVertical,
@@ -125,6 +127,9 @@ const ChatChannelsPanel = ({
   const [groupStep, setGroupStep] = useState("members");
   const [groupSearch, setGroupSearch] = useState("");
   const [groupName, setGroupName] = useState("");
+  const [groupAvatar, setGroupAvatar] = useState(null);
+  const [groupAvatarPreview, setGroupAvatarPreview] = useState("");
+  const [adjustingAvatarFile, setAdjustingAvatarFile] = useState(null);
   const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState([]);
   const [groupError, setGroupError] = useState("");
 
@@ -167,8 +172,28 @@ const ChatChannelsPanel = ({
     setGroupStep("members");
     setGroupSearch("");
     setGroupName("");
+    setGroupAvatar(null);
+    setGroupAvatarPreview("");
+    setAdjustingAvatarFile(null);
     setSelectedGroupMemberIds([]);
     setGroupError("");
+  };
+
+  const handleGroupAvatarChange = event => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = "";
+    if (!file) return;
+    setAdjustingAvatarFile(file);
+  };
+
+  const handleAdjustAvatarConfirm = (croppedFile, previewUrl) => {
+    setGroupAvatar(croppedFile);
+    setGroupAvatarPreview(previewUrl);
+    setAdjustingAvatarFile(null);
+  };
+
+  const handleAdjustAvatarCancel = () => {
+    setAdjustingAvatarFile(null);
   };
 
   const handleCreateNewChannel = async () => {
@@ -187,7 +212,7 @@ const ChatChannelsPanel = ({
 
     try {
       setGroupError("");
-      await onCreateGroup?.({ name, members });
+      await onCreateGroup?.({ name, members, avatar: groupAvatar });
       closeGroupPanel();
     } catch (error) {
       setGroupError(error?.response?.data?.error || error?.response?.data?.message || "Channel create failed");
@@ -365,8 +390,33 @@ const ChatChannelsPanel = ({
             </>
           ) : (
             <div className="chat-group-details">
-              <div className="chat-group-avatar-preview">
-                <Users size={30} />
+              <div className="chat-group-avatar-wrap">
+                <label className="chat-group-avatar-preview" title={groupAvatarPreview ? "Change channel picture" : "Add channel picture"}>
+                  {groupAvatarPreview ? (
+                    <img src={groupAvatarPreview} alt="Channel preview" />
+                  ) : (
+                    <>
+                      <Users size={30} />
+                      <span><Camera size={13} /></span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" onChange={handleGroupAvatarChange} />
+                </label>
+                {groupAvatarPreview && (
+                  <button
+                    type="button"
+                    className="chat-group-avatar-remove"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setGroupAvatar(null);
+                      setGroupAvatarPreview("");
+                    }}
+                    title="Remove picture"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
               </div>
               <input
                 type="text"
@@ -387,6 +437,15 @@ const ChatChannelsPanel = ({
             </div>
           )}
         </section>
+      )}
+
+      {adjustingAvatarFile && (
+        <ImageAdjustModal
+          imageFile={adjustingAvatarFile}
+          onConfirm={handleAdjustAvatarConfirm}
+          onCancel={handleAdjustAvatarCancel}
+          title="Adjust channel picture"
+        />
       )}
     </aside>
   );
@@ -1313,7 +1372,21 @@ const ChatPage = () => {
     if (updatedGroup?._id || updatedGroup?.id) {
       setSelectedUser(prev => {
         const selectedId = (prev?._id || prev?.id || prev?.groupId || "").toString();
-        return selectedId === groupId ? { ...prev, ...updatedGroup, isGroup: true } : prev;
+        if (selectedId === groupId) {
+          const nextImg = updatedGroup.groupImage !== undefined
+            ? updatedGroup.groupImage
+            : (updatedGroup.profileImage || updatedGroup.avatar || updatedGroup.image || "");
+          return {
+            ...prev,
+            ...updatedGroup,
+            groupImage: nextImg,
+            profileImage: nextImg,
+            avatar: nextImg,
+            image: nextImg,
+            isGroup: true,
+          };
+        }
+        return prev;
       });
     }
     return updatedGroup;

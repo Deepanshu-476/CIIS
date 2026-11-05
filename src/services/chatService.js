@@ -92,7 +92,10 @@ export const updateNotificationPreferences = async (notificationPreferences) => 
     );
 };
 
-const buildGroupPayload = ({ name, description = "", members = [], avatar = null }) => {
+const buildGroupPayload = ({ name, description = "", members = [], avatar = null, removeAvatar = false }) => {
+    if (removeAvatar) {
+        return { name, description, members, removeAvatar: true, avatar: "" };
+    }
     if (!avatar) return { name, description, members };
 
     const formData = new FormData();
@@ -116,9 +119,9 @@ export const createCompanyGroup = async ({ name, description = "", members = [],
     );
 };
 
-export const updateCompanyGroup = async (groupId, { name, description = "", members, avatar = null }) => {
-    const payload = buildGroupPayload({ name, description, members: members || [], avatar });
-    if (!avatar && members === undefined) {
+export const updateCompanyGroup = async (groupId, { name, description = "", members, avatar = null, removeAvatar = false }) => {
+    const payload = buildGroupPayload({ name, description, members: members || [], avatar, removeAvatar });
+    if (!avatar && !removeAvatar && members === undefined) {
         delete payload.members;
     }
     return axios.put(

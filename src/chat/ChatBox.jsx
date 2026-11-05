@@ -19,6 +19,7 @@ import { openClientConversation, getClientChatTask, addClientChatRemark, openPro
 import { API_URL_IMG } from "../config";  
 import { attachmentLabel, attachmentSource, resolveAvatarUrl } from "./messageUtils";
 import { describeCallMessage, isCallMessage } from "./callMessage";
+import ImageAdjustModal from "./ImageAdjustModal";
 import { useCall } from "../context/CallContext";
 import { useNotification } from "../context/NotificationContext";
 
@@ -370,6 +371,7 @@ const ChatBox = ({
     const [files, setFiles] =
         useState([]);
     const [pastedImageModal, setPastedImageModal] = useState(null);
+    const [adjustingGroupImageFile, setAdjustingGroupImageFile] = useState(null);
 
     const [isSendingAction, setIsSendingAction] = useState(false);
     const [typingUserId, setTypingUserId] = useState(null);
@@ -2162,7 +2164,7 @@ useEffect(() => {
                     <h2>{selectedName}</h2>
                     <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
                     {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
-                        <>
+                        <div className="chat-channel-photo-actions">
                             <button
                                 type="button"
                                 className="chat-channel-photo-btn"
@@ -2171,6 +2173,17 @@ useEffect(() => {
                             >
                                 <Camera size={14} /> Change picture
                             </button>
+                            {Boolean(selectedUser.groupImage || selectedUser.profileImage || selectedUser.avatar || selectedUser.image) && (
+                                <button
+                                    type="button"
+                                    className="chat-channel-photo-btn chat-channel-photo-btn-remove"
+                                    onClick={handleRemoveGroupImage}
+                                    disabled={isSendingAction}
+                                    title="Remove group picture"
+                                >
+                                    <Trash2 size={14} /> Remove picture
+                                </button>
+                            )}
                             <input
                                 ref={groupImageInputRef}
                                 type="file"
@@ -2178,7 +2191,7 @@ useEffect(() => {
                                 hidden
                                 onChange={updateCurrentChannelImage}
                             />
-                        </>
+                        </div>
                     )}
                 </div>
                 <div className="chat-contact-actions">
@@ -2443,21 +2456,50 @@ useEffect(() => {
         }
     };
 
-    const updateCurrentChannelImage = async (event) => {
+    const updateCurrentChannelImage = (event) => {
         const file = event.target.files?.[0];
         event.target.value = "";
         if (!file || !selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
+        setAdjustingGroupImageFile(file);
+    };
+
+    const handleGroupImageAdjustConfirm = async (croppedFile) => {
+        setAdjustingGroupImageFile(null);
+        if (!croppedFile || !selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
         setIsSendingAction(true);
         try {
             await onUpdateGroup?.(selectedUser, {
                 name: getGroupName(selectedUser),
                 description: selectedUser.description || "",
                 members: (groupMembers || []).map(getMemberId).filter(Boolean),
-                avatar: file,
+                avatar: croppedFile,
             });
             showToast?.("Group picture updated.", "success");
         } catch (error) {
             showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to update group picture.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handleRemoveGroupImage = async () => {
+        if (!selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
+
+        const confirmed = window.confirm ? window.confirm("Are you sure you want to remove the group picture?") : true;
+        if (!confirmed) return;
+
+        setIsSendingAction(true);
+        try {
+            await onUpdateGroup?.(selectedUser, {
+                name: getGroupName(selectedUser),
+                description: selectedUser.description || "",
+                members: (groupMembers || []).map(getMemberId).filter(Boolean),
+                removeAvatar: true,
+                avatar: "",
+            });
+            showToast?.("Group picture removed.", "success");
+        } catch (error) {
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to remove group picture.", "error");
         } finally {
             setIsSendingAction(false);
         }
@@ -3604,6 +3646,15 @@ useEffect(() => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {adjustingGroupImageFile && (
+                <ImageAdjustModal
+                    imageFile={adjustingGroupImageFile}
+                    onConfirm={handleGroupImageAdjustConfirm}
+                    onCancel={() => setAdjustingGroupImageFile(null)}
+                    title="Adjust group picture"
+                />
             )}
         </div>
     );

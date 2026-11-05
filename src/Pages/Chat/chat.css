@@ -4552,8 +4552,16 @@ body.chat-route-active main > .MuiBox-root {
     background: #0d63f3;
 }
 
-.chat-channel-photo-btn {
+.chat-channel-photo-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
     margin-top: 8px;
+}
+
+.chat-channel-photo-btn {
     height: 30px;
     display: inline-flex;
     align-items: center;
@@ -4566,11 +4574,62 @@ body.chat-route-active main > .MuiBox-root {
     font-size: 11px;
     font-weight: 900;
     cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.chat-channel-photo-btn:hover:not(:disabled) {
+    background: #e6f0ff;
+    border-color: #a8c7fa;
+}
+
+.chat-channel-photo-btn-remove {
+    border-color: #ffd2d2;
+    color: #e53935;
+    background: #fff5f5;
+}
+
+.chat-channel-photo-btn-remove:hover:not(:disabled) {
+    background: #ffebee;
+    border-color: #ffb4b4;
+    color: #d32f2f;
 }
 
 .chat-channel-photo-btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+}
+
+.chat-group-avatar-wrap {
+    position: relative;
+    width: 74px;
+    height: 74px;
+    justify-self: center;
+    margin: 0 auto;
+}
+
+.chat-group-avatar-remove {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s, background 0.15s;
+    padding: 0;
+    z-index: 2;
+}
+
+.chat-group-avatar-remove:hover {
+    background: #dc2626;
+    transform: scale(1.1);
 }
 
 .chat-group-details input {

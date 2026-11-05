@@ -1,3612 +1,3696 @@
-import React, {
-    useEffect,
-    useRef,
-    useState
-} from "react";
-import "../Pages/Chat/chat.css";
-import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
-import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
-import axios from "../utils/axiosConfig";
-
-import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
-
-import MessageBubble from "./MessageBubble";
-import ChatMentionInput from "./ChatMentionInput";
-import { taskEventText } from "./taskEventText";
-import { mentionMembers, reconcileMentions } from "./mentionUtils";
-import TaskDetailsModal from "../hrCds/components/TaskDetailsModal";
-import { openClientConversation, getClientChatTask, addClientChatRemark, openProjectConversation, getProjectChatTask, addProjectChatRemark } from "../services/chatService";
-import { API_URL_IMG } from "../config";  
-import { attachmentLabel, attachmentSource, resolveAvatarUrl } from "./messageUtils";
-import { describeCallMessage, isCallMessage } from "./callMessage";
-import { useCall } from "../context/CallContext";
-import { useNotification } from "../context/NotificationContext";
-
-const CHAT_FILE_ACCEPT = [
-    "image/*", "video/*", "audio/*",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv",
-    ".ppt", ".pptx", ".txt", ".rtf",
-    ".odt", ".ods", ".odp",
-    ".zip", ".rar", ".7z"
-].join(",");
-
-const VOICE_RECORDING_MAX_SECONDS = 5 * 60;
-const CHAT_EMOJI_CATEGORIES = [
-    { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
-    { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
-    { category: Categories.FOOD_DRINK, name: "Food & Drink" },
-    { category: Categories.ACTIVITIES, name: "Activities" },
-    { category: Categories.TRAVEL_PLACES, name: "Travel" },
-    { category: Categories.OBJECTS, name: "Objects" },
-    { category: Categories.SYMBOLS, name: "Symbols" },
-    { category: Categories.FLAGS, name: "Flags" },
-];
-
-const getUploadFile = (item) => item?.file || item;
-
-const getMediaCompressionType = (file) => {
-    const type = String(file?.type || "").toLowerCase();
-    const name = String(file?.name || "").toLowerCase();
-    if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(name)) return "image";
-    if (type.startsWith("video/") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(name)) return "video";
-    return "";
-};
-
-// Picked photos and videos are sent as they are (same file, size and format);
-// "hd" tells the backend not to re-encode them. Other files keep the old mode.
-const chooseCompressionMode = (file) => (getMediaCompressionType(file) ? "hd" : "normal");
-
-const appendCompressionMode = (formData, mode = "normal") => {
-    formData.append("compressionMode", mode === "hd" ? "hd" : "normal");
-};
-
-const getMessageDate = (value) => {
-    const date = new Date(value || Date.now());
-    return Number.isNaN(date.getTime()) ? new Date() : date;
-};
-
-const getMessageDateKey = (value) => {
-    const date = getMessageDate(value);
-    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-};
-
-const formatMessageDateSeparator = (value) => {
-    const date = getMessageDate(value);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-
-    if (getMessageDateKey(date) === getMessageDateKey(today)) return "Today";
-    if (getMessageDateKey(date) === getMessageDateKey(yesterday)) return "Yesterday";
-
-    return date.toLocaleDateString([], {
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-    });
-};
-
-const TASK_UPDATE_LABELS = {
-    task_remark_added: ["Remark Added", "mention"],
-    task_priority_changed: ["Priority Changed", "status"],
-    task_due_changed: ["Due Date Changed", "status"],
-    task_assignee_changed: ["Task Reassigned", "create"],
-    task_renamed: ["Task Renamed", "update"],
-    task_description_updated: ["Task Updated", "update"],
-    task_checkpoint_added: ["Checkpoint Added", "update"],
-    task_checkpoint_completed: ["Checkpoint Done", "mention"],
-    task_checkpoint_reopened: ["Checkpoint Reopened", "status"],
-    task_file_added: ["File Attached", "update"],
-    task_file_removed: ["File Removed", "delete"],
-    task_deleted: ["Task Deleted", "delete"],
-    subscription_expired: ["Subscription Expired", "delete"],
-    plan_tasks_created: ["Plan Tasks Created", "create"],
-};
-
-// Task updates, plus whole-subscription notices (plan tasks created, expiry) that list tasks but open none.
-const SUBSCRIPTION_NOTICE_TYPES = ["subscription_expired", "plan_tasks_created"];
-const isTaskUpdateMessage = message => message?.messageType === "system"
-    && Boolean(message.systemEvent?.task || SUBSCRIPTION_NOTICE_TYPES.includes(message.systemEvent?.type));
-
-const getTaskEventMeta = (message) => {
-    const eventType = message?.systemEvent?.type;
-    const text = String(message?.text || "");
-
-    let label = "Task Update";
-    let eventCategory = "status";
-
-    if (eventType === "task_created" || text.includes("task create kiya") || text.toLowerCase().includes("task created")) {
-        label = "Task Created";
-        eventCategory = "create";
-    } else if (eventType === "task_status_changed" || text.includes("ka status") || text.includes("→")) {
-        label = "Status Updated";
-        eventCategory = "status";
-    } else if (eventType === "task_mentioned" || text.includes("mention kiya")) {
-        label = "Task Mention";
-        eventCategory = "mention";
-    } else if (TASK_UPDATE_LABELS[eventType]) {
-        [label, eventCategory] = TASK_UPDATE_LABELS[eventType];
-    }
-
-    const dateVal = message?.createdAt || message?.updatedAt;
-    const date = dateVal ? new Date(dateVal) : new Date();
-    const isValidDate = !Number.isNaN(date.getTime());
-
-    let formattedTime = "";
-    let fullDateTime = "";
-
-    if (isValidDate) {
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
-
-        const isToday = getMessageDateKey(date) === getMessageDateKey(today);
-        const isYesterday = getMessageDateKey(date) === getMessageDateKey(yesterday);
-
-        const timeStr = date.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-
-        if (isToday) {
-            formattedTime = timeStr;
-        } else if (isYesterday) {
-            formattedTime = `Yesterday, ${timeStr}`;
-        } else {
-            const dateStr = date.toLocaleDateString([], {
-                day: "numeric",
-                month: "short"
-            });
-            formattedTime = `${dateStr}, ${timeStr}`;
-        }
-
-        fullDateTime = date.toLocaleString([], {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-    }
-
-    return {
-        label,
-        eventCategory,
-        formattedTime,
-        fullDateTime
-    };
-};
-
-const getMessageTimeValue = (message) => {
-    const date = new Date(message?.createdAt || message?.updatedAt || 0);
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-};
-
-const sortMessagesByCreatedAt = (items = []) => (
-    Array.isArray(items)
-        ? [...items].sort((first, second) => getMessageTimeValue(first) - getMessageTimeValue(second))
-        : []
-);
-
-const normalizeMessageForChat = (message, currentUserId = "") => {
-    const senderId = (message?.sender?._id || message?.sender?.id || message?.sender || "").toString();
-    const seenBy = Array.isArray(message?.seenBy)
-        ? message.seenBy.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
-        : [];
-    const deliveredTo = Array.isArray(message?.deliveredTo)
-        ? message.deliveredTo.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
-        : [];
-    const isOwn = senderId && currentUserId && senderId === currentUserId;
-
-    return {
-        ...message,
-        seenBy,
-        deliveredTo,
-        seen: Boolean(message?.seen) || (
-            isOwn
-                ? seenBy.some(memberId => memberId !== currentUserId)
-                : seenBy.includes(currentUserId)
-        ),
-        delivered: Boolean(message?.delivered) || (
-            isOwn
-                ? deliveredTo.some(memberId => memberId !== currentUserId)
-                : deliveredTo.includes(currentUserId)
-        ),
-    };
-};
-
-const VoiceRecordingWaveform = ({ stream, isPaused }) => {
-    const [amplitudes, setAmplitudes] = useState(() => [
-        4, 6, 12, 18, 14, 8, 16, 22, 10, 5, 9, 17, 24, 15, 7, 5, 11, 19, 21, 12, 6, 13, 18, 15, 8, 5, 8, 12, 6, 4
-    ]);
-    const audioContextRef = useRef(null);
-    const analyserRef = useRef(null);
-    const timerRef = useRef(null);
-
-    useEffect(() => {
-        if (!stream) return;
-
-        let isMounted = true;
-        try {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            if (AudioContextClass) {
-                const ctx = new AudioContextClass();
-                audioContextRef.current = ctx;
-
-                if (ctx.state === "suspended") {
-                    ctx.resume().catch(() => {});
-                }
-
-                const analyser = ctx.createAnalyser();
-                analyser.fftSize = 64;
-                analyser.smoothingTimeConstant = 0.5;
-                analyserRef.current = analyser;
-
-                const source = ctx.createMediaStreamSource(stream);
-                source.connect(analyser);
-
-                const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-                const interval = window.setInterval(() => {
-                    if (!isMounted) return;
-                    if (isPaused) return;
-
-                    if (analyserRef.current) {
-                        analyserRef.current.getByteFrequencyData(dataArray);
-                        let sum = 0;
-                        for (let i = 0; i < dataArray.length; i++) {
-                            sum += dataArray[i];
-                        }
-                        const average = sum / (dataArray.length || 1);
-                        const volumeRatio = Math.min(1, average / 85);
-
-                        setAmplitudes(prev => {
-                            const next = [...prev.slice(1)];
-                            const minHeight = 4;
-                            const maxHeight = 26;
-                            const jitter = (Math.random() * 4) - 2;
-                            const calculated = Math.round(
-                                Math.max(
-                                    minHeight,
-                                    Math.min(
-                                        maxHeight,
-                                        volumeRatio > 0.03
-                                            ? (volumeRatio * (maxHeight - minHeight)) + minHeight + jitter
-                                            : (Math.random() * 4) + minHeight
-                                    )
-                                )
-                            );
-                            next.push(calculated);
-                            return next;
-                        });
-                    }
-                }, 75);
-
-                timerRef.current = interval;
-            }
-        } catch (err) {
-            console.warn("Waveform AudioContext init skipped:", err);
-        }
-
-        return () => {
-            isMounted = false;
-            if (timerRef.current) window.clearInterval(timerRef.current);
-            if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-                audioContextRef.current.close().catch(() => {});
-            }
-        };
-    }, [stream, isPaused]);
-
-    return (
-        <div className="voice-recorder-waveform" aria-hidden="true">
-            {amplitudes.map((height, index) => (
-                <span
-                    key={index}
-                    className={`voice-waveform-bar ${isPaused ? "paused" : ""}`}
-                    style={{ height: `${height}px` }}
-                />
-            ))}
-        </div>
-    );
-};
-
-const ChatBox = ({
-    selectedUser,
-    currentUser,
-    users,
-    socket,
-    onlineUsers = [],
-    onConversationChange,
-    onDeleteGroup,
-    onUpdateGroup,
-    onBack,
-    chatSettings = {},
-    presenceReady = false,
-    isUserOnlineNow,
-}) => {
-
-    const [conversation, setConversation] =
-        useState(null);
-
-    const [messages, setMessages] =
-        useState([]);
-    const [assignModal, setAssignModal] = useState({
-        open: false,
-        title: "",
-        description: "",
-        priority: "medium",
-        dueDateTime: "",
-        targetUserId: "",
-        submitting: false,
-        error: "",
-    });
-    // Which conversation's first page has arrived, so "no messages yet" never flashes while loading.
-    const [loadedConversationId, setLoadedConversationId] = useState(null);
-    const [messagePagination, setMessagePagination] = useState({
-        hasMore: false,
-        nextBefore: null,
-    });
-    const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
-
-    const [text, setRawText] =
-        useState("");
-    const [messageMentions, setMessageMentions] = useState([]);
-    const setText = (nextText, nextMentions) => {
-        setMessageMentions(nextMentions ?? reconcileMentions(text, nextText, messageMentions));
-        setRawText(nextText);
-    };
-    const [replyingTo, setReplyingTo] = useState(null);
-    const [projectTask, setProjectTask] = useState(null);
-    const remarkRequests = useRef(new Map());
-    useEffect(() => { setProjectTask(null); setMessageMentions([]); }, [selectedUser?._id, selectedUser?.id]);
-    const openProjectTask = async (event) => {
-        if (event.type === "task_deleted") return showToast?.("This task has been deleted.", "info");
-        try {
-            const result = event.client ? await getClientChatTask(event.client, event.task) : await getProjectChatTask(event.project, event.task);
-            setProjectTask(result.data.task);
-        } catch { showToast?.("Task is unavailable or access was removed.", "error"); }
-    };
-
-    const [files, setFiles] =
-        useState([]);
-    const [pastedImageModal, setPastedImageModal] = useState(null);
-
-    const [isSendingAction, setIsSendingAction] = useState(false);
-    const [typingUserId, setTypingUserId] = useState(null);
-    const [recorderMode, setRecorderMode] = useState(null);
-    const [recordingSeconds, setRecordingSeconds] = useState(0);
-    const [recordingError, setRecordingError] = useState("");
-    const [pendingRecording, setPendingRecording] = useState(null);
-    const [isRecordingPaused, setIsRecordingPaused] = useState(false);
-    const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
-    const discardRecordingRef = useRef(false);
-    const sendImmediatelyRef = useRef(false);
-    const [showCaptureMenu, setShowCaptureMenu] = useState(false);
-    const typingTimerRef = useRef(null);
-    const mediaRecorderRef = useRef(null);
-    const recordingChunksRef = useRef([]);
-    const recordingStreamRef = useRef(null);
-    const recordingTimerRef = useRef(null);
-    const recordingSecondsRef = useRef(0);
-    const recordingPreviewRef = useRef(null);
-    const emojiPickerRef = useRef(null);
-    const attachmentMenuRef = useRef(null);
-    const documentInputRef = useRef(null);
-    const photosVideosInputRef = useRef(null);
-    const audioInputRef = useRef(null);
-    const groupImageInputRef = useRef(null);
-    const headerMenuRef = useRef(null);
-    const chatBoxRef = useRef(null);
-    const chatInputRef = useRef(null);
-    const fileInputRef = useRef(null);
-    const capturePhotoBackRef = useRef(null);
-    const capturePhotoFrontRef = useRef(null);
-    const captureVideoBackRef = useRef(null);
-    const captureVideoFrontRef = useRef(null);
-    const activeConversationIdRef = useRef(null);
-    const chatMessagesRef = useRef(null);
-    const shouldScrollToLatestRef = useRef(false);
-    const { startCall } = useCall();
-    const { showToast } = useNotification();
-    const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
-    const [showActiveChatDate, setShowActiveChatDate] = useState(false);
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
-    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
-    const [showContactInfo, setShowContactInfo] = useState(false);
-    const [contactPanelView, setContactPanelView] = useState("info");
-    const [contactMediaTab, setContactMediaTab] = useState("media");
-    const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(null);
-    const [contactSidebarWidth, setContactSidebarWidth] = useState(() => {
-        const savedWidth = Number(localStorage.getItem("ciis-chat-contact-sidebar-width"));
-        return Number.isFinite(savedWidth) && savedWidth >= 280 ? savedWidth : 360;
-    });
-    const [isMuted, setIsMuted] = useState(false);
-    const [disappearingMode, setDisappearingMode] = useState("off");
-    const [contactWallpaper, setContactWallpaper] = useState("");
-    const [contactSound, setContactSound] = useState("default");
-    const [starredMessageIds, setStarredMessageIds] = useState([]);
-    const [isContactSearchOpen, setIsContactSearchOpen] = useState(false);
-    const [contactSearchTerm, setContactSearchTerm] = useState("");
-    const effectiveChatSettings = {
-        chats: { enterToSend: true, mediaAutoDownload: true, wallpaper: "", ...(chatSettings.chats || {}) },
-        videoVoice: { cameraEnabled: true, microphoneEnabled: true, speakerEnabled: true, ...(chatSettings.videoVoice || {}) },
-        keyboard: { enabled: true, sendMessage: "Enter", newLine: "Shift+Enter", ...(chatSettings.keyboard || {}) },
-    };
-    const quickReplies = [
-        "Please share the report",
-        "What's the next plan?",
-        "Any keyword updates?",
-        "Thank you!"
-    ];
-    const [currentConversationId, setCurrentConversationId] =
-        useState(null);
-    const selectedUserKey = selectedUser
-        ? `${selectedUser?.isGroup ? "group" : "user"}:${selectedUser?._id || selectedUser?.id || selectedUser?.userId || ""}`
-        : "";
-    const contactPrefsKey = `ciis-contact-info-${currentUser?._id || currentUser?.id || "user"}-${selectedUserKey || "none"}`;
-
-    const getEntityId = (value) => {
-        if (!value) return "";
-        if (typeof value === "object") {
-            return (value._id || value.id || value.userId || value.user?._id || value.user?.id || "").toString();
-        }
-        return value.toString();
-    };
-
-    const getSenderName = (sender) => {
-        if (!sender) return "New message";
-        if (typeof sender === "object") {
-            return sender.name || sender.fullName || sender.username || sender.email || "New message";
-        }
-        return selectedUser?.name || "New message";
-    };
-
-    const getMessagePreview = (message) => {
-        if (message?.text) return taskEventText(message);
-        if (message?.file) return "Sent an attachment";
-        return "Sent a message";
-    };
-
-    const scrollToLatestMessage = (behavior = "auto") => {
-        requestAnimationFrame(() => {
-            const container = chatMessagesRef.current;
-            if (!container) return;
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior,
-            });
-        });
-    };
-
-    const queueScrollToLatestMessage = (behavior = "auto") => {
-        shouldScrollToLatestRef.current = behavior;
-    };
-
-    const updateActiveChatDate = () => {
-        const container = chatMessagesRef.current;
-        if (!container) return;
-
-        const anchors = Array.from(container.querySelectorAll(".chat-message-date-anchor"));
-        if (!anchors.length) {
-            setActiveChatDateLabel("");
-            setShowActiveChatDate(false);
-            return;
-        }
-
-        const scrollTop = container.scrollTop;
-        let activeLabel = anchors[0].dataset.dateLabel || "";
-
-        for (const anchor of anchors) {
-            if (anchor.offsetTop - scrollTop <= 48) {
-                activeLabel = anchor.dataset.dateLabel || activeLabel;
-            } else {
-                break;
-            }
-        }
-
-        const containerRect = container.getBoundingClientRect();
-        const visibleMatchingSeparator = Array.from(container.querySelectorAll(".chat-date-separator"))
-            .some((separator) => {
-                if (separator.dataset.dateLabel !== activeLabel) return false;
-                const rect = separator.getBoundingClientRect();
-                const relativeTop = rect.top - containerRect.top;
-                return relativeTop >= 0 && relativeTop <= 42;
-            });
-
-        setActiveChatDateLabel(activeLabel);
-        setShowActiveChatDate(scrollTop > 8 && !visibleMatchingSeparator);
-    };
-
-    const notifyIncomingMessage = (message) => {
-        const senderName = getSenderName(message.sender);
-        const preview = getMessagePreview(message);
-        const title = selectedUser?.isGroup ? `${senderName} in ${selectedUser.name || "Group"}` : senderName;
-
-        showToast(
-            {
-                title,
-                message: preview,
-            },
-            "info",
-            5000
-        );
-
-        window.electronAPI?.showNotification?.({
-            title,
-            body: preview,
-            type: "chat",
-            targetPath: "/ciisUser/chat",
-        });
-
-        if ("Notification" in window && document.visibilityState !== "visible") {
-            if (Notification.permission === "granted") {
-                new Notification(title, {
-                    body: preview,
-                    icon: "/logoo.png",
-                    tag: `ciis-chat-${message._id || message.conversationId || Date.now()}`,
-                });
-            } else if (Notification.permission === "default") {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        new Notification(title, {
-                            body: preview,
-                            icon: "/logoo.png",
-                            tag: `ciis-chat-${message._id || message.conversationId || Date.now()}`,
-                        });
-                    }
-                });
-            }
-        }
-    };
-
-    useEffect(() => {
-        if (!selectedUser) {
-            return;
-        }
-
-        if (activeConversationIdRef.current) {
-            socket?.emit(
-                "chat:leave-conversation",
-                {
-                    conversationId:
-                        activeConversationIdRef.current
-                }
-            );
-            activeConversationIdRef.current = null;
-            setCurrentConversationId(null);
-        }
-
-        setConversation(null);
-        setMessages([]);
-        setMessagePagination({ hasMore: false, nextBefore: null });
-        setReplyingTo(null);
-        setPendingRecording(null);
-        setShowCaptureMenu(false);
-        setShowEmojiPicker(false);
-        setShowAttachmentMenu(false);
-        setShowContactInfo(false);
-        startConversation();  
-    }, [selectedUserKey]);
-
-    useEffect(() => {
-        if (!showHeaderMenu) return undefined;
-        const closeHeaderMenu = event => {
-            if (!headerMenuRef.current?.contains(event.target)) setShowHeaderMenu(false);
-        };
-        const closeOnEscape = event => {
-            if (event.key === "Escape") setShowHeaderMenu(false);
-        };
-        document.addEventListener("pointerdown", closeHeaderMenu);
-        document.addEventListener("keydown", closeOnEscape);
-        return () => {
-            document.removeEventListener("pointerdown", closeHeaderMenu);
-            document.removeEventListener("keydown", closeOnEscape);
-        };
-    }, [showHeaderMenu]);
-
-    useEffect(() => {
-        setContactPanelView("info");
-        setContactMediaTab("media");
-        setIsContactSearchOpen(false);
-        setContactSearchTerm("");
-        try {
-            const savedPrefs = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
-            setContactWallpaper(savedPrefs.wallpaper || "");
-            setContactSound(savedPrefs.sound || "default");
-            setStarredMessageIds(Array.isArray(savedPrefs.starredMessageIds) ? savedPrefs.starredMessageIds : []);
-        } catch {
-            setContactWallpaper("");
-            setContactSound("default");
-            setStarredMessageIds([]);
-        }
-    }, [contactPrefsKey]);
-
-    useEffect(() => {
-        if (!shouldScrollToLatestRef.current) return;
-        const behavior = shouldScrollToLatestRef.current;
-        shouldScrollToLatestRef.current = false;
-        scrollToLatestMessage(behavior);
-    }, [messages.length, currentConversationId]);
-
-    useEffect(() => {
-        const keepSidebarInBounds = () => {
-            const availableWidth = chatBoxRef.current?.getBoundingClientRect().width || window.innerWidth;
-            const maximumWidth = Math.max(280, Math.min(560, availableWidth - 420));
-            setContactSidebarWidth((width) => Math.min(width, maximumWidth));
-        };
-        window.addEventListener("resize", keepSidebarInBounds);
-        return () => window.removeEventListener("resize", keepSidebarInBounds);
-    }, []);
-
-    const saveContactPrefs = (patch) => {
-        try {
-            const existing = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
-            localStorage.setItem(contactPrefsKey, JSON.stringify({ ...existing, ...patch }));
-        } catch {
-            void 0;
-        }
-    };
-
-    useEffect(() => {
-        const frameId = requestAnimationFrame(updateActiveChatDate);
-        return () => cancelAnimationFrame(frameId);
-    }, [messages]);
-
-    useEffect(() => {
-        return () => {
-            if (activeConversationIdRef.current) {
-                socket?.emit(
-                    "chat:leave-conversation",
-                    {
-                        conversationId:
-                            activeConversationIdRef.current
-                    }
-                );
-                activeConversationIdRef.current = null;
-            }
-        };
-    }, [socket]);
-
-
-    useEffect(() => {
-        if (pendingRecording?.mode === "video" && pendingRecording.blob) {
-            const url = URL.createObjectURL(pendingRecording.blob);
-            setVideoPreviewUrl(url);
-            return () => {
-                URL.revokeObjectURL(url);
-            };
-        } else {
-            setVideoPreviewUrl(null);
-        }
-    }, [pendingRecording]);
-    useEffect(() => {
-        if (recorderMode === "video" && recordingPreviewRef.current && recordingStreamRef.current) {
-            recordingPreviewRef.current.srcObject = recordingStreamRef.current;
-        }
-    }, [recorderMode]);
-
-    useEffect(() => {
-        return () => {
-            stopRecordingTracks();
-            window.clearInterval(recordingTimerRef.current);
-        };
-    }, []);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
-                setShowEmojiPicker(false);
-            }
-            if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target)) {
-                setShowAttachmentMenu(false);
-            }
-        };
-
-        const handleKeyDown = (event) => {
-            if (event.key === "Escape") {
-                setShowEmojiPicker(false);
-                setShowAttachmentMenu(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        document.addEventListener("keydown", handleKeyDown);
-
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-            document.removeEventListener("keydown", handleKeyDown);
-        };
-    }, []);
-    useEffect(() => {
-        if (socket && conversation?._id) {
-            joinConversationRoom(conversation._id);
-        }
-    }, [socket, conversation?._id]);
-
-useEffect(() => {
-    if (!socket) return undefined;
-
-    const handleReceiveMessage = (message) => {
-            const senderId = getEntityId(message.sender);
-            const currentUserId = getEntityId(currentUser);
-            const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
-            if (!incomingConversationId || incomingConversationId !== currentConversationId) return;
-            if (message?._id && senderId && senderId !== currentUserId && (message.messageType !== "system" || message.systemEvent?.task)) {
-                markMessageSeen(message._id).catch(() => {});
-                socket.emit(
-                    "chat:seen",
-                    {
-                        messageId:
-                            message._id,
-
-                        senderId:
-                        senderId
-                    }
-                );
-
-                const isCurrentConversationMuted = incomingConversationId === currentConversationId && isMuted;
-                if (!isCurrentConversationMuted && (incomingConversationId !== currentConversationId || document.visibilityState !== "visible")) {
-                    notifyIncomingMessage(message);
-                }
-            }
-
-            setMessages((prev) => {
-                if (
-                    prev.some(
-                        (msg) =>
-                            msg._id ===
-                            message._id
-                    )
-                ) {
-                    return prev;
-                }
-
-                return [
-                    ...prev,
-                    normalizeMessageForChat(message, currentUserId)
-                ];
-            });
-            queueScrollToLatestMessage("smooth");
-        };
-
-    const handleTyping = (data) => {
-            if (data?.conversationId === currentConversationId) {
-                setTypingUserId(data.senderId);
-            }
-        };
-
-    const handleStopTyping = (data) => {
-            if (data?.conversationId === currentConversationId) {
-                setTypingUserId(null);
-            }
-        };
-
-    const handleDeletedForMe = ({ messageId }) => {
-            setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
-        };
-
-    const handleDeletedForEveryone = ({ messageId }) => {
-            setMessages((prev) => prev.map((msg) => (
-                msg._id === messageId
-                    ? { ...msg, deletedForEveryone: true, text: "" }
-                    : msg
-            )));
-        };
-
-    const handleForwarded = (message) => {
-            if (message?.conversationId !== currentConversationId) return;
-            setMessages((prev) => (
-                prev.some(item => item._id === message._id)
-                    ? prev
-                    : sortMessagesByCreatedAt([
-                        ...prev,
-                        normalizeMessageForChat(message, getEntityId(currentUser))
-                    ])
-            ));
-            queueScrollToLatestMessage("smooth");
-        };
-
-    const handleMessageSeen = (data) => {
-        const seenBy = getEntityId(data?.seenBy);
-
-        setMessages((prev) =>
-
-            prev.map((msg) =>
-
-                String(msg._id || "") ===
-                String(data?.messageId || "")
-
-                ? {
-                    ...msg,
-                    // In a group, blue only once every other member has read it (server sends allSeen).
-                    seen: Boolean(msg.seen) || data?.allSeen !== false,
-                    seenBy: Array.from(new Set([
-                        ...(Array.isArray(msg.seenBy) ? msg.seenBy : []),
-                        seenBy
-                    ].filter(Boolean)))
-                }
-
-                : msg
-            )
-        );
-    };
-
-    const handleMessageDelivered = (data) => {
-        setMessages((prev) =>
-            prev.map((msg) =>
-                String(msg._id || "") === String(data?.messageId || "")
-                    ? {
-                        ...msg,
-                        delivered: true,
-                        deliveredTo: Array.from(new Set([
-                            ...(Array.isArray(msg.deliveredTo) ? msg.deliveredTo : []),
-                            ...(Array.isArray(data?.deliveredTo) ? data.deliveredTo : [])
-                        ].map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)))
-                    }
-                    : msg
-            )
-        );
-    };
-
-    const handleMuteUpdated = (data) => {
-        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
-        setIsMuted(Boolean(data?.notificationPreference?.muted));
-    };
-
-    const handleDisappearingUpdated = (data) => {
-        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
-        if (!["off", "24h", "7d", "90d"].includes(data?.mode)) return;
-        setDisappearingMode(data.mode);
-        setConversation((current) => current ? { ...current, disappearingMode: data.mode } : current);
-    };
-
-    const handleMessageReactionUpdated = (data) => {
-        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
-        setMessages((current) => current.map((message) => (
-            String(message._id || "") === String(data?.messageId || "")
-                ? { ...message, reactions: data.reactions || [] }
-                : message
-        )));
-    };
-
-    socket.on("chat:receive-message", handleReceiveMessage);
-    socket.on("chat:typing", handleTyping);
-    socket.on("chat:stop-typing", handleStopTyping);
-    socket.on("chat:message-deleted-for-me", handleDeletedForMe);
-    socket.on("chat:message-deleted-for-everyone", handleDeletedForEveryone);
-    socket.on("chat:message-forwarded", handleForwarded);
-    socket.on("chat:message-delivered", handleMessageDelivered);
-    socket.on("chat:message-seen", handleMessageSeen);
-    socket.on("chat:mute-updated", handleMuteUpdated);
-    socket.on("chat:disappearing-updated", handleDisappearingUpdated);
-    socket.on("chat:message-reaction", handleMessageReactionUpdated);
-
-    return () => {
-
-    socket.off("chat:receive-message", handleReceiveMessage);
-    socket.off("chat:message-delivered", handleMessageDelivered);
-    socket.off("chat:message-seen", handleMessageSeen);
-    socket.off("chat:typing", handleTyping);
-    socket.off("chat:stop-typing", handleStopTyping);
-    socket.off("chat:message-deleted-for-me", handleDeletedForMe);
-    socket.off("chat:message-deleted-for-everyone", handleDeletedForEveryone);
-    socket.off("chat:message-forwarded", handleForwarded);
-    socket.off("chat:mute-updated", handleMuteUpdated);
-    socket.off("chat:disappearing-updated", handleDisappearingUpdated);
-    socket.off("chat:message-reaction", handleMessageReactionUpdated);
-};
-
-}, [socket, currentConversationId, currentUser?._id, currentUser?.id, selectedUser?._id, selectedUser?.id, showToast, isMuted]);
-
-    const joinConversationRoom =
-    (conversationId) => {
-        if (!conversationId) return;
-        if (activeConversationIdRef.current === conversationId) return;
-
-        if (activeConversationIdRef.current) {
-            socket?.emit(
-                "chat:leave-conversation",
-                {
-                    conversationId:
-                        activeConversationIdRef.current
-                }
-            );
-        }
-
-        socket?.emit(
-            "chat:join-conversation",
-            {
-                conversationId
-            }
-        );
-
-        activeConversationIdRef.current = conversationId;
-        setCurrentConversationId(
-            conversationId
-        );
-    };
-
-    const startConversation =
-    async () => {
-        if (!selectedUser) return;
-
-        try {
-            let res;
-
-            if (selectedUser?.clientId) {
-                res = await openClientConversation(selectedUser.clientId);
-            } else if (selectedUser?.projectId) {
-                res = await openProjectConversation(selectedUser.projectId);
-            } else if (selectedUser?.isGroup) {
-                res = await createGroupConversation(
-                    selectedUser._id || selectedUser.id
-                );
-            } else {
-                res = await createConversation(
-                    selectedUser._id || selectedUser.id || selectedUser.userId
-                );
-            }
-
-            const conversationData =
-                res.data.conversation;
-
-            setConversation(
-                conversationData
-            );
-            setIsMuted(Boolean(conversationData?.notificationPreference?.muted));
-            setDisappearingMode(conversationData?.disappearingMode || "off");
-
-            if (conversationData?._id) {
-                fetchMessages(
-                    conversationData._id
-                );
-            }
-        } catch (error) {
-            void 0;
-        }
-    };
-
-
-
-    const fetchMessages =
-    async (conversationId) => {
-
-        try {
-
-            const res =
-                await getMessages(
-                    conversationId,
-                    { limit: 50 }
-                );
-
-            if (activeConversationIdRef.current && activeConversationIdRef.current !== conversationId) return;
-
-            setMessages(
-                sortMessagesByCreatedAt(
-                    (Array.isArray(res.data.messages) ? res.data.messages : [])
-                        .map(message => normalizeMessageForChat(message, getEntityId(currentUser)))
-                )
-            );
-            setMessagePagination({
-                hasMore: Boolean(res.data.pagination?.hasMore),
-                nextBefore: res.data.pagination?.nextBefore || null,
-            });
-            setLoadedConversationId(String(conversationId));
-            onConversationChange?.();
-            queueScrollToLatestMessage("auto");
-
-        } catch (error) {
-
-            void 0;
-        }
-    };
-
-    const loadOlderMessages = async () => {
-        if (!conversation?._id || isLoadingOlderMessages || !messagePagination.hasMore || !messagePagination.nextBefore) return;
-
-        const container = chatMessagesRef.current;
-        const previousScrollHeight = container?.scrollHeight || 0;
-        const previousScrollTop = container?.scrollTop || 0;
-
-        try {
-            setIsLoadingOlderMessages(true);
-            const res = await getMessages(conversation._id, {
-                limit: 50,
-                before: messagePagination.nextBefore,
-            });
-            const olderMessages = Array.isArray(res.data.messages) ? res.data.messages : [];
-            setMessages(prev => {
-                const existingIds = new Set(prev.map(message => String(message._id || "")));
-                const uniqueOlder = olderMessages
-                    .filter(message => !existingIds.has(String(message._id || "")))
-                    .map(message => normalizeMessageForChat(message, getEntityId(currentUser)));
-                return sortMessagesByCreatedAt([...uniqueOlder, ...prev]);
-            });
-            setMessagePagination({
-                hasMore: Boolean(res.data.pagination?.hasMore),
-                nextBefore: res.data.pagination?.nextBefore || null,
-            });
-            setTimeout(() => {
-                const nextContainer = chatMessagesRef.current;
-                if (!nextContainer) return;
-                nextContainer.scrollTop = nextContainer.scrollHeight - previousScrollHeight + previousScrollTop;
-            }, 0);
-        } catch (error) {
-            void 0;
-        } finally {
-            setIsLoadingOlderMessages(false);
-        }
-    };
-
-    const appendSentMessages = (messagesToAppend) => {
-        setMessages((prev) => {
-            const combined = [...prev];
-
-            messagesToAppend.forEach((message) => {
-                if (!combined.some((msg) => msg._id === message._id)) {
-                    combined.push({
-                        ...normalizeMessageForChat(message, getEntityId(currentUser)),
-                    });
-                }
-            });
-
-            return sortMessagesByCreatedAt(combined);
-        });
-        queueScrollToLatestMessage("smooth");
-    };
-
-    const emitSentMessage = () => {
-        // Message delivery is emitted by the backend after database persistence.
-        // Keeping this as a no-op prevents duplicate socket events and unread bumps.
-    };
-
-    const stopRecordingTracks = () => {
-        recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
-        recordingStreamRef.current = null;
-
-        if (recordingPreviewRef.current) {
-            recordingPreviewRef.current.srcObject = null;
-        }
-    };
-
-    const getSupportedMimeType = (mode) => {
-        const candidates = mode === "video"
-            ? ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
-            : ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
-
-        return candidates.find((type) => window.MediaRecorder?.isTypeSupported(type)) || "";
-    };
-
-    const getRecordingExtension = (mimeType, mode) => {
-        if (mimeType.includes("mp4")) return "mp4";
-        if (mimeType.includes("mpeg")) return "mp3";
-        if (mimeType.includes("wav")) return "wav";
-        if (mimeType.includes("ogg")) return "ogg";
-        return mode === "video" ? "webm" : "webm";
-    };
-
-    const formatRecordingTime = (seconds) => {
-        const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
-        const remainingSeconds = (seconds % 60).toString().padStart(2, "0");
-        return `${minutes}:${remainingSeconds}`;
-    };
-
-    const sendRecordedFile = async (blob, mode, mimeType, compressionMode = "normal") => {
-        if (!conversation || !blob?.size) return;
-
-        const extension = getRecordingExtension(mimeType, mode);
-        const fileName = `${mode}-recording-${Date.now()}.${extension}`;
-        const resolvedType = mimeType || blob.type || (mode === "video" ? "video/webm" : "audio/webm");
-        const file = new File([blob], fileName, { type: resolvedType });
-        const formData = new FormData();
-
-        formData.append(
-            "conversationId",
-            conversation._id
-        );
-
-        formData.append(
-            "file",
-            file
-        );
-        formData.append("fileType", resolvedType);
-        formData.append("fileName", fileName);
-        appendCompressionMode(formData, compressionMode);
-
-        const res =
-            await sendMessage(formData);
-
-        const newMessage =
-            res.data.message;
-
-        emitSentMessage(newMessage);
-        appendSentMessages([newMessage]);
-        onConversationChange?.();
-    };
-
-    const sendSingleFile = async (fileItem) => {
-        const file = getUploadFile(fileItem);
-        if (!conversation || !file) return;
-
-        const formData = new FormData();
-        formData.append("conversationId", conversation._id);
-        formData.append("file", file);
-        if (file.type) formData.append("fileType", file.type);
-        if (file.name) formData.append("fileName", file.name);
-        appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(file));
-
-        const res = await sendMessage(formData);
-        const newMessage = res.data.message;
-
-        emitSentMessage(newMessage);
-        appendSentMessages([newMessage]);
-        onConversationChange?.();
-    };
-
-    const handleCapturedFile = async (event) => {
-        const file = event.target.files?.[0];
-        event.target.value = "";
-        setShowCaptureMenu(false);
-        if (!file) return;
-
-        try {
-            setIsSendingAction(true);
-            await sendSingleFile({ file, compressionMode: chooseCompressionMode(file) });
-        } catch {
-            setRecordingError("Unable to send captured media. Please try again.");
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-
-    const startRecording = async (mode) => {
-        if (!conversation || recorderMode || pendingRecording) return;
-
-        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-            setRecordingError("Recording is not supported in this browser.");
-            return;
-        }
-
-        try {
-            setRecordingError("");
-
-            const stream = await navigator.mediaDevices.getUserMedia(
-                mode === "video"
-                    ? { audio: true, video: true }
-                    : { audio: true }
-            );
-
-            const mimeType = getSupportedMimeType(mode);
-            const recorder = new MediaRecorder(
-                stream,
-                mimeType ? { mimeType } : undefined
-            );
-
-            recordingChunksRef.current = [];
-            recordingStreamRef.current = stream;
-            mediaRecorderRef.current = recorder;
-
-            recorder.ondataavailable = (event) => {
-                if (event.data?.size) {
-                    recordingChunksRef.current.push(event.data);
-                }
-            };
-
-            recorder.onstop = async () => {
-                const isDiscard = discardRecordingRef.current;
-                const isDirectSend = sendImmediatelyRef.current;
-                discardRecordingRef.current = false;
-                sendImmediatelyRef.current = false;
-
-                const blob = new Blob(recordingChunksRef.current, {
-                    type: recorder.mimeType || mimeType || `${mode}/webm`
-                });
-                const recordedDuration = recordingSecondsRef.current;
-
-                recordingChunksRef.current = [];
-                mediaRecorderRef.current = null;
-                window.clearInterval(recordingTimerRef.current);
-                setRecordingSeconds(0);
-                recordingSecondsRef.current = 0;
-                setRecorderMode(null);
-                setIsRecordingPaused(false);
-                stopRecordingTracks();
-
-                if (isDiscard) return;
-
-                if (blob.size) {
-                    if (isDirectSend) {
-                        try {
-                            setIsSendingAction(true);
-                            await sendRecordedFile(blob, mode, recorder.mimeType || mimeType, mode === "audio" ? "hd" : "normal");
-                        } catch (err) {
-                            setRecordingError(`Unable to send ${mode} recording. Please try again.`);
-                        } finally {
-                            setIsSendingAction(false);
-                        }
-                    } else {
-                        setPendingRecording({
-                            blob,
-                            mode,
-                            mimeType: recorder.mimeType || mimeType,
-                            duration: Math.min(recordedDuration, mode === "audio" ? VOICE_RECORDING_MAX_SECONDS : recordedDuration),
-                            compressionMode: mode === "audio" ? "hd" : "normal",
-                        });
-                    }
-                }
-            };
-
-            discardRecordingRef.current = false;
-            sendImmediatelyRef.current = false;
-            setIsRecordingPaused(false);
-            recorder.start(1000);
-            setRecorderMode(mode);
-            setRecordingSeconds(0);
-            recordingSecondsRef.current = 0;
-            recordingTimerRef.current = window.setInterval(() => {
-                if (mediaRecorderRef.current?.state === "paused") return;
-                setRecordingSeconds((prev) => {
-                    const next = prev + 1;
-                    recordingSecondsRef.current = next;
-                    if (mode === "audio" && next >= VOICE_RECORDING_MAX_SECONDS) {
-                        window.setTimeout(() => sendVoiceRecordingImmediately(), 0);
-                        return VOICE_RECORDING_MAX_SECONDS;
-                    }
-                    return next;
-                });
-            }, 1000);
-        } catch (error) {
-            void 0;
-            stopRecordingTracks();
-            setRecorderMode(null);
-            setRecordingError("Allow microphone/camera permission, then try again.");
-        }
-    };
-
-    const cancelVoiceRecording = () => {
-        discardRecordingRef.current = true;
-        sendImmediatelyRef.current = false;
-        setIsRecordingPaused(false);
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-            mediaRecorderRef.current.stop();
-        } else {
-            stopRecordingTracks();
-            setRecorderMode(null);
-            setRecordingSeconds(0);
-            recordingSecondsRef.current = 0;
-        }
-    };
-
-    const togglePauseVoiceRecording = () => {
-        if (!mediaRecorderRef.current) return;
-        try {
-            if (mediaRecorderRef.current.state === "recording") {
-                mediaRecorderRef.current.pause();
-                setIsRecordingPaused(true);
-            } else if (mediaRecorderRef.current.state === "paused") {
-                mediaRecorderRef.current.resume();
-                setIsRecordingPaused(false);
-            }
-        } catch (e) {
-            console.warn("Pause/resume error:", e);
-        }
-    };
-
-    const sendVoiceRecordingImmediately = () => {
-        if (!mediaRecorderRef.current || isSendingAction) return;
-        sendImmediatelyRef.current = true;
-        discardRecordingRef.current = false;
-        setIsRecordingPaused(false);
-        if (mediaRecorderRef.current.state !== "inactive") {
-            mediaRecorderRef.current.stop();
-        }
-    };
-
-    const stopRecording = () => {
-        if (mediaRecorderRef.current?.state === "recording") {
-            mediaRecorderRef.current.stop();
-        }
-    };
-
-
-    const retakeVideoRecording = () => {
-        discardPendingRecording();
-        startRecording("video");
-    };
-    const discardPendingRecording = () => {
-        setPendingRecording(null);
-        setRecordingError("");
-    };
-
-    const sendPendingRecording = async () => {
-        if (!pendingRecording || isSendingAction) return;
-
-        try {
-            setIsSendingAction(true);
-            await sendRecordedFile(pendingRecording.blob, pendingRecording.mode, pendingRecording.mimeType, pendingRecording.compressionMode);
-            setPendingRecording(null);
-        } catch {
-            setRecordingError("Unable to send the recording. Please try again.");
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-
-
-
-    const handleSend =
-    async () => {
-
-        if (
-            !text.trim()
-            && files.length === 0
-        ) return;
-
-        if (!conversation) {
-            return;
-        }
-
-        try {
-            const messagesToAppend = [];
-            const outgoingText = text;
-
-            if (files.length > 0) {
-                for (let index = 0; index < files.length; index += 1) {
-                    const fileItem = files[index];
-                    const uploadFile = getUploadFile(fileItem);
-                    const formData = new FormData();
-
-                    formData.append(
-                        "conversationId",
-                        conversation._id
-                    );
-
-                    if (index === 0 && outgoingText.trim()) {
-                        formData.append(
-                            "text",
-                            outgoingText
-                        );
-                    }
-
-                    if (index === 0) formData.append("mentions", JSON.stringify(messageMentions));
-                    if (index === 0 && replyingTo?._id) {
-                        formData.append("replyToMessageId", replyingTo._id);
-                    }
-
-                    formData.append(
-                        "file",
-                        uploadFile
-                    );
-                    if (uploadFile.type) formData.append("fileType", uploadFile.type);
-                    if (uploadFile.name) formData.append("fileName", uploadFile.name);
-                    appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(uploadFile));
-
-                    const res =
-                        await sendMessage(formData);
-
-                    const newMessage =
-                        res.data.message;
-
-                    messagesToAppend.push(newMessage);
-
-                    emitSentMessage(newMessage);
-                }
-            } else {
-                const formData = new FormData();
-
-                formData.append(
-                    "conversationId",
-                    conversation._id
-                );
-
-                formData.append(
-                    "text",
-                    outgoingText
-                );
-                formData.append("mentions", JSON.stringify(messageMentions));
-                if (replyingTo?._id) {
-                    formData.append("replyToMessageId", replyingTo._id);
-                }
-                appendCompressionMode(formData, "normal");
-
-                const res = await sendMessage(formData);
-                messagesToAppend.push(res.data.message);
-
-                emitSentMessage(res.data.message);
-            }
-
-            appendSentMessages(messagesToAppend);
-
-            setText("");
-            setReplyingTo(null);
-            setFiles([]);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
-            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
-            onConversationChange?.();
-
-        } catch (error) {
-            showToast?.(error.response?.data?.message || "Unable to send message. Please try again.", "error");
-        }
-    };
-
-    const openAssignModal = () => {
-        const defaultDue = new Date();
-        defaultDue.setHours(19, 0, 0, 0);
-        const tzOffset = defaultDue.getTimezoneOffset() * 60000;
-        const localISOTime = new Date(defaultDue.getTime() - tzOffset).toISOString().slice(0, 16);
-
-        const groupList = selectedUser?.isGroup
-            ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
-            : [];
-        const myId = (currentUser?._id || currentUser?.id || "").toString();
-        const initialTargetId = selectedUser?.isGroup
-            ? (groupList.find(m => (m?._id || m?.id || "").toString() !== myId)?._id || groupList[0]?._id || groupList[0]?.id || "")
-            : (selectedUser?._id || selectedUser?.id || selectedUser?.userId || "");
-
-        setAssignModal({
-            open: true,
-            title: "",
-            description: "",
-            priority: "medium",
-            dueDateTime: localISOTime,
-            targetUserId: initialTargetId ? String(initialTargetId) : "",
-            submitting: false,
-            error: "",
-        });
-    };
-
-    const closeAssignModal = () => {
-        setAssignModal(prev => ({ ...prev, open: false, submitting: false, error: "" }));
-    };
-
-    const handleAssignSubmit = async (e) => {
-        e?.preventDefault();
-        if (assignModal.submitting) return;
-
-        const title = assignModal.title.trim();
-        if (!title) {
-            setAssignModal(prev => ({ ...prev, error: "Task title is required." }));
-            return;
-        }
-
-        const targetUserId = assignModal.targetUserId || (!selectedUser?.isGroup ? (selectedUser?._id || selectedUser?.id || selectedUser?.userId) : "");
-        if (!targetUserId) {
-            setAssignModal(prev => ({ ...prev, error: "Please select an assignee." }));
-            return;
-        }
-
-        setAssignModal(prev => ({ ...prev, submitting: true, error: "" }));
-
-        try {
-            const payload = {
-                title,
-                description: assignModal.description.trim() || undefined,
-                assignedTo: [targetUserId],
-                assignedUsers: [targetUserId],
-                priority: assignModal.priority || "medium",
-                dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
-            };
-
-            await axios.post("/task/create-for-others", payload);
-
-            const groupList = selectedUser?.isGroup
-                ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
-                : [];
-            const targetMember = selectedUser?.isGroup
-                ? groupList.find(m => String(m?._id || m?.id) === String(targetUserId))
-                : selectedUser;
-            const targetName = targetMember?.name || selectedUser?.name || "Employee";
-
-            closeAssignModal();
-            showToast?.(`Task assigned to ${targetName} successfully!`, "success");
-
-            if (conversation?._id) {
-                try {
-                    const dueFormatted = assignModal.dueDateTime
-                        ? new Date(assignModal.dueDateTime).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
-                        : "";
-                    const chatText = `📋 *Task Assigned: ${title}*\nAssigned to: ${targetName}\nPriority: ${(assignModal.priority || "medium").toUpperCase()}${dueFormatted ? `\nDue: ${dueFormatted}` : ""}${assignModal.description?.trim() ? `\nDetails: ${assignModal.description.trim()}` : ""}`;
-                    const formData = new FormData();
-                    formData.append("conversationId", conversation._id);
-                    formData.append("text", chatText);
-                    formData.append("compressionMode", "normal");
-                    const res = await sendMessage(formData);
-                    if (res?.data?.message) {
-                        emitSentMessage(res.data.message);
-                        appendSentMessages([res.data.message]);
-                        onConversationChange?.();
-                    }
-                } catch (chatErr) {
-                    console.error("Chat message for task assignment failed:", chatErr);
-                }
-            }
-        } catch (err) {
-            setAssignModal(prev => ({
-                ...prev,
-                submitting: false,
-                error: err?.response?.data?.message || err?.response?.data?.error || "Failed to assign task.",
-            }));
-        }
-    };
-
-    const handleDeleteForMe = async (message) => {
-        try {
-            setIsSendingAction(true);
-            await deleteMessageForMe(message._id);
-            setMessages((prev) => prev.filter((msg) => msg._id !== message._id));
-            socket?.emit("chat:delete-for-me", { messageId: message._id, conversationId: conversation?._id });
-            onConversationChange?.();
-        } catch (error) {
-            void 0;
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-
-    const handleDeleteForEveryone = async (message) => {
-        setConfirmDeleteMessage(message);
-    };
-
-    const confirmDeleteForEveryone = async () => {
-        const message = confirmDeleteMessage;
-        if (!message?._id) {
-            setConfirmDeleteMessage(null);
-            return;
-        }
-        try {
-            setIsSendingAction(true);
-            await deleteMessageForEveryone(message._id);
-            setMessages((prev) => prev.map((msg) => (
-                msg._id === message._id ? { ...msg, deletedForEveryone: true, text: "" } : msg
-            )));
-            socket?.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: conversation?._id });
-            onConversationChange?.();
-        } catch (error) {
-            void 0;
-        } finally {
-            setIsSendingAction(false);
-            setConfirmDeleteMessage(null);
-        }
-    };
-
-    const handleForward = async (message, targetUserIds) => {
-        try {
-            setIsSendingAction(true);
-            const res = await forwardMessage({ messageId: message._id, targetUserIds });
-            (res.data.messages || []).forEach(forwarded => {
-                socket?.emit("chat:forward-message", { message: forwarded });
-            });
-            onConversationChange?.();
-        } catch (error) {
-            void 0;
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-
-    const replyFocusPending = useRef(false);
-    useEffect(() => {
-        if (!replyFocusPending.current || !replyingTo) return;
-        replyFocusPending.current = false;
-        chatInputRef.current?.focus();
-    }, [replyingTo]);
-
-    const handleMessageReply = (message) => {
-        replyFocusPending.current = true;
-        setReplyingTo(message);
-    };
-
-    const scrollToRepliedMessage = messageId => {
-        if (!messageId) return;
-        const target = chatMessagesRef.current?.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
-        if (!target) return;
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-        target.classList.add("chat-replied-message-highlight");
-        window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1400);
-    };
-
-    const handleEmojiSelect = (emojiData) => {
-        const emoji = emojiData?.emoji || "";
-        if (!emoji) return;
-        const input = chatInputRef.current;
-        const start = typeof input?.selectionStart === "number" ? input.selectionStart : text.length;
-        const end = typeof input?.selectionEnd === "number" ? input.selectionEnd : start;
-        const nextText = `${text.slice(0, start)}${emoji}${text.slice(end)}`;
-        setText(nextText);
-        setShowEmojiPicker(false);
-        requestAnimationFrame(() => {
-            input?.focus();
-            const nextCursor = start + emoji.length;
-            input?.setSelectionRange?.(nextCursor, nextCursor);
-        });
-    };
-
-    const clearSelectedFiles = () => {
-        setFiles([]);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-    };
-
-    const handleFileSelection = (event) => {
-        const selectedFiles = Array.from(event.target.files || []);
-        setFiles(selectedFiles.map((file) => ({
-            file,
-            compressionMode: chooseCompressionMode(file),
-        })));
-        event.target.value = "";
-    };
-
-    const closePastedImageModal = () => {
-        if (pastedImageModal?.previewUrl) {
-            URL.revokeObjectURL(pastedImageModal.previewUrl);
-        }
-        setPastedImageModal(null);
-    };
-
-    const openPastedImageModal = (file) => {
-        if (!file) return;
-        if (pastedImageModal?.previewUrl) {
-            URL.revokeObjectURL(pastedImageModal.previewUrl);
-        }
-        const previewUrl = URL.createObjectURL(file);
-        setPastedImageModal({
-            file,
-            previewUrl,
-            caption: ""
-        });
-    };
-
-    const sendPastedImage = async () => {
-        if (!pastedImageModal || !conversation || isSendingAction) return;
-        try {
-            setIsSendingAction(true);
-            const { file, caption } = pastedImageModal;
-            const formData = new FormData();
-            formData.append("conversationId", conversation._id);
-            if (caption && caption.trim()) {
-                formData.append("text", caption.trim());
-            }
-            if (replyingTo?._id) {
-                formData.append("replyToMessageId", replyingTo._id);
-            }
-            formData.append("file", file);
-            if (file.type) formData.append("fileType", file.type);
-            if (file.name) formData.append("fileName", file.name);
-            appendCompressionMode(formData, "normal");
-
-            const res = await sendMessage(formData);
-            const newMessage = res.data.message;
-            appendSentMessages([newMessage]);
-            emitSentMessage(newMessage);
-
-            closePastedImageModal();
-            setReplyingTo(null);
-            onConversationChange?.();
-        } catch (error) {
-            showToast?.(error.response?.data?.message || "Unable to send image. Please try again.", "error");
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-
-    const handlePaste = (e) => {
-        const clipboardData = e.clipboardData;
-        if (!clipboardData) return;
-
-        const items = Array.from(clipboardData.items || []);
-        const imageItem = items.find(
-            (item) => item.kind === "file" && item.type && item.type.startsWith("image/")
-        );
-
-        if (imageItem) {
-            e.preventDefault();
-            const blob = imageItem.getAsFile();
-            if (blob) {
-                const ext = (blob.type && blob.type.split("/")[1]) || "png";
-                const file = new File(
-                    [blob],
-                    "pasted-image-" + Date.now() + "." + ext,
-                    { type: blob.type || "image/png", lastModified: Date.now() }
-                );
-                openPastedImageModal(file);
-                return;
-            }
-        }
-
-        const clipFiles = Array.from(clipboardData.files || []);
-        const imageFile = clipFiles.find((f) => f && f.type && f.type.startsWith("image/"));
-        if (imageFile) {
-            e.preventDefault();
-            openPastedImageModal(imageFile);
-        }
-    };
-
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === "Escape" && pastedImageModal) {
-                closePastedImageModal();
-            }
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [pastedImageModal]);
-
-    useEffect(() => {
-        if (!conversation) return;
-        const handleWindowPaste = (e) => {
-            const target = e.target;
-            if (target && target.tagName === "INPUT" && target.type !== "file" && !target.classList.contains("chat-input")) {
-                return;
-            }
-            handlePaste(e);
-        };
-        window.addEventListener("paste", handleWindowPaste);
-        return () => window.removeEventListener("paste", handleWindowPaste);
-    }, [conversation, pastedImageModal]);
-    const getMessageText = (message) => String(taskEventText(message) || message?.caption || "")
-        .replace(/\[\[ciis-reply:[^\]]+\]\]/g, "")
-        .replace(/\[\[ciis-expire:\d+\]\]/g, "")
-        .replace(/\[\[ciis-system-disappearing:[^\]]+\]\]/g, "")
-        .trim();
-
-    const getDisappearingSystemNotice = (message) => {
-        if (message?.messageType === "system" && message?.systemEvent?.type === "disappearing_messages_changed") {
-            return {
-                actorId: message.systemEvent.actor?._id || message.systemEvent.actor || message.sender?._id || message.sender,
-                actorName: message.systemEvent.actor?.name || message.sender?.name || "A participant",
-                mode: message.systemEvent.mode,
-            };
-        }
-        const match = String(message?.text || "").match(/^\[\[ciis-system-disappearing:([^\]]+)\]\]$/);
-        if (!match) return null;
-        try {
-            return JSON.parse(decodeURIComponent(match[1]));
-        } catch {
-            return null;
-        }
-    };
-
-    const handleReaction = async (message, emoji) => {
-        if (!message?._id) return;
-        try {
-            const response = await updateMessageReaction(message._id, emoji);
-            setMessages((current) => current.map((item) => (
-                String(item._id || "") === String(message._id)
-                    ? { ...item, reactions: response.data?.reactions || [] }
-                    : item
-            )));
-        } catch {
-            showToast?.("Unable to update reaction.", "error");
-        }
-    };
-
-    const getMessageAttachmentUrl = (message) => {
-        const raw = message?.mediaUrl
-            || message?.fileUrl
-            || message?.attachmentUrl
-            || message?.file
-            || message?.url
-            || message?.path
-            || message?.filename
-            || message?.fileName
-            || message?.name
-            || "";
-
-        if (typeof raw === "object" && raw) {
-            return raw.url || raw.path || raw.fileUrl || raw.attachmentUrl || raw.filename || raw.fileName || raw.name || "";
-        }
-
-        return String(raw || "");
-    };
-
-    const getAttachmentName = (message) => {
-        const raw = getMessageAttachmentUrl(message);
-        const fallback = getMessageText(message) || "Attachment";
-        if (!raw) return fallback;
-        const fileName = raw.split(/[\\/]/).pop()?.split("?")[0] || fallback;
-        try {
-            return decodeURIComponent(fileName).replace(/^\d+-/, "") || fallback;
-        } catch {
-            return fileName.replace(/^\d+-/, "") || fallback;
-        }
-    };
-
-    const getAttachmentKind = (message) => {
-        const mediaType = String(message?.mediaType || message?.type || message?.fileType || "").toLowerCase();
-        const path = getMessageAttachmentUrl(message).split("?")[0].toLowerCase();
-        if (mediaType.startsWith("image") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(path)) return "image";
-        if (mediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(path)) return "video";
-        if (mediaType.startsWith("audio") || /\.(mp3|wav|webm|ogg|m4a|aac)$/i.test(path)) return "audio";
-        if (path || mediaType) return "doc";
-        return "";
-    };
-
-    const contactMediaItems = messages
-        .filter((message) => getMessageAttachmentUrl(message) && !message.deletedForEveryone)
-        .map((message) => ({
-            id: message._id || message.createdAt || getAttachmentName(message),
-            message,
-            kind: getAttachmentKind(message),
-            name: getAttachmentName(message),
-            url: getMessageAttachmentUrl(message),
-        }));
-
-    const linkMessages = messages.filter((message) => /https?:\/\/\S+/i.test(getMessageText(message)));
-    const visualMediaItems = contactMediaItems.filter((item) => item.kind === "image" || item.kind === "video");
-    const documentItems = contactMediaItems.filter((item) => item.kind !== "image" && item.kind !== "video");
-    const normalizedSearchTerm = contactSearchTerm.trim().toLowerCase();
-    const displayedMessages = normalizedSearchTerm
-        ? messages.filter((message) => {
-            const haystack = [
-                getMessageText(message),
-                getAttachmentName(message),
-                message.sender?.name,
-            ].join(" ").toLowerCase();
-            return haystack.includes(normalizedSearchTerm);
-        })
-        : messages;
-
-    const toggleStarredMessage = (message, shouldStar) => {
-        const messageId = String(message?._id || "");
-        if (!messageId) return;
-        const nextIds = shouldStar
-            ? Array.from(new Set([...starredMessageIds, messageId]))
-            : starredMessageIds.filter((id) => id !== messageId);
-        setStarredMessageIds(nextIds);
-        saveContactPrefs({ starredMessageIds: nextIds });
-    };
-
-    const openContactSearch = () => {
-        setShowContactInfo(false);
-        setIsContactSearchOpen(true);
-        setContactSearchTerm("");
-        requestAnimationFrame(() => chatInputRef.current?.focus());
-    };
-
-    const setMuteState = async (value) => {
-        if (!conversation?._id) return;
-        const previousValue = isMuted;
-        setIsMuted(value);
-        try {
-            const response = await updateConversationMute(conversation._id, value);
-            setIsMuted(Boolean(response.data?.notificationPreference?.muted));
-            showToast?.(
-                value
-                    ? `Notifications muted for ${selectedUser?.name || "this chat"}.`
-                    : `Notifications unmuted for ${selectedUser?.name || "this chat"}.`,
-                "success"
-            );
-            onConversationChange?.();
-        } catch {
-            setIsMuted(previousValue);
-            showToast?.("Unable to update notification preference.", "error");
-        }
-    };
-
-    const setDisappearingState = async (value) => {
-        if (!conversation?._id) return;
-        const previousMode = disappearingMode;
-        setDisappearingMode(value);
-        try {
-            const response = await updateDisappearingMessages(conversation._id, value);
-            const systemMessage = response.data?.message;
-            setConversation((current) => current ? { ...current, disappearingMode: value } : current);
-            if (systemMessage) appendSentMessages([systemMessage]);
-            onConversationChange?.();
-            showToast?.(
-                value === "off"
-                    ? "Disappearing messages turned off."
-                    : `New messages will disappear after ${value === "24h" ? "24 hours" : value === "7d" ? "7 days" : "90 days"}.`,
-                "success"
-            );
-        } catch {
-            setDisappearingMode(previousMode);
-            showToast?.("Unable to update disappearing messages.", "error");
-        }
-    };
-
-    const saveWallpaperAndSound = () => {
-        saveContactPrefs({ wallpaper: contactWallpaper, sound: contactSound });
-    };
-
-    const renderMediaTile = (item) => {
-        const canPreviewImage = item.kind === "image" && item.url;
-        return (
-            <a
-                key={item.id}
-                className="chat-contact-media-tile"
-                href={item.url || "#"}
-                onClick={(event) => {
-                    event.preventDefault();
-                    scrollToRepliedMessage(item.message?._id);
-                }}
-                title={item.name}
-            >
-                {canPreviewImage ? (
-                    <img src={item.message?.localPreviewUrl || item.message?.previewFile || item.url} alt={item.name} />
-                ) : item.kind === "video" ? (
-                    <><Video size={22} /><span className="chat-contact-play"><Play size={15} fill="currentColor" /></span></>
-                ) : item.kind === "audio" ? (
-                    <Mic size={22} />
-                ) : (
-                    <Paperclip size={22} />
-                )}
-                <small>{item.name}</small>
-            </a>
-        );
-    };
-
-    const formatContactItemDate = (message) => getMessageDate(message?.createdAt).toLocaleDateString([], {
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-    });
-
-    const getMessageLink = (message) => getMessageText(message).match(/https?:\/\/[^\s]+/i)?.[0] || "";
-
-    const getLinkHost = (url) => {
-        try {
-            return new URL(url).hostname.replace(/^www\./, "");
-        } catch {
-            return "Link";
-        }
-    };
-
-    const startContactSidebarResize = (event) => {
-        if (window.innerWidth <= 900) return;
-        event.preventDefault();
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        document.body.classList.add("chat-contact-resizing");
-
-        const resize = (pointerEvent) => {
-            const bounds = chatBoxRef.current?.getBoundingClientRect();
-            if (!bounds) return;
-            const maximumWidth = Math.max(280, Math.min(560, bounds.width - 420));
-            setContactSidebarWidth(Math.min(maximumWidth, Math.max(280, bounds.right - pointerEvent.clientX)));
-        };
-        const stop = () => {
-            document.body.classList.remove("chat-contact-resizing");
-            window.removeEventListener("pointermove", resize);
-            window.removeEventListener("pointerup", stop);
-            setContactSidebarWidth((width) => {
-                localStorage.setItem("ciis-chat-contact-sidebar-width", String(Math.round(width)));
-                return width;
-            });
-        };
-        window.addEventListener("pointermove", resize);
-        window.addEventListener("pointerup", stop, { once: true });
-    };
-
-    const resizeContactSidebarByKeyboard = (event) => {
-        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-        event.preventDefault();
-        const bounds = chatBoxRef.current?.getBoundingClientRect();
-        const maximumWidth = Math.max(280, Math.min(560, (bounds?.width || window.innerWidth) - 420));
-        const direction = event.key === "ArrowLeft" ? 20 : -20;
-        setContactSidebarWidth((width) => {
-            const nextWidth = Math.min(maximumWidth, Math.max(280, width + direction));
-            localStorage.setItem("ciis-chat-contact-sidebar-width", String(Math.round(nextWidth)));
-            return nextWidth;
-        });
-    };
-
-    const renderMediaPanel = () => (
-        <div className="chat-contact-subpanel">
-            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
-                <ArrowLeft size={17} /> Media, links and docs
-            </button>
-            <div className="chat-contact-media-tabs" role="tablist" aria-label="Shared content">
-                {[
-                    ["media", "Media", visualMediaItems.length],
-                    ["links", "Links", linkMessages.length],
-                    ["docs", "Docs", documentItems.length],
-                ].map(([value, label, count]) => (
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={contactMediaTab === value}
-                        className={contactMediaTab === value ? "active" : ""}
-                        onClick={() => setContactMediaTab(value)}
-                        key={value}
-                    >
-                        {label}<span>{count}</span>
-                    </button>
-                ))}
-            </div>
-
-            {contactMediaTab === "media" && (
-                <div className="chat-contact-media-grid expanded">
-                    {visualMediaItems.length ? visualMediaItems.map(renderMediaTile) : <p className="chat-contact-empty">No photos or videos shared</p>}
-                </div>
-            )}
-
-            {contactMediaTab === "links" && (
-                <div className="chat-contact-links-list">
-                    {linkMessages.length ? linkMessages.map((message) => {
-                        const url = getMessageLink(message);
-                        return (
-                            <a key={message._id || message.createdAt} href={url} target="_blank" rel="noreferrer">
-                                <span className="chat-contact-link-icon"><Link2 size={20} /></span>
-                                <span className="chat-contact-link-copy">
-                                    <strong>{getLinkHost(url)}</strong>
-                                    <small>{url}</small>
-                                    <time>{formatContactItemDate(message)}</time>
-                                </span>
-                                <ExternalLink size={16} />
-                            </a>
-                        );
-                    }) : <p className="chat-contact-empty">No links shared</p>}
-                </div>
-            )}
-
-            {contactMediaTab === "docs" && (
-                <div className="chat-contact-doc-list">
-                    {documentItems.length ? documentItems.map((item) => (
-                        <a key={item.id} href={item.url} target="_blank" rel="noreferrer" title={item.name}>
-                            <span className={`chat-contact-doc-icon ${item.kind}`}><FileText size={21} /></span>
-                            <span className="chat-contact-doc-copy">
-                                <strong>{item.name}</strong>
-                                <small>{item.kind === "audio" ? "Audio" : (item.name.split(".").pop() || "Document").toUpperCase()} · {formatContactItemDate(item.message)}</small>
-                            </span>
-                            <Download size={17} />
-                        </a>
-                    )) : <p className="chat-contact-empty">No documents shared</p>}
-                </div>
-            )}
-        </div>
-    );
-
-    const renderWallpaperPanel = () => (
-        <div className="chat-contact-subpanel">
-            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
-                <ArrowLeft size={17} /> Wallpaper & sound
-            </button>
-            <label className="chat-contact-field">
-                Wallpaper URL
-                <input value={contactWallpaper} onChange={(event) => setContactWallpaper(event.target.value)} placeholder="Paste image URL" />
-            </label>
-            <label className="chat-contact-field">
-                Message sound
-                <select value={contactSound} onChange={(event) => setContactSound(event.target.value)}>
-                    <option value="default">Default</option>
-                    <option value="soft">Soft</option>
-                    <option value="silent">Silent</option>
-                    <option value="bright">Bright</option>
-                </select>
-            </label>
-            <button type="button" className="chat-contact-save-btn" onClick={saveWallpaperAndSound}>Save</button>
-        </div>
-    );
-
-    const renderDisappearingPanel = () => (
-        <div className="chat-contact-subpanel">
-            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
-                <ArrowLeft size={17} /> Disappearing messages
-            </button>
-            <div className="chat-disappearing-intro">
-                <TimerReset size={25} />
-                <div>
-                    <strong>Message timer</strong>
-                    <p>New messages sent after selecting a timer will automatically disappear. Existing messages will not be affected.</p>
-                </div>
-            </div>
-            {[
-                ["off", "Off"],
-                ["24h", "24 hours"],
-                ["7d", "7 days"],
-                ["90d", "90 days"],
-            ].map(([value, label]) => (
-                <button
-                    type="button"
-                    className="chat-contact-choice"
-                    key={value}
-                    onClick={() => setDisappearingState(value)}
-                    aria-pressed={disappearingMode === value}
-                >
-                    <span>{label}</span>
-                    <i className={disappearingMode === value ? "active" : ""} />
-                </button>
-            ))}
-        </div>
-    );
-
-    const renderContactInfoBody = () => {
-        if (contactPanelView === "media") return renderMediaPanel();
-        if (contactPanelView === "wallpaper") return renderWallpaperPanel();
-        if (contactPanelView === "disappearing") return renderDisappearingPanel();
-
-        return (
-            <>
-                <div className="chat-contact-profile">
-                    <div className="chat-contact-avatar">
-                        {selectedUser?.isGroup ? (
-                            <>
-                                {selectedAvatar ? (
-                                    <img
-                                        src={selectedAvatar}
-                                        alt={selectedName}
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = "none";
-                                            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
-                                        }}
-                                    />
-                                ) : null}
-                                <span style={{ display: selectedAvatar ? "none" : "inline" }}>
-                                    {selectedName?.charAt(0).toUpperCase() || "G"}
-                                </span>
-                            </>
-                        ) : (
-                            <>
-                                {selectedAvatar ? (
-                                    <img
-                                        src={selectedAvatar}
-                                        alt={selectedName}
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = "none";
-                                            if (e.currentTarget.nextSibling) {
-                                                e.currentTarget.nextSibling.style.display = "inline";
-                                            }
-                                        }}
-                                    />
-                                ) : null}
-                                <span style={{ display: selectedAvatar ? "none" : "inline" }}>
-                                    {selectedName?.charAt(0).toUpperCase() || "U"}
-                                </span>
-                            </>
-                        )}
-                    </div>
-                    <h2>{selectedName}</h2>
-                    <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
-                    {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
-                        <>
-                            <button
-                                type="button"
-                                className="chat-channel-photo-btn"
-                                onClick={() => groupImageInputRef.current?.click()}
-                                disabled={isSendingAction}
-                            >
-                                <Camera size={14} /> Change picture
-                            </button>
-                            <input
-                                ref={groupImageInputRef}
-                                type="file"
-                                accept="image/*"
-                                hidden
-                                onChange={updateCurrentChannelImage}
-                            />
-                        </>
-                    )}
-                </div>
-                <div className="chat-contact-actions">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setShowContactInfo(false);
-                            requestAnimationFrame(() => chatInputRef.current?.focus());
-                        }}
-                        title="Message"
-                    >
-                        <MessageCircle size={20} />
-                        <span>Message</span>
-                    </button>
-                    <button type="button" onClick={() => startDirectCall("audio")} disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled} title="Voice call">
-                        <Phone size={20} />
-                        <span>Voice call</span>
-                    </button>
-                    <button type="button" onClick={() => startDirectCall("video")} disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled} title="Video call">
-                        <Video size={20} />
-                        <span>Video call</span>
-                    </button>
-                    <button type="button" title="Search" onClick={openContactSearch}>
-                        <Search size={20} />
-                        <span>Search</span>
-                    </button>
-                </div>
-                <div className="chat-contact-section">
-                    <h3>About</h3>
-                    <p>{selectedUser?.bio || selectedUser?.about || selectedUser?.companyRole || "Work hard in silence, let success make the noise."}</p>
-                </div>
-                {selectedUser?.isGroup && (
-                    <div className="chat-contact-section chat-group-members-section">
-                        <div className="chat-contact-section-head">
-                            <span>Members</span>
-                            <strong>{groupMemberCount}</strong>
-                        </div>
-                        <div className="chat-group-members-list">
-                            {(Array.isArray(groupMembers) ? groupMembers : []).map((member) => {
-                                const memberId = getMemberId(member);
-                                const memberName = typeof member === "object"
-                                    ? (member.name || member.fullName || member.email || "Member")
-                                    : (users || []).find(user => getEntityId(user) === memberId)?.name || "Member";
-                                const memberAvatar = typeof member === "object"
-                                    ? getAvatarSrc(member.profileImage || member.avatar || member.image || member.photo)
-                                    : "";
-                                return (
-                                    <div className="chat-group-member-row" key={memberId || memberName}>
-                                        <span className="chat-group-member-avatar">
-                                            {memberAvatar ? <img src={memberAvatar} alt={memberName} /> : memberName.charAt(0).toUpperCase()}
-                                        </span>
-                                        <span>
-                                            <strong>{memberId === currentUserId ? "You" : memberName}</strong>
-                                            <small>{isIdOnline(memberId) ? "Online" : "Offline"}</small>
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                            {(!Array.isArray(groupMembers) || groupMembers.length === 0) && (
-                                <p className="chat-contact-empty">No members found</p>
-                            )}
-                        </div>
-                    </div>
-                )}
-                <div className="chat-contact-section">
-                    <div className="chat-contact-section-head">
-                        <span>Media, links and docs</span>
-                        <button type="button" onClick={() => setContactPanelView("media")}>See all <ChevronRight size={15} /></button>
-                    </div>
-                    <div className="chat-media-thumbs">
-                        {contactMediaItems.slice(0, 3).map(renderMediaTile)}
-                        <button type="button" onClick={() => setContactPanelView("media")}>
-                            +{Math.max(contactMediaItems.length - 3, 0)}
-                        </button>
-                    </div>
-                </div>
-            </>
-        );
-    };
-
-    useEffect(() => {
-        const latestNotice = [...messages]
-            .reverse()
-            .map(getDisappearingSystemNotice)
-            .find(Boolean);
-        if (!latestNotice || !["off", "24h", "7d", "90d"].includes(latestNotice.mode)) return;
-        setDisappearingMode(latestNotice.mode);
-    }, [messages]);
-
-    useEffect(() => {
-        const expiryTimes = messages
-            .map((message) => new Date(message.expiresAt || 0).getTime())
-            .filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0);
-        if (!expiryTimes.length) return undefined;
-
-        const nextExpiry = Math.min(...expiryTimes);
-        const timerId = window.setTimeout(() => {
-            const now = Date.now();
-            setMessages((current) => {
-                const filtered = current.filter((message) => {
-                    const expiry = new Date(message.expiresAt || 0).getTime();
-                    return !expiry || expiry > now;
-                });
-                return filtered.length === current.length ? [...current] : filtered;
-            });
-            onConversationChange?.();
-        }, Math.min(Math.max(nextExpiry - Date.now(), 0), 2147483647));
-
-        return () => window.clearTimeout(timerId);
-    }, [messages, onConversationChange]);
-
-
-
-    useEffect(() => {
-        if (selectedUser) return undefined;
-
-        const handleNewChatShortcut = event => {
-            if (event.key.toLowerCase() !== "n" || event.ctrlKey || event.metaKey || event.altKey) return;
-            const target = event.target;
-            if (target?.matches?.("input, textarea, [contenteditable='true']")) return;
-            event.preventDefault();
-            window.dispatchEvent(new CustomEvent("chat:open-new-chat"));
-        };
-
-        window.addEventListener("keydown", handleNewChatShortcut);
-        return () => window.removeEventListener("keydown", handleNewChatShortcut);
-    }, [selectedUser]);
-
-    if (!selectedUser) {
-
-        return (
-            <>
-                <div
-                    className="chat-empty"
-                >
-                    <div className={socket?.connected ? "chat-system-status online" : "chat-system-status"}>
-                        <span />
-                        {socket?.connected ? "All systems operational" : "Connecting to chat"}
-                    </div>
-                    <div className="chat-empty-card">
-                        <div className="chat-welcome-art" aria-hidden="true">
-                            <div className="chat-welcome-bubble"><i /><i /><i /></div>
-                            <div className="chat-welcome-reply"><i /><i /></div>
-                            <div className="chat-welcome-note"><i /><i /></div>
-                            <span className="spark spark-one">✦</span>
-                            <span className="spark spark-two">✦</span>
-                            <span className="spark spark-three">✦</span>
-                        </div>
-                        <h2>Start a conversation</h2>
-                        <p>Connect with your team and keep work moving.</p>
-                        <button
-                            type="button"
-                            className="chat-start-conversation"
-                            onClick={() => window.dispatchEvent(new CustomEvent("chat:open-new-chat"))}
-                        >
-                            <MessageCircle size={20} />
-                            New conversation
-                        </button>
-                        <small className="chat-new-shortcut">Press <kbd>N</kbd> to start quickly</small>
-                    </div>
-                </div>
-            </>
-        );
-    }
-
-    const getAvatarSrc = (avatar) => resolveAvatarUrl(avatar);
-
-    const getGroupName = (group) => {
-        if (!group) return "";
-        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
-    };
-
-    const getCurrentTopic = () => (
-        selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.companyRole || "SEO Project"
-    );
-
-    const getMemberId = member => {
-        if (!member) return "";
-        if (typeof member === "object") {
-            return (member._id || member.id || member.userId || member.user?._id || member.user?.id || "").toString();
-        }
-
-        return member.toString();
-    };
-
-    const groupMembers = selectedUser?.isGroup
-        ? selectedUser.members || selectedUser.users || selectedUser.memberIds || selectedUser.membersIds || conversation?.members || []
-        : [];
-    const availableMentionMembers = mentionMembers(
-        selectedUser?.isGroup ? [...groupMembers, ...(conversation?.members || [])] : conversation?.members?.length ? conversation.members : [currentUser, selectedUser],
-        [...users, currentUser, selectedUser, ...groupMembers, ...(conversation?.members || [])]
-    );
-    const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
-    const isIdOnline = id => {
-        const value = (id || "").toString();
-        return Boolean(value && onlineUsers.some(userId => userId?.toString() === value));
-    };
-    const onlineGroupCount = Array.isArray(groupMembers)
-        ? groupMembers.filter(member => {
-            const memberId = getMemberId(member);
-            return memberId && memberId !== currentUserId && isIdOnline(memberId);
-        }).length
-        : 0;
-    const groupMemberCount = Array.isArray(groupMembers)
-        ? groupMembers.length
-        : Number(selectedUser?.memberCount || selectedUser?.count || 0);
-    const groupStatusLabel = groupMemberCount > 0
-        ? `${onlineGroupCount} online - ${groupMemberCount} members`
-        : "Group Chat";
-    const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
-    const isSelectedUserOnline = selectedUser?.isGroup
-        ? onlineGroupCount > 0
-        : (typeof isUserOnlineNow === "function"
-            ? isUserOnlineNow(selectedUser)
-            : (presenceReady ? isIdOnline(selectedUserId) : (Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId))));
-    // The server rings every signed-in device and wakes offline ones by push, so a call must not
-    // depend on the live "online" dot (since presence became strict, it blocked calling anyone whose
-    // app was in the background).
-    const canStartCall = selectedUser?.isGroup
-        ? groupMemberCount > 0 || onlineGroupCount > 0
-        : Boolean(selectedUserId);
-
-    const startDirectCall = (callType) => {
-        if (!canStartCall) return;
-        startCall(callType, selectedUser);
-    };
-
-    const clearCurrentChat = async () => {
-        if (!messages.length || isSendingAction) {
-            setShowHeaderMenu(false);
-            return;
-        }
-        if (!window.confirm("Clear all messages in this chat for you?")) return;
-
-        setShowHeaderMenu(false);
-        setIsSendingAction(true);
-        try {
-            const messageIds = messages.map(item => item._id).filter(Boolean);
-            await Promise.allSettled(messageIds.map(messageId => deleteMessageForMe(messageId)));
-            messageIds.forEach(messageId => {
-                socket?.emit("chat:delete-for-me", { messageId, conversationId: conversation?._id });
-            });
-            setMessages([]);
-            onConversationChange?.();
-            showToast?.("Chat cleared successfully.", "success");
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-    const deleteCurrentChannel = async () => {
-        if (!selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
-        if (!window.confirm("Delete this group for everyone?")) return;
-        setShowHeaderMenu(false);
-        setIsSendingAction(true);
-        try {
-            await onDeleteGroup?.(selectedUser);
-            showToast?.("Group deleted successfully.", "success");
-        } catch (error) {
-            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to delete group.", "error");
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-
-    const updateCurrentChannelImage = async (event) => {
-        const file = event.target.files?.[0];
-        event.target.value = "";
-        if (!file || !selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
-        setIsSendingAction(true);
-        try {
-            await onUpdateGroup?.(selectedUser, {
-                name: getGroupName(selectedUser),
-                description: selectedUser.description || "",
-                members: (groupMembers || []).map(getMemberId).filter(Boolean),
-                avatar: file,
-            });
-            showToast?.("Group picture updated.", "success");
-        } catch (error) {
-            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to update group picture.", "error");
-        } finally {
-            setIsSendingAction(false);
-        }
-    };
-
-    const selectedAvatar = selectedUser?.isGroup
-        ? getAvatarSrc(selectedUser.groupImage || selectedUser.profileImage || selectedUser.avatar || selectedUser.image)
-        : getAvatarSrc(selectedUser);
-    const selectedName = selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.name;
-
-    return (
-
-        <div
-            ref={chatBoxRef}
-            className={showContactInfo ? "chat-box contact-info-open" : "chat-box"}
-            style={{ "--chat-contact-width": `${contactSidebarWidth}px` }}
-        >
-            <div className="chat-conversation">
-            <div className="chat-header">
-                <div className="chat-header-left">
-                    <button
-                        type="button"
-                        className="chat-mobile-back"
-                        title="Back to conversations"
-                        onClick={onBack}
-                    >
-                        <ArrowLeft size={20} />
-                    </button>
-                    <button
-                        type="button"
-                        className="chat-header-profile"
-                        onClick={() => setShowContactInfo(true)}
-                        title="Open contact info"
-                    >
-                        <span className="chat-avatar">
-                            {
-                                selectedUser.isGroup ? (
-                                    <>
-                                        {selectedAvatar ? (
-                                            <img
-                                                src={selectedAvatar}
-                                                alt={selectedName}
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = "none";
-                                                    if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
-                                                }}
-                                            />
-                                        ) : null}
-                                        <span style={{ display: selectedAvatar ? "none" : "inline" }}>
-                                            {selectedName?.charAt(0).toUpperCase() || "G"}
-                                        </span>
-                                    </>
-                                ) : (
-                                    <>
-                                        {selectedAvatar ? (
-                                            <img
-                                                src={selectedAvatar}
-                                                alt={selectedName}
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = "none";
-                                                    if (e.currentTarget.nextSibling) {
-                                                        e.currentTarget.nextSibling.style.display = "inline";
-                                                    }
-                                                }}
-                                            />
-                                        ) : null}
-                                        <span style={{ display: selectedAvatar ? "none" : "inline" }}>
-                                            {selectedName?.charAt(0).toUpperCase() || "U"}
-                                        </span>
-                                    </>
-                                )
-                            }
-                        </span>
-                        <span className="chat-user-meta">
-                            <span className="chat-user-name">
-                                    {selectedName}
-                                </span>
-                                <span className={`chat-user-status ${selectedUser.isGroup || isSelectedUserOnline ? "" : "offline"}`}>
-                                    {typingUserId 
-                                        ? "Typing..." 
-                                        : selectedUser.isGroup 
-                                        ? groupStatusLabel
-                                        : (isSelectedUserOnline ? "Online" : "Offline")}
-                                </span>
-                        </span>
-                    </button>
-                </div>
-                <div className="chat-header-actions" ref={headerMenuRef}>
-                    <button
-                        type="button"
-                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group members") : "Start video call"}
-                        onClick={() => startDirectCall("video")}
-                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
-                    >
-                        <Video size={18} />
-                    </button>
-                    <button
-                        type="button"
-                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group members") : "Start voice call"}
-                        onClick={() => startDirectCall("audio")}
-                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
-                    >
-                        <Phone size={18} />
-                    </button>
-                    <button
-                        type="button"
-                        title="Search"
-                        onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}
-                    >
-                        <Search size={18} />
-                    </button>
-                    <button type="button" title="More" onClick={() => setShowHeaderMenu(value => !value)}>
-                        <MoreVertical size={18} />
-                    </button>
-                    {showHeaderMenu && (
-                        <div className="chat-profile-menu">
-                            <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
-                                <Info size={17} />
-                                {selectedUser.isGroup ? "Group info" : "Contact info"}
-                            </button>
-                            <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
-                                <Search size={17} />
-                                Search messages
-                            </button>
-                            <button type="button" onClick={() => { setContactPanelView("media"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
-                                <Images size={17} />
-                                Media, links and docs
-                            </button>
-                            <button type="button" onClick={() => { setMuteState(!isMuted); setShowHeaderMenu(false); }}>
-                                <Bell size={17} />
-                                {isMuted ? "Unmute notifications" : "Mute notifications"}
-                            </button>
-                            <span className="chat-profile-menu-divider" />
-                            <button type="button" className="danger" onClick={clearCurrentChat} disabled={!messages.length || isSendingAction}>
-                                <Trash2 size={17} />
-                                Clear chat
-                            </button>
-                            {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
-                                <button type="button" className="danger" onClick={deleteCurrentChannel} disabled={isSendingAction}>
-                                    <Trash2 size={17} />
-                                    Delete channel
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <div className="chat-topic-bar">
-                <strong>Chat Topic: {getCurrentTopic()}</strong>
-                <button type="button">Change Topic</button>
-            </div>
-
-            <div
-                className="chat-messages"
-                ref={chatMessagesRef}
-                onScroll={updateActiveChatDate}
-                style={(contactWallpaper || effectiveChatSettings.chats.wallpaper) ? { backgroundImage: `linear-gradient(rgba(255,255,255,0.76), rgba(255,255,255,0.76)), url("${contactWallpaper || effectiveChatSettings.chats.wallpaper}")` } : undefined}
-            >
-                {isContactSearchOpen && (
-                    <div className="chat-message-search-bar">
-                        <Search size={16} />
-                        <input
-                            value={contactSearchTerm}
-                            onChange={(event) => setContactSearchTerm(event.target.value)}
-                            placeholder="Search messages"
-                            autoFocus
-                        />
-                        <button type="button" onClick={() => { setIsContactSearchOpen(false); setContactSearchTerm(""); }}>
-                            <X size={16} />
-                        </button>
-                    </div>
-                )}
-                {showActiveChatDate && activeChatDateLabel && (
-                    <div className="chat-active-date">
-                        <span>{activeChatDateLabel}</span>
-                    </div>
-                )}
-
-                {messagePagination.hasMore && !normalizedSearchTerm && (
-                    <div className="chat-load-older-wrap">
-                        <button
-                            type="button"
-                            className="chat-load-older-btn"
-                            onClick={loadOlderMessages}
-                            disabled={isLoadingOlderMessages}
-                        >
-                            {isLoadingOlderMessages ? "Loading..." : "Load older messages"}
-                        </button>
-                    </div>
-                )}
-
-                {
-                    displayedMessages.map((message, index) => {
-                        const previousMessage = displayedMessages[index - 1];
-                        const disappearingNotice = getDisappearingSystemNotice(message);
-                        const shouldShowDateSeparator = !previousMessage
-                            || getMessageDateKey(previousMessage.createdAt) !== getMessageDateKey(message.createdAt);
-                        const messageDateLabel = formatMessageDateSeparator(message.createdAt);
-
-                        return (
-                            <React.Fragment key={message._id || `${message.createdAt}-${index}`}>
-                                {shouldShowDateSeparator && (
-                                    <div className="chat-date-separator" data-date-label={messageDateLabel}>
-                                        <span>{messageDateLabel}</span>
-                                    </div>
-                                )}
-
-                                {isCallMessage(message) ? (() => {
-                                    const callInfo = describeCallMessage(message, currentUser?._id || currentUser?.id);
-                                    const CallIcon = callInfo.isVideo ? Video : Phone;
-                                    return (
-                                        <div className="chat-disappearing-notice" data-message-id={message._id || ""} style={callInfo.missed ? { color: "#dc2626" } : undefined}>
-                                            <CallIcon size={14} />
-                                            <span>
-                                                {callInfo.outgoing ? "↗ " : "↙ "}{callInfo.text} · {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                            </span>
-                                        </div>
-                                    );
-                                })() : isTaskUpdateMessage(message) ? (() => {
-                                    const taskMeta = getTaskEventMeta(message);
-                                    return (
-                                        <div className="chat-task-update" data-message-id={message._id}>
-                                            <button
-                                                type="button"
-                                                className={`chat-task-card event-${taskMeta.eventCategory}`}
-                                                onClick={() => message.systemEvent?.task && openProjectTask(message.systemEvent)}
-                                                title={message.systemEvent?.task ? "Click to view task details" : undefined}
-                                            >
-                                                <div className="chat-task-card-header">
-                                                    <div className="chat-task-card-header-left">
-                                                        <Clock size={12} className="chat-task-card-clock" />
-                                                        <span className="chat-task-event-badge">{taskMeta.label}</span>
-                                                    </div>
-                                                    {taskMeta.formattedTime && (
-                                                        <time className="chat-task-card-time" title={taskMeta.fullDateTime}>
-                                                            {taskMeta.formattedTime}
-                                                        </time>
-                                                    )}
-                                                </div>
-                                                <div className="chat-task-card-body">
-                                                    <FileText size={15} className="chat-task-card-icon" />
-                                                    <span className="chat-task-card-text">{taskEventText(message)}</span>
-                                                    {message.systemEvent?.task && <ChevronRight size={14} className="chat-task-card-chevron" />}
-                                                </div>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="chat-task-reply"
-                                                onClick={() => handleMessageReply(message)}
-                                                aria-label="Reply to task update"
-                                                title="Reply to task update"
-                                            >
-                                                <Reply size={14} /> Reply
-                                            </button>
-                                        </div>
-                                    );
-                                })() : disappearingNotice ? (
-                                    <div className="chat-disappearing-notice" data-message-id={message._id || ""}>
-                                        <TimerReset size={14} />
-                                        <span>
-                                            <strong>
-                                                {String(disappearingNotice.actorId || "") === String(currentUser?._id || currentUser?.id || "")
-                                                    ? "You"
-                                                    : disappearingNotice.actorName || "A participant"}
-                                            </strong>
-                                            {disappearingNotice.mode === "off"
-                                                ? " turned off disappearing messages"
-                                                : ` turned on disappearing messages. New messages disappear after ${
-                                                    disappearingNotice.mode === "24h" ? "24 hours" : disappearingNotice.mode === "7d" ? "7 days" : "90 days"
-                                                }`}
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <div className="chat-message-date-anchor" data-date-label={messageDateLabel} data-message-id={message._id || ""}>
-                                        <MessageBubble
-                                            message={message}
-                                            currentUser={currentUser}
-                                            users={users}
-                                            onDeleteForMe={handleDeleteForMe}
-                                            onDeleteForEveryone={handleDeleteForEveryone}
-                                            onForward={handleForward}
-                                            onReply={handleMessageReply}
-                                            onReplyJump={scrollToRepliedMessage}
-                                            onReact={handleReaction}
-                                            isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
-                                            onToggleStar={toggleStarredMessage}
-                                            socket={socket}
-                                            isGroupChat={Boolean(selectedUser?.isGroup || conversation?.isGroup)}
-                                        />
-                                    </div>
-                                )}
-                            </React.Fragment>
-                        );
-                    })
-                }
-
-                {displayedMessages.length === 0
-                    && !normalizedSearchTerm
-                    && conversation?._id
-                    && loadedConversationId === String(conversation._id) && (
-                    <div className="chat-thread-empty">
-                        <span className="chat-thread-empty-icon"><MessageCircle size={26} /></span>
-                        <strong>No messages yet</strong>
-                        <p>
-                            {selectedUser?.isGroup
-                                ? "Start the conversation with this group."
-                                : `Start the conversation with ${selectedUser?.name || "this person"}.`}
-                        </p>
-                        <button type="button" onClick={() => chatInputRef.current?.focus()}>
-                            Start conversation
-                        </button>
-                    </div>
-                )}
-
-            </div>
-
-            {projectTask && <TaskDetailsModal open task={projectTask} canEdit={false}
-                employeeInfo={currentUser} onClose={() => setProjectTask(null)}
-                mentionUsers={selectedUser?.members || []}
-                onRemarkAdded={async (task, text, _files, mentions) => {
-                    const key = JSON.stringify([task.clientId || task.projectId, task._id, text, mentions]);
-                    const requestId = remarkRequests.current.get(key) || crypto.randomUUID();
-                    remarkRequests.current.set(key, requestId);
-                    if (task.clientId) await addClientChatRemark(task.clientId, task._id, text, mentions, requestId);
-                    else await addProjectChatRemark(task.projectId, task._id, text, mentions, requestId);
-                    const result = task.clientId ? await getClientChatTask(task.clientId, task._id) : await getProjectChatTask(task.projectId, task._id);
-                    setProjectTask(result.data.task);
-                    remarkRequests.current.delete(key);
-                }} />}
-            <div className="chat-input-area">
-                <div className="chat-quick-replies">
-                    {quickReplies.map(reply => (
-                        <button type="button" key={reply} onClick={() => setText(reply)}>
-                            {reply}
-                        </button>
-                    ))}
-                </div>
-
-                {recorderMode === "audio" ? (
-                    <div className="voice-recorder-bar">
-                        <div className="voice-recorder-cancel-wrap">
-                            <div className="voice-recorder-tooltip">Cancel</div>
-                            <button
-                                type="button"
-                                className="voice-recorder-cancel-btn"
-                                onClick={cancelVoiceRecording}
-                                title="Cancel recording"
-                                aria-label="Cancel recording"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        </div>
-
-                        <div className="voice-recorder-status">
-                            <span className={`voice-recorder-dot ${isRecordingPaused ? "paused" : "blinking"}`} />
-                            <span className="voice-recorder-time">
-                                {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}
-                            </span>
-                        </div>
-
-                        <VoiceRecordingWaveform
-                            stream={recordingStreamRef.current}
-                            isPaused={isRecordingPaused}
-                        />
-
-                        <button
-                            type="button"
-                            className={`voice-recorder-pause-btn ${isRecordingPaused ? "paused" : ""}`}
-                            onClick={togglePauseVoiceRecording}
-                            title={isRecordingPaused ? "Resume recording" : "Pause recording"}
-                            aria-label={isRecordingPaused ? "Resume recording" : "Pause recording"}
-                        >
-                            {isRecordingPaused ? <Mic size={18} /> : <Pause size={18} />}
-                        </button>
-
-                        <button
-                            type="button"
-                            className="voice-recorder-send-btn"
-                            onClick={sendVoiceRecordingImmediately}
-                            disabled={isSendingAction}
-                            title="Send voice message"
-                            aria-label="Send voice message"
-                        >
-                            <SendHorizontal size={19} />
-                        </button>
-                    </div>
-                ) : (
-                <div className="chat-composer">
-                    <div className="attachment-menu-wrap" ref={attachmentMenuRef}>
-                        <button
-                            type="button"
-                            className={`file-upload-btn ${showAttachmentMenu ? "active" : ""}`}
-                            onClick={() => {
-                                setShowAttachmentMenu((prev) => !prev);
-                                setShowEmojiPicker(false);
-                            }}
-                            title={showAttachmentMenu ? "Close attachment menu" : "Attach"}
-                            aria-label={showAttachmentMenu ? "Close attachment menu" : "Attach"}
-                            aria-expanded={showAttachmentMenu}
-                        >
-                            {showAttachmentMenu ? <X size={19} /> : <Paperclip size={19} />}
-                        </button>
-
-                        {showAttachmentMenu && (
-                            <div
-                                className="attachment-menu-popup"
-                                role="menu"
-                                style={{
-                                    width: 170,
-                                    minWidth: 170,
-                                    maxWidth: 185,
-                                    background: "#ffffff",
-                                    borderRadius: 12,
-                                    padding: "6px 4px",
-                                    boxSizing: "border-box",
-                                    border: "1px solid #e2e8f0",
-                                    boxShadow: "0 10px 25px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.05)"
-                                }}
-                            >
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 8px 6px", borderBottom: "1px solid #f1f5f9", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
-                                    <span>Attach</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAttachmentMenu(false)}
-                                        style={{ border: 0, background: "transparent", cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", padding: 2 }}
-                                        title="Close"
-                                        aria-label="Close attachment menu"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                                <button
-                                    type="button"
-                                    className="attachment-menu-item"
-                                    onClick={() => {
-                                        setShowAttachmentMenu(false);
-                                        documentInputRef.current?.click();
-                                    }}
-                                >
-                                    <span className="attachment-icon-wrap icon-document">
-                                        <FileText size={18} strokeWidth={2} />
-                                    </span>
-                                    <span className="attachment-label">Document</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="attachment-menu-item"
-                                    onClick={() => {
-                                        setShowAttachmentMenu(false);
-                                        photosVideosInputRef.current?.click();
-                                    }}
-                                >
-                                    <span className="attachment-icon-wrap icon-photos">
-                                        <Images size={18} strokeWidth={2} />
-                                    </span>
-                                    <span className="attachment-label">Photos & videos</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="attachment-menu-item"
-                                    onClick={() => {
-                                        setShowAttachmentMenu(false);
-                                        startRecording("video");
-                                    }}
-                                >
-                                    <span className="attachment-icon-wrap icon-camera">
-                                        <Camera size={18} strokeWidth={2} />
-                                    </span>
-                                    <span className="attachment-label">Camera</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="attachment-menu-item"
-                                    onClick={() => {
-                                        setShowAttachmentMenu(false);
-                                        audioInputRef.current?.click();
-                                    }}
-                                >
-                                    <span className="attachment-icon-wrap icon-audio">
-                                        <Headphones size={18} strokeWidth={2} />
-                                    </span>
-                                    <span className="attachment-label">Audio</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="attachment-menu-item"
-                                    onClick={() => {
-                                        setShowAttachmentMenu(false);
-                                        openAssignModal();
-                                    }}
-                                >
-                                    <span className="attachment-icon-wrap icon-assign">
-                                        <CheckSquare size={18} strokeWidth={2} />
-                                    </span>
-                                    <span className="attachment-label">Assign Task</span>
-                                </button>
-                            </div>
-                        )}
-
-                        <input
-                            ref={documentInputRef}
-                            type="file"
-                            multiple
-                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip,.rar,.7z"
-                            onChange={handleFileSelection}
-                            style={{ display: "none" }}
-                        />
-                        <input
-                            ref={photosVideosInputRef}
-                            type="file"
-                            multiple
-                            accept="image/*,video/*"
-                            onChange={handleFileSelection}
-                            style={{ display: "none" }}
-                        />
-                        <input
-                            ref={audioInputRef}
-                            type="file"
-                            multiple
-                            accept="audio/*"
-                            onChange={handleFileSelection}
-                            style={{ display: "none" }}
-                        />
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            onChange={handleFileSelection}
-                            style={{ display: "none" }}
-                        />
-                    </div>
-
-                    <div className="chat-input-wrapper">
-                        {replyingTo && (
-                            <div className="chat-reply-preview">
-                                <div>
-                                    <strong>
-                                        {String(replyingTo.sender?._id || replyingTo.sender || "") === currentUserId
-                                            ? "You"
-                                            : replyingTo.sender?.name || selectedName || "User"}
-                                    </strong>
-                                    <span>{taskEventText(replyingTo) || (attachmentSource(replyingTo) ? attachmentLabel(replyingTo) : "Message")}</span>
-                                </div>
-                                <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
-                                    <X size={17} />
-                                </button>
-                            </div>
-                        )}
-                        {files.length > 0 && (
-                            <div className="selected-files-wrap">
-                                <div className="selected-files-list">
-                                    {files.map((fileItem, index) => {
-                                        const file = getUploadFile(fileItem);
-                                        return (
-                                        <div
-                                            className="selected-file-info"
-                                            key={`${file.name}-${file.lastModified}-${index}`}
-                                            title={file.name}
-                                        >
-                                            <span>{file.name}</span>
-                                            {getMediaCompressionType(file) && (
-                                                <small>Original</small>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => setFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index))}
-                                                aria-label={`Deselect ${file.name}`}
-                                                title="Deselect file"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    );})}
-                                </div>
-                                {files.length > 1 && (
-                                    <button
-                                        type="button"
-                                        className="selected-files-clear"
-                                        onClick={() => setFiles([])}
-                                    >
-                                        Clear all
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
-                        {recordingError && (
-                            <div className="recording-error">{recordingError}</div>
-                        )}
-                        <ChatMentionInput
-                            ref={chatInputRef}
-                            mentions={messageMentions}
-                            onPaste={handlePaste}
-                            members={availableMentionMembers}
-                            onMentionSelect={setText}
-                            aria-label={replyingTo ? "Write a reply" : "Write a message"}
-                            type="text"
-                            className="chat-input"
-                            value={text}
-                            onChange={(e) =>
-                                {
-                                    setText(e.target.value);
-                                    if (conversation?._id) {
-                                        socket?.emit("chat:typing", { conversationId: conversation._id });
-                                        clearTimeout(typingTimerRef.current);
-                                        typingTimerRef.current = setTimeout(() => {
-                                            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
-                                        }, 900);
-                                    }
-                                }
-                            }
-                            placeholder="Type your message..."
-                            onFocus={() => {
-                                setShowAttachmentMenu(false);
-                                setShowEmojiPicker(false);
-                            }}
-                            onKeyDown={(e) => {
-                                if (
-                                    e.key === "Enter"
-                                    && effectiveChatSettings.chats.enterToSend
-                                    && (!effectiveChatSettings.keyboard.enabled || !e.shiftKey)
-                                ) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                            }}
-                        />
-                    </div>
-
-                    <button
-                        className="recording-btn composer-video-btn"
-                        onClick={() => startRecording("video")}
-                        disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
-                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : "Record video"}
-                        type="button"
-                    >
-                        <Camera size={18} />
-                    </button>
-
-                    <div className="emoji-picker-wrap" ref={emojiPickerRef}>
-                        <button
-                            type="button"
-                            className="emoji-btn"
-                            title="Emoji"
-                            aria-label="Emoji"
-                            aria-expanded={showEmojiPicker}
-                            onClick={() => {
-                                setShowEmojiPicker((prev) => !prev);
-                                setShowAttachmentMenu(false);
-                            }}
-                        >
-                            <Smile size={20} />
-                        </button>
-                        {showEmojiPicker && (
-                            <div className="emoji-picker-panel">
-                                <EmojiPicker
-                                    colorScheme={Theme.DARK}
-                                    emojiStyle={EmojiStyle.NATIVE}
-                                    categories={CHAT_EMOJI_CATEGORIES}
-                                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
-                                    searchPlaceHolder="Search emoji"
-                                    lazyLoadEmojis
-                                    width="100%"
-                                    height="min(420px, calc(100dvh - 180px))"
-                                    previewConfig={{ showPreview: false }}
-                                    onEmojiClick={handleEmojiSelect}
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    <button
-                        className={recorderMode === "audio" ? "recording-btn composer-voice-btn active" : "recording-btn composer-voice-btn"}
-                        onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
-                        disabled={isSendingAction || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
-                        title={recorderMode === "audio" ? "End voice recording" : "Start voice recording"}
-                        type="button"
-                    >
-                        {recorderMode === "audio" ? <Square size={17} /> : <Mic size={18} />}
-                    </button>
-
-                    <button
-                        className="send-btn"
-                        onClick={handleSend}
-                        disabled={isSendingAction}
-                        title="Send message"
-                        type="button"
-                    >
-                        <SendHorizontal size={20} />
-                    </button>
-                </div>
-                )}
-            </div>
-            </div>
-
-            {showContactInfo && (
-            <div
-                className="chat-contact-resizer"
-                role="separator"
-                aria-label="Resize contact info panel"
-                aria-orientation="vertical"
-                aria-valuemin="280"
-                aria-valuemax="560"
-                aria-valuenow={Math.round(contactSidebarWidth)}
-                tabIndex={0}
-                onPointerDown={startContactSidebarResize}
-                onKeyDown={resizeContactSidebarByKeyboard}
-                title="Drag to resize"
-            >
-                <span />
-            </div>
-            )}
-
-            {confirmDeleteMessage && (
-                <div className="chat-confirm-overlay" role="dialog" aria-modal="true">
-                    <div className="chat-confirm-modal">
-                        <strong>Delete message for everyone?</strong>
-                        <p>This message will be deleted for all members in this chat.</p>
-                        <div className="chat-confirm-actions">
-                            <button type="button" onClick={() => setConfirmDeleteMessage(null)} disabled={isSendingAction}>No</button>
-                            <button type="button" className="danger" onClick={confirmDeleteForEveryone} disabled={isSendingAction}>
-                                {isSendingAction ? "Deleting..." : "Yes, delete"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showContactInfo && (
-            <aside className="chat-contact-info">
-                <div className="chat-contact-top">
-                    <button type="button" title="Back" onClick={() => contactPanelView === "info" ? setShowContactInfo(false) : setContactPanelView("info")}>
-                        <ArrowLeft size={20} />
-                    </button>
-                    <strong>{contactPanelView === "info" ? "Contact info" : contactPanelView === "media" ? "Media, links and docs" : contactPanelView === "wallpaper" ? "Wallpaper & sound" : "Disappearing messages"}</strong>
-                    <button type="button" title="Close" onClick={() => setShowContactInfo(false)}>
-                        <X size={22} />
-                    </button>
-                </div>
-                {renderContactInfoBody()}
-            </aside>
-            )}
-
-
-            {/* WhatsApp-Style Live Video Recorder & Preview Modal */}
-            {(recorderMode === "video" || (pendingRecording && pendingRecording.mode === "video")) && (
-                <div className="video-recorder-overlay" role="dialog" aria-modal="true">
-                    <div className="video-recorder-modal">
-                        {/* Header */}
-                        <div className="video-recorder-header">
-                            {recorderMode === "video" ? (
-                                <div className="video-recorder-timer-badge">
-                                    <span className="video-recorder-dot" />
-                                    <span>{Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}</span>
-                                </div>
-                            ) : (
-                                <div className="video-recorder-preview-badge">
-                                    <Video size={15} />
-                                    <span>Video Preview ({formatRecordingTime(pendingRecording?.duration || 0)})</span>
-                                </div>
-                            )}
-                            <button
-                                type="button"
-                                className="video-recorder-close-btn"
-                                onClick={recorderMode === "video" ? cancelVoiceRecording : discardPendingRecording}
-                                title="Close"
-                                aria-label="Close"
-                            >
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        {/* Viewfinder / Video player */}
-                        <div className="video-recorder-viewfinder-wrap">
-                            {recorderMode === "video" ? (
-                                <video
-                                    ref={(el) => {
-                                        recordingPreviewRef.current = el;
-                                        if (el && recordingStreamRef.current) {
-                                            el.srcObject = recordingStreamRef.current;
-                                        }
-                                    }}
-                                    autoPlay
-                                    muted
-                                    playsInline
-                                    className="video-recorder-video mirrored"
-                                />
-                            ) : (
-                                <video
-                                    src={videoPreviewUrl || undefined}
-                                    autoPlay
-                                    controls
-                                    playsInline
-                                    className="video-recorder-video"
-                                />
-                            )}
-                        </div>
-
-                        {/* Bottom Actions */}
-                        <div className="video-recorder-bottom">
-                            {recorderMode === "video" ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="video-recorder-discard-btn"
-                                        onClick={cancelVoiceRecording}
-                                        title="Discard recording"
-                                        aria-label="Discard recording"
-                                    >
-                                        <Trash2 size={20} />
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="video-recorder-stop-btn"
-                                        onClick={stopRecording}
-                                        title="Stop recording"
-                                        aria-label="Stop recording"
-                                    >
-                                        <span className="video-recorder-stop-icon" />
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="video-recorder-send-circle-btn"
-                                        onClick={sendVoiceRecordingImmediately}
-                                        disabled={isSendingAction}
-                                        title="Send video now"
-                                        aria-label="Send video now"
-                                    >
-                                        <SendHorizontal size={20} />
-                                    </button>
-                                </>
-                            ) : (
-                                <div className="video-recorder-preview-actions">
-                                    <button
-                                        type="button"
-                                        className="video-recorder-retake-btn"
-                                        onClick={retakeVideoRecording}
-                                        disabled={isSendingAction}
-                                    >
-                                        <RotateCcw size={16} />
-                                        <span>Retake</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="video-recorder-send-action-btn"
-                                        onClick={sendPendingRecording}
-                                        disabled={isSendingAction}
-                                    >
-                                        <SendHorizontal size={18} />
-                                        <span>{isSendingAction ? "Sending..." : "Send Video"}</span>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-            {pastedImageModal && (
-                <div
-                    className="whatsapp-image-preview-overlay"
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        zIndex: 999999,
-                        background: "#0b141a",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between"
-                    }}
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) closePastedImageModal();
-                    }}
-                >
-                    {/* Top Bar */}
-                    <div
-                        style={{
-                            height: "60px",
-                            background: "#111b21",
-                            borderBottom: "1px solid #202c33",
-                            padding: "0 24px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            flexShrink: 0
-                        }}
-                    >
-                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                            <button
-                                type="button"
-                                onClick={closePastedImageModal}
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: "#aebac1",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    padding: "8px",
-                                    borderRadius: "50%"
-                                }}
-                                title="Close (Esc)"
-                                aria-label="Close"
-                            >
-                                <X size={22} />
-                            </button>
-                            <div style={{ color: "#e9edef", fontSize: "14.5px", fontWeight: 600 }}>
-                                {pastedImageModal.file?.name}
-                                <span style={{ marginLeft: "10px", color: "#8696a0", fontSize: "12px", fontWeight: 400 }}>
-                                    ({(pastedImageModal.file?.size / 1024).toFixed(1)} KB)
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Center Image Viewport */}
-                    <div
-                        style={{
-                            flex: 1,
-                            minHeight: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            padding: "24px",
-                            overflow: "hidden"
-                        }}
-                    >
-                        <img
-                            src={pastedImageModal.previewUrl}
-                            alt="Pasted Preview"
-                            style={{
-                                maxHeight: "68vh",
-                                maxWidth: "88vw",
-                                objectFit: "contain",
-                                borderRadius: "8px",
-                                boxShadow: "0 14px 40px rgba(0,0,0,0.6)"
-                            }}
-                        />
-                    </div>
-
-                    {/* Bottom Caption Bar */}
-                    <div
-                        style={{
-                            background: "#111b21",
-                            borderTop: "1px solid #202c33",
-                            padding: "16px 24px 22px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0
-                        }}
-                    >
-                        <div
-                            style={{
-                                maxWidth: "720px",
-                                width: "100%",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "12px"
-                            }}
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    background: "#2a3942",
-                                    borderRadius: "24px",
-                                    padding: "10px 18px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "10px",
-                                    border: "1px solid #3b4a54"
-                                }}
-                            >
-                                <Smile size={20} color="#8696a0" style={{ flexShrink: 0 }} />
-                                <input
-                                    type="text"
-                                    autoFocus
-                                    placeholder="Add a caption..."
-                                    value={pastedImageModal.caption}
-                                    onChange={(e) => setPastedImageModal(prev => ({ ...prev, caption: e.target.value }))}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            sendPastedImage();
-                                        }
-                                    }}
-                                    style={{
-                                        background: "transparent",
-                                        border: "none",
-                                        color: "#e9edef",
-                                        fontSize: "15px",
-                                        width: "100%",
-                                        outline: "none"
-                                    }}
-                                />
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={sendPastedImage}
-                                disabled={isSendingAction}
-                                style={{
-                                    width: "48px",
-                                    height: "48px",
-                                    borderRadius: "50%",
-                                    background: "#00a884",
-                                    border: "none",
-                                    color: "#ffffff",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    cursor: isSendingAction ? "not-allowed" : "pointer",
-                                    boxShadow: "0 4px 14px rgba(0,168,132,0.45)",
-                                    transition: "all 0.2s ease",
-                                    flexShrink: 0
-                                }}
-                                title="Send image"
-                            >
-                                <SendHorizontal size={20} style={{ marginLeft: "2px" }} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {assignModal.open && (
-                <div className="chat-assign-modal-overlay" onClick={closeAssignModal}>
-                    <div className="chat-assign-modal" onClick={e => e.stopPropagation()}>
-                        <div className="chat-assign-modal-header">
-                            <div className="chat-assign-modal-title">
-                                <CheckSquare size={20} className="chat-assign-modal-title-icon" />
-                                <h3>
-                                    {selectedUser?.isGroup
-                                        ? `Assign Task (${selectedUser.name || "Group"})`
-                                        : `Assign Task to ${selectedUser?.name || "Employee"}`}
-                                </h3>
-                            </div>
-                            <button type="button" className="chat-assign-modal-close" onClick={closeAssignModal} aria-label="Close">
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleAssignSubmit} className="chat-assign-modal-form">
-                            {assignModal.error && (
-                                <div className="chat-assign-error">{assignModal.error}</div>
-                            )}
-
-                            {selectedUser?.isGroup && (
-                                <div className="chat-assign-form-group">
-                                    <label>Assign To <span style={{ color: "#ef4444" }}>*</span></label>
-                                    <select
-                                        value={assignModal.targetUserId}
-                                        onChange={e => setAssignModal(prev => ({ ...prev, targetUserId: e.target.value }))}
-                                        className="chat-assign-select"
-                                        required
-                                    >
-                                        <option value="">Select Group Member</option>
-                                        {(selectedUser?.members || selectedUser?.groupMembers || conversation?.members || []).map(member => {
-                                            const mId = member?._id || member?.id;
-                                            return (
-                                                <option key={mId} value={mId}>
-                                                    {member.name || "Member"} {member.email ? `(${member.email})` : ""}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="chat-assign-form-group">
-                                <label>Task Title <span style={{ color: "#ef4444" }}>*</span></label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Enter task title"
-                                    value={assignModal.title}
-                                    onChange={e => setAssignModal(prev => ({ ...prev, title: e.target.value }))}
-                                    className="chat-assign-input"
-                                />
-                            </div>
-
-                            <div className="chat-assign-form-group">
-                                <label>Description</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Add details, instructions or expectations..."
-                                    value={assignModal.description}
-                                    onChange={e => setAssignModal(prev => ({ ...prev, description: e.target.value }))}
-                                    className="chat-assign-textarea"
-                                />
-                            </div>
-
-                            <div className="chat-assign-form-row">
-                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
-                                    <label>Priority</label>
-                                    <select
-                                        value={assignModal.priority}
-                                        onChange={e => setAssignModal(prev => ({ ...prev, priority: e.target.value }))}
-                                        className="chat-assign-select"
-                                    >
-                                        <option value="low">Low</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="high">High</option>
-                                    </select>
-                                </div>
-
-                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
-                                    <label>Due Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
-                                    <input
-                                        type="datetime-local"
-                                        required
-                                        value={assignModal.dueDateTime}
-                                        onChange={e => setAssignModal(prev => ({ ...prev, dueDateTime: e.target.value }))}
-                                        className="chat-assign-input"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="chat-assign-modal-footer">
-                                <button
-                                    type="button"
-                                    className="chat-assign-btn-cancel"
-                                    disabled={assignModal.submitting}
-                                    onClick={closeAssignModal}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="chat-assign-btn-submit"
-                                    disabled={assignModal.submitting}
-                                >
-                                    {assignModal.submitting ? "Assigning..." : "Assign Task"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-export default ChatBox;
+import React, {
+    useEffect,
+    useRef,
+    useState
+} from "react";
+import "../Pages/Chat/chat.css";
+import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
+import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, PhoneCall, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import axios from "../utils/axiosConfig";
+
+import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
+
+import MessageBubble from "./MessageBubble";
+import ChatMentionInput from "./ChatMentionInput";
+import { taskEventText } from "./taskEventText";
+import { mentionMembers, reconcileMentions } from "./mentionUtils";
+import TaskDetailsModal from "../hrCds/components/TaskDetailsModal";
+import { openClientConversation, getClientChatTask, addClientChatRemark, openProjectConversation, getProjectChatTask, addProjectChatRemark } from "../services/chatService";
+import { API_URL_IMG } from "../config";  
+import { attachmentLabel, attachmentSource, resolveAvatarUrl } from "./messageUtils";
+import { describeCallMessage, isCallMessage } from "./callMessage";
+import { useCall } from "../context/CallContext";
+import { useNotification } from "../context/NotificationContext";
+
+const CHAT_FILE_ACCEPT = [
+    "image/*", "video/*", "audio/*",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv",
+    ".ppt", ".pptx", ".txt", ".rtf",
+    ".odt", ".ods", ".odp",
+    ".zip", ".rar", ".7z"
+].join(",");
+
+const VOICE_RECORDING_MAX_SECONDS = 5 * 60;
+const CHAT_EMOJI_CATEGORIES = [
+    { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
+    { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
+    { category: Categories.FOOD_DRINK, name: "Food & Drink" },
+    { category: Categories.ACTIVITIES, name: "Activities" },
+    { category: Categories.TRAVEL_PLACES, name: "Travel" },
+    { category: Categories.OBJECTS, name: "Objects" },
+    { category: Categories.SYMBOLS, name: "Symbols" },
+    { category: Categories.FLAGS, name: "Flags" },
+];
+
+const getUploadFile = (item) => item?.file || item;
+
+const getMediaCompressionType = (file) => {
+    const type = String(file?.type || "").toLowerCase();
+    const name = String(file?.name || "").toLowerCase();
+    if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(name)) return "image";
+    if (type.startsWith("video/") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(name)) return "video";
+    return "";
+};
+
+// Picked photos and videos are sent as they are (same file, size and format);
+// "hd" tells the backend not to re-encode them. Other files keep the old mode.
+const chooseCompressionMode = (file) => (getMediaCompressionType(file) ? "hd" : "normal");
+
+const appendCompressionMode = (formData, mode = "normal") => {
+    formData.append("compressionMode", mode === "hd" ? "hd" : "normal");
+};
+
+const getMessageDate = (value) => {
+    const date = new Date(value || Date.now());
+    return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
+const getMessageDateKey = (value) => {
+    const date = getMessageDate(value);
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+};
+
+const formatMessageDateSeparator = (value) => {
+    const date = getMessageDate(value);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (getMessageDateKey(date) === getMessageDateKey(today)) return "Today";
+    if (getMessageDateKey(date) === getMessageDateKey(yesterday)) return "Yesterday";
+
+    return date.toLocaleDateString([], {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    });
+};
+
+const TASK_UPDATE_LABELS = {
+    task_remark_added: ["Remark Added", "mention"],
+    task_priority_changed: ["Priority Changed", "status"],
+    task_due_changed: ["Due Date Changed", "status"],
+    task_assignee_changed: ["Task Reassigned", "create"],
+    task_renamed: ["Task Renamed", "update"],
+    task_description_updated: ["Task Updated", "update"],
+    task_checkpoint_added: ["Checkpoint Added", "update"],
+    task_checkpoint_completed: ["Checkpoint Done", "mention"],
+    task_checkpoint_reopened: ["Checkpoint Reopened", "status"],
+    task_file_added: ["File Attached", "update"],
+    task_file_removed: ["File Removed", "delete"],
+    task_deleted: ["Task Deleted", "delete"],
+    subscription_expired: ["Subscription Expired", "delete"],
+    plan_tasks_created: ["Plan Tasks Created", "create"],
+};
+
+// Task updates, plus whole-subscription notices (plan tasks created, expiry) that list tasks but open none.
+const SUBSCRIPTION_NOTICE_TYPES = ["subscription_expired", "plan_tasks_created"];
+const isTaskUpdateMessage = message => message?.messageType === "system"
+    && Boolean(message.systemEvent?.task || SUBSCRIPTION_NOTICE_TYPES.includes(message.systemEvent?.type));
+
+const getTaskEventMeta = (message) => {
+    const eventType = message?.systemEvent?.type;
+    const text = String(message?.text || "");
+
+    let label = "Task Update";
+    let eventCategory = "status";
+
+    if (eventType === "task_created" || text.includes("task create kiya") || text.toLowerCase().includes("task created")) {
+        label = "Task Created";
+        eventCategory = "create";
+    } else if (eventType === "task_status_changed" || text.includes("ka status") || text.includes("→")) {
+        label = "Status Updated";
+        eventCategory = "status";
+    } else if (eventType === "task_mentioned" || text.includes("mention kiya")) {
+        label = "Task Mention";
+        eventCategory = "mention";
+    } else if (TASK_UPDATE_LABELS[eventType]) {
+        [label, eventCategory] = TASK_UPDATE_LABELS[eventType];
+    }
+
+    const dateVal = message?.createdAt || message?.updatedAt;
+    const date = dateVal ? new Date(dateVal) : new Date();
+    const isValidDate = !Number.isNaN(date.getTime());
+
+    let formattedTime = "";
+    let fullDateTime = "";
+
+    if (isValidDate) {
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        const isToday = getMessageDateKey(date) === getMessageDateKey(today);
+        const isYesterday = getMessageDateKey(date) === getMessageDateKey(yesterday);
+
+        const timeStr = date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        if (isToday) {
+            formattedTime = timeStr;
+        } else if (isYesterday) {
+            formattedTime = `Yesterday, ${timeStr}`;
+        } else {
+            const dateStr = date.toLocaleDateString([], {
+                day: "numeric",
+                month: "short"
+            });
+            formattedTime = `${dateStr}, ${timeStr}`;
+        }
+
+        fullDateTime = date.toLocaleString([], {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    return {
+        label,
+        eventCategory,
+        formattedTime,
+        fullDateTime
+    };
+};
+
+const getMessageTimeValue = (message) => {
+    const date = new Date(message?.createdAt || message?.updatedAt || 0);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const sortMessagesByCreatedAt = (items = []) => (
+    Array.isArray(items)
+        ? [...items].sort((first, second) => getMessageTimeValue(first) - getMessageTimeValue(second))
+        : []
+);
+
+const normalizeMessageForChat = (message, currentUserId = "") => {
+    const senderId = (message?.sender?._id || message?.sender?.id || message?.sender || "").toString();
+    const seenBy = Array.isArray(message?.seenBy)
+        ? message.seenBy.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
+        : [];
+    const deliveredTo = Array.isArray(message?.deliveredTo)
+        ? message.deliveredTo.map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)
+        : [];
+    const isOwn = senderId && currentUserId && senderId === currentUserId;
+
+    return {
+        ...message,
+        seenBy,
+        deliveredTo,
+        seen: Boolean(message?.seen) || (
+            isOwn
+                ? seenBy.some(memberId => memberId !== currentUserId)
+                : seenBy.includes(currentUserId)
+        ),
+        delivered: Boolean(message?.delivered) || (
+            isOwn
+                ? deliveredTo.some(memberId => memberId !== currentUserId)
+                : deliveredTo.includes(currentUserId)
+        ),
+    };
+};
+
+const VoiceRecordingWaveform = ({ stream, isPaused }) => {
+    const [amplitudes, setAmplitudes] = useState(() => [
+        4, 6, 12, 18, 14, 8, 16, 22, 10, 5, 9, 17, 24, 15, 7, 5, 11, 19, 21, 12, 6, 13, 18, 15, 8, 5, 8, 12, 6, 4
+    ]);
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        if (!stream) return;
+
+        let isMounted = true;
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                audioContextRef.current = ctx;
+
+                if (ctx.state === "suspended") {
+                    ctx.resume().catch(() => {});
+                }
+
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 64;
+                analyser.smoothingTimeConstant = 0.5;
+                analyserRef.current = analyser;
+
+                const source = ctx.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                const interval = window.setInterval(() => {
+                    if (!isMounted) return;
+                    if (isPaused) return;
+
+                    if (analyserRef.current) {
+                        analyserRef.current.getByteFrequencyData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < dataArray.length; i++) {
+                            sum += dataArray[i];
+                        }
+                        const average = sum / (dataArray.length || 1);
+                        const volumeRatio = Math.min(1, average / 85);
+
+                        setAmplitudes(prev => {
+                            const next = [...prev.slice(1)];
+                            const minHeight = 4;
+                            const maxHeight = 26;
+                            const jitter = (Math.random() * 4) - 2;
+                            const calculated = Math.round(
+                                Math.max(
+                                    minHeight,
+                                    Math.min(
+                                        maxHeight,
+                                        volumeRatio > 0.03
+                                            ? (volumeRatio * (maxHeight - minHeight)) + minHeight + jitter
+                                            : (Math.random() * 4) + minHeight
+                                    )
+                                )
+                            );
+                            next.push(calculated);
+                            return next;
+                        });
+                    }
+                }, 75);
+
+                timerRef.current = interval;
+            }
+        } catch (err) {
+            console.warn("Waveform AudioContext init skipped:", err);
+        }
+
+        return () => {
+            isMounted = false;
+            if (timerRef.current) window.clearInterval(timerRef.current);
+            if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+                audioContextRef.current.close().catch(() => {});
+            }
+        };
+    }, [stream, isPaused]);
+
+    return (
+        <div className="voice-recorder-waveform" aria-hidden="true">
+            {amplitudes.map((height, index) => (
+                <span
+                    key={index}
+                    className={`voice-waveform-bar ${isPaused ? "paused" : ""}`}
+                    style={{ height: `${height}px` }}
+                />
+            ))}
+        </div>
+    );
+};
+
+const ChatBox = ({
+    selectedUser,
+    currentUser,
+    users,
+    socket,
+    onlineUsers = [],
+    onConversationChange,
+    onDeleteGroup,
+    onUpdateGroup,
+    onBack,
+    chatSettings = {},
+    presenceReady = false,
+    isUserOnlineNow,
+}) => {
+
+    const [conversation, setConversation] =
+        useState(null);
+
+    const [messages, setMessages] =
+        useState([]);
+    const [assignModal, setAssignModal] = useState({
+        open: false,
+        title: "",
+        description: "",
+        priority: "medium",
+        dueDateTime: "",
+        targetUserId: "",
+        submitting: false,
+        error: "",
+    });
+    // Which conversation's first page has arrived, so "no messages yet" never flashes while loading.
+    const [loadedConversationId, setLoadedConversationId] = useState(null);
+    const [messagePagination, setMessagePagination] = useState({
+        hasMore: false,
+        nextBefore: null,
+    });
+    const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+
+    const [text, setRawText] =
+        useState("");
+    const [messageMentions, setMessageMentions] = useState([]);
+    const setText = (nextText, nextMentions) => {
+        setMessageMentions(nextMentions ?? reconcileMentions(text, nextText, messageMentions));
+        setRawText(nextText);
+    };
+    const [replyingTo, setReplyingTo] = useState(null);
+    const [projectTask, setProjectTask] = useState(null);
+    const remarkRequests = useRef(new Map());
+    useEffect(() => { setProjectTask(null); setMessageMentions([]); }, [selectedUser?._id, selectedUser?.id]);
+    const openProjectTask = async (event) => {
+        if (event.type === "task_deleted") return showToast?.("This task has been deleted.", "info");
+        try {
+            const result = event.client ? await getClientChatTask(event.client, event.task) : await getProjectChatTask(event.project, event.task);
+            setProjectTask(result.data.task);
+        } catch { showToast?.("Task is unavailable or access was removed.", "error"); }
+    };
+
+    const [files, setFiles] =
+        useState([]);
+    const [pastedImageModal, setPastedImageModal] = useState(null);
+
+    const [isSendingAction, setIsSendingAction] = useState(false);
+    const [typingUserId, setTypingUserId] = useState(null);
+    const [recorderMode, setRecorderMode] = useState(null);
+    const [recordingSeconds, setRecordingSeconds] = useState(0);
+    const [recordingError, setRecordingError] = useState("");
+    const [pendingRecording, setPendingRecording] = useState(null);
+    const [isRecordingPaused, setIsRecordingPaused] = useState(false);
+    const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
+    const discardRecordingRef = useRef(false);
+    const sendImmediatelyRef = useRef(false);
+    const [showCaptureMenu, setShowCaptureMenu] = useState(false);
+    const typingTimerRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const recordingChunksRef = useRef([]);
+    const recordingStreamRef = useRef(null);
+    const recordingTimerRef = useRef(null);
+    const recordingSecondsRef = useRef(0);
+    const recordingPreviewRef = useRef(null);
+    const emojiPickerRef = useRef(null);
+    const attachmentMenuRef = useRef(null);
+    const documentInputRef = useRef(null);
+    const photosVideosInputRef = useRef(null);
+    const audioInputRef = useRef(null);
+    const groupImageInputRef = useRef(null);
+    const headerMenuRef = useRef(null);
+    const chatBoxRef = useRef(null);
+    const chatInputRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const capturePhotoBackRef = useRef(null);
+    const capturePhotoFrontRef = useRef(null);
+    const captureVideoBackRef = useRef(null);
+    const captureVideoFrontRef = useRef(null);
+    const activeConversationIdRef = useRef(null);
+    const chatMessagesRef = useRef(null);
+    const shouldScrollToLatestRef = useRef(false);
+    const { startCall, rejoinCall, getActiveCall } = useCall();
+    const [ongoingCall, setOngoingCall] = useState(null);
+    const { showToast } = useNotification();
+    const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
+    const [showActiveChatDate, setShowActiveChatDate] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+    const [showContactInfo, setShowContactInfo] = useState(false);
+    const [contactPanelView, setContactPanelView] = useState("info");
+    const [contactMediaTab, setContactMediaTab] = useState("media");
+    const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(null);
+    const [contactSidebarWidth, setContactSidebarWidth] = useState(() => {
+        const savedWidth = Number(localStorage.getItem("ciis-chat-contact-sidebar-width"));
+        return Number.isFinite(savedWidth) && savedWidth >= 280 ? savedWidth : 360;
+    });
+    const [isMuted, setIsMuted] = useState(false);
+    const [disappearingMode, setDisappearingMode] = useState("off");
+    const [contactWallpaper, setContactWallpaper] = useState("");
+    const [contactSound, setContactSound] = useState("default");
+    const [starredMessageIds, setStarredMessageIds] = useState([]);
+    const [isContactSearchOpen, setIsContactSearchOpen] = useState(false);
+    const [contactSearchTerm, setContactSearchTerm] = useState("");
+    const effectiveChatSettings = {
+        chats: { enterToSend: true, mediaAutoDownload: true, wallpaper: "", ...(chatSettings.chats || {}) },
+        videoVoice: { cameraEnabled: true, microphoneEnabled: true, speakerEnabled: true, ...(chatSettings.videoVoice || {}) },
+        keyboard: { enabled: true, sendMessage: "Enter", newLine: "Shift+Enter", ...(chatSettings.keyboard || {}) },
+    };
+    const quickReplies = [
+        "Please share the report",
+        "What's the next plan?",
+        "Any keyword updates?",
+        "Thank you!"
+    ];
+    const [currentConversationId, setCurrentConversationId] =
+        useState(null);
+    const selectedUserKey = selectedUser
+        ? `${selectedUser?.isGroup ? "group" : "user"}:${selectedUser?._id || selectedUser?.id || selectedUser?.userId || ""}`
+        : "";
+    const contactPrefsKey = `ciis-contact-info-${currentUser?._id || currentUser?.id || "user"}-${selectedUserKey || "none"}`;
+
+    const getEntityId = (value) => {
+        if (!value) return "";
+        if (typeof value === "object") {
+            return (value._id || value.id || value.userId || value.user?._id || value.user?.id || "").toString();
+        }
+        return value.toString();
+    };
+
+    const getSenderName = (sender) => {
+        if (!sender) return "New message";
+        if (typeof sender === "object") {
+            return sender.name || sender.fullName || sender.username || sender.email || "New message";
+        }
+        return selectedUser?.name || "New message";
+    };
+
+    const getMessagePreview = (message) => {
+        if (message?.text) return taskEventText(message);
+        if (message?.file) return "Sent an attachment";
+        return "Sent a message";
+    };
+
+    const scrollToLatestMessage = (behavior = "auto") => {
+        requestAnimationFrame(() => {
+            const container = chatMessagesRef.current;
+            if (!container) return;
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior,
+            });
+        });
+    };
+
+    const queueScrollToLatestMessage = (behavior = "auto") => {
+        shouldScrollToLatestRef.current = behavior;
+    };
+
+    const updateActiveChatDate = () => {
+        const container = chatMessagesRef.current;
+        if (!container) return;
+
+        const anchors = Array.from(container.querySelectorAll(".chat-message-date-anchor"));
+        if (!anchors.length) {
+            setActiveChatDateLabel("");
+            setShowActiveChatDate(false);
+            return;
+        }
+
+        const scrollTop = container.scrollTop;
+        let activeLabel = anchors[0].dataset.dateLabel || "";
+
+        for (const anchor of anchors) {
+            if (anchor.offsetTop - scrollTop <= 48) {
+                activeLabel = anchor.dataset.dateLabel || activeLabel;
+            } else {
+                break;
+            }
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const visibleMatchingSeparator = Array.from(container.querySelectorAll(".chat-date-separator"))
+            .some((separator) => {
+                if (separator.dataset.dateLabel !== activeLabel) return false;
+                const rect = separator.getBoundingClientRect();
+                const relativeTop = rect.top - containerRect.top;
+                return relativeTop >= 0 && relativeTop <= 42;
+            });
+
+        setActiveChatDateLabel(activeLabel);
+        setShowActiveChatDate(scrollTop > 8 && !visibleMatchingSeparator);
+    };
+
+    const notifyIncomingMessage = (message) => {
+        const senderName = getSenderName(message.sender);
+        const preview = getMessagePreview(message);
+        const title = selectedUser?.isGroup ? `${senderName} in ${selectedUser.name || "Group"}` : senderName;
+
+        showToast(
+            {
+                title,
+                message: preview,
+            },
+            "info",
+            5000
+        );
+
+        window.electronAPI?.showNotification?.({
+            title,
+            body: preview,
+            type: "chat",
+            targetPath: "/ciisUser/chat",
+        });
+
+        if ("Notification" in window && document.visibilityState !== "visible") {
+            if (Notification.permission === "granted") {
+                new Notification(title, {
+                    body: preview,
+                    icon: "/logoo.png",
+                    tag: `ciis-chat-${message._id || message.conversationId || Date.now()}`,
+                });
+            } else if (Notification.permission === "default") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification(title, {
+                            body: preview,
+                            icon: "/logoo.png",
+                            tag: `ciis-chat-${message._id || message.conversationId || Date.now()}`,
+                        });
+                    }
+                });
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (!selectedUser) {
+            return;
+        }
+
+        if (activeConversationIdRef.current) {
+            socket?.emit(
+                "chat:leave-conversation",
+                {
+                    conversationId:
+                        activeConversationIdRef.current
+                }
+            );
+            activeConversationIdRef.current = null;
+            setCurrentConversationId(null);
+        }
+
+        setConversation(null);
+        setMessages([]);
+        setMessagePagination({ hasMore: false, nextBefore: null });
+        setReplyingTo(null);
+        setPendingRecording(null);
+        setShowCaptureMenu(false);
+        setShowEmojiPicker(false);
+        setShowAttachmentMenu(false);
+        setShowContactInfo(false);
+        startConversation();  
+    }, [selectedUserKey]);
+
+    useEffect(() => {
+        if (!showHeaderMenu) return undefined;
+        const closeHeaderMenu = event => {
+            if (!headerMenuRef.current?.contains(event.target)) setShowHeaderMenu(false);
+        };
+        const closeOnEscape = event => {
+            if (event.key === "Escape") setShowHeaderMenu(false);
+        };
+        document.addEventListener("pointerdown", closeHeaderMenu);
+        document.addEventListener("keydown", closeOnEscape);
+        return () => {
+            document.removeEventListener("pointerdown", closeHeaderMenu);
+            document.removeEventListener("keydown", closeOnEscape);
+        };
+    }, [showHeaderMenu]);
+
+    useEffect(() => {
+        setContactPanelView("info");
+        setContactMediaTab("media");
+        setIsContactSearchOpen(false);
+        setContactSearchTerm("");
+        try {
+            const savedPrefs = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
+            setContactWallpaper(savedPrefs.wallpaper || "");
+            setContactSound(savedPrefs.sound || "default");
+            setStarredMessageIds(Array.isArray(savedPrefs.starredMessageIds) ? savedPrefs.starredMessageIds : []);
+        } catch {
+            setContactWallpaper("");
+            setContactSound("default");
+            setStarredMessageIds([]);
+        }
+    }, [contactPrefsKey]);
+
+    useEffect(() => {
+        if (!socket || !currentConversationId) {
+            setOngoingCall(null);
+            return;
+        }
+
+        // Query active ongoing call for this conversation
+        socket.emit("call:get-ongoing", { conversationId: currentConversationId }, (res) => {
+            if (res?.active) {
+                setOngoingCall(res);
+            } else {
+                setOngoingCall(null);
+            }
+        });
+
+        const handleOngoingStatus = (data) => {
+            if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+            if (data?.active) {
+                setOngoingCall(data);
+            } else {
+                setOngoingCall(null);
+            }
+        };
+
+        socket.on("call:ongoing-status", handleOngoingStatus);
+
+        return () => {
+            socket.off("call:ongoing-status", handleOngoingStatus);
+        };
+    }, [socket, currentConversationId]);
+
+    useEffect(() => {
+        if (!shouldScrollToLatestRef.current) return;
+        const behavior = shouldScrollToLatestRef.current;
+        shouldScrollToLatestRef.current = false;
+        scrollToLatestMessage(behavior);
+    }, [messages.length, currentConversationId]);
+
+    useEffect(() => {
+        const keepSidebarInBounds = () => {
+            const availableWidth = chatBoxRef.current?.getBoundingClientRect().width || window.innerWidth;
+            const maximumWidth = Math.max(280, Math.min(560, availableWidth - 420));
+            setContactSidebarWidth((width) => Math.min(width, maximumWidth));
+        };
+        window.addEventListener("resize", keepSidebarInBounds);
+        return () => window.removeEventListener("resize", keepSidebarInBounds);
+    }, []);
+
+    const saveContactPrefs = (patch) => {
+        try {
+            const existing = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
+            localStorage.setItem(contactPrefsKey, JSON.stringify({ ...existing, ...patch }));
+        } catch {
+            void 0;
+        }
+    };
+
+    useEffect(() => {
+        const frameId = requestAnimationFrame(updateActiveChatDate);
+        return () => cancelAnimationFrame(frameId);
+    }, [messages]);
+
+    useEffect(() => {
+        return () => {
+            if (activeConversationIdRef.current) {
+                socket?.emit(
+                    "chat:leave-conversation",
+                    {
+                        conversationId:
+                            activeConversationIdRef.current
+                    }
+                );
+                activeConversationIdRef.current = null;
+            }
+        };
+    }, [socket]);
+
+
+    useEffect(() => {
+        if (pendingRecording?.mode === "video" && pendingRecording.blob) {
+            const url = URL.createObjectURL(pendingRecording.blob);
+            setVideoPreviewUrl(url);
+            return () => {
+                URL.revokeObjectURL(url);
+            };
+        } else {
+            setVideoPreviewUrl(null);
+        }
+    }, [pendingRecording]);
+    useEffect(() => {
+        if (recorderMode === "video" && recordingPreviewRef.current && recordingStreamRef.current) {
+            recordingPreviewRef.current.srcObject = recordingStreamRef.current;
+        }
+    }, [recorderMode]);
+
+    useEffect(() => {
+        return () => {
+            stopRecordingTracks();
+            window.clearInterval(recordingTimerRef.current);
+        };
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+                setShowEmojiPicker(false);
+            }
+            if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target)) {
+                setShowAttachmentMenu(false);
+            }
+        };
+
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape") {
+                setShowEmojiPicker(false);
+                setShowAttachmentMenu(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, []);
+    useEffect(() => {
+        if (socket && conversation?._id) {
+            joinConversationRoom(conversation._id);
+        }
+    }, [socket, conversation?._id]);
+
+useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleReceiveMessage = (message) => {
+            const senderId = getEntityId(message.sender);
+            const currentUserId = getEntityId(currentUser);
+            const incomingConversationId = (message.conversationId || message.conversation?._id || "").toString();
+            if (!incomingConversationId || incomingConversationId !== currentConversationId) return;
+            if (message?._id && senderId && senderId !== currentUserId && (message.messageType !== "system" || message.systemEvent?.task)) {
+                markMessageSeen(message._id).catch(() => {});
+                socket.emit(
+                    "chat:seen",
+                    {
+                        messageId:
+                            message._id,
+
+                        senderId:
+                        senderId
+                    }
+                );
+
+                const isCurrentConversationMuted = incomingConversationId === currentConversationId && isMuted;
+                if (!isCurrentConversationMuted && (incomingConversationId !== currentConversationId || document.visibilityState !== "visible")) {
+                    notifyIncomingMessage(message);
+                }
+            }
+
+            setMessages((prev) => {
+                if (
+                    prev.some(
+                        (msg) =>
+                            msg._id ===
+                            message._id
+                    )
+                ) {
+                    return prev;
+                }
+
+                return [
+                    ...prev,
+                    normalizeMessageForChat(message, currentUserId)
+                ];
+            });
+            queueScrollToLatestMessage("smooth");
+        };
+
+    const handleTyping = (data) => {
+            if (data?.conversationId === currentConversationId) {
+                setTypingUserId(data.senderId);
+            }
+        };
+
+    const handleStopTyping = (data) => {
+            if (data?.conversationId === currentConversationId) {
+                setTypingUserId(null);
+            }
+        };
+
+    const handleDeletedForMe = ({ messageId }) => {
+            setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+        };
+
+    const handleDeletedForEveryone = ({ messageId }) => {
+            setMessages((prev) => prev.map((msg) => (
+                msg._id === messageId
+                    ? { ...msg, deletedForEveryone: true, text: "" }
+                    : msg
+            )));
+        };
+
+    const handleForwarded = (message) => {
+            if (message?.conversationId !== currentConversationId) return;
+            setMessages((prev) => (
+                prev.some(item => item._id === message._id)
+                    ? prev
+                    : sortMessagesByCreatedAt([
+                        ...prev,
+                        normalizeMessageForChat(message, getEntityId(currentUser))
+                    ])
+            ));
+            queueScrollToLatestMessage("smooth");
+        };
+
+    const handleMessageSeen = (data) => {
+        const seenBy = getEntityId(data?.seenBy);
+
+        setMessages((prev) =>
+
+            prev.map((msg) =>
+
+                String(msg._id || "") ===
+                String(data?.messageId || "")
+
+                ? {
+                    ...msg,
+                    // In a group, blue only once every other member has read it (server sends allSeen).
+                    seen: Boolean(msg.seen) || data?.allSeen !== false,
+                    seenBy: Array.from(new Set([
+                        ...(Array.isArray(msg.seenBy) ? msg.seenBy : []),
+                        seenBy
+                    ].filter(Boolean)))
+                }
+
+                : msg
+            )
+        );
+    };
+
+    const handleMessageDelivered = (data) => {
+        setMessages((prev) =>
+            prev.map((msg) =>
+                String(msg._id || "") === String(data?.messageId || "")
+                    ? {
+                        ...msg,
+                        delivered: true,
+                        deliveredTo: Array.from(new Set([
+                            ...(Array.isArray(msg.deliveredTo) ? msg.deliveredTo : []),
+                            ...(Array.isArray(data?.deliveredTo) ? data.deliveredTo : [])
+                        ].map(item => (item?._id || item?.id || item || "").toString()).filter(Boolean)))
+                    }
+                    : msg
+            )
+        );
+    };
+
+    const handleMuteUpdated = (data) => {
+        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+        setIsMuted(Boolean(data?.notificationPreference?.muted));
+    };
+
+    const handleDisappearingUpdated = (data) => {
+        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+        if (!["off", "24h", "7d", "90d"].includes(data?.mode)) return;
+        setDisappearingMode(data.mode);
+        setConversation((current) => current ? { ...current, disappearingMode: data.mode } : current);
+    };
+
+    const handleMessageReactionUpdated = (data) => {
+        if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+        setMessages((current) => current.map((message) => (
+            String(message._id || "") === String(data?.messageId || "")
+                ? { ...message, reactions: data.reactions || [] }
+                : message
+        )));
+    };
+
+    socket.on("chat:receive-message", handleReceiveMessage);
+    socket.on("chat:typing", handleTyping);
+    socket.on("chat:stop-typing", handleStopTyping);
+    socket.on("chat:message-deleted-for-me", handleDeletedForMe);
+    socket.on("chat:message-deleted-for-everyone", handleDeletedForEveryone);
+    socket.on("chat:message-forwarded", handleForwarded);
+    socket.on("chat:message-delivered", handleMessageDelivered);
+    socket.on("chat:message-seen", handleMessageSeen);
+    socket.on("chat:mute-updated", handleMuteUpdated);
+    socket.on("chat:disappearing-updated", handleDisappearingUpdated);
+    socket.on("chat:message-reaction", handleMessageReactionUpdated);
+
+    return () => {
+
+    socket.off("chat:receive-message", handleReceiveMessage);
+    socket.off("chat:message-delivered", handleMessageDelivered);
+    socket.off("chat:message-seen", handleMessageSeen);
+    socket.off("chat:typing", handleTyping);
+    socket.off("chat:stop-typing", handleStopTyping);
+    socket.off("chat:message-deleted-for-me", handleDeletedForMe);
+    socket.off("chat:message-deleted-for-everyone", handleDeletedForEveryone);
+    socket.off("chat:message-forwarded", handleForwarded);
+    socket.off("chat:mute-updated", handleMuteUpdated);
+    socket.off("chat:disappearing-updated", handleDisappearingUpdated);
+    socket.off("chat:message-reaction", handleMessageReactionUpdated);
+};
+
+}, [socket, currentConversationId, currentUser?._id, currentUser?.id, selectedUser?._id, selectedUser?.id, showToast, isMuted]);
+
+    const joinConversationRoom =
+    (conversationId) => {
+        if (!conversationId) return;
+        if (activeConversationIdRef.current === conversationId) return;
+
+        if (activeConversationIdRef.current) {
+            socket?.emit(
+                "chat:leave-conversation",
+                {
+                    conversationId:
+                        activeConversationIdRef.current
+                }
+            );
+        }
+
+        socket?.emit(
+            "chat:join-conversation",
+            {
+                conversationId
+            }
+        );
+
+        activeConversationIdRef.current = conversationId;
+        setCurrentConversationId(
+            conversationId
+        );
+    };
+
+    const startConversation =
+    async () => {
+        if (!selectedUser) return;
+
+        try {
+            let res;
+
+            if (selectedUser?.clientId) {
+                res = await openClientConversation(selectedUser.clientId);
+            } else if (selectedUser?.projectId) {
+                res = await openProjectConversation(selectedUser.projectId);
+            } else if (selectedUser?.isGroup) {
+                res = await createGroupConversation(
+                    selectedUser._id || selectedUser.id
+                );
+            } else {
+                res = await createConversation(
+                    selectedUser._id || selectedUser.id || selectedUser.userId
+                );
+            }
+
+            const conversationData =
+                res.data.conversation;
+
+            setConversation(
+                conversationData
+            );
+            setIsMuted(Boolean(conversationData?.notificationPreference?.muted));
+            setDisappearingMode(conversationData?.disappearingMode || "off");
+
+            if (conversationData?._id) {
+                fetchMessages(
+                    conversationData._id
+                );
+            }
+        } catch (error) {
+            void 0;
+        }
+    };
+
+
+
+    const fetchMessages =
+    async (conversationId) => {
+
+        try {
+
+            const res =
+                await getMessages(
+                    conversationId,
+                    { limit: 50 }
+                );
+
+            if (activeConversationIdRef.current && activeConversationIdRef.current !== conversationId) return;
+
+            setMessages(
+                sortMessagesByCreatedAt(
+                    (Array.isArray(res.data.messages) ? res.data.messages : [])
+                        .map(message => normalizeMessageForChat(message, getEntityId(currentUser)))
+                )
+            );
+            setMessagePagination({
+                hasMore: Boolean(res.data.pagination?.hasMore),
+                nextBefore: res.data.pagination?.nextBefore || null,
+            });
+            setLoadedConversationId(String(conversationId));
+            onConversationChange?.();
+            queueScrollToLatestMessage("auto");
+
+        } catch (error) {
+
+            void 0;
+        }
+    };
+
+    const loadOlderMessages = async () => {
+        if (!conversation?._id || isLoadingOlderMessages || !messagePagination.hasMore || !messagePagination.nextBefore) return;
+
+        const container = chatMessagesRef.current;
+        const previousScrollHeight = container?.scrollHeight || 0;
+        const previousScrollTop = container?.scrollTop || 0;
+
+        try {
+            setIsLoadingOlderMessages(true);
+            const res = await getMessages(conversation._id, {
+                limit: 50,
+                before: messagePagination.nextBefore,
+            });
+            const olderMessages = Array.isArray(res.data.messages) ? res.data.messages : [];
+            setMessages(prev => {
+                const existingIds = new Set(prev.map(message => String(message._id || "")));
+                const uniqueOlder = olderMessages
+                    .filter(message => !existingIds.has(String(message._id || "")))
+                    .map(message => normalizeMessageForChat(message, getEntityId(currentUser)));
+                return sortMessagesByCreatedAt([...uniqueOlder, ...prev]);
+            });
+            setMessagePagination({
+                hasMore: Boolean(res.data.pagination?.hasMore),
+                nextBefore: res.data.pagination?.nextBefore || null,
+            });
+            setTimeout(() => {
+                const nextContainer = chatMessagesRef.current;
+                if (!nextContainer) return;
+                nextContainer.scrollTop = nextContainer.scrollHeight - previousScrollHeight + previousScrollTop;
+            }, 0);
+        } catch (error) {
+            void 0;
+        } finally {
+            setIsLoadingOlderMessages(false);
+        }
+    };
+
+    const appendSentMessages = (messagesToAppend) => {
+        setMessages((prev) => {
+            const combined = [...prev];
+
+            messagesToAppend.forEach((message) => {
+                if (!combined.some((msg) => msg._id === message._id)) {
+                    combined.push({
+                        ...normalizeMessageForChat(message, getEntityId(currentUser)),
+                    });
+                }
+            });
+
+            return sortMessagesByCreatedAt(combined);
+        });
+        queueScrollToLatestMessage("smooth");
+    };
+
+    const emitSentMessage = () => {
+        // Message delivery is emitted by the backend after database persistence.
+        // Keeping this as a no-op prevents duplicate socket events and unread bumps.
+    };
+
+    const stopRecordingTracks = () => {
+        recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+        recordingStreamRef.current = null;
+
+        if (recordingPreviewRef.current) {
+            recordingPreviewRef.current.srcObject = null;
+        }
+    };
+
+    const getSupportedMimeType = (mode) => {
+        const candidates = mode === "video"
+            ? ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
+            : ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
+
+        return candidates.find((type) => window.MediaRecorder?.isTypeSupported(type)) || "";
+    };
+
+    const getRecordingExtension = (mimeType, mode) => {
+        if (mimeType.includes("mp4")) return "mp4";
+        if (mimeType.includes("mpeg")) return "mp3";
+        if (mimeType.includes("wav")) return "wav";
+        if (mimeType.includes("ogg")) return "ogg";
+        return mode === "video" ? "webm" : "webm";
+    };
+
+    const formatRecordingTime = (seconds) => {
+        const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
+        const remainingSeconds = (seconds % 60).toString().padStart(2, "0");
+        return `${minutes}:${remainingSeconds}`;
+    };
+
+    const sendRecordedFile = async (blob, mode, mimeType, compressionMode = "normal") => {
+        if (!conversation || !blob?.size) return;
+
+        const extension = getRecordingExtension(mimeType, mode);
+        const fileName = `${mode}-recording-${Date.now()}.${extension}`;
+        const resolvedType = mimeType || blob.type || (mode === "video" ? "video/webm" : "audio/webm");
+        const file = new File([blob], fileName, { type: resolvedType });
+        const formData = new FormData();
+
+        formData.append(
+            "conversationId",
+            conversation._id
+        );
+
+        formData.append(
+            "file",
+            file
+        );
+        formData.append("fileType", resolvedType);
+        formData.append("fileName", fileName);
+        appendCompressionMode(formData, compressionMode);
+
+        const res =
+            await sendMessage(formData);
+
+        const newMessage =
+            res.data.message;
+
+        emitSentMessage(newMessage);
+        appendSentMessages([newMessage]);
+        onConversationChange?.();
+    };
+
+    const sendSingleFile = async (fileItem) => {
+        const file = getUploadFile(fileItem);
+        if (!conversation || !file) return;
+
+        const formData = new FormData();
+        formData.append("conversationId", conversation._id);
+        formData.append("file", file);
+        if (file.type) formData.append("fileType", file.type);
+        if (file.name) formData.append("fileName", file.name);
+        appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(file));
+
+        const res = await sendMessage(formData);
+        const newMessage = res.data.message;
+
+        emitSentMessage(newMessage);
+        appendSentMessages([newMessage]);
+        onConversationChange?.();
+    };
+
+    const handleCapturedFile = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        setShowCaptureMenu(false);
+        if (!file) return;
+
+        try {
+            setIsSendingAction(true);
+            await sendSingleFile({ file, compressionMode: chooseCompressionMode(file) });
+        } catch {
+            setRecordingError("Unable to send captured media. Please try again.");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const startRecording = async (mode) => {
+        if (!conversation || recorderMode || pendingRecording) return;
+
+        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+            setRecordingError("Recording is not supported in this browser.");
+            return;
+        }
+
+        try {
+            setRecordingError("");
+
+            const stream = await navigator.mediaDevices.getUserMedia(
+                mode === "video"
+                    ? { audio: true, video: true }
+                    : { audio: true }
+            );
+
+            const mimeType = getSupportedMimeType(mode);
+            const recorder = new MediaRecorder(
+                stream,
+                mimeType ? { mimeType } : undefined
+            );
+
+            recordingChunksRef.current = [];
+            recordingStreamRef.current = stream;
+            mediaRecorderRef.current = recorder;
+
+            recorder.ondataavailable = (event) => {
+                if (event.data?.size) {
+                    recordingChunksRef.current.push(event.data);
+                }
+            };
+
+            recorder.onstop = async () => {
+                const isDiscard = discardRecordingRef.current;
+                const isDirectSend = sendImmediatelyRef.current;
+                discardRecordingRef.current = false;
+                sendImmediatelyRef.current = false;
+
+                const blob = new Blob(recordingChunksRef.current, {
+                    type: recorder.mimeType || mimeType || `${mode}/webm`
+                });
+                const recordedDuration = recordingSecondsRef.current;
+
+                recordingChunksRef.current = [];
+                mediaRecorderRef.current = null;
+                window.clearInterval(recordingTimerRef.current);
+                setRecordingSeconds(0);
+                recordingSecondsRef.current = 0;
+                setRecorderMode(null);
+                setIsRecordingPaused(false);
+                stopRecordingTracks();
+
+                if (isDiscard) return;
+
+                if (blob.size) {
+                    if (isDirectSend) {
+                        try {
+                            setIsSendingAction(true);
+                            await sendRecordedFile(blob, mode, recorder.mimeType || mimeType, mode === "audio" ? "hd" : "normal");
+                        } catch (err) {
+                            setRecordingError(`Unable to send ${mode} recording. Please try again.`);
+                        } finally {
+                            setIsSendingAction(false);
+                        }
+                    } else {
+                        setPendingRecording({
+                            blob,
+                            mode,
+                            mimeType: recorder.mimeType || mimeType,
+                            duration: Math.min(recordedDuration, mode === "audio" ? VOICE_RECORDING_MAX_SECONDS : recordedDuration),
+                            compressionMode: mode === "audio" ? "hd" : "normal",
+                        });
+                    }
+                }
+            };
+
+            discardRecordingRef.current = false;
+            sendImmediatelyRef.current = false;
+            setIsRecordingPaused(false);
+            recorder.start(1000);
+            setRecorderMode(mode);
+            setRecordingSeconds(0);
+            recordingSecondsRef.current = 0;
+            recordingTimerRef.current = window.setInterval(() => {
+                if (mediaRecorderRef.current?.state === "paused") return;
+                setRecordingSeconds((prev) => {
+                    const next = prev + 1;
+                    recordingSecondsRef.current = next;
+                    if (mode === "audio" && next >= VOICE_RECORDING_MAX_SECONDS) {
+                        window.setTimeout(() => sendVoiceRecordingImmediately(), 0);
+                        return VOICE_RECORDING_MAX_SECONDS;
+                    }
+                    return next;
+                });
+            }, 1000);
+        } catch (error) {
+            void 0;
+            stopRecordingTracks();
+            setRecorderMode(null);
+            setRecordingError("Allow microphone/camera permission, then try again.");
+        }
+    };
+
+    const cancelVoiceRecording = () => {
+        discardRecordingRef.current = true;
+        sendImmediatelyRef.current = false;
+        setIsRecordingPaused(false);
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+            mediaRecorderRef.current.stop();
+        } else {
+            stopRecordingTracks();
+            setRecorderMode(null);
+            setRecordingSeconds(0);
+            recordingSecondsRef.current = 0;
+        }
+    };
+
+    const togglePauseVoiceRecording = () => {
+        if (!mediaRecorderRef.current) return;
+        try {
+            if (mediaRecorderRef.current.state === "recording") {
+                mediaRecorderRef.current.pause();
+                setIsRecordingPaused(true);
+            } else if (mediaRecorderRef.current.state === "paused") {
+                mediaRecorderRef.current.resume();
+                setIsRecordingPaused(false);
+            }
+        } catch (e) {
+            console.warn("Pause/resume error:", e);
+        }
+    };
+
+    const sendVoiceRecordingImmediately = () => {
+        if (!mediaRecorderRef.current || isSendingAction) return;
+        sendImmediatelyRef.current = true;
+        discardRecordingRef.current = false;
+        setIsRecordingPaused(false);
+        if (mediaRecorderRef.current.state !== "inactive") {
+            mediaRecorderRef.current.stop();
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current?.state === "recording") {
+            mediaRecorderRef.current.stop();
+        }
+    };
+
+
+    const retakeVideoRecording = () => {
+        discardPendingRecording();
+        startRecording("video");
+    };
+    const discardPendingRecording = () => {
+        setPendingRecording(null);
+        setRecordingError("");
+    };
+
+    const sendPendingRecording = async () => {
+        if (!pendingRecording || isSendingAction) return;
+
+        try {
+            setIsSendingAction(true);
+            await sendRecordedFile(pendingRecording.blob, pendingRecording.mode, pendingRecording.mimeType, pendingRecording.compressionMode);
+            setPendingRecording(null);
+        } catch {
+            setRecordingError("Unable to send the recording. Please try again.");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+
+
+    const handleSend =
+    async () => {
+
+        if (
+            !text.trim()
+            && files.length === 0
+        ) return;
+
+        if (!conversation) {
+            return;
+        }
+
+        try {
+            const messagesToAppend = [];
+            const outgoingText = text;
+
+            if (files.length > 0) {
+                for (let index = 0; index < files.length; index += 1) {
+                    const fileItem = files[index];
+                    const uploadFile = getUploadFile(fileItem);
+                    const formData = new FormData();
+
+                    formData.append(
+                        "conversationId",
+                        conversation._id
+                    );
+
+                    if (index === 0 && outgoingText.trim()) {
+                        formData.append(
+                            "text",
+                            outgoingText
+                        );
+                    }
+
+                    if (index === 0) formData.append("mentions", JSON.stringify(messageMentions));
+                    if (index === 0 && replyingTo?._id) {
+                        formData.append("replyToMessageId", replyingTo._id);
+                    }
+
+                    formData.append(
+                        "file",
+                        uploadFile
+                    );
+                    if (uploadFile.type) formData.append("fileType", uploadFile.type);
+                    if (uploadFile.name) formData.append("fileName", uploadFile.name);
+                    appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(uploadFile));
+
+                    const res =
+                        await sendMessage(formData);
+
+                    const newMessage =
+                        res.data.message;
+
+                    messagesToAppend.push(newMessage);
+
+                    emitSentMessage(newMessage);
+                }
+            } else {
+                const formData = new FormData();
+
+                formData.append(
+                    "conversationId",
+                    conversation._id
+                );
+
+                formData.append(
+                    "text",
+                    outgoingText
+                );
+                formData.append("mentions", JSON.stringify(messageMentions));
+                if (replyingTo?._id) {
+                    formData.append("replyToMessageId", replyingTo._id);
+                }
+                appendCompressionMode(formData, "normal");
+
+                const res = await sendMessage(formData);
+                messagesToAppend.push(res.data.message);
+
+                emitSentMessage(res.data.message);
+            }
+
+            appendSentMessages(messagesToAppend);
+
+            setText("");
+            setReplyingTo(null);
+            setFiles([]);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (documentInputRef.current) documentInputRef.current.value = "";
+            if (photosVideosInputRef.current) photosVideosInputRef.current.value = "";
+            if (audioInputRef.current) audioInputRef.current.value = "";
+            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+            onConversationChange?.();
+
+        } catch (error) {
+            showToast?.(error.response?.data?.message || "Unable to send message. Please try again.", "error");
+        }
+    };
+
+    const openAssignModal = () => {
+        const defaultDue = new Date();
+        defaultDue.setHours(19, 0, 0, 0);
+        const tzOffset = defaultDue.getTimezoneOffset() * 60000;
+        const localISOTime = new Date(defaultDue.getTime() - tzOffset).toISOString().slice(0, 16);
+
+        const groupList = selectedUser?.isGroup
+            ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
+            : [];
+        const myId = (currentUser?._id || currentUser?.id || "").toString();
+        const initialTargetId = selectedUser?.isGroup
+            ? (groupList.find(m => (m?._id || m?.id || "").toString() !== myId)?._id || groupList[0]?._id || groupList[0]?.id || "")
+            : (selectedUser?._id || selectedUser?.id || selectedUser?.userId || "");
+
+        setAssignModal({
+            open: true,
+            title: "",
+            description: "",
+            priority: "medium",
+            dueDateTime: localISOTime,
+            targetUserId: initialTargetId ? String(initialTargetId) : "",
+            submitting: false,
+            error: "",
+        });
+    };
+
+    const closeAssignModal = () => {
+        setAssignModal(prev => ({ ...prev, open: false, submitting: false, error: "" }));
+    };
+
+    const handleAssignSubmit = async (e) => {
+        e?.preventDefault();
+        if (assignModal.submitting) return;
+
+        const title = assignModal.title.trim();
+        if (!title) {
+            setAssignModal(prev => ({ ...prev, error: "Task title is required." }));
+            return;
+        }
+
+        const targetUserId = assignModal.targetUserId || (!selectedUser?.isGroup ? (selectedUser?._id || selectedUser?.id || selectedUser?.userId) : "");
+        if (!targetUserId) {
+            setAssignModal(prev => ({ ...prev, error: "Please select an assignee." }));
+            return;
+        }
+
+        setAssignModal(prev => ({ ...prev, submitting: true, error: "" }));
+
+        try {
+            const payload = {
+                title,
+                description: assignModal.description.trim() || undefined,
+                assignedTo: [targetUserId],
+                assignedUsers: [targetUserId],
+                priority: assignModal.priority || "medium",
+                dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
+            };
+
+            await axios.post("/task/create-for-others", payload);
+
+            const groupList = selectedUser?.isGroup
+                ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
+                : [];
+            const targetMember = selectedUser?.isGroup
+                ? groupList.find(m => String(m?._id || m?.id) === String(targetUserId))
+                : selectedUser;
+            const targetName = targetMember?.name || selectedUser?.name || "Employee";
+
+            closeAssignModal();
+            showToast?.(`Task assigned to ${targetName} successfully!`, "success");
+
+            if (conversation?._id) {
+                try {
+                    const dueFormatted = assignModal.dueDateTime
+                        ? new Date(assignModal.dueDateTime).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+                        : "";
+                    const chatText = `📋 *Task Assigned: ${title}*\nAssigned to: ${targetName}\nPriority: ${(assignModal.priority || "medium").toUpperCase()}${dueFormatted ? `\nDue: ${dueFormatted}` : ""}${assignModal.description?.trim() ? `\nDetails: ${assignModal.description.trim()}` : ""}`;
+                    const formData = new FormData();
+                    formData.append("conversationId", conversation._id);
+                    formData.append("text", chatText);
+                    formData.append("compressionMode", "normal");
+                    const res = await sendMessage(formData);
+                    if (res?.data?.message) {
+                        emitSentMessage(res.data.message);
+                        appendSentMessages([res.data.message]);
+                        onConversationChange?.();
+                    }
+                } catch (chatErr) {
+                    console.error("Chat message for task assignment failed:", chatErr);
+                }
+            }
+        } catch (err) {
+            setAssignModal(prev => ({
+                ...prev,
+                submitting: false,
+                error: err?.response?.data?.message || err?.response?.data?.error || "Failed to assign task.",
+            }));
+        }
+    };
+
+    const handleDeleteForMe = async (message) => {
+        try {
+            setIsSendingAction(true);
+            await deleteMessageForMe(message._id);
+            setMessages((prev) => prev.filter((msg) => msg._id !== message._id));
+            socket?.emit("chat:delete-for-me", { messageId: message._id, conversationId: conversation?._id });
+            onConversationChange?.();
+        } catch (error) {
+            void 0;
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handleDeleteForEveryone = async (message) => {
+        setConfirmDeleteMessage(message);
+    };
+
+    const confirmDeleteForEveryone = async () => {
+        const message = confirmDeleteMessage;
+        if (!message?._id) {
+            setConfirmDeleteMessage(null);
+            return;
+        }
+        try {
+            setIsSendingAction(true);
+            await deleteMessageForEveryone(message._id);
+            setMessages((prev) => prev.map((msg) => (
+                msg._id === message._id ? { ...msg, deletedForEveryone: true, text: "" } : msg
+            )));
+            socket?.emit("chat:delete-for-everyone", { messageId: message._id, conversationId: conversation?._id });
+            onConversationChange?.();
+        } catch (error) {
+            void 0;
+        } finally {
+            setIsSendingAction(false);
+            setConfirmDeleteMessage(null);
+        }
+    };
+
+    const handleForward = async (message, targetUserIds) => {
+        try {
+            setIsSendingAction(true);
+            const res = await forwardMessage({ messageId: message._id, targetUserIds });
+            (res.data.messages || []).forEach(forwarded => {
+                socket?.emit("chat:forward-message", { message: forwarded });
+            });
+            onConversationChange?.();
+        } catch (error) {
+            void 0;
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const replyFocusPending = useRef(false);
+    useEffect(() => {
+        if (!replyFocusPending.current || !replyingTo) return;
+        replyFocusPending.current = false;
+        chatInputRef.current?.focus();
+    }, [replyingTo]);
+
+    const handleMessageReply = (message) => {
+        replyFocusPending.current = true;
+        setReplyingTo(message);
+    };
+
+    const scrollToRepliedMessage = messageId => {
+        if (!messageId) return;
+        const target = chatMessagesRef.current?.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
+        if (!target) return;
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.add("chat-replied-message-highlight");
+        window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1400);
+    };
+
+    const handleEmojiSelect = (emojiData) => {
+        const emoji = emojiData?.emoji || "";
+        if (!emoji) return;
+        const input = chatInputRef.current;
+        const start = typeof input?.selectionStart === "number" ? input.selectionStart : text.length;
+        const end = typeof input?.selectionEnd === "number" ? input.selectionEnd : start;
+        const nextText = `${text.slice(0, start)}${emoji}${text.slice(end)}`;
+        setText(nextText);
+        setShowEmojiPicker(false);
+        requestAnimationFrame(() => {
+            input?.focus();
+            const nextCursor = start + emoji.length;
+            input?.setSelectionRange?.(nextCursor, nextCursor);
+        });
+    };
+
+    const clearSelectedFiles = () => {
+        setFiles([]);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (documentInputRef.current) documentInputRef.current.value = "";
+            if (photosVideosInputRef.current) photosVideosInputRef.current.value = "";
+            if (audioInputRef.current) audioInputRef.current.value = "";
+    };
+
+    const handleFileSelection = (event) => {
+        const selectedFiles = Array.from(event.target.files || []);
+        setFiles(selectedFiles.map((file) => ({
+            file,
+            compressionMode: chooseCompressionMode(file),
+        })));
+        event.target.value = "";
+    };
+
+    const closePastedImageModal = () => {
+        if (pastedImageModal?.previewUrl) {
+            URL.revokeObjectURL(pastedImageModal.previewUrl);
+        }
+        setPastedImageModal(null);
+    };
+
+    const openPastedImageModal = (file) => {
+        if (!file) return;
+        if (pastedImageModal?.previewUrl) {
+            URL.revokeObjectURL(pastedImageModal.previewUrl);
+        }
+        const previewUrl = URL.createObjectURL(file);
+        setPastedImageModal({
+            file,
+            previewUrl,
+            caption: ""
+        });
+    };
+
+    const sendPastedImage = async () => {
+        if (!pastedImageModal || !conversation || isSendingAction) return;
+        try {
+            setIsSendingAction(true);
+            const { file, caption } = pastedImageModal;
+            const formData = new FormData();
+            formData.append("conversationId", conversation._id);
+            if (caption && caption.trim()) {
+                formData.append("text", caption.trim());
+            }
+            if (replyingTo?._id) {
+                formData.append("replyToMessageId", replyingTo._id);
+            }
+            formData.append("file", file);
+            if (file.type) formData.append("fileType", file.type);
+            if (file.name) formData.append("fileName", file.name);
+            appendCompressionMode(formData, "normal");
+
+            const res = await sendMessage(formData);
+            const newMessage = res.data.message;
+            appendSentMessages([newMessage]);
+            emitSentMessage(newMessage);
+
+            closePastedImageModal();
+            setReplyingTo(null);
+            onConversationChange?.();
+        } catch (error) {
+            showToast?.(error.response?.data?.message || "Unable to send image. Please try again.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handlePaste = (e) => {
+        const clipboardData = e.clipboardData;
+        if (!clipboardData) return;
+
+        const items = Array.from(clipboardData.items || []);
+        const imageItem = items.find(
+            (item) => item.kind === "file" && item.type && item.type.startsWith("image/")
+        );
+
+        if (imageItem) {
+            e.preventDefault();
+            const blob = imageItem.getAsFile();
+            if (blob) {
+                const ext = (blob.type && blob.type.split("/")[1]) || "png";
+                const file = new File(
+                    [blob],
+                    "pasted-image-" + Date.now() + "." + ext,
+                    { type: blob.type || "image/png", lastModified: Date.now() }
+                );
+                openPastedImageModal(file);
+                return;
+            }
+        }
+
+        const clipFiles = Array.from(clipboardData.files || []);
+        const imageFile = clipFiles.find((f) => f && f.type && f.type.startsWith("image/"));
+        if (imageFile) {
+            e.preventDefault();
+            openPastedImageModal(imageFile);
+        }
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape" && pastedImageModal) {
+                closePastedImageModal();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [pastedImageModal]);
+
+    useEffect(() => {
+        if (!conversation) return;
+        const handleWindowPaste = (e) => {
+            const target = e.target;
+            if (target && target.tagName === "INPUT" && target.type !== "file" && !target.classList.contains("chat-input")) {
+                return;
+            }
+            handlePaste(e);
+        };
+        window.addEventListener("paste", handleWindowPaste);
+        return () => window.removeEventListener("paste", handleWindowPaste);
+    }, [conversation, pastedImageModal]);
+    const getMessageText = (message) => String(taskEventText(message) || message?.caption || "")
+        .replace(/\[\[ciis-reply:[^\]]+\]\]/g, "")
+        .replace(/\[\[ciis-expire:\d+\]\]/g, "")
+        .replace(/\[\[ciis-system-disappearing:[^\]]+\]\]/g, "")
+        .trim();
+
+    const getDisappearingSystemNotice = (message) => {
+        if (message?.messageType === "system" && message?.systemEvent?.type === "disappearing_messages_changed") {
+            return {
+                actorId: message.systemEvent.actor?._id || message.systemEvent.actor || message.sender?._id || message.sender,
+                actorName: message.systemEvent.actor?.name || message.sender?.name || "A participant",
+                mode: message.systemEvent.mode,
+            };
+        }
+        const match = String(message?.text || "").match(/^\[\[ciis-system-disappearing:([^\]]+)\]\]$/);
+        if (!match) return null;
+        try {
+            return JSON.parse(decodeURIComponent(match[1]));
+        } catch {
+            return null;
+        }
+    };
+
+    const handleReaction = async (message, emoji) => {
+        if (!message?._id) return;
+        try {
+            const response = await updateMessageReaction(message._id, emoji);
+            setMessages((current) => current.map((item) => (
+                String(item._id || "") === String(message._id)
+                    ? { ...item, reactions: response.data?.reactions || [] }
+                    : item
+            )));
+        } catch {
+            showToast?.("Unable to update reaction.", "error");
+        }
+    };
+
+    const getMessageAttachmentUrl = (message) => {
+        const raw = message?.mediaUrl
+            || message?.fileUrl
+            || message?.attachmentUrl
+            || message?.file
+            || message?.url
+            || message?.path
+            || message?.filename
+            || message?.fileName
+            || message?.name
+            || "";
+
+        if (typeof raw === "object" && raw) {
+            return raw.url || raw.path || raw.fileUrl || raw.attachmentUrl || raw.filename || raw.fileName || raw.name || "";
+        }
+
+        return String(raw || "");
+    };
+
+    const getAttachmentName = (message) => {
+        const raw = getMessageAttachmentUrl(message);
+        const fallback = getMessageText(message) || "Attachment";
+        if (!raw) return fallback;
+        const fileName = raw.split(/[\\/]/).pop()?.split("?")[0] || fallback;
+        try {
+            return decodeURIComponent(fileName).replace(/^\d+-/, "") || fallback;
+        } catch {
+            return fileName.replace(/^\d+-/, "") || fallback;
+        }
+    };
+
+    const getAttachmentKind = (message) => {
+        const mediaType = String(message?.mediaType || message?.type || message?.fileType || "").toLowerCase();
+        const path = getMessageAttachmentUrl(message).split("?")[0].toLowerCase();
+        if (mediaType.startsWith("image") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(path)) return "image";
+        if (mediaType.startsWith("video") || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(path)) return "video";
+        if (mediaType.startsWith("audio") || /\.(mp3|wav|webm|ogg|m4a|aac)$/i.test(path)) return "audio";
+        if (path || mediaType) return "doc";
+        return "";
+    };
+
+    const contactMediaItems = messages
+        .filter((message) => getMessageAttachmentUrl(message) && !message.deletedForEveryone)
+        .map((message) => ({
+            id: message._id || message.createdAt || getAttachmentName(message),
+            message,
+            kind: getAttachmentKind(message),
+            name: getAttachmentName(message),
+            url: getMessageAttachmentUrl(message),
+        }));
+
+    const linkMessages = messages.filter((message) => /https?:\/\/\S+/i.test(getMessageText(message)));
+    const visualMediaItems = contactMediaItems.filter((item) => item.kind === "image" || item.kind === "video");
+    const documentItems = contactMediaItems.filter((item) => item.kind !== "image" && item.kind !== "video");
+    const normalizedSearchTerm = contactSearchTerm.trim().toLowerCase();
+    const displayedMessages = normalizedSearchTerm
+        ? messages.filter((message) => {
+            const haystack = [
+                getMessageText(message),
+                getAttachmentName(message),
+                message.sender?.name,
+            ].join(" ").toLowerCase();
+            return haystack.includes(normalizedSearchTerm);
+        })
+        : messages;
+
+    const toggleStarredMessage = (message, shouldStar) => {
+        const messageId = String(message?._id || "");
+        if (!messageId) return;
+        const nextIds = shouldStar
+            ? Array.from(new Set([...starredMessageIds, messageId]))
+            : starredMessageIds.filter((id) => id !== messageId);
+        setStarredMessageIds(nextIds);
+        saveContactPrefs({ starredMessageIds: nextIds });
+    };
+
+    const openContactSearch = () => {
+        setShowContactInfo(false);
+        setIsContactSearchOpen(true);
+        setContactSearchTerm("");
+        requestAnimationFrame(() => chatInputRef.current?.focus());
+    };
+
+    const setMuteState = async (value) => {
+        if (!conversation?._id) return;
+        const previousValue = isMuted;
+        setIsMuted(value);
+        try {
+            const response = await updateConversationMute(conversation._id, value);
+            setIsMuted(Boolean(response.data?.notificationPreference?.muted));
+            showToast?.(
+                value
+                    ? `Notifications muted for ${selectedUser?.name || "this chat"}.`
+                    : `Notifications unmuted for ${selectedUser?.name || "this chat"}.`,
+                "success"
+            );
+            onConversationChange?.();
+        } catch {
+            setIsMuted(previousValue);
+            showToast?.("Unable to update notification preference.", "error");
+        }
+    };
+
+    const setDisappearingState = async (value) => {
+        if (!conversation?._id) return;
+        const previousMode = disappearingMode;
+        setDisappearingMode(value);
+        try {
+            const response = await updateDisappearingMessages(conversation._id, value);
+            const systemMessage = response.data?.message;
+            setConversation((current) => current ? { ...current, disappearingMode: value } : current);
+            if (systemMessage) appendSentMessages([systemMessage]);
+            onConversationChange?.();
+            showToast?.(
+                value === "off"
+                    ? "Disappearing messages turned off."
+                    : `New messages will disappear after ${value === "24h" ? "24 hours" : value === "7d" ? "7 days" : "90 days"}.`,
+                "success"
+            );
+        } catch {
+            setDisappearingMode(previousMode);
+            showToast?.("Unable to update disappearing messages.", "error");
+        }
+    };
+
+    const saveWallpaperAndSound = () => {
+        saveContactPrefs({ wallpaper: contactWallpaper, sound: contactSound });
+    };
+
+    const renderMediaTile = (item) => {
+        const canPreviewImage = item.kind === "image" && item.url;
+        return (
+            <a
+                key={item.id}
+                className="chat-contact-media-tile"
+                href={item.url || "#"}
+                onClick={(event) => {
+                    event.preventDefault();
+                    scrollToRepliedMessage(item.message?._id);
+                }}
+                title={item.name}
+            >
+                {canPreviewImage ? (
+                    <img src={item.message?.localPreviewUrl || item.message?.previewFile || item.url} alt={item.name} />
+                ) : item.kind === "video" ? (
+                    <><Video size={22} /><span className="chat-contact-play"><Play size={15} fill="currentColor" /></span></>
+                ) : item.kind === "audio" ? (
+                    <Mic size={22} />
+                ) : (
+                    <Paperclip size={22} />
+                )}
+                <small>{item.name}</small>
+            </a>
+        );
+    };
+
+    const formatContactItemDate = (message) => getMessageDate(message?.createdAt).toLocaleDateString([], {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    });
+
+    const getMessageLink = (message) => getMessageText(message).match(/https?:\/\/[^\s]+/i)?.[0] || "";
+
+    const getLinkHost = (url) => {
+        try {
+            return new URL(url).hostname.replace(/^www\./, "");
+        } catch {
+            return "Link";
+        }
+    };
+
+    const startContactSidebarResize = (event) => {
+        if (window.innerWidth <= 900) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        document.body.classList.add("chat-contact-resizing");
+
+        const resize = (pointerEvent) => {
+            const bounds = chatBoxRef.current?.getBoundingClientRect();
+            if (!bounds) return;
+            const maximumWidth = Math.max(280, Math.min(560, bounds.width - 420));
+            setContactSidebarWidth(Math.min(maximumWidth, Math.max(280, bounds.right - pointerEvent.clientX)));
+        };
+        const stop = () => {
+            document.body.classList.remove("chat-contact-resizing");
+            window.removeEventListener("pointermove", resize);
+            window.removeEventListener("pointerup", stop);
+            setContactSidebarWidth((width) => {
+                localStorage.setItem("ciis-chat-contact-sidebar-width", String(Math.round(width)));
+                return width;
+            });
+        };
+        window.addEventListener("pointermove", resize);
+        window.addEventListener("pointerup", stop, { once: true });
+    };
+
+    const resizeContactSidebarByKeyboard = (event) => {
+        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+        event.preventDefault();
+        const bounds = chatBoxRef.current?.getBoundingClientRect();
+        const maximumWidth = Math.max(280, Math.min(560, (bounds?.width || window.innerWidth) - 420));
+        const direction = event.key === "ArrowLeft" ? 20 : -20;
+        setContactSidebarWidth((width) => {
+            const nextWidth = Math.min(maximumWidth, Math.max(280, width + direction));
+            localStorage.setItem("ciis-chat-contact-sidebar-width", String(Math.round(nextWidth)));
+            return nextWidth;
+        });
+    };
+
+    const renderMediaPanel = () => (
+        <div className="chat-contact-subpanel">
+            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
+                <ArrowLeft size={17} /> Media, links and docs
+            </button>
+            <div className="chat-contact-media-tabs" role="tablist" aria-label="Shared content">
+                {[
+                    ["media", "Media", visualMediaItems.length],
+                    ["links", "Links", linkMessages.length],
+                    ["docs", "Docs", documentItems.length],
+                ].map(([value, label, count]) => (
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={contactMediaTab === value}
+                        className={contactMediaTab === value ? "active" : ""}
+                        onClick={() => setContactMediaTab(value)}
+                        key={value}
+                    >
+                        {label}<span>{count}</span>
+                    </button>
+                ))}
+            </div>
+
+            {contactMediaTab === "media" && (
+                <div className="chat-contact-media-grid expanded">
+                    {visualMediaItems.length ? visualMediaItems.map(renderMediaTile) : <p className="chat-contact-empty">No photos or videos shared</p>}
+                </div>
+            )}
+
+            {contactMediaTab === "links" && (
+                <div className="chat-contact-links-list">
+                    {linkMessages.length ? linkMessages.map((message) => {
+                        const url = getMessageLink(message);
+                        return (
+                            <a key={message._id || message.createdAt} href={url} target="_blank" rel="noreferrer">
+                                <span className="chat-contact-link-icon"><Link2 size={20} /></span>
+                                <span className="chat-contact-link-copy">
+                                    <strong>{getLinkHost(url)}</strong>
+                                    <small>{url}</small>
+                                    <time>{formatContactItemDate(message)}</time>
+                                </span>
+                                <ExternalLink size={16} />
+                            </a>
+                        );
+                    }) : <p className="chat-contact-empty">No links shared</p>}
+                </div>
+            )}
+
+            {contactMediaTab === "docs" && (
+                <div className="chat-contact-doc-list">
+                    {documentItems.length ? documentItems.map((item) => (
+                        <a key={item.id} href={item.url} target="_blank" rel="noreferrer" title={item.name}>
+                            <span className={`chat-contact-doc-icon ${item.kind}`}><FileText size={21} /></span>
+                            <span className="chat-contact-doc-copy">
+                                <strong>{item.name}</strong>
+                                <small>{item.kind === "audio" ? "Audio" : (item.name.split(".").pop() || "Document").toUpperCase()} · {formatContactItemDate(item.message)}</small>
+                            </span>
+                            <Download size={17} />
+                        </a>
+                    )) : <p className="chat-contact-empty">No documents shared</p>}
+                </div>
+            )}
+        </div>
+    );
+
+    const renderWallpaperPanel = () => (
+        <div className="chat-contact-subpanel">
+            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
+                <ArrowLeft size={17} /> Wallpaper & sound
+            </button>
+            <label className="chat-contact-field">
+                Wallpaper URL
+                <input value={contactWallpaper} onChange={(event) => setContactWallpaper(event.target.value)} placeholder="Paste image URL" />
+            </label>
+            <label className="chat-contact-field">
+                Message sound
+                <select value={contactSound} onChange={(event) => setContactSound(event.target.value)}>
+                    <option value="default">Default</option>
+                    <option value="soft">Soft</option>
+                    <option value="silent">Silent</option>
+                    <option value="bright">Bright</option>
+                </select>
+            </label>
+            <button type="button" className="chat-contact-save-btn" onClick={saveWallpaperAndSound}>Save</button>
+        </div>
+    );
+
+    const renderDisappearingPanel = () => (
+        <div className="chat-contact-subpanel">
+            <button type="button" className="chat-contact-back-row" onClick={() => setContactPanelView("info")}>
+                <ArrowLeft size={17} /> Disappearing messages
+            </button>
+            <div className="chat-disappearing-intro">
+                <TimerReset size={25} />
+                <div>
+                    <strong>Message timer</strong>
+                    <p>New messages sent after selecting a timer will automatically disappear. Existing messages will not be affected.</p>
+                </div>
+            </div>
+            {[
+                ["off", "Off"],
+                ["24h", "24 hours"],
+                ["7d", "7 days"],
+                ["90d", "90 days"],
+            ].map(([value, label]) => (
+                <button
+                    type="button"
+                    className="chat-contact-choice"
+                    key={value}
+                    onClick={() => setDisappearingState(value)}
+                    aria-pressed={disappearingMode === value}
+                >
+                    <span>{label}</span>
+                    <i className={disappearingMode === value ? "active" : ""} />
+                </button>
+            ))}
+        </div>
+    );
+
+    const renderContactInfoBody = () => {
+        if (contactPanelView === "media") return renderMediaPanel();
+        if (contactPanelView === "wallpaper") return renderWallpaperPanel();
+        if (contactPanelView === "disappearing") return renderDisappearingPanel();
+
+        return (
+            <>
+                <div className="chat-contact-profile">
+                    <div className="chat-contact-avatar">
+                        {selectedUser?.isGroup ? (
+                            <>
+                                {selectedAvatar ? (
+                                    <img
+                                        src={selectedAvatar}
+                                        alt={selectedName}
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = "none";
+                                            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                                        }}
+                                    />
+                                ) : null}
+                                <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                    {selectedName?.charAt(0).toUpperCase() || "G"}
+                                </span>
+                            </>
+                        ) : (
+                            <>
+                                {selectedAvatar ? (
+                                    <img
+                                        src={selectedAvatar}
+                                        alt={selectedName}
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = "none";
+                                            if (e.currentTarget.nextSibling) {
+                                                e.currentTarget.nextSibling.style.display = "inline";
+                                            }
+                                        }}
+                                    />
+                                ) : null}
+                                <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                    {selectedName?.charAt(0).toUpperCase() || "U"}
+                                </span>
+                            </>
+                        )}
+                    </div>
+                    <h2>{selectedName}</h2>
+                    <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
+                    {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
+                        <>
+                            <button
+                                type="button"
+                                className="chat-channel-photo-btn"
+                                onClick={() => groupImageInputRef.current?.click()}
+                                disabled={isSendingAction}
+                            >
+                                <Camera size={14} /> Change picture
+                            </button>
+                            <input
+                                ref={groupImageInputRef}
+                                type="file"
+                                accept="image/*"
+                                hidden
+                                onChange={updateCurrentChannelImage}
+                            />
+                        </>
+                    )}
+                </div>
+                <div className="chat-contact-actions">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowContactInfo(false);
+                            requestAnimationFrame(() => chatInputRef.current?.focus());
+                        }}
+                        title="Message"
+                    >
+                        <MessageCircle size={20} />
+                        <span>Message</span>
+                    </button>
+                    <button type="button" onClick={() => startDirectCall("audio")} disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled} title="Voice call">
+                        <Phone size={20} />
+                        <span>Voice call</span>
+                    </button>
+                    <button type="button" onClick={() => startDirectCall("video")} disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled} title="Video call">
+                        <Video size={20} />
+                        <span>Video call</span>
+                    </button>
+                    <button type="button" title="Search" onClick={openContactSearch}>
+                        <Search size={20} />
+                        <span>Search</span>
+                    </button>
+                </div>
+                <div className="chat-contact-section">
+                    <h3>About</h3>
+                    <p>{selectedUser?.bio || selectedUser?.about || selectedUser?.companyRole || "Work hard in silence, let success make the noise."}</p>
+                </div>
+                {selectedUser?.isGroup && (
+                    <div className="chat-contact-section chat-group-members-section">
+                        <div className="chat-contact-section-head">
+                            <span>Members</span>
+                            <strong>{groupMemberCount}</strong>
+                        </div>
+                        <div className="chat-group-members-list">
+                            {(Array.isArray(groupMembers) ? groupMembers : []).map((member) => {
+                                const memberId = getMemberId(member);
+                                const memberName = typeof member === "object"
+                                    ? (member.name || member.fullName || member.email || "Member")
+                                    : (users || []).find(user => getEntityId(user) === memberId)?.name || "Member";
+                                const memberAvatar = typeof member === "object"
+                                    ? getAvatarSrc(member.profileImage || member.avatar || member.image || member.photo)
+                                    : "";
+                                return (
+                                    <div className="chat-group-member-row" key={memberId || memberName}>
+                                        <span className="chat-group-member-avatar">
+                                            {memberAvatar ? <img src={memberAvatar} alt={memberName} /> : memberName.charAt(0).toUpperCase()}
+                                        </span>
+                                        <span>
+                                            <strong>{memberId === currentUserId ? "You" : memberName}</strong>
+                                            <small>{isIdOnline(memberId) ? "Online" : "Offline"}</small>
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {(!Array.isArray(groupMembers) || groupMembers.length === 0) && (
+                                <p className="chat-contact-empty">No members found</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+                <div className="chat-contact-section">
+                    <div className="chat-contact-section-head">
+                        <span>Media, links and docs</span>
+                        <button type="button" onClick={() => setContactPanelView("media")}>See all <ChevronRight size={15} /></button>
+                    </div>
+                    <div className="chat-media-thumbs">
+                        {contactMediaItems.slice(0, 3).map(renderMediaTile)}
+                        <button type="button" onClick={() => setContactPanelView("media")}>
+                            +{Math.max(contactMediaItems.length - 3, 0)}
+                        </button>
+                    </div>
+                </div>
+            </>
+        );
+    };
+
+    useEffect(() => {
+        const latestNotice = [...messages]
+            .reverse()
+            .map(getDisappearingSystemNotice)
+            .find(Boolean);
+        if (!latestNotice || !["off", "24h", "7d", "90d"].includes(latestNotice.mode)) return;
+        setDisappearingMode(latestNotice.mode);
+    }, [messages]);
+
+    useEffect(() => {
+        const expiryTimes = messages
+            .map((message) => new Date(message.expiresAt || 0).getTime())
+            .filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0);
+        if (!expiryTimes.length) return undefined;
+
+        const nextExpiry = Math.min(...expiryTimes);
+        const timerId = window.setTimeout(() => {
+            const now = Date.now();
+            setMessages((current) => {
+                const filtered = current.filter((message) => {
+                    const expiry = new Date(message.expiresAt || 0).getTime();
+                    return !expiry || expiry > now;
+                });
+                return filtered.length === current.length ? [...current] : filtered;
+            });
+            onConversationChange?.();
+        }, Math.min(Math.max(nextExpiry - Date.now(), 0), 2147483647));
+
+        return () => window.clearTimeout(timerId);
+    }, [messages, onConversationChange]);
+
+
+
+    useEffect(() => {
+        if (selectedUser) return undefined;
+
+        const handleNewChatShortcut = event => {
+            if (event.key.toLowerCase() !== "n" || event.ctrlKey || event.metaKey || event.altKey) return;
+            const target = event.target;
+            if (target?.matches?.("input, textarea, [contenteditable='true']")) return;
+            event.preventDefault();
+            window.dispatchEvent(new CustomEvent("chat:open-new-chat"));
+        };
+
+        window.addEventListener("keydown", handleNewChatShortcut);
+        return () => window.removeEventListener("keydown", handleNewChatShortcut);
+    }, [selectedUser]);
+
+    if (!selectedUser) {
+
+        return (
+            <>
+                <div
+                    className="chat-empty"
+                >
+                    <div className={socket?.connected ? "chat-system-status online" : "chat-system-status"}>
+                        <span />
+                        {socket?.connected ? "All systems operational" : "Connecting to chat"}
+                    </div>
+                    <div className="chat-empty-card">
+                        <div className="chat-welcome-art" aria-hidden="true">
+                            <div className="chat-welcome-bubble"><i /><i /><i /></div>
+                            <div className="chat-welcome-reply"><i /><i /></div>
+                            <div className="chat-welcome-note"><i /><i /></div>
+                            <span className="spark spark-one">✦</span>
+                            <span className="spark spark-two">✦</span>
+                            <span className="spark spark-three">✦</span>
+                        </div>
+                        <h2>Start a conversation</h2>
+                        <p>Connect with your team and keep work moving.</p>
+                        <button
+                            type="button"
+                            className="chat-start-conversation"
+                            onClick={() => window.dispatchEvent(new CustomEvent("chat:open-new-chat"))}
+                        >
+                            <MessageCircle size={20} />
+                            New conversation
+                        </button>
+                        <small className="chat-new-shortcut">Press <kbd>N</kbd> to start quickly</small>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    const getAvatarSrc = (avatar) => resolveAvatarUrl(avatar);
+
+    const getGroupName = (group) => {
+        if (!group) return "";
+        return group.name || group.groupName || group.group_name || group.title || "Unnamed Group";
+    };
+
+    const getCurrentTopic = () => (
+        selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.companyRole || "SEO Project"
+    );
+
+    const getMemberId = member => {
+        if (!member) return "";
+        if (typeof member === "object") {
+            return (member._id || member.id || member.userId || member.user?._id || member.user?.id || "").toString();
+        }
+
+        return member.toString();
+    };
+
+    const groupMembers = selectedUser?.isGroup
+        ? selectedUser.members || selectedUser.users || selectedUser.memberIds || selectedUser.membersIds || conversation?.members || []
+        : [];
+    const availableMentionMembers = mentionMembers(
+        selectedUser?.isGroup ? [...groupMembers, ...(conversation?.members || [])] : conversation?.members?.length ? conversation.members : [currentUser, selectedUser],
+        [...users, currentUser, selectedUser, ...groupMembers, ...(conversation?.members || [])]
+    );
+    const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
+    const isIdOnline = id => {
+        const value = (id || "").toString();
+        return Boolean(value && onlineUsers.some(userId => userId?.toString() === value));
+    };
+    const onlineGroupCount = Array.isArray(groupMembers)
+        ? groupMembers.filter(member => {
+            const memberId = getMemberId(member);
+            return memberId && memberId !== currentUserId && isIdOnline(memberId);
+        }).length
+        : 0;
+    const groupMemberCount = Array.isArray(groupMembers)
+        ? groupMembers.length
+        : Number(selectedUser?.memberCount || selectedUser?.count || 0);
+    const groupStatusLabel = groupMemberCount > 0
+        ? `${onlineGroupCount} online - ${groupMemberCount} members`
+        : "Group Chat";
+    const selectedUserId = (selectedUser?._id || selectedUser?.id || "").toString();
+    const isSelectedUserOnline = selectedUser?.isGroup
+        ? onlineGroupCount > 0
+        : (typeof isUserOnlineNow === "function"
+            ? isUserOnlineNow(selectedUser)
+            : (presenceReady ? isIdOnline(selectedUserId) : (Boolean(selectedUser?.isOnline) || isIdOnline(selectedUserId))));
+    // The server rings every signed-in device and wakes offline ones by push, so a call must not
+    // depend on the live "online" dot (since presence became strict, it blocked calling anyone whose
+    // app was in the background).
+    const canStartCall = selectedUser?.isGroup
+        ? groupMemberCount > 0 || onlineGroupCount > 0
+        : Boolean(selectedUserId);
+
+    const startDirectCall = (callType) => {
+        if (!canStartCall) return;
+        const convId = (conversation?._id || selectedUser?.conversation?._id || selectedUser?.conversationId || (selectedUser?.isGroup ? (selectedUser?._id || selectedUser?.id) : "") || "").toString();
+        startCall(callType, {
+            ...selectedUser,
+            conversationId: convId,
+        });
+    };
+
+    const handleRejoinOngoingCall = () => {
+        if (!ongoingCall) return;
+        rejoinCall({
+            callId: ongoingCall.callId,
+            callType: ongoingCall.callType,
+            isGroupCall: ongoingCall.isGroupCall,
+            title: ongoingCall.title,
+            conversationId: currentConversationId,
+            peerUser: selectedUser,
+        });
+    };
+
+    const getOngoingCallDurationText = () => {
+        if (!ongoingCall?.startedAt) return "Ongoing call";
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(ongoingCall.startedAt).getTime()) / 1000));
+        const minutes = Math.floor(elapsedSeconds / 60);
+        if (minutes < 1) return "Started just now";
+        return `Started ${minutes}m ago`;
+    };
+
+    const clearCurrentChat = async () => {
+        if (!messages.length || isSendingAction) {
+            setShowHeaderMenu(false);
+            return;
+        }
+        if (!window.confirm("Clear all messages in this chat for you?")) return;
+
+        setShowHeaderMenu(false);
+        setIsSendingAction(true);
+        try {
+            const messageIds = messages.map(item => item._id).filter(Boolean);
+            await Promise.allSettled(messageIds.map(messageId => deleteMessageForMe(messageId)));
+            messageIds.forEach(messageId => {
+                socket?.emit("chat:delete-for-me", { messageId, conversationId: conversation?._id });
+            });
+            setMessages([]);
+            onConversationChange?.();
+            showToast?.("Chat cleared successfully.", "success");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+    const deleteCurrentChannel = async () => {
+        if (!selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
+        if (!window.confirm("Delete this group for everyone?")) return;
+        setShowHeaderMenu(false);
+        setIsSendingAction(true);
+        try {
+            await onDeleteGroup?.(selectedUser);
+            showToast?.("Group deleted successfully.", "success");
+        } catch (error) {
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to delete group.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const updateCurrentChannelImage = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file || !selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
+        setIsSendingAction(true);
+        try {
+            await onUpdateGroup?.(selectedUser, {
+                name: getGroupName(selectedUser),
+                description: selectedUser.description || "",
+                members: (groupMembers || []).map(getMemberId).filter(Boolean),
+                avatar: file,
+            });
+            showToast?.("Group picture updated.", "success");
+        } catch (error) {
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to update group picture.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const selectedAvatar = selectedUser?.isGroup
+        ? getAvatarSrc(selectedUser.groupImage || selectedUser.profileImage || selectedUser.avatar || selectedUser.image)
+        : getAvatarSrc(selectedUser);
+    const selectedName = selectedUser?.isGroup ? getGroupName(selectedUser) : selectedUser?.name;
+
+    return (
+
+        <div
+            ref={chatBoxRef}
+            className={showContactInfo ? "chat-box contact-info-open" : "chat-box"}
+            style={{ "--chat-contact-width": `${contactSidebarWidth}px` }}
+        >
+            <div className="chat-conversation">
+            <div className="chat-header">
+                <div className="chat-header-left">
+                    <button
+                        type="button"
+                        className="chat-mobile-back"
+                        title="Back to conversations"
+                        onClick={onBack}
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <button
+                        type="button"
+                        className="chat-header-profile"
+                        onClick={() => setShowContactInfo(true)}
+                        title="Open contact info"
+                    >
+                        <span className="chat-avatar">
+                            {
+                                selectedUser.isGroup ? (
+                                    <>
+                                        {selectedAvatar ? (
+                                            <img
+                                                src={selectedAvatar}
+                                                alt={selectedName}
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = "none";
+                                                    if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                                                }}
+                                            />
+                                        ) : null}
+                                        <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                            {selectedName?.charAt(0).toUpperCase() || "G"}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        {selectedAvatar ? (
+                                            <img
+                                                src={selectedAvatar}
+                                                alt={selectedName}
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = "none";
+                                                    if (e.currentTarget.nextSibling) {
+                                                        e.currentTarget.nextSibling.style.display = "inline";
+                                                    }
+                                                }}
+                                            />
+                                        ) : null}
+                                        <span style={{ display: selectedAvatar ? "none" : "inline" }}>
+                                            {selectedName?.charAt(0).toUpperCase() || "U"}
+                                        </span>
+                                    </>
+                                )
+                            }
+                        </span>
+                        <span className="chat-user-meta">
+                            <span className="chat-user-name">
+                                    {selectedName}
+                                </span>
+                                <span className={`chat-user-status ${selectedUser.isGroup || isSelectedUserOnline ? "" : "offline"}`}>
+                                    {typingUserId 
+                                        ? "Typing..." 
+                                        : selectedUser.isGroup 
+                                        ? groupStatusLabel
+                                        : (isSelectedUserOnline ? "Online" : "Offline")}
+                                </span>
+                        </span>
+                    </button>
+                </div>
+                <div className="chat-header-actions" ref={headerMenuRef}>
+                    <button
+                        type="button"
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group video call" : "No group members") : "Start video call"}
+                        onClick={() => startDirectCall("video")}
+                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.cameraEnabled}
+                    >
+                        <Video size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        title={!effectiveChatSettings.videoVoice.microphoneEnabled ? "Microphone disabled in settings" : selectedUser.isGroup ? (canStartCall ? "Start group voice call" : "No group members") : "Start voice call"}
+                        onClick={() => startDirectCall("audio")}
+                        disabled={!canStartCall || !effectiveChatSettings.videoVoice.microphoneEnabled}
+                    >
+                        <Phone size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        title="Search"
+                        onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}
+                    >
+                        <Search size={18} />
+                    </button>
+                    <button type="button" title="More" onClick={() => setShowHeaderMenu(value => !value)}>
+                        <MoreVertical size={18} />
+                    </button>
+                    {showHeaderMenu && (
+                        <div className="chat-profile-menu">
+                            <button type="button" onClick={() => { setContactPanelView("info"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
+                                <Info size={17} />
+                                {selectedUser.isGroup ? "Group info" : "Contact info"}
+                            </button>
+                            <button type="button" onClick={() => { setIsContactSearchOpen(true); setShowHeaderMenu(false); }}>
+                                <Search size={17} />
+                                Search messages
+                            </button>
+                            <button type="button" onClick={() => { setContactPanelView("media"); setShowContactInfo(true); setShowHeaderMenu(false); }}>
+                                <Images size={17} />
+                                Media, links and docs
+                            </button>
+                            <button type="button" onClick={() => { setMuteState(!isMuted); setShowHeaderMenu(false); }}>
+                                <Bell size={17} />
+                                {isMuted ? "Unmute notifications" : "Mute notifications"}
+                            </button>
+                            <span className="chat-profile-menu-divider" />
+                            <button type="button" className="danger" onClick={clearCurrentChat} disabled={!messages.length || isSendingAction}>
+                                <Trash2 size={17} />
+                                Clear chat
+                            </button>
+                            {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
+                                <button type="button" className="danger" onClick={deleteCurrentChannel} disabled={isSendingAction}>
+                                    <Trash2 size={17} />
+                                    Delete channel
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {ongoingCall && (!getActiveCall?.() || String(getActiveCall()?.callId) !== String(ongoingCall?.callId)) && (
+                <div className="chat-ongoing-call-banner">
+                    <div className="ongoing-call-left">
+                        <div className="ongoing-call-pulse-dot" />
+                        <div className="ongoing-call-meta">
+                            <strong>
+                                {ongoingCall.callType === "video" ? <Video size={16} /> : <Phone size={16} />}
+                                Ongoing {ongoingCall.isGroupCall ? "Group " : ""}{ongoingCall.callType === "video" ? "Video" : "Voice"} Call
+                            </strong>
+                            <small>
+                                {getOngoingCallDurationText()}
+                                {ongoingCall.participantsCount ? ` • ${ongoingCall.participantsCount} in call` : ""}
+                            </small>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="ongoing-call-join-btn"
+                        onClick={handleRejoinOngoingCall}
+                        title="Rejoin this active call"
+                    >
+                        <PhoneCall size={15} />
+                        <span>Rejoin</span>
+                    </button>
+                </div>
+            )}
+
+            <div className="chat-topic-bar">
+                <strong>Chat Topic: {getCurrentTopic()}</strong>
+                <button type="button">Change Topic</button>
+            </div>
+
+            <div
+                className="chat-messages"
+                ref={chatMessagesRef}
+                onScroll={updateActiveChatDate}
+                style={(contactWallpaper || effectiveChatSettings.chats.wallpaper) ? { backgroundImage: `linear-gradient(rgba(255,255,255,0.76), rgba(255,255,255,0.76)), url("${contactWallpaper || effectiveChatSettings.chats.wallpaper}")` } : undefined}
+            >
+                {isContactSearchOpen && (
+                    <div className="chat-message-search-bar">
+                        <Search size={16} />
+                        <input
+                            value={contactSearchTerm}
+                            onChange={(event) => setContactSearchTerm(event.target.value)}
+                            placeholder="Search messages"
+                            autoFocus
+                        />
+                        <button type="button" onClick={() => { setIsContactSearchOpen(false); setContactSearchTerm(""); }}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+                {showActiveChatDate && activeChatDateLabel && (
+                    <div className="chat-active-date">
+                        <span>{activeChatDateLabel}</span>
+                    </div>
+                )}
+
+                {messagePagination.hasMore && !normalizedSearchTerm && (
+                    <div className="chat-load-older-wrap">
+                        <button
+                            type="button"
+                            className="chat-load-older-btn"
+                            onClick={loadOlderMessages}
+                            disabled={isLoadingOlderMessages}
+                        >
+                            {isLoadingOlderMessages ? "Loading..." : "Load older messages"}
+                        </button>
+                    </div>
+                )}
+
+                {
+                    displayedMessages.map((message, index) => {
+                        const previousMessage = displayedMessages[index - 1];
+                        const disappearingNotice = getDisappearingSystemNotice(message);
+                        const shouldShowDateSeparator = !previousMessage
+                            || getMessageDateKey(previousMessage.createdAt) !== getMessageDateKey(message.createdAt);
+                        const messageDateLabel = formatMessageDateSeparator(message.createdAt);
+
+                        return (
+                            <React.Fragment key={message._id || `${message.createdAt}-${index}`}>
+                                {shouldShowDateSeparator && (
+                                    <div className="chat-date-separator" data-date-label={messageDateLabel}>
+                                        <span>{messageDateLabel}</span>
+                                    </div>
+                                )}
+
+                                {isCallMessage(message) ? (() => {
+                                    const callInfo = describeCallMessage(message, currentUser?._id || currentUser?.id);
+                                    const CallIcon = callInfo.isVideo ? Video : Phone;
+                                    return (
+                                        <div className="chat-disappearing-notice" data-message-id={message._id || ""} style={callInfo.missed ? { color: "#dc2626" } : undefined}>
+                                            <CallIcon size={14} />
+                                            <span>
+                                                {callInfo.outgoing ? "↗ " : "↙ "}{callInfo.text} · {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                            </span>
+                                        </div>
+                                    );
+                                })() : isTaskUpdateMessage(message) ? (() => {
+                                    const taskMeta = getTaskEventMeta(message);
+                                    return (
+                                        <div className="chat-task-update" data-message-id={message._id}>
+                                            <button
+                                                type="button"
+                                                className={`chat-task-card event-${taskMeta.eventCategory}`}
+                                                onClick={() => message.systemEvent?.task && openProjectTask(message.systemEvent)}
+                                                title={message.systemEvent?.task ? "Click to view task details" : undefined}
+                                            >
+                                                <div className="chat-task-card-header">
+                                                    <div className="chat-task-card-header-left">
+                                                        <Clock size={12} className="chat-task-card-clock" />
+                                                        <span className="chat-task-event-badge">{taskMeta.label}</span>
+                                                    </div>
+                                                    {taskMeta.formattedTime && (
+                                                        <time className="chat-task-card-time" title={taskMeta.fullDateTime}>
+                                                            {taskMeta.formattedTime}
+                                                        </time>
+                                                    )}
+                                                </div>
+                                                <div className="chat-task-card-body">
+                                                    <FileText size={15} className="chat-task-card-icon" />
+                                                    <span className="chat-task-card-text">{taskEventText(message)}</span>
+                                                    {message.systemEvent?.task && <ChevronRight size={14} className="chat-task-card-chevron" />}
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="chat-task-reply"
+                                                onClick={() => handleMessageReply(message)}
+                                                aria-label="Reply to task update"
+                                                title="Reply to task update"
+                                            >
+                                                <Reply size={14} /> Reply
+                                            </button>
+                                        </div>
+                                    );
+                                })() : disappearingNotice ? (
+                                    <div className="chat-disappearing-notice" data-message-id={message._id || ""}>
+                                        <TimerReset size={14} />
+                                        <span>
+                                            <strong>
+                                                {String(disappearingNotice.actorId || "") === String(currentUser?._id || currentUser?.id || "")
+                                                    ? "You"
+                                                    : disappearingNotice.actorName || "A participant"}
+                                            </strong>
+                                            {disappearingNotice.mode === "off"
+                                                ? " turned off disappearing messages"
+                                                : ` turned on disappearing messages. New messages disappear after ${
+                                                    disappearingNotice.mode === "24h" ? "24 hours" : disappearingNotice.mode === "7d" ? "7 days" : "90 days"
+                                                }`}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="chat-message-date-anchor" data-date-label={messageDateLabel} data-message-id={message._id || ""}>
+                                        <MessageBubble
+                                            message={message}
+                                            currentUser={currentUser}
+                                            users={users}
+                                            onDeleteForMe={handleDeleteForMe}
+                                            onDeleteForEveryone={handleDeleteForEveryone}
+                                            onForward={handleForward}
+                                            onReply={handleMessageReply}
+                                            onReplyJump={scrollToRepliedMessage}
+                                            onReact={handleReaction}
+                                            isStarredMessage={starredMessageIds.includes(String(message._id || ""))}
+                                            onToggleStar={toggleStarredMessage}
+                                            socket={socket}
+                                            isGroupChat={Boolean(selectedUser?.isGroup || conversation?.isGroup)}
+                                        />
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        );
+                    })
+                }
+
+                {displayedMessages.length === 0
+                    && !normalizedSearchTerm
+                    && conversation?._id
+                    && loadedConversationId === String(conversation._id) && (
+                    <div className="chat-thread-empty">
+                        <span className="chat-thread-empty-icon"><MessageCircle size={26} /></span>
+                        <strong>No messages yet</strong>
+                        <p>
+                            {selectedUser?.isGroup
+                                ? "Start the conversation with this group."
+                                : `Start the conversation with ${selectedUser?.name || "this person"}.`}
+                        </p>
+                        <button type="button" onClick={() => chatInputRef.current?.focus()}>
+                            Start conversation
+                        </button>
+                    </div>
+                )}
+
+            </div>
+
+            {projectTask && <TaskDetailsModal open task={projectTask} canEdit={false}
+                employeeInfo={currentUser} onClose={() => setProjectTask(null)}
+                mentionUsers={selectedUser?.members || []}
+                onRemarkAdded={async (task, text, _files, mentions) => {
+                    const key = JSON.stringify([task.clientId || task.projectId, task._id, text, mentions]);
+                    const requestId = remarkRequests.current.get(key) || crypto.randomUUID();
+                    remarkRequests.current.set(key, requestId);
+                    if (task.clientId) await addClientChatRemark(task.clientId, task._id, text, mentions, requestId);
+                    else await addProjectChatRemark(task.projectId, task._id, text, mentions, requestId);
+                    const result = task.clientId ? await getClientChatTask(task.clientId, task._id) : await getProjectChatTask(task.projectId, task._id);
+                    setProjectTask(result.data.task);
+                    remarkRequests.current.delete(key);
+                }} />}
+            <div className="chat-input-area">
+                <div className="chat-quick-replies">
+                    {quickReplies.map(reply => (
+                        <button type="button" key={reply} onClick={() => setText(reply)}>
+                            {reply}
+                        </button>
+                    ))}
+                </div>
+
+                {recorderMode === "audio" ? (
+                    <div className="voice-recorder-bar">
+                        <div className="voice-recorder-cancel-wrap">
+                            <div className="voice-recorder-tooltip">Cancel</div>
+                            <button
+                                type="button"
+                                className="voice-recorder-cancel-btn"
+                                onClick={cancelVoiceRecording}
+                                title="Cancel recording"
+                                aria-label="Cancel recording"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+
+                        <div className="voice-recorder-status">
+                            <span className={`voice-recorder-dot ${isRecordingPaused ? "paused" : "blinking"}`} />
+                            <span className="voice-recorder-time">
+                                {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+                            </span>
+                        </div>
+
+                        <VoiceRecordingWaveform
+                            stream={recordingStreamRef.current}
+                            isPaused={isRecordingPaused}
+                        />
+
+                        <button
+                            type="button"
+                            className={`voice-recorder-pause-btn ${isRecordingPaused ? "paused" : ""}`}
+                            onClick={togglePauseVoiceRecording}
+                            title={isRecordingPaused ? "Resume recording" : "Pause recording"}
+                            aria-label={isRecordingPaused ? "Resume recording" : "Pause recording"}
+                        >
+                            {isRecordingPaused ? <Mic size={18} /> : <Pause size={18} />}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="voice-recorder-send-btn"
+                            onClick={sendVoiceRecordingImmediately}
+                            disabled={isSendingAction}
+                            title="Send voice message"
+                            aria-label="Send voice message"
+                        >
+                            <SendHorizontal size={19} />
+                        </button>
+                    </div>
+                ) : (
+                <div className="chat-composer">
+                    <div className="attachment-menu-wrap" ref={attachmentMenuRef}>
+                        <button
+                            type="button"
+                            className={`file-upload-btn ${showAttachmentMenu ? "active" : ""}`}
+                            onClick={() => {
+                                setShowAttachmentMenu((prev) => !prev);
+                                setShowEmojiPicker(false);
+                            }}
+                            title={showAttachmentMenu ? "Close attachment menu" : "Attach"}
+                            aria-label={showAttachmentMenu ? "Close attachment menu" : "Attach"}
+                            aria-expanded={showAttachmentMenu}
+                        >
+                            {showAttachmentMenu ? <X size={19} /> : <Paperclip size={19} />}
+                        </button>
+
+                        {showAttachmentMenu && (
+                            <div
+                                className="attachment-menu-popup"
+                                role="menu"
+                                style={{
+                                    width: 170,
+                                    minWidth: 170,
+                                    maxWidth: 185,
+                                    background: "#ffffff",
+                                    borderRadius: 12,
+                                    padding: "6px 4px",
+                                    boxSizing: "border-box",
+                                    border: "1px solid #e2e8f0",
+                                    boxShadow: "0 10px 25px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.05)"
+                                }}
+                            >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 8px 6px", borderBottom: "1px solid #f1f5f9", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                    <span>Attach</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAttachmentMenu(false)}
+                                        style={{ border: 0, background: "transparent", cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", padding: 2 }}
+                                        title="Close"
+                                        aria-label="Close attachment menu"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        documentInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-document">
+                                        <FileText size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Document</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        photosVideosInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-photos">
+                                        <Images size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Photos & videos</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        startRecording("video");
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-camera">
+                                        <Camera size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Camera</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        audioInputRef.current?.click();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-audio">
+                                        <Headphones size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Audio</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="attachment-menu-item"
+                                    onClick={() => {
+                                        setShowAttachmentMenu(false);
+                                        openAssignModal();
+                                    }}
+                                >
+                                    <span className="attachment-icon-wrap icon-assign">
+                                        <CheckSquare size={18} strokeWidth={2} />
+                                    </span>
+                                    <span className="attachment-label">Assign Task</span>
+                                </button>
+                            </div>
+                        )}
+
+                        <input
+                            ref={documentInputRef}
+                            type="file"
+                            multiple
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={photosVideosInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*,video/*,.heic,.heif,.mov,.mkv,.avi,.wmv,.m4v,.flv,.webm"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={audioInputRef}
+                            type="file"
+                            multiple
+                            accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.wma"
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            onChange={handleFileSelection}
+                            style={{ display: "none" }}
+                        />
+                    </div>
+
+                    <div className="chat-input-wrapper">
+                        {replyingTo && (
+                            <div className="chat-reply-preview">
+                                <div>
+                                    <strong>
+                                        {String(replyingTo.sender?._id || replyingTo.sender || "") === currentUserId
+                                            ? "You"
+                                            : replyingTo.sender?.name || selectedName || "User"}
+                                    </strong>
+                                    <span>{taskEventText(replyingTo) || (attachmentSource(replyingTo) ? attachmentLabel(replyingTo) : "Message")}</span>
+                                </div>
+                                <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
+                                    <X size={17} />
+                                </button>
+                            </div>
+                        )}
+                        {files.length > 0 && (
+                            <div className="selected-files-wrap">
+                                <div className="selected-files-list">
+                                    {files.map((fileItem, index) => {
+                                        const file = getUploadFile(fileItem);
+                                        return (
+                                        <div
+                                            className="selected-file-info"
+                                            key={`${file.name}-${file.lastModified}-${index}`}
+                                            title={file.name}
+                                        >
+                                            <span>{file.name}</span>
+                                            {getMediaCompressionType(file) && (
+                                                <small>Original</small>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index))}
+                                                aria-label={`Deselect ${file.name}`}
+                                                title="Deselect file"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    );})}
+                                </div>
+                                {files.length > 1 && (
+                                    <button
+                                        type="button"
+                                        className="selected-files-clear"
+                                        onClick={() => setFiles([])}
+                                    >
+                                        Clear all
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {recordingError && (
+                            <div className="recording-error">{recordingError}</div>
+                        )}
+                        <ChatMentionInput
+                            ref={chatInputRef}
+                            mentions={messageMentions}
+                            onPaste={handlePaste}
+                            members={availableMentionMembers}
+                            onMentionSelect={setText}
+                            aria-label={replyingTo ? "Write a reply" : "Write a message"}
+                            type="text"
+                            className="chat-input"
+                            value={text}
+                            onChange={(e) =>
+                                {
+                                    setText(e.target.value);
+                                    if (conversation?._id) {
+                                        socket?.emit("chat:typing", { conversationId: conversation._id });
+                                        clearTimeout(typingTimerRef.current);
+                                        typingTimerRef.current = setTimeout(() => {
+                                            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+                                        }, 900);
+                                    }
+                                }
+                            }
+                            placeholder="Type your message..."
+                            onFocus={() => {
+                                setShowAttachmentMenu(false);
+                                setShowEmojiPicker(false);
+                            }}
+                            onKeyDown={(e) => {
+                                if (
+                                    e.key === "Enter"
+                                    && effectiveChatSettings.chats.enterToSend
+                                    && (!effectiveChatSettings.keyboard.enabled || !e.shiftKey)
+                                ) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        className="recording-btn composer-video-btn"
+                        onClick={() => startRecording("video")}
+                        disabled={isSendingAction || Boolean(recorderMode) || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.cameraEnabled}
+                        title={!effectiveChatSettings.videoVoice.cameraEnabled ? "Camera disabled in settings" : "Record video"}
+                        type="button"
+                    >
+                        <Camera size={18} />
+                    </button>
+
+                    <div className="emoji-picker-wrap" ref={emojiPickerRef}>
+                        <button
+                            type="button"
+                            className="emoji-btn"
+                            title="Emoji"
+                            aria-label="Emoji"
+                            aria-expanded={showEmojiPicker}
+                            onClick={() => {
+                                setShowEmojiPicker((prev) => !prev);
+                                setShowAttachmentMenu(false);
+                            }}
+                        >
+                            <Smile size={20} />
+                        </button>
+                        {showEmojiPicker && (
+                            <div className="emoji-picker-panel">
+                                <EmojiPicker
+                                    colorScheme={Theme.DARK}
+                                    emojiStyle={EmojiStyle.NATIVE}
+                                    categories={CHAT_EMOJI_CATEGORIES}
+                                    skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
+                                    searchPlaceHolder="Search emoji"
+                                    lazyLoadEmojis
+                                    width="100%"
+                                    height="min(420px, calc(100dvh - 180px))"
+                                    previewConfig={{ showPreview: false }}
+                                    onEmojiClick={handleEmojiSelect}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        className={recorderMode === "audio" ? "recording-btn composer-voice-btn active" : "recording-btn composer-voice-btn"}
+                        onClick={() => recorderMode === "audio" ? stopRecording() : startRecording("audio")}
+                        disabled={isSendingAction || Boolean(pendingRecording) || !effectiveChatSettings.videoVoice.microphoneEnabled || Boolean(recorderMode && recorderMode !== "audio")}
+                        title={recorderMode === "audio" ? "End voice recording" : "Start voice recording"}
+                        type="button"
+                    >
+                        {recorderMode === "audio" ? <Square size={17} /> : <Mic size={18} />}
+                    </button>
+
+                    <button
+                        className="send-btn"
+                        onClick={handleSend}
+                        disabled={isSendingAction}
+                        title="Send message"
+                        type="button"
+                    >
+                        <SendHorizontal size={20} />
+                    </button>
+                </div>
+                )}
+            </div>
+            </div>
+
+            {showContactInfo && (
+            <div
+                className="chat-contact-resizer"
+                role="separator"
+                aria-label="Resize contact info panel"
+                aria-orientation="vertical"
+                aria-valuemin="280"
+                aria-valuemax="560"
+                aria-valuenow={Math.round(contactSidebarWidth)}
+                tabIndex={0}
+                onPointerDown={startContactSidebarResize}
+                onKeyDown={resizeContactSidebarByKeyboard}
+                title="Drag to resize"
+            >
+                <span />
+            </div>
+            )}
+
+            {confirmDeleteMessage && (
+                <div className="chat-confirm-overlay" role="dialog" aria-modal="true">
+                    <div className="chat-confirm-modal">
+                        <strong>Delete message for everyone?</strong>
+                        <p>This message will be deleted for all members in this chat.</p>
+                        <div className="chat-confirm-actions">
+                            <button type="button" onClick={() => setConfirmDeleteMessage(null)} disabled={isSendingAction}>No</button>
+                            <button type="button" className="danger" onClick={confirmDeleteForEveryone} disabled={isSendingAction}>
+                                {isSendingAction ? "Deleting..." : "Yes, delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showContactInfo && (
+            <aside className="chat-contact-info">
+                <div className="chat-contact-top">
+                    <button type="button" title="Back" onClick={() => contactPanelView === "info" ? setShowContactInfo(false) : setContactPanelView("info")}>
+                        <ArrowLeft size={20} />
+                    </button>
+                    <strong>{contactPanelView === "info" ? "Contact info" : contactPanelView === "media" ? "Media, links and docs" : contactPanelView === "wallpaper" ? "Wallpaper & sound" : "Disappearing messages"}</strong>
+                    <button type="button" title="Close" onClick={() => setShowContactInfo(false)}>
+                        <X size={22} />
+                    </button>
+                </div>
+                {renderContactInfoBody()}
+            </aside>
+            )}
+
+
+            {/* WhatsApp-Style Live Video Recorder & Preview Modal */}
+            {(recorderMode === "video" || (pendingRecording && pendingRecording.mode === "video")) && (
+                <div className="video-recorder-overlay" role="dialog" aria-modal="true">
+                    <div className="video-recorder-modal">
+                        {/* Header */}
+                        <div className="video-recorder-header">
+                            {recorderMode === "video" ? (
+                                <div className="video-recorder-timer-badge">
+                                    <span className="video-recorder-dot" />
+                                    <span>{Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, "0")}</span>
+                                </div>
+                            ) : (
+                                <div className="video-recorder-preview-badge">
+                                    <Video size={15} />
+                                    <span>Video Preview ({formatRecordingTime(pendingRecording?.duration || 0)})</span>
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                className="video-recorder-close-btn"
+                                onClick={recorderMode === "video" ? cancelVoiceRecording : discardPendingRecording}
+                                title="Close"
+                                aria-label="Close"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Viewfinder / Video player */}
+                        <div className="video-recorder-viewfinder-wrap">
+                            {recorderMode === "video" ? (
+                                <video
+                                    ref={(el) => {
+                                        recordingPreviewRef.current = el;
+                                        if (el && recordingStreamRef.current) {
+                                            el.srcObject = recordingStreamRef.current;
+                                        }
+                                    }}
+                                    autoPlay
+                                    muted
+                                    playsInline
+                                    className="video-recorder-video mirrored"
+                                />
+                            ) : (
+                                <video
+                                    src={videoPreviewUrl || undefined}
+                                    autoPlay
+                                    controls
+                                    playsInline
+                                    className="video-recorder-video"
+                                />
+                            )}
+                        </div>
+
+                        {/* Bottom Actions */}
+                        <div className="video-recorder-bottom">
+                            {recorderMode === "video" ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="video-recorder-discard-btn"
+                                        onClick={cancelVoiceRecording}
+                                        title="Discard recording"
+                                        aria-label="Discard recording"
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="video-recorder-stop-btn"
+                                        onClick={stopRecording}
+                                        title="Stop recording"
+                                        aria-label="Stop recording"
+                                    >
+                                        <span className="video-recorder-stop-icon" />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="video-recorder-send-circle-btn"
+                                        onClick={sendVoiceRecordingImmediately}
+                                        disabled={isSendingAction}
+                                        title="Send video now"
+                                        aria-label="Send video now"
+                                    >
+                                        <SendHorizontal size={20} />
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="video-recorder-preview-actions">
+                                    <button
+                                        type="button"
+                                        className="video-recorder-retake-btn"
+                                        onClick={retakeVideoRecording}
+                                        disabled={isSendingAction}
+                                    >
+                                        <RotateCcw size={16} />
+                                        <span>Retake</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="video-recorder-send-action-btn"
+                                        onClick={sendPendingRecording}
+                                        disabled={isSendingAction}
+                                    >
+                                        <SendHorizontal size={18} />
+                                        <span>{isSendingAction ? "Sending..." : "Send Video"}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {pastedImageModal && (
+                <div
+                    className="whatsapp-image-preview-overlay"
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 999999,
+                        background: "#0b141a",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between"
+                    }}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) closePastedImageModal();
+                    }}
+                >
+                    {/* Top Bar */}
+                    <div
+                        style={{
+                            height: "60px",
+                            background: "#111b21",
+                            borderBottom: "1px solid #202c33",
+                            padding: "0 24px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexShrink: 0
+                        }}
+                    >
+                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                            <button
+                                type="button"
+                                onClick={closePastedImageModal}
+                                style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    color: "#aebac1",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "8px",
+                                    borderRadius: "50%"
+                                }}
+                                title="Close (Esc)"
+                                aria-label="Close"
+                            >
+                                <X size={22} />
+                            </button>
+                            <div style={{ color: "#e9edef", fontSize: "14.5px", fontWeight: 600 }}>
+                                {pastedImageModal.file?.name}
+                                <span style={{ marginLeft: "10px", color: "#8696a0", fontSize: "12px", fontWeight: 400 }}>
+                                    ({(pastedImageModal.file?.size / 1024).toFixed(1)} KB)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Center Image Viewport */}
+                    <div
+                        style={{
+                            flex: 1,
+                            minHeight: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "24px",
+                            overflow: "hidden"
+                        }}
+                    >
+                        <img
+                            src={pastedImageModal.previewUrl}
+                            alt="Pasted Preview"
+                            style={{
+                                maxHeight: "68vh",
+                                maxWidth: "88vw",
+                                objectFit: "contain",
+                                borderRadius: "8px",
+                                boxShadow: "0 14px 40px rgba(0,0,0,0.6)"
+                            }}
+                        />
+                    </div>
+
+                    {/* Bottom Caption Bar */}
+                    <div
+                        style={{
+                            background: "#111b21",
+                            borderTop: "1px solid #202c33",
+                            padding: "16px 24px 22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0
+                        }}
+                    >
+                        <div
+                            style={{
+                                maxWidth: "720px",
+                                width: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px"
+                            }}
+                        >
+                            <div
+                                style={{
+                                    flex: 1,
+                                    background: "#2a3942",
+                                    borderRadius: "24px",
+                                    padding: "10px 18px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    border: "1px solid #3b4a54"
+                                }}
+                            >
+                                <Smile size={20} color="#8696a0" style={{ flexShrink: 0 }} />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    placeholder="Add a caption..."
+                                    value={pastedImageModal.caption}
+                                    onChange={(e) => setPastedImageModal(prev => ({ ...prev, caption: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            sendPastedImage();
+                                        }
+                                    }}
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "#e9edef",
+                                        fontSize: "15px",
+                                        width: "100%",
+                                        outline: "none"
+                                    }}
+                                />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={sendPastedImage}
+                                disabled={isSendingAction}
+                                style={{
+                                    width: "48px",
+                                    height: "48px",
+                                    borderRadius: "50%",
+                                    background: "#00a884",
+                                    border: "none",
+                                    color: "#ffffff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: isSendingAction ? "not-allowed" : "pointer",
+                                    boxShadow: "0 4px 14px rgba(0,168,132,0.45)",
+                                    transition: "all 0.2s ease",
+                                    flexShrink: 0
+                                }}
+                                title="Send image"
+                            >
+                                <SendHorizontal size={20} style={{ marginLeft: "2px" }} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {assignModal.open && (
+                <div className="chat-assign-modal-overlay" onClick={closeAssignModal}>
+                    <div className="chat-assign-modal" onClick={e => e.stopPropagation()}>
+                        <div className="chat-assign-modal-header">
+                            <div className="chat-assign-modal-title">
+                                <CheckSquare size={20} className="chat-assign-modal-title-icon" />
+                                <h3>
+                                    {selectedUser?.isGroup
+                                        ? `Assign Task (${selectedUser.name || "Group"})`
+                                        : `Assign Task to ${selectedUser?.name || "Employee"}`}
+                                </h3>
+                            </div>
+                            <button type="button" className="chat-assign-modal-close" onClick={closeAssignModal} aria-label="Close">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleAssignSubmit} className="chat-assign-modal-form">
+                            {assignModal.error && (
+                                <div className="chat-assign-error">{assignModal.error}</div>
+                            )}
+
+                            {selectedUser?.isGroup && (
+                                <div className="chat-assign-form-group">
+                                    <label>Assign To <span style={{ color: "#ef4444" }}>*</span></label>
+                                    <select
+                                        value={assignModal.targetUserId}
+                                        onChange={e => setAssignModal(prev => ({ ...prev, targetUserId: e.target.value }))}
+                                        className="chat-assign-select"
+                                        required
+                                    >
+                                        <option value="">Select Group Member</option>
+                                        {(selectedUser?.members || selectedUser?.groupMembers || conversation?.members || []).map(member => {
+                                            const mId = member?._id || member?.id;
+                                            return (
+                                                <option key={mId} value={mId}>
+                                                    {member.name || "Member"} {member.email ? `(${member.email})` : ""}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="chat-assign-form-group">
+                                <label>Task Title <span style={{ color: "#ef4444" }}>*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Enter task title"
+                                    value={assignModal.title}
+                                    onChange={e => setAssignModal(prev => ({ ...prev, title: e.target.value }))}
+                                    className="chat-assign-input"
+                                />
+                            </div>
+
+                            <div className="chat-assign-form-group">
+                                <label>Description</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Add details, instructions or expectations..."
+                                    value={assignModal.description}
+                                    onChange={e => setAssignModal(prev => ({ ...prev, description: e.target.value }))}
+                                    className="chat-assign-textarea"
+                                />
+                            </div>
+
+                            <div className="chat-assign-form-row">
+                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
+                                    <label>Priority</label>
+                                    <select
+                                        value={assignModal.priority}
+                                        onChange={e => setAssignModal(prev => ({ ...prev, priority: e.target.value }))}
+                                        className="chat-assign-select"
+                                    >
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+
+                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
+                                    <label>Due Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
+                                    <input
+                                        type="datetime-local"
+                                        required
+                                        value={assignModal.dueDateTime}
+                                        onChange={e => setAssignModal(prev => ({ ...prev, dueDateTime: e.target.value }))}
+                                        className="chat-assign-input"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="chat-assign-modal-footer">
+                                <button
+                                    type="button"
+                                    className="chat-assign-btn-cancel"
+                                    disabled={assignModal.submitting}
+                                    onClick={closeAssignModal}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="chat-assign-btn-submit"
+                                    disabled={assignModal.submitting}
+                                >
+                                    {assignModal.submitting ? "Assigning..." : "Assign Task"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default ChatBox;

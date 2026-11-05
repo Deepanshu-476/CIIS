@@ -5,6 +5,7 @@ import { useAuth, sanitizeUserForStorage, clearAuthStorageCaches } from '../../c
 import { toast } from 'react-toastify';
 import { lockBackgroundScroll, unlockBackgroundScroll } from '../../utils/scrollLock';
 import './LoginModal.css';
+import ResetOtpResend, { ResetOtpSendNote, useResetOtpLimit } from '../../components/ResetOtpResend';
 
 // Custom event names for global trigger
 const OPEN_MODAL_EVENT = 'ciis:open-login-modal';
@@ -57,6 +58,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
 
   // Modal Views: 'login' | 'otp' | 'forgot_email' | 'forgot_reset'
   const [view, setView] = useState('login');
+  const resetOtpLimit = useResetOtpLimit();
 
   // Form State
   const [form, setForm] = useState({
@@ -414,7 +416,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
 
   // Request Forgot Password OTP
   const handleSendForgotOtp = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     if (!forgotEmail.trim()) {
       setErrors({ forgotEmail: 'Registered email is required' });
       return;
@@ -433,10 +435,16 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
       }, { _skipErrorNotify: true });
 
       if (res.data.success) {
+        resetOtpLimit.applySuccess(res.data);
         toast.success(res.data.message || 'Reset code sent to your email!');
         setView('forgot_reset');
       }
     } catch (err) {
+      // A wait or lock from the server: show the countdown. During a wait the
+      // last code is still valid, so go to the code step.
+      if (resetOtpLimit.applyError(err) && err.response?.data?.errorCode === 'OTP_COOLDOWN') {
+        setView('forgot_reset');
+      }
       const msg = err.response?.data?.message || 'Failed to send reset code.';
       setErrors({ forgotEmail: msg });
       toast.error(msg);
@@ -491,6 +499,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
       }, { _skipErrorNotify: true });
 
       toast.success('Password reset successfully! Please sign in.');
+      resetOtpLimit.reset();
       setView('login');
       setForm(prev => ({ ...prev, password: '' }));
       setForgotEmail('');
@@ -877,6 +886,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
                     onChange={(e) => {
                       setForgotEmail(e.target.value);
                       setErrors({});
+                      resetOtpLimit.reset();
                     }}
                     placeholder="name@company.com"
                     className="ciis-modal-input"
@@ -890,7 +900,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
               <button
                 type="submit"
                 className="ciis-modal-submit-btn"
-                disabled={loading}
+                disabled={loading || !resetOtpLimit.canSend}
               >
                 {loading ? (
                   <>
@@ -901,6 +911,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
                   <span>Send Reset Code</span>
                 )}
               </button>
+              <ResetOtpSendNote limit={resetOtpLimit} />
             </form>
           </>
         )}
@@ -960,6 +971,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
                 </div>
                 {errors.resetOtp && <span className="ciis-modal-error-text">{errors.resetOtp}</span>}
               </div>
+              <ResetOtpResend limit={resetOtpLimit} onResend={() => handleSendForgotOtp()} loading={loading} />
 
               <div className="ciis-modal-field">
                 <label className="ciis-modal-label">New Password</label>

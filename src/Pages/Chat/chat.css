@@ -9618,3 +9618,26 @@ body.chat-sidebar-resizing * {
     opacity: 0.65;
     cursor: not-allowed;
 }
+
+/* ---- Background upload bubble (file sent, still uploading) ---- */
+.chat-pending-upload .message-bubble { max-width: min(320px, 78vw); }
+.chat-pending-media { position: relative; border-radius: 8px; overflow: hidden; background: rgba(0, 0, 0, 0.06); min-height: 72px; }
+.chat-pending-media img,
+.chat-pending-media video { display: block; width: 100%; max-height: 260px; object-fit: cover; }
+.chat-pending-file { display: flex; align-items: center; gap: 10px; padding: 14px 64px 14px 12px; font-size: 13px; word-break: break-word; }
+.chat-pending-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.28); }
+.chat-pending-file + .chat-pending-overlay { inset: 0 0 0 auto; width: 60px; background: transparent; }
+.chat-pending-action { position: relative; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(0, 0, 0, 0.5); cursor: pointer; }
+.chat-pending-action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.chat-pending-ring { position: absolute; inset: 1px; width: 44px; height: 44px; transform: rotate(-90deg); }
+.chat-pending-ring circle { fill: none; stroke-width: 3; }
+.chat-pending-ring .track { stroke: rgba(255, 255, 255, 0.25); }
+.chat-pending-ring .bar { stroke: #fff; stroke-linecap: round; stroke-dasharray: 119.4; transition: stroke-dashoffset 0.25s linear; }
+.chat-pending-ring .bar.spin { animation: chat-pending-spin 1s linear infinite; transform-origin: 22px 22px; }
+@keyframes chat-pending-spin { to { transform: rotate(360deg); } }
+.chat-pending-name { margin-top: 4px; font-size: 12px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-pending-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; font-size: 12px; opacity: 0.85; }
+.chat-pending-status .whatsapp-message-meta { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; position: static; }
+.chat-pending-status.is-failed > span:first-child { color: #c62828; font-weight: 600; }
+.chat-pending-status button { padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .chat-pending-ring .bar.spin { animation: none; } }

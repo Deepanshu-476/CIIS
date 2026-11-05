@@ -1,7 +1,8 @@
 import React, {
     useEffect,
     useRef,
-    useState
+    useState,
+    useSyncExternalStore
 } from "react";
 import "../Pages/Chat/chat.css";
 import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
@@ -11,6 +12,8 @@ import axios from "../utils/axiosConfig";
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
+import PendingUploadBubble from "./PendingUploadBubble";
+import { enqueueUpload, getUploads, onUploadSent, subscribeUploads } from "./uploadQueue";
 import ChatMentionInput from "./ChatMentionInput";
 import { taskEventText } from "./taskEventText";
 import { mentionMembers, reconcileMentions } from "./mentionUtils";
@@ -1058,6 +1061,36 @@ useEffect(() => {
         queueScrollToLatestMessage("smooth");
     };
 
+    const allUploads = useSyncExternalStore(subscribeUploads, getUploads);
+    const pendingUploads = conversation?._id
+        ? allUploads.filter((item) => item.conversationId === String(conversation._id))
+        : [];
+    const appendSentMessagesRef = useRef(appendSentMessages);
+    appendSentMessagesRef.current = appendSentMessages;
+    const onConversationChangeRef = useRef(onConversationChange);
+    onConversationChangeRef.current = onConversationChange;
+    const openConversationIdRef = useRef(null);
+    openConversationIdRef.current = conversation?._id ? String(conversation._id) : null;
+
+    // Scroll to a newly sent file once its bubble is on screen.
+    const pendingUploadCount = pendingUploads.length;
+    const previousPendingCountRef = useRef(0);
+    useEffect(() => {
+        const added = pendingUploadCount > previousPendingCountRef.current;
+        previousPendingCountRef.current = pendingUploadCount;
+        if (!added) return undefined;
+        scrollToLatestMessage("smooth");
+        // Photo/video previews take a moment to get their height.
+        const timer = setTimeout(() => scrollToLatestMessage("smooth"), 400);
+        return () => clearTimeout(timer);
+    }, [pendingUploadCount]);
+
+    // A background upload finished: put the saved message in this chat if it is open.
+    useEffect(() => onUploadSent((message, conversationId) => {
+        if (openConversationIdRef.current === String(conversationId)) appendSentMessagesRef.current([message]);
+        onConversationChangeRef.current?.();
+    }), []);
+
     const emitSentMessage = () => {
         // Message delivery is emitted by the backend after database persistence.
         // Keeping this as a no-op prevents duplicate socket events and unread bumps.
@@ -1349,52 +1382,38 @@ useEffect(() => {
             return;
         }
 
+        // Files go to the background upload queue: they show in the chat at once and
+        // the composer is free for the next message while they upload.
+        if (files.length > 0) {
+            const outgoingText = text;
+            const myId = getEntityId(currentUser);
+            files.forEach((fileItem, index) => {
+                const uploadFile = getUploadFile(fileItem);
+                enqueueUpload({
+                    conversationId: conversation._id,
+                    file: uploadFile,
+                    text: index === 0 ? outgoingText : "",
+                    mentions: index === 0 ? messageMentions : undefined,
+                    replyToMessageId: index === 0 ? replyingTo?._id : undefined,
+                    replyTo: index === 0 && replyingTo ? { text: getMessageText(replyingTo) || attachmentLabel(replyingTo) } : null,
+                    compressionMode: fileItem?.compressionMode || chooseCompressionMode(uploadFile),
+                    sender: myId,
+                });
+            });
+            setText("");
+            setReplyingTo(null);
+            setFiles([]);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+            queueScrollToLatestMessage("smooth");
+            return;
+        }
+
         try {
             const messagesToAppend = [];
             const outgoingText = text;
 
-            if (files.length > 0) {
-                for (let index = 0; index < files.length; index += 1) {
-                    const fileItem = files[index];
-                    const uploadFile = getUploadFile(fileItem);
-                    const formData = new FormData();
-
-                    formData.append(
-                        "conversationId",
-                        conversation._id
-                    );
-
-                    if (index === 0 && outgoingText.trim()) {
-                        formData.append(
-                            "text",
-                            outgoingText
-                        );
-                    }
-
-                    if (index === 0) formData.append("mentions", JSON.stringify(messageMentions));
-                    if (index === 0 && replyingTo?._id) {
-                        formData.append("replyToMessageId", replyingTo._id);
-                    }
-
-                    formData.append(
-                        "file",
-                        uploadFile
-                    );
-                    if (uploadFile.type) formData.append("fileType", uploadFile.type);
-                    if (uploadFile.name) formData.append("fileName", uploadFile.name);
-                    appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(uploadFile));
-
-                    const res =
-                        await sendMessage(formData);
-
-                    const newMessage =
-                        res.data.message;
-
-                    messagesToAppend.push(newMessage);
-
-                    emitSentMessage(newMessage);
-                }
-            } else {
+            {
                 const formData = new FormData();
 
                 formData.append(
@@ -2797,7 +2816,12 @@ useEffect(() => {
                     })
                 }
 
+                {!normalizedSearchTerm && pendingUploads.map((upload) => (
+                    <PendingUploadBubble key={upload.id} upload={upload} />
+                ))}
+
                 {displayedMessages.length === 0
+                    && pendingUploads.length === 0
                     && !normalizedSearchTerm
                     && conversation?._id
                     && loadedConversationId === String(conversation._id) && (

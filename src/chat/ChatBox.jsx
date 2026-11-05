@@ -369,6 +369,7 @@ const ChatBox = ({
 
     const [files, setFiles] =
         useState([]);
+    const [pastedImageModal, setPastedImageModal] = useState(null);
 
     const [isSendingAction, setIsSendingAction] = useState(false);
     const [typingUserId, setTypingUserId] = useState(null);
@@ -1639,6 +1640,113 @@ useEffect(() => {
         event.target.value = "";
     };
 
+    const closePastedImageModal = () => {
+        if (pastedImageModal?.previewUrl) {
+            URL.revokeObjectURL(pastedImageModal.previewUrl);
+        }
+        setPastedImageModal(null);
+    };
+
+    const openPastedImageModal = (file) => {
+        if (!file) return;
+        if (pastedImageModal?.previewUrl) {
+            URL.revokeObjectURL(pastedImageModal.previewUrl);
+        }
+        const previewUrl = URL.createObjectURL(file);
+        setPastedImageModal({
+            file,
+            previewUrl,
+            caption: ""
+        });
+    };
+
+    const sendPastedImage = async () => {
+        if (!pastedImageModal || !conversation || isSendingAction) return;
+        try {
+            setIsSendingAction(true);
+            const { file, caption } = pastedImageModal;
+            const formData = new FormData();
+            formData.append("conversationId", conversation._id);
+            if (caption && caption.trim()) {
+                formData.append("text", caption.trim());
+            }
+            if (replyingTo?._id) {
+                formData.append("replyToMessageId", replyingTo._id);
+            }
+            formData.append("file", file);
+            if (file.type) formData.append("fileType", file.type);
+            if (file.name) formData.append("fileName", file.name);
+            appendCompressionMode(formData, "normal");
+
+            const res = await sendMessage(formData);
+            const newMessage = res.data.message;
+            appendSentMessages([newMessage]);
+            emitSentMessage(newMessage);
+
+            closePastedImageModal();
+            setReplyingTo(null);
+            onConversationChange?.();
+        } catch (error) {
+            showToast?.(error.response?.data?.message || "Unable to send image. Please try again.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handlePaste = (e) => {
+        const clipboardData = e.clipboardData;
+        if (!clipboardData) return;
+
+        const items = Array.from(clipboardData.items || []);
+        const imageItem = items.find(
+            (item) => item.kind === "file" && item.type && item.type.startsWith("image/")
+        );
+
+        if (imageItem) {
+            e.preventDefault();
+            const blob = imageItem.getAsFile();
+            if (blob) {
+                const ext = (blob.type && blob.type.split("/")[1]) || "png";
+                const file = new File(
+                    [blob],
+                    "pasted-image-" + Date.now() + "." + ext,
+                    { type: blob.type || "image/png", lastModified: Date.now() }
+                );
+                openPastedImageModal(file);
+                return;
+            }
+        }
+
+        const clipFiles = Array.from(clipboardData.files || []);
+        const imageFile = clipFiles.find((f) => f && f.type && f.type.startsWith("image/"));
+        if (imageFile) {
+            e.preventDefault();
+            openPastedImageModal(imageFile);
+        }
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape" && pastedImageModal) {
+                closePastedImageModal();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [pastedImageModal]);
+
+    useEffect(() => {
+        if (!conversation) return;
+        const handleWindowPaste = (e) => {
+            const target = e.target;
+            if (target && target.tagName === "INPUT" && target.type !== "file" && !target.classList.contains("chat-input")) {
+                return;
+            }
+            handlePaste(e);
+        };
+        window.addEventListener("paste", handleWindowPaste);
+        return () => window.removeEventListener("paste", handleWindowPaste);
+    }, [conversation, pastedImageModal]);
     const getMessageText = (message) => String(taskEventText(message) || message?.caption || "")
         .replace(/\[\[ciis-reply:[^\]]+\]\]/g, "")
         .replace(/\[\[ciis-expire:\d+\]\]/g, "")
@@ -2947,6 +3055,7 @@ useEffect(() => {
                         <ChatMentionInput
                             ref={chatInputRef}
                             mentions={messageMentions}
+                            onPaste={handlePaste}
                             members={availableMentionMembers}
                             onMentionSelect={setText}
                             aria-label={replyingTo ? "Write a reply" : "Write a message"}
@@ -3210,6 +3319,173 @@ useEffect(() => {
                                     </button>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {pastedImageModal && (
+                <div
+                    className="whatsapp-image-preview-overlay"
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 999999,
+                        background: "#0b141a",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between"
+                    }}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) closePastedImageModal();
+                    }}
+                >
+                    {/* Top Bar */}
+                    <div
+                        style={{
+                            height: "60px",
+                            background: "#111b21",
+                            borderBottom: "1px solid #202c33",
+                            padding: "0 24px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexShrink: 0
+                        }}
+                    >
+                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                            <button
+                                type="button"
+                                onClick={closePastedImageModal}
+                                style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    color: "#aebac1",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "8px",
+                                    borderRadius: "50%"
+                                }}
+                                title="Close (Esc)"
+                                aria-label="Close"
+                            >
+                                <X size={22} />
+                            </button>
+                            <div style={{ color: "#e9edef", fontSize: "14.5px", fontWeight: 600 }}>
+                                {pastedImageModal.file?.name}
+                                <span style={{ marginLeft: "10px", color: "#8696a0", fontSize: "12px", fontWeight: 400 }}>
+                                    ({(pastedImageModal.file?.size / 1024).toFixed(1)} KB)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Center Image Viewport */}
+                    <div
+                        style={{
+                            flex: 1,
+                            minHeight: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "24px",
+                            overflow: "hidden"
+                        }}
+                    >
+                        <img
+                            src={pastedImageModal.previewUrl}
+                            alt="Pasted Preview"
+                            style={{
+                                maxHeight: "68vh",
+                                maxWidth: "88vw",
+                                objectFit: "contain",
+                                borderRadius: "8px",
+                                boxShadow: "0 14px 40px rgba(0,0,0,0.6)"
+                            }}
+                        />
+                    </div>
+
+                    {/* Bottom Caption Bar */}
+                    <div
+                        style={{
+                            background: "#111b21",
+                            borderTop: "1px solid #202c33",
+                            padding: "16px 24px 22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0
+                        }}
+                    >
+                        <div
+                            style={{
+                                maxWidth: "720px",
+                                width: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px"
+                            }}
+                        >
+                            <div
+                                style={{
+                                    flex: 1,
+                                    background: "#2a3942",
+                                    borderRadius: "24px",
+                                    padding: "10px 18px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    border: "1px solid #3b4a54"
+                                }}
+                            >
+                                <Smile size={20} color="#8696a0" style={{ flexShrink: 0 }} />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    placeholder="Add a caption..."
+                                    value={pastedImageModal.caption}
+                                    onChange={(e) => setPastedImageModal(prev => ({ ...prev, caption: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            sendPastedImage();
+                                        }
+                                    }}
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "#e9edef",
+                                        fontSize: "15px",
+                                        width: "100%",
+                                        outline: "none"
+                                    }}
+                                />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={sendPastedImage}
+                                disabled={isSendingAction}
+                                style={{
+                                    width: "48px",
+                                    height: "48px",
+                                    borderRadius: "50%",
+                                    background: "#00a884",
+                                    border: "none",
+                                    color: "#ffffff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: isSendingAction ? "not-allowed" : "pointer",
+                                    boxShadow: "0 4px 14px rgba(0,168,132,0.45)",
+                                    transition: "all 0.2s ease",
+                                    flexShrink: 0
+                                }}
+                                title="Send image"
+                            >
+                                <SendHorizontal size={20} style={{ marginLeft: "2px" }} />
+                            </button>
                         </div>
                     </div>
                 </div>

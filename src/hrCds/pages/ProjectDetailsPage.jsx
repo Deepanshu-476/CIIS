@@ -45,6 +45,16 @@ const getTaskCreatedTieBreaker = (task) => {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 };
 
+const getMinDateTimeLocal = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 const getAttachmentPath = (fileObj) => {
   if (!fileObj) return "";
   if (typeof fileObj === "string") return fileObj.trim();
@@ -679,8 +689,13 @@ const ProjectDetailsPage = () => {
     ) {
       errors.assignedTo = "Assign at least one user before moving a task to In Progress.";
     }
-    if (newTask.dueDate && Number.isNaN(new Date(newTask.dueDate).getTime())) {
-      errors.dueDate = "Please select a valid date/time.";
+    if (newTask.dueDate) {
+      const dueDateVal = new Date(newTask.dueDate).getTime();
+      if (Number.isNaN(dueDateVal)) {
+        errors.dueDate = "Please select a valid date/time.";
+      } else if (!editingTask && dueDateVal < Date.now() - 60000) {
+        errors.dueDate = "Due date cannot be in the past.";
+      }
     }
     setTaskErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1498,14 +1513,22 @@ const ProjectDetailsPage = () => {
       className={`pdp-stat-card pdp-stat-card-clickable ${
         active ? "pdp-stat-card-active" : ""
       } ${className}`}
-      style={{ borderLeftColor: color }}
+      style={{
+        borderLeftColor: color,
+        "--stat-card-color": color,
+      }}
       onClick={() => {
-        if (filter) {
-          setTaskFilter(filter);
-          setTaskPage(1);
-          loadProjectDetails(projectId, 1, taskLimit, { taskFilter: filter });
-        }
+        const nextFilter = taskFilter === filter && filter !== "all" ? "all" : (filter || "all");
+        setTaskFilter(nextFilter);
+        setTaskPage(1);
+        loadProjectDetails(projectId, 1, taskLimit, { taskFilter: nextFilter });
         setTabValue(tabTarget);
+        setTimeout(() => {
+          const filterBar = document.getElementById("pdp-task-filter-bar");
+          if (filterBar) {
+            filterBar.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        }, 120);
       }}
     >
       <div className="pdp-stat-content">
@@ -2366,7 +2389,7 @@ const ProjectDetailsPage = () => {
               </div>
 
               {/* Task Filter Bar */}
-              <div className="pdp-task-filter-bar">
+              <div className="pdp-task-filter-bar" id="pdp-task-filter-bar">
                 <div className="pdp-task-filter-copy">
                   <strong>Tasks Filter</strong>
                   <span>
@@ -2429,6 +2452,13 @@ const ProjectDetailsPage = () => {
                     <select
                       className="pdp-select"
                       value={taskFilter}
+                      style={taskFilter !== "all" ? {
+                        borderColor: "#6366f1",
+                        backgroundColor: "#eef2ff",
+                        color: "#4338ca",
+                        fontWeight: 600,
+                        boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.2)"
+                      } : {}}
                       onChange={(e) => {
                         const nextFilter = e.target.value;
                         setTaskFilter(nextFilter);
@@ -3551,13 +3581,17 @@ const ProjectDetailsPage = () => {
                   <label>Due Date & Time</label>
                   <input
                     type="datetime-local"
+                    min={getMinDateTimeLocal()}
                     className={`pdp-input ${
                       taskErrors.dueDate ? "pdp-input-error" : ""
                     }`}
                     value={newTask.dueDate}
-                    onChange={(e) =>
-                      setNewTask({ ...newTask, dueDate: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setNewTask({ ...newTask, dueDate: e.target.value });
+                      if (taskErrors.dueDate) {
+                        setTaskErrors((prev) => ({ ...prev, dueDate: "" }));
+                      }
+                    }}
                   />
                   {taskErrors.dueDate && (
                     <span className="pdp-error-text">

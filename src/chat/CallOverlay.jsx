@@ -1755,9 +1755,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                 {isCameraOff ? <VideoOff size={21} /> : <Video size={21} />}
                             </button>
                         )}
-                        <button type="button" className={isScreenSharing ? "call-btn active" : "call-btn"} onClick={startScreenShare} title={isScreenSharing ? "Stop sharing" : "Share screen"}>
-                            {isScreenSharing ? <ScreenShareOff size={21} /> : <MonitorUp size={21} />}
-                        </button>
+                        {isVideoCall && (
+                            <button type="button" className={isScreenSharing ? "call-btn active" : "call-btn"} onClick={startScreenShare} title={isScreenSharing ? "Stop sharing" : "Share screen"}>
+                                {isScreenSharing ? <ScreenShareOff size={21} /> : <MonitorUp size={21} />}
+                            </button>
+                        )}
                         <button type="button" className="call-btn" onClick={openAddPeople} title="Add people">
                             <UserPlus size={21} />
                         </button>

@@ -404,6 +404,31 @@ const isSameLocalDay = (left, right) => {
   return leftDate.getTime() === rightDate.getTime();
 };
 
+
+const formatDueDateOnly = (dueDate) => {
+  if (!dueDate) return '—';
+  const dateObj = new Date(dueDate);
+  if (Number.isNaN(dateObj.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(dateObj);
+};
+
+const formatDueTimeOnly = (dueDate) => {
+  if (!dueDate) return '';
+  const dateObj = new Date(dueDate);
+  if (Number.isNaN(dateObj.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  }).format(dateObj);
+};
+
 const formatDueDateTime = (dueDate) => {
   if (!dueDate) return '—';
   const dateObj = new Date(dueDate);
@@ -418,6 +443,40 @@ const formatDueDateTime = (dueDate) => {
     minute: '2-digit',
     hour12: true
   }).format(dateObj).replace(',', '');
+};
+
+
+const getRemainingCountdown = (dueDate, now) => {
+  if (!dueDate) return null;
+  const due = new Date(dueDate).getTime();
+  if (Number.isNaN(due)) return null;
+
+  const diffMs = due - now;
+  const isPast = diffMs < 0;
+  const absDiff = Math.abs(diffMs);
+
+  const seconds = Math.floor((absDiff / 1000) % 60);
+  const minutes = Math.floor((absDiff / (1000 * 60)) % 60);
+  const hours = Math.floor((absDiff / (1000 * 60 * 60)) % 24);
+  const days = Math.floor(absDiff / (1000 * 60 * 60 * 24));
+
+  let timeString = '';
+  const pad = (n) => String(n).padStart(2, '0');
+  if (days > 0) {
+    timeString = `${days}d ${hours}h ${minutes}m`;
+  } else if (hours > 0) {
+    timeString = `${hours}h ${pad(minutes)}m ${pad(seconds)}s`;
+  } else if (minutes > 0) {
+    timeString = `${minutes}m ${pad(seconds)}s`;
+  } else {
+    timeString = `${seconds}s`;
+  }
+
+  return {
+    isPast,
+    diffMs,
+    text: isPast ? `Overdue by ${timeString}` : `Overdue in ${timeString}`
+  };
 };
 
 const StatCard = ({ color = 'primary', clickable = true, active = false, children, onClick }) => {
@@ -917,6 +976,12 @@ const UserCreateTask = () => {
   const [userRole, setUserRole] = useState(storedTaskUser?.role || '');
   const [userId, setUserId] = useState(storedTaskUser?.id || '');
   const [userName, setUserName] = useState(storedTaskUser?.name || '');
+  const [liveNow, setLiveNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setLiveNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [userShiftWindow, setUserShiftWindow] = useState(extractShiftWindow(storedTaskUser));
   const [authError, setAuthError] = useState(!storedTaskUser);
   const [savingTaskIds, setSavingTaskIds] = useState(() => new Set());
@@ -1266,13 +1331,27 @@ const UserCreateTask = () => {
       const fetchServiceTasks = async () => {
         setLoadingServiceTasks(true);
         try {
-          const encodedService = encodeURIComponent(clientTaskForm.service);
-          const res = await axios.get(`/tasks/client-tasks/client/${selectedClientId}/service/${encodedService}`);
+          // Fetch this client's full task list and match the service locally.
+          // Older plan data can have harmless casing/spacing differences (for
+          // example "Web development" vs "Web Development"), while the
+          // service endpoint performs an exact database match.
+          const res = await axios.get(`/tasks/client-tasks/client/${selectedClientId}`, {
+            params: { all: true, compact: true }
+          });
           if (res.data?.success) {
-            const tasks = res.data.data.filter(t => {
+            const allClientTasks = Array.isArray(res.data?.data?.tasks) ? res.data.data.tasks : [];
+            const selectedService = String(clientTaskForm.service || '').trim().toLowerCase();
+            // Plan-created tasks can already be marked overdue when their due
+            // date has passed. They still need to be visible here so the user
+            // can select/assign them instead of appearing as if no task exists.
+            const tasks = allClientTasks.filter(t => {
+              const taskService = String(t.service || '').trim().toLowerCase();
               const isAssigned = t.assigneeId || (t.assignee && t.assignee !== 'Unassigned');
               const status = t.status ? t.status.toLowerCase() : 'pending';
-              return status === 'pending' && !isAssigned;
+              return taskService === selectedService
+                && !isAssigned
+                && !t.completed
+                && !['completed', 'cancelled'].includes(status);
             });
             setServicePendingTasks(tasks);
           }
@@ -3758,6 +3837,10 @@ const UserCreateTask = () => {
       showSnackbar('Invalid due date', 'error');
       return;
     }
+    if (new Date(dueDateIso).getTime() < Date.now() - 60000) {
+      showSnackbar('Due date cannot be in the past', 'error');
+      return;
+    }
 
     const assignedToId = String(projectTaskForm.assignedTo || '').trim();
     if (assignedToId && selectedProjectUsers.length > 0) {
@@ -5329,6 +5412,11 @@ const UserCreateTask = () => {
         setIsCreatingTask(false);
         return;
       }
+      if (dueDate.getTime() < Date.now() - 60000) {
+        showSnackbar('Due date cannot be in the past', 'error');
+        setIsCreatingTask(false);
+        return;
+      }
 
       const recurrenceEndDate = newTask.repeatPattern !== 'none'
         ? getEndOfLocalDayIso(newTask.recurrenceEndDate)
@@ -6599,7 +6687,7 @@ const UserCreateTask = () => {
               {clientTaskForm.service && (
                 <div className="user-create-task-form-control">
                   <label style={{ fontSize: '13px', fontWeight: 600, color: '#333', marginBottom: '8px', display: 'block' }}>
-                    Pending Tasks for {clientTaskForm.service}
+                    Available Tasks for {clientTaskForm.service}
                   </label>
                   {loadingServiceTasks ? (
                     <div style={{ fontSize: '13px', color: '#666', padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>Loading tasks...</div>
@@ -6645,7 +6733,7 @@ const UserCreateTask = () => {
                     </div>
                   ) : (
                     <div style={{ fontSize: '13px', color: '#666', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px dashed #ccc' }}>
-                      No unassigned pending tasks found for this service.
+                      No unassigned tasks found for this service.
                     </div>
                   )}
                 </div>
@@ -6892,7 +6980,7 @@ const UserCreateTask = () => {
                         }
                         setProjectTaskForm(prev => ({ ...prev, dueDateTime: formattedValue }));
                       }}
-                      min={new Date().toISOString().slice(0, 16)}
+                      min={getIndiaDateTimeLocalValue()}
                     />
                   </div>
 
@@ -7238,7 +7326,7 @@ const UserCreateTask = () => {
                               <div className="user-create-task-flex user-create-task-flex-column user-create-task-gap-2">
                                 <div className="user-create-task-mobile-card-header">
                                   <div style={{ flex: 1 }}>
-                                    <div className="user-create-task-mobile-card-title">
+                                    <div className="user-create-task-mobile-card-title" title={task.title || task.name || 'Untitled'}>
                                       {task.title || task.name || 'Untitled'}
                                     </div>
                                     <div className="user-create-task-mobile-card-description">
@@ -7428,7 +7516,7 @@ const UserCreateTask = () => {
                         <tr style={{ backgroundColor: '#f5f5f5' }}>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Title</th>
                           {!isMobile && <th style={{ padding: isMobile ? '8px' : '12px' }}>Description</th>}
-                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Due Date</th>
+                          <th style={{ padding: isMobile ? '8px' : '10px', width: '165px', minWidth: '165px' }}>Due Date</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Priority</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Status</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Checkpoints</th>
@@ -7484,7 +7572,7 @@ const UserCreateTask = () => {
                               } : {}}
                             >
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                <div className="task-table-title" style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
+                                <div className="task-table-title" title={task.title || task.name || 'Untitled'} style={{ fontWeight: 600, fontSize: isMobile ? '13px' : '14px' }}>
                                   {task.title || task.name || 'Untitled'}
                                 </div>
                                 {isMobile && (
@@ -7519,36 +7607,67 @@ const UserCreateTask = () => {
                               </td>
                               {!isMobile && (
                                 <td style={{ padding: '12px', maxWidth: '200px' }}>
-                                  <div style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <div title={task.description || task.name || '-'} style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {task.description || task.name || '-'}
                                   </div>
                                 </td>
                               )}
-                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
-                                <div className="user-create-task-flex user-create-task-align-center user-create-task-gap-1">
-                                  <FiCalendar size={isMobile ? 12 : 14} />
+                              <td style={{ padding: isMobile ? '6px 6px' : '8px 8px', width: '165px', minWidth: '165px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '3px' }}>
                                   <div style={{
-                                    fontSize: isMobile ? '13px' : '14px',
-                                    color: shouldHighlightOverdue ? '#f44336' : '#333',
-                                    fontWeight: shouldHighlightOverdue ? '600' : '500'
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    fontSize: '12px',
+                                    fontWeight: shouldHighlightOverdue ? 600 : 500,
+                                    color: shouldHighlightOverdue ? '#dc2626' : '#1e293b',
+                                    whiteSpace: 'nowrap',
+                                    lineHeight: 1.2
                                   }}>
-                                    {formatDueDateTime(dueDate)}
+                                    <FiCalendar size={12} style={{ flexShrink: 0, color: shouldHighlightOverdue ? '#dc2626' : '#64748b' }} />
+                                    <span>{formatDueDateOnly(dueDate)}</span>
                                   </div>
-                                  {shouldHighlightOverdue && (
-                                    <div 
-                                      className="user-create-task-overdue-badge"
-                                      style={{
-                                        backgroundColor: '#f44336',
-                                        color: 'white',
-                                        padding: '2px 8px',
-                                        borderRadius: '12px',
-                                        fontSize: '11px',
-                                        fontWeight: '600'
-                                      }}
-                                    >
-                                      OVERDUE
+                                  {formatDueTimeOnly(dueDate) && (
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      fontSize: '11px',
+                                      color: '#64748b',
+                                      fontWeight: 500,
+                                      whiteSpace: 'nowrap',
+                                      lineHeight: 1.2
+                                    }}>
+                                      <FiClock size={12} style={{ flexShrink: 0, color: '#94a3b8' }} />
+                                      <span>{formatDueTimeOnly(dueDate)}</span>
                                     </div>
                                   )}
+                                  {!['completed', 'cancelled'].includes(normalizeStatus(displayedStatus)) && (() => {
+                                    const countdown = getRemainingCountdown(dueDate, liveNow);
+                                    if (!countdown) return null;
+                                    return (
+                                      <div style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '9.5px',
+                                        fontWeight: 600,
+                                        lineHeight: 1.2,
+                                        marginTop: '2px',
+                                        whiteSpace: 'nowrap',
+                                        boxSizing: 'border-box',
+                                        width: 'fit-content',
+                                        backgroundColor: countdown.isPast ? '#fee2e2' : '#fff1f2',
+                                        color: countdown.isPast ? '#b91c1c' : '#e11d48',
+                                        border: `1px solid ${countdown.isPast ? '#fca5a5' : '#fecdd3'}`
+                                      }}>
+                                        <FiClock size={9} style={{ flexShrink: 0 }} />
+                                        <span style={{ whiteSpace: 'nowrap' }}>{countdown.text}</span>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </td>
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>

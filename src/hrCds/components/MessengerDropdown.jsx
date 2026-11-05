@@ -225,6 +225,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState("");
   const [attachmentError, setAttachmentError] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [headerAvatarFailed, setHeaderAvatarFailed] = useState(false);
 
   // Input & Sending
   const [inputText, setRawInputText] = useState("");
@@ -306,6 +307,27 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     }
     return selectedChat;
   };
+
+  // A quick-chat shortcut can contain only a member id. Fall back to the full
+  // colleague record already loaded in the widget so its profile image appears
+  // immediately, before the conversation refresh completes.
+  const getSelectedChatAvatarUrl = () => {
+    const target = getSelectedChatTarget();
+    const targetUser = target?.user && typeof target.user === "object" ? target.user : target;
+    const targetId = getEntityId(targetUser);
+    const knownUser = targetId
+      ? companyUsers.find((user) => getEntityId(user) === targetId)
+      : null;
+
+    return resolveAvatarUrl(selectedChat)
+      || resolveAvatarUrl(targetUser)
+      || resolveAvatarUrl(selectedChat?.targetUser)
+      || resolveAvatarUrl(knownUser);
+  };
+
+  useEffect(() => {
+    setHeaderAvatarFailed(false);
+  }, [selectedChat]);
 
   useEffect(() => {
     const handleCloseFromSupport = () => {
@@ -973,6 +995,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     });
   }, [conversations, companyUsers, companyGroups, searchQuery, activeTab, currentUserId]);
 
+  const selectedChatAvatarUrl = getSelectedChatAvatarUrl();
+
   const getMessageSenderName = (msg) => {
     if (!msg) return "Member";
     if (msg.sender && typeof msg.sender === "object") {
@@ -1282,8 +1306,15 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
                 <div className="fb-chat-header-avatar">
                   <div className={`fb-messenger-avatar ${selectedChat?.isGroup ? "group" : ""}`}>
-                    {resolveAvatarUrl(selectedChat) ? (
-                      <img src={resolveAvatarUrl(selectedChat)} alt="" />
+                    {selectedChatAvatarUrl && !headerAvatarFailed ? (
+                      <img
+                        src={selectedChatAvatarUrl}
+                        alt=""
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                          setHeaderAvatarFailed(true);
+                        }}
+                      />
                     ) : selectedChat?.isGroup ? (
                       <Users size={16} />
                     ) : (

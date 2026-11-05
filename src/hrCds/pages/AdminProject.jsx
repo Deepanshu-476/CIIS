@@ -1699,21 +1699,19 @@ export const AdminProject = () => {
           </div>
 
           {filteredProjects.length === 0 ? (
-            <div className="ap-empty-state">
-              <div className="ap-empty-icon"><Icons.Folder /></div>
-              <h4 className="ap-empty-title">No projects found</h4>
-              <p className="ap-empty-description">
-                {searchTerm ? "Try a different search term" : "Create your first project to get started"}
-              </p>
-              <button
-                className="ap-btn ap-btn-primary"
-                onClick={() => {
-                  resetForm();
-                  document.getElementById('ap-project-form')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                <Icons.Add /> Create First Project
-              </button>
+            <div className={`ap-empty-state ${searchTerm ? "ap-empty-state-search" : ""}`}>
+              <div className="ap-empty-icon" aria-hidden="true"><Icons.Folder /></div>
+              <div className="ap-empty-copy">
+                <span className="ap-empty-eyebrow">Project workspace</span>
+                <h4 className="ap-empty-title">
+                  {searchTerm ? "No matching projects" : "Your project workspace is ready"}
+                </h4>
+                <p className="ap-empty-description">
+                  {searchTerm
+                    ? "We couldn't find a project matching your search. Try a different name or clear the search to view all projects."
+                    : "There are no projects in this branch yet. Use the Create New Project button above when you're ready to add one."}
+                </p>
+              </div>
             </div>
           ) : (
             <div className="ap-project-grid">

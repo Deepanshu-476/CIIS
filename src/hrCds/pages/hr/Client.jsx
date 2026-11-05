@@ -1331,20 +1331,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
       setTasks(Array.isArray(tasksData) ? tasksData : []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
-      if (savedTasks) {
-        try {
-          const parsedTasks = JSON.parse(savedTasks);
-          setTasks(parsedTasks.map(task => ({
-            ...task,
-            dueDate: task.dueDate || null,
-            assignee: task.assignee || '',
-            priority: task.priority || 'Medium'
-          })));
-        } catch (e) {
-          console.error('Error parsing localStorage tasks:', e);
-        }
-      }
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -1437,30 +1424,14 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
         }
       } catch (error) {
         console.error('Error adding task:', error);
-        const newTaskObj = {
-          id: Date.now(),
-          name: newTask.name.trim(),
-          description: newTask.description.trim(),
-          dueDate: convertToISODateString(newTask.dueDate),
-          assignee: newTask.assignee,
-          priority: newTask.priority,
-          isPlanTask: false,
-          completed: false,
-          createdAt: new Date().toISOString(),
-          completedAt: null
-        };
-        const updatedTasks = [...tasks, newTaskObj];
-        setTasks(updatedTasks);
-        localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
-        setNewTask({ name: '', description: '', dueDate: '', assignee: '', priority: 'Medium' });
-        setShowAddTask(false);
         setTaskEditorMessage({
-          type: 'success',
-          text: newTaskObj.assignee ? `Task assigned to ${newTaskObj.assignee}.` : 'Task added successfully.'
+          type: 'error',
+          text: error.response?.data?.message || 'Task could not be saved. Please retry.'
         });
-        if (onTaskUpdate) {
-          onTaskUpdate(service, updatedTasks);
-        }
+        // A browser-only fallback made the task look saved here but it was
+        // unavailable in Task Management (which correctly reads from the API).
+        // Keep both screens consistent by never treating a failed API write as
+        // a successful task creation.
       } finally {
         setSavingTask(false);
       }

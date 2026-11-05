@@ -26,11 +26,8 @@ const getFallbackIceServers = () => {
         { urls: "stun:stun1.l.google.com:19302" },
     ];
 };
-const isCallDebugEnabled = () => (
-    import.meta.env.DEV ||
-    import.meta.env.VITE_WEBRTC_DEBUG === "true" ||
-    localStorage.getItem("ciis_webrtc_debug") === "true"
-);
+// Call tracing is for local development only; production builds never log it.
+const isCallDebugEnabled = () => import.meta.env.DEV;
 
 const logCall = (...args) => {
     if (!isCallDebugEnabled()) return;

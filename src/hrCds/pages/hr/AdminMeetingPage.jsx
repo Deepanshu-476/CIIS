@@ -19,13 +19,11 @@ export default function AdminMeetingPage() {
   const [statusModal, setStatusModal] = useState({ open: false, data: [], meetingTitle: "" });
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, meetingId: null, meetingTitle: "" });
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState({ show: false, message: "" });
   const [companyCode, setCompanyCode] = useState("");
   
   
   const { 
     socket, 
-    isConnected,
     onNewNotification,
     onMeetingUpdate,
     onMeetingReminder
@@ -751,65 +749,6 @@ export default function AdminMeetingPage() {
   };
 
   
-  const testDeleteEndpoints = async (meetingId) => {
-    const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
-    
-    const endpoints = [
-      { method: 'delete', url: `${API_URL}/task/${meetingId}`, name: 'Task endpoint' },
-      { method: 'delete', url: `${API_URL}/meetings/${meetingId}`, name: 'Meetings direct' },
-      { method: 'post', url: `${API_URL}/meetings/delete`, data: { meetingId, companyCode: currentCompanyCode }, name: 'Meetings delete post' },
-      { method: 'delete', url: `${API_URL}/meetings/delete/${meetingId}`, name: 'Meetings delete with ID' },
-      { method: 'put', url: `${API_URL}/meetings/${meetingId}`, data: { status: 'deleted', companyCode: currentCompanyCode }, name: 'Meetings update status' },
-      { method: 'delete', url: `${API_URL}/api/task/${meetingId}`, name: 'API task endpoint' },
-      { method: 'delete', url: `${API_URL}/tasks/${meetingId}`, name: 'Tasks endpoint' },
-    ];
-
-    setDebugInfo({ show: true, message: "Testing endpoints...\n" });
-    
-    for (const endpoint of endpoints) {
-      try {
-        setDebugInfo(prev => ({ 
-          ...prev, 
-          message: prev.message + `\nTrying: ${endpoint.method.toUpperCase()} ${endpoint.url}` 
-        }));
-        
-        let response;
-        if (endpoint.method === 'delete') {
-          response = await axios.delete(endpoint.url);
-        } else if (endpoint.method === 'post') {
-          response = await axios.post(endpoint.url, endpoint.data);
-        } else if (endpoint.method === 'put') {
-          response = await axios.put(endpoint.url, endpoint.data);
-        }
-        
-        setDebugInfo(prev => ({ 
-          ...prev, 
-          message: prev.message + `\n✅ SUCCESS! Status: ${response.status}` 
-        }));
-        
-        setMeetings(prevMeetings => 
-          prevMeetings.filter(m => (m._id || m.id) !== meetingId)
-        );
-        
-        toast.success(`✅ Meeting deleted via ${endpoint.name}`);
-        return true;
-      } catch (err) {
-        setDebugInfo(prev => ({ 
-          ...prev, 
-          message: prev.message + `\n❌ Failed: ${err.response?.status || err.message}` 
-        }));
-      }
-    }
-    
-    setDebugInfo(prev => ({ 
-      ...prev, 
-      message: prev.message + `\n\n❌ All endpoints failed. Please check API documentation.` 
-    }));
-    
-    return false;
-  };
-
-  
   const deleteMeeting = async () => {
     if (!deleteConfirm.meetingId) return;
     
@@ -842,33 +781,12 @@ export default function AdminMeetingPage() {
       console.error("Delete error:", err);
       
       if (err.response?.status === 404) {
-        toast.warning(
-          <div>
-            <p>Endpoint not found. Would you like to:</p>
-            <button 
-              onClick={() => {
-                testDeleteEndpoints(deleteConfirm.meetingId);
-                setDeleteConfirm({ open: false, meetingId: null, meetingTitle: "" });
-              }}
-              className="toast-button"
-            >
-              Test All Endpoints
-            </button>
-            <button 
-              onClick={() => {
-                setMeetings(prevMeetings => 
-                  prevMeetings.filter(m => (m._id || m.id) !== deleteConfirm.meetingId)
-                );
-                toast.info("Meeting removed from UI only");
-                setDeleteConfirm({ open: false, meetingId: null, meetingTitle: "" });
-              }}
-              className="toast-button"
-            >
-              Remove from UI Only
-            </button>
-          </div>,
-          { autoClose: false }
-        );
+        // Not on the server any more (already deleted): drop it from the list too.
+        const removeFromList = list => list.filter(m => (m._id || m.id) !== deleteConfirm.meetingId);
+        if (deleteConfirm.module === "client") setClientMeetings(removeFromList);
+        else setMeetings(removeFromList);
+        toast.info("This meeting was already deleted.");
+        setDeleteConfirm({ open: false, meetingId: null, meetingTitle: "" });
       } else {
         toast.error(err.response?.data?.message || "❌ Failed to delete meeting");
       }
@@ -907,86 +825,8 @@ export default function AdminMeetingPage() {
   return (
     <div className="amp-container">
       
-      <div className="amp-socket-indicator" style={{
-        position: 'fixed',
-        top: '10px',
-        right: '120px',
-        background: isConnected ? '#10b981' : '#ef4444',
-        color: 'white',
-        padding: '4px 12px',
-        borderRadius: '20px',
-        fontSize: '11px',
-        fontWeight: '600',
-        zIndex: 1000,
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        {isConnected ? '🔌 Live' : '📡 Connecting...'}
-      </div>
 
       
-      {companyCode && (
-        <div className="amp-company-indicator" style={{
-          position: 'fixed',
-          top: '10px',
-          right: '10px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          padding: '4px 12px',
-          borderRadius: '20px',
-          fontSize: '12px',
-          fontWeight: '600',
-          zIndex: 1000,
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-        }}>
-          Company: {companyCode}
-        </div>
-      )}
-
-      
-      {debugInfo.show && (
-        <div className="amp-modal-overlay" onClick={() => setDebugInfo({ show: false, message: "" })}>
-          <div className="amp-modal amp-modal-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="amp-modal-header">
-              <div className="amp-modal-title-wrapper">
-                <span className="amp-modal-icon">🔍</span>
-                <h3 className="amp-modal-title">API Debug Information</h3>
-              </div>
-              <button 
-                onClick={() => setDebugInfo({ show: false, message: "" })}
-                className="amp-modal-close"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="amp-modal-content">
-              <pre style={{ 
-                background: '#1e1e2e', 
-                color: '#fff', 
-                padding: '20px', 
-                borderRadius: '8px',
-                overflow: 'auto',
-                maxHeight: '400px',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap'
-              }}>
-                {debugInfo.message}
-              </pre>
-            </div>
-
-            <div className="amp-modal-footer">
-              <button 
-                onClick={() => setDebugInfo({ show: false, message: "" })}
-                className="amp-btn amp-btn-primary"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       
       <div className="amp-header">

@@ -1008,6 +1008,10 @@
     color: #ea580c !important;
 }
 
+.attachment-icon-wrap.icon-assign {
+    color: #1845b8 !important;
+}
+
 .attachment-label {
     display: block !important;
     flex: 1 1 auto !important;
@@ -9355,3 +9359,197 @@ body.chat-sidebar-resizing * {
 .call-notice.notice-removed { border-color: rgba(248, 113, 113, 0.5); }
 .call-notice.notice-added, .call-notice.notice-joined { border-color: rgba(74, 222, 128, 0.45); }
 .call-notice.notice-missed, .call-notice.notice-declined { border-color: rgba(251, 146, 60, 0.5); }
+
+/* Assign Task Modal in Chat */
+.chat-assign-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(3px);
+    padding: 16px;
+    animation: chatAssignFadeIn 0.2s ease;
+}
+
+@keyframes chatAssignFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.chat-assign-modal {
+    width: 100%;
+    max-width: 480px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2), 0 2px 8px rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: chatAssignSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes chatAssignSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.chat-assign-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.chat-assign-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chat-assign-modal-title-icon {
+    color: #1845b8;
+}
+
+.chat-assign-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.chat-assign-modal-close {
+    border: none;
+    background: #f1f5f9;
+    color: #64748b;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.chat-assign-modal-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.chat-assign-modal-form {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.chat-assign-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.chat-assign-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.chat-assign-form-group label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.chat-assign-input,
+.chat-assign-select,
+.chat-assign-textarea {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #0f172a;
+    background: #ffffff;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.chat-assign-input:focus,
+.chat-assign-select:focus,
+.chat-assign-textarea:focus {
+    border-color: #1845b8;
+    box-shadow: 0 0 0 3px rgba(24, 69, 184, 0.12);
+}
+
+.chat-assign-textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
+.chat-assign-form-row {
+    display: flex;
+    gap: 12px;
+}
+
+.chat-assign-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.chat-assign-btn-cancel {
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.chat-assign-btn-cancel:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.chat-assign-btn-submit {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #1845b8;
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.chat-assign-btn-submit:hover:not(:disabled) {
+    background: #143794;
+}
+
+.chat-assign-btn-submit:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}

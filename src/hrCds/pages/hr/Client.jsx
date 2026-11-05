@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import API_URL from '../../../config';
 import './client-management.css';
+import { isSubscriptionEnded } from '../../utils/clientPortalData';
 
 
 import {
@@ -553,7 +554,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
           </button>
         </div>
         <div className="ClientManagement-modal__content">
-          {latestSubscription && new Date(latestSubscription.endDate) < new Date() && (
+          {latestSubscription && isSubscriptionEnded(latestSubscription.endDate) && (
             <div className="ClientManagement-renewal-message ClientManagement-renewal-message--error" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '0.75rem 1rem', borderRadius: '8px', color: '#ef4444' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <FiAlertCircle size={20} />
@@ -596,8 +597,8 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                     <strong>Benefits:</strong> {latestSubscription.benefits}
                   </div>
                 )}
-                <div className={`ClientManagement-subscription-status ${new Date(latestSubscription.endDate) < new Date() ? 'expired' : 'active'}`}>
-                  {new Date(latestSubscription.endDate) < new Date() ? 'Expired' : 'Active'}
+                <div className={`ClientManagement-subscription-status ${isSubscriptionEnded(latestSubscription.endDate) ? 'expired' : 'active'}`}>
+                  {isSubscriptionEnded(latestSubscription.endDate) ? 'Expired' : 'Active'}
                 </div>
               </div>
             </div>
@@ -651,7 +652,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
 
           {canRenewSubscription && (
             <>
-              {(!latestSubscription || new Date(latestSubscription.endDate) < new Date()) && latestPaymentReceipt?.status !== 'Approved' && (
+              {(!latestSubscription || isSubscriptionEnded(latestSubscription.endDate)) && latestPaymentReceipt?.status !== 'Approved' && (
                 <div className="ClientManagement-renewal-form-container">
                   <h4>Payment Due For Client Portal</h4>
                   <form className="ClientManagement-renewal-form" onSubmit={handleAddDueInvoice}>
@@ -952,7 +953,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                             ? 'ClientManagement-badge--error'
                             : 'ClientManagement-badge--success'
                         }`}>
-                          {subscription.status || (new Date(subscription.endDate) < new Date() ? 'Expired' : 'Active')}
+                          {subscription.status || (isSubscriptionEnded(subscription.endDate) ? 'Expired' : 'Active')}
                         </span>
                       </div>
                       <div className="ClientManagement-payment-receipt-date">

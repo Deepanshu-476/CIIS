@@ -896,10 +896,7 @@ const AnimatedStatValue = ({ value }) => {
 
 const UserCreateTask = () => {
   const storedTaskUser = useMemo(() => getStoredTaskUser(), []);
-  // Task management is the source of truth for all user tasks. Opening on
-  // "today" hid valid future-due tasks and made a newly-created task look as
-  // though it had disappeared.
-  const initialTaskPeriod = 'all';
+  const initialTaskPeriod = 'today';
   const cachedTaskData = useMemo(() => {
     const availableCache = [
       taskManagementMemoryCache,
@@ -3970,6 +3967,8 @@ const UserCreateTask = () => {
   
   const handleTimeFilterChange = (period) => {
     setTimeFilter(period);
+    setSelectedDate(null);
+    setDateRange({ start: null, end: null });
   };
 
   
@@ -4026,7 +4025,7 @@ const UserCreateTask = () => {
   
   const clearAllFilters = () => {
     setStatusFilter('');
-    setTimeFilter('all');
+    setTimeFilter(initialTaskPeriod);
     setSelectedDate(null);
     setDateRange({ start: null, end: null });
     setSearchTerm('');
@@ -6013,10 +6012,10 @@ const UserCreateTask = () => {
                   <FiDownload size={14} />
                   Export Pdf
                 </button>
-                {timeFilter !== 'all' && (
+                {(timeFilter !== initialTaskPeriod || selectedDate || dateRange.start || dateRange.end) && (
                   <button
                     className="user-create-task-button user-create-task-button-text"
-                    onClick={() => handleTimeFilterChange('all')}
+                    onClick={() => handleTimeFilterChange(initialTaskPeriod)}
                   >
                     <FiRotateCcw size={14} />
                     {!isMobile && "Reset"}

@@ -6,7 +6,10 @@ import { taskEventText } from "./taskEventText";
 import { attachmentLabel, attachmentSource } from "./messageUtils";
 import MessageInfoModal from "./MessageInfoModal";
 
-const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg)$/i;
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg|heic|heif|avif|tiff?)$/i;
+// Formats every browser can draw; others (iPhone HEIC, TIFF) are shown through the
+// server-made webp preview while downloads still give the original file.
+const BROWSER_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/avif", "image/svg+xml", "image/bmp"]);
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
 const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|mov|m4v|avi|mkv|flv|wmv)$/i;
 const DOCUMENT_EXTENSIONS = /\.(pdf|docx?|xlsx?|csv|pptx?|txt|rtf|odt|ods|odp|zip|rar|7z)$/i;
@@ -61,6 +64,7 @@ const MessageBubble = ({
     const [audioCurrentTime, setAudioCurrentTime] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
     const [mediaUrlIndex, setMediaUrlIndex] = useState(0);
+    const [previewUrlIndex, setPreviewUrlIndex] = useState(0);
     const [hasMediaLoadFailed, setHasMediaLoadFailed] = useState(false);
     const [localMediaUrl, setLocalMediaUrl] = useState("");
     const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
@@ -314,6 +318,10 @@ const MessageBubble = ({
     };
     const mediaUrlCandidates = useMemo(() => getMediaUrlCandidates(rawMediaUrl), [rawMediaUrl]);
     const mediaUrl = mediaUrlCandidates[mediaUrlIndex] || mediaUrlCandidates[0] || "";
+    const rawPreviewUrl = typeof message.previewFile === "string" ? message.previewFile : "";
+    const previewUrlCandidates = useMemo(() => getMediaUrlCandidates(rawPreviewUrl), [rawPreviewUrl]);
+    const displayPreviewUrl = previewUrlCandidates[previewUrlIndex] || "";
+    const originalIsBrowserImage = BROWSER_IMAGE_TYPES.has(String(message.fileType || "").toLowerCase().split(";")[0]);
     const normalizedMediaType = (mediaType || "").toLowerCase();
     const mediaPath = (mediaUrl || "").split("?")[0].toLowerCase();
     const rawMediaPath = String(rawMediaUrl || "").split("?")[0].toLowerCase();
@@ -376,6 +384,10 @@ const MessageBubble = ({
             return currentIndex;
         });
     };
+
+    useEffect(() => {
+        setPreviewUrlIndex(0);
+    }, [rawPreviewUrl]);
 
     useEffect(() => {
         setMediaUrlIndex(0);
@@ -564,6 +576,11 @@ const MessageBubble = ({
     };
 
     const openMediaPreview = async (kind) => {
+        // A photo the browser cannot draw (e.g. HEIC) opens as its preview; Download still saves the original.
+        if (kind === "image" && displayPreviewUrl && !originalIsBrowserImage) {
+            setPreviewMedia({ kind, url: displayPreviewUrl });
+            return;
+        }
         try {
             const previewUrl = await getLocalAttachmentUrl();
             if (previewUrl) {
@@ -721,7 +738,7 @@ const MessageBubble = ({
         }
 
         if (isImageMedia) {
-            const imageSrc = hasMediaLoadFailed ? "" : (localMediaUrl || mediaUrl);
+            const imageSrc = displayPreviewUrl || (hasMediaLoadFailed ? "" : (localMediaUrl || mediaUrl));
             return (
                 <button
                     type="button"
@@ -736,7 +753,9 @@ const MessageBubble = ({
                             className="chat-media chat-media-image"
                             loading="lazy"
                             onError={() => {
-                                tryNextMediaUrl();
+                                // Preview missing: try its other hosts, then fall back to the original file.
+                                if (displayPreviewUrl) setPreviewUrlIndex((index) => index + 1);
+                                else tryNextMediaUrl();
                             }}
                         />
                     ) : (

@@ -41,15 +41,13 @@
 .chat-page .chat-input-wrapper {
     min-height: 48px;
     margin: 0;
-    padding: 6px 50px 6px 88px;
+    padding: 6px 50px 6px 82px;
     border: 1px solid #d7e0eb;
     border-radius: 26px;
     justify-content: center;
     background: #fff;
-    box-sizing: border-box;
 }
 .chat-page .chat-mention-composer { align-self: center; }
-
 .chat-page .attachment-menu-wrap,
 .chat-page .emoji-picker-wrap > .emoji-btn,
 .chat-page .chat-composer > .composer-voice-btn {
@@ -58,112 +56,26 @@
     top: 50%;
     transform: translateY(-50%);
 }
-
-.chat-page .attachment-menu-wrap {
-    left: 10px;
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.chat-page .file-upload-btn,
-.chat-page .emoji-picker-wrap > .emoji-btn,
-.chat-page .chat-composer > .recording-btn {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 50% !important;
-    background: transparent !important;
-    color: #576b85 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer !important;
-    box-shadow: none !important;
-    outline: none !important;
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.chat-page .file-upload-btn:hover,
-.chat-page .emoji-picker-wrap > .emoji-btn:hover,
-.chat-page .chat-composer > .recording-btn:hover {
-    background: #f1f5f9 !important;
-    color: #1e293b !important;
-}
-
-.chat-page .file-upload-btn.active {
-    background: #e0edff !important;
-    color: #1878f3 !important;
-}
-
-.chat-page .chat-composer > .recording-btn.active {
-    background: #fee2e2 !important;
-    color: #ef4444 !important;
-}
-
+.chat-page .attachment-menu-wrap { left: 12px; }
 .chat-page .emoji-picker-wrap {
     /* Keep the picker anchored to the composer, not the 32px icon wrapper. */
     display: contents;
     position: static;
     transform: none;
 }
-.chat-page .emoji-picker-wrap > .emoji-btn {
-    left: 48px;
-    right: auto;
-}
+.chat-page .emoji-picker-wrap > .emoji-btn { left: 49px; right: auto; }
 .chat-page .emoji-picker-panel {
-    left: 10px;
+    left: 12px;
     right: auto;
     bottom: calc(100% + 12px);
-    width: min(390px, calc(100% - 20px));
+    width: min(390px, calc(100% - 24px));
     max-width: none;
     max-height: min(420px, calc(100dvh - 180px));
 }
-<<<<<<< HEAD
-.chat-page .chat-composer > .recording-btn:nth-child(3) { display: none !important; }
-.chat-page .chat-composer > .recording-btn:nth-child(5) {
-    display: inline-flex !important;
-    right: 52px;
-}
-.chat-page .chat-composer > .send-btn {
-    flex: 0 0 38px;
-    width: 38px !important;
-    min-width: 38px !important;
-    height: 38px !important;
-    border-radius: 50% !important;
-}
-
-/* Dark mode styling */
-.chat-page.chat-theme-dark .chat-input-wrapper {
-    background: #1f2937;
-    border-color: #334155;
-}
-.chat-page.chat-theme-dark .file-upload-btn,
-.chat-page.chat-theme-dark .emoji-picker-wrap > .emoji-btn,
-.chat-page.chat-theme-dark .chat-composer > .recording-btn {
-    color: #94a3b8 !important;
-}
-.chat-page.chat-theme-dark .file-upload-btn:hover,
-.chat-page.chat-theme-dark .emoji-picker-wrap > .emoji-btn:hover,
-.chat-page.chat-theme-dark .chat-composer > .recording-btn:hover {
-    background: #334155 !important;
-    color: #f8fafc !important;
-}
-.chat-page.chat-theme-dark .file-upload-btn.active {
-    background: #1e3a5f !important;
-    color: #38bdf8 !important;
-}
-=======
 /* Named, not nth-child: an extra composer child must never move the mic or show the hidden camera. */
 .chat-page .chat-composer > .composer-video-btn { display: none; }
 .chat-page .chat-composer > .composer-voice-btn { right: 49px; }
 .chat-page .chat-composer > .send-btn { flex: 0 0 40px; }
->>>>>>> 08d8bcd43a8681bec1ea753ebd089563dac6c70b
 .chat-mention-dropdown {
     position: absolute;
     bottom: calc(100% + 6px);
@@ -345,6 +257,7 @@
 .chat-task-card-text {
     flex: 1;
     word-break: break-word;
+    white-space: pre-line;
     color: #334155;
     font-size: 11px;
     font-weight: 500;

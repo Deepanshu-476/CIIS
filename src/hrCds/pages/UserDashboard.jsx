@@ -1197,9 +1197,8 @@ const UserDashboard = () => {
         dueToday,
         inProgress: inProgressToday,
         completedToday,
-        dailyProgress: dueToday
-          ? Math.min(100, Math.round(((completedToday + (inProgressToday * 0.5)) / dueToday) * 100))
-          : (completedToday > 0 ? 100 : (inProgressToday > 0 ? 50 : 0))
+        // Only finished tasks count, rounded down: 100% means every one of today's tasks is done.
+        dailyProgress: dueToday ? Math.min(100, Math.floor((completedToday / dueToday) * 100)) : 0
       };
       setFocusStats(nextFocusStats);
       writeDashboardCache({ focusStats: nextFocusStats });
@@ -2120,6 +2119,13 @@ const UserDashboard = () => {
     ['weekend', 'holiday', 'leave'].includes(todayCalendarStatus)
   );
   const hasTodayAttendance = Boolean(todayAttendance);
+  // Daily progress is only meaningful on a working day: on leave or absent there is nothing to track.
+  const awayTodayLabel = todayCalendarStatus === 'leave' ? 'On leave today' : todayCalendarStatus === 'absent' ? 'Absent today' : '';
+  const dailyProgressValue = awayTodayLabel ? 0 : Math.max(0, Math.min(100, focusStats.dailyProgress));
+  const dailyProgressText = focusStats.loading ? '—' : awayTodayLabel ? '—' : `${dailyProgressValue}%`;
+  const dailyProgressNote = focusStats.loading
+    ? 'Loading…'
+    : awayTodayLabel || (focusStats.dueToday ? getDailyProgressMessage(dailyProgressValue) : 'No tasks today');
   const totalWorkingDisplay = isRunning
     ? <LiveTime seconds={timer} running />
     : formatTotalTimeValue(todayAttendance?.totalTime) || '00:00:00';
@@ -2952,10 +2958,10 @@ const UserDashboard = () => {
             <div className="MobileDashV2-progress">
               <div>
                 <span>Today’s progress</span>
-                <strong>{focusStats.loading ? '—' : `${focusStats.dailyProgress}%`}</strong>
+                <strong>{dailyProgressText}</strong>
               </div>
-              <i><span style={{ width: `${focusStats.dailyProgress}%` }} /></i>
-              <small>{focusStats.completedToday} tasks completed today</small>
+              <i><span style={{ width: `${dailyProgressValue}%` }} /></i>
+              <small>{awayTodayLabel || `${focusStats.completedToday} of ${focusStats.dueToday} tasks completed today`}</small>
             </div>
           </section>
 
@@ -3142,16 +3148,16 @@ const UserDashboard = () => {
                 <span><FiCalendar /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.inProgress} Tasks In Progress`}</span>
               </div>
 
-              <div className="dashboard-progress-dial" style={{ '--score': `${focusStats.dailyProgress * 3.6}deg` }}>
+              <div className="dashboard-progress-dial" style={{ '--score': `${dailyProgressValue * 3.6}deg` }}>
                 <svg className="dashboard-progress-ring" viewBox="0 0 120 120" aria-hidden="true">
                   <defs><linearGradient id="dashboard-progress-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#7357ee" /><stop offset="100%" stopColor="#5b38e5" /></linearGradient></defs>
                   <circle className="dashboard-progress-track" cx="60" cy="60" r="51" pathLength="100" />
-                  <circle className="dashboard-progress-value" cx="60" cy="60" r="51" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(100, focusStats.dailyProgress))} 100`} />
+                  <circle className="dashboard-progress-value" cx="60" cy="60" r="51" pathLength="100" strokeDasharray={`${dailyProgressValue} 100`} />
                 </svg>
                 <div>
                   <span className="progress-title">Daily Progress</span>
-                  <strong>{focusStats.loading ? '—' : `${focusStats.dailyProgress}%`}</strong>
-                  <small>{focusStats.loading ? 'Loading…' : getDailyProgressMessage(focusStats.dailyProgress)}</small>
+                  <strong>{dailyProgressText}</strong>
+                  <small>{dailyProgressNote}</small>
                 </div>
               </div>
 

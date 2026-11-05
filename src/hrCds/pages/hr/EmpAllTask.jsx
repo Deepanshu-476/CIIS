@@ -5355,50 +5355,108 @@ const TaskDetails = () => {
 
       {/* Filters Bar */}
       <div className="new-filters-bar">
-        <div className="new-search-box">
-          <FiSearch size={15} color="#94a3b8" />
-          <input
-            type="text"
-            placeholder="Search employee by name, email..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+        {/* Top Row: Search + Primary Quick Filters + Action Buttons */}
+        <div className="new-filters-top-row">
+          <div className="new-search-box">
+            <FiSearch size={15} color="#94a3b8" />
+            <input
+              type="text"
+              placeholder="Search employee by name, email..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+
+          <div className="new-primary-filters">
+            <div className={`new-filter-item ${dateFilter !== 'today' ? 'active' : ''}`}>
+              <label>Timeframe</label>
+              <select
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="today">Today</option>
+                <option value="all">Total (All Time)</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+              </select>
+            </div>
+
+            <div className={`new-filter-item ${taskTypeFilter !== 'all' ? 'active' : ''}`}>
+              <label>Task Type</label>
+              <select
+                value={taskTypeFilter}
+                onChange={(e) => {
+                  setTaskTypeFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All (Personal & Project)</option>
+                <option value="personal">Personal Tasks</option>
+                <option value="project">Project Tasks</option>
+                <option value="client">Client Tasks</option>
+              </select>
+            </div>
+
+            <div className={`new-filter-item ${selectedStatusFilter !== 'all' ? 'active' : ''}`}>
+              <label>Task Status</label>
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => {
+                  setSelectedStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="onhold">On Hold</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="new-filter-actions">
+            <button type="button" className="new-reset-btn" onClick={resetFilters} title="Reset all filters">
+              <FiRefreshCw size={14} /> Reset
+            </button>
+            <button
+              type="button"
+              className={`new-clockin-btn ${clockedInTodayOnly ? 'active' : ''}`}
+              onClick={() => {
+                handleTodayClockInToggle();
+                setCurrentPage(1);
+              }}
+            >
+              <FiTime size={14} /> Today Clock In
+            </button>
+            <div className="new-view-toggle">
+              <button
+                type="button"
+                className={viewMode === 'grid' ? 'active' : ''}
+                onClick={() => setViewMode('grid')}
+              >
+                <FiGrid size={13} /> Grid
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'table' ? 'active' : ''}
+                onClick={() => setViewMode('table')}
+              >
+                <FiList size={13} /> Table
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="new-filter-group">
-          <div className={`new-filter-item ${dateFilter !== 'today' ? 'active' : ''}`}>
-            <label>Timeframe</label>
-            <select
-              value={dateFilter}
-              onChange={(e) => {
-                setDateFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="today">Today</option>
-              <option value="all">Total (All Time)</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-          </div>
-          <div className={`new-filter-item ${taskTypeFilter !== 'all' ? 'active' : ''}`}>
-            <label>Task Type</label>
-            <select
-              value={taskTypeFilter}
-              onChange={(e) => {
-                setTaskTypeFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="all">All (Personal & Project)</option>
-              <option value="personal">Personal Tasks</option>
-              <option value="project">Project Tasks</option>
-              <option value="client">Client Tasks</option>
-            </select>
-          </div>
+        {/* Bottom Row: Secondary Filters evenly distributed */}
+        <div className="new-filters-bottom-row">
           <div className={`new-filter-item ${selectedDeptFilter !== 'all' ? 'active' : ''}`}>
             <label>Department</label>
             <select
@@ -5415,6 +5473,7 @@ const TaskDetails = () => {
               ))}
             </select>
           </div>
+
           <div className={`new-filter-item ${selectedRoleFilter !== 'all' ? 'active' : ''}`}>
             <label>Role</label>
             <select
@@ -5430,23 +5489,7 @@ const TaskDetails = () => {
               ))}
             </select>
           </div>
-          <div className={`new-filter-item ${selectedStatusFilter !== 'all' ? 'active' : ''}`}>
-            <label>Task Status</label>
-            <select
-              value={selectedStatusFilter}
-              onChange={(e) => {
-                setSelectedStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="onhold">On Hold</option>
-              <option value="overdue">Overdue</option>
-            </select>
-          </div>
+
           <div className={`new-filter-item ${selectedPerfFilter !== 'all' ? 'active' : ''}`}>
             <label>Performance</label>
             <select
@@ -5462,6 +5505,7 @@ const TaskDetails = () => {
               <option value="low">Needs Attention (&lt;50%)</option>
             </select>
           </div>
+
           <div className={`new-filter-item ${sortBy !== 'name-asc' ? 'active' : ''}`}>
             <label>Sort By</label>
             <select
@@ -5477,38 +5521,6 @@ const TaskDetails = () => {
               <option value="tasks-asc">Lowest Tasks</option>
               <option value="rate-desc">Highest Completion</option>
             </select>
-          </div>
-        </div>
-
-        <div className="new-filter-actions">
-          <button type="button" className="new-reset-btn" onClick={resetFilters} title="Reset all filters">
-            <FiRefreshCw size={14} /> Reset
-          </button>
-          <button
-            type="button"
-            className={`new-clockin-btn ${clockedInTodayOnly ? 'active' : ''}`}
-            onClick={() => {
-              handleTodayClockInToggle();
-              setCurrentPage(1);
-            }}
-          >
-            <FiTime size={14} /> Today Clock In
-          </button>
-          <div className="new-view-toggle">
-            <button
-              type="button"
-              className={viewMode === 'grid' ? 'active' : ''}
-              onClick={() => setViewMode('grid')}
-            >
-              <FiGrid size={13} /> Grid
-            </button>
-            <button
-              type="button"
-              className={viewMode === 'table' ? 'active' : ''}
-              onClick={() => setViewMode('table')}
-            >
-              <FiList size={13} /> Table
-            </button>
           </div>
         </div>
       </div>

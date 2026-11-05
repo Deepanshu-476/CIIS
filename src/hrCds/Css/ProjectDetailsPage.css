@@ -431,10 +431,26 @@
   border-color: #cbd5e1;
 }
 
+@keyframes pdpCardBlink {
+  0%, 100% {
+    border-color: var(--stat-card-color, #4f46e5);
+    box-shadow: 0 0 0 3.5px var(--stat-card-color, #4f46e5), 0 8px 24px -2px rgba(0, 0, 0, 0.14);
+    transform: translateY(-2px);
+  }
+  50% {
+    border-color: rgba(203, 213, 225, 0.6);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.04);
+    transform: translateY(0);
+  }
+}
+
 .pdp-stat-card-active {
   background: #f8fafc;
-  border-color: #cbd5e1;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2), 0 8px 16px -2px rgba(0, 0, 0, 0.06);
+  border: 2px solid var(--stat-card-color, #4f46e5) !important;
+  border-left: 5px solid var(--stat-card-color, #4f46e5) !important;
+  animation: pdpCardBlink 1.4s ease-in-out infinite;
+  position: relative;
+  z-index: 2;
 }
 
 .pdp-stat-card-high-priority {

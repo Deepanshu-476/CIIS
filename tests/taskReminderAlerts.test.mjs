@@ -10,6 +10,9 @@ function fixture({permission = 'granted', worker = true} = {}) {
     createOscillator() {return {connect() {}, disconnect() {}, frequency: {setValueAtTime() {}, exponentialRampToValueAtTime() {}}, start() {calls.sounds++;}, stop() {}};}
     createGain() {return {connect() {}, disconnect() {}, gain: {setValueAtTime() {}, exponentialRampToValueAtTime() {}}};}
   }
+
+
+  
   class Notification {
     static permission = permission;
     static async requestPermission() {calls.permissions++; return this.permission = 'granted';}

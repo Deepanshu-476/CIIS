@@ -4,7 +4,8 @@ import {
     Plus, Search, Send, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import PromoCarousel, { slidesFromPromos } from "./PromoCarousel";
+import { slidesFromPromos } from "./PromoCarousel";
+import PromoLightbox from "./PromoLightbox";
 import {
     deletePromo, errorMessage, fetchManagedPromos, fetchPromoCompanies, notifyPromo, promoMediaUrl,
     savePromo, sendStandaloneNotification, setPromoActive,
@@ -129,6 +130,7 @@ const PromoManager = ({ scope = "company" }) => {
     const [saving, setSaving] = useState(false);
     const [progress, setProgress] = useState(0);
     const [preview, setPreview] = useState(null);
+    const [formPreview, setFormPreview] = useState(false);
     const [busyId, setBusyId] = useState("");
     const [notice, setNotice] = useState({ title: "", body: "", allCompanies: false, companyIds: [], sending: false });
     const fileInputRef = useRef(null);
@@ -158,10 +160,16 @@ const PromoManager = ({ scope = "company" }) => {
     useEffect(() => {
         if (!form) return undefined;
         drawerRef.current?.focus();
-        const onKey = (event) => { if (event.key === "Escape" && !saving) setForm(null); };
+        const onKey = (event) => { if (event.key === "Escape" && !saving && !document.querySelector(".pl-backdrop")) setForm(null); };
         document.addEventListener("keydown", onKey);
         return () => document.removeEventListener("keydown", onKey);
     }, [form?.id, Boolean(form), saving]);
+
+    // What people will see, built from the form before anything is uploaded.
+    const formSlides = form ? [
+        ...form.existingMedia.filter((m) => !form.removeMediaIds.includes(m._id)).map((m) => ({ key: m._id, url: promoMediaUrl(m.url), type: m.type, name: m.name })),
+        ...newPreviews.map(({ file, url }, i) => ({ key: `new-${i}`, url, type: file.type.startsWith("video/") ? "video" : "image", name: file.name })),
+    ].map((slide) => ({ ...slide, title: form.title.trim(), message: form.message.trim() })) : [];
 
     const counts = useMemo(() => promos.reduce((acc, p) => ({ ...acc, [p.status]: (acc[p.status] || 0) + 1 }), {}), [promos]);
     const visible = useMemo(() => {
@@ -541,6 +549,10 @@ const PromoManager = ({ scope = "company" }) => {
                                     <small>{progress < 100 ? `Uploading ${progress}%` : "Saving…"}</small>
                                 </div>
                             )}
+                            <button type="button" className="pm-btn pm-btn-ghost" onClick={() => setFormPreview(true)} disabled={!formSlides.length} title={formSlides.length ? "See it the way people will" : "Add an image or video first"}>
+                                <Eye size={16} /> Preview
+                            </button>
+                            <span className="pm-spacer" />
                             <button type="button" className="pm-btn" onClick={() => setForm(null)} disabled={saving}>Cancel</button>
                             <button type="submit" className="pm-btn pm-btn-primary" disabled={saving}>
                                 {saving ? "Saving…" : form.id ? "Save changes" : "Publish"}
@@ -550,14 +562,8 @@ const PromoManager = ({ scope = "company" }) => {
                 </div>
             )}
 
-            {preview && (
-                <div className="promo-popup-backdrop" onClick={() => setPreview(null)}>
-                    <div className="promo-popup" role="dialog" aria-modal="true" aria-label="Preview" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" className="promo-popup-close" onClick={() => setPreview(null)} aria-label="Close preview"><X size={20} /></button>
-                        <PromoCarousel slides={slidesFromPromos([preview])} variant="popup" />
-                    </div>
-                </div>
-            )}
+            {preview && <PromoLightbox slides={slidesFromPromos([preview])} onClose={() => setPreview(null)} label="Preview" />}
+            {formPreview && formSlides.length > 0 && <PromoLightbox slides={formSlides} onClose={() => setFormPreview(false)} label="Preview" />}
         </div>
     );
 };

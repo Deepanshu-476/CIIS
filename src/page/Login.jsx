@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 import './Login.css'; 
 import { getSidebarConfigParams, saveSidebarConfig } from '../utils/sidebarConfigStore';
 import ResetOtpResend, { ResetOtpSendNote, useResetOtpLimit } from '../components/ResetOtpResend';
-import PublicPromoCarousel from '../promotions/PublicPromoCarousel';
+import PublicPromoPopup from '../promotions/PublicPromoPopup';
 
 const clearPreviousLoginStorage = () => {
   clearAuthStorageCaches();
@@ -63,7 +63,6 @@ const Login = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordStep, setForgotPasswordStep] = useState('email');
-  const [hasPublicPromos, setHasPublicPromos] = useState(false);
   const resetOtpLimit = useResetOtpLimit();
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -920,6 +919,7 @@ const Login = () => {
 
   return (
     <div className="login-page-container">
+      <PublicPromoPopup />
       <div className="login-paper fade-in">
 
         <div className="login-left-section">
@@ -953,44 +953,35 @@ const Login = () => {
               Secure Enterprise Portal
             </p>
 
-            {/* Before-login promotions replace the feature list when there are any. */}
-            <PublicPromoCarousel variant="login" onHasSlides={setHasPublicPromos} />
-            {!hasPublicPromos && (
-              <div className="features-card">
-                <h2 className="features-title">Employee Login</h2>
-                <div className="feature-item">
-                  <span className="feature-icon">✓</span>
-                  <span className="feature-text">Access your daily dashboard</span>
-                </div>
-                <div className="feature-item">
-                  <span className="feature-icon">✓</span>
-                  <span className="feature-text">Check attendance and leave updates</span>
-                </div>
-                <div className="feature-item">
-                  <span className="feature-icon">✓</span>
-                  <span className="feature-text">View assigned tasks and meetings</span>
-                </div>
-                <div className="feature-item">
-                  <span className="feature-icon">✓</span>
-                  <span className="feature-text">Manage profile and requests</span>
-                </div>
-                <div className="feature-item">
-                  <span className="feature-icon">✓</span>
-                  <span className="feature-text">Secure access to company workspace</span>
-                </div>
+            <div className="features-card">
+              <h2 className="features-title">Employee Login</h2>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Access your daily dashboard</span>
               </div>
-            )}
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Check attendance and leave updates</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">View assigned tasks and meetings</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Manage profile and requests</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Secure access to company workspace</span>
+              </div>
+              </div>
           </div>
         </div>
 
 
         <div className="login-right-section">
           <div className="form-container">
-            {hasPublicPromos && (
-              <div className="login-promo-mobile">
-                <PublicPromoCarousel variant="login-compact" />
-              </div>
-            )}
 
 
             <div className="mobile-logo-container">

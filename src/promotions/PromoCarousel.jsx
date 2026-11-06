@@ -100,7 +100,11 @@ const PromoCarousel = ({ slides = [], variant = "default", autoPlay = true, show
                                 onEnded={() => count > 1 && go(1)}
                             />
                         ) : (
-                            <img src={slide.url} alt={slide.title || slide.name || "Announcement"} loading={slideIndex === index ? "eager" : "lazy"} />
+                            <>
+                                {/* The same picture, blurred, fills the sides when its shape differs from the frame. */}
+                                <div className="promo-slide-bg" style={{ backgroundImage: `url("${slide.url}")` }} aria-hidden="true" />
+                                <img src={slide.url} alt={slide.title || slide.name || "Announcement"} loading={slideIndex === index ? "eager" : "lazy"} />
+                            </>
                         )}
                     </div>
                 ))}

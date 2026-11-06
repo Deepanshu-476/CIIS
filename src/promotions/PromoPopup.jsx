@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
-import PromoCarousel, { slidesFromPromos } from "./PromoCarousel";
+import React, { useEffect, useState } from "react";
+import PromoLightbox from "./PromoLightbox";
+import { slidesFromPromos } from "./PromoCarousel";
 import { fetchPromoFeed } from "./promoApi";
 
-// After login: a popup with the promotions for this user's company. Once closed it
-// stays closed until a promotion is added or changed (remembered per user).
+// After login: the promotions for this user's company, as a full-screen popup. Once
+// closed it stays closed until a promotion is added or changed (remembered per user).
 const seenKey = (userId) => `ciis_promo_seen_${userId || "user"}`;
 const signatureOf = (promos) => promos.map((promo) => `${promo._id}:${promo.updatedAt}`).sort().join("|");
 const readSeen = (userId) => {
@@ -16,47 +16,24 @@ const writeSeen = (userId, value) => {
 
 const PromoPopup = ({ userId, enabled = true }) => {
     const [promos, setPromos] = useState([]);
-    const [open, setOpen] = useState(false);
-    const closeRef = useRef(null);
 
     useEffect(() => {
         if (!enabled || !userId) return undefined;
         let alive = true;
         fetchPromoFeed()
             .then((list) => {
-                if (!alive || !list.length) return;
-                if (readSeen(userId) === signatureOf(list)) return;
-                setPromos(list);
-                setOpen(true);
+                if (alive && list.length && readSeen(userId) !== signatureOf(list)) setPromos(list);
             })
             .catch(() => {});
         return () => { alive = false; };
     }, [enabled, userId]);
 
+    if (!promos.length) return null;
     const close = () => {
         writeSeen(userId, signatureOf(promos));
-        setOpen(false);
+        setPromos([]);
     };
-
-    useEffect(() => {
-        if (!open) return undefined;
-        closeRef.current?.focus();
-        const onKey = (event) => { if (event.key === "Escape") close(); };
-        document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
-    }, [open]);
-
-    if (!open || !promos.length) return null;
-    return (
-        <div className="promo-popup-backdrop" onClick={close}>
-            <div className="promo-popup" role="dialog" aria-modal="true" aria-label="Announcements" onClick={(event) => event.stopPropagation()}>
-                <button ref={closeRef} type="button" className="promo-popup-close" onClick={close} aria-label="Close announcements">
-                    <X size={20} />
-                </button>
-                <PromoCarousel slides={slidesFromPromos(promos)} variant="popup" />
-            </div>
-        </div>
-    );
+    return <PromoLightbox slides={slidesFromPromos(promos)} onClose={close} />;
 };
 
 export default PromoPopup;

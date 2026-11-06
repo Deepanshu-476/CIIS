@@ -304,8 +304,8 @@
 
 .EmployeeDirectory-search-row {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(170px, auto) minmax(220px, auto);
-  gap: 16px;
+  grid-template-columns: minmax(240px, 1.2fr) minmax(150px, auto) minmax(190px, auto) minmax(190px, auto);
+  gap: 14px;
   align-items: center;
 }
 
@@ -780,6 +780,116 @@
   background: rgba(239, 71, 111, 0.1);
   color: var(--dir-danger);
   border: 1px solid rgba(239, 71, 111, 0.2);
+}
+
+/* Modern iOS Switch Toggle for Employee Active/Inactive Status */
+.EmployeeDirectory-switch-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  padding: 2px 8px 2px 4px;
+  border-radius: var(--dir-radius-full);
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.EmployeeDirectory-switch-container:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.EmployeeDirectory-switch-track {
+  width: 28px;
+  height: 16px;
+  border-radius: 20px;
+  background: #cbd5e1;
+  position: relative;
+  transition: background-color 0.25s ease;
+  flex-shrink: 0;
+}
+
+.EmployeeDirectory-switch-container.is-active .EmployeeDirectory-switch-track {
+  background: #10b981;
+}
+
+.EmployeeDirectory-switch-container.is-inactive .EmployeeDirectory-switch-track {
+  background: #f43f5e;
+}
+
+.EmployeeDirectory-switch-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.EmployeeDirectory-switch-container.is-active .EmployeeDirectory-switch-thumb {
+  transform: translateX(12px);
+}
+
+.EmployeeDirectory-switch-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: color 0.2s ease;
+}
+
+.EmployeeDirectory-switch-container.is-active .EmployeeDirectory-switch-label {
+  color: #047857;
+}
+
+.EmployeeDirectory-switch-container.is-inactive .EmployeeDirectory-switch-label {
+  color: #be123c;
+}
+
+/* Compact Clean Status Dialog */
+.EmployeeDirectory-status-modal {
+  border-radius: 14px !important;
+  box-shadow: 0 20px 40px -8px rgba(15, 23, 42, 0.22) !important;
+  border: 1px solid #e2e8f0 !important;
+  overflow: hidden !important;
+  animation: dir-statusPop 0.2s ease-out !important;
+}
+
+@keyframes dir-statusPop {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.EmployeeDirectory-status-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  flex-shrink: 0;
+}
+
+.EmployeeDirectory-status-icon-deactivate {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.EmployeeDirectory-status-icon-activate {
+  background: #dcfce7;
+  color: #16a34a;
 }
 
 .EmployeeDirectory-employee-tag-secondary {

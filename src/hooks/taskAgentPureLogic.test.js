@@ -18,6 +18,14 @@ import {
     validateAttachmentFile,
     checkSttUploadCap,
     getRoleAwareGreeting,
+    getRoleAwareGreetingHindi,
+    filterWelcomeButtonsByPermissions,
+    getTimeBasedSalutation,
+    getUserFirstName,
+    detectMessageLanguage,
+    isChitChatOrGreeting,
+    isCrmQuery,
+    isOutOfScopeQuery,
     WELCOME_MENU_BUTTONS,
     WELCOME_GREETING_TEXT,
     shouldShowDebugOverlay,
@@ -2810,6 +2818,101 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.equal(payload.fields.subscription[0].endDate, '2026-12-04');
         assert.equal(payload.fields.subscription[0].price, 25000);
         assert.equal(payload.fields.subscription[0].status, 'Active');
+    });
+
+    test('53. Dynamic Time-based Greeting & Personalized User First Name', () => {
+        const morningDate = new Date('2026-11-05T09:30:00+05:30');
+        const afternoonDate = new Date('2026-11-05T14:15:00+05:30');
+        const eveningDate = new Date('2026-11-05T19:00:00+05:30');
+
+        const kanikaUser = { name: 'Kanika Sharma', role: 'employee' };
+
+        assert.equal(getRoleAwareGreeting(kanikaUser, morningDate), 'Good morning Kanika! Aap aaj kya karna chahte hain?');
+        assert.equal(getRoleAwareGreeting(kanikaUser, afternoonDate), 'Good afternoon Kanika! Aap aaj kya karna chahte hain?');
+        assert.equal(getRoleAwareGreeting(kanikaUser, eveningDate), 'Good evening Kanika! Aap aaj kya karna chahte hain?');
+
+        assert.equal(getRoleAwareGreetingHindi(kanikaUser, morningDate), 'गुड मॉर्निंग Kanika! आप आज क्या करना चाहते हैं?');
+        assert.equal(getRoleAwareGreetingHindi(kanikaUser, afternoonDate), 'गुड आफ्टरनून Kanika! आप आज क्या करना चाहते हैं?');
+        assert.equal(getRoleAwareGreetingHindi(kanikaUser, eveningDate), 'गुड इवनिंग Kanika! आप आज क्या करना चाहते हैं?');
+
+        // Fallback for user without name:
+        assert.equal(getRoleAwareGreeting({ role: 'employee' }, morningDate), WELCOME_GREETING_TEXT);
+    });
+
+    test('54. Role & Page Permission filtering for Welcome Chips', () => {
+        const ownerUser = { role: 'Company Owner', companyCode: 'ACME' };
+        const ownerChips = filterWelcomeButtonsByPermissions(ownerUser);
+        assert.equal(ownerChips.length, 6);
+
+        const restrictedUser = { role: 'employee', companyCode: 'ACME' };
+        const restrictedChips = filterWelcomeButtonsByPermissions(restrictedUser, {
+            sidebarConfig: { menuItems: [{ path: '/ciisUser/user-dashboard' }, { path: '/ciisUser/emp-task-details' }] }
+        });
+        assert.equal(restrictedChips.length, 1);
+        assert.equal(restrictedChips[0].action.intent, 'self_task');
+
+        const clientUser = { role: 'employee', companyCode: 'ACME', allowedPages: ['/ciisUser/emp-client'] };
+        const clientChips = filterWelcomeButtonsByPermissions(clientUser, {
+            sidebarConfig: { menuItems: [{ path: '/ciisUser/emp-client' }] }
+        });
+        assert.equal(clientChips.length, 2);
+        assert.ok(clientChips.some(c => c.action.intent === 'self_task'));
+        assert.ok(clientChips.some(c => c.action.intent === 'create_client'));
+    });
+
+    test('55. English Welcome Greeting & English Buttons Selection', () => {
+        const kanika = { name: 'Kanika Sharma', role: 'employee' };
+        const morningDate = new Date('2026-11-05T09:30:00+05:30');
+        const enGreeting = getRoleAwareGreeting(kanika, morningDate, 'en');
+        assert.equal(enGreeting, 'Good morning Kanika! What would you like to do today?');
+
+        const enChips = filterWelcomeButtonsByPermissions({ role: 'admin' }, { language: 'en' });
+        assert.equal(enChips.length, 6);
+        assert.equal(enChips[0].label, 'Create personal task');
+        assert.equal(enChips[1].label, 'Assign task to someone');
+    });
+
+    test('56. Language Detection (English vs Hinglish)', () => {
+        assert.equal(detectMessageLanguage('gud morning , how are u'), 'en');
+        assert.equal(detectMessageLanguage('what is the capital of india'), 'en');
+        assert.equal(detectMessageLanguage('show my tasks'), 'en');
+        assert.equal(detectMessageLanguage('mujhe bukhar hai dawai batao'), 'hinglish');
+        assert.equal(detectMessageLanguage('mere tasks dikhao'), 'hinglish');
+        assert.equal(detectMessageLanguage('task complete kar do'), 'hinglish');
+    });
+
+    test('57. Chit-Chat & Out-of-Scope Intent Matchers', () => {
+        // Chit-chat (Bug fix: screenshot reproduction)
+        assert.ok(isChitChatOrGreeting('gud morning , how are u'));
+        assert.ok(isChitChatOrGreeting('good morning'));
+        assert.ok(isChitChatOrGreeting('hello kaise ho'));
+        assert.ok(isChitChatOrGreeting('gud morning kaise ho'));
+        assert.ok(isChitChatOrGreeting('gud morning aj mera mood bhuut asha hai aj mai bhuut kush hu'));
+        assert.ok(isChitChatOrGreeting('tum kaun ho'));
+        assert.ok(isChitChatOrGreeting('what can you do'));
+        assert.ok(!isChitChatOrGreeting('create a new task for John'));
+        assert.ok(!isChitChatOrGreeting('abhi mera kon sa task in progress mein hia ?'));
+
+        // Query messages must NOT be eaten by chit-chat
+        assert.ok(!isChitChatOrGreeting('gud morning tell me about which projects i have'));
+        assert.ok(!isChitChatOrGreeting('abhi mere crm mai kitne projects hai'));
+        assert.ok(!isChitChatOrGreeting('check karke batao mera kon sa personal taks abhi in progress hai'));
+
+        // CRM Queries
+        assert.ok(isCrmQuery('abhi mere crm mai kitne projects hai'));
+        assert.ok(isCrmQuery('gud morning tell me about which projects i have'));
+        assert.ok(isCrmQuery('check karke batao mera kon sa personal taks abhi in progress hai'));
+        assert.ok(isCrmQuery('check karke batao mera kon sa abhi in progress hai'));
+        assert.ok(!isCrmQuery('naya project banao'));
+        assert.ok(!isCrmQuery('task banao Landing page design'));
+
+        // Out of scope
+        assert.ok(isOutOfScopeQuery('mujhe bukhar hai dawai batao'));
+        assert.ok(isOutOfScopeQuery('what is the capital of india'));
+        assert.ok(isOutOfScopeQuery('write python code to sort array'));
+        assert.ok(!isOutOfScopeQuery('kal meeting rakh do'));
+        assert.ok(!isOutOfScopeQuery('abhi mera kon sa task in progress mein hia ?'));
+        assert.ok(!isOutOfScopeQuery('abhi mere crm mai kitne projects hai'));
     });
 
 });

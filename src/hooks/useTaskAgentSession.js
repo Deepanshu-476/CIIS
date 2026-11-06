@@ -17,6 +17,11 @@ import {
     validateAttachmentFile,
     buildTaskFormDataEntries,
     getRoleAwareGreeting,
+    getRoleAwareGreetingHindi,
+    filterWelcomeButtonsByPermissions,
+    detectMessageLanguage,
+    isChitChatOrGreeting,
+    isOutOfScopeQuery,
     WELCOME_MENU_BUTTONS,
     WELCOME_GREETING_TEXT,
     WELCOME_GREETING_HINDI,
@@ -33,6 +38,14 @@ import {
 const getUser = () => {
     try {
         return JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+    } catch {
+        return {};
+    }
+};
+
+const getSidebarConfig = () => {
+    try {
+        return JSON.parse(localStorage.getItem('sidebarConfig') || '{}');
     } catch {
         return {};
     }
@@ -71,6 +84,17 @@ export default function useTaskAgentSession({
 
     const draftRef = useRef(null);
     const resultRef = useRef(null);
+    const sessionLangRef = useRef('en');
+    const currentSessionIdRef = useRef(null);
+    const [chatSessions, setChatSessions] = useState(() => {
+        try {
+            if (typeof window === 'undefined') return [];
+            const raw = window.localStorage.getItem('ciis_ai_chat_sessions');
+            return raw ? JSON.parse(raw) : [];
+        } catch {
+            return [];
+        }
+    });
     const idRef = useRef(0);
     const listRef = useRef(null);
     const inputRef = useRef(null);
@@ -207,6 +231,86 @@ export default function useTaskAgentSession({
         cancelAutoSend();
         cancelReadyCountdown();
     }, [cancelAutoSend, cancelReadyCountdown]);
+
+    const persistSession = useCallback((latestMsgs, latestDraft, latestResult) => {
+        try {
+            if (typeof window === 'undefined') return;
+            const msgsList = Array.isArray(latestMsgs) ? latestMsgs : [];
+            const userMsg = msgsList.find(m => m.role === 'user');
+            if (!userMsg) return;
+
+            let sId = currentSessionIdRef.current;
+            if (!sId) {
+                sId = 'session_' + Date.now();
+                currentSessionIdRef.current = sId;
+            }
+
+            const title = String(userMsg.text || 'Conversation').slice(0, 45);
+            const sessionData = {
+                id: sId,
+                title,
+                timestamp: Date.now(),
+                messages: msgsList,
+                draft: latestDraft,
+                result: latestResult,
+            };
+
+            setChatSessions(prev => {
+                const filtered = prev.filter(s => s.id !== sId);
+                const next = [sessionData, ...filtered].slice(0, 20);
+                try {
+                    window.localStorage.setItem('ciis_ai_chat_sessions', JSON.stringify(next));
+                } catch {}
+                return next;
+            });
+        } catch {}
+    }, []);
+
+    const startNewChat = useCallback(() => {
+        resetFlow();
+        currentSessionIdRef.current = null;
+        sessionLangRef.current = 'en';
+        const user = getUser();
+        const sidebarConfig = getSidebarConfig();
+        const welcomeText = getRoleAwareGreeting(user, new Date(), 'en');
+        const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, language: 'en' });
+        setMessages([{ role: 'assistant', text: welcomeText, id: 'msg_' + Date.now() }]);
+        setResult({
+            status: 'open',
+            field: 'welcome',
+            reply: welcomeText,
+            speech: welcomeText,
+            speakText: welcomeText,
+            chips: allowed,
+            draft: null,
+        });
+    }, [resetFlow]);
+
+    const loadChatSession = useCallback((session) => {
+        if (!session) return;
+        currentSessionIdRef.current = session.id;
+        if (Array.isArray(session.messages)) {
+            setMessages(session.messages);
+        }
+        draftRef.current = session.draft || null;
+        resultRef.current = session.result || null;
+        setResult(session.result || null);
+    }, []);
+
+    const deleteChatSession = useCallback((sessionId) => {
+        setChatSessions(prev => {
+            const next = prev.filter(s => s.id !== sessionId);
+            try {
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem('ciis_ai_chat_sessions', JSON.stringify(next));
+                }
+            } catch {}
+            return next;
+        });
+        if (currentSessionIdRef.current === sessionId) {
+            startNewChat();
+        }
+    }, [startNewChat]);
 
     // Unified mic restart function after every agent message ends
     const ensureListening = useCallback((attempt = 0) => {
@@ -430,12 +534,22 @@ export default function useTaskAgentSession({
             }, TURN_TIMEOUT_MS);
 
             try {
+                const currentUser = getUser();
+                const currentSidebarConfig = getSidebarConfig();
+                const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig });
+                const allowedIntents = allowedButtons.map(b => b.action?.intent).filter(Boolean);
+
+                const currentLanguage = sessionLangRef.current || 'en';
+                const detectedLanguage = text ? detectMessageLanguage(text, currentLanguage) : currentLanguage;
+                sessionLangRef.current = detectedLanguage;
+
                 const requestPayload = buildParseRequestBody({
                     text,
                     action,
                     pick,
                     draft,
-                    language: 'hinglish',
+                    language: detectedLanguage,
+                    allowedIntents,
                 });
                 const { data } = await axiosInstance.post(
                     AI_ENDPOINTS.TASK_AGENT_PARSE,
@@ -455,6 +569,15 @@ export default function useTaskAgentSession({
                     assistantMsgId = pushMsg('assistant', data.reply);
                 }
 
+                if (data.language) {
+                    sessionLangRef.current = data.language;
+                }
+
+                setMessages(prev => {
+                    persistSession(prev, data.draft, data);
+                    return prev;
+                });
+
                 if (data.field === 'attachments') {
                     setHighlightPaperclip(true);
                 } else {
@@ -462,11 +585,14 @@ export default function useTaskAgentSession({
                 }
 
                 const spokenText = resolveSpokenText(data, data.reply);
-                const spokenSpeech = data.speakTextHi
+                const isEnglishTurn = (data.language === 'en') || (sessionLangRef.current === 'en') || (!/[\u0900-\u097F]/.test(data.reply || '') && !/\b(?:aap|ap|mera|meri|mere|mujhe|hamara|hum|kya|kaun|kon|kaunsi|kab|kahan|kaise|kese|kyun|kisko|kisse|kitne|kitna|hai|hain|ho|hoon|hun|tha|thi|kar|karo|karna|kariye|banao|banayein|batao|batayein|dikhao|dikhayein|rakho|hoga|hogi|dena|dijiye|chahiye|raha|rahi|rahe|aur|ya|ke|ki|ka|ko|mein|main|liye|saath|bhi|nahi|nhi|mat|badhiya|shukriya|theek|thik|dhanyawad|kaam|kardo|karwao)\b/i.test(data.reply || '') && /[a-zA-Z]{3,}/.test(data.reply || ''));
+                const spokenSpeech = isEnglishTurn
+                    ? cleanForSpeech(data.speech || data.speakText || spokenText)
+                    : (data.speakTextHi
                     ? cleanForSpeech(data.speakTextHi)
                     : (data.speechDevanagari
                     ? cleanForSpeech(data.speechDevanagari)
-                    : ((data.speech && !data.reply) ? cleanForSpeech(data.speech) : spokenText));
+                    : ((data.speech && !data.reply) ? cleanForSpeech(data.speech) : spokenText)));
 
                 const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
 
@@ -1289,20 +1415,25 @@ export default function useTaskAgentSession({
         }
         if (chip.action?.type === 'reset') {
             resetFlow();
-            const welcomeText = WELCOME_GREETING_TEXT;
+            sessionLangRef.current = 'en';
+            currentSessionIdRef.current = null;
+            const currentUser = getUser();
+            const currentSidebarConfig = getSidebarConfig();
+            const allowed = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, language: 'en' });
+            const welcomeText = getRoleAwareGreeting(currentUser, new Date(), 'en');
             const msgId = pushMsg('assistant', welcomeText);
             if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
                 spokenMessageIdsRef.current.add(msgId);
                 cancelSpeech();
-                speak(WELCOME_GREETING_HINDI, welcomeText);
+                speak(welcomeText, welcomeText);
             }
             setResult({
                 status: 'open',
                 field: 'welcome',
                 reply: welcomeText,
-                speech: WELCOME_GREETING_HINDI,
+                speech: welcomeText,
                 speakText: welcomeText,
-                chips: WELCOME_MENU_BUTTONS,
+                chips: allowed,
                 draft: null,
             });
             return;
@@ -1410,12 +1541,20 @@ export default function useTaskAgentSession({
     useEffect(() => {
         if (open && messages.length === 0) {
             const user = getUser();
-            const greeting = getRoleAwareGreeting(user);
-            const greetingId = pushMsg('assistant', greeting);
+            const sidebarConfig = getSidebarConfig();
+            const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, language: 'en' });
+            const greetingText = getRoleAwareGreeting(user, new Date(), 'en');
+            const greetingId = pushMsg('assistant', greetingText);
 
-            // Short spoken version (<= 200 characters) for natural TTS:
-            const shortGreetingHinglish = WELCOME_GREETING_TEXT;
-            const shortGreetingHindi = WELCOME_GREETING_HINDI;
+            setResult({
+                status: 'open',
+                field: 'welcome',
+                reply: greetingText,
+                speech: greetingText,
+                speakText: greetingText,
+                chips: allowed,
+                draft: null,
+            });
 
             if (autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
                 spokenMessageIdsRef.current.add(greetingId);
@@ -1423,8 +1562,8 @@ export default function useTaskAgentSession({
                 const watchdog = createTtsWatchdog(() => {
                     cancelSpeech();
                     (ensureListeningRef.current || ensureListening)();
-                }, shortGreetingHinglish.length);
-                speak(shortGreetingHindi, shortGreetingHinglish, () => {
+                }, greetingText.length);
+                speak(greetingText, greetingText, () => {
                     watchdog.cancel();
                     (ensureListeningRef.current || ensureListening)();
                 });
@@ -1548,9 +1687,12 @@ export default function useTaskAgentSession({
     };
 
     const status = result?.status;
+    const currentUser = getUser();
+    const currentSidebarConfig = getSidebarConfig();
+    const allowedWelcomeButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig });
     const chips = Array.isArray(result?.chips) && result?.chips.length > 0
         ? result.chips
-        : ((!result?.draft || !result?.draft?.intent) ? WELCOME_MENU_BUTTONS : []);
+        : ((!result?.draft || !result?.draft?.intent) ? allowedWelcomeButtons : []);
     const candidates = status === 'needs_disambiguation' ? result?.candidates || [] : [];
     const currentDraft = result?.draft || draftRef.current || {};
 
@@ -1731,5 +1873,10 @@ export default function useTaskAgentSession({
         orbState,
         formatDueChip,
         voiceInfo,
+        // Chat History & Sessions
+        chatSessions,
+        loadChatSession,
+        deleteChatSession,
+        startNewChat,
     };
 }

@@ -7,6 +7,7 @@ import {
     collapseRepeatedUtterance,
     selectPreferredVoice,
     waitForVoices,
+    isMaleVoice,
 } from './taskAgentPureLogic';
 
 const getSR = () =>
@@ -459,6 +460,7 @@ export default function useSpeech({
         }
 
         if (engine === 'whisper') {
+            setListeningTracked(false);
             const rec = mediaRecorderRef.current;
             if (rec && rec.state !== 'inactive') {
                 try {
@@ -467,7 +469,6 @@ export default function useSpeech({
                     /* ignore */
                 }
             } else {
-                setListeningTracked(false);
                 cleanupAudioNodes();
             }
         } else {
@@ -636,14 +637,14 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: 1.4s (1400ms) speech pause window after speech stops, AND after at least 400ms of real speech
-                            if (silenceMs >= 1400 && speechDurationMs >= 400) {
+                            // Utterance end: 750ms snappy speech pause window after speech stops, AND after at least 300ms of real speech
+                            if (silenceMs >= 750 && speechDurationMs >= 300) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 1400 && speechDurationMs < 400) {
-                                // False onset (ambient click/breath < 400ms): reset speech detection and keep listening!
+                            } else if (silenceMs >= 750 && speechDurationMs < 300) {
+                                // False onset (ambient click/breath < 300ms): reset speech detection and keep listening!
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
                                 lastDiagRef.current.firstSpeechTime = null;
@@ -676,7 +677,7 @@ export default function useSpeech({
                         } else {
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
-                            if (silenceMs >= 1500 && speechDurationMs >= 400) {
+                            if (silenceMs >= 800 && speechDurationMs >= 300) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
@@ -734,10 +735,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // 1200ms natural silence for browser speech utterance completion
+            // 800ms natural silence for snappy browser speech utterance completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 1200);
+            }, 800);
         };
 
         const createAndStart = () => {
@@ -1304,16 +1305,21 @@ export default function useSpeech({
 
             lastSpokenAssistantTextRef.current = hinglishClean || devanagariClean;
 
+            const isEnglishTurn = (!/[\u0900-\u097F]/.test(hinglishClean || '') && !/\b(?:aap|ap|mera|meri|mere|mujhe|hamara|hum|kya|kaun|kon|kaunsi|kab|kahan|kaise|kese|kyun|kisko|kisse|kitne|kitna|hai|hain|ho|hoon|hun|tha|thi|kar|karo|karna|kariye|banao|banayein|batao|batayein|dikhao|dikhayein|rakho|hoga|hogi|dena|dijiye|chahiye|raha|rahi|rahe|aur|ya|ke|ki|ka|ko|mein|main|liye|saath|bhi|nahi|nhi|mat|badhiya|shukriya|theek|thik|dhanyawad|kaam|kardo|karwao)\b/i.test(hinglishClean || '') && /[a-zA-Z]{3,}/.test(hinglishClean || ''));
+
             const chosenVoice = getChosenVoice() || voicesRef.current?.[0] || window.speechSynthesis?.getVoices()?.[0];
             const voiceLang = (chosenVoice?.lang || 'en-IN').toLowerCase();
             const isHindiVoice = voiceLang.startsWith('hi');
 
             // Script selection:
+            // English turn -> Strictly English text
             // hi-IN voice -> Devanagari speech text for Hindi words, English technical words in Latin
             // en-IN voice -> Roman Hinglish text
-            const textToSpeak = isHindiVoice
-                ? (devanagariClean || hinglishClean)
-                : ((hinglishClean && /[a-zA-Z]/.test(hinglishClean)) ? hinglishClean : (hinglishClean || devanagariClean));
+            const textToSpeak = isEnglishTurn
+                ? (hinglishClean || devanagariClean)
+                : (isHindiVoice
+                    ? (devanagariClean || hinglishClean)
+                    : ((hinglishClean && /[a-zA-Z]/.test(hinglishClean)) ? hinglishClean : (hinglishClean || devanagariClean)));
             const voiceToUse = chosenVoice;
             const langToUse = chosenVoice?.lang || (isHindiVoice ? 'hi-IN' : 'en-IN');
 

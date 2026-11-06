@@ -796,12 +796,187 @@ export const WELCOME_MENU_BUTTONS = [
     { label: 'Client plan banana', action: { type: 'set_intent', intent: 'create_client_plan' } },
 ];
 
+export const WELCOME_MENU_BUTTONS_EN = [
+    { label: 'Create personal task', action: { type: 'set_intent', intent: 'self_task' } },
+    { label: 'Assign task to someone', action: { type: 'set_intent', intent: 'task_assigned_user' } },
+    { label: 'Create new project', action: { type: 'set_intent', intent: 'create_project' } },
+    { label: 'Create task in project', action: { type: 'set_intent', intent: 'task_project' } },
+    { label: 'Add new client', action: { type: 'set_intent', intent: 'create_client' } },
+    { label: 'Create client plan', action: { type: 'set_intent', intent: 'create_client_plan' } },
+];
+
+export const getTimeBasedSalutation = (now = new Date()) => {
+    const hours = now.getHours();
+    if (hours < 12) return { en: 'Good morning', hi: 'गुड मॉर्निंग' };
+    if (hours < 17) return { en: 'Good afternoon', hi: 'गुड आफ्टरनून' };
+    return { en: 'Good evening', hi: 'गुड इवनिंग' };
+};
+
+export const getUserFirstName = (user) => {
+    const rawName = String(user?.name || user?.userName || '').trim();
+    if (!rawName) return '';
+    return rawName.split(/\s+/)[0];
+};
+
 /**
- * Returns role-aware static greeting text.
- * Item 1: Short greeting text for welcome menu.
+ * Returns role & time-aware greeting text.
+ * When lang === 'en', greets in pure English: "Good morning Kanika! What would you like to do today?"
+ * When lang === 'hinglish', greets "Good morning Kanika! Aap aaj kya karna chahte hain?"
  */
-export const getRoleAwareGreeting = () => {
-    return WELCOME_GREETING_TEXT;
+export const getRoleAwareGreeting = (user = null, now = new Date(), lang = 'hinglish') => {
+    const firstName = getUserFirstName(user);
+    const salutation = getTimeBasedSalutation(now);
+    if (!firstName) {
+        return lang === 'en'
+            ? `${salutation.en}! I am your CIIS AI Assistant. What would you like to do today?`
+            : WELCOME_GREETING_TEXT;
+    }
+    const capitalized = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+    if (lang === 'en') {
+        return `${salutation.en} ${capitalized}! What would you like to do today?`;
+    }
+    return `${salutation.en} ${capitalized}! Aap aaj kya karna chahte hain?`;
+};
+
+export const getRoleAwareGreetingHindi = (user = null, now = new Date()) => {
+    const firstName = getUserFirstName(user);
+    if (!firstName) {
+        return WELCOME_GREETING_HINDI;
+    }
+    const salutation = getTimeBasedSalutation(now);
+    const capitalized = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+    return `${salutation.hi} ${capitalized}! आप आज क्या करना चाहते हैं?`;
+};
+
+export const isPrivilegedRoleUser = (user) => {
+    if (!user) return false;
+    const roleValues = [user.companyRole, user.role, user.jobRole, user.jobRoleName]
+        .filter(Boolean)
+        .map(r => String(typeof r === 'object' ? r.name || r.role || '' : r).trim().toLowerCase().replace(/[\s-]+/g, '_'));
+
+    const PRIVILEGED_ROLES = new Set([
+        'owner',
+        'company_owner',
+        'companyowner',
+        'admin',
+        'super_admin',
+        'superadmin'
+    ]);
+
+    return roleValues.some(r => PRIVILEGED_ROLES.has(r)) || Boolean(user.isSuperAdmin || user.isPlatformOwner);
+};
+
+export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePermissions, language = 'hinglish', allowAll = false } = {}) => {
+    const baseButtons = language === 'en' ? WELCOME_MENU_BUTTONS_EN : WELCOME_MENU_BUTTONS;
+    if (allowAll || !user || isPrivilegedRoleUser(user)) {
+        return baseButtons;
+    }
+
+    const menuItems = Array.isArray(sidebarConfig?.menuItems) ? sidebarConfig.menuItems : [];
+    const menuSlugs = new Set(
+        menuItems.map(item => String(item?.path || item?.id || item?.key || '').toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, ''))
+    );
+
+    const userPerms = Array.isArray(user.allowedPages) ? user.allowedPages
+        : (Array.isArray(user.pagePermissions) ? user.pagePermissions
+        : (Array.isArray(user.permissions) ? user.permissions : []));
+    const permSlugs = new Set(
+        userPerms.map(p => String(typeof p === 'object' ? p.page || p.name || p.path || '' : p).toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, ''))
+    );
+
+    const hasSlug = (...keys) => keys.some(k => menuSlugs.has(k) || permSlugs.has(k));
+
+    // If sidebarConfig was not configured yet (no items), don't lock the user out:
+    if (menuItems.length === 0 && userPerms.length === 0) {
+        return baseButtons;
+    }
+
+    const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
+
+    if (hasSlug('admintaskcreate', 'taskmanagement', 'taskcreate')) {
+        allowed.add('task_assigned_user');
+    }
+    if (hasSlug('adminproject', 'manageprojects', 'projects', 'project')) {
+        allowed.add('create_project');
+    }
+    if (hasSlug('adminproject', 'manageprojects', 'projects', 'project') || user.hasProjects) {
+        allowed.add('task_project');
+    }
+    if (hasSlug('empclient', 'clientmanagement', 'clients', 'client')) {
+        allowed.add('create_client');
+    }
+    if (hasSlug('clientplans', 'clientplan')) {
+        allowed.add('create_client_plan');
+    }
+
+    return baseButtons.filter(b => allowed.has(b.action?.intent));
+};
+
+export const detectMessageLanguage = (text, fallback = 'hinglish') => {
+    if (!text || typeof text !== 'string') return fallback;
+    const clean = text.trim();
+    if (/[\u0900-\u097F]/.test(clean)) return 'hinglish';
+    const hinglishMarker = /\b(?:aap|ap|mera|meri|mere|mujhe|hamara|hum|kya|kaun|kon|kaunsi|kab|kahan|kaise|kese|kyun|kisko|kisse|kitne|kitna|hai|hain|ho|hoon|hun|tha|thi|kar|karo|karna|kariye|banao|banayein|batao|batayein|dikhao|dikhayein|rakho|hoga|hogi|dena|dijiye|chahiye|raha|rahi|rahe|aur|ya|ke|ki|ka|ko|mein|main|liye|saath|bhi|nahi|nhi|mat|badhiya|shukriya|theek|thik|dhanyawad|kaam|kardo|karwao)\b/i;
+    if (hinglishMarker.test(clean)) return 'hinglish';
+    const englishWords = clean.match(/\b[a-zA-Z]{2,}\b/g) || [];
+    if (englishWords.length > 0) {
+        return 'en';
+    }
+    return fallback;
+};
+
+export const CRM_PROJECTS_QUERY_REGEX = /(?:(?:projects?|projekts?|projets?|प्रोजेक्ट्स?|प्रजेक्ट|प्रोज़ेक्ट).*(?:\?|kitne|kitna|how\s+many|kon|kaun|which|what|list|dikhao|batao|tell|show|status|hai|hain|chal\s+rahe|have|i\s+have|कितने|इतने|दिखाओ|बताओ|हैं)|(?:\?|kitne|kitna|how\s+many|kon\s+se|kaun\s+se|which|what|list|dikhao|batao|tell\s+me|tell|show|mere|apne|active|all|crm\s+ma?i|crm\s+mein|कितने|इतने|चेक|check).*(?:projects?|projekts?|projets?|प्रोजेक्ट्स?|प्रजेक्ट|प्रोज़ेक्ट))/iu;
+export const CRM_CLIENTS_QUERY_REGEX = /(?:(?:clients?|cleints?|clints?|क्लाइंट्स?|क्लाइज|क्लाइन्स|क्लाइंट|क्लायंट).*(?:\?|kitne|kitna|kidney|how\s+many|kon|kaun|which|what|list|dikhao|batao|tell|show|status|hai|hain|have|i\s+have|कितने|इतने|दिखाओ|बताओ|हैं)|(?:\?|kitne|kitna|kidney|how\s+many|kon\s+se|kaun\s+se|which|what|list|dikhao|batao|tell\s+me|tell|show|mere|apne|active|all|crm\s+ma?i|crm\s+mein|कितने|इतने|चेक|check).*(?:clients?|cleints?|clints?|क्लाइंट्स?|क्लाइज|क्लाइन्स|क्लाइंट|क्लायंट))/iu;
+export const CLIENT_DETAIL_QUERY_REGEX = /(?:(?:services?|सर्विस(?:िस)?|plans?|प्लाइ?न्स?|subscription|details?|जानकारी|status).*(?:di\s+gayi|दी\s+गई|assigned|diya|diye|mil[ie]|hai|hain|kya|kon|kaun|which|batao|dikhao|kaun\s+sa|kon\s+sa|कौन\s*सा|कौन\s*कौन|kisko|uska|uski|inhe|unhe))|(?:(?:kisko|kis\s+client|client|ko|ka|ki|को|का|की).*(?:services?|सर्विस(?:िस)?|plans?|प्लाइ?न्स?).*(?:di\s+gayi|दी\s+गई|assigned|diya|diye|mil[ie]|hai|hain|kya|kon|kaun|batao|dikhao|details?))|(?:(?:services?|सर्विस(?:िस)?|plans?|प्लाइ?न्स?)\s+(?:aur|and|ya|or)\s+(?:services?|सर्विस(?:िस)?|plans?|प्लाइ?न्स?))/iu;
+export const CRM_TASKS_QUERY_REGEX = /(?:(?:tasks?|taks|tasak|taask|tsk|kaam|work|टास्क|काम).*(?:\?|kon|kaun|konsa|kaunsa|konsi|kaunsi|kya|which|what|list|dikhao|batao|tell|show|status|kitne|kitna|how\s+many|check|hai|hain|hia|chal\s+raha|कितने|इतने|दिखाओ|बताओ)|(?:\?|check|batao|batayein|dikhao|tell|show|kon|kaun|konsa|kaunsa|konsi|kaunsi|kya|which|what|kitne|kitna|how\s+many|abhi\s+mera|mere|apne|my|aaj\s+ke|कितने|इतने|चेक).*(?:tasks?|taks|tasak|taask|tsk|kaam|work|टास्क|काम)|(?:in[- ]progress|pending|overdue|completed).*(?:tasks?|taks|tasak|taask|tsk|kaam|work|टास्क|काम|\?|hai|hain|hia|chal\s+raha)|(?:tasks?|taks|tasak|taask|tsk|kaam|work|टास्क|काम).*(?:in[- ]progress|pending|overdue|completed)|(?:check|batao|dikhao|tell|kon\s+sa|konsa|kaun\s+sa|kaunsa|kya|चेक|बताओ|दिखाओ).*(?:in[- ]progress|pending|overdue|completed))/iu;
+
+export const CRM_TASK_COMPLETE_REGEX = /(?:(?:task|kam)\s*(?:ko\s*)?(?:complete|done|khatam)\s*(?:mark\s*)?(?:karo|kar\s*do|kardo)?|mark\s*(?:task\s*)?(?:as\s*)?(?:complete|done)|(?:complete|done|khatam)\s*(?:mark\s*)?(?:karo|kar\s*do|kardo))/i;
+export const CRM_TASK_UPDATE_REGEX = /(?:(?:priority|status)\s*(?:ko\s*)?(?:badal\s*kar\s*)?(?:high|low|medium|in[- ]progress|pending|completed?|done|on[- ]?hold)|(?:high|low|medium|in[- ]progress|pending|completed?|done|on[- ]?hold)\s*(?:priority|status|kardo|kar\s+do|rakho)|(?:priority|status)\s*(?:high|low|medium|in[- ]progress|pending|completed?|done|on[- ]?hold)|(?:task|kam)\s+(?:complete|done|khatam)\s+(?:karo|kar\s+do|mark)|mark\s+(?:task\s+)?(?:as\s+)?(?:complete|done)|(?:priority|status)\s+(?:update|change|badal)|(?:kardo|kar\s+do|update|change|badal).*?(?:priority|status))/iu;
+
+export const isCrmTaskUpdate = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const clean = text.trim();
+    return CRM_TASK_COMPLETE_REGEX.test(clean) || CRM_TASK_UPDATE_REGEX.test(clean);
+};
+
+export const isCrmQuery = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const clean = text.trim();
+    const hasCreationCommand = /\b(?:task\s+naam|task\s+name|task\s+banao|naya\s+task|new\s+task|create\s+task|assign\s+karo|description\s+|priority\s+(?:high|medium|low|urgent)|project\s+banao|naya\s+project|new\s+project|create\s+project|client\s+add|client\s+banao|new\s+client|create\s+client)\b/i.test(clean);
+    if (hasCreationCommand) return false;
+    if (isCrmTaskUpdate(clean)) return false;
+    return CRM_PROJECTS_QUERY_REGEX.test(clean) || CRM_CLIENTS_QUERY_REGEX.test(clean) || CRM_TASKS_QUERY_REGEX.test(clean) || CLIENT_DETAIL_QUERY_REGEX.test(clean);
+};
+
+export const isChitChatOrGreeting = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const clean = text.trim();
+    if (isCrmQuery(clean)) return false;
+    const hasTaskCommand = /\b(?:task\s+banao|task\s+create|assign\s+karo|task\s+do|project\s+banao|client\s+add|client\s+banao|meeting\s+rakh)\b/i.test(clean);
+    if (hasTaskCommand) return false;
+    const rxList = [
+        /^(?:gud|good)?\s*(?:morning|afternoon|evening|night)\b/i,
+        /^(?:hi+|he+y+|hello+|namaste+|namaskar+|pranam+|salaam+|wassup|sup)\b/i,
+        /\b(?:how\s+(?:are|r)\s+u|how\s+are\s+you|how\s+is\s+it\s+going|how's\s+it\s+going|how\s+do\s+you\s+do)\b/i,
+        /\b(?:kaise\s+ho|kya\s+haal\s+hai|kaisa\s+hai|sab\s+theek\s+hai|sab\s+kaisa\s+hai)\b/i,
+        /\b(?:who\s+are\s+you|tum\s+kaun\s+ho|aap\s+kaun\s+hai[n]?|tumhara\s+naam\s+kya\s+hai|aapka\s+naam\s+kya\s+hai)\b/i,
+        /\b(?:what\s+can\s+you\s+do|tum\s+kya\s+kar\s+sakte\s+ho|aap\s+kya\s+kar\s+sakte\s+hai[n]?|kya\s+kya\s+kar\s+sakte\s+ho|help|madad|features|commands)\b/i,
+        /\b(?:thanks?|thank\s+you|thanku|dhanyawad|shukriya|so\s+nice|bahut\s+achha|bahut\s+khoob|nice|great|awesome|badhiya)\b/i,
+        /\b(?:bye|goodbye|alvida|see\s+you|tata|chalta\s+hoon|phir\s+milenge)\b/i,
+        /\b(?:mood|bhuut\s+kush|bohot\s+khush|kush\s+hu|khush\s+hu|bhuut\s+asha|bahut\s+achha|feeling\s+happy|feeling\s+good|feeling\s+great|feeling)\b/i,
+        /\b(?:tired|so\s+tired|fell\s+tired|feel\s+tired|feeling\s+tired|exhausted|sleepy|lazy|bored|boring|stressed|tension|thak\s+gaya|thak\s+gayi|thakan|neend|sad|upset|low)\b/i,
+    ];
+    return rxList.some(rx => rx.test(clean));
+};
+
+export const isOutOfScopeQuery = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const clean = text.trim();
+    const hasCrmContext = /(?:task|taks|project|projek|client|cleint|service|priority|status|assign|lead|company|crm|meeting|deadline|due|banao|kardo|update|edit|add)/i.test(clean);
+    if (hasCrmContext) return false;
+    const outOfScopeRegex = /(?:(?:\b(?:fever|bukhar|bimar|medicine|dawai|tablet|headache|sir\s+dard|pet\s+dard|doctor|treatment|cure|hospital|bimari)\b)|(?:\b(?:capital\s+of|prime\s+minister|pm\s+of|who\s+is\s+the\s+pm|president|chief\s+minister|pradhan\s+mantri|current\s+weather|aaj\s+ka\s+mausam|temperature|cricket|ipl|who\s+won|movie|film|song|gana|recipe|khana\s+kaise|tea|coffee|chai|how\s+to\s+make|chutkula|tell\s+me\s+a\s+joke)\b)|(?:\b(?:write\s+(?:a\s+)?python|write\s+(?:a\s+)?code|write\s+(?:a\s+)?script|fibonacci|solve\s+math|quantum|stock\s+market|crypto|bitcoin|horoscope|rashifal)\b))/i;
+    const isGeneralKnowledgeQuestion = /^(?:tell\s+me|who\s+is|who\s+was|who\s+are|what\s+is|what\s+are|what\s+was|how\s+to|how\s+do|where\s+is|why\s+is|why\s+do|when\s+did|which\s+is|can\s+you\s+(?:tell|explain|cook|sing|dance|write|solve|make|teach))\b/i.test(clean) || /(?:kaise\s+(?:banayein|banta|banti|banaye|karein)|kaun\s+hai|kya\s+hai|kahan\s+hai)\b/i.test(clean);
+    return outOfScopeRegex.test(clean) || isGeneralKnowledgeQuestion;
 };
 
 /**
@@ -976,13 +1151,14 @@ export const sanitizeDraftForTransport = (draftObj) => {
     return Object.keys(clean).length > 0 ? clean : undefined;
 };
 
-export const buildParseRequestBody = ({ text = '', action, pick, draft, language = 'hinglish' } = {}) => {
+export const buildParseRequestBody = ({ text = '', action, pick, draft, language = 'hinglish', allowedIntents } = {}) => {
     return {
         message: text || undefined,
         action: action || undefined,
         pick: pick || undefined,
         language: language === 'hi' ? 'hinglish' : language,
         draft: sanitizeDraftForTransport(draft),
+        allowedIntents: Array.isArray(allowedIntents) && allowedIntents.length > 0 ? allowedIntents : undefined,
     };
 };
 

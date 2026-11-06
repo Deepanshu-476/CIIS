@@ -19,6 +19,9 @@ import {
   AlertCircle,
   Clock,
   Square,
+  Plus,
+  Trash2,
+  MessageSquare,
 } from 'lucide-react';
 import { useMyAi } from '../../context/MyAiContext';
 import useTaskAgentSession from '../../hooks/useTaskAgentSession';
@@ -43,6 +46,89 @@ function CssOrbFallback({ orbState = 'paused', onClick, title }) {
       aria-label={`Voice Orb status: ${orbState}`}
     />
   );
+}
+
+/**
+ * Formats markdown syntax (**bold**, *italic*, list bullets) into React elements
+ * so words appear truly bold and clean instead of displaying raw asterisks (** or *).
+ */
+function renderFormattedMarkdown(text) {
+  if (!text) return null;
+  const lines = String(text).split('\n');
+  return lines.map((rawLine, lineIdx) => {
+    // 1. Convert leading markdown list bullets (* or - or + followed by space) into clean bullet character •
+    const line = rawLine.replace(/^(\s*)[*+-]\s+/g, '$1• ');
+
+    const parts = [];
+    let lastIndex = 0;
+    // Matches: 1) ***bold-italic***, 2) **bold**, 3) *italic*, 4) _italic_
+    const regex = /(\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|\*([^*\s](?:[^*]*[^*\s])?)\*|_([^_]+)_)/g;
+    let match;
+
+    while ((match = regex.exec(line)) !== null) {
+      if (match.index > lastIndex) {
+        // Strip any stray/unclosed asterisks so no raw asterisks leak to the user
+        const plain = line.substring(lastIndex, match.index).replace(/\*+/g, '');
+        if (plain) parts.push(plain);
+      }
+
+      if (match[2]) {
+        // ***bold-italic***
+        parts.push(
+          <strong key={`${lineIdx}-${match.index}`} className="my-ai-bold">
+            <em className="my-ai-em">{match[2].trim()}</em>
+          </strong>
+        );
+      } else if (match[3]) {
+        // **bold**
+        parts.push(
+          <strong key={`${lineIdx}-${match.index}`} className="my-ai-bold">
+            {match[3].trim()}
+          </strong>
+        );
+      } else if (match[4]) {
+        // *italic*
+        parts.push(
+          <em key={`${lineIdx}-${match.index}`} className="my-ai-em">
+            {match[4].trim()}
+          </em>
+        );
+      } else if (match[5]) {
+        // _italic_
+        parts.push(
+          <em key={`${lineIdx}-${match.index}`} className="my-ai-em">
+            {match[5].trim()}
+          </em>
+        );
+      }
+
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < line.length) {
+      const remainder = line.substring(lastIndex);
+      // If remainder starts with unclosed **text, turn it into bold
+      if (/^\s*\*\*([^*]+)/.test(remainder)) {
+        const boldMatch = remainder.match(/^\s*\*\*([^*]+)/);
+        parts.push(
+          <strong key={`${lineIdx}-trailing`} className="my-ai-bold">
+            {boldMatch[1].trim()}
+          </strong>
+        );
+      } else {
+        // Strip any dangling asterisks
+        const cleanRemainder = remainder.replace(/\*+/g, '');
+        if (cleanRemainder) parts.push(cleanRemainder);
+      }
+    }
+
+    return (
+      <React.Fragment key={lineIdx}>
+        {parts}
+        {lineIdx < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
 }
 
 /**
@@ -76,7 +162,7 @@ function AssistantMessageContent({ text, isLatest, isError }) {
   return (
     <div className={`my-ai-assistant-text ${isError ? 'is-error' : ''}`}>
       {isError && <AlertCircle size={15} className="my-ai-error-icon" />}
-      <span>{displayedText}</span>
+      <span className="my-ai-assistant-body">{renderFormattedMarkdown(displayedText)}</span>
       {isLatest && displayedText.length < text.length && <span className="my-ai-cursor">|</span>}
     </div>
   );
@@ -167,8 +253,13 @@ export default function MyAiChatView({ onBack, onClose }) {
     interim,
     stop,
     vadStats,
+    chatSessions,
+    loadChatSession,
+    deleteChatSession,
+    startNewChat,
   } = session;
 
+  const [showHistory, setShowHistory] = useState(false);
   const [hasWebGL, setHasWebGL] = useState(true);
   const [selectedMultiChips, setSelectedMultiChips] = useState([]);
   const threadEndRef = useRef(null);
@@ -364,6 +455,17 @@ export default function MyAiChatView({ onBack, onClose }) {
             {autoSpeak ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
 
+          {/* Chat History Toggle (0 Groq tokens) */}
+          <button
+            type="button"
+            className={`my-ai-icon-btn ${showHistory ? 'active' : ''}`}
+            onClick={() => setShowHistory((prev) => !prev)}
+            title="Chat History"
+            aria-label="Chat History"
+          >
+            <Clock size={16} />
+          </button>
+
           {/* Expand / Minimize Toggle */}
           <button
             type="button"
@@ -389,6 +491,86 @@ export default function MyAiChatView({ onBack, onClose }) {
       </header>
 
       {/* =====================================================================
+          REGION 1B: CHAT HISTORY DRAWER (ChatGPT style, 0 Groq API tokens)
+          ===================================================================== */}
+      {showHistory && (
+        <div className="my-ai-history-drawer">
+          <div className="my-ai-history-header">
+            <div className="my-ai-history-title-wrap">
+              <Clock size={16} className="my-ai-history-icon" />
+              <h3>Chat History</h3>
+            </div>
+            <div className="my-ai-history-actions">
+              <button
+                type="button"
+                className="my-ai-new-chat-btn"
+                onClick={() => {
+                  startNewChat();
+                  setShowHistory(false);
+                }}
+                title="Start a fresh conversation"
+              >
+                <Plus size={14} /> New Chat
+              </button>
+              <button
+                type="button"
+                className="my-ai-icon-btn close-history-btn"
+                onClick={() => setShowHistory(false)}
+                title="Close History"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="my-ai-history-list">
+            {(!chatSessions || chatSessions.length === 0) ? (
+              <div className="my-ai-history-empty">
+                <MessageSquare size={32} className="my-ai-history-empty-icon" />
+                <p>No past chat history yet.</p>
+                <span>Start chatting to save conversations locally!</span>
+              </div>
+            ) : (
+              chatSessions.map((s) => (
+                <div
+                  key={s.id}
+                  className="my-ai-history-item"
+                  onClick={() => {
+                    loadChatSession(s);
+                    setShowHistory(false);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="my-ai-history-item-left">
+                    <MessageSquare size={16} className="my-ai-history-item-icon" />
+                    <div className="my-ai-history-item-content">
+                      <span className="my-ai-history-item-title">{s.title || 'Conversation'}</span>
+                      <span className="my-ai-history-item-time">
+                        {new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, {new Date(s.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        {Array.isArray(s.messages) && ` • ${s.messages.length} msgs`}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="my-ai-history-delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChatSession(s.id);
+                    }}
+                    title="Delete session"
+                    aria-label="Delete session"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
           REGION 2: SCROLLABLE MESSAGE STREAM (flex: 1, overflow-y: auto)
           ===================================================================== */}
       <main className="my-ai-thread-scroll">
@@ -408,7 +590,7 @@ export default function MyAiChatView({ onBack, onClose }) {
                   }`}
                 >
                   {isUser ? (
-                    <span>{m.text}</span>
+                    <span>{renderFormattedMarkdown(m.text)}</span>
                   ) : (
                     <AssistantMessageContent
                       text={m.text}

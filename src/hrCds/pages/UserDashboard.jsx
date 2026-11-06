@@ -4,6 +4,7 @@ import axios from '../../utils/axiosConfig';
 import { getSidebarConfigParams, saveSidebarConfig } from '../../utils/sidebarConfigStore';
 import { ToastContainer, toast } from 'react-toastify';
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
+import { useSocket } from '../../context/SocketContext';
 import 'react-toastify/dist/ReactToastify.css';
 import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
@@ -20,7 +21,7 @@ import {
   FiPlay, FiSquare, FiRefreshCw, FiBriefcase, FiUser,
   FiCheckCircle, FiAlertCircle, FiTrendingUp, FiActivity,
   FiX, FiAlertTriangle, FiCamera, FiPlus, FiUmbrella, FiBox,
-  FiUserPlus, FiFolder, FiMessageSquare, FiZap, FiSun
+  FiUserPlus, FiFolder, FiMessageSquare, FiZap, FiSun, FiVolume2, FiVolumeX
 } from 'react-icons/fi';
 import {
   MdWork, MdOutlineCrop54, MdBeachAccess,
@@ -406,6 +407,7 @@ const LiveTime = ({ seconds, running }) => {
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+  const { voiceAlertsEnabled = false, setVoiceAlertsEnabled } = useSocket() || {};
 
   // If the user's Job Role or company has Dynamic Dashboard Overview configured, auto open it instead of user-dashboard
   useEffect(() => {
@@ -3632,19 +3634,70 @@ const UserDashboard = () => {
           </section>
 
           <section className="dashboard-ai-card">
-            <div className="dashboard-section-heading"><strong><FiZap /> AI Assistant</strong><span>Coming Soon</span></div>
+            <div className="dashboard-section-heading">
+              <strong><FiZap /> AI Voice Notifications</strong>
+              <span className={`ai-voice-status-badge ${voiceAlertsEnabled ? 'active' : 'muted'}`}>
+                {voiceAlertsEnabled && <span className="ai-voice-pulse-dot" />}
+                {voiceAlertsEnabled ? 'Voice ON' : 'Voice OFF'}
+              </span>
+            </div>
             <div className="dashboard-ai-summary dashboard-ai-coming-soon">
               <div className="ai-coming-soon-visual">
-                <div className="ai-orb"><Sparkles /></div>
-                <i className="ai-orbit-dot ai-orbit-dot-one" />
-                <i className="ai-orbit-dot ai-orbit-dot-two" />
+                <div className={`ai-orb ${voiceAlertsEnabled ? '' : 'muted'}`}>
+                  {voiceAlertsEnabled ? <FiVolume2 size={24} /> : <FiVolumeX size={24} />}
+                </div>
+                {voiceAlertsEnabled && (
+                  <>
+                    <i className="ai-orbit-dot ai-orbit-dot-one" />
+                    <i className="ai-orbit-dot ai-orbit-dot-two" />
+                  </>
+                )}
               </div>
-              <p>Your smart work assistant is on the way</p>
-              <small>Get personalized insights, task suggestions and instant answers from your workspace.</small>
+              <p>{voiceAlertsEnabled ? 'AI Voice Alerts Active' : 'AI Voice Alerts Muted'}</p>
+              <div className="ai-voice-actions">
+                <button
+                  type="button"
+                  className={`ai-voice-toggle-btn ${voiceAlertsEnabled ? 'active' : 'muted'}`}
+                  onClick={() => {
+                    const next = !voiceAlertsEnabled;
+                    setVoiceAlertsEnabled?.(next);
+                    if (next) {
+                      toast.success('AI Notification Voice is ON 🔊');
+                    } else {
+                      toast.info('AI Notification Voice is OFF 🔇');
+                    }
+                  }}
+                >
+                  {voiceAlertsEnabled ? <FiVolumeX size={14} /> : <FiVolume2 size={14} />}
+                  <span>{voiceAlertsEnabled ? 'Turn Voice OFF' : 'Turn Voice ON'}</span>
+                </button>
+                {voiceAlertsEnabled && (
+                  <button
+                    type="button"
+                    className="ai-voice-test-btn"
+                    title="Awaz check karein"
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.__ciisSpeakNotification) {
+                        window.__ciisSpeakNotification({
+                          title: 'Test Notification',
+                          message: 'Aapka AI notification voice bilkul sahi se kaam kar raha hai.',
+                          type: 'system_announcement'
+                        });
+                      } else if (window.speechSynthesis) {
+                        const u = new SpeechSynthesisUtterance('Aapka AI notification voice bilkul sahi se kaam kar raha hai.');
+                        u.rate = 1;
+                        window.speechSynthesis.speak(u);
+                      }
+                    }}
+                  >
+                    <FiVolume2 size={12} /> Test
+                  </button>
+                )}
+              </div>
               <div className="ai-feature-pills">
-                <span>Smart insights</span>
-                <span>Task help</span>
-                <span>Quick answers</span>
+                <span>Task alerts</span>
+                <span>Due reminders</span>
+                <span>Updates</span>
               </div>
             </div>
           </section>

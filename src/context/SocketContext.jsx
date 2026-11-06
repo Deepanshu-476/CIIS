@@ -71,7 +71,7 @@ export const useSocket = () => {
       onLeaveStatusChanged: () => () => { },
       onLeaveDeleted: () => () => { },
       onNewNotification: () => () => { },
-      voiceAlertsEnabled: true,
+      voiceAlertsEnabled: false,
       setVoiceAlertsEnabled: () => { },
       socket: socketService.socket
     };
@@ -128,7 +128,7 @@ export const SocketProvider = ({ children }) => {
 
   const [voiceAlertsEnabled, setVoiceAlertsEnabledState] = useState(() => {
     try {
-      return localStorage.getItem('ciis_voice_notifications_enabled') !== 'false';
+      return localStorage.getItem('ciis_voice_notifications_enabled') === 'true';
     } catch {
       return true;
     }
@@ -182,7 +182,7 @@ export const SocketProvider = ({ children }) => {
 
     // Respect user preference (defaults to true)
     try {
-      if (localStorage.getItem('ciis_voice_notifications_enabled') === 'false') return;
+      if (localStorage.getItem('ciis_voice_notifications_enabled') !== 'true') return;
     } catch {
       /* ignore */
     }

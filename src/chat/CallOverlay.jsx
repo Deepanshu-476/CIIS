@@ -1781,6 +1781,10 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         resetCall();
     }, []);
 
+    // Hooks must run on every render, so this stays above the early return below
+    // (calling it only during a call crashed React with "Rendered more hooks").
+    const localIsSpeaking = useAudioActivity(localStream, Boolean(call) && !isMuted);
+
     if (!call) {
         return error ? (
             <div className="call-toast" role="status" aria-live="polite">
@@ -1818,7 +1822,6 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const localUserInfo = getCurrentUserPublicInfo(currentUser);
     const localUserName = localUserInfo.name || "You";
     const localAvatarSrc = getAvatarSrc(localUserInfo.avatar);
-    const localIsSpeaking = useAudioActivity(localStream, !isMuted);
     const invitedIds = new Set([currentUserId, ...(call.participantIds || [])]);
     const inviteCandidates = availableUsers.filter(user => {
         const userId = getUserId(user);

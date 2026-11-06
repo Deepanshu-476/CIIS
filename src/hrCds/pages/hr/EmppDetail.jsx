@@ -2662,20 +2662,30 @@ const EmployeeDirectory = () => {
       }
       
       if (res.data && res.data.success) {
-        const updatedUser = res.data.message?.user || res.data.user || res.data.data;
+        const responseUser = res.data.message?.user || res.data.user || res.data.data;
+        // Some update endpoints return a compact response. Preserve the list
+        // record and merge the saved values so the Employee Details UI updates
+        // immediately instead of briefly showing stale/empty data.
+        const updatedUser = {
+          ...editingUser,
+          ...updateData,
+          ...(responseUser && typeof responseUser === 'object' ? responseUser : {}),
+          _id: responseUser?._id || editingUser._id || userId,
+          id: responseUser?.id || editingUser.id || userId
+        };
 
         if (selectedUser && (sameId(selectedUser._id, userId) || sameId(selectedUser.id, userId))) {
-          setSelectedUser(updatedUser);
+          setSelectedUser(current => ({ ...(current || {}), ...updatedUser }));
         }
         
         setEmployees(prev => prev.map(emp => 
           (sameId(emp._id, userId) || sameId(emp.id, userId)) 
-            ? { ...updatedUser } 
+            ? { ...emp, ...updatedUser } 
             : emp
         ));
 
         if (selectedUser && sameId(selectedUser._id, userId)) {
-          setSelectedUser(updatedUser);
+          setSelectedUser(current => ({ ...(current || {}), ...updatedUser }));
         }
 
         if (isSelfEdit) {

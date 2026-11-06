@@ -9,12 +9,14 @@ const CompanyPromotionsPage = () => {
     useEffect(() => {
         fetchPromoAccess().then((data) => setAccess(Boolean(data.company))).catch(() => setAccess(false));
     }, []);
-    if (access === null) return <div className="promo-manager"><p className="promo-muted">Loading…</p></div>;
+    if (access === null) return <div className="pm-page"><p className="pm-muted">Loading…</p></div>;
     if (!access) {
         return (
-            <div className="promo-manager">
-                <h1>Promotions</h1>
-                <p className="promo-muted">You do not have access to this page. Ask your company owner to give you “Promotions” in Sidebar Management.</p>
+            <div className="pm-page">
+                <div className="pm-card pm-empty">
+                <h2>Promotions</h2>
+                <p>You do not have access to this page. Ask your company owner to give you “Promotions” in Sidebar Management.</p>
+                </div>
             </div>
         );
     }

@@ -333,6 +333,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   emp, 
   onView, 
   onMenuOpen,
+  onToggleStatus,
   currentUserId,
   jobRoles,
   departments,
@@ -490,9 +491,35 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
             </div>
             
             <div className="EmployeeDirectory-employee-tags">
-              <span className={`EmployeeDirectory-employee-tag ${emp.isActive ? 'EmployeeDirectory-employee-tag-active' : 'EmployeeDirectory-employee-tag-inactive'}`}>
-                {emp.isActive ? 'Active' : 'Inactive'}
-              </span>
+              {canEditOtherEmployees && isOtherUser ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`EmployeeDirectory-switch-container ${emp.isActive ? 'is-active' : 'is-inactive'}`}
+                  title={emp.isActive ? 'Click to deactivate employee' : 'Click to activate employee'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onToggleStatus) onToggleStatus(emp);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      if (onToggleStatus) onToggleStatus(emp);
+                    }
+                  }}
+                >
+                  <div className="EmployeeDirectory-switch-track">
+                    <div className="EmployeeDirectory-switch-thumb" />
+                  </div>
+                  <span className="EmployeeDirectory-switch-label">
+                    {emp.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              ) : (
+                <span className={`EmployeeDirectory-employee-tag ${emp.isActive ? 'EmployeeDirectory-employee-tag-active' : 'EmployeeDirectory-employee-tag-inactive'}`}>
+                  {emp.isActive ? 'Active' : 'Inactive'}
+                </span>
+              )}
               {emp.employeeId && (
                 <span className="EmployeeDirectory-employee-tag EmployeeDirectory-employee-tag-secondary">
                   ID: {emp.employeeId}
@@ -1887,12 +1914,16 @@ const EmployeeDirectory = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [selectedMenuUser, setSelectedMenuUser] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [statusToggleConfirmOpen, setStatusToggleConfirmOpen] = useState(false);
+  const [userToToggleStatus, setUserToToggleStatus] = useState(null);
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [editFormErrors, setEditFormErrors] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -2348,9 +2379,21 @@ const EmployeeDirectory = () => {
   // Handle menu
   const handleMenuOpen = useCallback((event, userData) => {
     const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 190;
+    const viewportGap = 12;
+    const anchorGap = 6;
+
+    // Right-align by default: align menu's right edge with button's right edge
+    let left = rect.right - menuWidth;
+    // Boundary check so it doesn't overflow right or left edge of screen
+    const maxLeft = window.innerWidth - menuWidth - viewportGap;
+    left = Math.max(viewportGap, Math.min(left, maxLeft));
+
+    const top = rect.bottom + anchorGap;
+
     setMenuAnchorEl({
-      top: rect.bottom,
-      left: rect.left,
+      top,
+      left,
       anchorTop: rect.top,
       anchorBottom: rect.bottom,
       anchorLeft: rect.left,
@@ -2376,8 +2419,8 @@ const EmployeeDirectory = () => {
     window.addEventListener('scroll', closeOnViewportChange, true);
     window.addEventListener('resize', closeOnViewportChange);
 
-    if (window.innerWidth > 425 && window.innerWidth <= 1024 && contextMenuRef.current) {
-      const viewportGap = 8;
+    if (contextMenuRef.current) {
+      const viewportGap = 12;
       const anchorGap = 6;
       const menuRect = contextMenuRef.current.getBoundingClientRect();
       const maxLeft = Math.max(viewportGap, window.innerWidth - menuRect.width - viewportGap);
@@ -2689,6 +2732,78 @@ const EmployeeDirectory = () => {
     selectedUser
   ]);
   
+  // Handle direct quick status toggle from card badge or 3-dot menu
+  const handleStatusToggleClick = useCallback((userData) => {
+    if (!userData) return;
+    if (sameId(currentUserId, userData._id || userData.id)) {
+      showSnackbar('You cannot change your own active status', 'error');
+      if (handleMenuClose) handleMenuClose();
+      return;
+    }
+    setUserToToggleStatus(userData);
+    setStatusToggleConfirmOpen(true);
+    if (handleMenuClose) handleMenuClose();
+  }, [currentUserId, showSnackbar, handleMenuClose]);
+
+  const handleStatusToggleConfirm = useCallback(async () => {
+    if (!userToToggleStatus) return;
+    const userId = userToToggleStatus._id || userToToggleStatus.id;
+    const nextStatus = !userToToggleStatus.isActive;
+
+    setTogglingStatus(true);
+    try {
+      const token = user.getAuthToken();
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const updateUrls = [`/users/admin-update/${userId}`, '/users/admin-update-by-email'];
+      let res = null;
+      let lastError = null;
+
+      for (const apiUrl of updateUrls) {
+        try {
+          res = await axios.put(apiUrl, { isActive: nextStatus }, config);
+          break;
+        } catch (err) {
+          lastError = err;
+          if (err?.response?.status !== 404) throw err;
+        }
+      }
+
+      if (!res) throw lastError;
+
+      if (res.data && res.data.success) {
+        const updatedUser = res.data.message?.user || res.data.user || res.data.data || { ...userToToggleStatus, isActive: nextStatus };
+
+        setEmployees(prev => prev.map(emp =>
+          (sameId(emp._id, userId) || sameId(emp.id, userId))
+            ? { ...emp, ...updatedUser, isActive: nextStatus }
+            : emp
+        ));
+
+        if (selectedUser && (sameId(selectedUser._id, userId) || sameId(selectedUser.id, userId))) {
+          setSelectedUser(prev => prev ? { ...prev, ...updatedUser, isActive: nextStatus } : prev);
+        }
+
+        showSnackbar(`Employee marked as ${nextStatus ? 'Active' : 'Inactive'} successfully`);
+        setStatusToggleConfirmOpen(false);
+        setUserToToggleStatus(null);
+      } else {
+        showSnackbar(res.data?.message || 'Failed to update employee status', 'error');
+      }
+    } catch (err) {
+      console.error('❌ Status toggle failed:', err);
+      const errorMessage = err.response?.data?.message || 'Failed to update employee status';
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      setTogglingStatus(false);
+    }
+  }, [userToToggleStatus, selectedUser, showSnackbar, user.getAuthToken]);
+
   // Handle delete
   const handleDeleteClick = useCallback((userData) => {
     if (!userData) return;
@@ -2852,6 +2967,22 @@ const EmployeeDirectory = () => {
           employeeDepartmentName === String(selectedDepartmentData?.name || '').toLowerCase();
       });
     }
+
+    if (selectedBranch !== "all") {
+      filtered = filtered.filter((emp) => {
+        const branchIds = getIdList([
+          emp?.branch,
+          ...(Array.isArray(emp?.assignedBranches) ? emp.assignedBranches : []),
+          ...(Array.isArray(emp?.branchIds) ? emp.branchIds : [])
+        ]);
+        const branchMatch = branchIds.some(id => String(id) === String(selectedBranch));
+        const branchNameMatch = branches.some(b => 
+          String(getValueId(b)) === String(selectedBranch) &&
+          (emp?.branchName && String(emp.branchName).toLowerCase() === String(b.name || '').toLowerCase())
+        );
+        return branchMatch || branchNameMatch;
+      });
+    }
     
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -2873,7 +3004,26 @@ const EmployeeDirectory = () => {
     }
     
     return filtered;
-  }, [employees, selectedFilter, selectedDepartment, searchTerm, getJobRoleName, getDepartmentName, departments]);
+  }, [employees, selectedFilter, selectedDepartment, selectedBranch, searchTerm, getJobRoleName, getDepartmentName, departments, branches]);
+
+  const branchOptions = useMemo(() => branches.map((branch) => {
+    const id = getValueId(branch);
+    const name = branch.name || branch.branchName || 'Unnamed Branch';
+    const code = branch.branchCode || branch.code || '';
+    const label = name ? `${name}${code ? ` (${code})` : ''}` : code;
+    const count = employees.filter((employee) => {
+      const branchIds = getIdList([
+        employee?.branch,
+        ...(Array.isArray(employee?.assignedBranches) ? employee.assignedBranches : []),
+        ...(Array.isArray(employee?.branchIds) ? employee.branchIds : [])
+      ]);
+      const branchMatch = branchIds.some(bId => String(bId) === String(id));
+      const branchNameMatch = employee?.branchName && String(employee.branchName).toLowerCase() === String(name).toLowerCase();
+      return branchMatch || branchNameMatch;
+    }).length;
+    return { id, name: label, count };
+  }).filter((branch) => branch.id).sort((a, b) => a.name.localeCompare(b.name)),
+  [branches, employees]);
 
   const departmentOptions = useMemo(() => departments.map((department) => {
     const id = getValueId(department);
@@ -3038,6 +3188,19 @@ const EmployeeDirectory = () => {
                 </option>
               ))}
             </select>
+
+            <select
+              className="EmployeeDirectory-role-select EmployeeDirectory-branch-select-inline"
+              value={selectedBranch}
+              onChange={(event) => setSelectedBranch(event.target.value)}
+            >
+              <option value="all">All Branches ({employees.length})</option>
+              {branchOptions.map((branch) => (
+                <option value={branch.id} key={branch.id}>
+                  {branch.name} ({branch.count})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -3125,6 +3288,18 @@ const EmployeeDirectory = () => {
                 </option>
               ))}
             </select>
+            <select
+              className="EmployeeDirectory-role-select"
+              value={selectedBranch}
+              onChange={(event) => setSelectedBranch(event.target.value)}
+            >
+              <option value="all">All Branches ({employees.length})</option>
+              {branchOptions.map((branch) => (
+                <option value={branch.id} key={branch.id}>
+                  {branch.name} ({branch.count})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -3147,6 +3322,7 @@ const EmployeeDirectory = () => {
               setSearchTerm('');
               setSelectedFilter('all');
               setSelectedDepartment('all');
+              setSelectedBranch('all');
             }}
           >
             <FiX size={16} /> Clear Filters
@@ -3168,6 +3344,7 @@ const EmployeeDirectory = () => {
                       emp={emp}
                       onView={handleOpenUser}
                       onMenuOpen={handleMenuOpen}
+                      onToggleStatus={handleStatusToggleClick}
                       currentUserId={currentUserId}
                       jobRoles={jobRoles}
                       departments={departments}
@@ -3187,6 +3364,7 @@ const EmployeeDirectory = () => {
                 emp={emp}
                 onView={handleOpenUser}
                 onMenuOpen={handleMenuOpen}
+                onToggleStatus={handleStatusToggleClick}
                 currentUserId={currentUserId}
                 jobRoles={jobRoles}
                 departments={departments}
@@ -3726,6 +3904,93 @@ const EmployeeDirectory = () => {
         </div>
       )}
 
+      {/* Quick Status Toggle Confirmation Modal (Compact & Clean) */}
+      {statusToggleConfirmOpen && userToToggleStatus && (
+        <div className="EmployeeDirectory-modal-overlay" onClick={() => !togglingStatus && setStatusToggleConfirmOpen(false)}>
+          <div 
+            className="EmployeeDirectory-modal EmployeeDirectory-status-modal" 
+            onClick={e => e.stopPropagation()} 
+            style={{ maxWidth: '380px', padding: '20px' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
+              <div 
+                className={`EmployeeDirectory-status-icon-wrapper ${userToToggleStatus.isActive ? 'EmployeeDirectory-status-icon-deactivate' : 'EmployeeDirectory-status-icon-activate'}`}
+              >
+                {userToToggleStatus.isActive ? <FiUserX /> : <FiUserCheck />}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>
+                  {userToToggleStatus.isActive ? `Deactivate ${userToToggleStatus.name}?` : `Activate ${userToToggleStatus.name}?`}
+                </h4>
+                <p style={{ fontSize: '13px', color: '#475569', margin: 0, lineHeight: '1.4' }}>
+                  Are you sure you want to mark this user as{' '}
+                  <span style={{ 
+                    color: userToToggleStatus.isActive ? '#dc2626' : '#16a34a',
+                    fontWeight: '700' 
+                  }}>
+                    {userToToggleStatus.isActive ? 'Inactive' : 'Active'}
+                  </span>?
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              background: userToToggleStatus.isActive ? '#fff5f5' : '#f0fdf4',
+              border: `1px solid ${userToToggleStatus.isActive ? '#fed7d7' : '#bbf7d0'}`,
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              color: userToToggleStatus.isActive ? '#991b1b' : '#166534',
+              lineHeight: '1.4',
+              textAlign: 'left',
+              marginBottom: '18px'
+            }}>
+              {userToToggleStatus.isActive 
+                ? 'User will immediately lose portal login access.'
+                : 'User will immediately regain portal login access.'}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined"
+                onClick={() => setStatusToggleConfirmOpen(false)}
+                disabled={togglingStatus}
+                style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '500' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="EmployeeDirectory-btn"
+                onClick={handleStatusToggleConfirm}
+                disabled={togglingStatus}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: '#ffffff',
+                  background: userToToggleStatus.isActive ? '#dc2626' : '#16a34a',
+                  border: 'none',
+                  boxShadow: userToToggleStatus.isActive ? '0 2px 6px rgba(220, 38, 38, 0.25)' : '0 2px 6px rgba(22, 163, 74, 0.25)'
+                }}
+              >
+                {togglingStatus ? (
+                  <>
+                    <div className="EmployeeDirectory-spinner" style={{ width: '13px', height: '13px', marginRight: '6px' }} />
+                    Saving...
+                  </>
+                ) : (
+                  userToToggleStatus.isActive ? 'Deactivate' : 'Activate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Context Menu - Only visible to users with edit access */}
       {canEditOtherEmployees && menuAnchorEl && selectedMenuUser && (
         <>
@@ -3753,6 +4018,26 @@ const EmployeeDirectory = () => {
             >
               <FiEdit size={16} color="#1976d2" />
               <span className="EmployeeDirectory-menu-item-text">Edit Employee</span>
+            </button>
+
+            <button
+              type="button"
+              className="EmployeeDirectory-menu-item"
+              role="menuitem"
+              onClick={() => handleStatusToggleClick(selectedMenuUser)}
+              style={{ color: selectedMenuUser.isActive ? '#d32f2f' : '#2e7d32' }}
+            >
+              {selectedMenuUser.isActive ? (
+                <>
+                  <FiUserX size={16} color="#d32f2f" />
+                  <span className="EmployeeDirectory-menu-item-text">Mark as Inactive</span>
+                </>
+              ) : (
+                <>
+                  <FiUserCheck size={16} color="#2e7d32" />
+                  <span className="EmployeeDirectory-menu-item-text">Mark as Active</span>
+                </>
+              )}
             </button>
             
             {canDeleteUser(selectedMenuUser) && (

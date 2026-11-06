@@ -168,7 +168,7 @@ class HomePage extends React.Component {
       const list = response.data?.plans || [];
       const active = list.filter(p => p.isActive !== false);
       if (active.length > 0) {
-        // Sort active plans by price ascending
+        // Sort active plans by price ascending 
         active.sort((a, b) => (a.price || 0) - (b.price || 0));
         this.setState({ dbPlans: active });
       }

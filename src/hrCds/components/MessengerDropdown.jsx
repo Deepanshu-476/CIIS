@@ -795,6 +795,61 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     if (file) validateAndPreviewFile(file);
   };
 
+  // Handle pasting images from clipboard
+  const handlePaste = (e) => {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const items = Array.from(clipboardData.items || []);
+    const imageItem = items.find(
+      (item) => item.kind === "file" && item.type && item.type.startsWith("image/")
+    );
+
+    if (imageItem) {
+      e.preventDefault();
+      const blob = imageItem.getAsFile();
+      if (blob) {
+        const ext = (blob.type && blob.type.split("/")[1]) || "png";
+        const file = new File(
+          [blob],
+          "pasted-image-" + Date.now() + "." + ext,
+          { type: blob.type || "image/png", lastModified: Date.now() }
+        );
+        validateAndPreviewFile(file);
+        return;
+      }
+    }
+
+    const clipFiles = Array.from(clipboardData.files || []);
+    const imageFile = clipFiles.find((f) => f && f.type && f.type.startsWith("image/"));
+    if (imageFile) {
+      e.preventDefault();
+      validateAndPreviewFile(imageFile);
+    }
+  };
+
+  useEffect(() => {
+    if (!isWidgetOpen || !activeConversationId) return undefined;
+
+    const handleWindowPaste = (e) => {
+      // If user is typing in another input element outside the messenger, skip
+      const target = e.target;
+      if (
+        target &&
+        target.tagName === "INPUT" &&
+        target.type !== "file" &&
+        !target.classList.contains("fb-chat-input") &&
+        !target.classList.contains("chat-input")
+      ) {
+        return;
+      }
+      handlePaste(e);
+    };
+
+    window.addEventListener("paste", handleWindowPaste);
+    return () => window.removeEventListener("paste", handleWindowPaste);
+  }, [isWidgetOpen, activeConversationId]);
+
   // Quick reaction emoji click
   const handleReactionClick = (emojiData) => {
     const emoji = emojiData?.emoji || "";
@@ -1688,6 +1743,7 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
                   placeholder="Type a message..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
+                  onPaste={handlePaste}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();

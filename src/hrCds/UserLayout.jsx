@@ -16,6 +16,7 @@ import { CallProvider } from '../context/CallContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate, { hasCompanyPlanAccess } from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
+import PromoPopup from '../promotions/PromoPopup';
 import { useAuth } from '../context/useAuth';
 
 const drawerWidthOpen = 236;
@@ -236,6 +237,7 @@ const UserLayout = () => {
           </Box>
       </MainContent>
       <FeedbackQuestionnairePopup />
+      <PromoPopup userId={user?._id || user?.id} enabled={!isClientUser} />
       {!isClientUser && <SupportChatWidget />}
       {!isClientUser && hasCompanyPlanAccess('chat') && <MessengerDropdown />}
     </LayoutContainer>

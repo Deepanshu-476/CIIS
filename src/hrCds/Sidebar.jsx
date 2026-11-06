@@ -1144,6 +1144,14 @@ const allPagesItems = [
     order: 6
   },
   {
+    id: 'promotions',
+    name: 'Promotions',
+    icon: 'Megaphone',
+    path: '/ciisUser/promotions',
+    category: 'communication',
+    order: 6.5
+  },
+  {
     id: 'projects',
     name: 'My Projects',
     icon: 'FolderKanban',
@@ -1658,6 +1666,7 @@ const getPathFromName = (name) => {
     'Profile': '/ciisUser/profile',
     'Alerts': '/ciisUser/alert',
     'Create Alert': '/ciisUser/create-alert',
+    'Promotions': '/ciisUser/promotions',
     'Projects': '/ciisUser/project',
     'My Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',
@@ -2122,6 +2131,11 @@ const filterItemsByCompanyAccess = (items, companyData) => {
     // Keeping it prevents stale allowedPages data from hiding the Main link.
     if (['dashboard', 'user-dashboard'].includes(String(item?.id || '').toLowerCase()) ||
       String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard') {
+      return true;
+    }
+    // Promotions is not a plan feature: the server decides who may open it.
+    if (String(item?.id || '').toLowerCase() === 'promotions' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/promotions') {
       return true;
     }
     if (String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/')) {

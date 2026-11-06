@@ -33,6 +33,7 @@ import {
   MessageSquareQuote as FeedbackIcon,
   ScrollText as LeavePolicyIcon,
   MonitorPlay as DemoIcon,
+  Megaphone as PromotionsIcon,
   PartyPopper as HolidayIcon,
   Settings as SettingsIcon,
   LogOut as LogoutIcon,
@@ -348,6 +349,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <DemoIcon size={20} strokeWidth={1.9} />, 
       name: 'Demo Requests',
       route: '/Ciis-network/demo-requests',
+      showForSuperAdmin: true
+    },
+    {
+      icon: <PromotionsIcon size={20} strokeWidth={1.9} />,
+      name: 'Promotions',
+      route: '/Ciis-network/promotions',
       showForSuperAdmin: true
     },
     { 

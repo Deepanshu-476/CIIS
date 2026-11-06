@@ -183,9 +183,90 @@ const notifyIncomingCall = (incomingCall) => {
     }
 };
 
+const useAudioActivity = (stream, enabled = true) => {
+    const [isSpeaking, setIsSpeaking] = useState(false);
+
+    useEffect(() => {
+        if (!stream || !enabled) {
+            setIsSpeaking(false);
+            return;
+        }
+
+        const audioTracks = stream.getAudioTracks();
+        if (!audioTracks.length || !audioTracks[0].enabled) {
+            setIsSpeaking(false);
+            return;
+        }
+
+        let audioCtx = null;
+        let analyser = null;
+        let source = null;
+        let animFrameId = null;
+        let isCancelled = false;
+
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            audioCtx = new AudioCtx();
+            if (audioCtx.state === "suspended") {
+                audioCtx.resume().catch(() => {});
+            }
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 128;
+            analyser.smoothingTimeConstant = 0.4;
+            source = audioCtx.createMediaStreamSource(stream);
+            source.connect(analyser);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            let lastSpeakTime = 0;
+
+            const checkVolume = () => {
+                if (isCancelled) return;
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const avg = sum / bufferLength;
+                const now = Date.now();
+                if (avg > 14) {
+                    lastSpeakTime = now;
+                    setIsSpeaking(true);
+                } else if (now - lastSpeakTime > 400) {
+                    setIsSpeaking(false);
+                }
+                animFrameId = requestAnimationFrame(checkVolume);
+            };
+            checkVolume();
+        } catch {
+            // Audio context failed gracefully (e.g., autoplay restriction)
+        }
+
+        return () => {
+            isCancelled = true;
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            if (source) {
+                try { source.disconnect(); } catch (_) {}
+            }
+            if (analyser) {
+                try { analyser.disconnect(); } catch (_) {}
+            }
+            if (audioCtx && audioCtx.state !== "closed") {
+                try { audioCtx.close(); } catch (_) {}
+            }
+            setIsSpeaking(false);
+        };
+    }, [stream, enabled]);
+
+    return isSpeaking;
+};
+
 const RemoteVideoTile = ({ participant }) => {
     const videoRef = useRef(null);
     const audioRef = useRef(null);
+    const [isMuted, setIsMuted] = useState(false);
+    const isSpeaking = useAudioActivity(participant.stream, !isMuted);
 
     useEffect(() => {
         if (videoRef.current && participant.stream) {
@@ -196,21 +277,43 @@ const RemoteVideoTile = ({ participant }) => {
             audioRef.current.srcObject = participant.stream;
             playMediaElement(audioRef.current, "Remote audio");
         }
+
+        const audioTrack = participant.stream?.getAudioTracks()?.[0];
+        if (!audioTrack) {
+            setIsMuted(true);
+            return;
+        }
+
+        const updateMuteStatus = () => {
+            setIsMuted(!audioTrack.enabled || audioTrack.muted);
+        };
+
+        updateMuteStatus();
+        audioTrack.addEventListener("mute", updateMuteStatus);
+        audioTrack.addEventListener("unmute", updateMuteStatus);
+        audioTrack.addEventListener("ended", updateMuteStatus);
+
+        return () => {
+            audioTrack.removeEventListener("mute", updateMuteStatus);
+            audioTrack.removeEventListener("unmute", updateMuteStatus);
+            audioTrack.removeEventListener("ended", updateMuteStatus);
+        };
     }, [participant.stream]);   
   
     const avatarSrc = getAvatarSrc(participant.user?.avatar || participant.user?.profileImage || participant.user?.image);
+    const participantName = participant.user?.name || "Participant";
 
     return (
-        <div className="call-remote-tile">
+        <div className={`call-remote-tile ${isSpeaking ? "is-speaking" : ""}`}>
             <audio ref={audioRef} autoPlay playsInline />
             {participant.stream ? (
                 <video ref={videoRef} autoPlay playsInline className="call-remote-video" />
             ) : (
-                <div className="call-avatar-large">
+                <div className={`call-avatar-large ${isSpeaking ? "speaking-pulse" : ""}`}>
                     {avatarSrc ? (
                         <img
                             src={avatarSrc}
-                            alt={participant.user?.name || "Participant"}
+                            alt={participantName}
                             onError={(e) => {
                                 e.currentTarget.style.display = "none";
                                 if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
@@ -218,11 +321,75 @@ const RemoteVideoTile = ({ participant }) => {
                         />
                     ) : null}
                     <span style={{ display: avatarSrc ? "none" : "inline" }}>
-                        {participant.user?.name?.charAt(0).toUpperCase() || "U"}
+                        {participantName.charAt(0).toUpperCase() || "U"}
                     </span>
                 </div>
             )}
-            <div className="call-tile-name">{participant.user?.name || "Participant"}</div>
+            <div className="call-participant-pill">
+                <span className={`call-pill-mic ${isMuted ? "muted" : "unmuted"}`} title={isMuted ? "Muted" : "Microphone active"}>
+                    {isMuted ? <MicOff size={12} /> : <Mic size={12} />}
+                </span>
+                <span className="call-pill-name">{participantName}</span>
+            </div>
+        </div>
+    );
+};
+
+const VoiceCallCard = ({ user, stream, isMuted: propMuted = false, isLocal = false }) => {
+    const [isMuted, setIsMuted] = useState(propMuted);
+
+    useEffect(() => {
+        if (isLocal) {
+            setIsMuted(propMuted);
+            return;
+        }
+        const audioTrack = stream?.getAudioTracks()?.[0];
+        if (!audioTrack) {
+            setIsMuted(true);
+            return;
+        }
+        const updateMuteStatus = () => {
+            setIsMuted(!audioTrack.enabled || audioTrack.muted);
+        };
+        updateMuteStatus();
+        audioTrack.addEventListener("mute", updateMuteStatus);
+        audioTrack.addEventListener("unmute", updateMuteStatus);
+        audioTrack.addEventListener("ended", updateMuteStatus);
+        return () => {
+            audioTrack.removeEventListener("mute", updateMuteStatus);
+            audioTrack.removeEventListener("unmute", updateMuteStatus);
+            audioTrack.removeEventListener("ended", updateMuteStatus);
+        };
+    }, [stream, propMuted, isLocal]);
+
+    const isSpeaking = useAudioActivity(stream, !isMuted);
+    const avatarSrc = getAvatarSrc(user?.avatar || user?.profileImage || user?.image);
+    const rawName = user?.name || user?.fullName || (isLocal ? "You" : "Participant");
+    const displayName = isLocal ? `${rawName} (You)` : rawName;
+
+    return (
+        <div className={`call-voice-card ${isSpeaking ? "is-speaking" : ""}`}>
+            <div className={`call-avatar-large ${isSpeaking ? "speaking-pulse" : ""}`}>
+                {avatarSrc ? (
+                    <img
+                        src={avatarSrc}
+                        alt={displayName}
+                        onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
+                        }}
+                    />
+                ) : null}
+                <span style={{ display: avatarSrc ? "none" : "inline" }}>
+                    {(rawName || "U").charAt(0).toUpperCase()}
+                </span>
+            </div>
+            <div className="call-participant-pill prominent">
+                <span className={`call-pill-mic ${isMuted ? "muted" : "unmuted"}`} title={isMuted ? "Muted" : "Microphone active"}>
+                    {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
+                </span>
+                <span className="call-pill-name">{displayName}</span>
+            </div>
         </div>
     );
 };
@@ -260,6 +427,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [connectionStatus, setConnectionStatus] = useState("");
     const [floatingPosition, setFloatingPosition] = useState({ x: 24, y: 90 });
     const [remoteParticipants, setRemoteParticipants] = useState([]);
+    const [localStream, setLocalStream] = useState(null);
     const [showAddPeople, setShowAddPeople] = useState(false);
     // Group call roster from the server: who is in, ringing, missed, left or removed (and by whom).
     const [callRoster, setCallRoster] = useState([]);
@@ -532,6 +700,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     const attachLocalStream = (stream) => {
         localStreamRef.current = stream;
+        setLocalStream(stream);
         if (localVideoRef.current) {
             localVideoRef.current.srcObject = stream;
         }
@@ -574,6 +743,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }
         localStreamRef.current?.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
+        setLocalStream(null);
         cameraVideoTrackRef.current = null;
         setRemoteParticipants([]);
     };
@@ -782,23 +952,52 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     };
 
     const removePeer = (peerUserId) => {
-        peerConnectionsRef.current.get(peerUserId)?.close();
-        peerConnectionsRef.current.delete(peerUserId);
-        candidateQueuesRef.current.delete(peerUserId);
-        setRemoteParticipants(prev => prev.filter(participant => participant.userId !== peerUserId));
+        const id = String(peerUserId);
+        const timer = reconnectTimersRef.current.get(id);
+        if (timer) {
+            clearTimeout(timer);
+            reconnectTimersRef.current.delete(id);
+        }
+        const pc = peerConnectionsRef.current.get(id);
+        if (pc) {
+            try {
+                pc.ontrack = null;
+                pc.onicecandidate = null;
+                pc.onconnectionstatechange = null;
+                pc.close();
+            } catch (_) {}
+            peerConnectionsRef.current.delete(id);
+        }
+        if (reconnectTimersRef.current.has(id)) {
+            window.clearTimeout(reconnectTimersRef.current.get(id));
+            reconnectTimersRef.current.delete(id);
+        }
+        candidateQueuesRef.current.delete(id);
+        setRemoteParticipants(prev => prev.filter(participant => String(participant.userId) !== id));
     };
 
     // Drop people who left, declined or could not be added, so they can be invited again.
     const dropCallParticipants = (userIds) => {
         const activeCall = activeCallRef.current;
         if (!activeCall || !userIds.length) return;
-        userIds.forEach(removePeer);
+        const normalizedIds = userIds.map(id => String(id));
+        normalizedIds.forEach(removePeer);
+
+        // Immediate removal from remote participants grid
+        setRemoteParticipants(prev => prev.filter(p => !normalizedIds.includes(String(p.userId))));
+
         const nextCall = {
             ...activeCall,
-            participantIds: (activeCall.participantIds || []).filter(id => !userIds.includes(id)),
+            participantIds: (activeCall.participantIds || []).filter(id => !normalizedIds.includes(String(id))),
         };
         activeCallRef.current = nextCall;
         setCall(nextCall);
+
+        // If it's a 1-to-1 call and the other peer left, end call cleanly
+        if (!activeCall.isGroupCall && (normalizedIds.includes(String(activeCall.peerUserId)) || peerConnectionsRef.current.size === 0)) {
+            completeCall("ended");
+            resetCall();
+        }
     };
 
     const getMediaStream = async (callType) => {
@@ -999,12 +1198,14 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             await loadIceServers();
             await getMediaStream(callType);
             startRingtone();
+            const convId = (user?.conversation?._id || user?.conversationId || (user?.isGroup ? (user?._id || user?.id) : "") || "").toString();
             socket.emit("call:invite", {
                 callId: nextCall.callId,
                 participantIds,
                 toUserId: participantIds[0],
                 callType,
                 isGroupCall,
+                conversationId: convId,
                 groupTitle: isGroupCall ? getGroupName(user) : "",
                 title: isGroupCall ? getGroupName(user) : "",
                 callerUser: getCurrentUserPublicInfo(myUser),
@@ -1024,8 +1225,63 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }
     };
 
+    const rejoinCall = async (callInfo = {}) => {
+        const callId = callInfo.callId?.toString();
+        if (!callId) return;
+
+        const callType = callInfo.callType === "video" ? "video" : "audio";
+        const isGroupCall = Boolean(callInfo.isGroupCall);
+        const myUser = currentUser || getStoredUser();
+
+        const nextCall = {
+            callId,
+            type: callType,
+            status: "active",
+            peerUser: callInfo.peerUser || null,
+            peerUserId: callInfo.peerUserId || "",
+            participantIds: [],
+            isCaller: false,
+            isGroupCall,
+            conversationId: callInfo.conversationId || "",
+            title: callInfo.title || (isGroupCall ? "Group call" : "Call"),
+        };
+
+        activeCallRef.current = nextCall;
+        setCall(nextCall);
+        setConnectionStatus("Joining call...");
+        setIsMinimized(false);
+        setError("");
+
+        try {
+            await loadIceServers();
+            await getMediaStream(callType);
+            stopRingtone();
+            socket?.emit("call:rejoin", { callId }, async (res) => {
+                if (!res?.success) {
+                    setError(res?.message || "Could not rejoin call");
+                    resetCall();
+                    return;
+                }
+                logCall("Successfully rejoined call", res);
+                if (Array.isArray(res.participants)) {
+                    res.participants.forEach(p => {
+                        if (p.userId && String(p.userId) !== String(currentUserId)) {
+                            upsertRemoteParticipant(String(p.userId), { user: p.user });
+                        }
+                    });
+                }
+            });
+        } catch (mediaError) {
+            logCall("rejoinCall media error", mediaError);
+            setError("Could not access microphone/camera to rejoin");
+            resetCall();
+        }
+    };
+
     useImperativeHandle(ref, () => ({
         startCall,
+        rejoinCall,
+        getActiveCall: () => activeCallRef.current,
     }));
 
     const acceptCall = async () => {
@@ -1293,6 +1549,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 if (!activeCall || activeCall.callId !== data.callId || !data.fromUserId) return;
 
                 const peerConnection = createPeerConnection(data.fromUserId, data.fromUser);
+                if (peerConnection.signalingState === "have-local-offer") {
+                    try { await peerConnection.setLocalDescription({ type: "rollback" }); } catch (_) {}
+                }
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
                 await flushCandidateQueue(data.fromUserId);
 
@@ -1419,6 +1678,13 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         socket.on("call:answer", handleAnswer);
         socket.on("call:ice-candidate", handleIceCandidate);
         socket.on("call:rejected", handleCallRejected);
+        const handleParticipantLeft = (data) => {
+            const userId = String(data?.userId || data?.fromUserId || "");
+            if (!userId) return;
+            dropCallParticipants([userId]);
+        };
+
+        socket.on("call:participant-left", handleParticipantLeft);
         socket.on("call:ended", handleCallClosed);
         socket.on("call:missed", handleCallMissed);
         socket.on("call:roster", handleRoster);
@@ -1437,6 +1703,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.off("call:answer", handleAnswer);
             socket.off("call:ice-candidate", handleIceCandidate);
             socket.off("call:rejected", handleCallRejected);
+            socket.off("call:participant-left", handleParticipantLeft);
             socket.off("call:ended", handleCallClosed);
             socket.off("call:missed", handleCallMissed);
             socket.off("call:roster", handleRoster);
@@ -1548,6 +1815,10 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const displayStatus = connectionStatus || statusLabel;
     const callDuration = call.status === "active" ? formatCallDuration(elapsedSeconds) : "00:00";
     const showsVideoStage = isVideoCall || isScreenSharing;
+    const localUserInfo = getCurrentUserPublicInfo(currentUser);
+    const localUserName = localUserInfo.name || "You";
+    const localAvatarSrc = getAvatarSrc(localUserInfo.avatar);
+    const localIsSpeaking = useAudioActivity(localStream, !isMuted);
     const invitedIds = new Set([currentUserId, ...(call.participantIds || [])]);
     const inviteCandidates = availableUsers.filter(user => {
         const userId = getUserId(user);
@@ -1699,31 +1970,64 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                         ) : (
                             <div className="call-waiting-text">Waiting for participants...</div>
                         )
-                    ) : (
-                        <>
-                            {remoteParticipants.map(participant => (
-                                <RemoteAudioTrack key={participant.userId} participant={participant} />
-                            ))}
-                            <div className="call-avatar-large">
-                                {avatarSrc ? (
-                                    <img
-                                        src={avatarSrc}
-                                        alt={call.peerUser?.name || "User"}
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = "none";
-                                            if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "inline";
-                                        }}
-                                    />
-                                ) : null}
-                                <span style={{ display: avatarSrc ? "none" : "inline" }}>
-                                    {call.peerUser?.name?.charAt(0).toUpperCase() || "U"}
-                                </span>
-                            </div>
-                        </>
+) : (
+                        <div className="call-voice-stage-grid">
+                            {remoteParticipants.length > 0 ? (
+                                remoteParticipants.map(participant => (
+                                    <React.Fragment key={participant.userId}>
+                                        <RemoteAudioTrack participant={participant} />
+                                        <VoiceCallCard
+                                            user={participant.user || getKnownParticipantUser(call.peerUser, participant.userId) || { name: "Participant" }}
+                                            stream={participant.stream}
+                                            isMuted={!participant.stream?.getAudioTracks()?.[0]?.enabled}
+                                            isLocal={false}
+                                        />
+                                    </React.Fragment>
+                                ))
+                            ) : (
+                                <VoiceCallCard
+                                    user={call.peerUser || { name: call.title || "User" }}
+                                    stream={null}
+                                    isMuted={false}
+                                    isLocal={false}
+                                />
+                            )}
+                            {call.isGroupCall && (
+                                <VoiceCallCard
+                                    user={localUserInfo}
+                                    stream={localStream}
+                                    isMuted={isMuted}
+                                    isLocal={true}
+                                />
+                            )}
+                        </div>
                     )}
 
                     {showsVideoStage && (
-                        <video ref={localVideoRef} autoPlay muted playsInline className={isCameraOff ? "call-local-video is-camera-off" : "call-local-video"} />
+                        <div className={`call-local-tile ${isCameraOff ? "is-camera-off" : ""} ${localIsSpeaking ? "is-speaking" : ""}`}>
+                            <video
+                                ref={localVideoRef}
+                                autoPlay
+                                muted
+                                playsInline
+                                className="call-local-video"
+                            />
+                            {isCameraOff && (
+                                <div className="call-local-avatar-fallback">
+                                    {localAvatarSrc ? (
+                                        <img src={localAvatarSrc} alt={localUserName} />
+                                    ) : (
+                                        <span>{localUserName.charAt(0).toUpperCase()}</span>
+                                    )}
+                                </div>
+                            )}
+                            <div className="call-participant-pill">
+                                <span className={`call-pill-mic ${isMuted ? "muted" : "unmuted"}`} title={isMuted ? "You are muted" : "Your mic is on"}>
+                                    {isMuted ? <MicOff size={11} /> : <Mic size={11} />}
+                                </span>
+                                <span className="call-pill-name">{localUserName} (You)</span>
+                            </div>
+                        </div>
                     )}
                 </div>
 

@@ -476,6 +476,13 @@ const DepartmentFilter = ({ selected, onChange, departments }) => {
   );
 };
 
+const BranchFilter = ({ selected, onChange, branches = [] }) => (
+  <select className="EmppAttendence-filter-input" value={selected} onChange={(e) => onChange(e.target.value)}>
+    <option value="all">All Branches</option>
+    {branches.map(branch => <option key={branch._id || branch.id} value={branch._id || branch.id}>{branch.name || branch.branchName || branch.branchCode}</option>)}
+  </select>
+);
+
 
 const StatusFilter = ({ selected, onChange }) => {
   const options = [
@@ -1524,6 +1531,7 @@ const EmployeeAttendance = () => {
   const [records, setRecords] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [departmentsMap, setDepartmentsMap] = useState({});
   
   
@@ -1533,6 +1541,7 @@ const EmployeeAttendance = () => {
   const [dateRangeMode, setDateRangeMode] = useState(false);
   
   const [selectedEmployeeType, setSelectedEmployeeType] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -1842,6 +1851,18 @@ const EmployeeAttendance = () => {
       }
       
       
+      try {
+        const companyValue = currentUser?.company || currentUser?.companyId;
+        const companyId = currentUserCompanyId || (typeof companyValue === 'object' ? (companyValue?._id || companyValue?.id) : companyValue);
+        if (companyId) {
+          const branchRes = await axios.get(`/branches/company/${companyId}`);
+          const branchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
+          setBranches(branchList);
+        }
+      } catch (branchErr) {
+        console.error("Failed to load branches", branchErr);
+      }
+
       const res = await axios.get('/users/company-users');
       
       let usersData = [];
@@ -1897,6 +1918,8 @@ const EmployeeAttendance = () => {
           name: user.name,
           email: user.email,
           employeeType: user.employeeType || user.employmentType || 'full-time',
+          branch: user.branch || user.branchId || null,
+          assignedBranches: user.assignedBranches || [],
           departmentId: deptId,
           department: deptName,
           departmentName: deptName,
@@ -2277,6 +2300,7 @@ const EmployeeAttendance = () => {
   const clearFilters = () => {
     setStatusFilter("all");
     setSelectedEmployeeType("all");
+    setSelectedBranch("all");
     setSelectedDepartment("all");
     setSearchTerm("");
     handleDateRangeClear();
@@ -2294,6 +2318,11 @@ const EmployeeAttendance = () => {
   
   const filteredRecords = useMemo(() => {
     let filtered = records;
+
+    if (selectedBranch !== "all") {
+      filtered = filtered.filter((rec) => [rec.user?.branch, ...(rec.user?.assignedBranches || [])]
+        .some(branch => String(typeof branch === 'object' ? (branch?._id || branch?.id) : branch) === String(selectedBranch)));
+    }
 
     if (selectedEmployeeType !== "all") {
       filtered = filtered.filter(
@@ -2349,10 +2378,15 @@ const EmployeeAttendance = () => {
     });
 
     return filtered;
-  }, [records, selectedEmployeeType, selectedDepartment, searchTerm, statusFilter]);
+  }, [records, selectedEmployeeType, selectedBranch, selectedDepartment, searchTerm, statusFilter]);
 
   const statsBaseRecords = useMemo(() => {
     let filtered = records;
+
+    if (selectedBranch !== "all") {
+      filtered = filtered.filter((rec) => [rec.user?.branch, ...(rec.user?.assignedBranches || [])]
+        .some(branch => String(typeof branch === 'object' ? (branch?._id || branch?.id) : branch) === String(selectedBranch)));
+    }
 
     if (selectedEmployeeType !== "all") {
       filtered = filtered.filter(
@@ -2371,7 +2405,7 @@ const EmployeeAttendance = () => {
     }
 
     return filtered;
-  }, [records, selectedEmployeeType, selectedDepartment]);
+  }, [records, selectedEmployeeType, selectedBranch, selectedDepartment]);
 
   useEffect(() => {
     calculateStats(statsBaseRecords);
@@ -3612,11 +3646,27 @@ const EmployeeAttendance = () => {
           </div>
           
           <div className="EmppAttendence-filter-group">
+            <label className="EmppAttendence-filter-label">Branch</label>
+            <BranchFilter
+              selected={selectedBranch}
+              onChange={(branchId) => {
+                setSelectedBranch(branchId);
+                if (branchId !== 'all') setSelectedDepartment('all');
+              }}
+              branches={branches}
+            />
+          </div>
+
+          <div className="EmppAttendence-filter-group">
             <label className="EmppAttendence-filter-label">Department</label>
             <DepartmentFilter
               selected={selectedDepartment}
               onChange={setSelectedDepartment}
-              departments={departments}
+              departments={selectedBranch === 'all' ? departments : departments.filter(department => {
+                const branch = department.branch || department.branchId;
+                const branchId = typeof branch === 'object' ? (branch?._id || branch?.id) : branch;
+                return !branchId || String(branchId) === String(selectedBranch);
+              })}
             />
           </div>
 

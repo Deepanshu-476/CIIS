@@ -264,6 +264,17 @@ const DepartmentFilter = ({ selected, onChange, departments = [] }) => {
   );
 };
 
+const BranchFilter = ({ selected, onChange, branches = [] }) => (
+  <select className="EmppLeaves-filter-select" value={selected} onChange={(e) => onChange(e.target.value)}>
+    <option value="all">All Branches</option>
+    {branches.map(branch => (
+      <option key={branch._id || branch.id} value={branch._id || branch.id}>
+        {branch.name || branch.branchName || branch.branchCode || 'Branch'}
+      </option>
+    ))}
+  </select>
+);
+
 
 
 
@@ -275,6 +286,7 @@ const EmployeeLeaves = () => {
   const [filterDate, setFilterDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [leaveTypeFilter, setLeaveTypeFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -341,6 +353,7 @@ const EmployeeLeaves = () => {
   
   
   const [departments, setDepartments] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [departmentMap, setDepartmentMap] = useState({});
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [configuredLeaveTypes, setConfiguredLeaveTypes] = useState([]);
@@ -822,6 +835,20 @@ const EmployeeLeaves = () => {
     }
   }, [currentUserCompanyId, showSnackbar]);
 
+  const fetchBranches = useCallback(async () => {
+    if (!currentUserCompanyId) return;
+    try {
+      const response = await axios.get(`/branches/company/${currentUserCompanyId}`);
+      const data = Array.isArray(response.data?.branches)
+        ? response.data.branches
+        : (Array.isArray(response.data?.data) ? response.data.data : (Array.isArray(response.data) ? response.data : []));
+      setBranches(data);
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+      setBranches([]);
+    }
+  }, [currentUserCompanyId]);
+
   const fetchConfiguredLeaveTypes = useCallback(async () => {
     if (!currentUserCompanyId) return;
 
@@ -942,6 +969,9 @@ const EmployeeLeaves = () => {
           params.append('department', currentUserDepartment);
         }
       } else {
+        if (branchFilter && branchFilter !== 'all') {
+          params.append('branch', branchFilter);
+        }
         if (departmentFilter && departmentFilter !== 'all') {
           params.append('department', departmentFilter);
         }
@@ -1001,6 +1031,7 @@ const EmployeeLeaves = () => {
     isOwner, 
     hasConfiguredPageAccess,
     currentUserDepartment, 
+    branchFilter,
     departmentFilter, 
     filterDate, 
     statusFilter, 
@@ -1020,11 +1051,12 @@ const EmployeeLeaves = () => {
     if (currentUserCompanyId) {
       fetchCompanyDetails();
       fetchDepartments();
+      fetchBranches();
       fetchConfiguredLeaveTypes();
       fetchCompanyUsers();
       fetchLeavePagePermissions();
     }
-  }, [currentUserCompanyId, fetchCompanyDetails, fetchDepartments, fetchConfiguredLeaveTypes, fetchCompanyUsers, fetchLeavePagePermissions]);
+  }, [currentUserCompanyId, fetchCompanyDetails, fetchDepartments, fetchBranches, fetchConfiguredLeaveTypes, fetchCompanyUsers, fetchLeavePagePermissions]);
 
   useEffect(() => {
     if (currentUserCompanyId && currentUserDepartment !== undefined) {
@@ -1036,6 +1068,7 @@ const EmployeeLeaves = () => {
     filterDate, 
     statusFilter, 
     leaveTypeFilter, 
+    branchFilter,
     departmentFilter,
     isOwner,
     fetchLeaves
@@ -1493,10 +1526,18 @@ const EmployeeLeaves = () => {
     setFilterDate("");
     setStatusFilter("All");
     setLeaveTypeFilter("all");
+    setBranchFilter("all");
     setDepartmentFilter("all");
     setSearchTerm("");
     setSelectedStat("All");
   };
+
+  const availableDepartments = branchFilter === 'all'
+    ? departments
+    : departments.filter(department => {
+        const departmentBranch = getEntityId(department.branch || department.branchId);
+        return !departmentBranch || departmentBranch === String(branchFilter);
+      });
 
   const exportData = async () => {
     if (!permissions.canExportData) {
@@ -2206,7 +2247,7 @@ const EmployeeLeaves = () => {
         <div className="EmppLeaves-filter-header">
           <FiFilter size={20} color="#1976d2" />
           <h3>Filters & Search</h3>
-          {isOwner && departmentFilter !== 'all' && (
+          {(isOwner || hasConfiguredPageAccess) && departmentFilter !== 'all' && (
             <span className="EmppLeaves-owner-filter-badge">
               <FiEye size={14} />
               Filtering: {departments.find(d => (d._id || d.id) === departmentFilter)?.name || departmentFilter}
@@ -2244,13 +2285,31 @@ const EmployeeLeaves = () => {
             />
           </div>
           
-          {isOwner && (
+          {(isOwner || hasConfiguredPageAccess) && (
+            <div className="EmppLeaves-filter-group">
+              <label className="EmppLeaves-filter-label">Branch</label>
+              <BranchFilter
+                selected={branchFilter}
+                onChange={(nextBranch) => {
+                  setBranchFilter(nextBranch);
+                  if (nextBranch !== 'all') {
+                    const selectedDepartment = departments.find(department => getEntityId(department) === String(departmentFilter));
+                    const departmentBranch = getEntityId(selectedDepartment?.branch || selectedDepartment?.branchId);
+                    if (departmentBranch && departmentBranch !== String(nextBranch)) setDepartmentFilter('all');
+                  }
+                }}
+                branches={branches}
+              />
+            </div>
+          )}
+
+          {(isOwner || hasConfiguredPageAccess) && (
             <div className="EmppLeaves-filter-group">
               <label className="EmppLeaves-filter-label">Department</label>
               <DepartmentFilter
                 selected={departmentFilter}
                 onChange={setDepartmentFilter}
-                departments={departments}
+                departments={availableDepartments}
               />
             </div>
           )}

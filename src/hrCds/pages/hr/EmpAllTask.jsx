@@ -726,6 +726,7 @@ const TaskDetails = () => {
 
 
   const [departmentMap, setDepartmentMap] = useState({});
+  const [branchMap, setBranchMap] = useState({});
   const [jobRoleMap, setJobRoleMap] = useState({});
 
 
@@ -773,6 +774,7 @@ const TaskDetails = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // New UI Filters and View state matching reference design
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
@@ -1714,6 +1716,25 @@ const TaskDetails = () => {
 
 
 
+  useEffect(() => {
+    const companyId = getRecordId(currentUser?.company || currentUser?.companyId);
+    if (!companyId) return;
+    let cancelled = false;
+    axios.get(`/branches/company/${companyId}`)
+      .then(response => {
+        const branches = Array.isArray(response.data?.branches)
+          ? response.data.branches
+          : (Array.isArray(response.data?.data) ? response.data.data : (Array.isArray(response.data) ? response.data : []));
+        if (!cancelled) {
+          setBranchMap(Object.fromEntries(branches.map(branch => [
+            getRecordId(branch), branch.name || branch.branchName || branch.branchCode || getRecordId(branch)
+          ]).filter(([id]) => id)));
+        }
+      })
+      .catch(() => { if (!cancelled) setBranchMap({}); });
+    return () => { cancelled = true; };
+  }, [currentUser]);
+
   const fetchUsersWithTasks = useCallback(async () => {
     if (fetchUsersTimeoutRef.current) {
       clearTimeout(fetchUsersTimeoutRef.current);
@@ -1998,26 +2019,41 @@ const TaskDetails = () => {
 
 
 
+  const branchOptions = useMemo(() => {
+    const branches = new Map();
+    users.forEach(user => {
+      [user.branch, ...(Array.isArray(user.assignedBranches) ? user.assignedBranches : [])].forEach(branch => {
+        const id = getRecordId(branch);
+        if (id) branches.set(id, branch?.name || branch?.branchName || branch?.branchCode || branchMap[id] || id);
+      });
+    });
+    return Array.from(branches, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [users, branchMap]);
+
   const departmentOptions = useMemo(() => {
     const set = new Set();
-    users.forEach(u => {
+    users.filter(user => selectedBranchFilter === 'all' || isUserInBranch(user, selectedBranchFilter)).forEach(u => {
       const d = getDepartmentName(u.department);
       if (d && d !== 'N/A' && !d.startsWith('Dept-')) set.add(d);
     });
     return Array.from(set).sort();
-  }, [users, departmentMap]);
+  }, [users, departmentMap, selectedBranchFilter]);
 
   const roleOptions = useMemo(() => {
     const set = new Set();
-    users.forEach(u => {
+    users.filter(user => selectedBranchFilter === 'all' || isUserInBranch(user, selectedBranchFilter)).forEach(u => {
       const r = getUserDisplayRole(u, jobRoleMap);
       if (r && r !== 'N/A') set.add(r);
     });
     return Array.from(set).sort();
-  }, [users, jobRoleMap]);
+  }, [users, jobRoleMap, selectedBranchFilter]);
 
   const filteredUsers = useMemo(() => {
     let filtered = [...users];
+
+    if (selectedBranchFilter !== 'all') {
+      filtered = filtered.filter(user => isUserInBranch(user, selectedBranchFilter));
+    }
 
     if (clockedInTodayOnly) {
       filtered = filtered.filter(user => todayClockedInUserIds.has(String(user._id || user.id)));
@@ -2088,6 +2124,7 @@ const TaskDetails = () => {
     return filtered;
   }, [
     users,
+    selectedBranchFilter,
     clockedInTodayOnly,
     todayClockedInUserIds,
     searchQuery,
@@ -3108,6 +3145,7 @@ const TaskDetails = () => {
     setClockedInTodayOnly(false);
     setTaskPage(1);
     setShowStatusFilters(true);
+    setSelectedBranchFilter('all');
     setSelectedDeptFilter('all');
     setSelectedRoleFilter('all');
     setSelectedStatusFilter('all');
@@ -5457,6 +5495,34 @@ const TaskDetails = () => {
 
         {/* Bottom Row: Secondary Filters evenly distributed */}
         <div className="new-filters-bottom-row">
+          <div className={`new-filter-item ${selectedBranchFilter !== 'all' ? 'active' : ''}`}>
+            <label>Branch</label>
+            <select
+              value={selectedBranchFilter}
+              onChange={(e) => {
+                const nextBranch = e.target.value;
+                setSelectedBranchFilter(nextBranch);
+                if (nextBranch !== 'all' && selectedDeptFilter !== 'all') {
+                  const departmentStillAvailable = users
+                    .filter(user => isUserInBranch(user, nextBranch))
+                    .some(user => getDepartmentName(user.department) === selectedDeptFilter);
+                  if (!departmentStillAvailable) setSelectedDeptFilter('all');
+                }
+                if (nextBranch !== 'all' && selectedRoleFilter !== 'all') {
+                  const roleStillAvailable = users
+                    .filter(user => isUserInBranch(user, nextBranch))
+                    .some(user => getUserDisplayRole(user, jobRoleMap) === selectedRoleFilter);
+                  if (!roleStillAvailable) setSelectedRoleFilter('all');
+                }
+                setActiveDeptTab('all');
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Allowed Branches</option>
+              {branchOptions.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+            </select>
+          </div>
+
           <div className={`new-filter-item ${selectedDeptFilter !== 'all' ? 'active' : ''}`}>
             <label>Department</label>
             <select

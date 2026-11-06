@@ -9948,3 +9948,12 @@ body.chat-sidebar-resizing * {
         font-size: 12px;
     }
 }
+
+/* ---- "Call is still going on — Join" bar (after leaving a group call) ---- */
+.call-rejoin-bar { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1300; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 8px 8px 8px 14px; border-radius: 999px; background: #0f172a; color: #fff; box-shadow: 0 12px 32px rgba(15, 23, 42, .35); font-size: 14px; }
+.call-rejoin-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 50%; background: #16a34a; }
+.call-rejoin-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-rejoin-join { flex: none; min-height: 34px; padding: 0 16px; border: 0; border-radius: 999px; background: #16a34a; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.call-rejoin-join:hover { background: #15803d; }
+.call-rejoin-dismiss { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .12); color: #fff; cursor: pointer; }
+.call-rejoin-join:focus-visible, .call-rejoin-dismiss:focus-visible { outline: 2px solid #86efac; outline-offset: 2px; }

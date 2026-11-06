@@ -429,6 +429,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [remoteParticipants, setRemoteParticipants] = useState([]);
     const [localStream, setLocalStream] = useState(null);
     const [showAddPeople, setShowAddPeople] = useState(false);
+    // Group calls this user left (or missed/declined) that are still going on: offered to join again.
+    const [rejoinableCalls, setRejoinableCalls] = useState([]);
     // Group call roster from the server: who is in, ringing, missed, left or removed (and by whom).
     const [callRoster, setCallRoster] = useState([]);
     const [showRoster, setShowRoster] = useState(false);
@@ -1781,12 +1783,75 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         resetCall();
     }, []);
 
+    useEffect(() => {
+        if (!socket) return undefined;
+        const upsert = info => {
+            if (!info?.callId) return;
+            setRejoinableCalls(prev => [info, ...prev.filter(item => String(item.callId) !== String(info.callId))]);
+        };
+        const drop = data => setRejoinableCalls(prev => prev.filter(item => String(item.callId) !== String(data?.callId)));
+        const refresh = () => socket.emit("call:get-ongoing", {}, res => {
+            setRejoinableCalls(Array.isArray(res?.calls) ? res.calls : []);
+        });
+        const onStatus = data => {
+            if (data?.active === false) drop(data);
+            else if (data?.callId) setRejoinableCalls(prev => prev.map(item => (
+                String(item.callId) === String(data.callId) ? { ...item, participantsCount: data.participantsCount ?? item.participantsCount } : item
+            )));
+        };
+        socket.on("call:rejoin-available", upsert);
+        socket.on("call:rejoin-closed", drop);
+        socket.on("call:ongoing-status", onStatus);
+        socket.on("connect", refresh);
+        if (socket.connected) refresh();
+        return () => {
+            socket.off("call:rejoin-available", upsert);
+            socket.off("call:rejoin-closed", drop);
+            socket.off("call:ongoing-status", onStatus);
+            socket.off("connect", refresh);
+        };
+    }, [socket]);
+
     // Hooks must run on every render, so this stays above the early return below
     // (calling it only during a call crashed React with "Rendered more hooks").
     const localIsSpeaking = useAudioActivity(localStream, Boolean(call) && !isMuted);
 
     if (!call) {
-        return error ? (
+        const offer = rejoinableCalls[0];
+        const rejoinBar = offer ? (
+            <div className="call-rejoin-bar" role="status" aria-live="polite">
+                <span className="call-rejoin-icon">{offer.callType === "video" ? <Video size={16} /> : <Phone size={16} />}</span>
+                <span className="call-rejoin-text">
+                    {offer.participantNames?.length
+                        ? <>Call with <strong>{offer.participantNames.join(", ")}</strong> is still going on</>
+                        : <><strong>{offer.title || "Group call"}</strong> is still going on</>}
+                    {offer.participantsCount ? ` · ${offer.participantsCount} in call` : ""}
+                </span>
+                <button
+                    type="button"
+                    className="call-rejoin-join"
+                    onClick={() => {
+                        setRejoinableCalls(prev => prev.filter(item => item.callId !== offer.callId));
+                        rejoinCall(offer);
+                    }}
+                >
+                    Join
+                </button>
+                <button
+                    type="button"
+                    className="call-rejoin-dismiss"
+                    onClick={() => setRejoinableCalls(prev => prev.filter(item => item.callId !== offer.callId))}
+                    aria-label="Dismiss"
+                    title="Dismiss"
+                >
+                    <X size={15} />
+                </button>
+            </div>
+        ) : null;
+        if (!error) return rejoinBar;
+        return (
+            <>
+            {rejoinBar}
             <div className="call-toast" role="status" aria-live="polite">
                 <span className="call-toast-msg">{error}</span>
                 <button
@@ -1799,7 +1864,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                     <X size={15} />
                 </button>
             </div>
-        ) : null;
+            </>
+        );
     }
 
     const rosterOthers = callRoster.filter(person => person.userId && person.userId !== currentUserId);

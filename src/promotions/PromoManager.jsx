@@ -42,6 +42,7 @@ const emptyForm = () => ({
     audience: "public",
     allCompanies: false,
     companyIds: [],
+    startAt: toLocalInput(new Date()),
     endAt: defaultEnd(),
     notify: false,
     existingMedia: [],
@@ -63,6 +64,7 @@ const audienceOf = (promo, scope) => {
 
 const notifyText = (result) => {
     if (!result) return "";
+    if (result.scheduled) return `Notification will be sent when it starts (${formatDate(result.at)})`;
     if (!result.users) return "No users found for this audience";
     if (result.reason === "firebase-admin-not-ready") return `Notifications are not set up on the server (${result.users} users)`;
     return `Notification sent to ${result.sent} device${result.sent === 1 ? "" : "s"} (${result.users} users)`;
@@ -186,11 +188,13 @@ const PromoManager = ({ scope = "company" }) => {
         audience: promo.audience,
         allCompanies: Boolean(promo.allCompanies),
         companyIds: (promo.companyIds || []).map((c) => String(c?._id || c)),
+        startAt: toLocalInput(promo.startAt || promo.createdAt || new Date()),
         endAt: toLocalInput(promo.endAt),
         existingMedia: promo.media || [],
     });
     const update = (patch) => setForm((prev) => ({ ...prev, ...patch }));
 
+    const startsLater = Boolean(form?.startAt) && new Date(form.startAt).getTime() > Date.now() + 60 * 1000;
     const keptMediaCount = form ? form.existingMedia.filter((m) => !form.removeMediaIds.includes(m._id)).length : 0;
     const addFiles = (fileList) => {
         const picked = Array.from(fileList || []).filter((file) => /^(image|video)\//.test(file.type));
@@ -208,11 +212,13 @@ const PromoManager = ({ scope = "company" }) => {
         if (!keptMediaCount && !form.newFiles.length) return toast.error("Add at least one image or video");
         if (!form.endAt) return toast.error("Choose the date until which it shows");
         if (new Date(form.endAt) <= new Date()) return toast.error("The end date must be in the future");
+        if (form.startAt && new Date(form.endAt) <= new Date(form.startAt)) return toast.error("“Show until” must be after “Show from”");
         if (isPlatform && form.audience === "companies" && !form.allCompanies && !form.companyIds.length) return toast.error("Select at least one company");
 
         const data = new FormData();
         data.append("title", form.title.trim());
         data.append("message", form.message.trim());
+        data.append("startAt", new Date(form.startAt || Date.now()).toISOString());
         data.append("endAt", new Date(form.endAt).toISOString());
         if (isPlatform) {
             data.append("audience", form.audience);
@@ -375,7 +381,8 @@ const PromoManager = ({ scope = "company" }) => {
                                         <div className="pm-item-body">
                                             <h3 title={promo.title || "Untitled"}>{promo.title || "Untitled"}</h3>
                                             <p className="pm-meta" title={audience.title}><AudienceIcon size={14} aria-hidden="true" /> {audience.text}</p>
-                                            <p className="pm-meta"><CalendarClock size={14} aria-hidden="true" /> Until {formatDate(promo.endAt)}</p>
+                                            <p className="pm-meta"><CalendarClock size={14} aria-hidden="true" /> {formatDate(promo.startAt || promo.createdAt)} → {formatDate(promo.endAt)}</p>
+                                            {promo.notifyAtStart && <p className="pm-meta"><BellRing size={14} aria-hidden="true" /> Push when it starts</p>}
                                             {promo.lastNotifiedAt && <p className="pm-meta"><BellRing size={14} aria-hidden="true" /> Notified {formatDate(promo.lastNotifiedAt)}</p>}
                                         </div>
                                         <div className="pm-item-actions">
@@ -525,17 +532,24 @@ const PromoManager = ({ scope = "company" }) => {
 
                             <section className="pm-section">
                                 <h3><span>{isPlatform ? 4 : 3}</span> Schedule</h3>
-                                <label className="pm-field">
-                                    <span>Show until <em>*</em></span>
-                                    <input className="pm-input" type="datetime-local" value={form.endAt} min={toLocalInput(new Date())} onChange={(e) => update({ endAt: e.target.value })} required />
-                                </label>
+                                <div className="pm-dates">
+                                    <label className="pm-field">
+                                        <span>Show from <em>*</em></span>
+                                        <input className="pm-input" type="datetime-local" value={form.startAt} onChange={(e) => update({ startAt: e.target.value })} required />
+                                    </label>
+                                    <label className="pm-field">
+                                        <span>Show until <em>*</em></span>
+                                        <input className="pm-input" type="datetime-local" value={form.endAt} min={form.startAt || toLocalInput(new Date())} onChange={(e) => update({ endAt: e.target.value })} required />
+                                    </label>
+                                </div>
+                                <p className="pm-hint">{startsLater ? `Hidden until ${formatDate(form.startAt)}, then shown until ${formatDate(form.endAt)}.` : `Shows now, until ${formatDate(form.endAt)}.`}</p>
                                 {!form.id && (
                                     <label className="pm-switch pm-switch-block">
                                         <input type="checkbox" checked={form.notify} onChange={(e) => update({ notify: e.target.checked })} />
                                         <span className="pm-switch-track" aria-hidden="true" />
                                         <span>
                                             <strong>Also send a push notification</strong>
-                                            <small>{isPlatform && form.audience === "public" ? "Goes to employees of every company" : isPlatform ? "Goes to the companies selected above" : "Goes to everyone in your company"}</small>
+                                            <small>{isPlatform && form.audience === "public" ? "Goes to employees of every company" : isPlatform ? "Goes to the companies selected above" : "Goes to everyone in your company"}{startsLater ? ` — sent when it starts (${formatDate(form.startAt)})` : ""}</small>
                                         </span>
                                     </label>
                                 )}

@@ -886,26 +886,29 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
 
     const hasSlug = (...keys) => keys.some(k => menuSlugs.has(k) || permSlugs.has(k));
 
-    // If sidebarConfig was not configured yet (no items), don't lock the user out:
+    // Fail-closed for regular employees without permissions: only allow personal task
     if (menuItems.length === 0 && userPerms.length === 0) {
-        return baseButtons;
+        return baseButtons.filter(b => b.action?.intent === 'self_task');
     }
 
     const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
 
-    if (hasSlug('admintaskcreate', 'taskmanagement', 'taskcreate')) {
+    // Assigning tasks to others requires "Admin Create Task" permission (not general Task Management)
+    if (hasSlug('admintaskcreate', 'admintask', 'admin-task-create')) {
         allowed.add('task_assigned_user');
     }
-    if (hasSlug('adminproject', 'manageprojects', 'projects', 'project')) {
+    // Creating projects requires administrative project permission
+    if (hasSlug('adminproject', 'manageprojects', 'admin-project')) {
         allowed.add('create_project');
     }
-    if (hasSlug('adminproject', 'manageprojects', 'projects', 'project') || user.hasProjects) {
+    // Creating tasks in projects requires project admin or user having assigned projects
+    if (hasSlug('adminproject', 'manageprojects', 'admin-project') || user.hasProjects) {
         allowed.add('task_project');
     }
-    if (hasSlug('empclient', 'clientmanagement', 'clients', 'client')) {
+    if (hasSlug('empclient', 'clientmanagement', 'emp-client')) {
         allowed.add('create_client');
     }
-    if (hasSlug('clientplans', 'clientplan')) {
+    if (hasSlug('clientplans', 'clientplan', 'client-plans')) {
         allowed.add('create_client_plan');
     }
 

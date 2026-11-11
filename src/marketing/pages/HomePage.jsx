@@ -138,7 +138,7 @@ const getPlanIcon = (name = '', index = 0) => {
   return fallbackIcons[index % fallbackIcons.length];
 };
 
-const DEFAULT_PLANS = [
+const DEFAULT_PLANS = [ 
   { name: 'Single module', price: 699, durationDays: 30, description: 'Buy only what you need — Attendance, Payroll, Clients or any other.' },
   { name: 'Bundles', price: 1499, durationDays: 30, description: 'Combine modules into People, Work or Clients bundles.' },
   { name: 'Complete ecosystem', price: 3999, durationDays: 30, description: 'Every module across People, Work, Clients and Insights.' }

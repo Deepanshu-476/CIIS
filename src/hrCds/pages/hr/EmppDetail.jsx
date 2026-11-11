@@ -1950,6 +1950,25 @@ const EmployeeDirectory = () => {
   const currentUserRole = user.getCurrentUserJobRole();
   const currentUserCompanyRole = user.getCurrentUserCompanyRole();
   const isSuperAdmin = user.isSuperAdmin;
+  // Managers must only work with the branches assigned to their own account.
+  // Owners, admins and HR retain their company-wide directory access.
+  const currentUserBranchIds = useMemo(() => {
+    const current = user.getCurrentUser();
+    return getIdList([
+      current?.branch,
+      current?.branchId,
+      ...(Array.isArray(current?.assignedBranches) ? current.assignedBranches : [])
+    ]);
+  }, [user.getCurrentUser]);
+  const hasCompanyWideBranchAccess = useMemo(() => {
+    const roles = [currentUserRole, currentUserCompanyRole]
+      .map(role => String(role || '').trim().toLowerCase().replace(/[\s_-]+/g, '_'));
+    return isSuperAdmin || roles.some(role => [
+      'owner', 'company_owner', 'companyowner', 'admin', 'company_admin',
+      'companyadmin', 'hr', 'hr_manager', 'super_admin', 'superadmin'
+    ].includes(role));
+  }, [currentUserRole, currentUserCompanyRole, isSuperAdmin]);
+  const restrictToAssignedBranches = !hasCompanyWideBranchAccess && currentUserBranchIds.length > 0;
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
   const [pageCanEditEmployees, setPageCanEditEmployees] = useState(true);
@@ -2083,15 +2102,20 @@ const EmployeeDirectory = () => {
         }
       });
 
-      const branchData = response.data?.branches || response.data?.data || [];
-      setBranches(Array.isArray(branchData) ? branchData : []);
-      return Array.isArray(branchData) ? branchData : [];
+      const branchData = Array.isArray(response.data?.branches || response.data?.data)
+        ? (response.data?.branches || response.data?.data)
+        : [];
+      const visibleBranches = restrictToAssignedBranches
+        ? branchData.filter(branch => currentUserBranchIds.includes(getValueId(branch)))
+        : branchData;
+      setBranches(visibleBranches);
+      return visibleBranches;
     } catch (err) {
       console.error("Failed to fetch branches:", err);
       setBranches([]);
       return [];
     }
-  }, [currentUserCompanyId, user.getAuthToken]);
+  }, [currentUserCompanyId, currentUserBranchIds, restrictToAssignedBranches, user.getAuthToken]);
 
   const fetchAllEmployeesFromEndpoint = useCallback(async (url, rawParams, config) => {
     // The list no longer carries family/bank/document fields for every employee; they are
@@ -2294,7 +2318,17 @@ const EmployeeDirectory = () => {
         }, config);
       }
 
-      setEmployees(employeesData);
+      const visibleEmployees = restrictToAssignedBranches
+        ? employeesData.filter(employee => {
+          const employeeBranchIds = getIdList([
+            employee?.branch,
+            employee?.branchId,
+            ...(Array.isArray(employee?.assignedBranches) ? employee.assignedBranches : [])
+          ]);
+          return employeeBranchIds.some(branchId => currentUserBranchIds.includes(branchId));
+        })
+        : employeesData;
+      setEmployees(visibleEmployees);
       
       const deptRes = await axios.get("/departments", config);
       
@@ -2331,7 +2365,9 @@ const EmployeeDirectory = () => {
     user.getAuthToken,
     fetchJobRoles,
     fetchBranches,
-    fetchAllEmployeesFromEndpoint
+    fetchAllEmployeesFromEndpoint,
+    restrictToAssignedBranches,
+    currentUserBranchIds
   ]);
   
   // Initial data fetch

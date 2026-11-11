@@ -1585,9 +1585,8 @@ export default function useTaskAgentSession({
                 const companyId = user?.company?._id || user?.company || comp?._id || comp?.id;
                 const role = user?.jobRole?._id || user?.jobRole || user?.role;
                 if (companyId && role) {
-                    axios.get('/sidebar/config', {
-                        params: { companyId, role },
-                        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                    axiosInstance.get('/sidebar/config', {
+                        params: { companyId, role }
                     }).then(res => {
                         if (res?.data?.data?.menuItems) {
                             try {

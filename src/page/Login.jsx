@@ -6,6 +6,8 @@ import { sanitizeUserForStorage, clearAuthStorageCaches } from '../context/AuthC
 import { toast } from 'react-toastify';
 import './Login.css'; 
 import { getSidebarConfigParams, saveSidebarConfig } from '../utils/sidebarConfigStore';
+import ResetOtpResend, { ResetOtpSendNote, useResetOtpLimit } from '../components/ResetOtpResend';
+import PublicPromoPopup from '../promotions/PublicPromoPopup';
 
 const clearPreviousLoginStorage = () => {
   clearAuthStorageCaches();
@@ -61,6 +63,7 @@ const Login = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordStep, setForgotPasswordStep] = useState('email');
+  const resetOtpLimit = useResetOtpLimit();
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -536,11 +539,17 @@ const Login = () => {
       }, { _skipErrorNotify: true });
 
       if (response.data.success) {
+        resetOtpLimit.applySuccess(response.data);
         toast.success(response.data.message || 'OTP sent to your email!');
         setForgotPasswordStep('reset');
       }
 
     } catch (error) {
+      // A wait or lock from the server: show the countdown. During a wait the
+      // last OTP is still valid, so go to the OTP step.
+      if (resetOtpLimit.applyError(error) && error.response?.data?.errorCode === 'OTP_COOLDOWN') {
+        setForgotPasswordStep('reset');
+      }
       toast.error(error.response?.data?.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
@@ -587,6 +596,7 @@ const Login = () => {
       }, { _skipErrorNotify: true });
 
       toast.success("Password reset successful!");
+      resetOtpLimit.reset();
 
       setShowForgotPassword(false);
       setForgotPasswordStep('email');
@@ -777,7 +787,10 @@ const Login = () => {
                 <input
                   type="email"
                   value={forgotPasswordEmail}
-                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  onChange={(e) => {
+                    setForgotPasswordEmail(e.target.value);
+                    resetOtpLimit.reset();
+                  }}
                   disabled={loading}
                   className={`login-input ${errors.forgotPassword ? 'input-error' : ''}`}
                   placeholder="Enter your registered email"
@@ -789,10 +802,11 @@ const Login = () => {
             <button
               onClick={handleForgotPassword}
               className="primary-button"
-              disabled={loading}
+              disabled={loading || !resetOtpLimit.canSend}
             >
               {loading ? 'Sending OTP...' : 'Send OTP'}
             </button>
+            <ResetOtpSendNote limit={resetOtpLimit} />
           </div>
         );
 
@@ -831,6 +845,8 @@ const Login = () => {
               </div>
               {errors.otp && <span className="error-text">{errors.otp}</span>}
             </div>
+
+            <ResetOtpResend limit={resetOtpLimit} onResend={handleForgotPassword} loading={loading} />
 
             <div className="input-group">
               <label className="input-label">New Password</label>
@@ -903,6 +919,7 @@ const Login = () => {
 
   return (
     <div className="login-page-container">
+      <PublicPromoPopup />
       <div className="login-paper fade-in">
 
         <div className="login-left-section">
@@ -958,7 +975,7 @@ const Login = () => {
                 <span className="feature-icon">✓</span>
                 <span className="feature-text">Secure access to company workspace</span>
               </div>
-            </div>
+              </div>
           </div>
         </div>
 

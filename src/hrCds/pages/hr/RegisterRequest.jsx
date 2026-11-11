@@ -271,6 +271,7 @@ export default function RegisterRequest() {
       setActivationError('');
       setProfile(null);
       toast.success('User details verified and account activated successfully');
+      window.dispatchEvent(new CustomEvent('ciis-sidebar-badges-refresh'));
     } catch (error) {
       setEditForm(formSnapshot);
       setDirtyFields(dirtyFieldsSnapshot);
@@ -315,6 +316,7 @@ export default function RegisterRequest() {
       if (updated) replaceRequest(updated);
       setProfile(current => String(current?._id) === String(request._id) ? updated : current);
       toast.success(isActive ? 'User activated successfully' : 'User made inactive');
+      window.dispatchEvent(new CustomEvent('ciis-sidebar-badges-refresh'));
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to update user status'));
     } finally {

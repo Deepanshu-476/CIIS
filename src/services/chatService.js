@@ -214,7 +214,7 @@ export const getMessages = async (
 };
 
 export const sendMessage =
-async (formData) => {
+async (formData, { onUploadProgress, signal } = {}) => {
 
     return axios.post(
 
@@ -231,7 +231,9 @@ async (formData) => {
             timeout: 0,
             maxBodyLength: Infinity,
             maxContentLength: Infinity,
-            _skipErrorNotify: true
+            _skipErrorNotify: true,
+            onUploadProgress,
+            signal
         }
     );
 };

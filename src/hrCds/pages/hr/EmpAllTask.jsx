@@ -857,7 +857,7 @@ const TaskDetails = () => {
     const compRole = String(currentUserCompanyRole || '').trim().toLowerCase();
     const adminRoles = [
       'owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin',
-      'admin', 'hr', 'manager', 'career infowis admin', 'super admin'
+      'admin', 'career infowis admin', 'super admin'
     ];
     return adminRoles.includes(role) || adminRoles.includes(compRole);
   }, [currentUserCompanyRole, currentUserRole]);
@@ -1694,7 +1694,7 @@ const TaskDetails = () => {
         const user = parsed.user || parsed.data || parsed;
 
         let foundUser = user;
-        let userRole = user.role || 'user';
+        let userRole = user.jobRole || user.role || 'user';
         let companyRole = user.companyRole || user.role || 'employee';
         let userName = user.name || (user.email ? user.email.split('@')[0] : 'Unknown User');
 
@@ -1860,6 +1860,15 @@ const TaskDetails = () => {
           .filter(user => !isClientAccount(user))
           .filter(user => {
             if (isOwner()) return true;
+
+            // UI must mirror the backend boundary: HR/Manager may only see
+            // people from their own assigned branches, even if Page Management
+            // grants a broad "All Branches" scope.
+            const viewerBranchIds = getUserBranchIds(currentUser);
+            if (viewerBranchIds.length === 0) return false;
+            const userBranchIds = getUserBranchIds(user);
+            if (!userBranchIds.some(branchId => viewerBranchIds.includes(branchId))) return false;
+
             if (!pageScope) return true;
 
             // Branch restriction from Page Management scope
@@ -2021,6 +2030,23 @@ const TaskDetails = () => {
 
   const branchOptions = useMemo(() => {
     const branches = new Map();
+
+    // For HR/Manager, show every assigned branch (including a branch that has
+    // no employees yet), never every branch discovered in the company list.
+    if (!isOwner()) {
+      const currentBranchItems = [
+        currentUser?.branch,
+        currentUser?.branchId,
+        currentUser?.branchDetails,
+        ...(Array.isArray(currentUser?.assignedBranches) ? currentUser.assignedBranches : [])
+      ];
+      currentBranchItems.forEach(branch => {
+        const id = getRecordId(branch);
+        if (id) branches.set(id, branch?.name || branch?.branchName || branch?.branchCode || branchMap[id] || id);
+      });
+      return Array.from(branches, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     users.forEach(user => {
       [user.branch, ...(Array.isArray(user.assignedBranches) ? user.assignedBranches : [])].forEach(branch => {
         const id = getRecordId(branch);
@@ -2028,7 +2054,7 @@ const TaskDetails = () => {
       });
     });
     return Array.from(branches, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [users, branchMap]);
+  }, [currentUser, users, branchMap, isOwner]);
 
   const departmentOptions = useMemo(() => {
     const set = new Set();

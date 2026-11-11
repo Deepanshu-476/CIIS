@@ -1,16 +1,19 @@
 import React, {
     useEffect,
     useRef,
-    useState
+    useState,
+    useSyncExternalStore
 } from "react";
 import "../Pages/Chat/chat.css";
 import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
-import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, PhoneCall, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 import axios from "../utils/axiosConfig";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
+import PendingUploadBubble from "./PendingUploadBubble";
+import { enqueueUpload, getUploads, onUploadSent, subscribeUploads } from "./uploadQueue";
 import ChatMentionInput from "./ChatMentionInput";
 import { taskEventText } from "./taskEventText";
 import { mentionMembers, reconcileMentions } from "./mentionUtils";
@@ -408,7 +411,8 @@ const ChatBox = ({
     const activeConversationIdRef = useRef(null);
     const chatMessagesRef = useRef(null);
     const shouldScrollToLatestRef = useRef(false);
-    const { startCall } = useCall();
+    const { startCall, rejoinCall, getActiveCall } = useCall();
+    const [ongoingCall, setOngoingCall] = useState(null);
     const { showToast } = useNotification();
     const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
     const [showActiveChatDate, setShowActiveChatDate] = useState(false);
@@ -623,6 +627,37 @@ const ChatBox = ({
             setStarredMessageIds([]);
         }
     }, [contactPrefsKey]);
+
+    useEffect(() => {
+        if (!socket || !currentConversationId) {
+            setOngoingCall(null);
+            return;
+        }
+
+        // Query active ongoing call for this conversation
+        socket.emit("call:get-ongoing", { conversationId: currentConversationId }, (res) => {
+            if (res?.active) {
+                setOngoingCall(res);
+            } else {
+                setOngoingCall(null);
+            }
+        });
+
+        const handleOngoingStatus = (data) => {
+            if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+            if (data?.active) {
+                setOngoingCall(data);
+            } else {
+                setOngoingCall(null);
+            }
+        };
+
+        socket.on("call:ongoing-status", handleOngoingStatus);
+
+        return () => {
+            socket.off("call:ongoing-status", handleOngoingStatus);
+        };
+    }, [socket, currentConversationId]);
 
     useEffect(() => {
         if (!shouldScrollToLatestRef.current) return;
@@ -1058,6 +1093,36 @@ useEffect(() => {
         queueScrollToLatestMessage("smooth");
     };
 
+    const allUploads = useSyncExternalStore(subscribeUploads, getUploads);
+    const pendingUploads = conversation?._id
+        ? allUploads.filter((item) => item.conversationId === String(conversation._id))
+        : [];
+    const appendSentMessagesRef = useRef(appendSentMessages);
+    appendSentMessagesRef.current = appendSentMessages;
+    const onConversationChangeRef = useRef(onConversationChange);
+    onConversationChangeRef.current = onConversationChange;
+    const openConversationIdRef = useRef(null);
+    openConversationIdRef.current = conversation?._id ? String(conversation._id) : null;
+
+    // Scroll to a newly sent file once its bubble is on screen.
+    const pendingUploadCount = pendingUploads.length;
+    const previousPendingCountRef = useRef(0);
+    useEffect(() => {
+        const added = pendingUploadCount > previousPendingCountRef.current;
+        previousPendingCountRef.current = pendingUploadCount;
+        if (!added) return undefined;
+        scrollToLatestMessage("smooth");
+        // Photo/video previews take a moment to get their height.
+        const timer = setTimeout(() => scrollToLatestMessage("smooth"), 400);
+        return () => clearTimeout(timer);
+    }, [pendingUploadCount]);
+
+    // A background upload finished: put the saved message in this chat if it is open.
+    useEffect(() => onUploadSent((message, conversationId) => {
+        if (openConversationIdRef.current === String(conversationId)) appendSentMessagesRef.current([message]);
+        onConversationChangeRef.current?.();
+    }), []);
+
     const emitSentMessage = () => {
         // Message delivery is emitted by the backend after database persistence.
         // Keeping this as a no-op prevents duplicate socket events and unread bumps.
@@ -1349,52 +1414,38 @@ useEffect(() => {
             return;
         }
 
+        // Files go to the background upload queue: they show in the chat at once and
+        // the composer is free for the next message while they upload.
+        if (files.length > 0) {
+            const outgoingText = text;
+            const myId = getEntityId(currentUser);
+            files.forEach((fileItem, index) => {
+                const uploadFile = getUploadFile(fileItem);
+                enqueueUpload({
+                    conversationId: conversation._id,
+                    file: uploadFile,
+                    text: index === 0 ? outgoingText : "",
+                    mentions: index === 0 ? messageMentions : undefined,
+                    replyToMessageId: index === 0 ? replyingTo?._id : undefined,
+                    replyTo: index === 0 && replyingTo ? { text: getMessageText(replyingTo) || attachmentLabel(replyingTo) } : null,
+                    compressionMode: fileItem?.compressionMode || chooseCompressionMode(uploadFile),
+                    sender: myId,
+                });
+            });
+            setText("");
+            setReplyingTo(null);
+            setFiles([]);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+            queueScrollToLatestMessage("smooth");
+            return;
+        }
+
         try {
             const messagesToAppend = [];
             const outgoingText = text;
 
-            if (files.length > 0) {
-                for (let index = 0; index < files.length; index += 1) {
-                    const fileItem = files[index];
-                    const uploadFile = getUploadFile(fileItem);
-                    const formData = new FormData();
-
-                    formData.append(
-                        "conversationId",
-                        conversation._id
-                    );
-
-                    if (index === 0 && outgoingText.trim()) {
-                        formData.append(
-                            "text",
-                            outgoingText
-                        );
-                    }
-
-                    if (index === 0) formData.append("mentions", JSON.stringify(messageMentions));
-                    if (index === 0 && replyingTo?._id) {
-                        formData.append("replyToMessageId", replyingTo._id);
-                    }
-
-                    formData.append(
-                        "file",
-                        uploadFile
-                    );
-                    if (uploadFile.type) formData.append("fileType", uploadFile.type);
-                    if (uploadFile.name) formData.append("fileName", uploadFile.name);
-                    appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(uploadFile));
-
-                    const res =
-                        await sendMessage(formData);
-
-                    const newMessage =
-                        res.data.message;
-
-                    messagesToAppend.push(newMessage);
-
-                    emitSentMessage(newMessage);
-                }
-            } else {
+            {
                 const formData = new FormData();
 
                 formData.append(
@@ -1423,9 +1474,10 @@ useEffect(() => {
             setText("");
             setReplyingTo(null);
             setFiles([]);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (documentInputRef.current) documentInputRef.current.value = "";
+            if (photosVideosInputRef.current) photosVideosInputRef.current.value = "";
+            if (audioInputRef.current) audioInputRef.current.value = "";
             socket?.emit("chat:stop-typing", { conversationId: conversation._id });
             onConversationChange?.();
 
@@ -1628,9 +1680,10 @@ useEffect(() => {
 
     const clearSelectedFiles = () => {
         setFiles([]);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (documentInputRef.current) documentInputRef.current.value = "";
+            if (photosVideosInputRef.current) photosVideosInputRef.current.value = "";
+            if (audioInputRef.current) audioInputRef.current.value = "";
     };
 
     const handleFileSelection = (event) => {
@@ -2416,7 +2469,31 @@ useEffect(() => {
 
     const startDirectCall = (callType) => {
         if (!canStartCall) return;
-        startCall(callType, selectedUser);
+        const convId = (conversation?._id || selectedUser?.conversation?._id || selectedUser?.conversationId || (selectedUser?.isGroup ? (selectedUser?._id || selectedUser?.id) : "") || "").toString();
+        startCall(callType, {
+            ...selectedUser,
+            conversationId: convId,
+        });
+    };
+
+    const handleRejoinOngoingCall = () => {
+        if (!ongoingCall) return;
+        rejoinCall({
+            callId: ongoingCall.callId,
+            callType: ongoingCall.callType,
+            isGroupCall: ongoingCall.isGroupCall,
+            title: ongoingCall.title,
+            conversationId: currentConversationId,
+            peerUser: selectedUser,
+        });
+    };
+
+    const getOngoingCallDurationText = () => {
+        if (!ongoingCall?.startedAt) return "Ongoing call";
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(ongoingCall.startedAt).getTime()) / 1000));
+        const minutes = Math.floor(elapsedSeconds / 60);
+        if (minutes < 1) return "Started just now";
+        return `Started ${minutes}m ago`;
     };
 
     const clearCurrentChat = async () => {
@@ -2648,6 +2725,33 @@ useEffect(() => {
                 </div>
             </div>
 
+            {ongoingCall && (!getActiveCall?.() || String(getActiveCall()?.callId) !== String(ongoingCall?.callId)) && (
+                <div className="chat-ongoing-call-banner">
+                    <div className="ongoing-call-left">
+                        <div className="ongoing-call-pulse-dot" />
+                        <div className="ongoing-call-meta">
+                            <strong>
+                                {ongoingCall.callType === "video" ? <Video size={16} /> : <Phone size={16} />}
+                                Ongoing {ongoingCall.isGroupCall ? "Group " : ""}{ongoingCall.callType === "video" ? "Video" : "Voice"} Call
+                            </strong>
+                            <small>
+                                {getOngoingCallDurationText()}
+                                {ongoingCall.participantsCount ? ` • ${ongoingCall.participantsCount} in call` : ""}
+                            </small>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="ongoing-call-join-btn"
+                        onClick={handleRejoinOngoingCall}
+                        title="Rejoin this active call"
+                    >
+                        <PhoneCall size={15} />
+                        <span>Rejoin</span>
+                    </button>
+                </div>
+            )}
+
             <div className="chat-topic-bar">
                 <strong>Chat Topic: {getCurrentTopic()}</strong>
                 <button type="button">Change Topic</button>
@@ -2797,7 +2901,12 @@ useEffect(() => {
                     })
                 }
 
+                {!normalizedSearchTerm && pendingUploads.map((upload) => (
+                    <PendingUploadBubble key={upload.id} upload={upload} />
+                ))}
+
                 {displayedMessages.length === 0
+                    && pendingUploads.length === 0
                     && !normalizedSearchTerm
                     && conversation?._id
                     && loadedConversationId === String(conversation._id) && (
@@ -3008,7 +3117,6 @@ useEffect(() => {
                             ref={documentInputRef}
                             type="file"
                             multiple
-                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip,.rar,.7z"
                             onChange={handleFileSelection}
                             style={{ display: "none" }}
                         />
@@ -3016,7 +3124,7 @@ useEffect(() => {
                             ref={photosVideosInputRef}
                             type="file"
                             multiple
-                            accept="image/*,video/*"
+                            accept="image/*,video/*,.heic,.heif,.mov,.mkv,.avi,.wmv,.m4v,.flv,.webm"
                             onChange={handleFileSelection}
                             style={{ display: "none" }}
                         />
@@ -3024,7 +3132,7 @@ useEffect(() => {
                             ref={audioInputRef}
                             type="file"
                             multiple
-                            accept="audio/*"
+                            accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.wma"
                             onChange={handleFileSelection}
                             style={{ display: "none" }}
                         />

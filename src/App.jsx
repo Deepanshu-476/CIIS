@@ -85,6 +85,8 @@ const ClientAccountSettingsPage = lazy(() => import("./hrCds/pages/client/Accoun
 const Settings = lazy(() => import("./admin/page/Settings.jsx"));
 const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
+const PlatformPromotionsPage = lazy(() => import("./promotions/PlatformPromotionsPage.jsx"));
+const CompanyPromotionsPage = lazy(() => import("./promotions/CompanyPromotionsPage.jsx"));
 const LeavePolicy = lazy(() => import("./admin/page/LeavePolicy.jsx"));
 const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"));
 const FeedbackQuestionnaireManagement = lazy(() => import("./admin/page/FeedbackQuestionnaireManagement.jsx"));
@@ -105,6 +107,7 @@ const TelecallerScheduledCalls = lazy(() => import("./crm/telecaller/ScheduledCa
 const TelecallerCompletedCalls = lazy(() => import("./crm/telecaller/CompletedCalls.jsx"));
 const TelecallerCallHistory = lazy(() => import("./crm/telecaller/CallHistory.jsx"));
 const TelecallerMyFollowUps = lazy(() => import("./crm/telecaller/MyFollowUps.jsx"));
+const TelecallerAddOwnLead = lazy(() => import("./crm/telecaller/AddOwnLead.jsx"));
 const TelecallerConvertedLeads = lazy(() => import("./crm/telecaller/ConvertedLeads.jsx"));
 const TelecallerCallWorkspace = lazy(() => import("./crm/telecaller/CallWorkspace.jsx"));
 const TelecallerLeadDetail = lazy(() => import("./crm/telecaller/LeadDetail.jsx"));
@@ -293,6 +296,14 @@ function App() {
                   </ProtectedSuperAdminRoute>
                 }
               />
+              <Route
+                path="promotions"
+                element={
+                  <ProtectedSuperAdminRoute>
+                    <PlatformPromotionsPage />
+                  </ProtectedSuperAdminRoute>
+                }
+              />
             </Route>
 
 
@@ -333,7 +344,9 @@ function App() {
               <Route path="emp-client/:clientId" element={<ClientDetailsPage />} />
               <Route path="client-plans" element={<ClientPlansPage />} />
               <Route path="active-clients" element={<ActiveClientsOverview />} />
+              <Route path="holiday" element={<Holiday />} />
               <Route path="alert" element={<Alerts />} />
+              <Route path="promotions" element={<CompanyPromotionsPage />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="my-assets" element={<MyAssets />} />
               <Route path="my-leaves" element={<MyLeaves />} />
@@ -428,6 +441,7 @@ function App() {
                 <Route path="converted-leads" element={<TelecallerConvertedLeads />} />
                 <Route path="call-workspace/:leadId?" element={<TelecallerCallWorkspace />} />
                 <Route path="lead-detail/:leadId?" element={<TelecallerLeadDetail />} />
+                <Route path="add-lead" element={<TelecallerAddOwnLead />} />
                 <Route path="call-logs" element={<CallLogs />} />
               </Route>
               <Route path="call-logs" element={<CallLogs />} />

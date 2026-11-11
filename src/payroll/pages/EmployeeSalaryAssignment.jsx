@@ -256,15 +256,6 @@ export default function EmployeeSalaryAssignment() {
       setDepartmentsList(loadedDepts);
       setJobRolesList(loadedRoles);
 
-      // DEBUG: Remove after testing
-      console.log("🔵 Departments loaded:", loadedDepts.map(d => d.name || d));
-      console.log("🔵 JobRoles loaded:", loadedRoles.map(r => r.name || r.title || r));
-      console.log("🔵 Users with resolved dept/role:", normalizedUsers.slice(0, 5).map(u => ({
-        name: u.name,
-        department: u.department,
-        jobRole: u.jobRole
-      })));
-
       if (structRes.status === "fulfilled" && structRes.value?.data) {
         const sList = (structRes.value.data.structures || []).filter(s => s.status === "active");
         setStructures(sList);

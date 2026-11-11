@@ -15,6 +15,7 @@ import {
   FiPercent
 } from 'react-icons/fi';
 import './TodaysCalls.css';
+import CallRecording from '../components/CallRecording';
 
 export default function TodaysCalls() {
   const [calls, setCalls] = useState([]);
@@ -42,7 +43,8 @@ export default function TodaysCalls() {
             outcome: c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : 'Answered',
             notes: c.notes || '—',
             assignedTo: c.agentName || c.agent?.name || 'Agent',
-            duration: c.duration ? `${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : '0s'
+            duration: c.duration ? `${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : '0s',
+            recordingUrl: c.recordingUrl || ''
           }));
           setCalls(mapped);
         }
@@ -338,6 +340,10 @@ export default function TodaysCalls() {
                 <div><strong>Lead Type:</strong> {selectedCall.leadType}</div>
                 <div><strong>Outcome:</strong> {selectedCall.outcome}</div>
                 <div><strong>Assigned To:</strong> {selectedCall.assignedTo}</div>
+              </div>
+              <div className="tc-modal-notes">
+                <strong>Call Recording</strong>
+                <CallRecording url={selectedCall.recordingUrl} />
               </div>
               <div className="tc-modal-notes">
                 <strong>Notes:</strong>

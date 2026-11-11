@@ -78,6 +78,21 @@ export const broadcastTaskCreated = (task, options = {}) => {
   }
 };
 
+export const broadcastTaskUpdated = (task, options = {}) => {
+  if (!task) return;
+  const currentUserId = getCurrentUserId();
+  invalidateTaskManagementCache(currentUserId);
+
+  if (typeof window !== 'undefined') {
+    const detail = {
+      task,
+      source: options.source || (task.taskFor === 'self' ? 'self' : 'assigned'),
+    };
+    window.dispatchEvent(new CustomEvent('ciis:task-updated', { detail }));
+    window.dispatchEvent(new CustomEvent('task:updated', { detail: task }));
+  }
+};
+
 const getCurrentUserId = () => {
   try {
     const raw = localStorage.getItem('user') || localStorage.getItem('currentUser');

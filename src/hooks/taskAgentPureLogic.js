@@ -940,10 +940,23 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
     if (hasProjectView) {
         allowed.add('task_project');
     }
-    if (hasSlug('empclient', 'clientmanagement', 'emp-client', 'activeclients', 'active-clients')) {
+    const hasClientMenu = menuSlugs.has('empclient') || menuSlugs.has('clientmanagement') || menuSlugs.has('emp-client') || menuSlugs.has('activeclients') || menuSlugs.has('active-clients');
+    const hasClientPerm = permSlugs.has('empclient') || permSlugs.has('clientmanagement') || permSlugs.has('emp-client') || permSlugs.has('activeclients') || permSlugs.has('active-clients');
+    if (allConfigItems.length > 0) {
+        if (hasClientMenu) {
+            allowed.add('create_client');
+        }
+    } else if (hasClientPerm) {
         allowed.add('create_client');
     }
-    if (hasSlug('clientplans', 'clientplan', 'client-plans')) {
+
+    const hasPlanMenu = menuSlugs.has('clientplans') || menuSlugs.has('clientplan') || menuSlugs.has('client-plans');
+    const hasPlanPerm = permSlugs.has('clientplans') || permSlugs.has('clientplan') || permSlugs.has('client-plans');
+    if (allConfigItems.length > 0) {
+        if (hasPlanMenu) {
+            allowed.add('create_client_plan');
+        }
+    } else if (hasPlanPerm) {
         allowed.add('create_client_plan');
     }
 

@@ -4959,13 +4959,21 @@ const UserCreateTask = () => {
 
   useEffect(() => {
     const onCustomCreated = (e) => handleExternalTaskCreated(e);
+    const onCustomUpdated = () => {
+      invalidateTaskManagementCache(userId);
+      void refreshCurrentTaskView(taskViewMode);
+    };
     window.addEventListener('ciis:task-created', onCustomCreated);
     window.addEventListener('task:created', onCustomCreated);
+    window.addEventListener('ciis:task-updated', onCustomUpdated);
+    window.addEventListener('task:updated', onCustomUpdated);
     return () => {
       window.removeEventListener('ciis:task-created', onCustomCreated);
       window.removeEventListener('task:created', onCustomCreated);
+      window.removeEventListener('ciis:task-updated', onCustomUpdated);
+      window.removeEventListener('task:updated', onCustomUpdated);
     };
-  }, [handleExternalTaskCreated]);
+  }, [handleExternalTaskCreated, refreshCurrentTaskView, taskViewMode, userId]);
 
   useEffect(() => {
     if (!userId || authError) return undefined;

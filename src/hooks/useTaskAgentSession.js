@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance, { clearAllCaches } from '../utils/axiosConfig';
 import useSpeech from './useSpeech';
-import { markTaskIdAsCreated, broadcastTaskCreated, invalidateTaskManagementCache } from './useTaskRealtime';
+import { markTaskIdAsCreated, broadcastTaskCreated, broadcastTaskUpdated, invalidateTaskManagementCache } from './useTaskRealtime';
 import { AI_ENDPOINTS } from '../constants/aiEndpoints';
 import {
     candidateId,
@@ -58,16 +58,27 @@ const getStoredPagePermissions = () => {
             const k = sessionStorage.key(i);
             if (k && k.startsWith('ciis-page-permission-catalog:')) {
                 const item = JSON.parse(sessionStorage.getItem(k) || '{}');
-                if (item?.value) {
-                    perms.push(...Object.keys(item.value));
+                const val = item?.value;
+                if (val) {
+                    const pagesList = Array.isArray(val.accessPages) ? val.accessPages : (Array.isArray(val.pages) ? val.pages : []);
+                    pagesList.forEach(p => {
+                        if (p && p.hasAccess !== false) {
+                            if (p.path) perms.push(p.path);
+                            if (p.key) perms.push(p.key);
+                            if (p.name) perms.push(p.name);
+                        }
+                    });
+                    if (perms.length === 0 && typeof val === 'object') {
+                        perms.push(...Object.keys(val));
+                    }
                 }
             }
         }
-        const companyDetails = JSON.parse(localStorage.getItem('companyDetails') || '{}');
-        if (Array.isArray(companyDetails.allowedPages)) {
-            // Include company pages but exclude administrative permissions to prevent unprivileged employee escalation
-            perms.push(...companyDetails.allowedPages.filter(p => !['admin-task-create', 'admintaskcreate', 'adminproject', 'manageprojects'].includes(p)));
-        }
+        const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+        const userData = user?.user || user;
+        if (Array.isArray(userData?.allowedPages)) perms.push(...userData.allowedPages);
+        if (Array.isArray(userData?.permissions)) perms.push(...userData.permissions);
+        if (Array.isArray(userData?.pagePermissions)) perms.push(...userData.pagePermissions);
         return perms;
     } catch {
         return [];
@@ -586,6 +597,10 @@ export default function useTaskAgentSession({
                 draftRef.current = data.draft || draft || null;
                 resultRef.current = data;
                 setResult(data);
+
+                if (data.taskUpdated) {
+                    broadcastTaskUpdated(data.updatedTask || { _id: data.updatedTaskId });
+                }
 
                 let assistantMsgId = null;
                 if (data.reply) {

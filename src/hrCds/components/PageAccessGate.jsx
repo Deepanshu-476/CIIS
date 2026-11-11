@@ -270,6 +270,12 @@ export const hasCompanyPlanAccess = pagePath => {
     }
 
     const keys = new Set(allowed.map(normalizePlanKey));
+    if (/^telecaller\//i.test(normalizedPath)) {
+      if (keys.has('telecaller') || keys.has('admin-telecaller') || keys.has('crm')) return true;
+      const slug = normalizedPath.replace(/^telecaller\//i, '');
+      return keys.has(`admin-telecaller-${slug}`) || keys.has(`telecaller/${slug}`) || keys.has(slug);
+    }
+
     if (/^crm\/(admin|marketing|reports)\//i.test(normalizedPath)) {
       if (keys.has('crm') || keys.has('admin-crm')) return true;
       const page = CRM_PAGES.find(item => normalizePlanKey(item.path) === normalizedPath);

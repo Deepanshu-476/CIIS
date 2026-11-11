@@ -6,7 +6,7 @@ import { taskEventText } from "./taskEventText";
 import { describeCallMessage, isCallMessage } from "./callMessage";
 import ImageAdjustModal from "./ImageAdjustModal";
 
-const ChatSidebar = ({
+const ChatSidebar = ({  
     groups,
     users,
     onlineUsers,

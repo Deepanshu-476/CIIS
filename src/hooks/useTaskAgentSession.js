@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance, { clearAllCaches } from '../utils/axiosConfig';
-const axios = axiosInstance;
 import useSpeech from './useSpeech';
 import { markTaskIdAsCreated, broadcastTaskCreated, broadcastTaskUpdated, invalidateTaskManagementCache } from './useTaskRealtime';
 import { AI_ENDPOINTS } from '../constants/aiEndpoints';
@@ -35,6 +34,8 @@ import {
     MAX_FILE_SIZE_BYTES,
     ALLOWED_EXTS,
 } from './taskAgentPureLogic';
+
+const axios = axiosInstance;
 
 const getUser = () => {
     try {
@@ -137,7 +138,13 @@ export default function useTaskAgentSession({
     const resultRef = useRef(null);
     const sessionLangRef = useRef('en');
     const currentSessionIdRef = useRef(null);
-    const lastProjectContextRef = useRef({ lastProjectId: null, lastProjectName: null });
+    const activeEntityContextRef = useRef({
+        lastActiveType: null,
+        lastProjectId: null,
+        lastProjectName: null,
+        lastClientId: null,
+        lastClientName: null
+    });
     const [chatSessions, setChatSessions] = useState(() => {
         try {
             if (typeof window === 'undefined') return [];
@@ -597,7 +604,7 @@ export default function useTaskAgentSession({
 
                 const enrichedDraft = {
                     ...(draft || {}),
-                    ...(lastProjectContextRef.current?.lastProjectId ? lastProjectContextRef.current : {})
+                    ...(activeEntityContextRef.current?.lastActiveType ? activeEntityContextRef.current : {})
                 };
                 const history = (messages || []).slice(-10).map(m => ({
                     role: m.role || m.sender || 'user',
@@ -622,10 +629,21 @@ export default function useTaskAgentSession({
                     }
                 );
 
-                if (data?.draft?.lastProjectId) {
-                    lastProjectContextRef.current = {
+                if (data?.draft?.lastClientId) {
+                    activeEntityContextRef.current = {
+                        lastActiveType: 'client',
+                        lastClientId: data.draft.lastClientId,
+                        lastClientName: data.draft.lastClientName,
+                        lastProjectId: null,
+                        lastProjectName: null
+                    };
+                } else if (data?.draft?.lastProjectId) {
+                    activeEntityContextRef.current = {
+                        lastActiveType: 'project',
                         lastProjectId: data.draft.lastProjectId,
-                        lastProjectName: data.draft.lastProjectName
+                        lastProjectName: data.draft.lastProjectName,
+                        lastClientId: null,
+                        lastClientName: null
                     };
                 }
 

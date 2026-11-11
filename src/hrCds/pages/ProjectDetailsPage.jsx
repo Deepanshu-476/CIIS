@@ -302,6 +302,25 @@ const ProjectDetailsPage = () => {
     loadProjectDetails(projectId);
   }, [projectId]);
 
+  // Real-time synchronization when CIIS AI or another user creates or updates tasks
+  useEffect(() => {
+    const handleTaskChange = () => {
+      if (projectId) {
+        loadProjectDetails(projectId);
+      }
+    };
+    window.addEventListener('ciis:task-updated', handleTaskChange);
+    window.addEventListener('task:updated', handleTaskChange);
+    window.addEventListener('ciis:task-created', handleTaskChange);
+    window.addEventListener('task:new', handleTaskChange);
+    return () => {
+      window.removeEventListener('ciis:task-updated', handleTaskChange);
+      window.removeEventListener('task:updated', handleTaskChange);
+      window.removeEventListener('ciis:task-created', handleTaskChange);
+      window.removeEventListener('task:new', handleTaskChange);
+    };
+  }, [projectId]);
+
   // Debounced search for tasks
   useEffect(() => {
     if (!isSearchMountedRef.current) {

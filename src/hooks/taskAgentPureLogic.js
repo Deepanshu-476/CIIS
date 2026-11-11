@@ -935,7 +935,13 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
     const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
 
     // Assigning tasks to others requires "Admin Create Task" permission (not general Task Management)
-    if (hasSlug('admintaskcreate', 'admin-task-create', 'admincreatetask', 'admin-create-task')) {
+    const hasAdminTaskCreateMenu = menuSlugs.has('admintaskcreate') || menuSlugs.has('admin-task-create') || menuSlugs.has('admincreatetask') || menuSlugs.has('admin-create-task');
+    const hasAdminTaskCreatePerm = permSlugs.has('admintaskcreate') || permSlugs.has('admin-task-create') || permSlugs.has('admincreatetask') || permSlugs.has('admin-create-task');
+    if (allConfigItems.length > 0) {
+        if (hasAdminTaskCreateMenu) {
+            allowed.add('task_assigned_user');
+        }
+    } else if (hasAdminTaskCreatePerm) {
         allowed.add('task_assigned_user');
     }
     // Creating projects requires administrative project permission

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance, { clearAllCaches } from '../utils/axiosConfig';
+const axios = axiosInstance;
 import useSpeech from './useSpeech';
 import { markTaskIdAsCreated, broadcastTaskCreated, broadcastTaskUpdated, invalidateTaskManagementCache } from './useTaskRealtime';
 import { AI_ENDPOINTS } from '../constants/aiEndpoints';
@@ -54,28 +55,44 @@ const getSidebarConfig = () => {
 const getStoredPagePermissions = () => {
     try {
         const perms = [];
+        const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+        const userData = user?.user || user;
+        const currentUserId = String(userData?._id || userData?.id || '');
+
         for (let i = 0; i < sessionStorage.length; i++) {
             const k = sessionStorage.key(i);
             if (k && k.startsWith('ciis-page-permission-catalog:')) {
                 const item = JSON.parse(sessionStorage.getItem(k) || '{}');
                 const val = item?.value;
                 if (val) {
-                    const pagesList = Array.isArray(val.accessPages) ? val.accessPages : (Array.isArray(val.pages) ? val.pages : []);
-                    pagesList.forEach(p => {
+                    const accessList = Array.isArray(val.accessPages) ? val.accessPages : [];
+                    accessList.forEach(p => {
                         if (p && p.hasAccess !== false) {
                             if (p.path) perms.push(p.path);
                             if (p.key) perms.push(p.key);
                             if (p.name) perms.push(p.name);
                         }
                     });
-                    if (perms.length === 0 && typeof val === 'object') {
-                        perms.push(...Object.keys(val));
+                    if (Array.isArray(val.pages)) {
+                        val.pages.forEach(p => {
+                            if (p && p.hasAccess === true) {
+                                if (p.path) perms.push(p.path);
+                                if (p.key) perms.push(p.key);
+                                if (p.name) perms.push(p.name);
+                            } else if (p && currentUserId) {
+                                const vUsers = Array.isArray(p.viewUsers) ? p.viewUsers.map(String) : [];
+                                const eUsers = Array.isArray(p.editUsers) ? p.editUsers.map(String) : [];
+                                if (vUsers.includes(currentUserId) || eUsers.includes(currentUserId)) {
+                                    if (p.path) perms.push(p.path);
+                                    if (p.key) perms.push(p.key);
+                                    if (p.name) perms.push(p.name);
+                                }
+                            }
+                        });
                     }
                 }
             }
         }
-        const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
-        const userData = user?.user || user;
         if (Array.isArray(userData?.allowedPages)) perms.push(...userData.allowedPages);
         if (Array.isArray(userData?.permissions)) perms.push(...userData.permissions);
         if (Array.isArray(userData?.pagePermissions)) perms.push(...userData.pagePermissions);

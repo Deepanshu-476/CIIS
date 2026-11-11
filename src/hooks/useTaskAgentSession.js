@@ -120,6 +120,7 @@ export default function useTaskAgentSession({
     const resultRef = useRef(null);
     const sessionLangRef = useRef('en');
     const currentSessionIdRef = useRef(null);
+    const lastProjectContextRef = useRef({ lastProjectId: null, lastProjectName: null });
     const [chatSessions, setChatSessions] = useState(() => {
         try {
             if (typeof window === 'undefined') return [];
@@ -577,13 +578,23 @@ export default function useTaskAgentSession({
                 const detectedLanguage = text ? detectMessageLanguage(text, currentLanguage) : currentLanguage;
                 sessionLangRef.current = detectedLanguage;
 
+                const enrichedDraft = {
+                    ...(draft || {}),
+                    ...(lastProjectContextRef.current?.lastProjectId ? lastProjectContextRef.current : {})
+                };
+                const history = (messages || []).slice(-10).map(m => ({
+                    role: m.role || m.sender || 'user',
+                    content: m.text || m.content || ''
+                }));
+
                 const requestPayload = buildParseRequestBody({
                     text,
                     action,
                     pick,
-                    draft,
+                    draft: enrichedDraft,
                     language: detectedLanguage,
                     allowedIntents,
+                    history,
                 });
                 const { data } = await axiosInstance.post(
                     AI_ENDPOINTS.TASK_AGENT_PARSE,
@@ -593,6 +604,13 @@ export default function useTaskAgentSession({
                         timeout: TURN_TIMEOUT_MS,
                     }
                 );
+
+                if (data?.draft?.lastProjectId) {
+                    lastProjectContextRef.current = {
+                        lastProjectId: data.draft.lastProjectId,
+                        lastProjectName: data.draft.lastProjectName
+                    };
+                }
 
                 draftRef.current = data.draft || draft || null;
                 resultRef.current = data;

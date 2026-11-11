@@ -879,7 +879,20 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         ? sidebarConfig.ranges
         : (Array.isArray(sidebarConfig?.data?.ranges) ? sidebarConfig.data.ranges : []);
     const rangeItems = ranges.flatMap(r => Array.isArray(r?.items) ? r.items : []);
-    const allConfigItems = [...rawMenuItems, ...rangeItems];
+
+    const extractItems = (items) => {
+        const result = [];
+        (items || []).forEach(item => {
+            if (!item) return;
+            result.push(item);
+            if (Array.isArray(item.children)) result.push(...extractItems(item.children));
+            if (Array.isArray(item.subItems)) result.push(...extractItems(item.subItems));
+            if (Array.isArray(item.subMenu)) result.push(...extractItems(item.subMenu));
+            if (Array.isArray(item.items)) result.push(...extractItems(item.items));
+        });
+        return result;
+    };
+    const allConfigItems = extractItems([...rawMenuItems, ...rangeItems]);
 
     const menuSlugs = new Set();
     allConfigItems.forEach(item => {
@@ -922,7 +935,7 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
     const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
 
     // Assigning tasks to others requires "Admin Create Task" permission (not general Task Management)
-    if (hasSlug('admintaskcreate', 'admintask', 'admin-task-create', 'admincreatetask')) {
+    if (hasSlug('admintaskcreate', 'admin-task-create', 'admincreatetask', 'admin-create-task')) {
         allowed.add('task_assigned_user');
     }
     // Creating projects requires administrative project permission
@@ -1202,7 +1215,7 @@ export const sanitizeDraftForTransport = (draftObj) => {
     return Object.keys(clean).length > 0 ? clean : undefined;
 };
 
-export const buildParseRequestBody = ({ text = '', action, pick, draft, language = 'hinglish', allowedIntents } = {}) => {
+export const buildParseRequestBody = ({ text = '', action, pick, draft, language = 'hinglish', allowedIntents, history } = {}) => {
     return {
         message: text || undefined,
         action: action || undefined,
@@ -1210,6 +1223,7 @@ export const buildParseRequestBody = ({ text = '', action, pick, draft, language
         language: language === 'hi' ? 'hinglish' : language,
         draft: sanitizeDraftForTransport(draft),
         allowedIntents: Array.isArray(allowedIntents) && allowedIntents.length > 0 ? allowedIntents : undefined,
+        history: Array.isArray(history) && history.length > 0 ? history : undefined,
     };
 };
 

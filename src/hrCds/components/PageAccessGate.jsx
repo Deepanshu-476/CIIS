@@ -60,6 +60,7 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "emp-client",
   "client-plans",
   "active-clients",
+  "holiday",
   "alert",
   "attendance",
   "my-assets",
@@ -114,6 +115,7 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
 ]);
 
 const VALID_TELECALLER_SLUGS = new Set([
+  "add-lead",
   "dashboard",
   "call-dashboard",
   "assigned-calls",

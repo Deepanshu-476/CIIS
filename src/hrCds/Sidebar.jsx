@@ -888,6 +888,7 @@ const getMenuItemIcon = (item) => {
   // 15. Clients
   if (id === 'client-plans' || path.includes('/client-plans') || name.includes('client plan')) return 'Crown';
   if (id === 'active-clients' || path.includes('/active-clients') || name.includes('active client')) return 'Building2';
+  if (id === 'holiday' || path.endsWith('/holiday') || name === 'holiday') return 'CalendarDays';
   if (id === 'client-management' || id === 'emp-client' || path.includes('/emp-client') || name.includes('client')) return 'Handshake';
 
   // Fallback: use item icon if string and known, or clean default
@@ -989,6 +990,14 @@ const fixedDefaultItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 9
+  },
+  {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin',
+    order: 9.5
   },
   {
     id: 'support-desk',
@@ -1310,6 +1319,14 @@ const allPagesItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 23
+  },
+  {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin',
+    order: 23.5
   },
   {
     id: 'salary-component',
@@ -1693,6 +1710,7 @@ const getPathFromName = (name) => {
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
     'Active Clients': '/ciisUser/active-clients',
+    'Holiday': '/ciisUser/holiday',
     'Salary Component': '/ciisUser/salary-component',
     'Salary Structure': '/ciisUser/salary-structure',
     'Salary Assignment': '/ciisUser/salary-assignment',
@@ -1799,6 +1817,13 @@ const canonicalSidebarItems = [
     category: 'clients'
   },
   {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin'
+  },
+  {
     id: 'client-plans',
     name: 'Client Plans',
     icon: 'Crown',
@@ -1869,6 +1894,12 @@ const getMenuAccessKeys = item => {
     keys.add(`client/${clientKey}`);
   }
 
+  // A telecaller's own Add Lead comes with the Call Workspace in the company plan (same rule as the server).
+  if (id === 'admin-telecaller-add-lead') {
+    ['admin-telecaller-call-workspace', '/ciisUser/telecaller/call-workspace', 'ciisUser/telecaller/call-workspace', 'telecaller/call-workspace']
+      .forEach(key => keys.add(key));
+  }
+
   return keys;
 };
 
@@ -1882,6 +1913,14 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 22.5
+  },
+  {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin',
+    order: 22.6
   },
   {
     id: 'admin-crm-dashboard',

@@ -1484,10 +1484,17 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             pendingInviteIdsRef.current = [];
             if (pendingIds.length) {
                 const ringingIds = uniqueIds(data.toUserIds || []);
-                const notAddedIds = pendingIds.filter(id => !ringingIds.includes(id));
+                const inCallIds = uniqueIds(data.alreadyInCallIds || []);
+                const stillRingingIds = uniqueIds(data.alreadyRingingIds || []);
+                // People already in the call or still being rung stay on screen.
+                const notAddedIds = pendingIds.filter(id => !ringingIds.includes(id) && !inCallIds.includes(id) && !stillRingingIds.includes(id));
                 dropCallParticipants(notAddedIds);
                 if (!ringingIds.length) {
-                    setError("Selected users could not be added. They may have already declined or left this call.");
+                    setError(inCallIds.length && !stillRingingIds.length && !notAddedIds.length
+                        ? "Selected users are already in this call."
+                        : stillRingingIds.length && !notAddedIds.length
+                            ? "Selected users are already being called. Please wait for them to answer."
+                            : "Selected users could not be added right now. Please try again.");
                     return;
                 }
             }

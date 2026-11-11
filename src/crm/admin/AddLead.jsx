@@ -35,7 +35,19 @@ function toTitleCase(str = '') {
     .replace(/(?:^|\s|-|\.)\S/g, char => char.toUpperCase());
 }
 
-export default function AddLead() {
+// Also used by telecallers (crm/telecaller/AddOwnLead.jsx): their lead is saved through
+// /crm/telecaller/leads and assigned to them, and the page sits inside the telecaller layout.
+const ADMIN_LIST_PATH = '/ciisUser/crm/admin/all-leads';
+export default function AddLead({
+  optionsUrl = '/crm/leads/options',
+  submitUrl = '/crm/leads',
+  listPath = ADMIN_LIST_PATH,
+  listLabel = 'View All Leads',
+  savedLeadPath = id => `${ADMIN_LIST_PATH}${id ? `?lead=${encodeURIComponent(id)}` : ''}`,
+  showPageHeader = true,
+  setupHint = null,
+  onSaved = null,
+} = {}) {
   const navigate = useNavigate();
   const [form, setForm] = useState(() => { const today = new Date(); return {...initialForm, leadDate: `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`}; });
   const [errors, setErrors] = useState({});
@@ -52,11 +64,11 @@ export default function AddLead() {
   useEffect(() => {
     let active = true;
     setLoading(true); setApiError('');
-    api.get('/crm/leads/options', {cache: false}).then(({data}) => {if(active) setOptions(data);})
+    api.get(optionsUrl, {cache: false}).then(({data}) => {if(active) setOptions(data);})
       .catch(err => {if(active) setApiError(err.response?.data?.message || 'Could not load lead types and sources. Please retry.');})
       .finally(() => {if(active) setLoading(false);});
     return () => {active = false;};
-  }, [reload]);
+  }, [reload, optionsUrl]);
   useEffect(() => () => clearTimeout(redirectTimer.current), []);
 
   const handleChange = (e) => {
@@ -81,8 +93,7 @@ export default function AddLead() {
 
   const handleViewSavedLead = () => {
     clearTimeout(redirectTimer.current);
-    const query = savedLeadId ? `?lead=${encodeURIComponent(savedLeadId)}` : '';
-    navigate(`/ciisUser/crm/admin/all-leads${query}`);
+    navigate(savedLeadPath(savedLeadId));
   };
 
   const handleFullNameBlur = () => {
@@ -114,12 +125,12 @@ export default function AddLead() {
       pending.current = true; setSaving(true); setApiError('');
       try {
         const payload = { ...form, fullName: formattedFullName };
-        const res = await api.post('/crm/leads', payload);
+        const res = await api.post(submitUrl, payload);
         const createdLeadId = res.data?.item?._id || '';
         setSavedLeadId(createdLeadId);
         setSavedSuccess(true);
-        const query = createdLeadId ? `?lead=${encodeURIComponent(createdLeadId)}` : '';
-        redirectTimer.current = setTimeout(() => navigate(`/ciisUser/crm/admin/all-leads${query}`), 1000);
+        if (typeof onSaved === 'function') onSaved(res.data?.item);
+        redirectTimer.current = setTimeout(() => navigate(savedLeadPath(createdLeadId)), 1000);
       } catch(err) {
         setErrors(err.response?.data?.errors || {});
         setApiError(err.response?.data?.message || 'Could not save lead. Your details are still here; please try again.');
@@ -130,7 +141,7 @@ export default function AddLead() {
   return (
     <div className="al-root crm-add-lead">
       {/* Page Header & Breadcrumb */}
-      <div className="al-page-header">
+      {showPageHeader && <div className="al-page-header">
         <h1 className="al-page-title">Add Lead</h1>
         <div className="al-breadcrumb">
           <span>Dashboard</span>
@@ -139,7 +150,7 @@ export default function AddLead() {
           <span className="separator">&gt;</span>
           <span className="active">Add Lead</span >
         </div>
-      </div>
+      </div>}
 
       {/* Main Add Lead Form Card */}
       <div className="al-card">
@@ -149,15 +160,15 @@ export default function AddLead() {
             type="button"
             className="al-btn-view-all"
             disabled={saving || savedSuccess}
-            onClick={() => navigate('/ciisUser/crm/admin/all-leads')}
+            onClick={() => navigate(listPath)}
           >
-            <FiList size={14} /> View All Leads
+            <FiList size={14} /> {listLabel}
           </button>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="al-card-body">
           {apiError && <div role="alert" className="al-err">{apiError} <button type="button" disabled={loading || saving} onClick={() => setReload(v => v+1)}>Reload options</button></div>}
-          {!loading && !apiError && (!options.types.length || !options.sources.length) && <p role="status">Add an active <a href="/ciisUser/crm/admin/lead-types">Lead Type</a> and <a href="/ciisUser/crm/admin/lead-sources">Lead Source</a> before saving a lead.</p>}
+          {!loading && !apiError && (!options.types.length || !options.sources.length) && <p role="status">{setupHint || <>Add an active <a href="/ciisUser/crm/admin/lead-types">Lead Type</a> and <a href="/ciisUser/crm/admin/lead-sources">Lead Source</a> before saving a lead.</>}</p>}
           {/* Section 1: BASIC INFORMATION */}
           <div className="al-section">
             <div className="al-section-title">
@@ -411,7 +422,7 @@ export default function AddLead() {
               type="button"
               className="al-btn-cancel"
               disabled={saving || savedSuccess}
-              onClick={() => navigate('/ciisUser/crm/admin/all-leads')}
+              onClick={() => navigate(listPath)}
             >
               Cancel
             </button>

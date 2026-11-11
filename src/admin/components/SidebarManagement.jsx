@@ -30,6 +30,7 @@ const APP_ROUTES = [
   { path: 'emp-client', name: 'Client Management', icon: 'Handshake', category: 'clients' },
   { path: 'client-plans', name: 'Client Plans', icon: 'Crown', category: 'clients' },
   { path: 'active-clients', name: 'Active Clients', icon: 'Building2', category: 'clients' },
+  { path: 'holiday', name: 'Holiday', icon: 'CalendarDays', category: 'administration' },
   { path: 'salary-component', name: 'Salary Component', icon: 'Coins', category: 'payroll' },
   { path: 'salary-structure', name: 'Salary Structure', icon: 'Layers', category: 'payroll' },
   { path: 'salary-assignment', name: 'Employee Salary', icon: 'Calculator', category: 'payroll' },

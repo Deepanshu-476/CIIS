@@ -51,6 +51,29 @@ const getSidebarConfig = () => {
     }
 };
 
+const getStoredPagePermissions = () => {
+    try {
+        const perms = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith('ciis-page-permission-catalog:')) {
+                const item = JSON.parse(sessionStorage.getItem(k) || '{}');
+                if (item?.value) {
+                    perms.push(...Object.keys(item.value));
+                }
+            }
+        }
+        const companyDetails = JSON.parse(localStorage.getItem('companyDetails') || '{}');
+        if (Array.isArray(companyDetails.allowedPages)) {
+            // Include company pages but exclude administrative permissions to prevent unprivileged employee escalation
+            perms.push(...companyDetails.allowedPages.filter(p => !['admin-task-create', 'admintaskcreate', 'adminproject', 'manageprojects'].includes(p)));
+        }
+        return perms;
+    } catch {
+        return [];
+    }
+};
+
 /**
  * useTaskAgentSession
  * 
@@ -273,7 +296,7 @@ export default function useTaskAgentSession({
         const user = getUser();
         const sidebarConfig = getSidebarConfig();
         const welcomeText = getRoleAwareGreeting(user, new Date(), 'en');
-        const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, language: 'en' });
+        const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), language: 'en' });
         setMessages([{ role: 'assistant', text: welcomeText, id: 'msg_' + Date.now() }]);
         setResult({
             status: 'open',
@@ -536,7 +559,7 @@ export default function useTaskAgentSession({
             try {
                 const currentUser = getUser();
                 const currentSidebarConfig = getSidebarConfig();
-                const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig });
+                const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions() });
                 const allowedIntents = allowedButtons.map(b => b.action?.intent).filter(Boolean);
 
                 const currentLanguage = sessionLangRef.current || 'en';
@@ -1419,7 +1442,7 @@ export default function useTaskAgentSession({
             currentSessionIdRef.current = null;
             const currentUser = getUser();
             const currentSidebarConfig = getSidebarConfig();
-            const allowed = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, language: 'en' });
+            const allowed = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions(), language: 'en' });
             const welcomeText = getRoleAwareGreeting(currentUser, new Date(), 'en');
             const msgId = pushMsg('assistant', welcomeText);
             if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
@@ -1542,7 +1565,7 @@ export default function useTaskAgentSession({
         if (open && messages.length === 0) {
             const user = getUser();
             const sidebarConfig = getSidebarConfig();
-            const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, language: 'en' });
+            const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), language: 'en' });
             const greetingText = getRoleAwareGreeting(user, new Date(), 'en');
             const greetingId = pushMsg('assistant', greetingText);
 
@@ -1555,6 +1578,31 @@ export default function useTaskAgentSession({
                 chips: allowed,
                 draft: null,
             });
+
+            // Dynamically ensure fresh sidebar permissions if local storage copy was missing or incomplete
+            if (!Array.isArray(sidebarConfig?.menuItems) || sidebarConfig.menuItems.length === 0) {
+                const comp = JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}');
+                const companyId = user?.company?._id || user?.company || comp?._id || comp?.id;
+                const role = user?.jobRole?._id || user?.jobRole || user?.role;
+                if (companyId && role) {
+                    axios.get('/sidebar/config', {
+                        params: { companyId, role },
+                        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                    }).then(res => {
+                        if (res?.data?.data?.menuItems) {
+                            try {
+                                localStorage.setItem('sidebarConfig', JSON.stringify(res.data.data));
+                            } catch {}
+                            const refreshedAllowed = filterWelcomeButtonsByPermissions(user, {
+                                sidebarConfig: res.data.data,
+                                pagePermissions: getStoredPagePermissions(),
+                                language: 'en'
+                            });
+                            setResult(prev => (!prev?.draft?.intent ? { ...prev, chips: refreshedAllowed } : prev));
+                        }
+                    }).catch(() => {});
+                }
+            }
 
             if (autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
                 spokenMessageIdsRef.current.add(greetingId);
@@ -1689,7 +1737,7 @@ export default function useTaskAgentSession({
     const status = result?.status;
     const currentUser = getUser();
     const currentSidebarConfig = getSidebarConfig();
-    const allowedWelcomeButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig });
+    const allowedWelcomeButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions() });
     const chips = Array.isArray(result?.chips) && result?.chips.length > 0
         ? result.chips
         : ((!result?.draft || !result?.draft?.intent) ? allowedWelcomeButtons : []);

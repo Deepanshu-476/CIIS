@@ -872,40 +872,75 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         return baseButtons;
     }
 
-    const menuItems = Array.isArray(sidebarConfig?.menuItems) ? sidebarConfig.menuItems : [];
-    const menuSlugs = new Set(
-        menuItems.map(item => String(item?.path || item?.id || item?.key || '').toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, ''))
-    );
+    const rawMenuItems = Array.isArray(sidebarConfig?.menuItems)
+        ? sidebarConfig.menuItems
+        : (Array.isArray(sidebarConfig?.data?.menuItems) ? sidebarConfig.data.menuItems : []);
+    const ranges = Array.isArray(sidebarConfig?.ranges)
+        ? sidebarConfig.ranges
+        : (Array.isArray(sidebarConfig?.data?.ranges) ? sidebarConfig.data.ranges : []);
+    const rangeItems = ranges.flatMap(r => Array.isArray(r?.items) ? r.items : []);
+    const allConfigItems = [...rawMenuItems, ...rangeItems];
 
-    const userPerms = Array.isArray(user.allowedPages) ? user.allowedPages
-        : (Array.isArray(user.pagePermissions) ? user.pagePermissions
-        : (Array.isArray(user.permissions) ? user.permissions : []));
-    const permSlugs = new Set(
-        userPerms.map(p => String(typeof p === 'object' ? p.page || p.name || p.path || '' : p).toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, ''))
-    );
+    const menuSlugs = new Set();
+    allConfigItems.forEach(item => {
+        if (typeof item === 'object' && item !== null) {
+            [item.path, item.id, item.key, item.name].filter(Boolean).forEach(val => {
+                menuSlugs.add(
+                    String(val).toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, '')
+                );
+            });
+        } else if (item) {
+            menuSlugs.add(
+                String(item).toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, '')
+            );
+        }
+    });
+
+    const userPerms = [
+        ...(Array.isArray(user.allowedPages) ? user.allowedPages : []),
+        ...(Array.isArray(user.pagePermissions) ? user.pagePermissions : []),
+        ...(Array.isArray(user.permissions) ? user.permissions : []),
+        ...(Array.isArray(pagePermissions) ? pagePermissions : [])
+    ];
+    const permSlugs = new Set();
+    userPerms.forEach(p => {
+        if (typeof p === 'object' && p !== null) {
+            [p.page, p.name, p.path, p.id, p.key].filter(Boolean).forEach(val => {
+                permSlugs.add(
+                    String(val).toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, '')
+                );
+            });
+        } else if (p) {
+            permSlugs.add(
+                String(p).toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, '')
+            );
+        }
+    });
 
     const hasSlug = (...keys) => keys.some(k => menuSlugs.has(k) || permSlugs.has(k));
-
-    // Fail-closed for regular employees without permissions: only allow personal task
-    if (menuItems.length === 0 && userPerms.length === 0) {
-        return baseButtons.filter(b => b.action?.intent === 'self_task');
-    }
 
     const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
 
     // Assigning tasks to others requires "Admin Create Task" permission (not general Task Management)
-    if (hasSlug('admintaskcreate', 'admintask', 'admin-task-create')) {
+    if (hasSlug('admintaskcreate', 'admintask', 'admin-task-create', 'admincreatetask')) {
         allowed.add('task_assigned_user');
     }
     // Creating projects requires administrative project permission
-    if (hasSlug('adminproject', 'manageprojects', 'admin-project')) {
+    if (hasSlug('adminproject', 'manageprojects', 'admin-project', 'createproject')) {
         allowed.add('create_project');
     }
-    // Creating tasks in projects requires project admin or user having assigned projects
-    if (hasSlug('adminproject', 'manageprojects', 'admin-project') || user.hasProjects) {
+    // Creating tasks in projects is allowed for anyone with My Projects / Project view or admin project access
+    const hasProjectView = hasSlug('adminproject', 'manageprojects', 'admin-project', 'projects', 'project', 'myprojects', 'my-projects') ||
+        Boolean(user.hasProjects) ||
+        (typeof window !== 'undefined' && (
+            window.location?.pathname?.includes('/project') ||
+            window.location?.pathname?.includes('/my-projects') ||
+            Boolean(document?.querySelector?.('a[href*="/project"], a[href*="my-projects"], [data-page="project"]'))
+        ));
+    if (hasProjectView) {
         allowed.add('task_project');
     }
-    if (hasSlug('empclient', 'clientmanagement', 'emp-client')) {
+    if (hasSlug('empclient', 'clientmanagement', 'emp-client', 'activeclients', 'active-clients')) {
         allowed.add('create_client');
     }
     if (hasSlug('clientplans', 'clientplan', 'client-plans')) {

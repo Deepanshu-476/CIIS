@@ -11,7 +11,7 @@ import './UserDashboardResponsive.css';
 import useIsMobile from '../../hooks/useIsMobile';
 import {
   CirclePlus, Umbrella, BriefcaseBusiness, UserPlus, Folder, CalendarDays,
-  NotebookPen, Clock3, Play, ClipboardCheck, Video, Coffee, CheckCircle2,
+  NotebookPen, Clock3, Play, ClipboardCheck, Video, Coffee, Utensils, CheckCircle2,
   LogOut, LayoutDashboard, Smartphone, CalendarClock, Phone, Sparkles
 } from 'lucide-react';
 
@@ -1059,6 +1059,10 @@ const UserDashboard = () => {
           timeout: 10000
         });
 
+        if (response.data && (response.data._id || response.data.inTime)) {
+          upsertAttendanceRecord(response.data);
+        }
+
         if (isAttendanceFlagTrue(response.data?.isClockedIn)) {
           const inTime = new Date(response.data.inTime);
           if (!Number.isNaN(inTime.getTime())) {
@@ -1292,6 +1296,21 @@ const UserDashboard = () => {
         subtitle: isAutoOut ? 'Auto (System)' : 'Checked out from Web',
         status: isAutoOut ? 'MISSED PUNCH' : 'PRESENT'
       });
+      if (Array.isArray(record.breaks)) {
+        record.breaks.forEach((b, idx) => {
+          if (!b.startTime) return;
+          const isLunch = (b.breakType || '').toUpperCase() === 'LUNCH';
+          allActivities.push({
+            ...record,
+            _id: `break-${record._id || ''}-${idx}`,
+            type: 'break',
+            date: b.startTime,
+            title: isLunch ? 'Lunch Break' : 'Tea Break',
+            subtitle: `${b.durationMinutes || 0} mins (${formatClockTime(b.startTime)}${b.endTime ? ` - ${formatClockTime(b.endTime)}` : ''})`,
+            status: 'BREAK'
+          });
+        });
+      }
       if (!clockIn && !clockOut) allActivities.push({ ...record, type: 'attendance', date: record.date, status: record.status, displayDate: new Date(record.date) });
     });
 
@@ -1971,6 +1990,57 @@ const UserDashboard = () => {
     }
   };
 
+  const handleStartBreak = async (breakType = 'LUNCH') => {
+    if (!isUserInCurrentCompany || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const response = await axios.post('/attendance/break/start', { breakType }, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
+      const record = response.data?.data;
+      if (record) {
+        upsertAttendanceRecord(record);
+      }
+      const label = breakType === 'TEA' ? 'Tea Break' : breakType === 'LUNCH' ? 'Lunch Break' : 'Break';
+      toast.info(`Started ${label}`);
+      window.dispatchEvent(new Event('ciis-attendance-updated'));
+      setTimeout(() => {
+        fetchCurrentStatus();
+        fetchAttendanceData(true);
+      }, 400);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to start break');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    if (!isUserInCurrentCompany || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const response = await axios.post('/attendance/break/end', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
+      const record = response.data?.data;
+      if (record) {
+        upsertAttendanceRecord(record);
+      }
+      toast.success('Break ended. Welcome back to work!');
+      window.dispatchEvent(new Event('ciis-attendance-updated'));
+      setTimeout(() => {
+        fetchCurrentStatus();
+        fetchAttendanceData(true);
+      }, 400);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to end break');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const runAttendanceFlow = async (mode, selfieUrl = null) => {
     const payload = await buildAttendancePayload(selfieUrl);
     if (!payload) return;
@@ -2113,6 +2183,8 @@ const UserDashboard = () => {
 
   const isClockedOutToday = Boolean(todayAttendance?.outTime && (todayAttendance?.inTime || todayAttendance?.checkIn));
   const isWorkingToday = Boolean(isRunning || (todayAttendance?.inTime && !todayAttendance?.outTime));
+  const isOnBreak = Boolean(todayAttendance?.isOnBreak);
+  const currentBreakType = todayAttendance?.currentBreakType || 'LUNCH';
   const todayCalendarStatus = resolveDayStatus(currentYear, currentMonth, currentDate.getDate());
   const isWeekendOrHolidayToday = Boolean(
     holidayDateSet.has(`${currentYear}-${currentMonth}-${currentDate.getDate()}`) ||
@@ -2968,19 +3040,55 @@ const UserDashboard = () => {
           <section className="MobileDashV2-clock">
             <div>
               <span>Work session</span>
-              <strong><LiveTime seconds={displayTimer} running={isRunning} /></strong>
-              <small>{isWorkingToday ? 'Timer is running' : isClockedOutToday ? 'Session completed for today' : 'Start when you’re ready'}</small>
+              <strong><LiveTime seconds={displayTimer} running={isRunning && !isOnBreak} /></strong>
+              <small>{isOnBreak ? `Currently on ${currentBreakType === 'TEA' ? 'Tea' : 'Lunch'} Break` : isWorkingToday ? 'Timer is running' : isClockedOutToday ? 'Session completed for today' : 'Start when you’re ready'}</small>
             </div>
             <button
               type="button"
-              className={isRunning ? 'is-stop' : isClockedOutToday ? 'btn-disabled' : ''}
-              onClick={() => isRunning ? setShowClockOutConfirm(true) : (!isClockedOutToday && handleActionClick('in'))}
+              className={isRunning ? (isOnBreak ? 'is-break' : 'is-stop') : isClockedOutToday ? 'btn-disabled' : ''}
+              onClick={() => isRunning ? (isOnBreak ? handleEndBreak() : setShowClockOutConfirm(true)) : (!isClockedOutToday && handleActionClick('in'))}
               disabled={isClockedOutToday || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
             >
-              {isRunning ? <FiSquare /> : isClockedOutToday ? <FiCheckCircle /> : <FiPlay />}
-              {isRunning ? 'Clock out' : isClockedOutToday ? 'Completed' : 'Clock in'}
+              {isRunning ? (isOnBreak ? <FiPlay /> : <FiSquare />) : isClockedOutToday ? <FiCheckCircle /> : <FiPlay />}
+              {isRunning ? (isOnBreak ? 'Resume' : 'Clock out') : isClockedOutToday ? 'Completed' : 'Clock in'}
             </button>
           </section>
+          {isRunning && !isClockedOutToday && (
+            <div style={{ display: 'flex', gap: '8px', padding: '0 16px 12px 16px' }}>
+              {isOnBreak ? (
+                <button
+                  type="button"
+                  onClick={handleEndBreak}
+                  disabled={isProcessing}
+                  className="dashboard-btn dashboard-btn-resumebreak"
+                  style={{ width: '100%', padding: '10px' }}
+                >
+                  <FiPlay size={16} /> End Break & Resume
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleStartBreak('LUNCH')}
+                    disabled={isProcessing}
+                    className="dashboard-btn dashboard-btn-lunch"
+                    style={{ flex: 1, padding: '10px' }}
+                  >
+                    <Utensils size={15} /> Lunch Break
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartBreak('TEA')}
+                    disabled={isProcessing}
+                    className="dashboard-btn dashboard-btn-tea"
+                    style={{ flex: 1, padding: '10px' }}
+                  >
+                    <Coffee size={15} /> Tea Break
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           <section className="MobileDashV2-focus">
             <header><div><FiZap /><span>Today’s focus</span></div><b>{focusStats.dueToday + focusStats.inProgress}</b></header>
@@ -3163,13 +3271,13 @@ const UserDashboard = () => {
 
               <div className="dashboard-clock-section dashboard-clock-inline">
                 <div className="dashboard-timer-display">
-                  <div className="dashboard-timer-value"><LiveTime seconds={displayTimer} running={isRunning} /></div>
-                  <div className={`dashboard-timer-status ${isWorkingToday ? 'status-active-text' : 'status-inactive-text'}`}>
-                    <div className={`dashboard-timer-dot ${isWorkingToday ? 'dot-active' : 'dot-inactive'}`}></div>
-                    {isWorkingToday ? 'Active Timer • Live' : isClockedOutToday ? 'Attendance Completed' : 'Timer Stopped'}
+                  <div className="dashboard-timer-value"><LiveTime seconds={displayTimer} running={isRunning && !isOnBreak} /></div>
+                  <div className={`dashboard-timer-status ${isOnBreak ? 'status-break-text' : isWorkingToday ? 'status-active-text' : 'status-inactive-text'}`}>
+                    <div className={`dashboard-timer-dot ${isOnBreak ? 'dot-break' : isWorkingToday ? 'dot-active' : 'dot-inactive'}`}></div>
+                    {isOnBreak ? `On ${currentBreakType === 'TEA' ? 'Tea Break' : 'Lunch Break'} ⏸️` : isWorkingToday ? 'Active Timer • Live' : isClockedOutToday ? 'Attendance Completed' : 'Timer Stopped'}
                   </div>
                 </div>
-                <div className="dashboard-clock-buttons">
+                <div className="dashboard-clock-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   <button
                     onClick={() => handleActionClick('in')}
                     disabled={isRunning || isClockedOutToday || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
@@ -3179,11 +3287,55 @@ const UserDashboard = () => {
                   </button>
                   <button
                     onClick={() => setShowClockOutConfirm(true)}
-                    disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
-                    className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}
+                    disabled={!isRunning || isOnBreak || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                    className={`dashboard-btn dashboard-btn-clockout ${(!isRunning || isOnBreak) ? 'btn-disabled' : ''}`}
+                    title={isOnBreak ? 'End your break before clocking out' : ''}
                   >
                     <FiSquare size={20} /> Clock Out
                   </button>
+
+                  {/* Lunch & Tea Break Buttons */}
+                  {isRunning && !isClockedOutToday && (
+                    isOnBreak ? (
+                      <button
+                        onClick={handleEndBreak}
+                        disabled={isProcessing || loading.attendance}
+                        className="dashboard-btn dashboard-btn-resumebreak"
+                        style={{ width: '100%', marginTop: '4px' }}
+                      >
+                        <FiPlay size={18} /> End {currentBreakType === 'TEA' ? 'Tea' : 'Lunch'} Break & Resume Work
+                      </button>
+                    ) : (
+                      <div className="dashboard-break-btn-group" style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '4px' }}>
+                        <button
+                          onClick={() => handleStartBreak('LUNCH')}
+                          disabled={isProcessing || loading.attendance}
+                          className="dashboard-btn dashboard-btn-lunch"
+                          title={todayAttendance?.lunchBreakWindow?.start && todayAttendance?.lunchBreakWindow?.end ? `Lunch Allowed Window: ${todayAttendance.lunchBreakWindow.start} - ${todayAttendance.lunchBreakWindow.end}` : "Start Lunch Break"}
+                        >
+                          <Utensils size={16} /> Lunch Break
+                          {todayAttendance?.lunchBreakWindow?.start && (
+                            <span style={{ fontSize: '10px', opacity: 0.95, marginLeft: '4px', fontWeight: 500 }}>
+                              ({todayAttendance.lunchBreakWindow.start}-{todayAttendance.lunchBreakWindow.end})
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleStartBreak('TEA')}
+                          disabled={isProcessing || loading.attendance}
+                          className="dashboard-btn dashboard-btn-tea"
+                          title={todayAttendance?.teaBreaks?.length > 0 ? `Allowed Slots: ${todayAttendance.teaBreaks.map(t => `${t.label || 'Tea'}: ${t.start}-${t.end}`).join(', ')}` : "Start Tea Break"}
+                        >
+                          <Coffee size={16} /> Tea Break
+                          {todayAttendance?.teaBreaks?.length > 0 && (
+                            <span style={{ fontSize: '10px', opacity: 0.95, marginLeft: '4px', fontWeight: 500 }}>
+                              ({todayAttendance.teaBreaks.length} slots)
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </div>
@@ -3387,7 +3539,7 @@ const UserDashboard = () => {
 
 
                 {recentActivity.slice(0, 5).map((item, index) => {
-                  if (['clock-in', 'clock-out', 'lunch'].includes(item.type)) {
+                  if (['clock-in', 'clock-out', 'lunch', 'break'].includes(item.type)) {
                     const date = new Date(item.date);
                     return (
                       <div key={`${item.type}-${index}`} className={`activity-item timeline-activity activity-type-${item.type}`}>
@@ -3399,7 +3551,7 @@ const UserDashboard = () => {
                           <div className="activity-status-icon status-default"><span className="timeline-css-icon" /></div>
                           <div className="activity-details"><div className="activity-title">{item.title}</div><div className="activity-time">{item.subtitle}</div></div>
                         </div>
-                        <div className={`activity-status ${item.status === 'MISSED PUNCH' ? 'status-absent' : 'status-present'}`}>{formatActivityStatusLabel(item.status || 'PRESENT')}</div>
+                        <div className={`activity-status ${item.status === 'BREAK' ? 'status-late' : item.status === 'MISSED PUNCH' ? 'status-absent' : 'status-present'}`}>{formatActivityStatusLabel(item.status || 'PRESENT')}</div>
                       </div>
                     );
                   }
@@ -3599,9 +3751,9 @@ const UserDashboard = () => {
 
         <aside className="dashboard-right-rail">
           <section className="dashboard-clock-section dashboard-clock-rail">
-            <div className="dashboard-live-label"><i /> {isWorkingToday ? 'Live' : isClockedOutToday ? 'Completed' : isWeekendOrHolidayToday ? 'Weekly Off' : 'Not Clocked In'}</div>
+            <div className="dashboard-live-label"><i /> {isOnBreak ? `On ${currentBreakType === 'TEA' ? 'Tea' : 'Lunch'} Break` : isWorkingToday ? 'Live' : isClockedOutToday ? 'Completed' : isWeekendOrHolidayToday ? 'Weekly Off' : 'Not Clocked In'}</div>
             <div className="dashboard-timer-display">
-              <div className="dashboard-timer-value"><LiveTime seconds={displayTimer} running={isRunning} /> <small>hrs</small></div>
+              <div className="dashboard-timer-value"><LiveTime seconds={displayTimer} running={isRunning && !isOnBreak} /> <small>hrs</small></div>
               <div className="dashboard-clock-date">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</div>
             </div>
             <div className="dashboard-clock-buttons">
@@ -3612,8 +3764,48 @@ const UserDashboard = () => {
               >
                 {isClockedOutToday ? <><FiCheckCircle size={17} /> Completed</> : <><FiPlay size={17} /> Clock In</>}
               </button>
-              <button onClick={() => setShowClockOutConfirm(true)} disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading} className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}><FiSquare size={15} /> Clock Out</button>
+              <button
+                onClick={() => setShowClockOutConfirm(true)}
+                disabled={!isRunning || isOnBreak || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+                className={`dashboard-btn dashboard-btn-clockout ${(!isRunning || isOnBreak) ? 'btn-disabled' : ''}`}
+                title={isOnBreak ? 'End your break before clocking out' : ''}
+              >
+                <FiSquare size={15} /> Clock Out
+              </button>
             </div>
+            {isRunning && !isClockedOutToday && (
+              <div style={{ marginTop: '8px', width: '100%' }}>
+                {isOnBreak ? (
+                  <button
+                    onClick={handleEndBreak}
+                    disabled={isProcessing}
+                    className="dashboard-btn dashboard-btn-resumebreak"
+                    style={{ width: '100%', padding: '9px 12px', fontSize: '13px' }}
+                  >
+                    <FiPlay size={15} /> Resume Work
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => handleStartBreak('LUNCH')}
+                      disabled={isProcessing}
+                      className="dashboard-btn dashboard-btn-lunch"
+                      style={{ flex: 1, padding: '8px 10px', fontSize: '12px' }}
+                    >
+                      <Utensils size={14} /> Lunch
+                    </button>
+                    <button
+                      onClick={() => handleStartBreak('TEA')}
+                      disabled={isProcessing}
+                      className="dashboard-btn dashboard-btn-tea"
+                      style={{ flex: 1, padding: '8px 10px', fontSize: '12px' }}
+                    >
+                      <Coffee size={14} /> Tea
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="dashboard-ai-card">

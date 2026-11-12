@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiPlay, FiSquare, FiClock, FiCamera, FiMapPin, FiX } from 'react-icons/fi';
+import { Utensils, Coffee } from 'lucide-react';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
 
@@ -27,6 +28,44 @@ const ClockInSection = ({
   const [cameraStream, setCameraStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [selfieUploading, setSelfieUploading] = useState(false);
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [currentBreakType, setCurrentBreakType] = useState('LUNCH');
+  const [breakLoading, setBreakLoading] = useState(false);
+
+  const handleStartBreak = async (breakType = 'LUNCH') => {
+    try {
+      setBreakLoading(true);
+      const res = await axios.post('/attendance/break/start', { breakType }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data?.success) {
+        setIsOnBreak(true);
+        setCurrentBreakType(breakType);
+        toast.info(`Started ${breakType === 'TEA' ? 'Tea Break' : 'Lunch Break'}`);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to start break');
+    } finally {
+      setBreakLoading(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    try {
+      setBreakLoading(true);
+      const res = await axios.post('/attendance/break/end', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data?.success) {
+        setIsOnBreak(false);
+        toast.success('Break ended. Welcome back!');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to end break');
+    } finally {
+      setBreakLoading(false);
+    }
+  };
 
   const videoRef = useRef(null);
 
@@ -201,12 +240,12 @@ const ClockInSection = ({
     <div className="dashboard-clock-section" style={{ flex: 1, minWidth: '320px' }}>
       <div className="dashboard-timer-display">
         <div className="dashboard-timer-value">{formatTime(timer)}</div>
-        <div className={`dashboard-timer-status ${isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
-          <div className={`dashboard-timer-dot ${isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
-          {isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
+        <div className={`dashboard-timer-status ${isOnBreak ? 'status-break-text' : isRunning ? 'status-active-text' : 'status-inactive-text'}`}>
+          <div className={`dashboard-timer-dot ${isOnBreak ? 'dot-break' : isRunning ? 'dot-active' : 'dot-inactive'}`}></div>
+          {isOnBreak ? `On ${currentBreakType === 'TEA' ? 'Tea Break' : 'Lunch Break'} ⏸️` : isRunning ? 'Active Timer • Live' : 'Timer Stopped'}
         </div>
       </div>
-      <div className="dashboard-clock-buttons">
+      <div className="dashboard-clock-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         <button
           onClick={() => handleActionClick('in')}
           disabled={isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
@@ -216,11 +255,42 @@ const ClockInSection = ({
         </button>
         <button
           onClick={() => handleActionClick('out')}
-          disabled={!isRunning || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
-          className={`dashboard-btn dashboard-btn-clockout ${!isRunning ? 'btn-disabled' : ''}`}
+          disabled={!isRunning || isOnBreak || loading.attendance || !isUserInCurrentCompany || isProcessing || selfieUploading}
+          className={`dashboard-btn dashboard-btn-clockout ${(!isRunning || isOnBreak) ? 'btn-disabled' : ''}`}
+          title={isOnBreak ? 'End your break before clocking out' : ''}
         >
           <FiSquare size={20} /> Clock Out
         </button>
+
+        {isRunning && (
+          isOnBreak ? (
+            <button
+              onClick={handleEndBreak}
+              disabled={breakLoading}
+              className="dashboard-btn dashboard-btn-resumebreak"
+              style={{ width: '100%', marginTop: '4px' }}
+            >
+              <FiPlay size={18} /> End {currentBreakType === 'TEA' ? 'Tea' : 'Lunch'} Break & Resume Work
+            </button>
+          ) : (
+            <div className="dashboard-break-btn-group" style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => handleStartBreak('LUNCH')}
+                disabled={breakLoading}
+                className="dashboard-btn dashboard-btn-lunch"
+              >
+                <Utensils size={16} /> Lunch Break
+              </button>
+              <button
+                onClick={() => handleStartBreak('TEA')}
+                disabled={breakLoading}
+                className="dashboard-btn dashboard-btn-tea"
+              >
+                <Coffee size={16} /> Tea Break
+              </button>
+            </div>
+          )
+        )}
       </div>
 
       {showCameraModal && (

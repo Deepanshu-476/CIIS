@@ -28,7 +28,17 @@ const SHIFT_TEMPLATES = [
       secondHalfClockInWindow: {
         start: '13:30',
         end: '14:30'
-      }
+      },
+      lunchBreakWindow: {
+        enabled: true,
+        start: '13:00',
+        end: '14:30',
+        maxDurationMinutes: 45
+      },
+      teaBreaks: [
+        { label: 'Morning Tea', start: '11:00', end: '11:30', maxDurationMinutes: 15 },
+        { label: 'Evening Tea', start: '16:30', end: '17:00', maxDurationMinutes: 15 }
+      ]
     }
   },
   {
@@ -48,7 +58,16 @@ const SHIFT_TEMPLATES = [
       secondHalfClockInWindow: {
         start: '09:30',
         end: '10:30'
-      }
+      },
+      lunchBreakWindow: {
+        enabled: true,
+        start: '10:00',
+        end: '11:30',
+        maxDurationMinutes: 30
+      },
+      teaBreaks: [
+        { label: 'Morning Tea', start: '08:00', end: '08:30', maxDurationMinutes: 15 }
+      ]
     }
   },
   {
@@ -68,7 +87,16 @@ const SHIFT_TEMPLATES = [
       secondHalfClockInWindow: {
         start: '17:30',
         end: '18:30'
-      }
+      },
+      lunchBreakWindow: {
+        enabled: true,
+        start: '18:00',
+        end: '19:30',
+        maxDurationMinutes: 45
+      },
+      teaBreaks: [
+        { label: 'Evening Tea', start: '16:00', end: '16:30', maxDurationMinutes: 15 }
+      ]
     }
   },
   {
@@ -88,7 +116,16 @@ const SHIFT_TEMPLATES = [
       secondHalfClockInWindow: {
         start: '01:30',
         end: '02:30'
-      }
+      },
+      lunchBreakWindow: {
+        enabled: true,
+        start: '02:00',
+        end: '03:30',
+        maxDurationMinutes: 45
+      },
+      teaBreaks: [
+        { label: 'Night Tea', start: '00:00', end: '00:30', maxDurationMinutes: 15 }
+      ]
     }
   },
   {
@@ -108,7 +145,16 @@ const SHIFT_TEMPLATES = [
       secondHalfClockInWindow: {
         start: '13:00',
         end: '14:00'
-      }
+      },
+      lunchBreakWindow: {
+        enabled: true,
+        start: '13:00',
+        end: '14:30',
+        maxDurationMinutes: 45
+      },
+      teaBreaks: [
+        { label: 'Tea Break', start: '16:00', end: '16:30', maxDurationMinutes: 15 }
+      ]
     }
   }
 ];
@@ -117,7 +163,9 @@ const getShiftTemplateSettings = (templateId = 'general') => {
   const template = SHIFT_TEMPLATES.find(item => item.id === templateId) || SHIFT_TEMPLATES[0];
   return {
     ...template.settings,
-    secondHalfClockInWindow: { ...template.settings.secondHalfClockInWindow }
+    secondHalfClockInWindow: { ...template.settings.secondHalfClockInWindow },
+    lunchBreakWindow: { ...(template.settings.lunchBreakWindow || {}) },
+    teaBreaks: Array.isArray(template.settings.teaBreaks) ? template.settings.teaBreaks.map(t => ({ ...t })) : []
   };
 };
 
@@ -133,15 +181,25 @@ const normalizeRoleShifts = (jobRole = {}) => {
     ? jobRole.shifts
     : [jobRole.shiftSettings || getDefaultShiftSettings()];
 
-  return shifts.map((shift, index) => ({
-    ...getDefaultShiftSettings(),
-    ...shift,
-    shiftId: shift.shiftId || shift.id || shift._id || `${jobRole._id || 'role'}-shift-${index}`,
-    secondHalfClockInWindow: {
-      ...getDefaultShiftSettings().secondHalfClockInWindow,
-      ...(shift.secondHalfClockInWindow || {})
-    }
-  }));
+  return shifts.map((shift, index) => {
+    const defaultSettings = getDefaultShiftSettings();
+    return {
+      ...defaultSettings,
+      ...shift,
+      shiftId: shift.shiftId || shift.id || shift._id || `${jobRole._id || 'role'}-shift-${index}`,
+      secondHalfClockInWindow: {
+        ...defaultSettings.secondHalfClockInWindow,
+        ...(shift.secondHalfClockInWindow || {})
+      },
+      lunchBreakWindow: {
+        ...defaultSettings.lunchBreakWindow,
+        ...(shift.lunchBreakWindow || {})
+      },
+      teaBreaks: Array.isArray(shift.teaBreaks)
+        ? shift.teaBreaks.map(t => ({ ...t }))
+        : (defaultSettings.teaBreaks || [])
+    };
+  });
 };
 
 const JobRoleManagement = () => {
@@ -538,7 +596,19 @@ const JobRoleManagement = () => {
         secondHalfClockInWindow: {
           ...getDefaultShiftSettings().secondHalfClockInWindow,
           ...(shift.secondHalfClockInWindow || {})
-        }
+        },
+        lunchBreakWindow: {
+          ...getDefaultShiftSettings().lunchBreakWindow,
+          ...(shift.lunchBreakWindow || {})
+        },
+        teaBreaks: Array.isArray(shift.teaBreaks)
+          ? shift.teaBreaks.map(t => ({
+              label: (t.label || 'Tea Break').trim(),
+              start: t.start || '11:00',
+              end: t.end || '11:30',
+              maxDurationMinutes: Number(t.maxDurationMinutes) || 15
+            }))
+          : (getDefaultShiftSettings().teaBreaks || [])
       }));
 
     if (cleanedShifts.some(shift => !shift.shiftName)) {
@@ -702,7 +772,14 @@ const JobRoleManagement = () => {
           secondHalfClockInWindow: {
             ...(shift.secondHalfClockInWindow || getDefaultShiftSettings().secondHalfClockInWindow),
             ...(nextShift.secondHalfClockInWindow || {})
-          }
+          },
+          lunchBreakWindow: {
+            ...(shift.lunchBreakWindow || getDefaultShiftSettings().lunchBreakWindow),
+            ...(nextShift.lunchBreakWindow || {})
+          },
+          teaBreaks: Array.isArray(nextShift.teaBreaks)
+            ? nextShift.teaBreaks
+            : (shift.teaBreaks || getDefaultShiftSettings().teaBreaks || [])
         };
       });
 
@@ -1526,6 +1603,199 @@ const JobRoleManagement = () => {
                               }
                             })}
                           />
+                        </div>
+
+                        {/* Lunch Break Policy */}
+                        <div className="JobRoleManagement-break-section" style={{ gridColumn: '1 / -1', marginTop: '12px', padding: '12px 14px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fef3c7' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                            <strong style={{ fontSize: '13px', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              🍱 Lunch Break Allowed Window & Limit
+                            </strong>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#78350f', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={shift.lunchBreakWindow?.enabled !== false}
+                                onChange={(e) => updateShiftAt(index, {
+                                  lunchBreakWindow: {
+                                    ...(shift.lunchBreakWindow || {}),
+                                    enabled: e.target.checked
+                                  }
+                                })}
+                              />
+                              Enable Timing Restriction
+                            </label>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                            <div className="JobRoleManagement-form-group" style={{ marginBottom: 0 }}>
+                              <label className="JobRoleManagement-form-label">Lunch Window Start</label>
+                              <input
+                                type="time"
+                                className="JobRoleManagement-form-input"
+                                value={shift.lunchBreakWindow?.start || '13:00'}
+                                onChange={(e) => updateShiftAt(index, {
+                                  lunchBreakWindow: {
+                                    ...(shift.lunchBreakWindow || {}),
+                                    start: e.target.value
+                                  }
+                                })}
+                              />
+                            </div>
+                            <div className="JobRoleManagement-form-group" style={{ marginBottom: 0 }}>
+                              <label className="JobRoleManagement-form-label">Lunch Window End</label>
+                              <input
+                                type="time"
+                                className="JobRoleManagement-form-input"
+                                value={shift.lunchBreakWindow?.end || '14:30'}
+                                onChange={(e) => updateShiftAt(index, {
+                                  lunchBreakWindow: {
+                                    ...(shift.lunchBreakWindow || {}),
+                                    end: e.target.value
+                                  }
+                                })}
+                              />
+                            </div>
+                            <div className="JobRoleManagement-form-group" style={{ marginBottom: 0 }}>
+                              <label className="JobRoleManagement-form-label">Max Duration (Minutes)</label>
+                              <input
+                                type="number"
+                                min="10"
+                                max="180"
+                                className="JobRoleManagement-form-input"
+                                value={shift.lunchBreakWindow?.maxDurationMinutes ?? 45}
+                                onChange={(e) => updateShiftAt(index, {
+                                  lunchBreakWindow: {
+                                    ...(shift.lunchBreakWindow || {}),
+                                    maxDurationMinutes: Number(e.target.value) || 45
+                                  }
+                                })}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Multiple Tea Breaks Policy */}
+                        <div className="JobRoleManagement-break-section" style={{ gridColumn: '1 / -1', marginTop: '12px', padding: '12px 14px', background: '#f5f3ff', borderRadius: '10px', border: '1px solid #ede9fe' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                            <strong style={{ fontSize: '13px', color: '#5b21b6', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              ☕ Scheduled Tea Breaks (Multiple Allowed)
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentTeas = Array.isArray(shift.teaBreaks) ? shift.teaBreaks : [];
+                                const newSlotNum = currentTeas.length + 1;
+                                const newTea = {
+                                  label: `Tea Break ${newSlotNum}`,
+                                  start: '16:30',
+                                  end: '17:00',
+                                  maxDurationMinutes: 15
+                                };
+                                updateShiftAt(index, { teaBreaks: [...currentTeas, newTea] });
+                              }}
+                              style={{
+                                padding: '5px 12px',
+                                fontSize: '11px',
+                                background: '#7c3aed',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              + Add Tea Break Slot
+                            </button>
+                          </div>
+
+                          {(!shift.teaBreaks || shift.teaBreaks.length === 0) ? (
+                            <div style={{ fontSize: '12px', color: '#6d28d9', fontStyle: 'italic' }}>
+                              No specific tea break slots configured. Click "+ Add Tea Break Slot" to define scheduled tea breaks.
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {shift.teaBreaks.map((tea, teaIdx) => (
+                                <div key={teaIdx} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 0.8fr auto', gap: '8px', alignItems: 'flex-end', background: '#fff', padding: '8px 10px', borderRadius: '8px', border: '1px solid #ddd6fe' }}>
+                                  <div className="JobRoleManagement-form-group" style={{ marginBottom: 0 }}>
+                                    <label className="JobRoleManagement-form-label" style={{ fontSize: '10px' }}>Slot Name</label>
+                                    <input
+                                      type="text"
+                                      className="JobRoleManagement-form-input"
+                                      style={{ padding: '6px 8px', fontSize: '12px' }}
+                                      value={tea.label || ''}
+                                      onChange={(e) => {
+                                        const updated = [...shift.teaBreaks];
+                                        updated[teaIdx] = { ...updated[teaIdx], label: e.target.value };
+                                        updateShiftAt(index, { teaBreaks: updated });
+                                      }}
+                                      placeholder="e.g. Morning Tea"
+                                    />
+                                  </div>
+                                  <div className="JobRoleManagement-form-group" style={{ marginBottom: 0 }}>
+                                    <label className="JobRoleManagement-form-label" style={{ fontSize: '10px' }}>Start Time</label>
+                                    <input
+                                      type="time"
+                                      className="JobRoleManagement-form-input"
+                                      style={{ padding: '6px 8px', fontSize: '12px' }}
+                                      value={tea.start || '11:00'}
+                                      onChange={(e) => {
+                                        const updated = [...shift.teaBreaks];
+                                        updated[teaIdx] = { ...updated[teaIdx], start: e.target.value };
+                                        updateShiftAt(index, { teaBreaks: updated });
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="JobRoleManagement-form-group" style={{ marginBottom: 0 }}>
+                                    <label className="JobRoleManagement-form-label" style={{ fontSize: '10px' }}>End Time</label>
+                                    <input
+                                      type="time"
+                                      className="JobRoleManagement-form-input"
+                                      style={{ padding: '6px 8px', fontSize: '12px' }}
+                                      value={tea.end || '11:30'}
+                                      onChange={(e) => {
+                                        const updated = [...shift.teaBreaks];
+                                        updated[teaIdx] = { ...updated[teaIdx], end: e.target.value };
+                                        updateShiftAt(index, { teaBreaks: updated });
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="JobRoleManagement-form-group" style={{ marginBottom: 0 }}>
+                                    <label className="JobRoleManagement-form-label" style={{ fontSize: '10px' }}>Max (Mins)</label>
+                                    <input
+                                      type="number"
+                                      className="JobRoleManagement-form-input"
+                                      style={{ padding: '6px 8px', fontSize: '12px' }}
+                                      value={tea.maxDurationMinutes ?? 15}
+                                      onChange={(e) => {
+                                        const updated = [...shift.teaBreaks];
+                                        updated[teaIdx] = { ...updated[teaIdx], maxDurationMinutes: Number(e.target.value) || 15 };
+                                        updateShiftAt(index, { teaBreaks: updated });
+                                      }}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = shift.teaBreaks.filter((_, i) => i !== teaIdx);
+                                      updateShiftAt(index, { teaBreaks: updated });
+                                    }}
+                                    style={{
+                                      padding: '7px 10px',
+                                      background: '#fee2e2',
+                                      color: '#dc2626',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontSize: '12px',
+                                      fontWeight: 600
+                                    }}
+                                    title="Remove this tea break slot"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

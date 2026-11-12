@@ -365,6 +365,97 @@
   color: white;
 }
 
+.dashboard-btn-lunch {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  font-weight: 600;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 10px 16px;
+  flex: 1;
+}
+
+.dashboard-btn-lunch:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);
+}
+
+.dashboard-btn-tea {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  border: none;
+  font-weight: 600;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 10px 16px;
+  flex: 1;
+}
+
+.dashboard-btn-tea:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+}
+
+.dashboard-btn-resumebreak {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  font-weight: 600;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 11px 18px;
+  animation: pulseBreak 2s infinite ease-in-out;
+}
+
+@keyframes pulseBreak {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+}
+
+.status-break-text {
+  color: #d97706 !important;
+  font-weight: 600;
+}
+
+.dot-break {
+  background-color: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  animation: pulseDotBreak 1.5s infinite;
+}
+
+@keyframes pulseDotBreak {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.MobileDashV2-clock button.is-break {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border-color: transparent;
+}
+
 .btn-disabled {
   background: linear-gradient(135deg, #e2e8f0, #cbd5e1) !important;
   color: #94a3b8 !important;

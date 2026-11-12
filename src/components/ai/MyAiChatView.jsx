@@ -407,7 +407,7 @@ export default function MyAiChatView({ onBack, onClose }) {
 
           <div className="my-ai-header-title-wrap">
             <h2 className="my-ai-title">CIIS AI</h2>
-            <span className="my-ai-subtitle-badge">Assistant</span>
+            {isExpanded && <span className="my-ai-subtitle-badge">Assistant</span>}
             <div className={`my-ai-status-indicator ${orbState}`}>
               <span className={`my-ai-status-dot ${orbState}`} />
               <span className="my-ai-status-label">{statusText}</span>
@@ -416,30 +416,33 @@ export default function MyAiChatView({ onBack, onClose }) {
         </div>
 
         <div className="my-ai-header-right">
-          {/* Engine toggle: Whisper vs Browser */}
-          <button
-            type="button"
-            className="my-ai-icon-btn engine-toggle-btn"
-            onClick={() => {
-              setSpeechError?.(null);
-              setNotice(null);
-              setEngine((curr) => (curr === 'whisper' ? 'browser' : 'whisper'));
-            }}
-            title={`Speech engine: ${engine === 'whisper' ? 'Accurate (Whisper)' : 'Live (Browser)'}`}
-          >
-            {engine === 'whisper' ? '🎙️' : '⚡'}
-            {isExpanded && <span style={{ marginLeft: 3 }}>{engine === 'whisper' ? 'Whisper' : 'Browser'}</span>}
-          </button>
+          {/* Engine toggle & Language cycle: clean display in expanded view */}
+          {isExpanded && (
+            <>
+              <button
+                type="button"
+                className="my-ai-icon-btn engine-toggle-btn"
+                onClick={() => {
+                  setSpeechError?.(null);
+                  setNotice(null);
+                  setEngine((curr) => (curr === 'whisper' ? 'browser' : 'whisper'));
+                }}
+                title={`Speech engine: ${engine === 'whisper' ? 'Accurate (Whisper)' : 'Live (Browser)'}`}
+              >
+                {engine === 'whisper' ? '🎙️' : '⚡'}
+                <span style={{ marginLeft: 3 }}>{engine === 'whisper' ? 'Whisper' : 'Browser'}</span>
+              </button>
 
-          {/* Language cycle: hi-IN -> en-IN -> auto */}
-          <button
-            type="button"
-            className="my-ai-icon-btn lang-badge"
-            onClick={cycleLanguage}
-            title={`Language: ${lang === 'hi-IN' ? 'Hindi/Hinglish (hi-IN)' : lang === 'en-IN' ? 'English (en-IN)' : 'Auto-detect'}`}
-          >
-            {lang === 'hi-IN' ? 'हिं' : lang === 'en-IN' ? 'EN' : 'Auto'}
-          </button>
+              <button
+                type="button"
+                className="my-ai-icon-btn lang-badge"
+                onClick={cycleLanguage}
+                title={`Language: ${lang === 'hi-IN' ? 'Hindi/Hinglish (hi-IN)' : lang === 'en-IN' ? 'English (en-IN)' : 'Auto-detect'}`}
+              >
+                {lang === 'hi-IN' ? 'हिं' : lang === 'en-IN' ? 'EN' : 'Auto'}
+              </button>
+            </>
+          )}
 
           {/* TTS voice reply toggle */}
           <button

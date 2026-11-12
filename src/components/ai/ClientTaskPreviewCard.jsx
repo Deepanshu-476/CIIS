@@ -45,6 +45,20 @@ export default function ClientTaskPreviewCard({
 
                 <dt>Priority</dt>
                 <dd>{priority}</dd>
+
+                {preview.checkpoints && preview.checkpoints !== 'None' && (
+                    <>
+                        <dt>Checkpoints</dt>
+                        <dd>☑️ {preview.checkpoints}</dd>
+                    </>
+                )}
+
+                {preview.reminder && preview.reminder !== 'OFF' && (
+                    <>
+                        <dt>Reminder</dt>
+                        <dd>⏰ {preview.reminder}</dd>
+                    </>
+                )}
             </dl>
 
             <div className="ai-actions">

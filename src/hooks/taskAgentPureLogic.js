@@ -346,6 +346,17 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
         const clientId = draft.clientId || fallbackPayload?.clientId || '';
         const service = draft.service || fallbackPayload?.service || '';
         const encodedService = encodeURIComponent(service);
+        const checkpoints = Array.isArray(draft.checkpoints)
+            ? draft.checkpoints.map(c => typeof c === 'string' ? { title: c, completed: false } : c)
+            : (Array.isArray(fallbackPayload?.fields?.checkpoints) ? fallbackPayload.fields.checkpoints : []);
+        const reminderSettings = draft.reminderSettings || fallbackPayload?.fields?.reminderSettings || {
+            enabled: Boolean(draft.reminder),
+            options: [draft.reminderOption || 'oneHourBefore'],
+            reminderTime: draft.reminderTime || null,
+            customTime: draft.customTime || null,
+            repeatIntervalMinutes: draft.repeatIntervalMinutes || null,
+            minutesBeforeDue: draft.minutesBeforeDue || (draft.reminderOption === 'oneHourBefore' ? 60 : null),
+        };
         return {
             endpoint: `/tasks/client-tasks/client/${clientId}/service/${encodedService}`,
             method: 'POST',
@@ -358,6 +369,8 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
                 assignee: draft.assignee || draft.assigneeName || fallbackPayload?.fields?.assignee || '',
                 assigneeId: draft.assigneeId || fallbackPayload?.fields?.assigneeId || null,
                 priority: draft.priority || fallbackPayload?.fields?.priority || 'Medium',
+                checkpoints,
+                reminderSettings,
             }
         };
     }

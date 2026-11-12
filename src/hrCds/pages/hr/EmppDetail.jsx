@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
-import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, getUserPageScope, loadPagePermission } from '../../../utils/pageAccess';
 
 
 import {
@@ -1972,8 +1972,21 @@ const EmployeeDirectory = () => {
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
   const [pageCanEditEmployees, setPageCanEditEmployees] = useState(true);
+  const [pageDataScope, setPageDataScope] = useState(null);
   const canEditOtherEmployees = pageAccessReady ? pageCanEditEmployees : user.canEditOtherEmployees;
   const canSeeAllCompanyUsers = pageAccessReady ? pageCanViewEmployees : user.canSeeAllCompanyUsers;
+  // A branch explicitly configured in Page Management must take precedence
+  // over a user's role-based company-wide directory access.
+  const pageScopedBranchIds = Array.isArray(pageDataScope?.branchIds)
+    ? pageDataScope.branchIds
+    : [];
+  const pageScopedDepartmentIds = Array.isArray(pageDataScope?.departmentIds)
+    ? pageDataScope.departmentIds
+    : [];
+  const restrictToPageBranches = pageScopedBranchIds.length > 0 && !pageScopedBranchIds.includes('all');
+  const restrictToPageDepartments = pageScopedDepartmentIds.length > 0 && !pageScopedDepartmentIds.includes('all');
+  const effectiveBranchIds = restrictToPageBranches ? pageScopedBranchIds : currentUserBranchIds;
+  const restrictEmployeeBranchScope = restrictToPageBranches || restrictToAssignedBranches;
   
   // Snackbar helper
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -2016,6 +2029,7 @@ const EmployeeDirectory = () => {
 
         setPageCanEditEmployees(canEdit);
         setPageCanViewEmployees(canView);
+        setPageDataScope(getUserPageScope(page, currentUserIdValue));
       } catch (error) {
         console.error('Failed to load employee page permissions:', error);
       } finally {
@@ -2318,14 +2332,14 @@ const EmployeeDirectory = () => {
         }, config);
       }
 
-      const visibleEmployees = restrictToAssignedBranches
+      const visibleEmployees = restrictEmployeeBranchScope
         ? employeesData.filter(employee => {
           const employeeBranchIds = getIdList([
             employee?.branch,
             employee?.branchId,
             ...(Array.isArray(employee?.assignedBranches) ? employee.assignedBranches : [])
           ]);
-          return employeeBranchIds.some(branchId => currentUserBranchIds.includes(branchId));
+          return employeeBranchIds.some(branchId => effectiveBranchIds.includes(branchId));
         })
         : employeesData;
       setEmployees(visibleEmployees);
@@ -2366,8 +2380,8 @@ const EmployeeDirectory = () => {
     fetchJobRoles,
     fetchBranches,
     fetchAllEmployeesFromEndpoint,
-    restrictToAssignedBranches,
-    currentUserBranchIds
+    restrictEmployeeBranchScope,
+    effectiveBranchIds
   ]);
   
   // Initial data fetch
@@ -3068,8 +3082,10 @@ const EmployeeDirectory = () => {
       return branchMatch || branchNameMatch;
     }).length;
     return { id, name: label, count };
-  }).filter((branch) => branch.id).sort((a, b) => a.name.localeCompare(b.name)),
-  [branches, employees]);
+  }).filter((branch) => (
+    branch.id && (!restrictEmployeeBranchScope || effectiveBranchIds.some(id => String(id) === String(branch.id)))
+  )).sort((a, b) => a.name.localeCompare(b.name)),
+  [branches, employees, restrictEmployeeBranchScope, effectiveBranchIds]);
 
   const departmentOptions = useMemo(() => departments.map((department) => {
     const id = getValueId(department);
@@ -3078,9 +3094,14 @@ const EmployeeDirectory = () => {
       getValueId(employee?.department) === id ||
       getDepartmentName(employee?.department).toLowerCase() === name.toLowerCase()
     ).length;
-    return { id, name, count };
-  }).filter((department) => department.id).sort((a, b) => a.name.localeCompare(b.name)),
-  [departments, employees, getDepartmentName]);
+    const branchIds = getIdList([department.branch, department.branchId, department.branch_id]);
+    return { id, name, count, branchIds };
+  }).filter((department) => {
+    if (!department.id) return false;
+    if (restrictToPageDepartments && !pageScopedDepartmentIds.some(id => String(id) === String(department.id))) return false;
+    return !restrictEmployeeBranchScope || department.branchIds.some(id => effectiveBranchIds.some(branchId => String(branchId) === String(id)));
+  }).sort((a, b) => a.name.localeCompare(b.name)),
+  [departments, employees, getDepartmentName, restrictToPageDepartments, pageScopedDepartmentIds, restrictEmployeeBranchScope, effectiveBranchIds]);
 
   const groupedEmployees = useMemo(() => {
     const groups = new Map();
@@ -3150,7 +3171,7 @@ const EmployeeDirectory = () => {
                   • {getDepartmentName(currentUserDepartmentId)} Department
                 </span>
               )}
-              {canSeeAllCompanyUsers && (
+              {canSeeAllCompanyUsers && !restrictEmployeeBranchScope && (
                 <span className="EmployeeDirectory-super-admin-badge">
                   • Full Company Access
                 </span>

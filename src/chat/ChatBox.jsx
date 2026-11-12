@@ -1653,13 +1653,53 @@ useEffect(() => {
         setReplyingTo(message);
     };
 
-    const scrollToRepliedMessage = messageId => {
-        if (!messageId) return;
+    const highlightMessageElement = messageId => {
         const target = chatMessagesRef.current?.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
-        if (!target) return;
+        if (!target) return false;
         target.scrollIntoView({ behavior: "smooth", block: "center" });
         target.classList.add("chat-replied-message-highlight");
-        window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1400);
+        window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1800);
+        return true;
+    };
+
+    // Tapping a reply quote: go to the answered message and highlight it, loading older
+    // pages first when it is not in the chat yet (like WhatsApp).
+    const scrollToRepliedMessage = async messageId => {
+        if (!messageId) return;
+        if (highlightMessageElement(messageId)) return;
+        const id = String(messageId);
+        if (!conversation?._id || !messagePagination.hasMore || !messagePagination.nextBefore) return;
+        let before = messagePagination.nextBefore;
+        let hasMore = messagePagination.hasMore;
+        const collected = [];
+        let found = false;
+        try {
+            setIsLoadingOlderMessages(true);
+            for (let page = 0; page < 15 && hasMore && before && !found; page += 1) {
+                const res = await getMessages(conversation._id, { limit: 50, before });
+                const older = Array.isArray(res.data.messages) ? res.data.messages : [];
+                collected.push(...older);
+                found = older.some(message => String(message._id || "") === id);
+                hasMore = Boolean(res.data.pagination?.hasMore);
+                before = res.data.pagination?.nextBefore || null;
+            }
+            setMessages(prev => {
+                const existingIds = new Set(prev.map(message => String(message._id || "")));
+                const uniqueOlder = collected
+                    .filter(message => !existingIds.has(String(message._id || "")))
+                    .map(message => normalizeMessageForChat(message, getEntityId(currentUser)));
+                return sortMessagesByCreatedAt([...uniqueOlder, ...prev]);
+            });
+            setMessagePagination({ hasMore, nextBefore: before });
+            if (found) {
+                // Wait for the older messages to render, then jump.
+                window.setTimeout(() => highlightMessageElement(id), 120);
+            }
+        } catch {
+            // The original message could not be loaded; stay where we are.
+        } finally {
+            setIsLoadingOlderMessages(false);
+        }
     };
 
     const handleEmojiSelect = (emojiData) => {

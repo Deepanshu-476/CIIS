@@ -23,6 +23,7 @@ const APP_ROUTES = [
   { path: 'create-user', name: 'Create User', icon: 'UserPlus', category: 'administration' },
   { path: 'register-request', name: 'Register Request', icon: 'FileCheck', category: 'administration' },
   { path: 'SidebarManagement', name: 'Sidebar Management', icon: 'PanelLeft', category: 'administration' },
+  { path: 'user-activity', name: 'Employee Activity', icon: 'Activity', category: 'administration' },
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'CalendarPlus', category: 'meetings' },
   { path: 'adminproject', name: 'Manage Projects', icon: 'Briefcase', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListChecks', category: 'tasks' },

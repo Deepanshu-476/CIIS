@@ -87,6 +87,7 @@ const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const PlatformPromotionsPage = lazy(() => import("./promotions/PlatformPromotionsPage.jsx"));
 const CompanyPromotionsPage = lazy(() => import("./promotions/CompanyPromotionsPage.jsx"));
+const UserActivity = lazy(() => import("./admin/page/UserActivity.jsx"));
 const LeavePolicy = lazy(() => import("./admin/page/LeavePolicy.jsx"));
 const AppVersionControl = lazy(() => import("./admin/page/AppVersionControl.jsx"));
 const FeedbackQuestionnaireManagement = lazy(() => import("./admin/page/FeedbackQuestionnaireManagement.jsx"));
@@ -347,6 +348,7 @@ function App() {
               <Route path="holiday" element={<Holiday />} />
               <Route path="alert" element={<Alerts />} />
               <Route path="promotions" element={<CompanyPromotionsPage />} />
+              <Route path="user-activity" element={<UserActivity />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="my-assets" element={<MyAssets />} />
               <Route path="my-leaves" element={<MyLeaves />} />

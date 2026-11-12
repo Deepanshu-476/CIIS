@@ -6,6 +6,7 @@ import CIISLoader from "../Loader/CIISLoader";
 import "./AllCompany.css";
 import "./CompanyAdminDetails.css";
 import "./CompanyDataView.css";
+import { pageName } from "../utils/pageNames";
 
 // Read-only view of one company's data for the platform owner, opened in a new tab from All Company.
 // Data: /superAdmin/company/:id/view/* (platform owner only; nothing here can change data).
@@ -34,6 +35,7 @@ const todayKey = () => new Date(Date.now() + 5.5 * 3600000).toISOString().slice(
 
 const TABS = [
   { key: "overview", label: "Overview", icon: "dashboard" },
+  { key: "usage", label: "Usage & Logins", icon: "insights" },
   { key: "users", label: "Users", icon: "groups" },
   { key: "tasks", label: "Tasks", icon: "task_alt" },
   { key: "projects", label: "Projects", icon: "folder" },
@@ -63,7 +65,7 @@ const TABS = [
 // Sidebar like the company's own: same sections, and only modules its plan includes
 // (company.allowedPages). An empty plan list means every page, as in the employee sidebar.
 const SECTIONS = [
-  { label: "Main", tabs: ["overview", "users"] },
+  { label: "Main", tabs: ["overview", "usage", "users"] },
   { label: "Work", tabs: ["tasks", "projects", "attendance", "leaves", "meetings"] },
   { label: "Clients", tabs: ["clients", "client-tasks", "client-meetings", "services"] },
   { label: "Admin CRM", tabs: ["leads", "calls", "follow-ups", "assignments"] },
@@ -71,7 +73,7 @@ const SECTIONS = [
   { label: "Administration", tabs: ["departments", "branches", "job-roles", "holidays", "assets", "asset-requests"] },
   { label: "Payroll", tabs: ["payroll"] },
 ];
-const ALWAYS_SHOWN = new Set(["overview", "users", "branches", "holidays"]);
+const ALWAYS_SHOWN = new Set(["overview", "usage", "users", "branches", "holidays"]);
 const TAB_PAGES = {
   tasks: ["task-management", "company-all-task", "admin-task-create"],
   projects: ["adminproject", "project"],
@@ -459,6 +461,111 @@ function ListTab({ companyId, tab }) {
   );
 }
 
+const USAGE_RANGES = [
+  { value: 1, label: "Today" },
+  { value: 7, label: "Last 7 days" },
+  { value: 30, label: "Last 30 days" },
+  { value: 90, label: "Last 90 days" },
+];
+
+// How the company uses the system: logins, active people, most / least used pages.
+// Data: /superAdmin/company/:id/view/usage (from User Activity tracking).
+function UsageTab({ companyId, allowedPages }) {
+  const [days, setDays] = useState(30);
+  const [state, setState] = useState({ loading: true, data: null, error: "" });
+
+  useEffect(() => {
+    let active = true;
+    setState(s => ({ ...s, loading: true, error: "" }));
+    api(`/superAdmin/company/${companyId}/view/usage`, { days })
+      .then(({ data }) => active && setState({ loading: false, data, error: "" }))
+      .catch(err => active && setState({ loading: false, data: null, error: err.response?.data?.message || "Could not load usage." }));
+    return () => { active = false; };
+  }, [companyId, days]);
+
+  const data = state.data;
+  const t = data?.totals || {};
+  const pages = (data?.pages || []).filter(p => p.path !== "(unknown)");
+  const used = new Set(pages.map(p => normalizePage(p.path)));
+  const unusedPlanPages = allowedPages.filter(key => !used.has(key) && !key.includes("/") && !key.startsWith("client"));
+  const leastUsed = [...pages].sort((a, b) => (a.views + a.actions) - (b.views + b.actions)).slice(0, 8);
+
+  return (
+    <div className="CDV-usage">
+      <div className="CDV-toolbar">
+        <select className="AllCompany-input" value={days} onChange={e => setDays(Number(e.target.value))} aria-label="Period">
+          {USAGE_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        <span className="CDV-count">Logins and page use recorded by User Activity</span>
+      </div>
+      {state.error ? <div className="CDV-empty CDV-error">{state.error}</div> : null}
+      {state.loading && !data ? <div className="CDV-empty">Loading…</div> : null}
+      {data ? (
+        <>
+          <div className="CDV-stats">
+            <Stat icon="groups" label="Users" value={t.users} sub={`${t.activeAccounts} active accounts`} />
+            <Stat icon="login" label="Logged in today" value={t.loggedInToday} />
+            <Stat icon="how_to_reg" label="Logged in this period" value={t.loggedInInRange} sub={`${t.neverLoggedIn} never logged in`} />
+            <Stat icon="person_check" label="Used the system" value={t.activeInRange} sub="Opened a page or made a change" />
+            <Stat icon="visibility" label="Pages opened" value={t.views} />
+            <Stat icon="edit_note" label="Changes made" value={t.actions} />
+          </div>
+
+          <h3 className="CDV-usage-title">Most used pages</h3>
+          <div className="CAD-card CDV-table-wrap">
+            <table className="CDV-table">
+              <thead><tr><th>Page</th><th>Opened</th><th>Changes</th><th>People</th><th>Last used</th></tr></thead>
+              <tbody>
+                {pages.slice(0, 15).map(p => (
+                  <tr key={p.path}><td>{pageName(p.path)}</td><td>{p.views}</td><td>{p.actions}</td><td>{p.uniqueUsers}</td><td>{fmtDate(p.lastAt, true)}</td></tr>
+                ))}
+                {!pages.length ? <tr><td colSpan={5} className="CDV-empty">No page use recorded in this period.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="CDV-usage-title">Least used pages</h3>
+          <div className="CAD-card CDV-table-wrap">
+            <table className="CDV-table">
+              <thead><tr><th>Page</th><th>Opened</th><th>Changes</th><th>People</th></tr></thead>
+              <tbody>
+                {leastUsed.map(p => (
+                  <tr key={p.path}><td>{pageName(p.path)}</td><td>{p.views}</td><td>{p.actions}</td><td>{p.uniqueUsers}</td></tr>
+                ))}
+                {!leastUsed.length ? <tr><td colSpan={4} className="CDV-empty">No page use recorded in this period.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+          {unusedPlanPages.length ? (
+            <p className="CDV-sub CDV-usage-note">
+              In the plan but not opened at all in this period: {unusedPlanPages.map(key => pageName(`/ciisUser/${key}`)).join(", ")}
+            </p>
+          ) : null}
+
+          <h3 className="CDV-usage-title">Logins per user</h3>
+          <div className="CAD-card CDV-table-wrap">
+            <table className="CDV-table">
+              <thead><tr><th>User</th><th>Role</th><th>Last login</th><th>Last active</th><th>Pages opened</th><th>Changes</th></tr></thead>
+              <tbody>
+                {(data.users || []).map(u => (
+                  <tr key={u._id}>
+                    <td>{u.name}{u.isActive ? "" : " (inactive)"}</td>
+                    <td>{pretty(u.role)}</td>
+                    <td>{fmtDate(u.lastLogin, true)}</td>
+                    <td>{fmtDate(u.lastActiveAt, true)}</td>
+                    <td>{u.views}</td>
+                    <td>{u.actions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export default function CompanyDataView() {
   const { companyId } = useParams();
   const [tab, setTab] = useState("overview");
@@ -571,6 +678,8 @@ export default function CompanyDataView() {
                 <Stat icon="support_agent" label="Open support tickets" value={s?.openTickets} />
                 <Stat icon="assignment_return" label="Pending asset requests" value={s?.pendingAssetRequests} />
               </div>
+            ) : tab === "usage" ? (
+              <UsageTab companyId={companyId} allowedPages={allowedPages} />
             ) : (
               <ListTab key={tab} companyId={companyId} tab={tab} />
             )}

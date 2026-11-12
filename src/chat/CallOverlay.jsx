@@ -24,7 +24,43 @@ const getFallbackIceServers = () => {
     return [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:turn.ciisnetwork.in:3478" },
     ];
+};
+const hasTurnServer = (iceServers) => (
+    Array.isArray(iceServers) && iceServers.some(server => {
+        const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+        return urls.some(url => /^turns?:/i.test(String(url || ""))) && server?.username && server?.credential;
+    })
+);
+// getUserMedia only exists on https:// (localhost counts as secure). On plain http the browser
+// hides navigator.mediaDevices, so answering a call used to fail with no usable reason.
+const isSecureMediaContext = () => (
+    typeof window === "undefined" || window.isSecureContext || window.location?.hostname === "localhost"
+);
+const describeMediaError = (mediaError, callType) => {
+    if (!isSecureMediaContext()) {
+        return "Calls need a secure (https) page. Open the site on https:// and try again.";
+    }
+    const name = mediaError?.name || "";
+    const needsCamera = callType === "video";
+    if (name === "NotAllowedError" || name === "SecurityError") {
+        return needsCamera
+            ? "Microphone/camera permission is blocked. Allow it from the browser address bar, then answer again."
+            : "Microphone permission is blocked. Allow it from the browser address bar, then answer again.";
+    }
+    if (name === "NotFoundError" || name === "OverconstrainedError") {
+        return needsCamera
+            ? "No microphone/camera found on this device."
+            : "No microphone found on this device.";
+    }
+    if (name === "NotReadableError" || name === "AbortError") {
+        return "Microphone/camera is busy in another app. Close it and answer again.";
+    }
+    return mediaError?.message
+        ? `Could not access microphone/camera: ${mediaError.message}`
+        : "Could not access microphone/camera.";
 };
 // Call tracing is for local development only; production builds never log it.
 const isCallDebugEnabled = () => import.meta.env.DEV;
@@ -457,6 +493,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const pendingInviteIdsRef = useRef([]);
     const iceServersRef = useRef(getFallbackIceServers());
     const iceServersLoadedAtRef = useRef(0);
+    const turnAvailableRef = useRef(false);
+    const iceRestartAttemptsRef = useRef(new Map());
     const currentUserId = getUserId(currentUser) || getUserId(getStoredUser());
 
     const loadIceServers = async () => {
@@ -482,6 +520,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
             iceServersRef.current = iceServers;
             iceServersLoadedAtRef.current = Date.now();
+            turnAvailableRef.current = hasTurnServer(iceServers);
             logCall("Loaded ICE servers", iceServers.map(server => ({
                 urls: Array.isArray(server.urls) ? server.urls : [server.urls],
                 hasUsername: Boolean(server.username),
@@ -490,9 +529,18 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         } catch (turnError) {
             logCall("Using STUN-only fallback; self-hosted TURN credentials unavailable", turnError.message || turnError);
             iceServersRef.current = getFallbackIceServers();
+            turnAvailableRef.current = false;
             return iceServersRef.current;
         }
     };
+
+    // STUN alone cannot punch through symmetric NAT / mobile data, so a call that drops without a
+    // TURN relay must say why instead of looping on "Reconnecting...".
+    const connectionFailureMessage = () => (
+        turnAvailableRef.current
+            ? "Call connection lost. Please check your internet and try again."
+            : "Call relay (TURN) server is unavailable, so calls across different networks cannot connect. Please contact the administrator."
+    );
 
     const stopRingtone = () => {
         if (ringtoneTimerRef.current) {
@@ -754,6 +802,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         peerConnectionsRef.current.forEach(peerConnection => peerConnection.close());
         peerConnectionsRef.current.clear();
         candidateQueuesRef.current.clear();
+        iceRestartAttemptsRef.current.clear();
     };
 
     const resetCall = () => {
@@ -863,6 +912,67 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         });
     };
 
+    // Is the call on screen still a real call? A ringing or connecting call is alive by definition;
+    // a connected call is alive only while at least one peer connection is not failed/closed.
+    const isActiveCallAlive = () => {
+        const activeCall = activeCallRef.current;
+        if (!activeCall) return false;
+        if (endedCallIdsRef.current.has(activeCall.callId)) return false;
+        if (["incoming", "outgoing", "connecting"].includes(activeCall.status)) return true;
+        const connections = [...peerConnectionsRef.current.values()];
+        if (connections.length) {
+            return connections.some(connection => !["failed", "closed"].includes(connection.connectionState));
+        }
+        // Just answered: the caller's offer has not arrived yet, so there is no peer connection to
+        // judge by. Give that handshake a window before calling the call dead.
+        const connectedAtTime = connectedAtRef.current ? new Date(connectedAtRef.current).getTime() : NaN;
+        return !Number.isNaN(connectedAtTime) && Date.now() - connectedAtTime < 20000;
+    };
+
+    // Only the side that made the offer renegotiates; the other side gets the fresh offer and
+    // answers it, so both ends do not try to restart at the same time.
+    const restartIceForPeer = async (peerUserId) => {
+        const peerConnection = peerConnectionsRef.current.get(peerUserId);
+        if (!peerConnection || peerConnection.connectionState === "closed") return;
+        if (peerConnection.localDescription?.type !== "offer") return;
+        if (peerConnection.signalingState !== "stable") return;
+
+        const attempts = iceRestartAttemptsRef.current.get(peerUserId) || 0;
+        if (attempts >= 2) return;
+        iceRestartAttemptsRef.current.set(peerUserId, attempts + 1);
+
+        try {
+            logCall("ICE restart", { peerUserId, attempt: attempts + 1 });
+            setConnectionStatus("Reconnecting...");
+            const offer = await peerConnection.createOffer({ iceRestart: true });
+            await peerConnection.setLocalDescription(offer);
+            emitToPeer(peerUserId, "call:offer", { offer });
+        } catch (restartError) {
+            logCall("ICE restart failed", { peerUserId, error: restartError?.message || restartError });
+        }
+    };
+
+    // A peer that never came back: in a group call only that person drops out, in a one-to-one call
+    // the whole call is closed so no stale call is left behind.
+    const handleDeadPeer = (peerUserId) => {
+        const activeCall = activeCallRef.current;
+        if (!activeCall) return;
+
+        const livePeerIds = [...peerConnectionsRef.current.entries()]
+            .filter(([id, connection]) => id !== peerUserId && !["failed", "closed"].includes(connection.connectionState))
+            .map(([id]) => id);
+
+        if (activeCall.isGroupCall && livePeerIds.length) {
+            dropCallParticipants([peerUserId]);
+            return;
+        }
+
+        socket?.emit("call:end", { callId: activeCall.callId });
+        completeCall(activeCall.status === "active" ? "ended" : "cancelled");
+        resetCall();
+        setError(connectionFailureMessage());
+    };
+
     const createPeerConnection = (peerUserId, peerUser = null) => {
         if (peerConnectionsRef.current.has(peerUserId)) {
             return peerConnectionsRef.current.get(peerUserId);
@@ -888,6 +998,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             logCall("iceConnectionState", { peerUserId, state: peerConnection.iceConnectionState });
             if (peerConnection.iceConnectionState === "disconnected") {
                 setConnectionStatus("Reconnecting...");
+            }
+            // A failed ICE path can often be rebuilt with fresh candidates (a network switch from
+            // Wi-Fi to mobile data is the usual cause) instead of killing the call outright.
+            if (peerConnection.iceConnectionState === "failed") {
+                restartIceForPeer(peerUserId);
             }
         };
 
@@ -915,6 +1030,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             logCall("connectionState", { peerUserId, state: peerConnection.connectionState });
             if (["connected", "completed"].includes(peerConnection.connectionState)) {
                 setConnectionStatus("Connected");
+                iceRestartAttemptsRef.current.delete(peerUserId);
                 if (reconnectTimersRef.current.has(peerUserId)) {
                     window.clearTimeout(reconnectTimersRef.current.get(peerUserId));
                     reconnectTimersRef.current.delete(peerUserId);
@@ -922,15 +1038,18 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             }
             if (["disconnected", "failed"].includes(peerConnection.connectionState)) {
                 setConnectionStatus("Reconnecting...");
+                if (peerConnection.connectionState === "failed") restartIceForPeer(peerUserId);
                 if (!reconnectTimersRef.current.has(peerUserId)) {
                     const timer = window.setTimeout(() => {
-                        const latestConnection = peerConnectionsRef.current.get(peerUserId);
-                        if (latestConnection && ["failed", "disconnected", "closed"].includes(latestConnection.connectionState)) {
-                            setRemoteParticipants(prev => prev.filter(participant => participant.userId !== peerUserId));
-                            setConnectionStatus("Connection interrupted");
-                        }
                         reconnectTimersRef.current.delete(peerUserId);
-                    }, 12000);
+                        const latestConnection = peerConnectionsRef.current.get(peerUserId);
+                        if (!latestConnection || !["failed", "disconnected", "closed"].includes(latestConnection.connectionState)) return;
+                        setRemoteParticipants(prev => prev.filter(participant => participant.userId !== peerUserId));
+                        setConnectionStatus("Connection interrupted");
+                        // A dead peer used to leave activeCallRef set forever: the overlay stayed on
+                        // screen and every later incoming call was silently rejected as "busy".
+                        handleDeadPeer(peerUserId);
+                    }, 20000);
                     reconnectTimersRef.current.set(peerUserId, timer);
                 }
             }
@@ -975,6 +1094,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             reconnectTimersRef.current.delete(id);
         }
         candidateQueuesRef.current.delete(id);
+        iceRestartAttemptsRef.current.delete(id);
         setRemoteParticipants(prev => prev.filter(participant => String(participant.userId) !== id));
     };
 
@@ -1004,8 +1124,13 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     const getMediaStream = async (callType) => {
         try {
+            if (!isSecureMediaContext()) {
+                const insecureError = new Error("Insecure context");
+                insecureError.name = "SecurityError";
+                throw insecureError;
+            }
             if (!navigator.mediaDevices?.getUserMedia) {
-                throw new Error("Media devices are not supported.");
+                throw new Error("Media devices are not supported in this browser.");
             }
 
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -1016,7 +1141,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             attachLocalStream(stream);
             return stream;
         } catch (mediaError) {
-            setError("Allow microphone/camera permission, then try again.");
+            // The caller decides whether to keep this on screen: resetCall() clears it, so an
+            // accept failure re-shows the reason after the reset (see acceptCall).
+            const reason = describeMediaError(mediaError, callType);
+            mediaError.userMessage = reason;
+            setError(reason);
             throw mediaError;
         }
     };
@@ -1309,7 +1438,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.emit("call:reject", {
                 callId: activeCall.callId,
             });
+            completeCall("declined");
             resetCall();
+            // resetCall() wipes the error, so the reason is put back afterwards; without this the
+            // call just vanished and the person had no idea the mic was blocked.
+            setError(mediaError?.userMessage || describeMediaError(mediaError, activeCall.type));
         }
     };
 
@@ -1426,11 +1559,18 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         if (!socket) return undefined;
 
         const handleIncoming = (data) => {
-            if (activeCallRef.current) {
+            if (activeCallRef.current?.callId === data.callId) return;
+            if (activeCallRef.current && isActiveCallAlive()) {
                 socket.emit("call:reject", {
                     callId: data.callId,
                 });
                 return;
+            }
+            // The old call is dead (every peer connection failed or closed, or it never connected):
+            // clear it out instead of rejecting this call as "busy" forever.
+            if (activeCallRef.current) {
+                logCall("Dropping a dead call before ringing the new one", activeCallRef.current.callId);
+                resetCall();
             }
 
             const myUser = (currentUser && (getUserId(currentUser) || currentUser.name)) ? currentUser : getStoredUser();
@@ -1511,8 +1651,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 setError(data.reason || "Selected users are unavailable.");
                 return;
             }
+            const wasAnswering = Boolean(activeCall && !activeCall.isCaller && ["incoming", "connecting"].includes(activeCall.status));
             resetCall();
-            setError(data.reason || "Users are not available for the call.");
+            setError(wasAnswering
+                ? "This call has already ended on the caller's side."
+                : (data.reason || "Users are not available for the call."));
         };
 
         const handleJoined = (data) => {
@@ -1567,10 +1710,14 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
 
-                const activeNextCall = activateCall({
-                    ...activeCall,
-                    participantIds: uniqueIds([...activeCall.participantIds, data.fromUserId]),
-                });
+                // A re-offer (ICE restart or renegotiation) must not re-announce the call as newly
+                // answered: that wrote a second entry into the call log and reset the timer.
+                if (activeCall.status !== "active") {
+                    activateCall({
+                        ...activeCall,
+                        participantIds: uniqueIds([...activeCall.participantIds, data.fromUserId]),
+                    });
+                }
 
                 emitToPeer(data.fromUserId, "call:answer", { answer });
             } catch (error) {
@@ -1588,7 +1735,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 await flushCandidateQueue(data.fromUserId);
 
-                activateCall(activeCall);
+                // An answer to an ICE-restart offer keeps the existing call; only a first answer
+                // turns a ringing call into an active one.
+                if (activeCall.status !== "active") activateCall(activeCall);
             } catch (error) {
                 logCall("call:answer failed", error);
                 setError("Unable to connect the call.");
@@ -1671,9 +1820,16 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         const handleConnect = () => {
             socket.emit("chat:get-online-users");
             const activeCall = activeCallRef.current;
-            if (activeCall?.callId) {
-                socket.emit("call:rebind", { callId: activeCall.callId });
+            if (!activeCall?.callId) return;
+            // A call whose peers all died while the socket was down must not survive the reconnect,
+            // otherwise the next incoming call is rejected as "busy" and never rings.
+            if (!isActiveCallAlive()) {
+                logCall("Clearing a dead call on reconnect", activeCall.callId);
+                completeCall("ended");
+                resetCall();
+                return;
             }
+            socket.emit("call:rebind", { callId: activeCall.callId });
         };
 
         socket.on("connect", handleConnect);
@@ -1779,9 +1935,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     useEffect(() => {
         if (!error) return;
+        // Permission/setup messages need reading time; ordinary status messages stay short.
+        const isActionable = /permission|https|microphone|camera|relay|TURN/i.test(error);
         const timer = setTimeout(() => {
             setError("");
-        }, 5000);
+        }, isActionable ? 12000 : 5000);
         return () => clearTimeout(timer);
     }, [error]);
 

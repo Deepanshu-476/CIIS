@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import CallRecording, { hasRecording } from '../components/CallRecording';
 import { Link } from "react-router-dom";
 import {
   Phone,
@@ -492,6 +493,7 @@ export function DataTable({
                       >
                         <Eye size={13} />
                       </button>
+                      {hasRecording(row.recordingUrl) && <CallRecording url={row.recordingUrl} compact />}
                     </div>
                   ) : (
                     <div className="haps-actions-group">
@@ -715,6 +717,11 @@ export function DataTable({
                     </span>
                   </div>
                 )}
+
+                <div className="haps-modal-cell full-width">
+                  <span className="haps-modal-cell-label">Call Recording</span>
+                  <CallRecording url={selectedCallRecord.recordingUrl} />
+                </div>
 
                 <div className="haps-modal-cell full-width">
                   <span className="haps-modal-cell-label">Remarks & Notes</span>

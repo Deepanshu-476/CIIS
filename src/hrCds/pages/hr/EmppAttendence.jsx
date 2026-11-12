@@ -476,6 +476,30 @@ const DepartmentFilter = ({ selected, onChange, departments }) => {
   );
 };
 
+const BranchFilter = ({ selected, onChange, branches = [] }) => {
+  const getBranchDisplayName = (branch) => {
+    const raw = branch?.name || branch?.branchName || branch?.branchCode || '';
+    if (typeof raw === 'string' && /^[0-9a-fA-F]{24}$/.test(raw.trim())) {
+      return branch?.branchCode || 'Head Office';
+    }
+    return raw || 'Branch';
+  };
+
+  return (
+    <select className="EmppAttendence-filter-input" value={selected} onChange={(e) => onChange(e.target.value)}>
+      <option value="all">All Branches</option>
+      {branches.map(branch => {
+        const branchId = branch._id || branch.id;
+        return (
+          <option key={branchId} value={branchId}>
+            {getBranchDisplayName(branch)}
+          </option>
+        );
+      })}
+    </select>
+  );
+};
+
 
 const StatusFilter = ({ selected, onChange }) => {
   const options = [
@@ -1524,6 +1548,7 @@ const EmployeeAttendance = () => {
   const [records, setRecords] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [departmentsMap, setDepartmentsMap] = useState({});
   
   
@@ -1533,6 +1558,7 @@ const EmployeeAttendance = () => {
   const [dateRangeMode, setDateRangeMode] = useState(false);
   
   const [selectedEmployeeType, setSelectedEmployeeType] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -1806,6 +1832,25 @@ const EmployeeAttendance = () => {
   const fetchAllUsers = async () => {
     try {
       void 0;
+      const storedViewer = currentUser || (() => {
+        try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+      })();
+      const viewerBranchIds = [...new Set([
+        storedViewer?.branch,
+        storedViewer?.branchId,
+        ...(Array.isArray(storedViewer?.assignedBranches) ? storedViewer.assignedBranches : [])
+      ].map(branch => String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim()).filter(Boolean))];
+      const viewerRoles = [
+        storedViewer?.companyRole,
+        storedViewer?.role,
+        storedViewer?.jobRole,
+        storedViewer?.userType
+      ].filter(Boolean).map(role => String(typeof role === 'object' ? (role?.name || role?.roleName || '') : role).trim().toLowerCase().replace(/[\s_-]+/g, '_'));
+      const hasCompanyWideBranchAccess = storedViewer?.isSuperAdmin === true || viewerRoles.some(role => [
+        'owner', 'company_owner', 'companyowner', 'admin', 'company_admin',
+        'companyadmin', 'hr', 'hr_manager', 'super_admin', 'superadmin'
+      ].includes(role));
+      let companyBranchList = [];
       
       
       let deptMap = {};
@@ -1842,6 +1887,21 @@ const EmployeeAttendance = () => {
       }
       
       
+      try {
+        const storedUser = (() => {
+          try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+        })();
+        const companyValue = storedViewer?.company || storedViewer?.companyId || storedUser?.company || storedUser?.companyId || currentUser?.company || currentUser?.companyId;
+        const companyId = currentUserCompanyId || (typeof companyValue === 'object' ? (companyValue?._id || companyValue?.id) : companyValue);
+        if (companyId) {
+          const branchRes = await axios.get(`/branches/company/${companyId}`);
+          const branchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
+          companyBranchList = branchList;
+        }
+      } catch (branchErr) {
+        console.error("Failed to load branches", branchErr);
+      }
+
       const res = await axios.get('/users/company-users');
       
       let usersData = [];
@@ -1863,6 +1923,40 @@ const EmployeeAttendance = () => {
           usersData = res.data;
         }
       }
+
+      if (!companyBranchList.length && usersData.length > 0) {
+        const comp = usersData.find(u => u.company)?.company;
+        const compId = typeof comp === 'object' ? (comp?._id || comp?.id) : comp;
+        if (compId) {
+          try {
+            const branchRes = await axios.get(`/branches/company/${compId}`);
+            companyBranchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
+          } catch (err) {}
+        }
+      }
+
+      const isMongoHexId = (val) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim());
+
+      // Collect all known populated branches into a quick lookup map
+      const branchMap = new Map();
+      companyBranchList.forEach(b => {
+        const id = String(b?._id || b?.id || '').trim();
+        const name = String(b?.name || b?.branchName || '').trim();
+        if (id && name && !isMongoHexId(name)) {
+          branchMap.set(id, b);
+        }
+      });
+      usersData.forEach(u => {
+        [u.branch, ...(Array.isArray(u.assignedBranches) ? u.assignedBranches : [])].forEach(b => {
+          if (b && typeof b === 'object') {
+            const id = String(b._id || b.id || '').trim();
+            const name = String(b.name || b.branchName || '').trim();
+            if (id && name && !isMongoHexId(name) && !branchMap.has(id)) {
+              branchMap.set(id, b);
+            }
+          }
+        });
+      });
       
       const usersWithDepartment = usersData.map(user => {
         let deptId = null;
@@ -1897,6 +1991,8 @@ const EmployeeAttendance = () => {
           name: user.name,
           email: user.email,
           employeeType: user.employeeType || user.employmentType || 'full-time',
+          branch: user.branch || user.branchId || null,
+          assignedBranches: user.assignedBranches || [],
           departmentId: deptId,
           department: deptName,
           departmentName: deptName,
@@ -1904,8 +2000,92 @@ const EmployeeAttendance = () => {
           jobRoleName: jobRoleName
         };
       });
+
+      // Login storage can be stale after a branch assignment changes. Resolve the
+      // current user's branch IDs from the fresh company-user response as well.
+      const currentUserRecord = usersWithDepartment.find(employee =>
+        String(employee._id || employee.id) === String(currentUserId || storedViewer?._id || storedViewer?.id || '')
+      );
+      const resolvedViewerBranchIds = viewerBranchIds.length > 0
+        ? viewerBranchIds
+        : [...new Set([
+          currentUserRecord?.branch,
+          ...(Array.isArray(currentUserRecord?.assignedBranches) ? currentUserRecord.assignedBranches : [])
+        ].map(branch => String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim()).filter(Boolean))];
+      const restrictToAssignedBranches = !hasCompanyWideBranchAccess && resolvedViewerBranchIds.length > 0;
+      const matchingCompanyBranches = companyBranchList.filter(branch =>
+        resolvedViewerBranchIds.includes(String(branch?._id || branch?.id || '').trim())
+      );
+      // Some sessions receive branch details with the user before the branch
+      // directory refreshes. Keep those populated branch objects as a fallback
+      // so the filter is never left with only the "All Branches" option.
+      const assignedBranchOptions = [
+        currentUserRecord?.branch,
+        ...(Array.isArray(currentUserRecord?.assignedBranches) ? currentUserRecord.assignedBranches : []),
+        storedViewer?.branch,
+        ...(Array.isArray(storedViewer?.assignedBranches) ? storedViewer.assignedBranches : [])
+      ].filter(Boolean).reduce((items, branch) => {
+        const id = String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : branch).trim();
+        if (!id) return items;
+        const existingIdx = items.findIndex(item => String(item._id || item.id) === id);
+        let branchObj = typeof branch === 'object' ? { ...branch } : null;
+        if (branchMap.has(id)) {
+          branchObj = { ...branchMap.get(id) };
+        }
+        if (!branchObj || !branchObj.name || isMongoHexId(branchObj.name)) {
+          branchObj = branchObj ? branchObj : { _id: id };
+          if (branchMap.has(id)) {
+            branchObj = { ...branchMap.get(id) };
+          }
+        }
+        if (existingIdx >= 0) {
+          const existingName = String(items[existingIdx]?.name || items[existingIdx]?.branchName || '').trim();
+          const newName = String(branchObj?.name || branchObj?.branchName || '').trim();
+          if ((!existingName || isMongoHexId(existingName)) && newName && !isMongoHexId(newName)) {
+            items[existingIdx] = branchObj;
+          }
+        } else {
+          items.push(branchObj);
+        }
+        return items;
+      }, []);
+
+      let visibleBranchOptions = restrictToAssignedBranches
+        ? (matchingCompanyBranches.length ? matchingCompanyBranches : assignedBranchOptions)
+        : (companyBranchList.length ? companyBranchList : assignedBranchOptions);
+
+      // Resolve any remaining branch options that still have a raw Mongo ID or missing name
+      visibleBranchOptions = await Promise.all(visibleBranchOptions.map(async branch => {
+        const branchId = String(branch?._id || branch?.id || '').trim();
+        const currentName = String(branch?.name || branch?.branchName || '').trim();
+        if (currentName && !isMongoHexId(currentName)) {
+          return branch;
+        }
+        if (branchId && branchMap.has(branchId)) {
+          return branchMap.get(branchId);
+        }
+        if (!branchId) return branch;
+        try {
+          const response = await axios.get(`/branches/${branchId}`);
+          const fetchedBranch = response.data?.branch || response.data?.data || response.data;
+          if (fetchedBranch?.name && !isMongoHexId(fetchedBranch.name)) {
+            return fetchedBranch;
+          }
+        } catch {
+          if (branch?.branchCode) {
+            return { ...branch, name: branch.branchCode.includes('HQ') ? 'Head Office' : branch.branchCode };
+          }
+        }
+        return branch;
+      }));
+      setBranches(visibleBranchOptions);
       
-      setAllUsers(usersWithDepartment);
+      setAllUsers(restrictToAssignedBranches
+        ? usersWithDepartment.filter(employee => [
+          employee.branch,
+          ...(Array.isArray(employee.assignedBranches) ? employee.assignedBranches : [])
+        ].some(branch => resolvedViewerBranchIds.includes(String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim())))
+        : usersWithDepartment);
       void 0;
       
     } catch (err) {
@@ -1949,12 +2129,15 @@ const EmployeeAttendance = () => {
           return {
             ...attendanceRecord,
             user: {
+              ...user,
               id: user.id || user._id,
               _id: user.id || user._id,
               employeeId: user.employeeId || '',
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
+              branch: user.branch || user.branchId || null,
+              assignedBranches: user.assignedBranches || [],
               department: user.department,
               departmentId: user.departmentId,
               jobRole: user.jobRole
@@ -1969,12 +2152,15 @@ const EmployeeAttendance = () => {
           return {
             _id: `absent_${userId}_${date}`,
             user: {
+              ...user,
               id: user.id || user._id,
               _id: user.id || user._id,
               employeeId: user.employeeId || '',
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
+              branch: user.branch || user.branchId || null,
+              assignedBranches: user.assignedBranches || [],
               department: user.department,
               departmentId: user.departmentId,
               jobRole: user.jobRole
@@ -2102,12 +2288,15 @@ const EmployeeAttendance = () => {
             return {
               ...attendanceRecord,
               user: {
+                ...user,
                 id: user.id || user._id,
                 _id: user.id || user._id,
                 employeeId: user.employeeId || '',
                 name: user.name,
                 email: user.email,
                 employeeType: user.employeeType || 'full-time',
+                branch: user.branch || user.branchId || null,
+                assignedBranches: user.assignedBranches || [],
                 department: user.department,
                 departmentId: user.departmentId,
                 jobRole: user.jobRole
@@ -2122,12 +2311,15 @@ const EmployeeAttendance = () => {
             return {
               _id: `absent_${userId}_${date}`,
               user: {
+                ...user,
                 id: user.id || user._id,
                 _id: user.id || user._id,
                 employeeId: user.employeeId || '',
                 name: user.name,
                 email: user.email,
                 employeeType: user.employeeType || 'full-time',
+                branch: user.branch || user.branchId || null,
+                assignedBranches: user.assignedBranches || [],
                 department: user.department,
                 departmentId: user.departmentId,
                 jobRole: user.jobRole
@@ -2277,6 +2469,7 @@ const EmployeeAttendance = () => {
   const clearFilters = () => {
     setStatusFilter("all");
     setSelectedEmployeeType("all");
+    setSelectedBranch("all");
     setSelectedDepartment("all");
     setSearchTerm("");
     handleDateRangeClear();
@@ -2294,6 +2487,32 @@ const EmployeeAttendance = () => {
   
   const filteredRecords = useMemo(() => {
     let filtered = records;
+
+    if (selectedBranch !== "all") {
+      const selectedId = String(selectedBranch).trim();
+      const allUsersMap = new Map(allUsers.map(u => [String(u._id || u.id), u]));
+      filtered = filtered.filter((rec) => {
+        const u = rec.user;
+        const uid = String(u?._id || u?.id || rec.userId || '').trim();
+        const baseUser = allUsersMap.get(uid) || u;
+        const branchList = [
+          baseUser?.branch,
+          baseUser?.branchId,
+          u?.branch,
+          u?.branchId,
+          rec.branch,
+          rec.branchId,
+          ...(Array.isArray(baseUser?.assignedBranches) ? baseUser.assignedBranches : []),
+          ...(Array.isArray(u?.assignedBranches) ? u.assignedBranches : []),
+          ...(Array.isArray(rec.assignedBranches) ? rec.assignedBranches : [])
+        ].filter(Boolean);
+
+        return branchList.some(branch => {
+          const bId = String(typeof branch === 'object' ? (branch?._id || branch?.id) : branch).trim();
+          return bId === selectedId;
+        });
+      });
+    }
 
     if (selectedEmployeeType !== "all") {
       filtered = filtered.filter(
@@ -2349,10 +2568,36 @@ const EmployeeAttendance = () => {
     });
 
     return filtered;
-  }, [records, selectedEmployeeType, selectedDepartment, searchTerm, statusFilter]);
+  }, [records, allUsers, selectedEmployeeType, selectedBranch, selectedDepartment, searchTerm, statusFilter]);
 
   const statsBaseRecords = useMemo(() => {
     let filtered = records;
+
+    if (selectedBranch !== "all") {
+      const selectedId = String(selectedBranch).trim();
+      const allUsersMap = new Map(allUsers.map(u => [String(u._id || u.id), u]));
+      filtered = filtered.filter((rec) => {
+        const u = rec.user;
+        const uid = String(u?._id || u?.id || rec.userId || '').trim();
+        const baseUser = allUsersMap.get(uid) || u;
+        const branchList = [
+          baseUser?.branch,
+          baseUser?.branchId,
+          u?.branch,
+          u?.branchId,
+          rec.branch,
+          rec.branchId,
+          ...(Array.isArray(baseUser?.assignedBranches) ? baseUser.assignedBranches : []),
+          ...(Array.isArray(u?.assignedBranches) ? u.assignedBranches : []),
+          ...(Array.isArray(rec.assignedBranches) ? rec.assignedBranches : [])
+        ].filter(Boolean);
+
+        return branchList.some(branch => {
+          const bId = String(typeof branch === 'object' ? (branch?._id || branch?.id) : branch).trim();
+          return bId === selectedId;
+        });
+      });
+    }
 
     if (selectedEmployeeType !== "all") {
       filtered = filtered.filter(
@@ -2371,7 +2616,7 @@ const EmployeeAttendance = () => {
     }
 
     return filtered;
-  }, [records, selectedEmployeeType, selectedDepartment]);
+  }, [records, allUsers, selectedEmployeeType, selectedBranch, selectedDepartment]);
 
   useEffect(() => {
     calculateStats(statsBaseRecords);
@@ -3612,11 +3857,27 @@ const EmployeeAttendance = () => {
           </div>
           
           <div className="EmppAttendence-filter-group">
+            <label className="EmppAttendence-filter-label">Branch</label>
+            <BranchFilter
+              selected={selectedBranch}
+              onChange={(branchId) => {
+                setSelectedBranch(branchId);
+                if (branchId !== 'all') setSelectedDepartment('all');
+              }}
+              branches={branches}
+            />
+          </div>
+
+          <div className="EmppAttendence-filter-group">
             <label className="EmppAttendence-filter-label">Department</label>
             <DepartmentFilter
               selected={selectedDepartment}
               onChange={setSelectedDepartment}
-              departments={departments}
+              departments={selectedBranch === 'all' ? departments : departments.filter(department => {
+                const branch = department.branch || department.branchId;
+                const branchId = typeof branch === 'object' ? (branch?._id || branch?.id) : branch;
+                return !branchId || String(branchId) === String(selectedBranch);
+              })}
             />
           </div>
 

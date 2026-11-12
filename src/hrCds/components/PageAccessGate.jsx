@@ -27,6 +27,8 @@ const normalizePlanKey = value => String(value || "")
   .replace(/^ciisuser\//, "");
 
 const PLAN_FREE_PATHS = new Set([
+  // Promotions: the server checks access itself (owner or Sidebar Management).
+  "promotions",
   "user-dashboard",
   "dashboard",
   "dashboard-1",
@@ -41,6 +43,7 @@ const PLAN_FREE_PATHS = new Set([
 
 const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "change-password",
+  "promotions",
   "emp-details",
   "emp-leaves",
   "emp-assets",
@@ -57,6 +60,7 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "emp-client",
   "client-plans",
   "active-clients",
+  "holiday",
   "alert",
   "attendance",
   "my-assets",
@@ -111,6 +115,7 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
 ]);
 
 const VALID_TELECALLER_SLUGS = new Set([
+  "add-lead",
   "dashboard",
   "call-dashboard",
   "assigned-calls",

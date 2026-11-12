@@ -1,0 +1,8 @@
+.reset-otp-resend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 4px 0 14px; }
+.reset-otp-resend-btn { padding: 0; border: 0; background: none; color: #2563eb; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.reset-otp-resend-btn:disabled { color: #64748b; cursor: default; font-variant-numeric: tabular-nums; }
+.reset-otp-resend-btn:not(:disabled):hover { text-decoration: underline; }
+.reset-otp-resend-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 4px; }
+.reset-otp-resend-note { margin: 0; font-size: 13px; color: #64748b; font-variant-numeric: tabular-nums; }
+.reset-otp-resend-note.is-locked { color: #b91c1c; font-weight: 600; }
+p.reset-otp-resend-note { margin: 8px 0 0; text-align: center; }

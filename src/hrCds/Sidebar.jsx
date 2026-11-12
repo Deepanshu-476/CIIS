@@ -888,6 +888,7 @@ const getMenuItemIcon = (item) => {
   // 15. Clients
   if (id === 'client-plans' || path.includes('/client-plans') || name.includes('client plan')) return 'Crown';
   if (id === 'active-clients' || path.includes('/active-clients') || name.includes('active client')) return 'Building2';
+  if (id === 'holiday' || path.endsWith('/holiday') || name === 'holiday') return 'CalendarDays';
   if (id === 'client-management' || id === 'emp-client' || path.includes('/emp-client') || name.includes('client')) return 'Handshake';
 
   // Fallback: use item icon if string and known, or clean default
@@ -989,6 +990,14 @@ const fixedDefaultItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 9
+  },
+  {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin',
+    order: 9.5
   },
   {
     id: 'support-desk',
@@ -1142,6 +1151,14 @@ const allPagesItems = [
     path: '/ciisUser/create-alert',
     category: 'communication',
     order: 6
+  },
+  {
+    id: 'promotions',
+    name: 'Promotions',
+    icon: 'Megaphone',
+    path: '/ciisUser/promotions',
+    category: 'communication',
+    order: 6.5
   },
   {
     id: 'projects',
@@ -1302,6 +1319,14 @@ const allPagesItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 23
+  },
+  {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin',
+    order: 23.5
   },
   {
     id: 'salary-component',
@@ -1658,6 +1683,7 @@ const getPathFromName = (name) => {
     'Profile': '/ciisUser/profile',
     'Alerts': '/ciisUser/alert',
     'Create Alert': '/ciisUser/create-alert',
+    'Promotions': '/ciisUser/promotions',
     'Projects': '/ciisUser/project',
     'My Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',
@@ -1684,6 +1710,7 @@ const getPathFromName = (name) => {
     'Department All Tasks': '/ciisUser/department-all-task',
     'Client Management': '/ciisUser/emp-client',
     'Active Clients': '/ciisUser/active-clients',
+    'Holiday': '/ciisUser/holiday',
     'Salary Component': '/ciisUser/salary-component',
     'Salary Structure': '/ciisUser/salary-structure',
     'Salary Assignment': '/ciisUser/salary-assignment',
@@ -1790,6 +1817,13 @@ const canonicalSidebarItems = [
     category: 'clients'
   },
   {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin'
+  },
+  {
     id: 'client-plans',
     name: 'Client Plans',
     icon: 'Crown',
@@ -1860,6 +1894,12 @@ const getMenuAccessKeys = item => {
     keys.add(`client/${clientKey}`);
   }
 
+  // A telecaller's own Add Lead comes with the Call Workspace in the company plan (same rule as the server).
+  if (id === 'admin-telecaller-add-lead') {
+    ['admin-telecaller-call-workspace', '/ciisUser/telecaller/call-workspace', 'ciisUser/telecaller/call-workspace', 'telecaller/call-workspace']
+      .forEach(key => keys.add(key));
+  }
+
   return keys;
 };
 
@@ -1873,6 +1913,14 @@ const companyAccessFallbackItems = [
     path: '/ciisUser/active-clients',
     category: 'clients',
     order: 22.5
+  },
+  {
+    id: 'holiday',
+    name: 'Holiday',
+    icon: 'CalendarDays',
+    path: '/ciisUser/holiday',
+    category: 'admin',
+    order: 22.6
   },
   {
     id: 'admin-crm-dashboard',
@@ -2122,6 +2170,11 @@ const filterItemsByCompanyAccess = (items, companyData) => {
     // Keeping it prevents stale allowedPages data from hiding the Main link.
     if (['dashboard', 'user-dashboard'].includes(String(item?.id || '').toLowerCase()) ||
       String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-dashboard') {
+      return true;
+    }
+    // Promotions is not a plan feature: the server decides who may open it.
+    if (String(item?.id || '').toLowerCase() === 'promotions' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/promotions') {
       return true;
     }
     if (String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/')) {
@@ -2500,7 +2553,8 @@ const Sidebar = ({
       }),
       // The server applies alert visibility and read state; the full alert list was only used to count.
       axiosInstance.get('/alerts/unread/count', { params: { mine: 1 }, cache: false, _skipErrorNotify: true }),
-      axiosInstance.get('/leaves/status', { _skipErrorNotify: true })
+      axiosInstance.get('/leaves/status', { _skipErrorNotify: true }),
+      axiosInstance.get('/users/register-requests/count', { _skipErrorNotify: true })
     ]);
 
     const [
@@ -2509,7 +2563,8 @@ const Sidebar = ({
       assetsResult,
       meetingsResult,
       alertsResult,
-      leavesResult
+      leavesResult,
+      registerRequestsResult
     ] = requests;
     const nextCounts = {};
 
@@ -2567,6 +2622,13 @@ const Sidebar = ({
 
     if (alertsResult.status === 'fulfilled' && typeof alertsResult.value?.data?.count === 'number') {
       nextCounts.alerts = alertsResult.value.data.count;
+    }
+
+    if (registerRequestsResult?.status === 'fulfilled') {
+      const count = Number(registerRequestsResult.value?.data?.count);
+      if (Number.isFinite(count)) {
+        nextCounts.registerRequests = Math.max(0, count);
+      }
     }
 
     setMenuBadgeCounts(current => {
@@ -2627,8 +2689,10 @@ const Sidebar = ({
     // Fired after the user acts (read, approve, ...): skip the 30s server cache.
     const refreshBadges = () => fetchMenuBadgeCounts({ fresh: true });
     window.addEventListener('ciis-sidebar-badges-refresh', refreshBadges);
+    const badgeInterval = setInterval(refreshBadges, BADGE_REFRESH_INTERVAL);
 
     return () => {
+      clearInterval(badgeInterval);
       window.removeEventListener('ciis-sidebar-badges-refresh', refreshBadges);
     };
   }, [userId, fetchMenuBadgeCounts, isAlertsPage]);
@@ -2860,7 +2924,9 @@ const Sidebar = ({
       return;
     }
 
-    markSidebarBadgeSeen(badgeKey);
+    if (badgeKey !== 'registerRequests') {
+      markSidebarBadgeSeen(badgeKey);
+    }
     const currentPath = location.pathname.replace(/\/+$/, '');
     const nextPath = String(path || '').replace(/\/+$/, '');
     if (nextPath && currentPath !== nextPath) {
@@ -3220,13 +3286,15 @@ const Sidebar = ({
           itemKey.includes('asset') ? 'assets' :
             isMyLeavesItem ? 'leaves' :
               itemKey.includes('alert') ? 'alerts' :
-                ''
+                (itemKey.includes('register') && itemKey.includes('request')) ? 'registerRequests' :
+                  ''
     );
+    const isPersistentQueueBadge = badgeKey === 'registerRequests';
     const rawBadgeValue = badgeKey ? menuBadgeCounts[badgeKey] : item.badge;
     const rawNumericBadge = Number(rawBadgeValue);
-    const seenCount = badgeKey ? Math.max(0, Number(seenBadgeCounts[badgeKey]) || 0) : 0;
+    const seenCount = (badgeKey && !isPersistentQueueBadge) ? Math.max(0, Number(seenBadgeCounts[badgeKey]) || 0) : 0;
     const badgeValue = badgeKey && Number.isFinite(rawNumericBadge)
-      ? Math.max(0, rawNumericBadge - seenCount)
+      ? (isPersistentQueueBadge ? rawNumericBadge : Math.max(0, rawNumericBadge - seenCount))
       : rawBadgeValue;
     const numericBadge = Number(badgeValue);
     const hasBadge = badgeValue === true || (Number.isFinite(numericBadge) && numericBadge > 0);
@@ -3321,6 +3389,28 @@ const Sidebar = ({
                 }
               }}
             />
+            {hasBadge && Number.isFinite(numericBadge) && numericBadge > 0 && isPersistentQueueBadge && (
+              <Box
+                component="span"
+                sx={{
+                  ml: 'auto',
+                  px: '6px',
+                  py: '1px',
+                  borderRadius: '999px',
+                  bgcolor: '#dc2626',
+                  color: '#fff',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <AnimatedBadgeCount value={numericBadge} />
+              </Box>
+            )}
           </StyledListItemButton>
         </Tooltip>
       );

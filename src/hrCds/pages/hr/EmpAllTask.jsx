@@ -726,6 +726,7 @@ const TaskDetails = () => {
 
 
   const [departmentMap, setDepartmentMap] = useState({});
+  const [branchMap, setBranchMap] = useState({});
   const [jobRoleMap, setJobRoleMap] = useState({});
 
 
@@ -773,6 +774,7 @@ const TaskDetails = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // New UI Filters and View state matching reference design
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
@@ -855,7 +857,7 @@ const TaskDetails = () => {
     const compRole = String(currentUserCompanyRole || '').trim().toLowerCase();
     const adminRoles = [
       'owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin',
-      'admin', 'hr', 'manager', 'career infowis admin', 'super admin'
+      'admin', 'career infowis admin', 'super admin'
     ];
     return adminRoles.includes(role) || adminRoles.includes(compRole);
   }, [currentUserCompanyRole, currentUserRole]);
@@ -1692,7 +1694,7 @@ const TaskDetails = () => {
         const user = parsed.user || parsed.data || parsed;
 
         let foundUser = user;
-        let userRole = user.role || 'user';
+        let userRole = user.jobRole || user.role || 'user';
         let companyRole = user.companyRole || user.role || 'employee';
         let userName = user.name || (user.email ? user.email.split('@')[0] : 'Unknown User');
 
@@ -1713,6 +1715,25 @@ const TaskDetails = () => {
   }, []);
 
 
+
+  useEffect(() => {
+    const companyId = getRecordId(currentUser?.company || currentUser?.companyId);
+    if (!companyId) return;
+    let cancelled = false;
+    axios.get(`/branches/company/${companyId}`)
+      .then(response => {
+        const branches = Array.isArray(response.data?.branches)
+          ? response.data.branches
+          : (Array.isArray(response.data?.data) ? response.data.data : (Array.isArray(response.data) ? response.data : []));
+        if (!cancelled) {
+          setBranchMap(Object.fromEntries(branches.map(branch => [
+            getRecordId(branch), branch.name || branch.branchName || branch.branchCode || getRecordId(branch)
+          ]).filter(([id]) => id)));
+        }
+      })
+      .catch(() => { if (!cancelled) setBranchMap({}); });
+    return () => { cancelled = true; };
+  }, [currentUser]);
 
   const fetchUsersWithTasks = useCallback(async () => {
     if (fetchUsersTimeoutRef.current) {
@@ -1839,6 +1860,15 @@ const TaskDetails = () => {
           .filter(user => !isClientAccount(user))
           .filter(user => {
             if (isOwner()) return true;
+
+            // UI must mirror the backend boundary: HR/Manager may only see
+            // people from their own assigned branches, even if Page Management
+            // grants a broad "All Branches" scope.
+            const viewerBranchIds = getUserBranchIds(currentUser);
+            if (viewerBranchIds.length === 0) return false;
+            const userBranchIds = getUserBranchIds(user);
+            if (!userBranchIds.some(branchId => viewerBranchIds.includes(branchId))) return false;
+
             if (!pageScope) return true;
 
             // Branch restriction from Page Management scope
@@ -1998,26 +2028,58 @@ const TaskDetails = () => {
 
 
 
+  const branchOptions = useMemo(() => {
+    const branches = new Map();
+
+    // For HR/Manager, show every assigned branch (including a branch that has
+    // no employees yet), never every branch discovered in the company list.
+    if (!isOwner()) {
+      const currentBranchItems = [
+        currentUser?.branch,
+        currentUser?.branchId,
+        currentUser?.branchDetails,
+        ...(Array.isArray(currentUser?.assignedBranches) ? currentUser.assignedBranches : [])
+      ];
+      currentBranchItems.forEach(branch => {
+        const id = getRecordId(branch);
+        if (id) branches.set(id, branch?.name || branch?.branchName || branch?.branchCode || branchMap[id] || id);
+      });
+      return Array.from(branches, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    users.forEach(user => {
+      [user.branch, ...(Array.isArray(user.assignedBranches) ? user.assignedBranches : [])].forEach(branch => {
+        const id = getRecordId(branch);
+        if (id) branches.set(id, branch?.name || branch?.branchName || branch?.branchCode || branchMap[id] || id);
+      });
+    });
+    return Array.from(branches, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [currentUser, users, branchMap, isOwner]);
+
   const departmentOptions = useMemo(() => {
     const set = new Set();
-    users.forEach(u => {
+    users.filter(user => selectedBranchFilter === 'all' || isUserInBranch(user, selectedBranchFilter)).forEach(u => {
       const d = getDepartmentName(u.department);
       if (d && d !== 'N/A' && !d.startsWith('Dept-')) set.add(d);
     });
     return Array.from(set).sort();
-  }, [users, departmentMap]);
+  }, [users, departmentMap, selectedBranchFilter]);
 
   const roleOptions = useMemo(() => {
     const set = new Set();
-    users.forEach(u => {
+    users.filter(user => selectedBranchFilter === 'all' || isUserInBranch(user, selectedBranchFilter)).forEach(u => {
       const r = getUserDisplayRole(u, jobRoleMap);
       if (r && r !== 'N/A') set.add(r);
     });
     return Array.from(set).sort();
-  }, [users, jobRoleMap]);
+  }, [users, jobRoleMap, selectedBranchFilter]);
 
   const filteredUsers = useMemo(() => {
     let filtered = [...users];
+
+    if (selectedBranchFilter !== 'all') {
+      filtered = filtered.filter(user => isUserInBranch(user, selectedBranchFilter));
+    }
 
     if (clockedInTodayOnly) {
       filtered = filtered.filter(user => todayClockedInUserIds.has(String(user._id || user.id)));
@@ -2088,6 +2150,7 @@ const TaskDetails = () => {
     return filtered;
   }, [
     users,
+    selectedBranchFilter,
     clockedInTodayOnly,
     todayClockedInUserIds,
     searchQuery,
@@ -3108,6 +3171,7 @@ const TaskDetails = () => {
     setClockedInTodayOnly(false);
     setTaskPage(1);
     setShowStatusFilters(true);
+    setSelectedBranchFilter('all');
     setSelectedDeptFilter('all');
     setSelectedRoleFilter('all');
     setSelectedStatusFilter('all');
@@ -5457,6 +5521,34 @@ const TaskDetails = () => {
 
         {/* Bottom Row: Secondary Filters evenly distributed */}
         <div className="new-filters-bottom-row">
+          <div className={`new-filter-item ${selectedBranchFilter !== 'all' ? 'active' : ''}`}>
+            <label>Branch</label>
+            <select
+              value={selectedBranchFilter}
+              onChange={(e) => {
+                const nextBranch = e.target.value;
+                setSelectedBranchFilter(nextBranch);
+                if (nextBranch !== 'all' && selectedDeptFilter !== 'all') {
+                  const departmentStillAvailable = users
+                    .filter(user => isUserInBranch(user, nextBranch))
+                    .some(user => getDepartmentName(user.department) === selectedDeptFilter);
+                  if (!departmentStillAvailable) setSelectedDeptFilter('all');
+                }
+                if (nextBranch !== 'all' && selectedRoleFilter !== 'all') {
+                  const roleStillAvailable = users
+                    .filter(user => isUserInBranch(user, nextBranch))
+                    .some(user => getUserDisplayRole(user, jobRoleMap) === selectedRoleFilter);
+                  if (!roleStillAvailable) setSelectedRoleFilter('all');
+                }
+                setActiveDeptTab('all');
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Allowed Branches</option>
+              {branchOptions.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+            </select>
+          </div>
+
           <div className={`new-filter-item ${selectedDeptFilter !== 'all' ? 'active' : ''}`}>
             <label>Department</label>
             <select

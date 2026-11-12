@@ -41,6 +41,7 @@ import {
 
 import { FaTasks, FaProjectDiagram, FaCity, FaRupeeSign } from 'react-icons/fa';
 import { Repeat } from 'lucide-react';
+import usePageActionAccess from '../../../hooks/usePageActionAccess';
 
 
 
@@ -1937,6 +1938,8 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
 const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService, companyCode }) => {
   const [newService, setNewService] = useState('');
+  // Add / delete need the "Client Services" page in Page Management (owner and admin always).
+  const { canEdit: canAddService, canDelete: canDeleteService } = usePageActionAccess('/ciisUser/client-services', { enabled: open });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1968,6 +1971,12 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
             </div>
           )}
           
+          {!canAddService && (
+            <div className="ClientManagement-alert ClientManagement-alert--warning ClientManagement-mb-3">
+              <FiAlertCircle /> You can view services. To add or delete them, ask an admin for "Client Services" access in Page Management.
+            </div>
+          )}
+          {canAddService && (
           <form onSubmit={handleSubmit} className="ClientManagement-mb-3">
             <div className="ClientManagement-grid-2 ClientManagement-gap-2">
               <div>
@@ -1996,6 +2005,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
               </div>
             </div>
           </form>
+          )}
 
           <hr className="ClientManagement-my-2" />
 
@@ -2017,6 +2027,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
                       )}
                     </small>
                   </div>
+                  {canDeleteService && (
                   <div className="ClientManagement-service-item__actions">
                     <button
                       className="ClientManagement-action-button ClientManagement-action-button--error"
@@ -2026,6 +2037,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
                       <FiTrash2 />
                     </button>
                   </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -33,12 +33,14 @@ import {
   MessageSquareQuote as FeedbackIcon,
   ScrollText as LeavePolicyIcon,
   MonitorPlay as DemoIcon,
+  Megaphone as PromotionsIcon,
   PartyPopper as HolidayIcon,
   Settings as SettingsIcon,
   LogOut as LogoutIcon,
 } from 'lucide-react';
 import { preloadRouteChunk } from '../../utils/routePreloader';
 import { useAuth } from '../../context/AuthContext';
+import axios from '../../utils/axiosConfig';
 
 
 const SidebarContainer = styled(Box)(({ theme }) => ({
@@ -213,6 +215,32 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [userEmail, setUserEmail] = useState('');
+  const [pendingRegisterCount, setPendingRegisterCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPendingCount = async () => {
+      try {
+        const res = await axios.get('/users/register-requests/count', { _skipErrorNotify: true });
+        if (isMounted && typeof res.data?.count === 'number') {
+          setPendingRegisterCount(Math.max(0, res.data.count));
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchPendingCount();
+    const intervalTimer = setInterval(fetchPendingCount, 120000);
+    const refreshListener = () => fetchPendingCount();
+    window.addEventListener('ciis-sidebar-badges-refresh', refreshListener);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalTimer);
+      window.removeEventListener('ciis-sidebar-badges-refresh', refreshListener);
+    };
+  }, []);
   
   useEffect(() => {
     try {
@@ -350,6 +378,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       route: '/Ciis-network/demo-requests',
       showForSuperAdmin: true
     },
+    {
+      icon: <PromotionsIcon size={20} strokeWidth={1.9} />,
+      name: 'Promotions',
+      route: '/Ciis-network/promotions',
+      showForSuperAdmin: true
+    },
     { 
       icon: <HolidayIcon size={20} strokeWidth={1.9} />, 
       name: 'Holiday', 
@@ -447,8 +481,43 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     <SidebarComponent>
       <ContentWrapper>
         <List sx={{ pt: 1 }}>
-          {filteredMenuItems.map((item, idx) =>
-            item.heading ? (
+          {filteredMenuItems.map((item, idx) => {
+            const isRegisterRequest = item.route?.includes('register-request') || item.name === 'Register Request';
+            const showBadge = isRegisterRequest && pendingRegisterCount > 0;
+            const iconWithBadge = (
+              <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                {item.icon}
+                {showBadge && (
+                  <Box
+                    component="span"
+                    sx={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -6,
+                      minWidth: 15,
+                      height: 15,
+                      px: '3px',
+                      boxSizing: 'border-box',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '999px',
+                      bgcolor: '#dc2626',
+                      color: '#fff',
+                      border: `1.5px solid ${theme.palette.background.paper}`,
+                      fontSize: '9px',
+                      lineHeight: 1,
+                      fontWeight: 700,
+                      zIndex: 1
+                    }}
+                  >
+                    {pendingRegisterCount}
+                  </Box>
+                )}
+              </Box>
+            );
+
+            return item.heading ? (
               isOpen && (
                 <SectionHeading key={`heading-${idx}`}>
                   {item.heading}
@@ -464,7 +533,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                     onFocus={() => preloadRouteChunk(item.route)}
                     isCollapsed={false}
                   >
-                    <StyledListItemIcon>{item.icon}</StyledListItemIcon>
+                    <StyledListItemIcon>{iconWithBadge}</StyledListItemIcon>
                     <ListItemText
                       primary={item.name}
                       primaryTypographyProps={{
@@ -472,6 +541,28 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                         fontWeight: 500,
                       }}
                     />
+                    {showBadge && (
+                      <Box
+                        component="span"
+                        sx={{
+                          ml: 'auto',
+                          mr: 1,
+                          px: '7px',
+                          py: '1px',
+                          borderRadius: '999px',
+                          bgcolor: '#dc2626',
+                          color: '#fff',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          lineHeight: 1.2,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {pendingRegisterCount}
+                      </Box>
+                    )}
                   </StyledListItemButton>
                 ) : (
                   <Tooltip title={item.name} placement="right">
@@ -483,14 +574,14 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                       isCollapsed={true}
                     >
                       <StyledListItemIcon>
-                        {item.icon}
+                        {iconWithBadge}
                       </StyledListItemIcon>
                     </StyledListItemButton>
                   </Tooltip>
                 )}
               </StyledListItem>
-            )
-          )}
+            );
+          })}
         </List>
 
         <Box sx={{ flex: 1 }} />

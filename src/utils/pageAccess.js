@@ -87,6 +87,8 @@ const loadPermissionResource = (key, load) => {
 
 const STRICT_PAGE_PATHS = new Set([
   '/ciisuser/active-clients',
+  '/ciisuser/holiday',
+  '/ciisuser/client-services',
   '/ciisuser/salary-component',
   '/ciisuser/salary-structure',
   '/ciisuser/salary-assignment',

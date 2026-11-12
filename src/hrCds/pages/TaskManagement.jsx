@@ -452,9 +452,22 @@ const getRemainingCountdown = (dueDate, now) => {
   if (Number.isNaN(due)) return null;
 
   const diffMs = due - now;
-  const isPast = diffMs < 0;
-  const absDiff = Math.abs(diffMs);
+  const isPast = diffMs <= 0;
 
+  // 1. If overdue: timer stops immediately, display static Overdue badge
+  if (isPast) {
+    return {
+      isPast: true,
+      diffMs,
+      text: 'Overdue',
+      color: '#991b1b',
+      bg: '#fee2e2',
+      border: '#f87171'
+    };
+  }
+
+  // 2. Active countdown: calculate days, hours, minutes, seconds
+  const absDiff = diffMs;
   const seconds = Math.floor((absDiff / 1000) % 60);
   const minutes = Math.floor((absDiff / (1000 * 60)) % 60);
   const hours = Math.floor((absDiff / (1000 * 60 * 60)) % 24);
@@ -472,10 +485,35 @@ const getRemainingCountdown = (dueDate, now) => {
     timeString = `${seconds}s`;
   }
 
+  // 3. Dynamic colors matching office timeline stages:
+  let color = '#15803d'; // Default > 5 Hours: Soft Green (Safe / Plenty of time)
+  let bg = '#f0fdf4';
+  let border = '#bbf7d0';
+
+  if (diffMs < 1 * 60 * 60 * 1000) {
+    // Under 1 Hour: Rose Red (Critical / Ending soon)
+    color = '#e11d48';
+    bg = '#fff1f2';
+    border = '#fecdd3';
+  } else if (diffMs < 2 * 60 * 60 * 1000) {
+    // 1 to 2 Hours: Orange (Urgent / Wrap up)
+    color = '#c2410c';
+    bg = '#fff7ed';
+    border = '#fed7aa';
+  } else if (diffMs < 5 * 60 * 60 * 1000) {
+    // 2 to 5 Hours: Warm Amber / Yellow (In progress / Half-day passed)
+    color = '#b45309';
+    bg = '#fffbeb';
+    border = '#fde68a';
+  }
+
   return {
-    isPast,
+    isPast: false,
     diffMs,
-    text: isPast ? `Overdue by ${timeString}` : `Overdue in ${timeString}`
+    text: `Due in ${timeString}`,
+    color,
+    bg,
+    border
   };
 };
 
@@ -7659,9 +7697,9 @@ const UserCreateTask = () => {
                                         whiteSpace: 'nowrap',
                                         boxSizing: 'border-box',
                                         width: 'fit-content',
-                                        backgroundColor: countdown.isPast ? '#fee2e2' : '#fff1f2',
-                                        color: countdown.isPast ? '#b91c1c' : '#e11d48',
-                                        border: `1px solid ${countdown.isPast ? '#fca5a5' : '#fecdd3'}`
+                                        backgroundColor: countdown.bg,
+                                        color: countdown.color,
+                                        border: `1px solid ${countdown.border}`
                                       }}>
                                         <FiClock size={9} style={{ flexShrink: 0 }} />
                                         <span style={{ whiteSpace: 'nowrap' }}>{countdown.text}</span>

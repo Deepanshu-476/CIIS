@@ -1135,7 +1135,7 @@ export default function useSpeech({
             }
 
             // Discard pure silence or ambient room noise (prevents Whisper from hallucinating on silence)
-            if (!speechDetectedRef.current && (lastDiagRef.current.peakRms || 0) < Math.max(7, (noiseFloorRef.current || 4) + 2)) {
+            if (!speechDetectedRef.current) {
                 if (import.meta.env.DEV) {
                     console.info('[useSpeech] Discarded silent audio chunk - no speech detected, peakRms:', lastDiagRef.current.peakRms);
                 }

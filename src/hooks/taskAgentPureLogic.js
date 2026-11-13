@@ -621,8 +621,9 @@ export const isSilenceHallucination = (text, speechDurationMs = 0, peakRms = 0) 
     if (!clean && !lowerRaw) return true;
 
     // Instant match against notorious Whisper silence/noise hallucinations
-    if (/^(?:bersambungan|terima\s*kasih|dari\b.*meeting|subtitles\s*by|amara\s*org|thanks?\s*for\s*watching)/i.test(clean) ||
-        /\b(?:bersambungan|amara\s*org|subtitles\s*by|terima\s*kasih)\b/i.test(clean)) {
+    if (/^(?:bersambungan|terima\s*kasih|dari\b.*meeting|subtitles\s*by|captioned\s*by|amara\s*org|thanks?\s*for\s*watching)/i.test(clean) ||
+        /\b(?:bersambungan|amara\s*org|amara\.org|subtitles\s*by|captioned\s*by|broth3rmax|transcribed\s*by|terima\s*kasih)\b/i.test(clean) ||
+        /\b(?:captioned\s*by|broth3rmax)\b/i.test(lowerRaw)) {
         return true;
     }
 

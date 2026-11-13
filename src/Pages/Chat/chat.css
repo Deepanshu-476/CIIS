@@ -2961,6 +2961,97 @@
     gap: 10px;
 }
 
+/* ---- Presentation layout: one shared screen on the stage, cameras in a strip ---- */
+.call-remote-stage.has-presenter {
+    background: #000000;
+    padding: 0;
+}
+
+.call-remote-stage.has-presenter .call-video-grid {
+    display: flex;
+    grid-template-columns: none;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 0 10px 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* The cameras become thumbnails along the bottom... */
+.call-remote-stage.has-presenter .call-remote-tile {
+    flex: 0 0 132px;
+    width: 132px;
+    height: 94px;
+    min-height: 0;
+    align-self: flex-end;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+/* ...and the shared screen fills everything above them, whole and uncropped. */
+.call-remote-stage.has-presenter .call-remote-tile.is-presenter {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 112px;
+    flex: none;
+    width: auto;
+    height: auto;
+    border: none;
+    border-radius: 0;
+    background: #000000;
+}
+
+.call-remote-stage.has-presenter .call-remote-tile.is-presenter .call-remote-video {
+    object-fit: contain;
+    background: #000000;
+}
+
+.call-remote-stage.has-presenter .call-local-tile {
+    width: 118px;
+    height: 84px;
+    bottom: 114px;
+}
+
+.call-presenting-pill {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 80%;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.66);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+    .call-remote-stage.has-presenter .call-remote-tile {
+        flex: 0 0 96px;
+        width: 96px;
+        height: 70px;
+    }
+
+    .call-remote-stage.has-presenter .call-remote-tile.is-presenter {
+        bottom: 88px;
+    }
+
+    .call-remote-stage.has-presenter .call-local-tile {
+        width: 86px;
+        height: 62px;
+        bottom: 90px;
+    }
+}
+
 .call-remote-tile {
     position: relative;
     min-height: 160px;

@@ -1,194 +1,741 @@
-.CAD-inner {
+/* CompanyAdminDetails.css - Executive-Grade Tenant Admin Management */
+
+:root {
+  --cad-bg: #f8fafc;
+  --cad-card-bg: #ffffff;
+  --cad-border: #e2e8f0;
+  --cad-border-subtle: #f1f5f9;
+  --cad-text-main: #0f172a;
+  --cad-text-muted: #64748b;
+  --cad-text-light: #94a3b8;
+  --cad-primary: #2563eb;
+  --cad-primary-light: #eff6ff;
+  --cad-success: #16a34a;
+  --cad-success-bg: #f0fdf4;
+  --cad-success-border: #bbf7d0;
+  --cad-danger: #dc2626;
+  --cad-danger-bg: #fef2f2;
+  --cad-danger-border: #fecaca;
+  --cad-warning: #d97706;
+  --cad-warning-bg: #fffbeb;
+  --cad-warning-border: #fde68a;
+  --cad-purple: #7c3aed;
+  --cad-purple-bg: #f5f3ff;
+  --cad-purple-border: #ddd6fe;
+  --cad-radius-lg: 16px;
+  --cad-radius-md: 12px;
+  --cad-radius-sm: 8px;
+  --cad-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+  --cad-shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --cad-shadow-hover: 0 10px 25px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+}
+
+.CAD-wrapper {
+  min-height: 100vh;
+  background: var(--cad-bg);
+  padding: 24px 32px 60px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--cad-text-main);
+  box-sizing: border-box;
+}
+
+.CAD-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* --- Top Navigation Bar --- */
+.CAD-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+
+.CAD-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.CAD-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #ffffff;
+  border: 1px solid var(--cad-border);
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--cad-radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-shadow: var(--cad-shadow-sm);
+}
+
+.CAD-btn-back:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.CAD-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.CAD-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #ffffff;
+  border: 1px solid var(--cad-border);
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--cad-radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-shadow: var(--cad-shadow-sm);
+}
+
+.CAD-btn-secondary:hover {
+  background: #f8fafc;
+  color: var(--cad-primary);
+  border-color: #cbd5e1;
+}
+
+.CAD-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--cad-primary);
+  border: 1px solid var(--cad-primary);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--cad-radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.CAD-btn-primary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.CAD-btn-spin svg {
+  animation: CAD-spin 0.8s linear infinite;
+}
+
+@keyframes CAD-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --- Card Base --- */
+.CAD-card {
+  background: var(--cad-card-bg);
+  border: 1px solid var(--cad-border);
+  border-radius: var(--cad-radius-lg);
+  box-shadow: var(--cad-shadow-sm);
+  padding: 24px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* --- Company Hero Card --- */
+.CAD-company-card {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background: #ffffff;
 }
 
-.CAD-card {
-  background: var(--ac-card-strong, #fff);
-  border: 1px solid var(--ac-border, rgba(143, 155, 179, 0.18));
-  border-radius: 20px;
-  box-shadow: var(--ac-shadow, 0 20px 60px rgba(76, 84, 255, 0.09));
-  padding: 22px;
+.CAD-company-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--cad-border-subtle);
 }
 
-.CAD-company {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 18px 20px;
-  align-items: center;
-}
-
-.CAD-company-logo,
-.CAD-avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
+.CAD-company-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--ac-primary, #5c3df0), var(--ac-primary-2, #2c8bf8));
-  color: #fff;
-  font-weight: 800;
-  font-size: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.CAD-company-logo img,
-.CAD-avatar img {
+.CAD-company-logo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #fff;
+}
+
+.CAD-company-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .CAD-eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ac-primary, #5c3df0);
-}
-
-.CAD-company-main h1 {
-  margin: 4px 0 8px;
-  font-size: 26px;
-  color: var(--ac-text, #10162f);
-}
-
-.CAD-company-meta,
-.CAD-admin-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: inline-flex;
   align-items: center;
-  color: var(--ac-muted, #5f6b8a);
+  gap: 6px;
+  font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cad-primary);
+  margin-bottom: 4px;
 }
 
-.CAD-company-grid {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--ac-border, rgba(143, 155, 179, 0.18));
+.CAD-company-title {
+  margin: 0 0 8px;
+  font-size: 1.45rem;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.CAD-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.CAD-code-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.CAD-code-pill:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.CAD-code-copied {
+  color: var(--cad-success) !important;
+  border-color: var(--cad-success-border) !important;
+  background: var(--cad-success-bg) !important;
 }
 
 .CAD-pill {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 3px 9px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 0.73rem;
+  font-weight: 500;
+  border: 1px solid transparent;
 }
 
-.CAD-pill-green { background: #dcfce7; color: #15803d; }
-.CAD-pill-red { background: #fee2e2; color: #b91c1c; }
-.CAD-pill-blue { background: #dbeafe; color: #1d4ed8; }
-.CAD-pill-purple { background: #ede9fe; color: #5b21b6; }
+.CAD-pill-green {
+  background: var(--cad-success-bg);
+  color: #15803d;
+  border-color: var(--cad-success-border);
+}
 
-.CAD-section-title {
-  margin: 4px 0 0;
-  font-size: 20px;
-  color: var(--ac-text, #10162f);
+.CAD-pill-red {
+  background: var(--cad-danger-bg);
+  color: #b91c1c;
+  border-color: var(--cad-danger-border);
+}
+
+.CAD-pill-blue {
+  background: var(--cad-primary-light);
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.CAD-pill-purple {
+  background: var(--cad-purple-bg);
+  color: #6d28d9;
+  border-color: var(--cad-purple-border);
+}
+
+.CAD-pill-amber {
+  background: var(--cad-warning-bg);
+  color: #b45309;
+  border-color: var(--cad-warning-border);
+}
+
+.CAD-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Company Key Details Grid */
+.CAD-company-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.CAD-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.CAD-detail-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.CAD-detail-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.CAD-detail-label {
+  font-size: 0.72rem;
+  color: var(--cad-text-muted);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.CAD-detail-value {
+  font-size: 0.85rem;
+  color: var(--cad-text-main);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  word-break: break-word;
+}
+
+.CAD-detail-value a {
+  color: var(--cad-primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.CAD-detail-value a:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
+.CAD-copy-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.CAD-copy-btn:hover {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+/* --- Section Heading & Filter Toolbar --- */
+.CAD-section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.CAD-section-title-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.CAD-section-title span {
-  font-size: 13px;
-  background: #ede9fe;
-  color: #5b21b6;
-  padding: 2px 10px;
-  border-radius: 999px;
+.CAD-section-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: -0.01em;
 }
 
+.CAD-count-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #eff6ff;
+  color: var(--cad-primary);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #dbeafe;
+}
+
+.CAD-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.CAD-role-chips {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--cad-border);
+  padding: 3px;
+  border-radius: 8px;
+  gap: 2px;
+  box-shadow: var(--cad-shadow-sm);
+}
+
+.CAD-role-chip {
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.CAD-role-chip:hover {
+  color: #0f172a;
+}
+
+.CAD-role-chip.active {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.CAD-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid var(--cad-border);
+  border-radius: 8px;
+  padding: 0 10px;
+  height: 34px;
+  width: 220px;
+  box-shadow: var(--cad-shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.CAD-search-box:focus-within {
+  border-color: var(--cad-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.CAD-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.8rem;
+  color: #0f172a;
+  width: 100%;
+}
+
+.CAD-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.CAD-search-clear {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 50%;
+}
+
+.CAD-search-clear:hover {
+  color: #334155;
+  background: #f1f5f9;
+}
+
+/* --- Admin Cards Grid --- */
 .CAD-admin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  gap: 18px;
+  gap: 20px;
 }
 
+.CAD-admin-card {
+  background: #ffffff;
+  border: 1px solid var(--cad-border);
+  border-radius: var(--cad-radius-lg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: var(--cad-shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.CAD-admin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--cad-shadow-hover);
+  border-color: #cbd5e1;
+}
+
+.CAD-admin-card.is-owner {
+  border-left: 4px solid #f59e0b;
+}
+
+.CAD-admin-card.is-super-admin {
+  border-left: 4px solid var(--cad-purple);
+}
+
+/* Admin Card Header */
 .CAD-admin-head {
   display: flex;
-  gap: 14px;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 14px;
+}
+
+.CAD-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
 }
 
 .CAD-avatar {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  font-size: 18px;
-  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-.CAD-admin-name h3 {
-  margin: 0 0 6px;
-  font-size: 18px;
-  color: var(--ac-text, #10162f);
+.CAD-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
+.CAD-online-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 12px;
+  height: 12px;
+  background: #22c55e;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.CAD-admin-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.CAD-admin-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.CAD-admin-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.CAD-emp-id-badge {
+  font-size: 0.68rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.CAD-admin-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Admin Card Fields */
 .CAD-admin-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 18px;
+  gap: 14px 16px;
+  padding: 14px;
+  background: #f8fafc;
+  border-radius: var(--cad-radius-md);
+  border: 1px solid var(--cad-border-subtle);
 }
 
 .CAD-field {
   display: flex;
-  gap: 10px;
   align-items: flex-start;
+  gap: 9px;
   min-width: 0;
 }
 
 .CAD-field-icon {
-  font-size: 18px;
-  color: var(--ac-primary, #5c3df0);
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
   margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.CAD-field-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .CAD-field-label {
-  font-size: 12px;
-  color: var(--ac-muted, #5f6b8a);
-  font-weight: 600;
+  font-size: 0.7rem;
+  color: var(--cad-text-muted);
+  font-weight: 500;
+  margin-bottom: 2px;
 }
 
-.CAD-field-value {
-  font-size: 14px;
-  color: var(--ac-text, #10162f);
-  font-weight: 600;
+.CAD-field-val {
+  font-size: 0.8rem;
+  color: var(--cad-text-main);
+  font-weight: 500;
   word-break: break-word;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-.CAD-field-value a {
-  color: var(--ac-primary-2, #2c8bf8);
+.CAD-field-val a {
+  color: var(--cad-primary);
   text-decoration: none;
 }
 
-.CAD-empty,
-.CAD-error {
-  color: var(--ac-muted, #5f6b8a);
-  font-weight: 600;
+.CAD-field-val a:hover {
+  text-decoration: underline;
+}
+
+.CAD-field-full {
+  grid-column: 1 / -1;
+}
+
+/* Empty State & Error State */
+.CAD-empty {
+  text-align: center;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px dashed var(--cad-border);
+  border-radius: var(--cad-radius-lg);
+}
+
+.CAD-empty p {
+  margin: 0;
+  font-size: 0.88rem;
 }
 
 .CAD-error {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  color: #b91c1c;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--cad-danger-bg);
+  border: 1px solid var(--cad-danger-border);
+  color: #991b1b;
+  border-radius: var(--cad-radius-md);
+  padding: 18px 20px;
 }
 
-.CAD-error button {
-  margin-top: 10px;
+.CAD-error strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
 }
 
-@media (max-width: 720px) {
-  .CAD-admin-grid { grid-template-columns: 1fr; }
-  .CAD-admin-fields { grid-template-columns: 1fr; }
-  .CAD-company { grid-template-columns: 1fr; }
+/* Responsive */
+@media (max-width: 900px) {
+  .CAD-wrapper {
+    padding: 16px;
+  }
+  .CAD-admin-grid {
+    grid-template-columns: 1fr;
+  }
+  .CAD-company-header {
+    flex-direction: column;
+  }
+  .CAD-search-box {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .CAD-admin-fields {
+    grid-template-columns: 1fr;
+  }
+  .CAD-company-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1988,18 +1988,6 @@ const EmployeeDirectory = () => {
   ), [pageScopeDepartmentIds]);
   const canEditOtherEmployees = pageAccessReady ? pageCanEditEmployees : user.canEditOtherEmployees;
   const canSeeAllCompanyUsers = pageAccessReady ? pageCanViewEmployees : user.canSeeAllCompanyUsers;
-  // A branch explicitly configured in Page Management must take precedence
-  // over a user's role-based company-wide directory access.
-  const pageScopedBranchIds = Array.isArray(pageDataScope?.branchIds)
-    ? pageDataScope.branchIds
-    : [];
-  const pageScopedDepartmentIds = Array.isArray(pageDataScope?.departmentIds)
-    ? pageDataScope.departmentIds
-    : [];
-  const restrictToPageBranches = pageScopedBranchIds.length > 0 && !pageScopedBranchIds.includes('all');
-  const restrictToPageDepartments = pageScopedDepartmentIds.length > 0 && !pageScopedDepartmentIds.includes('all');
-  const effectiveBranchIds = restrictToPageBranches ? pageScopedBranchIds : currentUserBranchIds;
-  const restrictEmployeeBranchScope = restrictToPageBranches || restrictToAssignedBranches;
   
   // Snackbar helper
   const showSnackbar = useCallback((message, severity = 'success') => {

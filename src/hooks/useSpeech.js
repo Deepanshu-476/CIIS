@@ -612,30 +612,40 @@ export default function useSpeech({
                     : 0;
 
                 // 2. Speech vs Silence classification
-                // When speech has not started: sensitive threshold catches speech onset without lag
-                // Once speech has started: voice energy keeps the speech state active
+                const floor = noiseFloorRef.current || 4;
+                const speechThreshold = Math.max(floor + 3.5, 7);
+                const silenceThreshold = Math.max(floor + 1.5, 4);
+                speechThresholdRef.current = speechThreshold;
+                silenceThresholdRef.current = silenceThreshold;
+
+                // When speech has not yet been detected:
+                // Sensitive threshold catches speech onset without lag
                 const isSpeechOnset = !speechDetectedRef.current && (
-                    (curSmoothed >= speechThresholdRef.current) ||
-                    (voicePeak >= Math.max(8, noiseFloorRef.current + 3))
-                );
-                const isSustainedSpeech = speechDetectedRef.current && (
-                    (curSmoothed >= silenceThresholdRef.current) ||
-                    (voicePeak >= Math.max(8, noiseFloorRef.current + 2))
+                    (curSmoothed >= speechThreshold) ||
+                    (voicePeak >= Math.max(14, floor + 6) && voiceAvg >= floor + 1.5)
                 );
 
-                if (isSpeechOnset || isSustainedSpeech) {
+                if (isSpeechOnset) {
                     // Definite user speech detected
-                    if (!speechDetectedRef.current) {
-                        speechDetectedRef.current = true;
-                        lastDiagRef.current.firstSpeechTime = now;
-                    }
+                    speechDetectedRef.current = true;
+                    lastDiagRef.current.firstSpeechTime = now;
                     segmentSpeechDetectedRef.current = true;
                     silenceStartTimeRef.current = null;
                     lastSpeechOrListenStartRef.current = now;
                     inactivityPhaseRef.current = 0;
-                } else if (curSmoothed <= silenceThresholdRef.current) {
-                    // Level below ambient silence threshold
-                    if (speechDetectedRef.current) {
+                } else if (speechDetectedRef.current) {
+                    // Speech was detected: check if user is STILL speaking or now SILENT
+                    const peakRms = peakRmsRef.current || 20;
+                    // When speech stops, volume drops towards ambient noise and well below speech peak
+                    const relativeDropThresh = Math.max(silenceThreshold, peakRms * 0.45);
+                    const isVoiceActive = (curSmoothed > silenceThreshold && curSmoothed > relativeDropThresh);
+
+                    if (isVoiceActive) {
+                        // User is still vocalizing
+                        silenceStartTimeRef.current = null;
+                        lastSpeechOrListenStartRef.current = now;
+                    } else {
+                        // User has stopped speaking: silence timer accumulates
                         if (!silenceStartTimeRef.current) {
                             silenceStartTimeRef.current = now;
                             lastDiagRef.current.silenceTimerStarted = true;
@@ -643,51 +653,33 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: ultra-fast instant speech pause window (~80ms) after speech stops
-                            if (silenceMs >= 80 && speechDurationMs >= 60) {
+                            // Utterance end: 600ms of natural silence after speech -> turn mic off immediately!
+                            if (silenceMs >= 600 && speechDurationMs >= 80) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 120 && speechDurationMs < 60) {
-                                // False onset: reset speech detection and keep listening!
+                            } else if (silenceMs >= 600 && speechDurationMs < 80) {
+                                // False onset (mic transient < 80ms): reset speech detection and keep listening
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
                                 lastDiagRef.current.firstSpeechTime = null;
                             }
                         }
-                    } else if (onSilenceExceeded) {
-                        // Speech NOT yet detected: prompt at 3s, auto-close at 5s (never wait 12s!)
-                        const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
-                        if (silenceDuration >= 3000 && inactivityPhaseRef.current === 0) {
-                            inactivityPhaseRef.current = 1;
-                            lastSpeechOrListenStartRef.current = now;
-                            if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
-                        } else if (silenceDuration >= 5000) {
-                            inactivityPhaseRef.current = 0;
-                            lastSpeechOrListenStartRef.current = now;
-                            if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
-                            setIsPaused(true);
-                            stop('inactivity');
-                            return;
-                        }
                     }
-                } else if (speechDetectedRef.current) {
-                    // Transition zone: voice level has dropped between speech and silence thresholds
-                    const midThreshold = (speechThresholdRef.current + silenceThresholdRef.current) / 2;
-                    if (curSmoothed <= midThreshold) {
-                        if (!silenceStartTimeRef.current) {
-                            silenceStartTimeRef.current = now;
-                        } else {
-                            const silenceMs = now - silenceStartTimeRef.current;
-                            const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
-                            if (silenceMs >= 80 && speechDurationMs >= 60) {
-                                if (onSilenceExceeded) {
-                                    onSilenceExceeded('silence');
-                                    return;
-                                }
-                            }
-                        }
+                } else if (onSilenceExceeded) {
+                    // Speech NOT yet detected: prompt at 2.5s, auto-close at 4s (total idle timeout ~4s, never 10-12s!)
+                    const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
+                    if (silenceDuration >= 2500 && inactivityPhaseRef.current === 0) {
+                        inactivityPhaseRef.current = 1;
+                        if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
+                    } else if (silenceDuration >= 4000) {
+                        inactivityPhaseRef.current = 0;
+                        lastSpeechOrListenStartRef.current = now;
+                        if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
+                        setIsPaused(true);
+                        stop('inactivity');
+                        return;
                     }
                 }
 
@@ -739,10 +731,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // Ultra-fast instant natural silence pause for snappy browser speech utterance completion
+            // Natural 600ms silence pause for snappy browser speech utterance completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 100);
+            }, 600);
         };
 
         const createAndStart = () => {

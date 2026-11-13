@@ -653,13 +653,13 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: 600ms of natural silence after speech -> turn mic off immediately!
-                            if (silenceMs >= 600 && speechDurationMs >= 80) {
+                            // Utterance end: 4.5 seconds (4-5s) of natural silence after speech -> turn mic off!
+                            if (silenceMs >= 4500 && speechDurationMs >= 80) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 600 && speechDurationMs < 80) {
+                            } else if (silenceMs >= 4500 && speechDurationMs < 80) {
                                 // False onset (mic transient < 80ms): reset speech detection and keep listening
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
@@ -668,12 +668,12 @@ export default function useSpeech({
                         }
                     }
                 } else if (onSilenceExceeded) {
-                    // Speech NOT yet detected: prompt at 2.5s, auto-close at 4s (total idle timeout ~4s, never 10-12s!)
+                    // Speech NOT yet detected: prompt at 3.5s, auto-close at 5.5s
                     const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
-                    if (silenceDuration >= 2500 && inactivityPhaseRef.current === 0) {
+                    if (silenceDuration >= 3500 && inactivityPhaseRef.current === 0) {
                         inactivityPhaseRef.current = 1;
                         if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
-                    } else if (silenceDuration >= 4000) {
+                    } else if (silenceDuration >= 5500) {
                         inactivityPhaseRef.current = 0;
                         lastSpeechOrListenStartRef.current = now;
                         if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
@@ -731,10 +731,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // Natural 600ms silence pause for snappy browser speech utterance completion
+            // 4.5 seconds (4-5s) silence pause for natural speech completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 600);
+            }, 4500);
         };
 
         const createAndStart = () => {

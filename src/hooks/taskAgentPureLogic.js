@@ -1292,7 +1292,11 @@ export const sanitizeDraftForTransport = (draftObj) => {
     const clean = {};
     for (const [k, v] of Object.entries(draftObj)) {
         if (v !== null && v !== undefined) {
-            clean[k] = v;
+            if (k === 'reminderSettings' && typeof v === 'boolean') {
+                clean[k] = { enabled: v };
+            } else {
+                clean[k] = v;
+            }
         }
     }
     return Object.keys(clean).length > 0 ? clean : undefined;

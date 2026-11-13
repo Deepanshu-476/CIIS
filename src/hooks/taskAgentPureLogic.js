@@ -604,6 +604,10 @@ const KNOWN_SILENCE_HALLUCINATIONS = new Set([
     'please subscribe',
     'subtitles by',
     'amara.org',
+    'bersambungan',
+    'terima kasih',
+    'dari the next meeting',
+    'dari the next meeting is the meeting',
 ]);
 
 /**
@@ -616,6 +620,18 @@ export const isSilenceHallucination = (text, speechDurationMs = 0, peakRms = 0) 
     const clean = lowerRaw.replace(/[.,!?;:।]+/gu, ' ').replace(/\s+/g, ' ').trim();
     if (!clean && !lowerRaw) return true;
 
+    // Instant match against notorious Whisper silence/noise hallucinations
+    if (/^(?:bersambungan|terima\s*kasih|dari\b.*meeting|subtitles\s*by|amara\s*org|thanks?\s*for\s*watching)/i.test(clean) ||
+        /\b(?:bersambungan|amara\s*org|subtitles\s*by|terima\s*kasih)\b/i.test(clean)) {
+        return true;
+    }
+
+    // Repetitive sentence/clause loop detection (e.g. "Dari, the next meeting is the meeting. Dari, the next meeting is the meeting.")
+    const clauses = clean.split(/\s{2,}|\.\s*/).map(s => s.trim()).filter(s => s.length > 5);
+    if (clauses.length >= 2 && clauses.some((c, idx) => clauses.indexOf(c) !== idx)) {
+        return true;
+    }
+
     const isKnown = KNOWN_SILENCE_HALLUCINATIONS.has(clean) ||
         KNOWN_SILENCE_HALLUCINATIONS.has(lowerRaw) ||
         lowerRaw.includes('amara.org') ||
@@ -626,8 +642,8 @@ export const isSilenceHallucination = (text, speechDurationMs = 0, peakRms = 0) 
         clean.includes('subtitles by');
 
     if (isKnown) {
-        // If duration under 2 seconds or peak RMS below normal speech, drop it
-        if (speechDurationMs < 2000 || peakRms < 15) {
+        // If duration under 2.5 seconds or peak RMS below normal speech, drop it
+        if (speechDurationMs < 2500 || peakRms < 18) {
             return true;
         }
     }

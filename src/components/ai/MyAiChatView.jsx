@@ -365,6 +365,13 @@ export default function MyAiChatView({ onBack, onClose }) {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, result, readyCountdown, interim]);
 
+  // Collapse textarea height back to single line whenever input is cleared (WhatsApp style)
+  useEffect(() => {
+    if (!input && inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+  }, [input]);
+
   // Derive human-friendly status text for the header: Listening -> Transcribing -> Thinking
   let statusText = 'Tap to talk';
   if (creating) {
@@ -822,21 +829,6 @@ export default function MyAiChatView({ onBack, onClose }) {
       </main>
 
       {/* =====================================================================
-          REGION 3: TRANSPARENT VOICE ORB OVERLAY
-          Centered above composer, pointer-events none, transparent canvas.
-          Message stream extends underneath with soft radial mask.
-          ===================================================================== */}
-      <div className="my-ai-orb-overlay" aria-hidden="true">
-        <Suspense fallback={<CssOrbFallback orbState={orbState} onClick={handleOrbClick} />}>
-          {hasWebGL ? (
-            <AuraFluidRing orbState={orbState} onClick={handleOrbClick} size={isExpanded ? 185 : 130} />
-          ) : (
-            <CssOrbFallback orbState={orbState} onClick={handleOrbClick} />
-          )}
-        </Suspense>
-      </div>
-
-      {/* =====================================================================
           REGION 4: PINNED COMPOSER DOCK
           Always pinned at bottom, flex-shrink 0, clean container
           ===================================================================== */}
@@ -884,9 +876,10 @@ export default function MyAiChatView({ onBack, onClose }) {
               <Mic size={18} className={listening || recordingVoiceNote ? 'text-red-600' : ''} />
             </button>
 
-            {/* Text Input */}
-            <input
+            {/* WhatsApp-style auto-expanding multi-line textarea */}
+            <textarea
               ref={inputRef}
+              rows={1}
               className="my-ai-composer-input"
               value={input}
               onChange={(e) => {
@@ -899,6 +892,21 @@ export default function MyAiChatView({ onBack, onClose }) {
                 }
                 if (val.trim() && listening) {
                   stop('typing');
+                }
+                // Auto-expand like WhatsApp (up to max-height 120px)
+                const el = e.target;
+                el.style.height = 'auto';
+                el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!loading && !isTranscribing && input.trim()) {
+                    onSubmit(e);
+                    if (inputRef.current) {
+                      inputRef.current.style.height = 'auto';
+                    }
+                  }
                 }
               }}
               placeholder={

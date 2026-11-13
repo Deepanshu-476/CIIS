@@ -682,19 +682,8 @@
    transparent canvas with no white panel box.
    ------------------------------------------------------------- */
 .my-ai-orb-overlay {
-  position: absolute;
-  bottom: 56px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 130px;
-  height: 130px;
+  display: none !important;
   pointer-events: none !important;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
-  transition: width 0.25s ease, height 0.25s ease, bottom 0.25s ease;
 }
 
 .my-ai-orb-overlay * {
@@ -782,12 +771,12 @@
 
 .my-ai-composer-pill {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 6px;
   background: #f8fafc;
   border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  padding: 3px 5px 3px 8px;
+  border-radius: 22px;
+  padding: 4px 6px 4px 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -803,14 +792,16 @@
   border: 0;
   color: #64748b;
   cursor: pointer;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 1px;
 }
 
 .my-ai-composer-icon-btn:hover {
@@ -853,8 +844,16 @@
   font-size: 13.5px;
   background: transparent;
   color: #0f172a;
-  padding: 5px 4px;
+  padding: 6px 4px 6px 4px;
   min-width: 0;
+  resize: none;
+  line-height: 1.45;
+  font-family: inherit;
+  height: 32px;
+  min-height: 32px;
+  max-height: 120px;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .my-ai-composer-input::placeholder {
@@ -874,6 +873,8 @@
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 1px;
 }
 
 .my-ai-composer-submit-btn:hover:not(:disabled) {

@@ -1617,6 +1617,7 @@ export default function useTaskAgentSession({
         isTypingRef.current = false;
         if (inputRef.current) {
             inputRef.current.value = '';
+            inputRef.current.style.height = 'auto';
         }
 
         const trimmed = (input || '').trim();

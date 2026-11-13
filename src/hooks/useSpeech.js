@@ -637,14 +637,14 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: 750ms snappy speech pause window after speech stops, AND after at least 300ms of real speech
-                            if (silenceMs >= 750 && speechDurationMs >= 300) {
+                            // Utterance end: instant speech pause window (~150ms) after speech stops, AND after at least 180ms of real speech
+                            if (silenceMs >= 150 && speechDurationMs >= 180) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 750 && speechDurationMs < 300) {
-                                // False onset (ambient click/breath < 300ms): reset speech detection and keep listening!
+                            } else if (silenceMs >= 200 && speechDurationMs < 180) {
+                                // False onset (ambient click/breath < 180ms): reset speech detection and keep listening!
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
                                 lastDiagRef.current.firstSpeechTime = null;
@@ -677,7 +677,7 @@ export default function useSpeech({
                         } else {
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
-                            if (silenceMs >= 800 && speechDurationMs >= 300) {
+                            if (silenceMs >= 180 && speechDurationMs >= 180) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
@@ -735,10 +735,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // 800ms natural silence for snappy browser speech utterance completion
+            // Instant natural silence pause for snappy browser speech utterance completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 800);
+            }, 180);
         };
 
         const createAndStart = () => {
@@ -1134,6 +1134,21 @@ export default function useSpeech({
                             start({ force: true });
                         }
                     }, 400);
+                }
+                return;
+            }
+
+            // Discard pure silence or ambient room noise (prevents Whisper from hallucinating on silence)
+            if (!speechDetectedRef.current && (lastDiagRef.current.peakRms || 0) < 18) {
+                if (import.meta.env.DEV) {
+                    console.info('[useSpeech] Discarded silent audio chunk - no speech detected, peakRms:', lastDiagRef.current.peakRms);
+                }
+                if (!userMutedRef.current && activeSessionIdRef.current === currentSessionId) {
+                    setTimeout(() => {
+                        if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
+                            start({ force: true });
+                        }
+                    }, 300);
                 }
                 return;
             }

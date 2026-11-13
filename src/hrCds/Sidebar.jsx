@@ -1161,6 +1161,14 @@ const allPagesItems = [
     order: 6.5
   },
   {
+    id: 'user-activity',
+    name: 'Employee Activity',
+    icon: 'Activity',
+    path: '/ciisUser/user-activity',
+    category: 'administration',
+    order: 29.2
+  },
+  {
     id: 'projects',
     name: 'My Projects',
     icon: 'FolderKanban',
@@ -1684,6 +1692,7 @@ const getPathFromName = (name) => {
     'Alerts': '/ciisUser/alert',
     'Create Alert': '/ciisUser/create-alert',
     'Promotions': '/ciisUser/promotions',
+    'Employee Activity': '/ciisUser/user-activity',
     'Projects': '/ciisUser/project',
     'My Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',
@@ -2205,6 +2214,11 @@ const filterItemsByCompanyAccess = (items, companyData) => {
     // Promotions is not a plan feature: the server decides who may open it.
     if (String(item?.id || '').toLowerCase() === 'promotions' ||
       String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/promotions') {
+      return true;
+    }
+    // Employee Activity is not a plan feature either: owner/admin or Page Management decides.
+    if (String(item?.id || '').toLowerCase() === 'user-activity' ||
+      String(item?.path || '').toLowerCase().replace(/\/+$/, '') === '/ciisuser/user-activity') {
       return true;
     }
     if (String(item.path || '').toLowerCase().startsWith('/ciisuser/crm/')) {
@@ -3222,6 +3236,18 @@ const Sidebar = ({
           }
         ];
       }
+    }
+
+    // Owner and company admin always get Employee Activity (who used which page, last login).
+    // Anyone else gets it through Sidebar Management + Page Management.
+    const activityAdminRoles = new Set(['owner', 'admin', 'super_admin', 'superadmin', 'company_owner', 'companyowner']);
+    const isActivityAdmin = [userData?.companyRole, userData?.jobRole, userData?.role]
+      .some(value => activityAdminRoles.has(String(getRecordDisplayName(value) || value || '').trim().toLowerCase().replace(/[\s-]+/g, '_')));
+    if (isActivityAdmin && !accessFilteredItems.some(item => item.id === 'user-activity' || item.path === '/ciisUser/user-activity')) {
+      accessFilteredItems = [
+        ...accessFilteredItems,
+        { id: 'user-activity', name: 'Employee Activity', icon: 'Activity', path: '/ciisUser/user-activity', category: 'admin', order: 29.2 }
+      ];
     }
 
     // Sidebar configuration is an administrative capability. A saved role

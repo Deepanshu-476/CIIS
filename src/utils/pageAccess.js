@@ -329,3 +329,34 @@ export const getUserPageScope = (page, userId, accessType = '') => {
   };
 };
 
+
+// Page Management saves one scope row per access type (view / edit / delete ...).
+// A user who is ticked in several tabs ends up with "All Branches" rows next to the
+// branch the admin actually picked, so merging everything would silently widen the
+// access back to the whole company. This helper keeps only the branches and
+// departments that were explicitly selected for the user on that page, and returns
+// null for a dimension when every row was left on "all".
+export const getUserPageRestrictedScope = (page, userId) => {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!page || !normalizedUserId) return null;
+
+  const scopes = (Array.isArray(page?.userAccessScopes) ? page.userAccessScopes : [])
+    .filter(scope => normalizeUserId(scope?.user) === normalizedUserId);
+  if (!scopes.length) return null;
+
+  const collectExplicitIds = (field) => {
+    const ids = new Set();
+    scopes.forEach(scope => {
+      (Array.isArray(scope?.[field]) ? scope[field] : [])
+        .map(value => normalizeUserId(value))
+        .filter(value => value && value.toLowerCase() !== 'all')
+        .forEach(value => ids.add(value));
+    });
+    return ids.size > 0 ? [...ids] : null;
+  };
+
+  return {
+    branchIds: collectExplicitIds('branchIds'),
+    departmentIds: collectExplicitIds('departmentIds')
+  };
+};

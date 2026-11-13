@@ -1,5 +1,6 @@
 import axios from "axios";
 import API_URL from "../config";
+import { addActivityHeaders } from './activityTracker';
 
 const resolvedApiUrl = import.meta.env.VITE_API_URL || API_URL;
 const productionApiUrl = import.meta.env.VITE_FALLBACK_API_URL || "https://backendcds.ciisnetwork.in/api";
@@ -397,13 +398,13 @@ axios.interceptors.request.use((config) => {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
-  return config;
+  return addActivityHeaders(config);
 });
 
 axiosInstance.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  return addActivityHeaders(config);
 });
 
 const responseErrorHandler = (error) => {

@@ -560,9 +560,15 @@
 /* Preview Card & Countdown Banner */
 .my-ai-preview-card-wrap {
   width: 100%;
-  margin: 8px 0 100px 0;
+  margin: 6px 0 12px 0;
   position: relative;
   z-index: 20;
+}
+
+.preview-card-row {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
 }
 
 .my-ai-countdown-banner {

@@ -586,42 +586,44 @@ export default function MyAiChatView({ onBack, onClose }) {
               const isPastPreview = Boolean(m.preview && idx < lastPreviewIdx);
 
               return (
-                <div
-                  key={m.id || idx}
-                  className={`my-ai-message-row ${isUser ? 'user' : 'assistant'}`}
-                >
-                  <div
-                    className={`my-ai-bubble ${isUser ? 'user' : 'assistant'} ${
-                      m.isError ? 'error-bubble' : ''
-                    }`}
-                  >
-                    {isUser ? (
-                      <span>{renderFormattedMarkdown(m.text)}</span>
-                    ) : (
-                      <>
-                        <AssistantMessageContent
-                          text={m.text}
-                          isLatest={isLatestAssistant}
-                          isError={m.isError}
-                        />
-                        {m.preview && (
-                          <div className="my-ai-preview-card-wrap" style={{ marginTop: '12px' }}>
-                            <TaskPreviewCard
-                              preview={m.preview}
-                              files={files}
-                              busy={creating}
-                              uploadProgress={uploadProgress}
-                              onConfirm={() => handleConfirm(m.payload || result?.payload)}
-                              onEdit={handleEdit}
-                              onCancel={handleCancel}
-                              isPast={isPastPreview}
-                            />
-                          </div>
+                <React.Fragment key={m.id || idx}>
+                  {m.text && (
+                    <div className={`my-ai-message-row ${isUser ? 'user' : 'assistant'}`}>
+                      <div
+                        className={`my-ai-bubble ${isUser ? 'user' : 'assistant'} ${
+                          m.isError ? 'error-bubble' : ''
+                        }`}
+                      >
+                        {isUser ? (
+                          <span>{renderFormattedMarkdown(m.text)}</span>
+                        ) : (
+                          <AssistantMessageContent
+                            text={m.text}
+                            isLatest={isLatestAssistant}
+                            isError={m.isError}
+                          />
                         )}
-                      </>
-                    )}
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isUser && m.preview && (
+                    <div className="my-ai-message-row assistant preview-card-row">
+                      <div className="my-ai-preview-card-wrap">
+                        <TaskPreviewCard
+                          preview={m.preview}
+                          files={files}
+                          busy={creating}
+                          uploadProgress={uploadProgress}
+                          onConfirm={() => handleConfirm(m.payload || result?.payload)}
+                          onEdit={handleEdit}
+                          onCancel={handleCancel}
+                          isPast={isPastPreview}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
               );
             });
           })()}
@@ -674,8 +676,8 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
 
-          {/* Slot-filling choice chips */}
-          {chips.length > 0 && (
+          {/* Slot-filling choice chips (hide redundant chips when preview card is displayed in ready state) */}
+          {chips.length > 0 && status !== 'ready' && !chips.some((c) => c.action?.type === 'confirm') && (
             <div className="my-ai-chips-container">
               {(() => {
                 const hasHoGayaInChips = chips.some(

@@ -503,6 +503,10 @@ export default function useTaskAgentSession({
                 setLiveTranscriptText(shown);
             }
 
+            if (text && /(?:remove|delete|clear|hatao|hata\s*do)\s*(?:attachment|file|photo|image)|(?:attachment|file|photo|image)\s*(?:hatao|hata\s*do|remove|delete|clear)/i.test(text)) {
+                setFiles([]);
+            }
+
             setInput('');
             if (inputRef.current) {
                 inputRef.current.value = '';
@@ -519,8 +523,9 @@ export default function useTaskAgentSession({
                     // Fall through to backend parse so the draft is updated!
                 } else if (isRefusalOrEditIntent(text)) {
                     setLoading(false);
-                    const replyMsg = 'Ji batayein kya changes karne hain? Main kar dungi.';
-                    const speechMsg = 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
+                    const isEn = sessionLangRef.current === 'en';
+                    const replyMsg = isEn ? 'Please tell me what changes you want to make, and I will update them.' : 'Ji batayein kya changes karne hain? Main kar dungi.';
+                    const speechMsg = isEn ? 'Please tell me what changes you want to make.' : 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
                     const msgId = pushMsg('assistant', replyMsg);
                     const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
                     const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
@@ -1478,9 +1483,10 @@ export default function useTaskAgentSession({
     const handleEdit = useCallback(() => {
         cancelReadyCountdown();
         stop('button-click');
-        pushMsg('user', 'Edit');
-        const replyMsg = 'Ji batayein kya changes karne hain? Main kar dungi.';
-        const speechMsg = 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
+        const isEn = sessionLangRef.current === 'en';
+        pushMsg('user', isEn ? 'Edit' : 'Edit');
+        const replyMsg = isEn ? 'Please tell me what changes you want to make, and I will update them.' : 'Ji batayein kya changes karne hain? Main kar dungi.';
+        const speechMsg = isEn ? 'Please tell me what changes you want to make.' : 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
         const msgId = pushMsg('assistant', replyMsg);
         if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
             spokenMessageIdsRef.current.add(msgId);

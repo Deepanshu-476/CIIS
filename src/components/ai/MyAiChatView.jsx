@@ -766,8 +766,8 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
 
-          {/* Attachment tray strip */}
-          {(files.length > 0 || voiceNoteBlob) && (
+          {/* Attachment tray strip (hidden when preview card is displayed in ready state) */}
+          {(files.length > 0 || voiceNoteBlob) && status !== 'ready' && !messages.some(m => m.preview) && (
             <div className="my-ai-attached-strip">
               <span className="my-ai-attached-label">Attachments ({files.length}):</span>
               <div className="my-ai-attached-chips">

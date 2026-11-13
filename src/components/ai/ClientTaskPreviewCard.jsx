@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './TaskPreviewCard.css';
+import FilePreviewModal from './FilePreviewModal';
 
 export default function ClientTaskPreviewCard({
     preview,
+    files = [],
     busy = false,
     onConfirm,
     onEdit,
@@ -10,6 +12,8 @@ export default function ClientTaskPreviewCard({
     isPast = false,
 }) {
     if (!preview) return null;
+
+    const [activePreviewFile, setActivePreviewFile] = useState(null);
 
     const taskTitle = preview.title || preview.name || '—';
     const clientName = preview.client || '—';
@@ -65,6 +69,32 @@ export default function ClientTaskPreviewCard({
                 )}
             </dl>
 
+            {/* Attached file thumbnails if any */}
+            {files && files.length > 0 ? (
+                <div className="ai-preview-section">
+                    <p className="ai-cp-title">Attached Files:</p>
+                    <div className="ai-attach-previews">
+                        {files.map((f, i) => {
+                            const isImg = f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(f.name || '');
+                            return (
+                                <div key={i} className="ai-attach-badge">
+                                    <span>{isImg ? '🖼️' : '📄'}</span>
+                                    <span className="ai-attach-name" title={f.name}>{f.name}</span>
+                                    <button
+                                        type="button"
+                                        className="ai-attach-preview-btn"
+                                        onClick={() => setActivePreviewFile(f)}
+                                        title="Preview file"
+                                    >
+                                        👁️ Preview
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : null}
+
             <div className="ai-actions">
                 <button type="button" className="ai-btn-primary" disabled={busy} onClick={onConfirm}>
                     {busy ? 'Save ho raha hai…' : '✅ Add Task'}
@@ -76,6 +106,13 @@ export default function ClientTaskPreviewCard({
                     Cancel
                 </button>
             </div>
+
+            {activePreviewFile && (
+                <FilePreviewModal
+                    file={activePreviewFile}
+                    onClose={() => setActivePreviewFile(null)}
+                />
+            )}
         </div>
     );
 }

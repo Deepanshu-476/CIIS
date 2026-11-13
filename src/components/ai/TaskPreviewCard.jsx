@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './TaskPreviewCard.css';
 import ClientPreviewCard from './ClientPreviewCard';
 import ClientPlanPreviewCard from './ClientPlanPreviewCard';
 import ClientTaskPreviewCard from './ClientTaskPreviewCard';
+import FilePreviewModal from './FilePreviewModal';
 
 const assigneeText = (a, taskFor) => {
     if (!a) {
@@ -67,10 +68,11 @@ export default function TaskPreviewCard({
             />
         );
     }
-    if (preview.intent === 'create_client_task' || preview.entity === 'client_task') {
+    if (preview.intent === 'create_client_task' || preview.entity === 'client_task' || preview.type === 'client_task') {
         return (
             <ClientTaskPreviewCard
                 preview={preview}
+                files={files}
                 busy={busy}
                 onConfirm={onConfirm}
                 onEdit={onEdit}
@@ -79,6 +81,7 @@ export default function TaskPreviewCard({
             />
         );
     }
+    const [activePreviewFile, setActivePreviewFile] = useState(null);
     const isProject = preview.intent === 'create_project' || preview.entity === 'project';
     const priority = String(preview.priority || 'Medium').toLowerCase();
     const who = assigneeText(preview.assignee, preview.taskFor);
@@ -228,10 +231,19 @@ export default function TaskPreviewCard({
                     <p className="ai-cp-title">Attached Files:</p>
                     <div className="ai-attach-previews">
                         {files.map((f, i) => {
-                            const isImg = f.type?.startsWith('image/');
+                            const isImg = f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(f.name || '');
                             return (
                                 <div key={i} className="ai-attach-badge">
-                                    {isImg ? '🖼️' : '📄'} <span className="ai-attach-name">{f.name}</span>
+                                    <span>{isImg ? '🖼️' : '📄'}</span>
+                                    <span className="ai-attach-name" title={f.name}>{f.name}</span>
+                                    <button
+                                        type="button"
+                                        className="ai-attach-preview-btn"
+                                        onClick={() => setActivePreviewFile(f)}
+                                        title="Preview file"
+                                    >
+                                        👁️ Preview
+                                    </button>
                                 </div>
                             );
                         })}
@@ -257,6 +269,13 @@ export default function TaskPreviewCard({
                     Cancel
                 </button>
             </div>
+
+            {activePreviewFile && (
+                <FilePreviewModal
+                    file={activePreviewFile}
+                    onClose={() => setActivePreviewFile(null)}
+                />
+            )}
         </div>
     );
 }

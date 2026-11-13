@@ -243,12 +243,13 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.equal(empGreeting, WELCOME_GREETING_TEXT);
         assert.match(ownerGreeting, /Namaste! Main CIIS AI Assistant hoon\. Aap kya karna chahte hain\?/);
 
-        assert.equal(WELCOME_MENU_BUTTONS.length, 6);
+        assert.equal(WELCOME_MENU_BUTTONS.length, 7);
         const expectedButtons = [
             { label: 'Personal task banana', intent: 'self_task' },
             { label: 'Kisi ko task assign karna', intent: 'task_assigned_user' },
             { label: 'Naya project banana', intent: 'create_project' },
             { label: 'Project mein task banana/assign karna', intent: 'task_project' },
+            { label: 'Client task banana', intent: 'create_client_task' },
             { label: 'Naya client add karna', intent: 'create_client' },
             { label: 'Client plan banana', intent: 'create_client_plan' },
         ];
@@ -2842,7 +2843,7 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
     test('54. Role & Page Permission filtering for Welcome Chips', () => {
         const ownerUser = { role: 'Company Owner', companyCode: 'ACME' };
         const ownerChips = filterWelcomeButtonsByPermissions(ownerUser);
-        assert.equal(ownerChips.length, 6);
+        assert.equal(ownerChips.length, 7);
 
         const restrictedUser = { role: 'employee', companyCode: 'ACME' };
         const restrictedChips = filterWelcomeButtonsByPermissions(restrictedUser, {
@@ -2855,9 +2856,10 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         const clientChips = filterWelcomeButtonsByPermissions(clientUser, {
             sidebarConfig: { menuItems: [{ path: '/ciisUser/emp-client' }] }
         });
-        assert.equal(clientChips.length, 2);
+        assert.equal(clientChips.length, 3);
         assert.ok(clientChips.some(c => c.action.intent === 'self_task'));
         assert.ok(clientChips.some(c => c.action.intent === 'create_client'));
+        assert.ok(clientChips.some(c => c.action.intent === 'create_client_task'));
     });
 
     test('55. English Welcome Greeting & English Buttons Selection', () => {
@@ -2867,9 +2869,10 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.equal(enGreeting, 'Good morning Kanika! What would you like to do today?');
 
         const enChips = filterWelcomeButtonsByPermissions({ role: 'admin' }, { language: 'en' });
-        assert.equal(enChips.length, 6);
+        assert.equal(enChips.length, 7);
         assert.equal(enChips[0].label, 'Create personal task');
         assert.equal(enChips[1].label, 'Assign task to someone');
+        assert.ok(enChips.some(c => c.label === 'Create client task'));
     });
 
     test('56. Language Detection (English vs Hinglish)', () => {

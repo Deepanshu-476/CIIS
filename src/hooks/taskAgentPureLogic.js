@@ -829,6 +829,7 @@ export const WELCOME_MENU_BUTTONS = [
     { label: 'Kisi ko task assign karna', action: { type: 'set_intent', intent: 'task_assigned_user' } },
     { label: 'Naya project banana', action: { type: 'set_intent', intent: 'create_project' } },
     { label: 'Project mein task banana/assign karna', action: { type: 'set_intent', intent: 'task_project' } },
+    { label: 'Client task banana', action: { type: 'set_intent', intent: 'create_client_task' } },
     { label: 'Naya client add karna', action: { type: 'set_intent', intent: 'create_client' } },
     { label: 'Client plan banana', action: { type: 'set_intent', intent: 'create_client_plan' } },
 ];
@@ -838,6 +839,7 @@ export const WELCOME_MENU_BUTTONS_EN = [
     { label: 'Assign task to someone', action: { type: 'set_intent', intent: 'task_assigned_user' } },
     { label: 'Create new project', action: { type: 'set_intent', intent: 'create_project' } },
     { label: 'Create task in project', action: { type: 'set_intent', intent: 'task_project' } },
+    { label: 'Create client task', action: { type: 'set_intent', intent: 'create_client_task' } },
     { label: 'Add new client', action: { type: 'set_intent', intent: 'create_client' } },
     { label: 'Create client plan', action: { type: 'set_intent', intent: 'create_client_plan' } },
 ];
@@ -1014,6 +1016,42 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         }
     } else if (hasPlanPerm) {
         allowed.add('create_client_plan');
+    }
+
+    // Creating client tasks is allowed for users with Create Task / Task Management page or Client access
+    const hasCreateTaskPage = hasSlug(
+        'taskmanagement',
+        'createtask',
+        'create-task',
+        'task-management',
+        'ciisuser/taskmanagement',
+        'ciisuser/createtask',
+        'ciisuser/task-management',
+        'ciisuser/create-task',
+        'task_management',
+        'create_task',
+        'mytasks',
+        'my-tasks',
+        'tasks',
+        'task',
+        'empclient',
+        'clientmanagement',
+        'emp-client',
+        'activeclients',
+        'active-clients',
+        'clients',
+        'client'
+    ) ||
+    hasClientMenu ||
+    hasClientPerm ||
+    (typeof window !== 'undefined' && (
+        window.location?.pathname?.includes('/task-management') ||
+        window.location?.pathname?.includes('/create-task') ||
+        Boolean(document?.querySelector?.('a[href*="task-management"], a[href*="create-task"], [data-page="task-management"], [data-page="createtask"], [data-page="create-task"], a[href*="/ciisUser/task-management"]'))
+    ));
+
+    if (hasCreateTaskPage) {
+        allowed.add('create_client_task');
     }
 
     return baseButtons.filter(b => allowed.has(b.action?.intent));

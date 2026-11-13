@@ -1018,6 +1018,7 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         allowed.add('create_client_plan');
     }
 
+    const hasExplicitPermsOrConfig = allConfigItems.length > 0 || userPerms.length > 0;
     // Creating client tasks is allowed for users with Create Task / Task Management page or Client access
     const hasCreateTaskPage = hasSlug(
         'taskmanagement',
@@ -1044,6 +1045,7 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
     ) ||
     hasClientMenu ||
     hasClientPerm ||
+    !hasExplicitPermsOrConfig ||
     (typeof window !== 'undefined' && (
         window.location?.pathname?.includes('/task-management') ||
         window.location?.pathname?.includes('/create-task') ||

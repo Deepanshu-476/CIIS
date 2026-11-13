@@ -567,10 +567,10 @@ export default function useSpeech({
                         const samples = calibrationSamplesRef.current;
                         const sorted = [...samples].sort((a, b) => a - b);
                         // Take lower 40th percentile to prevent speech onset or mic transients from blowing up the floor
-                        const p40Floor = sorted[Math.floor(sorted.length * 0.4)] || 8;
-                        noiseFloorRef.current = Math.max(3, Math.min(25, Math.round(p40Floor)));
-                        speechThresholdRef.current = Math.max(noiseFloorRef.current + 6, 12);
-                        silenceThresholdRef.current = Math.max(noiseFloorRef.current + 2, 8);
+                        const p40Floor = sorted[Math.floor(sorted.length * 0.4)] || 6;
+                        noiseFloorRef.current = Math.max(2, Math.min(18, Math.round(p40Floor)));
+                        speechThresholdRef.current = Math.max(noiseFloorRef.current + 3, 6);
+                        silenceThresholdRef.current = Math.max(noiseFloorRef.current + 1, 4);
                         lastDiagRef.current.noiseFloor = noiseFloorRef.current;
                     }
                     animFrameRef.current = requestAnimationFrame(checkAudio);
@@ -589,13 +589,13 @@ export default function useSpeech({
                 }
                 const minRms3s = rmsHistory3sRef.current.reduce((min, item) => (item.rms < min ? item.rms : min), curSmoothed);
 
-                // Continuous background floor tracking: never stay pinned at cap (25)
+                // Continuous background floor tracking: never stay pinned at cap (18)
                 if (!speechDetectedRef.current && curSmoothed > 0) {
                     // Decay downward towards minRms3s during quiet periods
                     const targetFloor = Math.min(noiseFloorRef.current, minRms3s);
-                    noiseFloorRef.current = Math.max(3, Math.min(25, Math.round(noiseFloorRef.current * 0.95 + targetFloor * 0.05)));
-                    speechThresholdRef.current = Math.max(noiseFloorRef.current + 6, 12);
-                    silenceThresholdRef.current = Math.max(noiseFloorRef.current + 2, 8);
+                    noiseFloorRef.current = Math.max(2, Math.min(18, Math.round(noiseFloorRef.current * 0.95 + targetFloor * 0.05)));
+                    speechThresholdRef.current = Math.max(noiseFloorRef.current + 3, 6);
+                    silenceThresholdRef.current = Math.max(noiseFloorRef.current + 1, 4);
                     lastDiagRef.current.noiseFloor = noiseFloorRef.current;
                     lastDiagRef.current.minRms3s = minRms3s;
                 }
@@ -612,10 +612,16 @@ export default function useSpeech({
                     : 0;
 
                 // 2. Speech vs Silence classification
-                // When speech has not started: reliable threshold catches speech onset without triggering on mic pops
-                // Once speech has started: only sustained speech energy resets silence timer
-                const isSpeechOnset = !speechDetectedRef.current && (curSmoothed >= speechThresholdRef.current && voicePeak >= 20);
-                const isSustainedSpeech = speechDetectedRef.current && (curSmoothed >= speechThresholdRef.current);
+                // When speech has not started: sensitive threshold catches speech onset without lag
+                // Once speech has started: voice energy keeps the speech state active
+                const isSpeechOnset = !speechDetectedRef.current && (
+                    (curSmoothed >= speechThresholdRef.current) ||
+                    (voicePeak >= Math.max(8, noiseFloorRef.current + 3))
+                );
+                const isSustainedSpeech = speechDetectedRef.current && (
+                    (curSmoothed >= silenceThresholdRef.current) ||
+                    (voicePeak >= Math.max(8, noiseFloorRef.current + 2))
+                );
 
                 if (isSpeechOnset || isSustainedSpeech) {
                     // Definite user speech detected
@@ -638,34 +644,32 @@ export default function useSpeech({
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
                             // Utterance end: ultra-fast instant speech pause window (~80ms) after speech stops
-                            if (silenceMs >= 80 && speechDurationMs >= 100) {
+                            if (silenceMs >= 80 && speechDurationMs >= 60) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 150 && speechDurationMs < 100) {
-                                // False onset (ambient click/breath < 100ms): reset speech detection and keep listening!
+                            } else if (silenceMs >= 120 && speechDurationMs < 60) {
+                                // False onset: reset speech detection and keep listening!
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
                                 lastDiagRef.current.firstSpeechTime = null;
                             }
                         }
                     } else if (onSilenceExceeded) {
-                        // Speech NOT yet detected: prompt at 7s, pause at 12s
+                        // Speech NOT yet detected: prompt at 3s, auto-close at 5s (never wait 12s!)
                         const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
-                        if (silenceDuration >= 7000 && inactivityPhaseRef.current === 0) {
+                        if (silenceDuration >= 3000 && inactivityPhaseRef.current === 0) {
                             inactivityPhaseRef.current = 1;
                             lastSpeechOrListenStartRef.current = now;
                             if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
-                        } else if (silenceDuration >= 12000) {
+                        } else if (silenceDuration >= 5000) {
                             inactivityPhaseRef.current = 0;
                             lastSpeechOrListenStartRef.current = now;
                             if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
-                            if (userMutedRef.current) {
-                                setIsPaused(true);
-                                stop('inactivity');
-                                return;
-                            }
+                            setIsPaused(true);
+                            stop('inactivity');
+                            return;
                         }
                     }
                 } else if (speechDetectedRef.current) {
@@ -677,7 +681,7 @@ export default function useSpeech({
                         } else {
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
-                            if (silenceMs >= 100 && speechDurationMs >= 100) {
+                            if (silenceMs >= 80 && speechDurationMs >= 60) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
@@ -1139,7 +1143,7 @@ export default function useSpeech({
             }
 
             // Discard pure silence or ambient room noise (prevents Whisper from hallucinating on silence)
-            if (!speechDetectedRef.current && (lastDiagRef.current.peakRms || 0) < 18) {
+            if (!speechDetectedRef.current && (lastDiagRef.current.peakRms || 0) < Math.max(7, (noiseFloorRef.current || 4) + 2)) {
                 if (import.meta.env.DEV) {
                     console.info('[useSpeech] Discarded silent audio chunk - no speech detected, peakRms:', lastDiagRef.current.peakRms);
                 }

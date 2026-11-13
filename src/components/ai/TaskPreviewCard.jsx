@@ -260,7 +260,7 @@ export default function TaskPreviewCard({
 
             <div className="ai-actions">
                 <button type="button" className="ai-btn-primary" disabled={busy} onClick={onConfirm}>
-                    {busy ? (uploadProgress !== null ? `Uploading ${uploadProgress}%…` : 'Create ho raha hai…') : '✅ Create karo'}
+                    {busy ? (uploadProgress !== null ? `Uploading ${uploadProgress}%…` : 'Creating…') : '✅ Create'}
                 </button>
                 <button type="button" className="ai-btn-ghost" disabled={busy} onClick={onEdit}>
                     ✏️ Edit

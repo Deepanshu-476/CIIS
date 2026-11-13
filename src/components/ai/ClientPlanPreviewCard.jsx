@@ -77,7 +77,7 @@ export default function ClientPlanPreviewCard({
 
             <div className="ai-actions">
                 <button type="button" className="ai-btn-primary" disabled={busy} onClick={onConfirm}>
-                    {busy ? 'Save ho raha hai…' : '✅ Create karo'}
+                    {busy ? 'Saving…' : '✅ Create'}
                 </button>
                 <button type="button" className="ai-btn-ghost" disabled={busy} onClick={onEdit}>
                     ✏️ Edit

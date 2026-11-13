@@ -1437,19 +1437,36 @@ export default function useTaskAgentSession({
         stop('button-click');
         const activeDraft = resultRef.current?.draft || draftRef.current || result?.draft;
         const activeIntent = activeDraft?.intent;
-        let cancelText = 'Theek hai, task cancel kar diya.';
-        let cancelSpoken = 'टास्क कैंसिल कर दिया गया';
+        const isEn = sessionLangRef.current === 'en';
+        let cancelText = isEn ? 'Alright, task creation has been cancelled.' : 'Theek hai, task cancel kar diya.';
+        let cancelSpoken = isEn ? 'Task creation cancelled.' : 'टास्क कैंसिल कर दिया गया';
         if (activeIntent === 'create_client') {
-            cancelText = 'Theek hai, client add karna cancel kar diya.';
-            cancelSpoken = 'क्लाइंट जोड़ना कैंसिल कर दिया गया';
+            cancelText = isEn ? 'Alright, adding client has been cancelled.' : 'Theek hai, client add karna cancel kar diya.';
+            cancelSpoken = isEn ? 'Adding client cancelled.' : 'क्लाइंट जोड़ना कैंसिल कर दिया गया';
         } else if (activeIntent === 'create_client_plan') {
-            cancelText = 'Theek hai, client plan banana cancel kar diya.';
-            cancelSpoken = 'क्लाइंट प्लान बनाना कैंसिल कर दिया गया';
+            cancelText = isEn ? 'Alright, client plan creation has been cancelled.' : 'Theek hai, client plan banana cancel kar diya.';
+            cancelSpoken = isEn ? 'Client plan creation cancelled.' : 'क्लाइंट प्लान बनाना कैंसिल कर दिया गया';
         } else if (activeIntent === 'create_project') {
-            cancelText = 'Theek hai, project banana cancel kar diya.';
-            cancelSpoken = 'प्रोजेक्ट बनाना कैंसिल कर दिया गया';
+            cancelText = isEn ? 'Alright, project creation has been cancelled.' : 'Theek hai, project banana cancel kar diya.';
+            cancelSpoken = isEn ? 'Project creation cancelled.' : 'प्रोजेक्ट बनाना कैंसिल कर दिया गया';
         }
         resetFlow();
+        const currentUser = getUser();
+        const currentSidebarConfig = getSidebarConfig();
+        const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, {
+            sidebarConfig: currentSidebarConfig,
+            pagePermissions: getStoredPagePermissions(),
+            language: isEn ? 'en' : 'hinglish'
+        });
+        setResult({
+            status: 'open',
+            field: 'welcome',
+            reply: cancelText,
+            speech: cancelSpoken,
+            speakText: cancelText,
+            chips: allowedButtons,
+            draft: null,
+        });
         const msgId = pushMsg('assistant', cancelText);
         if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
             spokenMessageIdsRef.current.add(msgId);
@@ -1792,7 +1809,12 @@ export default function useTaskAgentSession({
     const status = result?.status;
     const currentUser = getUser();
     const currentSidebarConfig = getSidebarConfig();
-    const allowedWelcomeButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions() });
+    const currentLang = sessionLangRef.current || 'en';
+    const allowedWelcomeButtons = filterWelcomeButtonsByPermissions(currentUser, {
+        sidebarConfig: currentSidebarConfig,
+        pagePermissions: getStoredPagePermissions(),
+        language: currentLang
+    });
     const chips = Array.isArray(result?.chips) && result?.chips.length > 0
         ? result.chips
         : ((!result?.draft || !result?.draft?.intent) ? allowedWelcomeButtons : []);

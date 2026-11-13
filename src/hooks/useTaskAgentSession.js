@@ -172,6 +172,7 @@ export default function useTaskAgentSession({
     const [micSkipReason, setMicSkipReason] = useState(null);
     const micSkipReasonRef = useRef(null);
     const pendingStartRef = useRef(false);
+    const isEditingRef = useRef(false);
 
     const cancelAutoSend = useCallback(() => {
         if (autoSendIntervalRef.current) {
@@ -516,12 +517,16 @@ export default function useTaskAgentSession({
             stop('turn-send');
 
             // When ready to create, check if message is a field change, confirmation, or refusal
-            const isReady = readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready';
-            if (isReady && text && !action && !pick) {
+            const isReady = !isEditingRef.current && (readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready');
+            if (isEditingRef.current) {
+                isEditingRef.current = false;
+                // In edit mode: user's message is an edit command, fall straight through to backend parse!
+            } else if (isReady && text && !action && !pick) {
                 if (hasFieldChangeIntent(text)) {
                     // Field modification requested (e.g. "due time change karo 7 baaj kar 10 min ka karo")
                     // Fall through to backend parse so the draft is updated!
                 } else if (isRefusalOrEditIntent(text)) {
+                    isEditingRef.current = true;
                     setLoading(false);
                     const isEn = sessionLangRef.current === 'en';
                     const replyMsg = isEn ? 'Please tell me what changes you want to make, and I will update them.' : 'Ji batayein kya changes karne hain? Main kar dungi.';
@@ -557,35 +562,8 @@ export default function useTaskAgentSession({
                         confirmHandlerRef.current?.(resolveConfirmPayload(null, resultRef.current?.payload || result?.payload, currentDraft));
                     }
                     return;
-                } else {
-                    setLoading(false);
-                    const noiseReply = 'Samajh nahi aaya. Create kar doon? Haan ya nahi bolein, ya bataiye kya badalna hai.';
-                    const noiseSpeech = 'समझ नहीं आया। क्या बना दूं? हां या नहीं बोलें, या बताइए क्या बदलना है।';
-                    const msgId = pushMsg('assistant', noiseReply);
-                    const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
-                    const { shouldSpeak, micAction } = determineTurnSpeechAndMicAction({
-                        inputSource: turnSource,
-                        autoSpeak,
-                        ttsSupported,
-                        shouldListen: true,
-                        isTyping: isTypingNow,
-                    });
-                    if (shouldSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
-                        spokenMessageIdsRef.current.add(msgId);
-                        cancelSpeech();
-                        const watchdog = createTtsWatchdog(() => {
-                            cancelSpeech();
-                            (ensureListeningRef.current || ensureListening)();
-                        }, noiseReply.length);
-                        speak(noiseSpeech, noiseReply, () => {
-                            watchdog.cancel();
-                            (ensureListeningRef.current || ensureListening)();
-                        });
-                    } else {
-                        (ensureListeningRef.current || ensureListening)();
-                    }
-                    return;
                 }
+                // If user typed any modification or instruction, fall through to backend parse to update draft!
             }
 
             const baseDraft = draftRef.current;
@@ -1481,6 +1459,7 @@ export default function useTaskAgentSession({
     }, [result, resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak, stop, cancelSpeech]);
 
     const handleEdit = useCallback(() => {
+        isEditingRef.current = true;
         cancelReadyCountdown();
         stop('button-click');
         const isEn = sessionLangRef.current === 'en';

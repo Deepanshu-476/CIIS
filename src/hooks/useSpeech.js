@@ -637,14 +637,14 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: instant speech pause window (~150ms) after speech stops, AND after at least 180ms of real speech
-                            if (silenceMs >= 150 && speechDurationMs >= 180) {
+                            // Utterance end: ultra-fast instant speech pause window (~80ms) after speech stops
+                            if (silenceMs >= 80 && speechDurationMs >= 100) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 200 && speechDurationMs < 180) {
-                                // False onset (ambient click/breath < 180ms): reset speech detection and keep listening!
+                            } else if (silenceMs >= 150 && speechDurationMs < 100) {
+                                // False onset (ambient click/breath < 100ms): reset speech detection and keep listening!
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
                                 lastDiagRef.current.firstSpeechTime = null;
@@ -677,7 +677,7 @@ export default function useSpeech({
                         } else {
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
-                            if (silenceMs >= 180 && speechDurationMs >= 180) {
+                            if (silenceMs >= 100 && speechDurationMs >= 100) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
@@ -735,10 +735,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // Instant natural silence pause for snappy browser speech utterance completion
+            // Ultra-fast instant natural silence pause for snappy browser speech utterance completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 180);
+            }, 100);
         };
 
         const createAndStart = () => {

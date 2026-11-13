@@ -84,7 +84,7 @@ export const hasFieldChangeIntent = (text) => {
         /\b\d{1,2}[:.]\d{1,2}\b/i.test(text) ||
         /\b([1-9]|1[0-2])\s+[0-5]\d\b/i.test(text) ||
         hasDateWords ||
-        /(?:title|naam|नाम|description|विवरण|डिस्क्रिप्शन|priority|प्रायोरिटी|status|स्टेटस|due|baje|बजे|baaj|baj|bach|बज|time|samay|समय|date|tareekh|tarikh|तारीख|minute|min|मिनट|घंटा|hour|p\.?m\.?|a\.?m\.?|pm|am|subah|shaam|sham|dopahar|raat|reminder|रिमाइंडर|checkpoints|चेकपॉइंट|assign|photo|file|low|high|medium|pending|in-progress|completed|chay|pchas|saadhe|sadhe|saade|sade|साढ़े|tees|तीस|pandrah|पंद्रह|pachaas|पचास)/iu.test(text)
+        /(?:title|naam|नाम|description|विवरण|डिस्क्रिप्शन|priority|प्रायोरिटी|status|स्टेटस|due|baje|बजे|baaj|baj|bach|बज|time|samay|समय|date|tareekh|tarikh|तारीख|minute|min|मिनट|घंटा|hour|p\.?m\.?|a\.?m\.?|pm|am|subah|shaam|sham|dopahar|raat|reminder|रिमाइंडर|checkpoints|चेकपॉइंट|assign|photo|photos|file|files|image|images|attach|attachment|attachments|attachement|attachements|remove|hatao|delete|add|low|high|medium|pending|in-progress|completed|make\s+it|set\s+to|badlo|badal|change|chay|pchas|saadhe|sadhe|saade|sade|साढ़े|tees|तीस|pandrah|पंद्रह|pachaas|पचास)/iu.test(text)
     );
 };
 

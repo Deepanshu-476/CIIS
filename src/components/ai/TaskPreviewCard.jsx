@@ -40,6 +40,7 @@ export default function TaskPreviewCard({
     onConfirm,
     onEdit,
     onCancel,
+    isPast = false,
 }) {
     if (!preview) return null;
     if (preview.intent === 'create_client' || preview.entity === 'client') {
@@ -50,6 +51,7 @@ export default function TaskPreviewCard({
                 onConfirm={onConfirm}
                 onEdit={onEdit}
                 onCancel={onCancel}
+                isPast={isPast}
             />
         );
     }
@@ -61,6 +63,7 @@ export default function TaskPreviewCard({
                 onConfirm={onConfirm}
                 onEdit={onEdit}
                 onCancel={onCancel}
+                isPast={isPast}
             />
         );
     }
@@ -72,6 +75,7 @@ export default function TaskPreviewCard({
                 onConfirm={onConfirm}
                 onEdit={onEdit}
                 onCancel={onCancel}
+                isPast={isPast}
             />
         );
     }

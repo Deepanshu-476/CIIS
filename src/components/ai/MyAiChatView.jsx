@@ -578,33 +578,53 @@ export default function MyAiChatView({ onBack, onClose }) {
           ===================================================================== */}
       <main className="my-ai-thread-scroll">
         <div className="my-ai-messages-list">
-          {messages.map((m, idx) => {
-            const isUser = m.role === 'user';
-            const isLatestAssistant = !isUser && idx === messages.length - 1;
+          {(() => {
+            const lastPreviewIdx = messages.reduce((last, m, idx) => m.preview ? idx : last, -1);
+            return messages.map((m, idx) => {
+              const isUser = m.role === 'user';
+              const isLatestAssistant = !isUser && idx === messages.length - 1;
+              const isPastPreview = Boolean(m.preview && idx < lastPreviewIdx);
 
-            return (
-              <div
-                key={m.id || idx}
-                className={`my-ai-message-row ${isUser ? 'user' : 'assistant'}`}
-              >
+              return (
                 <div
-                  className={`my-ai-bubble ${isUser ? 'user' : 'assistant'} ${
-                    m.isError ? 'error-bubble' : ''
-                  }`}
+                  key={m.id || idx}
+                  className={`my-ai-message-row ${isUser ? 'user' : 'assistant'}`}
                 >
-                  {isUser ? (
-                    <span>{renderFormattedMarkdown(m.text)}</span>
-                  ) : (
-                    <AssistantMessageContent
-                      text={m.text}
-                      isLatest={isLatestAssistant}
-                      isError={m.isError}
-                    />
-                  )}
+                  <div
+                    className={`my-ai-bubble ${isUser ? 'user' : 'assistant'} ${
+                      m.isError ? 'error-bubble' : ''
+                    }`}
+                  >
+                    {isUser ? (
+                      <span>{renderFormattedMarkdown(m.text)}</span>
+                    ) : (
+                      <>
+                        <AssistantMessageContent
+                          text={m.text}
+                          isLatest={isLatestAssistant}
+                          isError={m.isError}
+                        />
+                        {m.preview && (
+                          <div className="my-ai-preview-card-wrap" style={{ marginTop: '12px' }}>
+                            <TaskPreviewCard
+                              preview={m.preview}
+                              files={files}
+                              busy={creating}
+                              uploadProgress={uploadProgress}
+                              onConfirm={() => handleConfirm(m.payload || result?.payload)}
+                              onEdit={handleEdit}
+                              onCancel={handleCancel}
+                              isPast={isPastPreview}
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
 
           {/* Thinking bubble when waiting for parse / task creation */}
           {loading && (
@@ -715,8 +735,8 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
 
-          {/* Inline Task Preview Card on Ready State */}
-          {status === 'ready' && result?.preview && (
+          {/* Inline Task Preview Card on Ready State (only if no message holds it) */}
+          {status === 'ready' && result?.preview && !messages.some(m => m.preview) && (
             <div className="my-ai-preview-card-wrap">
               {readyCountdown !== null && (
                 <div className="my-ai-countdown-banner">

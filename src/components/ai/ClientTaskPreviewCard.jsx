@@ -7,6 +7,7 @@ export default function ClientTaskPreviewCard({
     onConfirm,
     onEdit,
     onCancel,
+    isPast = false,
 }) {
     if (!preview) return null;
 
@@ -19,10 +20,13 @@ export default function ClientTaskPreviewCard({
     const assignee = preview.assignee || preview.assigneeName || 'Unassigned';
 
     return (
-        <div className="ai-preview ai-client-task-preview">
+        <div className={`ai-preview ai-client-task-preview ${isPast ? 'ai-preview-past' : ''}`} style={isPast ? { opacity: 0.88, border: '1px dashed #cbd5e1' } : undefined}>
             <div className="ai-preview-top">
                 <h4>{taskTitle}</h4>
-                <span className={`ai-prio ${priority.toLowerCase()}`}>{priority}</span>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {isPast && <span style={{ fontSize: '11px', background: '#e5e7eb', color: '#4b5563', padding: '2px 8px', borderRadius: '4px', fontWeight: 500 }}>Pehle ka version</span>}
+                    <span className={`ai-prio ${priority.toLowerCase()}`}>{priority}</span>
+                </div>
             </div>
 
             <div className="ai-preview-desc-box">

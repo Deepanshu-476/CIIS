@@ -657,7 +657,8 @@ export default function useTaskAgentSession({
 
                 let assistantMsgId = null;
                 if (data.reply) {
-                    assistantMsgId = pushMsg('assistant', data.reply);
+                    const extra = (data.status === 'ready' && data.preview) ? { preview: data.preview, payload: data.payload } : {};
+                    assistantMsgId = pushMsg('assistant', data.reply, extra);
                 }
 
                 if (data.language) {
@@ -1477,6 +1478,7 @@ export default function useTaskAgentSession({
     const handleEdit = useCallback(() => {
         cancelReadyCountdown();
         stop('button-click');
+        pushMsg('user', 'Edit');
         const replyMsg = 'Ji batayein kya changes karne hain? Main kar dungi.';
         const speechMsg = 'जी बताएं क्या बदलाव करने हैं? मैं कर दूंगी।';
         const msgId = pushMsg('assistant', replyMsg);

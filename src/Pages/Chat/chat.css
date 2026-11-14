@@ -295,6 +295,11 @@
     background: #94a3b8;
 }
 
+/* On a break: still online, just stepped away. */
+.status-dot.on-break {
+    background: #f59e0b;
+}
+
 .status-dot.group {
     background: #1845b8;
 }

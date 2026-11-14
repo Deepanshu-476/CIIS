@@ -35,6 +35,9 @@ const styles = {
   statLabel: { fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.3 },
   statValue: { fontSize: 15, fontWeight: 800, color: "#0f172a" },
   note: { fontSize: 11, color: "#64748b", marginTop: 10 },
+  reasonChip: { padding: "6px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f1f5f9", color: "#334155", fontSize: 12, fontWeight: 700, cursor: "pointer" },
+  reasonChipOn: { background: "#1845b8", borderColor: "#1845b8", color: "#fff" },
+  overstay: { margin: "10px 0 0", fontSize: 12, color: "#b91c1c", fontWeight: 700 },
   history: { fontSize: 12, color: "#475569", marginTop: 4 },
 };
 
@@ -42,6 +45,7 @@ export default function BreakCard() {
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [reason, setReason] = useState("");
   const [, setTick] = useState(0);
   const loadedAtRef = useRef(Date.now());
 
@@ -72,12 +76,18 @@ export default function BreakCard() {
   }, [ticking]);
 
   const act = async action => {
+    if (action === "start" && state?.policy?.requireReason && !reason) {
+      toast.error("Pick what this break is for.");
+      return;
+    }
     try {
       setBusy(true);
-      const res = await axios.post(`/breaks/${action}`, {});
+      const body = action === "start" && reason ? { reason } : {};
+      const res = await axios.post(`/breaks/${action}`, body);
       if (res.data?.success) {
         setState(res.data);
         loadedAtRef.current = Date.now();
+        if (action === "stop") setReason("");
         if (res.data.warning) toast.warn(res.data.warning);
         else toast.success(res.data.message || "Done");
       }
@@ -95,12 +105,17 @@ export default function BreakCard() {
   const isFixed = policy.mode === "FIXED";
   const onBreak = Boolean(state.onBreak);
   const limits = policy.limits || {};
+  const cap = limits.enabled ? Number(limits.maxSingleBreakMinutes) || 0 : 0;
   const elapsed = Math.floor((Date.now() - loadedAtRef.current) / 1000);
   // Frozen while a break runs: those seconds belong to the break, not to work.
   const workingSeconds = state.isClockedIn && !onBreak
     ? (Number(state.workingSeconds) || 0) + Math.max(0, elapsed)
     : (Number(state.workingSeconds) || 0);
   const breakSeconds = onBreak ? Math.max(0, elapsed) : 0;
+  const runningMinutes = Math.floor(breakSeconds / 60);
+  const overstayWarning = onBreak && cap > 0 && runningMinutes >= cap
+    ? `This break is ${runningMinutes - cap} minute${runningMinutes - cap === 1 ? "" : "s"} over the ${cap}-minute limit. Your admin has been told.`
+    : "";
 
   return (
     <div style={{ ...styles.card, ...(onBreak ? styles.cardOnBreak : {}) }}>
@@ -131,6 +146,28 @@ export default function BreakCard() {
         </button>
       </div>
 
+      {!onBreak && state.isClockedIn && (policy.reasons || []).length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={styles.statLabel}>
+            {policy.requireReason ? "What is this break for? (required)" : "What is this break for? (optional)"}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+            {policy.reasons.map(item => (
+              <button
+                key={item}
+                type="button"
+                style={{ ...styles.reasonChip, ...(reason === item ? styles.reasonChipOn : {}) }}
+                onClick={() => setReason(reason === item ? "" : item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {overstayWarning && <p style={styles.overstay}>{overstayWarning}</p>}
+
       <div style={styles.stats}>
         <div>
           <div style={styles.statLabel}>Break today</div>
@@ -159,6 +196,16 @@ export default function BreakCard() {
           <div style={styles.statValue}>{state.grossTime}</div>
         </div>
       </div>
+
+      {limits.enabled && (limits.minGapMinutes > 0 || cap > 0) && (
+        <p style={styles.note}>
+          {[
+            limits.minGapMinutes > 0 ? `${limits.minGapMinutes} min between breaks` : "",
+            cap > 0 ? `one break up to ${cap} min` : "",
+          ].filter(Boolean).join(" · ")}
+          {limits.enforce === "BLOCK" ? " (enforced)" : ""}
+        </p>
+      )}
 
       {isFixed && (policy.fixedBreaks || []).length > 0 && (
         <p style={styles.note}>

@@ -69,6 +69,10 @@ export default function BreakAdminPanel() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState("live");
+  const [month, setMonth] = useState(() => new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 7));
+  const [report, setReport] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
 
   const loadLive = useCallback(async () => {
     try {
@@ -92,7 +96,46 @@ export default function BreakAdminPanel() {
     }
   }, []);
 
+  const loadReport = useCallback(async () => {
+    try {
+      setLoadingReport(true);
+      const res = await axios.get(`/breaks/report?month=${month}`);
+      if (res.data?.success) setReport(res.data);
+    } catch (error) {
+      if (error?.response?.status === 403) setAllowed(false);
+      else toast.error("Could not load the break report.");
+    } finally {
+      setLoadingReport(false);
+    }
+  }, [month]);
+
   useEffect(() => { loadLive(); }, [loadLive]);
+  useEffect(() => { if (tab === "report") loadReport(); }, [tab, loadReport]);
+
+  // One CSV of the month, the same numbers the table shows.
+  const exportReport = () => {
+    if (!report?.items?.length) {
+      toast.error("Nothing to export for this month.");
+      return;
+    }
+    const header = ["Employee", "Employee ID", "Department", "Mode", "Days worked", "Days with break",
+      "Total break (min)", "Punched (min)", "Auto (min)", "Breaks", "Avg per day (min)",
+      "Longest break (min)", "Days over limit", "By reason"];
+    const rows = report.items.map(item => [
+      item.name, item.employeeId, item.departmentName, item.mode, item.daysWorked, item.daysWithBreak,
+      item.totalMinutes, item.punchedMinutes, item.autoMinutes, item.breakCount, item.averageMinutesPerDay,
+      item.longestBreakMinutes, item.overLimitDays,
+      Object.entries(item.byReason || {}).map(([reason, minutes]) => `${reason}:${minutes}m`).join(" "),
+    ]);
+    const csv = [header, ...rows]
+      .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    link.download = `break_report_${report.month}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
 
   const openSettings = () => {
     setOpen(true);
@@ -155,13 +198,27 @@ export default function BreakAdminPanel() {
             {live?.date ? ` · ${live.date}` : ""}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" style={styles.ghost} onClick={loadLive}>Refresh</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            style={{ ...styles.modeChip, ...(tab === "live" ? styles.modeChipOn : {}) }}
+            onClick={() => setTab("live")}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            style={{ ...styles.modeChip, ...(tab === "report" ? styles.modeChipOn : {}) }}
+            onClick={() => setTab("report")}
+          >
+            Monthly report
+          </button>
+          <button type="button" style={styles.ghost} onClick={tab === "report" ? loadReport : loadLive}>Refresh</button>
           <button type="button" style={styles.button} onClick={openSettings}>Break settings</button>
         </div>
       </div>
 
-      {onBreakRows.length === 0 && withBreaks.length === 0 ? (
+      {tab === "live" ? (onBreakRows.length === 0 && withBreaks.length === 0 ? (
         <div style={styles.empty}>No breaks taken yet today.</div>
       ) : (
         <table style={styles.table}>
@@ -187,13 +244,85 @@ export default function BreakAdminPanel() {
                 <td style={styles.td}>{row.workingTime}</td>
                 <td style={styles.td}>
                   {row.onBreak && (
-                    <span style={styles.pill}>{`ON BREAK · ${sinceLabel(row.runningSince)}`}</span>
+                    <span style={styles.pill}>
+                      {`ON BREAK · ${sinceLabel(row.runningSince)}${row.runningReason ? ` · ${row.runningReason}` : ""}`}
+                    </span>
+                  )}
+                  {row.overstayMinutes > 0 && (
+                    <div style={{ fontSize: 11, color: "#b91c1c", fontWeight: 800 }}>{`${row.overstayMinutes}m over limit`}</div>
                   )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )) : (
+        <>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+            <input type="month" value={month} onChange={event => setMonth(event.target.value)} style={styles.input} />
+            <button type="button" style={styles.ghost} onClick={exportReport}>Export CSV</button>
+            {report?.summary && (
+              <span style={{ fontSize: 12, color: "#64748b" }}>
+                {`${report.summary.employees} employee(s) · ${minutesLabel(report.summary.totalMinutes)} total · avg ${minutesLabel(report.summary.averageMinutesPerEmployee)} each · ${report.summary.overLimitDays} day(s) over limit`}
+              </span>
+            )}
+          </div>
+
+          {report?.summary?.byReason && Object.keys(report.summary.byReason).length > 0 && (
+            <p style={{ fontSize: 12, color: "#475569", marginTop: 8 }}>
+              {Object.entries(report.summary.byReason)
+                .sort((a, b) => b[1] - a[1])
+                .map(([reason, minutes]) => `${reason} ${minutesLabel(minutes)}`)
+                .join(" · ")}
+            </p>
+          )}
+
+          {loadingReport ? (
+            <div style={styles.empty}>Loading…</div>
+          ) : !report?.items?.length ? (
+            <div style={styles.empty}>No breaks recorded in this month.</div>
+          ) : (
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Employee</th>
+                  <th style={styles.th}>Department</th>
+                  <th style={styles.th}>Days</th>
+                  <th style={styles.th}>Total break</th>
+                  <th style={styles.th}>Avg / day</th>
+                  <th style={styles.th}>Breaks</th>
+                  <th style={styles.th}>Longest</th>
+                  <th style={styles.th}>Over limit</th>
+                  <th style={styles.th}>By reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.items.map(item => (
+                  <tr key={item.userId}>
+                    <td style={styles.td}>
+                      <strong>{item.name}</strong>
+                      {item.employeeId ? <div style={{ fontSize: 11, color: "#64748b" }}>{item.employeeId}</div> : null}
+                    </td>
+                    <td style={styles.td}>{item.departmentName || "—"}</td>
+                    <td style={styles.td}>{`${item.daysWithBreak}/${item.daysWorked}`}</td>
+                    <td style={styles.td}><strong>{minutesLabel(item.totalMinutes)}</strong></td>
+                    <td style={styles.td}>{minutesLabel(item.averageMinutesPerDay)}</td>
+                    <td style={styles.td}>{item.breakCount}</td>
+                    <td style={styles.td}>{minutesLabel(item.longestBreakMinutes)}</td>
+                    <td style={styles.td}>
+                      {item.overLimitDays > 0
+                        ? <span style={{ color: "#b91c1c", fontWeight: 800 }}>{item.overLimitDays}</span>
+                        : "—"}
+                    </td>
+                    <td style={styles.td}>
+                      {Object.entries(item.byReason || {}).map(([reason, minutes]) => `${reason} ${minutesLabel(minutes)}`).join(" · ") || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
 
       {open && (
@@ -339,6 +468,22 @@ export default function BreakAdminPanel() {
                         : "Notify the admin when a break starts and ends"}
                     </label>
 
+                    <div style={styles.groupLabel}>Break reasons</div>
+                    <input
+                      style={{ ...styles.wideInput, width: "100%" }}
+                      value={(editing.policy.reasons || []).join(", ")}
+                      placeholder="Lunch, Tea, Personal, Meeting, Other"
+                      onChange={event => patchPolicy({ reasons: event.target.value.split(",").map(item => item.trim()).filter(Boolean) })}
+                    />
+                    <label style={styles.toggleRow}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editing.policy.requireReason)}
+                        onChange={event => patchPolicy({ requireReason: event.target.checked })}
+                      />
+                      The employee must pick a reason before the break starts
+                    </label>
+
                     <div style={styles.groupLabel}>Daily limit</div>
                     <label style={styles.toggleRow}>
                       <input
@@ -346,7 +491,7 @@ export default function BreakAdminPanel() {
                         checked={Boolean(editing.policy.limits?.enabled)}
                         onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), enabled: event.target.checked } })}
                       />
-                      Limit how many breaks and how long
+                      Limit breaks: how many, how long, the gap between them, and one break&apos;s length
                     </label>
                     {editing.policy.limits?.enabled && (
                       <>
@@ -369,6 +514,28 @@ export default function BreakAdminPanel() {
                             onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxMinutesPerDay: Number(event.target.value) || 0 } })}
                           />
                           <span style={{ fontSize: 12, color: "#64748b" }}>minutes a day</span>
+                        </div>
+                        <div style={styles.windowRow}>
+                          <input
+                            style={styles.input}
+                            type="number"
+                            min="0"
+                            placeholder="Gap"
+                            value={editing.policy.limits?.minGapMinutes || ""}
+                            onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), minGapMinutes: Number(event.target.value) || 0 } })}
+                          />
+                          <span style={{ fontSize: 12, color: "#64748b" }}>minutes before the next break</span>
+                          <input
+                            style={styles.input}
+                            type="number"
+                            min="0"
+                            placeholder="One break"
+                            value={editing.policy.limits?.maxSingleBreakMinutes || ""}
+                            onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxSingleBreakMinutes: Number(event.target.value) || 0 } })}
+                          />
+                          <span style={{ fontSize: 12, color: "#64748b" }}>
+                            minutes for one break (after this, the admin and the employee are told it is running long)
+                          </span>
                         </div>
                         <div style={styles.modeRow}>
                           {["WARN", "BLOCK"].map(value => (

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import WeekOffAdminPanel from "../../components/WeekOffAdminPanel";
+import BreakAdminPanel from "../../components/BreakAdminPanel";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
 import CIISLoader from '../../../Loader/CIISLoader'; 
@@ -3935,6 +3936,9 @@ const EmployeeAttendance = () => {
           </div>
         </div>
       </div>
+
+      {/* Breaks: who is on one now, and the break policy per company / branch / department / shift */}
+      <BreakAdminPanel />
 
       {/* Weekly off: approve day changes, and set each employee's day */}
       <WeekOffAdminPanel />

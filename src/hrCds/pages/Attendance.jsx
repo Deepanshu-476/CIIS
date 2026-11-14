@@ -4,6 +4,7 @@ import axios from "../../utils/axiosConfig";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CIISLoader from "../../Loader/CIISLoader";
+import WeekOffCard from "../components/WeekOffCard";
 import "../Css/Attendance.css";
 
 import {
@@ -1146,6 +1147,9 @@ const Attendance = () => {
           ))}
         </div>
       </div>
+
+      {/* My weekly off: which day it is this month, and asking to move it */}
+      <WeekOffCard />
 
       {/* 2. Subheader Controls Row */}
       <div className="att-controls-row">

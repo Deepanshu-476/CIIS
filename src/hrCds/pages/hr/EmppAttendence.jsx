@@ -102,6 +102,14 @@ export const formatTimeForInput = (dateValue) => {
   }
 };
 
+// Break comes from the server in minutes; Gross is clock-in to clock-out, and Hours Worked is that
+// minus the break — the time actually worked.
+const formatBreakLabel = minutes => {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!total) return "--";
+  return total < 60 ? `${total}m` : `${Math.floor(total / 60)}h ${total % 60}m`;
+};
+
 const parseTimeToMinutes = (timeStr, fallback = 0) => {
   if (!timeStr) return fallback;
   const [h, m] = String(timeStr).split(':').map(Number);
@@ -2999,6 +3007,8 @@ const EmployeeAttendance = () => {
         const hours = rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00");
         const status = formatStatusLabel(rec.status);
         const lateBy = rec.lateBy || "00:00:00";
+        const breakLabel = formatBreakLabel(rec.breakMinutes);
+        const grossHours = rec.grossTime || "00:00:00";
 
         return [
           index + 1,
@@ -3011,6 +3021,8 @@ const EmployeeAttendance = () => {
           checkIn,
           checkOut,
           hours,
+          breakLabel,
+          grossHours,
           status,
           lateBy
         ];
@@ -3018,7 +3030,7 @@ const EmployeeAttendance = () => {
 
       // 4. Render Table with autoTable
       const tableHeaders = [
-        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Status", "Late By"]
+        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Break", "Gross", "Status", "Late By"]
       ];
 
       const runTable = typeof autoTable === 'function' ? autoTable : doc.autoTable;
@@ -3056,11 +3068,14 @@ const EmployeeAttendance = () => {
           7: { cellWidth: 50, halign: "center" },
           8: { cellWidth: 50, halign: "center" },
           9: { cellWidth: 50, halign: "center" },
-          10: { cellWidth: 68, halign: "center", fontStyle: "bold" },
-          11: { cellWidth: 48, halign: "center" },
+          10: { cellWidth: 40, halign: "center" },
+          11: { cellWidth: 50, halign: "center" },
+          12: { cellWidth: 62, halign: "center", fontStyle: "bold" },
+          13: { cellWidth: 44, halign: "center" },
         },
         didParseCell: (data) => {
-          if (data.section === "body" && data.column.index === 10) {
+          // Status is column 12 now that Break and Gross sit before it.
+          if (data.section === "body" && data.column.index === 12) {
             const rawStatus = String(data.cell.raw || "").toUpperCase();
             if (rawStatus.includes("PRESENT") || rawStatus.includes("ON TIME")) {
               data.cell.styles.textColor = [22, 101, 52];
@@ -3469,6 +3484,8 @@ const EmployeeAttendance = () => {
       'Check Out': formatTime(record.outTime),
       'Check Out Type': getClockOutModeLabel(record),
       'Hours Worked': record.hoursWorked || '00:00:00',
+      'Break': formatBreakLabel(record.breakMinutes),
+      'Gross Hours': record.grossTime || '00:00:00',
       'Status': formatStatusLabel(record.status),
       'Late By': record.lateBy || '00:00:00',
       'Early Leave': record.earlyLeave || '00:00:00',
@@ -3508,7 +3525,7 @@ const EmployeeAttendance = () => {
     
     const worksheet = XLSX.utils.json_to_sheet(allData, {
       header: ['Date', 'Department', 'Employee ID', 'Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-               'Hours Worked', 'Status', 'Late By', 'Early Leave', 'Overtime', 'Total Hours']
+               'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime', 'Total Hours']
     });
     
     const workbook = XLSX.utils.book_new();
@@ -3525,7 +3542,7 @@ const EmployeeAttendance = () => {
     setExportMenuOpen(false);
     
     const headers = ['Date', 'Department', 'Employee Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-                     'Hours Worked', 'Status', 'Late By', 'Early Leave', 'Overtime'];
+                     'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime'];
     
     const csvData = filteredRecords.map(record => [
       record.displayDate || formatDate(record.date),
@@ -3537,6 +3554,8 @@ const EmployeeAttendance = () => {
       formatTime(record.outTime),
       getClockOutModeLabel(record),
       record.hoursWorked || '00:00:00',
+      formatBreakLabel(record.breakMinutes),
+      record.grossTime || '00:00:00',
       formatStatusLabel(record.status),
       record.lateBy || '00:00:00',
       record.earlyLeave || '00:00:00',
@@ -4135,6 +4154,7 @@ const EmployeeAttendance = () => {
                 <th className="EmppAttendence-col-checkin">Check In</th>
                 <th className="EmppAttendence-col-checkout">Check Out</th>
                 <th className="EmppAttendence-col-hours">Hours</th>
+                <th className="EmppAttendence-col-hours">Break</th>
                 <th className="EmppAttendence-col-login">Login Time</th>
                 <th className="EmppAttendence-col-status">Status</th>
                 <th className="EmppAttendence-col-late">Late By</th>
@@ -4150,7 +4170,7 @@ const EmployeeAttendance = () => {
                     <React.Fragment key={date}>
                       
                       <tr className="EmppAttendence-date-header">
-                        <td colSpan={bulkEditMode ? 13 : 12}>
+                        <td colSpan={bulkEditMode ? 14 : 13}>
                           <div className="EmppAttendence-date-title">
                             <FiCalendar size={18} />
                             <strong>{new Date(date).toLocaleDateString("en-US", {
@@ -4276,6 +4296,10 @@ const EmployeeAttendance = () => {
                             })()}
                           </td>
 
+                          <td className="EmppAttendence-col-hours" title={rec.grossTime && rec.grossTime !== '00:00:00' ? `Gross ${rec.grossTime}` : undefined}>
+                            {formatBreakLabel(rec.breakMinutes)}
+                          </td>
+
                           <td className="EmppAttendence-col-login">
                             <div className="EmppAttendence-login-time-info">
                               {getLoginTimeCategory(rec.inTime)}
@@ -4354,7 +4378,7 @@ const EmployeeAttendance = () => {
                     <React.Fragment key={department}>
                       
                       <tr className="EmppAttendence-department-header">
-                        <td colSpan={bulkEditMode ? 13 : 12}>
+                        <td colSpan={bulkEditMode ? 14 : 13}>
                           <div className="EmppAttendence-department-title">
                             <FiUsers size={18} />
                             <strong>{department} Department</strong>
@@ -4530,7 +4554,7 @@ const EmployeeAttendance = () => {
                 )
               ) : (
                 <tr>
-                  <td colSpan={bulkEditMode ? (dateRangeMode ? 13 : 12) : (dateRangeMode ? 12 : 11)}>
+                  <td colSpan={bulkEditMode ? (dateRangeMode ? 14 : 13) : (dateRangeMode ? 13 : 12)}>
                     <div className="EmppAttendence-empty-state">
                       <div className="EmppAttendence-empty-state-icon">
                         <FiCalendar size={48} />

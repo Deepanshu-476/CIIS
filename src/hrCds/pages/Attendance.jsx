@@ -6,6 +6,13 @@ import "react-toastify/dist/ReactToastify.css";
 import CIISLoader from "../../Loader/CIISLoader";
 import WeekOffCard from "../components/WeekOffCard";
 import BreakCard from "../components/BreakCard";
+// Break comes from the server in minutes; Gross is login to logout and Total Time is that minus
+// the break — the time actually worked.
+const formatBreakLabel = minutes => {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!total) return "-";
+  return total < 60 ? `${total}m` : `${Math.floor(total / 60)}h ${total % 60}m`;
+};
 import "../Css/Attendance.css";
 
 import {
@@ -946,6 +953,8 @@ const Attendance = () => {
       "Login Time",
       "Logout Time",
       "Total Time",
+      "Break",
+      "Gross Time",
       "Status",
       "Late By",
       "Auto Clockout",
@@ -992,6 +1001,8 @@ const Attendance = () => {
         loginDisplay,
         logoutDisplay,
         r.totalTime || r.workingHours || "-",
+        formatBreakLabel(r.breakMinutes),
+        r.grossTime || "-",
         displayStatus,
         r.lateBy && r.lateBy !== "00:00:00" ? r.lateBy : "-",
         r.autoClockout ? "Yes" : "No",
@@ -1439,6 +1450,7 @@ const Attendance = () => {
                     <th>LOGIN</th>
                     <th>LOGOUT</th>
                     <th>TOTAL TIME</th>
+                    <th>BREAK</th>
                     <th>STATUS</th>
                     <th>LATE BY</th>
                     <th style={{ textAlign: "center", width: "70px" }}>ACTIONS</th>
@@ -1447,7 +1459,7 @@ const Attendance = () => {
                 <tbody>
                   {paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan="9">
+                      <td colSpan="10">
                         <div className="att-empty-state">
                           <FiClock className="att-empty-icon" />
                           <p className="att-empty-title">No attendance records found</p>
@@ -1528,6 +1540,15 @@ const Attendance = () => {
                             ) : (
                               item.totalTime || item.workingHours
                             )}
+                          </td>
+                          <td style={{ color: "#475569" }}>
+                            {item.breakMinutes
+                              ? (
+                                <span title={item.grossTime ? `Gross ${item.grossTime}` : undefined}>
+                                  {formatBreakLabel(item.breakMinutes)}
+                                </span>
+                              )
+                              : <span style={{ color: "#94a3b8" }}>—</span>}
                           </td>
                           <td>
                             {(() => {

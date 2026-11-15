@@ -495,6 +495,20 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
             }),
             priorityDays: draft.priorityDays ? Number(draft.priorityDays) : 1,
             repeatPattern: draft.repeatPattern || 'none',
+            repeatDays: JSON.stringify(
+                draft.repeatPattern && draft.repeatPattern !== 'none'
+                    ? ((Array.isArray(draft.repeatDays) && draft.repeatDays.length > 0)
+                        ? draft.repeatDays
+                        : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
+                    : (draft.repeatDays || [])
+            ),
+            recurrenceEndDate: draft.repeatPattern && draft.repeatPattern !== 'none'
+                ? (draft.recurrenceEndDate || (() => {
+                    const baseDue = draft.dueDateTime ? new Date(draft.dueDateTime) : new Date();
+                    const end = new Date(baseDue.getTime() + 30 * 24 * 60 * 60 * 1000);
+                    return end.toISOString().slice(0, 10) + 'T23:59:59.999Z';
+                })())
+                : '',
         },
     };
 };
@@ -991,13 +1005,13 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
     const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
 
     // Assigning tasks to others requires "Admin Create Task" permission (not general Task Management)
+    const isOnAdminTaskPage = typeof window !== 'undefined' && (
+        window.location?.pathname?.includes('admin-task-create') ||
+        Boolean(document?.querySelector?.('a[href*="admin-task-create"], [data-page="admin-task-create"]'))
+    );
     const hasAdminTaskCreateMenu = menuSlugs.has('admintaskcreate') || menuSlugs.has('admin-task-create') || menuSlugs.has('admincreatetask') || menuSlugs.has('admin-create-task');
     const hasAdminTaskCreatePerm = permSlugs.has('admintaskcreate') || permSlugs.has('admin-task-create') || permSlugs.has('admincreatetask') || permSlugs.has('admin-create-task');
-    if (allConfigItems.length > 0) {
-        if (hasAdminTaskCreateMenu) {
-            allowed.add('task_assigned_user');
-        }
-    } else if (hasAdminTaskCreatePerm) {
+    if (isOnAdminTaskPage || hasAdminTaskCreateMenu || hasAdminTaskCreatePerm) {
         allowed.add('task_assigned_user');
     }
     // Creating projects requires administrative project permission

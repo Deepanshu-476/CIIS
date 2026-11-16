@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   FiAlertCircle,
@@ -269,6 +270,7 @@ const normalizeTaskStats = (tasks, apiStats = null) => {
 };
 
 const ActiveClientsOverview = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [clientTaskMap, setClientTaskMap] = useState({});
   const [clientStatsMap, setClientStatsMap] = useState({});
@@ -288,6 +290,13 @@ const ActiveClientsOverview = () => {
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
   const [deletingDocument, setDeletingDocument] = useState(false);
+  const [showAllServices, setShowAllServices] = useState(false);
+  const [showServicesPopover, setShowServicesPopover] = useState(false);
+
+  useEffect(() => {
+    setShowAllServices(false);
+    setShowServicesPopover(false);
+  }, [selectedClientId]);
 
   const user = useMemo(() => {
     try {
@@ -955,7 +964,11 @@ const ActiveClientsOverview = () => {
               })}
             </div>
 
-            <button type="button" className="ActiveClientsOverview-viewAll" onClick={() => setSearch('')}>
+            <button
+              type="button"
+              className="ActiveClientsOverview-viewAll"
+              onClick={() => navigate('/ciisUser/emp-client')}
+            >
               View All Clients <FiChevronRight />
             </button>
           </aside>
@@ -976,8 +989,49 @@ const ActiveClientsOverview = () => {
                       </p>
                       <div className="ActiveClientsOverview-serviceLine">
                         <small>Services:</small>
-                        {selectedServices.slice(0, 4).map(service => <span key={service}>{service}</span>)}
-                        {selectedServices.length > 4 && <span>+{selectedServices.length - 4}</span>}
+                        {(showAllServices ? selectedServices : selectedServices.slice(0, 4)).map((service, index) => {
+                          const label = typeof service === 'string' ? service : (service?.service || service?.name || `Service ${index + 1}`);
+                          return <span key={`${label}-${index}`}>{label}</span>;
+                        })}
+                        {selectedServices.length > 4 && !showAllServices && (
+                          <div
+                            className="ActiveClientsOverview-moreServicesWrap"
+                            onMouseEnter={() => setShowServicesPopover(true)}
+                            onMouseLeave={() => setShowServicesPopover(false)}
+                          >
+                            <button
+                              type="button"
+                              className="ActiveClientsOverview-moreServicesBtn"
+                              onClick={() => setShowAllServices(true)}
+                              title={selectedServices.slice(4).map(s => (typeof s === 'string' ? s : s?.service || s?.name || '')).filter(Boolean).join(', ')}
+                              aria-label={`Show ${selectedServices.length - 4} more services`}
+                            >
+                              +{selectedServices.length - 4}
+                            </button>
+                            {showServicesPopover && (
+                              <div className="ActiveClientsOverview-servicesPopover">
+                                <span className="ActiveClientsOverview-servicesPopoverTitle">
+                                  Remaining Services ({selectedServices.length - 4})
+                                </span>
+                                <div className="ActiveClientsOverview-servicesPopoverList">
+                                  {selectedServices.slice(4).map((service, index) => {
+                                    const label = typeof service === 'string' ? service : (service?.service || service?.name || `Service ${index + 5}`);
+                                    return <span key={`${label}-${index}`}>{label}</span>;
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {selectedServices.length > 4 && showAllServices && (
+                          <button
+                            type="button"
+                            className="ActiveClientsOverview-moreServicesBtn ActiveClientsOverview-lessBtn"
+                            onClick={() => setShowAllServices(false)}
+                          >
+                            Show Less
+                          </button>
+                        )}
                         {!selectedServices.length && <em>No services assigned</em>}
                       </div>
                     </div>

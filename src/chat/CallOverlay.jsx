@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import API_URL, { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
+import { findPresenter, isPresenterTile, presenterLabel } from "./callStage";
 import { getCompanyUsers } from "../services/chatService";
 import "../Pages/Chat/chat.css";
 
@@ -298,7 +299,7 @@ const useAudioActivity = (stream, enabled = true) => {
     return isSpeaking;
 };
 
-const RemoteVideoTile = ({ participant }) => {
+const RemoteVideoTile = ({ participant, isPresenter = false }) => {
     const videoRef = useRef(null);
     const audioRef = useRef(null);
     const [isMuted, setIsMuted] = useState(false);
@@ -340,7 +341,7 @@ const RemoteVideoTile = ({ participant }) => {
     const participantName = participant.user?.name || "Participant";
 
     return (
-        <div className={`call-remote-tile ${isSpeaking ? "is-speaking" : ""}`}>
+        <div className={`call-remote-tile ${isSpeaking ? "is-speaking" : ""} ${isPresenter ? "is-presenter" : ""}`}>
             <audio ref={audioRef} autoPlay playsInline />
             {participant.stream ? (
                 <video ref={videoRef} autoPlay playsInline className="call-remote-video" />
@@ -459,6 +460,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [isCameraOff, setIsCameraOff] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
+    // Who is sharing a screen right now; their tile becomes the stage for everyone else.
+    const [screenShareUserId, setScreenShareUserId] = useState(null);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [connectionStatus, setConnectionStatus] = useState("");
     const [floatingPosition, setFloatingPosition] = useState({ x: 24, y: 90 });
@@ -591,6 +594,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     const stopScreenShare = async ({ restoreCamera = true } = {}) => {
         const screenTrack = screenTrackRef.current;
+        const sharedCallId = activeCallRef.current?.callId;
+        if (sharedCallId) socket?.emit("call:screen-share", { callId: sharedCallId, sharing: false });
         if (!screenTrack) {
             setIsScreenSharing(false);
             return;
@@ -796,6 +801,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         setLocalStream(null);
         cameraVideoTrackRef.current = null;
         setRemoteParticipants([]);
+        setScreenShareUserId(null);
     };
 
     const resetPeers = () => {
@@ -1527,6 +1533,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 localVideoRef.current.srcObject = displayStream;
             }
             setIsScreenSharing(true);
+            // Without this the others only see the screen squeezed into my small camera tile.
+            const sharedCallId = activeCallRef.current?.callId;
+            if (sharedCallId) socket?.emit("call:screen-share", { callId: sharedCallId, sharing: true });
             await renegotiatePeers();
         } catch (shareError) {
             logCall("Screen share failed", shareError);
@@ -1664,8 +1673,10 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
             const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
             const activeNextCall = activateCall(activeCall, connectedAt ? { connectedAt } : {});
+            applyScreenShareUserId(data.screenShareUserId);
             socket.emit("call:get-roster", { callId: data.callId }, payload => {
                 if (payload?.participants && activeCallRef.current?.callId === data.callId) setCallRoster(payload.participants);
+                if (payload && activeCallRef.current?.callId === data.callId) applyScreenShareUserId(payload.screenShareUserId);
             });
 
             (data.participants || []).forEach(participant => {
@@ -1787,9 +1798,21 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             handleCallClosed({ ...data, status: "missed" });
         };
 
+        const applyScreenShareUserId = (value) => {
+            const sharerId = value ? String(value) : "";
+            // My own share is already on my screen; only someone else's becomes the stage here.
+            setScreenShareUserId(sharerId && sharerId !== String(currentUserId) ? sharerId : null);
+        };
+
         const handleRoster = (data) => {
             if (!data?.callId || activeCallRef.current?.callId !== data.callId) return;
             setCallRoster(Array.isArray(data.participants) ? data.participants : []);
+            applyScreenShareUserId(data.screenShareUserId);
+        };
+
+        const handleScreenShare = (data) => {
+            if (!data?.callId || activeCallRef.current?.callId !== data.callId) return;
+            applyScreenShareUserId(data.screenShareUserId);
         };
 
         const handleNotice = (data) => {
@@ -1853,6 +1876,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         socket.on("call:ended", handleCallClosed);
         socket.on("call:missed", handleCallMissed);
         socket.on("call:roster", handleRoster);
+        socket.on("call:screen-share", handleScreenShare);
         socket.on("call:notice", handleNotice);
         socket.on("call:removed", handleRemoved);
 
@@ -1872,6 +1896,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.off("call:ended", handleCallClosed);
             socket.off("call:missed", handleCallMissed);
             socket.off("call:roster", handleRoster);
+            socket.off("call:screen-share", handleScreenShare);
             socket.off("call:notice", handleNotice);
             socket.off("call:removed", handleRemoved);
         };
@@ -2050,6 +2075,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const displayStatus = connectionStatus || statusLabel;
     const callDuration = call.status === "active" ? formatCallDuration(elapsedSeconds) : "00:00";
     const showsVideoStage = isVideoCall || isScreenSharing;
+    // Someone else's shared screen becomes the stage; the cameras shrink into a strip below it.
+    const presenter = showsVideoStage ? findPresenter(remoteParticipants, screenShareUserId) : null;
     const localUserInfo = getCurrentUserPublicInfo(currentUser);
     const localUserName = localUserInfo.name || "You";
     const localAvatarSrc = getAvatarSrc(localUserInfo.avatar);
@@ -2193,12 +2220,26 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                         </div>
                     </div>
                 )}
-                <div className={call.isGroupCall ? "call-remote-stage group-stage" : "call-remote-stage"}>
+                <div className={[
+                    "call-remote-stage",
+                    call.isGroupCall ? "group-stage" : "",
+                    presenter ? "has-presenter" : "",
+                ].filter(Boolean).join(" ")}>
+                    {presenter && (
+                        <div className="call-presenting-pill" role="status">
+                            <MonitorUp size={13} />
+                            <span>{presenterLabel(presenter)}</span>
+                        </div>
+                    )}
                     {showsVideoStage ? (
                         remoteParticipants.length > 0 ? (
                             <div className="call-video-grid">
                                 {remoteParticipants.map(participant => (
-                                    <RemoteVideoTile key={participant.userId} participant={participant} />
+                                    <RemoteVideoTile
+                                        key={participant.userId}
+                                        participant={participant}
+                                        isPresenter={isPresenterTile(participant, presenter)}
+                                    />
                                 ))}
                             </div>
                         ) : (

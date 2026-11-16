@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import CIISLoader from "../../Loader/CIISLoader";
 import { getProfileCompletion, getFirstIncompleteProfileSection } from "../utils/profileCompletion";
+import InstagramImageCropper from "../../components/InstagramImageCropper";
 import "./Profile.css";
 import {
   FiBriefcase,
@@ -567,18 +568,10 @@ const Profile = () => {
 
   const getProfileCropStageSize = () => profileCropStageRef.current?.getBoundingClientRect?.().width || profileCropStageSize || 320;
 
-  const saveCroppedProfileImage = async () => {
-    if (!profileCropSource) return;
+  const saveCroppedProfileImage = async (cropped) => {
+    if (!cropped) return;
     setUploadingProfileImage(true);
     try {
-      const stageSize = getProfileCropStageSize();
-      const cropped = await buildCompressedProfileImage(profileCropSource, {
-        x: profileCropPosition.x,
-        y: profileCropPosition.y,
-        zoom: profileCropZoom,
-        stageSize,
-      });
-
       const response = await axios.put("/users/me", { profileImage: cropped }, {
         headers: { "Content-Type": "application/json" },
       });
@@ -1210,81 +1203,14 @@ const Profile = () => {
         </div>
       )}
 
-      {profileCropOpen && (
-        <div className="UserDetails-modal-overlay UserDetails-avatar-crop-overlay" onClick={closeProfileCrop}>
-          <div
-            className="UserDetails-modal UserDetails-avatar-crop-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="profile-crop-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="UserDetails-modal-header">
-              <div className="UserDetails-modal-title-group">
-                <span className="UserDetails-modal-title-icon">
-                  <FiUser />
-                </span>
-                <div>
-                  <h2 id="profile-crop-title">Crop Profile Picture</h2>
-                  <p>Drag the image, adjust the zoom, then save your changes.</p>
-                </div>
-              </div>
-              <button type="button" className="UserDetails-icon-btn" onClick={closeProfileCrop} disabled={uploadingProfileImage} aria-label="Close crop dialog">
-                <FiX />
-              </button>
-            </div>
-
-            <div className="UserDetails-modal-content UserDetails-avatar-crop-content">
-              <div className="UserDetails-avatar-crop-stage" ref={profileCropStageRef}>
-                <div
-                  className="UserDetails-avatar-crop-window"
-                  onPointerDown={handleCropPointerDown}
-                  onPointerMove={handleCropPointerMove}
-                  onPointerUp={handleCropPointerUp}
-                  onPointerCancel={handleCropPointerUp}
-                >
-                  <img
-                    src={profileCropSource}
-                    alt="Selected profile"
-                    className="UserDetails-avatar-crop-image"
-                    style={{
-                      width: `${profileCropRenderedWidth}px`,
-                      height: `${profileCropRenderedHeight}px`,
-                      transform: `translate(-50%, -50%) translate(${profileCropPosition.x}px, ${profileCropPosition.y}px) scale(${profileCropZoom})`,
-                    }}
-                    draggable="false"
-                  />
-                </div>
-              </div>
-
-              <div className="UserDetails-avatar-crop-controls">
-                <label className="UserDetails-avatar-crop-zoom">
-                  <span>Zoom</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="3"
-                    step="0.01"
-                    value={profileCropZoom}
-                    onChange={(event) => setProfileCropZoom(Number(event.target.value))}
-                    disabled={uploadingProfileImage}
-                  />
-                </label>
-                <p className="UserDetails-avatar-crop-hint">Position the image inside the crop box. The cropped photo will be applied after you save.</p>
-              </div>
-            </div>
-
-            <div className="UserDetails-modal-footer">
-              <button type="button" className="UserDetails-secondary-btn" onClick={closeProfileCrop} disabled={uploadingProfileImage}>
-                Cancel
-              </button>
-              <button type="button" className="UserDetails-primary-btn" onClick={saveCroppedProfileImage} disabled={uploadingProfileImage}>
-                <FiSave /> {uploadingProfileImage ? "Saving..." : "Save Crop"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <InstagramImageCropper
+        isOpen={profileCropOpen}
+        imageSrc={profileCropSource}
+        onClose={closeProfileCrop}
+        onSave={saveCroppedProfileImage}
+        isSaving={uploadingProfileImage}
+        title="Crop Profile Picture"
+      />
 
       <div className="UserDetails-grid">
         <section className="UserDetails-section-card UserDetails-section-half">

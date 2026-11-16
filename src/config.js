@@ -1,4 +1,5 @@
 const isDev = import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+export const API_ORIGIN = isDev ? 'http://127.0.0.1:3000' : 'https://backendcds.ciisnetwork.in';
 export const API_URL = import.meta.env.VITE_API_URL || (isDev ? 'http://127.0.0.1:3000/api' : 'https://backendcds.ciisnetwork.in/api');
 export const API_URL_IMG = import.meta.env.VITE_API_URL_IMG || (isDev ? 'http://127.0.0.1:3000/' : 'https://backendcds.ciisnetwork.in/');
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (isDev ? 'http://127.0.0.1:3000' : 'https://backendcds.ciisnetwork.in');

@@ -1108,6 +1108,8 @@ const ChatPage = () => {
   const [activeView, setActiveView] = useState("chats");
   const [selectedCallId, setSelectedCallId] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
+  // Who stepped away for a break, so a colleague knows why nobody is answering.
+  const [breakUsers, setBreakUsers] = useState({});
   const [presenceReady, setPresenceReady] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [groups, setGroups] = useState([]);
@@ -1263,6 +1265,11 @@ const ChatPage = () => {
       lastMessage: conversation?.lastMessage,
     };
   }), group => group.conversation);
+
+  const isUserOnBreak = useCallback(user => {
+    const id = getEntityId(user);
+    return Boolean(id && breakUsers[id]);
+  }, [breakUsers]);
 
   const isUserOnlineNow = useCallback(user => {
     const id = getEntityId(user);
@@ -1514,7 +1521,22 @@ const ChatPage = () => {
       scheduleConversationsReload();
     };
 
+    const handleBreakPresence = data => {
+      const userId = (data?.userId || "").toString();
+      if (!userId) return;
+      setBreakUsers(prev => {
+        if (!data.onBreak) {
+          if (!prev[userId]) return prev;
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        }
+        return { ...prev, [userId]: { since: data.since || Date.now(), reason: data.reason || data.label || "" } };
+      });
+    };
+
     socket.on("chat:online-users", handleOnline);
+    socket.on("presence:break", handleBreakPresence);
     socket.on("chat:user-online", handleChatUserOnline);
     socket.on("chat:user-offline", handleChatUserOffline);
     socket.on("user:online", handleChatUserOnline);
@@ -1546,6 +1568,7 @@ const ChatPage = () => {
 
     return () => {
       socket.off("chat:online-users", handleOnline);
+      socket.off("presence:break", handleBreakPresence);
       socket.off("chat:user-online", handleChatUserOnline);
       socket.off("chat:user-offline", handleChatUserOffline);
       socket.off("user:online", handleChatUserOnline);
@@ -1626,6 +1649,7 @@ const ChatPage = () => {
           onlineUsers={onlineUsers}
           presenceReady={presenceReady}
           isUserOnlineNow={isUserOnlineNow}
+          isUserOnBreak={isUserOnBreak}
           unreadCounts={unreadCounts}
           selectedUser={selectedUser}
           setSelectedUser={setSelectedUser}

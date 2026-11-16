@@ -3275,6 +3275,27 @@ const Sidebar = ({
       ));
     }
 
+    // Client Plans is an administrative pricing/package configuration tool.
+    // Ordinary employees must never have Client Plans in their sidebar.
+    const clientPlanAdminRoles = new Set([
+      'owner', 'admin', 'super_admin', 'superadmin',
+      'company_owner', 'companyowner'
+    ]);
+    const canManageClientPlans = [
+      userData?.companyRole,
+      userData?.jobRole,
+      userData?.role
+    ].some(value => clientPlanAdminRoles.has(
+      normalizeAdministrativeRole(getRecordDisplayName(value) || value)
+    ));
+
+    if (!canManageClientPlans) {
+      accessFilteredItems = accessFilteredItems.filter(item => (
+        item.id !== 'client-plans' &&
+        String(item.path || '').toLowerCase() !== '/ciisuser/client-plans'
+      ));
+    }
+
     // Sidebar Management stores the click/selection sequence as `order`.
     // Keep that exact sequence across categories in the employee menu.
     const sortedItems = accessFilteredItems

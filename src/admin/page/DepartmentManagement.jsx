@@ -1279,9 +1279,11 @@ const DepartmentManagement = () => {
                 className="DepartmentManagement-modal-close"
                 onClick={() => setOpenDialog(false)}
                 disabled={loading}
+                aria-label="Close dialog"
               >
-                <svg width={isMobile ? "18" : "20"} height={isMobile ? "18" : "20"} viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
             </div>
@@ -1314,12 +1316,11 @@ const DepartmentManagement = () => {
                     {getIconSvg('business', isMobile ? 18 : 20)}
                   </span>
                   <select
-                    className="DepartmentManagement-form-input"
+                    className="DepartmentManagement-form-input DepartmentManagement-select"
                     value={formData.branch}
                     onChange={(e) => setFormData({...formData, branch: e.target.value})}
                     disabled={loadingBranches || branches.length === 0}
                     required
-                    style={{ appearance: 'none', background: 'transparent', outline: 'none' }}
                   >
                     <option value="">
                       {loadingBranches 
@@ -1360,11 +1361,10 @@ const DepartmentManagement = () => {
                     {getIconSvg('today', isMobile ? 18 : 20)}
                   </span>
                   <select
-                    className="DepartmentManagement-form-input"
+                    className="DepartmentManagement-form-input DepartmentManagement-select"
                     value={formData.workingDays}
                     onChange={(e) => setFormData({...formData, workingDays: Number(e.target.value)})}
                     required
-                    style={{ appearance: 'none', background: 'transparent', outline: 'none' }}
                   >
                     {[1, 2, 3, 4, 5, 6, 7].map(dayCount => (
                       <option key={dayCount} value={dayCount}>

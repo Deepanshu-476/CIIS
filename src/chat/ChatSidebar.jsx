@@ -16,11 +16,12 @@ const ChatSidebar = ({
     currentUserId,
     companyUsers = [],
     onCreateGroup,
-    loadError = false,
+    loadError = false,      
     onRetry,
     className = "",
     presenceReady = false,
     isUserOnlineNow,
+    isUserOnBreak,
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [newChatUserId, setNewChatUserId] = useState("");
@@ -112,6 +113,9 @@ const ChatSidebar = ({
         if (presenceReady) return isIdOnline(userId);
         return Boolean(user?.isOnline) || isIdOnline(userId);
     };
+
+    // A colleague on a break is still online; the badge just says why they may not reply.
+    const onBreak = user => (typeof isUserOnBreak === "function" ? Boolean(isUserOnBreak(user)) : false);
 
     const getLastMessageTime = item => {
         const dateValue = item?.lastMessage?.createdAt || item?.conversation?.updatedAt || item?.updatedAt;
@@ -225,8 +229,8 @@ const ChatSidebar = ({
         [...companyUsers].sort((first, second) => (
             String(first?.name || "").localeCompare(String(second?.name || ""))
         ))
+        
     ), [companyUsers]);
-
     const selectableCompanyUsers = useMemo(() => (
         sortedCompanyUsers.filter(user => getItemId(user) !== currentUserId)
     ), [sortedCompanyUsers, currentUserId]);
@@ -471,12 +475,16 @@ const ChatSidebar = ({
                                 </div>
                                 <div className="chat-user-role">
                                     <span className={
-                                        isUserOnline(user)
-                                            ? "status-dot"
-                                            : "status-dot offline"
+                                        onBreak(user)
+                                            ? "status-dot on-break"
+                                            : isUserOnline(user)
+                                                ? "status-dot"
+                                                : "status-dot offline"
                                     } />
                                     <span className="role-text">
-                                        {isUserOnline(user) ? "Online" : "Offline"} - {getLastMessageText(user)}
+                                        {onBreak(user)
+                                            ? "On break"
+                                            : isUserOnline(user) ? "Online" : "Offline"} - {getLastMessageText(user)}
                                     </span>
                                 </div>
                             </div>

@@ -245,6 +245,14 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.ActiveClientsOverview-viewAll:hover {
+  background: #f8faff;
+  border-color: #3867ff;
+  color: #2563eb;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
 }
 
 .ActiveClientsOverview-main {
@@ -311,6 +319,130 @@
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
+}
+
+.ActiveClientsOverview-moreServicesWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ActiveClientsOverview-moreServicesBtn {
+  border: 1px solid #d0ddfb;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #e8efff;
+  color: #2559ed;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  cursor: pointer;
+  line-height: normal;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ActiveClientsOverview-moreServicesBtn:hover {
+  background: #2559ed;
+  color: #ffffff;
+  border-color: #2559ed;
+  box-shadow: 0 4px 12px rgba(37, 89, 237, 0.25);
+  transform: translateY(-1px);
+}
+
+.ActiveClientsOverview-moreServicesBtn.ActiveClientsOverview-lessBtn {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.ActiveClientsOverview-moreServicesBtn.ActiveClientsOverview-lessBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.ActiveClientsOverview-servicesPopover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  z-index: 60;
+  min-width: 190px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+.ActiveClientsOverview-servicesPopover:before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent #e2e8f0 transparent;
+}
+
+.ActiveClientsOverview-servicesPopover:after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent #ffffff transparent;
+}
+
+.ActiveClientsOverview-servicesPopoverTitle {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  color: #64748b !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  letter-spacing: 0.5px;
+  display: block;
+}
+
+.ActiveClientsOverview-servicesPopoverList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ActiveClientsOverview-servicesPopoverList span {
+  border-radius: 999px;
+  padding: 4px 9px !important;
+  background: #e8efff;
+  color: #2559ed;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .ActiveClientsOverview-profileActions {

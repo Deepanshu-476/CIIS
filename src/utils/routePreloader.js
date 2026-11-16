@@ -32,6 +32,7 @@ const routeLoaders = {
   "/ciisUser/emp-client": () => import("../hrCds/pages/hr/Client"),
   "/ciisUser/client-plans": () => import("../hrCds/pages/hr/ClientPlansPage.jsx"),
   "/ciisUser/active-clients": () => import("../hrCds/pages/ActiveClientsOverview.jsx"),
+  "/ciisUser/holiday": () => import("../page/Holidays.jsx"),
   "/ciisUser/emp-details": () => import("../hrCds/pages/hr/EmppDetail"),
   "/ciisUser/emp-leaves": () => import("../hrCds/pages/hr/EmppLeaves"),
   "/ciisUser/emp-assets": () => import("../hrCds/pages/hr/EmppAssets"),

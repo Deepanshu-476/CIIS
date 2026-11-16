@@ -146,6 +146,10 @@ export const CallProvider = ({ children }) => {
     startCall: (callType, user) => {
       callOverlayRef.current?.startCall(callType, user);
     },
+    rejoinCall: (callInfo) => {
+      callOverlayRef.current?.rejoinCall(callInfo);
+    },
+    getActiveCall: () => callOverlayRef.current?.getActiveCall(),
     callHistory,
     clearCallHistory,
   }), [callHistory, clearCallHistory]);

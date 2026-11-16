@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -12,6 +12,7 @@ import {
 import axios from '../../utils/axiosConfig';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import ResetOtpResend, { ResetOtpSendNote, useResetOtpLimit } from '../../components/ResetOtpResend';
 
 const ChangePassword = () => {
   const navigate = useNavigate();
@@ -28,17 +29,10 @@ const ChangePassword = () => {
   const [errors, setErrors] = useState({});
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [countdown, setCountdown] = useState(0);
+  const resetOtpLimit = useResetOtpLimit();
   const [successMessage, setSuccessMessage] = useState('');
 
   
-  useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   
   const VisibilityIcon = () => (
@@ -96,11 +90,13 @@ const ChangePassword = () => {
       const response = await axios.post('/auth/forgot-password', { email });
       
       if (response.data.success) {
-        toast.success('OTP sent to your email!');
+        resetOtpLimit.applySuccess(response.data);
+        toast.success(response.data.message || 'OTP sent to your email!');
         setStep('reset');
-        setCountdown(60); 
       }
     } catch (error) {
+      // During a server wait the last OTP is still valid, so go to the OTP step.
+      if (resetOtpLimit.applyError(error) && error.response?.data?.errorCode === 'OTP_COOLDOWN') setStep('reset');
       toast.error(error.response?.data?.message || 'Failed to send OTP');
       setErrors({ general: error.response?.data?.message || 'Failed to send OTP' });
     } finally {
@@ -154,7 +150,7 @@ const ChangePassword = () => {
   };
 
   const handleResendOTP = async () => {
-    if (countdown > 0) return;
+    if (!resetOtpLimit.canSend) return;
     
     setLoading(true);
     setSuccessMessage('');
@@ -163,10 +159,11 @@ const ChangePassword = () => {
       const response = await axios.post('/auth/forgot-password', { email });
       
       if (response.data.success) {
-        toast.success('New OTP sent to your email!');
-        setCountdown(60); 
+        resetOtpLimit.applySuccess(response.data);
+        toast.success(response.data.message || 'OTP sent again to your email!');
       }
     } catch (error) {
+      resetOtpLimit.applyError(error);
       toast.error(error.response?.data?.message || 'Failed to resend OTP');
     } finally {
       setLoading(false);
@@ -264,6 +261,7 @@ const ChangePassword = () => {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
+                    resetOtpLimit.reset();
                     if (errors.email) setErrors({ ...errors, email: '' });
                   }}
                   disabled={loading}
@@ -277,11 +275,12 @@ const ChangePassword = () => {
             <button
               onClick={handleSendOTP}
               className="ciis-login-primary-button"
-              disabled={loading}
+              disabled={loading || !resetOtpLimit.canSend}
               style={{ width: '100%', padding: '14px' }}
             >
               {loading ? 'Sending OTP...' : 'Send OTP'}
             </button>
+            <ResetOtpSendNote limit={resetOtpLimit} />
 
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
               <button
@@ -358,22 +357,8 @@ const ChangePassword = () => {
               </div>
               {errors.otp && <span className="ciis-login-error-text">{errors.otp}</span>}
               
-              {/* Resend OTP */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-                <button
-                  onClick={handleResendOTP}
-                  disabled={countdown > 0 || loading}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: countdown > 0 ? '#999' : '#667eea',
-                    cursor: countdown > 0 ? 'default' : 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: 500
-                  }}
-                >
-                  {countdown > 0 ? `Resend OTP in ${countdown}s` : 'Resend OTP'}
-                </button>
+              <div style={{ marginTop: '6px' }}>
+                <ResetOtpResend limit={resetOtpLimit} onResend={handleResendOTP} loading={loading} />
               </div>
             </div>
 

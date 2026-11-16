@@ -18,7 +18,9 @@ import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate, { hasCompanyPlanAccess } from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
 import useTaskRealtime from '../hooks/useTaskRealtime';
+import PromoPopup from '../promotions/PromoPopup';
 import { useAuth } from '../context/useAuth';
+import { trackPageView } from '../utils/activityTracker';
 
 const drawerWidthOpen = 236;
 const drawerWidthClosed = 70;
@@ -72,6 +74,11 @@ const UserLayout = () => {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const theme = useTheme();
+
+  // User Activity: count which company pages this user opens and for how long.
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const isClientUser = React.useMemo(() => {
@@ -240,6 +247,7 @@ const UserLayout = () => {
           </Box>
         </MainContent>
         <FeedbackQuestionnairePopup />
+        <PromoPopup userId={user?._id || user?.id} enabled={!isClientUser} />
         {!isClientUser && <SupportChatWidget />}
         {!isClientUser && hasCompanyPlanAccess('chat') && <MessengerDropdown />}
         </LayoutContainer>

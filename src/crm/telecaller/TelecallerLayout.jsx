@@ -8,7 +8,7 @@ import {
   loadPagePermission,
   hasPageAccess,
 } from "../../utils/pageAccess";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, UserPlus } from "lucide-react";
 import TelecallerSkeleton from "./TelecallerSkeleton";
 import "./Telecaller.css";
 import "./DashboardComponents.css";
@@ -204,10 +204,18 @@ function TelecallerSession({ slug }) {
             >
               <RefreshCw size={16} strokeWidth={1.8} aria-hidden="true" />
             </button>}
+            {slug !== "add-lead" && can("add-lead") && (
+              <Link to={`${BASE}/add-lead`} className="cw-btn-nav" style={{ background: "#6366f1", color: "#ffffff", borderColor: "#6366f1", display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none", whiteSpace: "nowrap" }}>
+                <UserPlus size={15} aria-hidden="true" /> Add Lead
+              </Link>
+            )}
           </div>
         </div>
 
-        {loading ? (
+        {slug === "add-lead" ? (
+          // The Add Lead form does not need the lead list, so it opens even while that loads or fails.
+          <Outlet />
+        ) : loading ? (
           <TelecallerSkeleton slug={slug} />
         ) : error ? (
           <div className="tc-error-state" role="alert">

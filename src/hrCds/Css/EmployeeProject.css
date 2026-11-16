@@ -382,6 +382,10 @@
 
 .EmployeeProject-card-content {
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .EmployeeProject-card-header {
@@ -419,17 +423,35 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1rem;
+  margin-top: auto;
   padding-top: 1rem;
   border-top: 1px solid rgba(0,0,0,0.08);
+  gap: 12px;
 }
 
 .EmployeeProject-card-date {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #666;
-  font-size: 0.875rem;
+  gap: 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  min-width: 0;
+  flex: 1;
+}
+
+.EmployeeProject-card-date svg {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.EmployeeProject-card-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .EmployeeProject-card-pdf {
@@ -512,6 +534,19 @@
   background: linear-gradient(135deg, #5a6fd8 0%, #6a3f8c 100%);
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.EmployeeProject-button-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.EmployeeProject-button-success:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.45);
 }
 
 .EmployeeProject-button-outline {

@@ -1,0 +1,300 @@
+.image-adjust-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(11, 20, 26, 0.86);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    padding: 16px;
+    animation: imageAdjustFadeIn 0.18s ease-out;
+}
+
+@keyframes imageAdjustFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.image-adjust-card {
+    background: #1f2c34;
+    color: #e9edef;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: imageAdjustPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes imageAdjustPopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.image-adjust-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid rgba(134, 150, 160, 0.15);
+}
+
+.image-adjust-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #e9edef;
+}
+
+.image-adjust-subtitle {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #8696a0;
+}
+
+.image-adjust-close-btn {
+    background: transparent;
+    border: none;
+    color: #aebac1;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.image-adjust-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.image-adjust-viewport-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 18px;
+    background: #111b21;
+}
+
+.image-adjust-viewport {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    border-radius: 8px;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    background: #0c1317;
+    cursor: grab;
+}
+
+.image-adjust-viewport.is-dragging {
+    cursor: grabbing;
+}
+
+.image-adjust-img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: center center;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    will-change: transform;
+    max-width: none;
+    max-height: none;
+}
+
+.image-adjust-overlay-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.image-adjust-grid {
+    transition: opacity 0.15s ease;
+}
+
+.image-adjust-controls {
+    padding: 12px 18px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.image-adjust-zoom-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.image-adjust-icon-btn {
+    background: transparent;
+    border: none;
+    color: #aebac1;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.image-adjust-icon-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e9edef;
+}
+
+.image-adjust-icon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.image-adjust-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: #2a3942;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.image-adjust-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #00a884;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    transition: transform 0.12s ease;
+}
+
+.image-adjust-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.image-adjust-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #00a884;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.image-adjust-zoom-val {
+    min-width: 40px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #8696a0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.image-adjust-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.image-adjust-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #d1d7db;
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.image-adjust-pill-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.image-adjust-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 18px 16px;
+    border-top: 1px solid rgba(134, 150, 160, 0.12);
+}
+
+.image-adjust-cancel-btn {
+    background: transparent;
+    border: 1px solid rgba(134, 150, 160, 0.3);
+    color: #d1d7db;
+    padding: 8px 18px;
+    font-size: 13.5px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.image-adjust-cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.image-adjust-confirm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #00a884;
+    border: none;
+    color: #111b21;
+    padding: 8px 22px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.image-adjust-confirm-btn:hover:not(:disabled) {
+    background: #02906f;
+}
+
+.image-adjust-confirm-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.image-adjust-confirm-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+

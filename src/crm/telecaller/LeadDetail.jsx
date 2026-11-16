@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import CallRecording from '../components/CallRecording';
 import {
   Phone,
   PhoneCall,
@@ -859,6 +860,7 @@ function LeadDetailContent({
                           </span>
                         )}
                       </p>
+                      <CallRecording url={call.recordingUrl} emptyText="" />
                     </div>
                   </div>
                 ))}
@@ -1007,6 +1009,7 @@ function LeadDetailContent({
                         <th>Outcome</th>
                         <th>Next Follow-up</th>
                         <th>Notes</th>
+                        <th>Recording</th>
                         <th>Telecaller</th>
                       </tr>
                     </thead>
@@ -1035,6 +1038,9 @@ function LeadDetailContent({
                           </td>
                           <td style={{ maxWidth: 220, color: "var(--ld-text-muted)" }}>
                             {call.notes || "—"}
+                          </td>
+                          <td style={{ minWidth: 240 }}>
+                            <CallRecording url={call.recordingUrl} emptyText="—" />
                           </td>
                           <td>{call.createdByName || lead.assignedTo || "—"}</td>
                         </tr>

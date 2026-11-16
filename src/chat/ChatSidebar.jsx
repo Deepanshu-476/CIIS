@@ -4,6 +4,7 @@ import { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
 import { taskEventText } from "./taskEventText";
 import { describeCallMessage, isCallMessage } from "./callMessage";
+import ImageAdjustModal from "./ImageAdjustModal";
 
 const ChatSidebar = ({
     groups,
@@ -20,6 +21,7 @@ const ChatSidebar = ({
     className = "",
     presenceReady = false,
     isUserOnlineNow,
+    isUserOnBreak,
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [newChatUserId, setNewChatUserId] = useState("");
@@ -30,6 +32,7 @@ const ChatSidebar = ({
     const [groupName, setGroupName] = useState("");
     const [groupAvatar, setGroupAvatar] = useState(null);
     const [groupAvatarPreview, setGroupAvatarPreview] = useState("");
+    const [adjustingAvatarFile, setAdjustingAvatarFile] = useState(null);
     const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState([]);
     const [groupError, setGroupError] = useState("");
     const [activeFilter, setActiveFilter] = useState("all");
@@ -110,6 +113,9 @@ const ChatSidebar = ({
         if (presenceReady) return isIdOnline(userId);
         return Boolean(user?.isOnline) || isIdOnline(userId);
     };
+
+    // A colleague on a break is still online; the badge just says why they may not reply.
+    const onBreak = user => (typeof isUserOnBreak === "function" ? Boolean(isUserOnBreak(user)) : false);
 
     const getLastMessageTime = item => {
         const dateValue = item?.lastMessage?.createdAt || item?.conversation?.updatedAt || item?.updatedAt;
@@ -286,14 +292,26 @@ const ChatSidebar = ({
         setGroupName("");
         setGroupAvatar(null);
         setGroupAvatarPreview("");
+        setAdjustingAvatarFile(null);
         setSelectedGroupMemberIds([]);
         setGroupError("");
     };
 
     const handleGroupAvatarChange = event => {
         const file = event.target.files?.[0] || null;
-        setGroupAvatar(file);
-        setGroupAvatarPreview(file ? URL.createObjectURL(file) : "");
+        event.target.value = "";
+        if (!file) return;
+        setAdjustingAvatarFile(file);
+    };
+
+    const handleAdjustAvatarConfirm = (croppedFile, previewUrl) => {
+        setGroupAvatar(croppedFile);
+        setGroupAvatarPreview(previewUrl);
+        setAdjustingAvatarFile(null);
+    };
+
+    const handleAdjustAvatarCancel = () => {
+        setAdjustingAvatarFile(null);
     };
 
     const openNewChatPanel = () => {
@@ -457,12 +475,16 @@ const ChatSidebar = ({
                                 </div>
                                 <div className="chat-user-role">
                                     <span className={
-                                        isUserOnline(user)
-                                            ? "status-dot"
-                                            : "status-dot offline"
+                                        onBreak(user)
+                                            ? "status-dot on-break"
+                                            : isUserOnline(user)
+                                                ? "status-dot"
+                                                : "status-dot offline"
                                     } />
                                     <span className="role-text">
-                                        {isUserOnline(user) ? "Online" : "Offline"} - {getLastMessageText(user)}
+                                        {onBreak(user)
+                                            ? "On break"
+                                            : isUserOnline(user) ? "Online" : "Offline"} - {getLastMessageText(user)}
                                     </span>
                                 </div>
                             </div>
@@ -741,17 +763,34 @@ const ChatSidebar = ({
                         </>
                     ) : (
                         <div className="chat-group-details">
-                            <label className="chat-group-avatar-preview" title="Add group picture">
-                                {groupAvatarPreview ? (
-                                    <img src={groupAvatarPreview} alt="Group preview" />
-                                ) : (
-                                    <>
-                                        <Users size={30} />
-                                        <span><Camera size={13} /></span>
-                                    </>
+                            <div className="chat-group-avatar-wrap">
+                                <label className="chat-group-avatar-preview" title={groupAvatarPreview ? "Change group picture" : "Add group picture"}>
+                                    {groupAvatarPreview ? (
+                                        <img src={groupAvatarPreview} alt="Group preview" />
+                                    ) : (
+                                        <>
+                                            <Users size={30} />
+                                            <span><Camera size={13} /></span>
+                                        </>
+                                    )}
+                                    <input type="file" accept="image/*" onChange={handleGroupAvatarChange} />
+                                </label>
+                                {groupAvatarPreview && (
+                                    <button
+                                        type="button"
+                                        className="chat-group-avatar-remove"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setGroupAvatar(null);
+                                            setGroupAvatarPreview("");
+                                        }}
+                                        title="Remove picture"
+                                    >
+                                        <X size={13} />
+                                    </button>
                                 )}
-                                <input type="file" accept="image/*" onChange={handleGroupAvatarChange} />
-                            </label>
+                            </div>
                             <input
                                 type="text"
                                 value={groupName}
@@ -771,6 +810,15 @@ const ChatSidebar = ({
                         </div>
                     )}
                 </section>
+            )}
+
+            {adjustingAvatarFile && (
+                <ImageAdjustModal
+                    imageFile={adjustingAvatarFile}
+                    onConfirm={handleAdjustAvatarConfirm}
+                    onCancel={handleAdjustAvatarCancel}
+                    title="Adjust group picture"
+                />
             )}
 
         </aside>

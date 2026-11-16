@@ -15,6 +15,7 @@ import {
   FiClock
 } from 'react-icons/fi';
 import './CallHistory.css';
+import CallRecording, { hasRecording } from '../components/CallRecording';
 
 const initialCallHistory = [
   {
@@ -87,8 +88,8 @@ const mapCallLog = (log, idx) => ({
   remarks: log.notes || '—',
   callTime: new Date(log.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
   assignedTo: log.agentName || log.agent?.name || 'Agent',
-  duration: log.duration ? `${Math.floor(log.duration / 60).toString().padStart(2, '0')}m ${(log.duration % 60).toString().padStart(2, '0')}s` : '00m 00s'
-  
+  duration: log.duration ? `${Math.floor(log.duration / 60).toString().padStart(2, '0')}m ${(log.duration % 60).toString().padStart(2, '0')}s` : '00m 00s',
+  recordingUrl: log.recordingUrl || ''
 });
 
 const CallHistory = () => {
@@ -406,6 +407,11 @@ const CallHistory = () => {
                       >
                         <FiEye size={15} />
                       </button>
+                      {hasRecording(call.recordingUrl) && (
+                        <div style={{ marginTop: 4 }}>
+                          <CallRecording url={call.recordingUrl} compact />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -516,6 +522,10 @@ const CallHistory = () => {
                   <strong>Assigned To:</strong>
                   <span>{selectedCall.assignedTo}</span>
                 </div>
+              </div>
+              <div className="his-modal-remarks">
+                <strong>Call Recording:</strong>
+                <CallRecording url={selectedCall.recordingUrl} />
               </div>
               <div className="his-modal-remarks">
                 <strong>Remarks / Conversation Notes:</strong>

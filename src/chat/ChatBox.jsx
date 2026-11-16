@@ -1,16 +1,19 @@
 import React, {
     useEffect,
     useRef,
-    useState
+    useState,
+    useSyncExternalStore
 } from "react";
 import "../Pages/Chat/chat.css";
 import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
-import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
+import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, PhoneCall, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 import axios from "../utils/axiosConfig";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
 import MessageBubble from "./MessageBubble";
+import PendingUploadBubble from "./PendingUploadBubble";
+import { enqueueUpload, getUploads, onUploadSent, subscribeUploads } from "./uploadQueue";
 import ChatMentionInput from "./ChatMentionInput";
 import { taskEventText } from "./taskEventText";
 import { mentionMembers, reconcileMentions } from "./mentionUtils";
@@ -19,6 +22,7 @@ import { openClientConversation, getClientChatTask, addClientChatRemark, openPro
 import { API_URL_IMG } from "../config";  
 import { attachmentLabel, attachmentSource, resolveAvatarUrl } from "./messageUtils";
 import { describeCallMessage, isCallMessage } from "./callMessage";
+import ImageAdjustModal from "./ImageAdjustModal";
 import { useCall } from "../context/CallContext";
 import { useNotification } from "../context/NotificationContext";
 
@@ -369,6 +373,8 @@ const ChatBox = ({
 
     const [files, setFiles] =
         useState([]);
+    const [pastedImageModal, setPastedImageModal] = useState(null);
+    const [adjustingGroupImageFile, setAdjustingGroupImageFile] = useState(null);
 
     const [isSendingAction, setIsSendingAction] = useState(false);
     const [typingUserId, setTypingUserId] = useState(null);
@@ -405,7 +411,8 @@ const ChatBox = ({
     const activeConversationIdRef = useRef(null);
     const chatMessagesRef = useRef(null);
     const shouldScrollToLatestRef = useRef(false);
-    const { startCall } = useCall();
+    const { startCall, rejoinCall, getActiveCall } = useCall();
+    const [ongoingCall, setOngoingCall] = useState(null);
     const { showToast } = useNotification();
     const [activeChatDateLabel, setActiveChatDateLabel] = useState("");
     const [showActiveChatDate, setShowActiveChatDate] = useState(false);
@@ -620,6 +627,37 @@ const ChatBox = ({
             setStarredMessageIds([]);
         }
     }, [contactPrefsKey]);
+
+    useEffect(() => {
+        if (!socket || !currentConversationId) {
+            setOngoingCall(null);
+            return;
+        }
+
+        // Query active ongoing call for this conversation
+        socket.emit("call:get-ongoing", { conversationId: currentConversationId }, (res) => {
+            if (res?.active) {
+                setOngoingCall(res);
+            } else {
+                setOngoingCall(null);
+            }
+        });
+
+        const handleOngoingStatus = (data) => {
+            if (String(data?.conversationId || "") !== String(currentConversationId || "")) return;
+            if (data?.active) {
+                setOngoingCall(data);
+            } else {
+                setOngoingCall(null);
+            }
+        };
+
+        socket.on("call:ongoing-status", handleOngoingStatus);
+
+        return () => {
+            socket.off("call:ongoing-status", handleOngoingStatus);
+        };
+    }, [socket, currentConversationId]);
 
     useEffect(() => {
         if (!shouldScrollToLatestRef.current) return;
@@ -1055,6 +1093,36 @@ useEffect(() => {
         queueScrollToLatestMessage("smooth");
     };
 
+    const allUploads = useSyncExternalStore(subscribeUploads, getUploads);
+    const pendingUploads = conversation?._id
+        ? allUploads.filter((item) => item.conversationId === String(conversation._id))
+        : [];
+    const appendSentMessagesRef = useRef(appendSentMessages);
+    appendSentMessagesRef.current = appendSentMessages;
+    const onConversationChangeRef = useRef(onConversationChange);
+    onConversationChangeRef.current = onConversationChange;
+    const openConversationIdRef = useRef(null);
+    openConversationIdRef.current = conversation?._id ? String(conversation._id) : null;
+
+    // Scroll to a newly sent file once its bubble is on screen.
+    const pendingUploadCount = pendingUploads.length;
+    const previousPendingCountRef = useRef(0);
+    useEffect(() => {
+        const added = pendingUploadCount > previousPendingCountRef.current;
+        previousPendingCountRef.current = pendingUploadCount;
+        if (!added) return undefined;
+        scrollToLatestMessage("smooth");
+        // Photo/video previews take a moment to get their height.
+        const timer = setTimeout(() => scrollToLatestMessage("smooth"), 400);
+        return () => clearTimeout(timer);
+    }, [pendingUploadCount]);
+
+    // A background upload finished: put the saved message in this chat if it is open.
+    useEffect(() => onUploadSent((message, conversationId) => {
+        if (openConversationIdRef.current === String(conversationId)) appendSentMessagesRef.current([message]);
+        onConversationChangeRef.current?.();
+    }), []);
+
     const emitSentMessage = () => {
         // Message delivery is emitted by the backend after database persistence.
         // Keeping this as a no-op prevents duplicate socket events and unread bumps.
@@ -1346,52 +1414,38 @@ useEffect(() => {
             return;
         }
 
+        // Files go to the background upload queue: they show in the chat at once and
+        // the composer is free for the next message while they upload.
+        if (files.length > 0) {
+            const outgoingText = text;
+            const myId = getEntityId(currentUser);
+            files.forEach((fileItem, index) => {
+                const uploadFile = getUploadFile(fileItem);
+                enqueueUpload({
+                    conversationId: conversation._id,
+                    file: uploadFile,
+                    text: index === 0 ? outgoingText : "",
+                    mentions: index === 0 ? messageMentions : undefined,
+                    replyToMessageId: index === 0 ? replyingTo?._id : undefined,
+                    replyTo: index === 0 && replyingTo ? { text: getMessageText(replyingTo) || attachmentLabel(replyingTo) } : null,
+                    compressionMode: fileItem?.compressionMode || chooseCompressionMode(uploadFile),
+                    sender: myId,
+                });
+            });
+            setText("");
+            setReplyingTo(null);
+            setFiles([]);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            socket?.emit("chat:stop-typing", { conversationId: conversation._id });
+            queueScrollToLatestMessage("smooth");
+            return;
+        }
+
         try {
             const messagesToAppend = [];
             const outgoingText = text;
 
-            if (files.length > 0) {
-                for (let index = 0; index < files.length; index += 1) {
-                    const fileItem = files[index];
-                    const uploadFile = getUploadFile(fileItem);
-                    const formData = new FormData();
-
-                    formData.append(
-                        "conversationId",
-                        conversation._id
-                    );
-
-                    if (index === 0 && outgoingText.trim()) {
-                        formData.append(
-                            "text",
-                            outgoingText
-                        );
-                    }
-
-                    if (index === 0) formData.append("mentions", JSON.stringify(messageMentions));
-                    if (index === 0 && replyingTo?._id) {
-                        formData.append("replyToMessageId", replyingTo._id);
-                    }
-
-                    formData.append(
-                        "file",
-                        uploadFile
-                    );
-                    if (uploadFile.type) formData.append("fileType", uploadFile.type);
-                    if (uploadFile.name) formData.append("fileName", uploadFile.name);
-                    appendCompressionMode(formData, fileItem?.compressionMode || chooseCompressionMode(uploadFile));
-
-                    const res =
-                        await sendMessage(formData);
-
-                    const newMessage =
-                        res.data.message;
-
-                    messagesToAppend.push(newMessage);
-
-                    emitSentMessage(newMessage);
-                }
-            } else {
+            {
                 const formData = new FormData();
 
                 formData.append(
@@ -1420,9 +1474,10 @@ useEffect(() => {
             setText("");
             setReplyingTo(null);
             setFiles([]);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (documentInputRef.current) documentInputRef.current.value = "";
+            if (photosVideosInputRef.current) photosVideosInputRef.current.value = "";
+            if (audioInputRef.current) audioInputRef.current.value = "";
             socket?.emit("chat:stop-typing", { conversationId: conversation._id });
             onConversationChange?.();
 
@@ -1598,13 +1653,53 @@ useEffect(() => {
         setReplyingTo(message);
     };
 
-    const scrollToRepliedMessage = messageId => {
-        if (!messageId) return;
+    const highlightMessageElement = messageId => {
         const target = chatMessagesRef.current?.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
-        if (!target) return;
+        if (!target) return false;
         target.scrollIntoView({ behavior: "smooth", block: "center" });
         target.classList.add("chat-replied-message-highlight");
-        window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1400);
+        window.setTimeout(() => target.classList.remove("chat-replied-message-highlight"), 1800);
+        return true;
+    };
+
+    // Tapping a reply quote: go to the answered message and highlight it, loading older
+    // pages first when it is not in the chat yet (like WhatsApp).
+    const scrollToRepliedMessage = async messageId => {
+        if (!messageId) return;
+        if (highlightMessageElement(messageId)) return;
+        const id = String(messageId);
+        if (!conversation?._id || !messagePagination.hasMore || !messagePagination.nextBefore) return;
+        let before = messagePagination.nextBefore;
+        let hasMore = messagePagination.hasMore;
+        const collected = [];
+        let found = false;
+        try {
+            setIsLoadingOlderMessages(true);
+            for (let page = 0; page < 15 && hasMore && before && !found; page += 1) {
+                const res = await getMessages(conversation._id, { limit: 50, before });
+                const older = Array.isArray(res.data.messages) ? res.data.messages : [];
+                collected.push(...older);
+                found = older.some(message => String(message._id || "") === id);
+                hasMore = Boolean(res.data.pagination?.hasMore);
+                before = res.data.pagination?.nextBefore || null;
+            }
+            setMessages(prev => {
+                const existingIds = new Set(prev.map(message => String(message._id || "")));
+                const uniqueOlder = collected
+                    .filter(message => !existingIds.has(String(message._id || "")))
+                    .map(message => normalizeMessageForChat(message, getEntityId(currentUser)));
+                return sortMessagesByCreatedAt([...uniqueOlder, ...prev]);
+            });
+            setMessagePagination({ hasMore, nextBefore: before });
+            if (found) {
+                // Wait for the older messages to render, then jump.
+                window.setTimeout(() => highlightMessageElement(id), 120);
+            }
+        } catch {
+            // The original message could not be loaded; stay where we are.
+        } finally {
+            setIsLoadingOlderMessages(false);
+        }
     };
 
     const handleEmojiSelect = (emojiData) => {
@@ -1625,9 +1720,10 @@ useEffect(() => {
 
     const clearSelectedFiles = () => {
         setFiles([]);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (documentInputRef.current) documentInputRef.current.value = "";
+            if (photosVideosInputRef.current) photosVideosInputRef.current.value = "";
+            if (audioInputRef.current) audioInputRef.current.value = "";
     };
 
     const handleFileSelection = (event) => {
@@ -1639,6 +1735,113 @@ useEffect(() => {
         event.target.value = "";
     };
 
+    const closePastedImageModal = () => {
+        if (pastedImageModal?.previewUrl) {
+            URL.revokeObjectURL(pastedImageModal.previewUrl);
+        }
+        setPastedImageModal(null);
+    };
+
+    const openPastedImageModal = (file) => {
+        if (!file) return;
+        if (pastedImageModal?.previewUrl) {
+            URL.revokeObjectURL(pastedImageModal.previewUrl);
+        }
+        const previewUrl = URL.createObjectURL(file);
+        setPastedImageModal({
+            file,
+            previewUrl,
+            caption: ""
+        });
+    };
+
+    const sendPastedImage = async () => {
+        if (!pastedImageModal || !conversation || isSendingAction) return;
+        try {
+            setIsSendingAction(true);
+            const { file, caption } = pastedImageModal;
+            const formData = new FormData();
+            formData.append("conversationId", conversation._id);
+            if (caption && caption.trim()) {
+                formData.append("text", caption.trim());
+            }
+            if (replyingTo?._id) {
+                formData.append("replyToMessageId", replyingTo._id);
+            }
+            formData.append("file", file);
+            if (file.type) formData.append("fileType", file.type);
+            if (file.name) formData.append("fileName", file.name);
+            appendCompressionMode(formData, "normal");
+
+            const res = await sendMessage(formData);
+            const newMessage = res.data.message;
+            appendSentMessages([newMessage]);
+            emitSentMessage(newMessage);
+
+            closePastedImageModal();
+            setReplyingTo(null);
+            onConversationChange?.();
+        } catch (error) {
+            showToast?.(error.response?.data?.message || "Unable to send image. Please try again.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handlePaste = (e) => {
+        const clipboardData = e.clipboardData;
+        if (!clipboardData) return;
+
+        const items = Array.from(clipboardData.items || []);
+        const imageItem = items.find(
+            (item) => item.kind === "file" && item.type && item.type.startsWith("image/")
+        );
+
+        if (imageItem) {
+            e.preventDefault();
+            const blob = imageItem.getAsFile();
+            if (blob) {
+                const ext = (blob.type && blob.type.split("/")[1]) || "png";
+                const file = new File(
+                    [blob],
+                    "pasted-image-" + Date.now() + "." + ext,
+                    { type: blob.type || "image/png", lastModified: Date.now() }
+                );
+                openPastedImageModal(file);
+                return;
+            }
+        }
+
+        const clipFiles = Array.from(clipboardData.files || []);
+        const imageFile = clipFiles.find((f) => f && f.type && f.type.startsWith("image/"));
+        if (imageFile) {
+            e.preventDefault();
+            openPastedImageModal(imageFile);
+        }
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape" && pastedImageModal) {
+                closePastedImageModal();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [pastedImageModal]);
+
+    useEffect(() => {
+        if (!conversation) return;
+        const handleWindowPaste = (e) => {
+            const target = e.target;
+            if (target && target.tagName === "INPUT" && target.type !== "file" && !target.classList.contains("chat-input")) {
+                return;
+            }
+            handlePaste(e);
+        };
+        window.addEventListener("paste", handleWindowPaste);
+        return () => window.removeEventListener("paste", handleWindowPaste);
+    }, [conversation, pastedImageModal]);
     const getMessageText = (message) => String(taskEventText(message) || message?.caption || "")
         .replace(/\[\[ciis-reply:[^\]]+\]\]/g, "")
         .replace(/\[\[ciis-expire:\d+\]\]/g, "")
@@ -2054,7 +2257,7 @@ useEffect(() => {
                     <h2>{selectedName}</h2>
                     <span>{selectedUser.isGroup ? groupStatusLabel : (isSelectedUserOnline ? "online" : "offline")}</span>
                     {selectedUser.isGroup && !selectedUser.projectId && !selectedUser.clientId && (
-                        <>
+                        <div className="chat-channel-photo-actions">
                             <button
                                 type="button"
                                 className="chat-channel-photo-btn"
@@ -2063,6 +2266,17 @@ useEffect(() => {
                             >
                                 <Camera size={14} /> Change picture
                             </button>
+                            {Boolean(selectedUser.groupImage || selectedUser.profileImage || selectedUser.avatar || selectedUser.image) && (
+                                <button
+                                    type="button"
+                                    className="chat-channel-photo-btn chat-channel-photo-btn-remove"
+                                    onClick={handleRemoveGroupImage}
+                                    disabled={isSendingAction}
+                                    title="Remove group picture"
+                                >
+                                    <Trash2 size={14} /> Remove picture
+                                </button>
+                            )}
                             <input
                                 ref={groupImageInputRef}
                                 type="file"
@@ -2070,7 +2284,7 @@ useEffect(() => {
                                 hidden
                                 onChange={updateCurrentChannelImage}
                             />
-                        </>
+                        </div>
                     )}
                 </div>
                 <div className="chat-contact-actions">
@@ -2295,7 +2509,31 @@ useEffect(() => {
 
     const startDirectCall = (callType) => {
         if (!canStartCall) return;
-        startCall(callType, selectedUser);
+        const convId = (conversation?._id || selectedUser?.conversation?._id || selectedUser?.conversationId || (selectedUser?.isGroup ? (selectedUser?._id || selectedUser?.id) : "") || "").toString();
+        startCall(callType, {
+            ...selectedUser,
+            conversationId: convId,
+        });
+    };
+
+    const handleRejoinOngoingCall = () => {
+        if (!ongoingCall) return;
+        rejoinCall({
+            callId: ongoingCall.callId,
+            callType: ongoingCall.callType,
+            isGroupCall: ongoingCall.isGroupCall,
+            title: ongoingCall.title,
+            conversationId: currentConversationId,
+            peerUser: selectedUser,
+        });
+    };
+
+    const getOngoingCallDurationText = () => {
+        if (!ongoingCall?.startedAt) return "Ongoing call";
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(ongoingCall.startedAt).getTime()) / 1000));
+        const minutes = Math.floor(elapsedSeconds / 60);
+        if (minutes < 1) return "Started just now";
+        return `Started ${minutes}m ago`;
     };
 
     const clearCurrentChat = async () => {
@@ -2335,21 +2573,50 @@ useEffect(() => {
         }
     };
 
-    const updateCurrentChannelImage = async (event) => {
+    const updateCurrentChannelImage = (event) => {
         const file = event.target.files?.[0];
         event.target.value = "";
         if (!file || !selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
+        setAdjustingGroupImageFile(file);
+    };
+
+    const handleGroupImageAdjustConfirm = async (croppedFile) => {
+        setAdjustingGroupImageFile(null);
+        if (!croppedFile || !selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
         setIsSendingAction(true);
         try {
             await onUpdateGroup?.(selectedUser, {
                 name: getGroupName(selectedUser),
                 description: selectedUser.description || "",
                 members: (groupMembers || []).map(getMemberId).filter(Boolean),
-                avatar: file,
+                avatar: croppedFile,
             });
             showToast?.("Group picture updated.", "success");
         } catch (error) {
             showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to update group picture.", "error");
+        } finally {
+            setIsSendingAction(false);
+        }
+    };
+
+    const handleRemoveGroupImage = async () => {
+        if (!selectedUser?.isGroup || (selectedUser?.projectId || selectedUser?.clientId) || isSendingAction) return;
+
+        const confirmed = window.confirm ? window.confirm("Are you sure you want to remove the group picture?") : true;
+        if (!confirmed) return;
+
+        setIsSendingAction(true);
+        try {
+            await onUpdateGroup?.(selectedUser, {
+                name: getGroupName(selectedUser),
+                description: selectedUser.description || "",
+                members: (groupMembers || []).map(getMemberId).filter(Boolean),
+                removeAvatar: true,
+                avatar: "",
+            });
+            showToast?.("Group picture removed.", "success");
+        } catch (error) {
+            showToast?.(error?.response?.data?.error || error?.response?.data?.message || "Unable to remove group picture.", "error");
         } finally {
             setIsSendingAction(false);
         }
@@ -2497,6 +2764,33 @@ useEffect(() => {
                     )}
                 </div>
             </div>
+
+            {ongoingCall && (!getActiveCall?.() || String(getActiveCall()?.callId) !== String(ongoingCall?.callId)) && (
+                <div className="chat-ongoing-call-banner">
+                    <div className="ongoing-call-left">
+                        <div className="ongoing-call-pulse-dot" />
+                        <div className="ongoing-call-meta">
+                            <strong>
+                                {ongoingCall.callType === "video" ? <Video size={16} /> : <Phone size={16} />}
+                                Ongoing {ongoingCall.isGroupCall ? "Group " : ""}{ongoingCall.callType === "video" ? "Video" : "Voice"} Call
+                            </strong>
+                            <small>
+                                {getOngoingCallDurationText()}
+                                {ongoingCall.participantsCount ? ` • ${ongoingCall.participantsCount} in call` : ""}
+                            </small>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="ongoing-call-join-btn"
+                        onClick={handleRejoinOngoingCall}
+                        title="Rejoin this active call"
+                    >
+                        <PhoneCall size={15} />
+                        <span>Rejoin</span>
+                    </button>
+                </div>
+            )}
 
             <div className="chat-topic-bar">
                 <strong>Chat Topic: {getCurrentTopic()}</strong>
@@ -2647,7 +2941,12 @@ useEffect(() => {
                     })
                 }
 
+                {!normalizedSearchTerm && pendingUploads.map((upload) => (
+                    <PendingUploadBubble key={upload.id} upload={upload} />
+                ))}
+
                 {displayedMessages.length === 0
+                    && pendingUploads.length === 0
                     && !normalizedSearchTerm
                     && conversation?._id
                     && loadedConversationId === String(conversation._id) && (
@@ -2858,7 +3157,6 @@ useEffect(() => {
                             ref={documentInputRef}
                             type="file"
                             multiple
-                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip,.rar,.7z"
                             onChange={handleFileSelection}
                             style={{ display: "none" }}
                         />
@@ -2866,7 +3164,7 @@ useEffect(() => {
                             ref={photosVideosInputRef}
                             type="file"
                             multiple
-                            accept="image/*,video/*"
+                            accept="image/*,video/*,.heic,.heif,.mov,.mkv,.avi,.wmv,.m4v,.flv,.webm"
                             onChange={handleFileSelection}
                             style={{ display: "none" }}
                         />
@@ -2874,7 +3172,7 @@ useEffect(() => {
                             ref={audioInputRef}
                             type="file"
                             multiple
-                            accept="audio/*"
+                            accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.wma"
                             onChange={handleFileSelection}
                             style={{ display: "none" }}
                         />
@@ -2947,6 +3245,7 @@ useEffect(() => {
                         <ChatMentionInput
                             ref={chatInputRef}
                             mentions={messageMentions}
+                            onPaste={handlePaste}
                             members={availableMentionMembers}
                             onMentionSelect={setText}
                             aria-label={replyingTo ? "Write a reply" : "Write a message"}
@@ -3214,6 +3513,173 @@ useEffect(() => {
                     </div>
                 </div>
             )}
+            {pastedImageModal && (
+                <div
+                    className="whatsapp-image-preview-overlay"
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 999999,
+                        background: "#0b141a",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between"
+                    }}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) closePastedImageModal();
+                    }}
+                >
+                    {/* Top Bar */}
+                    <div
+                        style={{
+                            height: "60px",
+                            background: "#111b21",
+                            borderBottom: "1px solid #202c33",
+                            padding: "0 24px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexShrink: 0
+                        }}
+                    >
+                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                            <button
+                                type="button"
+                                onClick={closePastedImageModal}
+                                style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    color: "#aebac1",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "8px",
+                                    borderRadius: "50%"
+                                }}
+                                title="Close (Esc)"
+                                aria-label="Close"
+                            >
+                                <X size={22} />
+                            </button>
+                            <div style={{ color: "#e9edef", fontSize: "14.5px", fontWeight: 600 }}>
+                                {pastedImageModal.file?.name}
+                                <span style={{ marginLeft: "10px", color: "#8696a0", fontSize: "12px", fontWeight: 400 }}>
+                                    ({(pastedImageModal.file?.size / 1024).toFixed(1)} KB)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Center Image Viewport */}
+                    <div
+                        style={{
+                            flex: 1,
+                            minHeight: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "24px",
+                            overflow: "hidden"
+                        }}
+                    >
+                        <img
+                            src={pastedImageModal.previewUrl}
+                            alt="Pasted Preview"
+                            style={{
+                                maxHeight: "68vh",
+                                maxWidth: "88vw",
+                                objectFit: "contain",
+                                borderRadius: "8px",
+                                boxShadow: "0 14px 40px rgba(0,0,0,0.6)"
+                            }}
+                        />
+                    </div>
+
+                    {/* Bottom Caption Bar */}
+                    <div
+                        style={{
+                            background: "#111b21",
+                            borderTop: "1px solid #202c33",
+                            padding: "16px 24px 22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0
+                        }}
+                    >
+                        <div
+                            style={{
+                                maxWidth: "720px",
+                                width: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px"
+                            }}
+                        >
+                            <div
+                                style={{
+                                    flex: 1,
+                                    background: "#2a3942",
+                                    borderRadius: "24px",
+                                    padding: "10px 18px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    border: "1px solid #3b4a54"
+                                }}
+                            >
+                                <Smile size={20} color="#8696a0" style={{ flexShrink: 0 }} />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    placeholder="Add a caption..."
+                                    value={pastedImageModal.caption}
+                                    onChange={(e) => setPastedImageModal(prev => ({ ...prev, caption: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            sendPastedImage();
+                                        }
+                                    }}
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "#e9edef",
+                                        fontSize: "15px",
+                                        width: "100%",
+                                        outline: "none"
+                                    }}
+                                />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={sendPastedImage}
+                                disabled={isSendingAction}
+                                style={{
+                                    width: "48px",
+                                    height: "48px",
+                                    borderRadius: "50%",
+                                    background: "#00a884",
+                                    border: "none",
+                                    color: "#ffffff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: isSendingAction ? "not-allowed" : "pointer",
+                                    boxShadow: "0 4px 14px rgba(0,168,132,0.45)",
+                                    transition: "all 0.2s ease",
+                                    flexShrink: 0
+                                }}
+                                title="Send image"
+                            >
+                                <SendHorizontal size={20} style={{ marginLeft: "2px" }} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {assignModal.open && (
                 <div className="chat-assign-modal-overlay" onClick={closeAssignModal}>
@@ -3328,6 +3794,15 @@ useEffect(() => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {adjustingGroupImageFile && (
+                <ImageAdjustModal
+                    imageFile={adjustingGroupImageFile}
+                    onConfirm={handleGroupImageAdjustConfirm}
+                    onCancel={() => setAdjustingGroupImageFile(null)}
+                    title="Adjust group picture"
+                />
             )}
         </div>
     );

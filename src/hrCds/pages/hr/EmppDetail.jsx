@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
-import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission, getUserPageRestrictedScope } from '../../../utils/pageAccess';
 
 
 import {
@@ -333,6 +333,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   emp, 
   onView, 
   onMenuOpen,
+  onToggleStatus,
   currentUserId,
   jobRoles,
   departments,
@@ -490,9 +491,35 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
             </div>
             
             <div className="EmployeeDirectory-employee-tags">
-              <span className={`EmployeeDirectory-employee-tag ${emp.isActive ? 'EmployeeDirectory-employee-tag-active' : 'EmployeeDirectory-employee-tag-inactive'}`}>
-                {emp.isActive ? 'Active' : 'Inactive'}
-              </span>
+              {canEditOtherEmployees && isOtherUser ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`EmployeeDirectory-switch-container ${emp.isActive ? 'is-active' : 'is-inactive'}`}
+                  title={emp.isActive ? 'Click to deactivate employee' : 'Click to activate employee'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onToggleStatus) onToggleStatus(emp);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      if (onToggleStatus) onToggleStatus(emp);
+                    }
+                  }}
+                >
+                  <div className="EmployeeDirectory-switch-track">
+                    <div className="EmployeeDirectory-switch-thumb" />
+                  </div>
+                  <span className="EmployeeDirectory-switch-label">
+                    {emp.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              ) : (
+                <span className={`EmployeeDirectory-employee-tag ${emp.isActive ? 'EmployeeDirectory-employee-tag-active' : 'EmployeeDirectory-employee-tag-inactive'}`}>
+                  {emp.isActive ? 'Active' : 'Inactive'}
+                </span>
+              )}
               {emp.employeeId && (
                 <span className="EmployeeDirectory-employee-tag EmployeeDirectory-employee-tag-secondary">
                   ID: {emp.employeeId}
@@ -1887,12 +1914,16 @@ const EmployeeDirectory = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [selectedMenuUser, setSelectedMenuUser] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [statusToggleConfirmOpen, setStatusToggleConfirmOpen] = useState(false);
+  const [userToToggleStatus, setUserToToggleStatus] = useState(null);
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [editFormErrors, setEditFormErrors] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -1919,9 +1950,42 @@ const EmployeeDirectory = () => {
   const currentUserRole = user.getCurrentUserJobRole();
   const currentUserCompanyRole = user.getCurrentUserCompanyRole();
   const isSuperAdmin = user.isSuperAdmin;
+  // Managers must only work with the branches assigned to their own account.
+  // Owners, admins and HR retain their company-wide directory access.
+  const currentUserBranchIds = useMemo(() => {
+    const current = user.getCurrentUser();
+    return getIdList([
+      current?.branch,
+      current?.branchId,
+      ...(Array.isArray(current?.assignedBranches) ? current.assignedBranches : [])
+    ]);
+  }, [user.getCurrentUser]);
+  const hasCompanyWideBranchAccess = useMemo(() => {
+    const roles = [currentUserRole, currentUserCompanyRole]
+      .map(role => String(role || '').trim().toLowerCase().replace(/[\s_-]+/g, '_'));
+    return isSuperAdmin || roles.some(role => [
+      'owner', 'company_owner', 'companyowner', 'admin', 'company_admin',
+      'companyadmin', 'hr', 'hr_manager', 'super_admin', 'superadmin'
+    ].includes(role));
+  }, [currentUserRole, currentUserCompanyRole, isSuperAdmin]);
+  const restrictToAssignedBranches = !hasCompanyWideBranchAccess && currentUserBranchIds.length > 0;
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
   const [pageCanEditEmployees, setPageCanEditEmployees] = useState(true);
+  // Branch / department scope granted on the Page Management screen for this page.
+  // null means "no scope configured for this user" (no extra restriction).
+  const [pageScopeBranchIds, setPageScopeBranchIds] = useState(null);
+  const [pageScopeDepartmentIds, setPageScopeDepartmentIds] = useState(null);
+  // The scope saved in Page Management wins over the generic "assigned branches" rule,
+  // so the directory only shows the branches that page grants.
+  const allowedBranchIds = useMemo(() => {
+    if (pageScopeBranchIds && pageScopeBranchIds.length > 0) return pageScopeBranchIds;
+    if (restrictToAssignedBranches) return currentUserBranchIds;
+    return null;
+  }, [pageScopeBranchIds, restrictToAssignedBranches, currentUserBranchIds]);
+  const allowedDepartmentIds = useMemo(() => (
+    pageScopeDepartmentIds && pageScopeDepartmentIds.length > 0 ? pageScopeDepartmentIds : null
+  ), [pageScopeDepartmentIds]);
   const canEditOtherEmployees = pageAccessReady ? pageCanEditEmployees : user.canEditOtherEmployees;
   const canSeeAllCompanyUsers = pageAccessReady ? pageCanViewEmployees : user.canSeeAllCompanyUsers;
   
@@ -1966,6 +2030,14 @@ const EmployeeDirectory = () => {
 
         setPageCanEditEmployees(canEdit);
         setPageCanViewEmployees(canView);
+
+        // Owners / super admins always keep the whole company in view.
+        const isMasterRole = ['owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin'].includes(fallbackRole)
+          || Boolean(currentUser?.isSuperAdmin || currentUser?.superAdmin);
+        const scope = isMasterRole ? null : getUserPageRestrictedScope(page, currentUserIdValue);
+
+        setPageScopeBranchIds(scope?.branchIds || null);
+        setPageScopeDepartmentIds(scope?.departmentIds || null);
       } catch (error) {
         console.error('Failed to load employee page permissions:', error);
       } finally {
@@ -2052,15 +2124,20 @@ const EmployeeDirectory = () => {
         }
       });
 
-      const branchData = response.data?.branches || response.data?.data || [];
-      setBranches(Array.isArray(branchData) ? branchData : []);
-      return Array.isArray(branchData) ? branchData : [];
+      const branchData = Array.isArray(response.data?.branches || response.data?.data)
+        ? (response.data?.branches || response.data?.data)
+        : [];
+      const visibleBranches = allowedBranchIds
+        ? branchData.filter(branch => allowedBranchIds.includes(getValueId(branch)))
+        : branchData;
+      setBranches(visibleBranches);
+      return visibleBranches;
     } catch (err) {
       console.error("Failed to fetch branches:", err);
       setBranches([]);
       return [];
     }
-  }, [currentUserCompanyId, user.getAuthToken]);
+  }, [currentUserCompanyId, allowedBranchIds, user.getAuthToken]);
 
   const fetchAllEmployeesFromEndpoint = useCallback(async (url, rawParams, config) => {
     // The list no longer carries family/bank/document fields for every employee; they are
@@ -2263,7 +2340,24 @@ const EmployeeDirectory = () => {
         }, config);
       }
 
-      setEmployees(employeesData);
+      const branchScopedEmployees = allowedBranchIds
+        ? employeesData.filter(employee => {
+          const employeeBranchIds = getIdList([
+            employee?.branch,
+            employee?.branchId,
+            ...(Array.isArray(employee?.assignedBranches) ? employee.assignedBranches : []),
+            ...(Array.isArray(employee?.branchIds) ? employee.branchIds : [])
+          ]);
+          return employeeBranchIds.some(branchId => allowedBranchIds.includes(branchId));
+        })
+        : employeesData;
+      const visibleEmployees = allowedDepartmentIds
+        ? branchScopedEmployees.filter(employee => {
+          const employeeDepartmentIds = getIdList([employee?.department, employee?.departmentId]);
+          return employeeDepartmentIds.some(departmentId => allowedDepartmentIds.includes(departmentId));
+        })
+        : branchScopedEmployees;
+      setEmployees(visibleEmployees);
       
       const deptRes = await axios.get("/departments", config);
       
@@ -2271,9 +2365,23 @@ const EmployeeDirectory = () => {
         const filteredDepartments = deptRes.data.departments.filter(dept => {
           const deptCompanyId = getValueId(dept.company || dept.companyId);
           const deptCompanyCode = dept.companyCode || dept.company?.companyCode || dept.company?.code;
-          return !currentUserCompanyId ||
+          const belongsToCompany = !currentUserCompanyId ||
             sameId(deptCompanyId, currentUserCompanyId) ||
             Boolean(currentUserCompanyCode && deptCompanyCode === currentUserCompanyCode);
+          if (!belongsToCompany) return false;
+          if (allowedDepartmentIds && !allowedDepartmentIds.includes(getValueId(dept))) return false;
+          if (allowedBranchIds) {
+            const deptBranchIds = getIdList([
+              dept.branch,
+              dept.branchId,
+              ...(Array.isArray(dept.branches) ? dept.branches : []),
+              ...(Array.isArray(dept.branchIds) ? dept.branchIds : [])
+            ]);
+            if (deptBranchIds.length > 0 && !deptBranchIds.some(branchId => allowedBranchIds.includes(branchId))) {
+              return false;
+            }
+          }
+          return true;
         });
         
         setDepartments(filteredDepartments);
@@ -2300,7 +2408,9 @@ const EmployeeDirectory = () => {
     user.getAuthToken,
     fetchJobRoles,
     fetchBranches,
-    fetchAllEmployeesFromEndpoint
+    fetchAllEmployeesFromEndpoint,
+    allowedBranchIds,
+    allowedDepartmentIds
   ]);
   
   // Initial data fetch
@@ -2348,9 +2458,21 @@ const EmployeeDirectory = () => {
   // Handle menu
   const handleMenuOpen = useCallback((event, userData) => {
     const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 190;
+    const viewportGap = 12;
+    const anchorGap = 6;
+
+    // Right-align by default: align menu's right edge with button's right edge
+    let left = rect.right - menuWidth;
+    // Boundary check so it doesn't overflow right or left edge of screen
+    const maxLeft = window.innerWidth - menuWidth - viewportGap;
+    left = Math.max(viewportGap, Math.min(left, maxLeft));
+
+    const top = rect.bottom + anchorGap;
+
     setMenuAnchorEl({
-      top: rect.bottom,
-      left: rect.left,
+      top,
+      left,
       anchorTop: rect.top,
       anchorBottom: rect.bottom,
       anchorLeft: rect.left,
@@ -2376,8 +2498,8 @@ const EmployeeDirectory = () => {
     window.addEventListener('scroll', closeOnViewportChange, true);
     window.addEventListener('resize', closeOnViewportChange);
 
-    if (window.innerWidth > 425 && window.innerWidth <= 1024 && contextMenuRef.current) {
-      const viewportGap = 8;
+    if (contextMenuRef.current) {
+      const viewportGap = 12;
       const anchorGap = 6;
       const menuRect = contextMenuRef.current.getBoundingClientRect();
       const maxLeft = Math.max(viewportGap, window.innerWidth - menuRect.width - viewportGap);
@@ -2619,20 +2741,30 @@ const EmployeeDirectory = () => {
       }
       
       if (res.data && res.data.success) {
-        const updatedUser = res.data.message?.user || res.data.user || res.data.data;
+        const responseUser = res.data.message?.user || res.data.user || res.data.data;
+        // Some update endpoints return a compact response. Preserve the list
+        // record and merge the saved values so the Employee Details UI updates
+        // immediately instead of briefly showing stale/empty data.
+        const updatedUser = {
+          ...editingUser,
+          ...updateData,
+          ...(responseUser && typeof responseUser === 'object' ? responseUser : {}),
+          _id: responseUser?._id || editingUser._id || userId,
+          id: responseUser?.id || editingUser.id || userId
+        };
 
         if (selectedUser && (sameId(selectedUser._id, userId) || sameId(selectedUser.id, userId))) {
-          setSelectedUser(updatedUser);
+          setSelectedUser(current => ({ ...(current || {}), ...updatedUser }));
         }
         
         setEmployees(prev => prev.map(emp => 
           (sameId(emp._id, userId) || sameId(emp.id, userId)) 
-            ? { ...updatedUser } 
+            ? { ...emp, ...updatedUser } 
             : emp
         ));
 
         if (selectedUser && sameId(selectedUser._id, userId)) {
-          setSelectedUser(updatedUser);
+          setSelectedUser(current => ({ ...(current || {}), ...updatedUser }));
         }
 
         if (isSelfEdit) {
@@ -2689,6 +2821,78 @@ const EmployeeDirectory = () => {
     selectedUser
   ]);
   
+  // Handle direct quick status toggle from card badge or 3-dot menu
+  const handleStatusToggleClick = useCallback((userData) => {
+    if (!userData) return;
+    if (sameId(currentUserId, userData._id || userData.id)) {
+      showSnackbar('You cannot change your own active status', 'error');
+      if (handleMenuClose) handleMenuClose();
+      return;
+    }
+    setUserToToggleStatus(userData);
+    setStatusToggleConfirmOpen(true);
+    if (handleMenuClose) handleMenuClose();
+  }, [currentUserId, showSnackbar, handleMenuClose]);
+
+  const handleStatusToggleConfirm = useCallback(async () => {
+    if (!userToToggleStatus) return;
+    const userId = userToToggleStatus._id || userToToggleStatus.id;
+    const nextStatus = !userToToggleStatus.isActive;
+
+    setTogglingStatus(true);
+    try {
+      const token = user.getAuthToken();
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const updateUrls = [`/users/admin-update/${userId}`, '/users/admin-update-by-email'];
+      let res = null;
+      let lastError = null;
+
+      for (const apiUrl of updateUrls) {
+        try {
+          res = await axios.put(apiUrl, { isActive: nextStatus }, config);
+          break;
+        } catch (err) {
+          lastError = err;
+          if (err?.response?.status !== 404) throw err;
+        }
+      }
+
+      if (!res) throw lastError;
+
+      if (res.data && res.data.success) {
+        const updatedUser = res.data.message?.user || res.data.user || res.data.data || { ...userToToggleStatus, isActive: nextStatus };
+
+        setEmployees(prev => prev.map(emp =>
+          (sameId(emp._id, userId) || sameId(emp.id, userId))
+            ? { ...emp, ...updatedUser, isActive: nextStatus }
+            : emp
+        ));
+
+        if (selectedUser && (sameId(selectedUser._id, userId) || sameId(selectedUser.id, userId))) {
+          setSelectedUser(prev => prev ? { ...prev, ...updatedUser, isActive: nextStatus } : prev);
+        }
+
+        showSnackbar(`Employee marked as ${nextStatus ? 'Active' : 'Inactive'} successfully`);
+        setStatusToggleConfirmOpen(false);
+        setUserToToggleStatus(null);
+      } else {
+        showSnackbar(res.data?.message || 'Failed to update employee status', 'error');
+      }
+    } catch (err) {
+      console.error('❌ Status toggle failed:', err);
+      const errorMessage = err.response?.data?.message || 'Failed to update employee status';
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      setTogglingStatus(false);
+    }
+  }, [userToToggleStatus, selectedUser, showSnackbar, user.getAuthToken]);
+
   // Handle delete
   const handleDeleteClick = useCallback((userData) => {
     if (!userData) return;
@@ -2852,6 +3056,22 @@ const EmployeeDirectory = () => {
           employeeDepartmentName === String(selectedDepartmentData?.name || '').toLowerCase();
       });
     }
+
+    if (selectedBranch !== "all") {
+      filtered = filtered.filter((emp) => {
+        const branchIds = getIdList([
+          emp?.branch,
+          ...(Array.isArray(emp?.assignedBranches) ? emp.assignedBranches : []),
+          ...(Array.isArray(emp?.branchIds) ? emp.branchIds : [])
+        ]);
+        const branchMatch = branchIds.some(id => String(id) === String(selectedBranch));
+        const branchNameMatch = branches.some(b => 
+          String(getValueId(b)) === String(selectedBranch) &&
+          (emp?.branchName && String(emp.branchName).toLowerCase() === String(b.name || '').toLowerCase())
+        );
+        return branchMatch || branchNameMatch;
+      });
+    }
     
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -2873,7 +3093,35 @@ const EmployeeDirectory = () => {
     }
     
     return filtered;
-  }, [employees, selectedFilter, selectedDepartment, searchTerm, getJobRoleName, getDepartmentName, departments]);
+  }, [employees, selectedFilter, selectedDepartment, selectedBranch, searchTerm, getJobRoleName, getDepartmentName, departments, branches]);
+
+  const branchOptions = useMemo(() => branches.map((branch) => {
+    const id = getValueId(branch);
+    const name = branch.name || branch.branchName || 'Unnamed Branch';
+    const code = branch.branchCode || branch.code || '';
+    const label = name ? `${name}${code ? ` (${code})` : ''}` : code;
+    const count = employees.filter((employee) => {
+      const branchIds = getIdList([
+        employee?.branch,
+        ...(Array.isArray(employee?.assignedBranches) ? employee.assignedBranches : []),
+        ...(Array.isArray(employee?.branchIds) ? employee.branchIds : [])
+      ]);
+      const branchMatch = branchIds.some(bId => String(bId) === String(id));
+      const branchNameMatch = employee?.branchName && String(employee.branchName).toLowerCase() === String(name).toLowerCase();
+      return branchMatch || branchNameMatch;
+    }).length;
+    return { id, name: label, count };
+  }).filter((branch) => branch.id).sort((a, b) => a.name.localeCompare(b.name)),
+  [branches, employees]);
+
+  // Label shown in the header when Page Management limits this user to certain branches.
+  const scopedAccessLabel = useMemo(() => {
+    if (!allowedBranchIds) return 'Full Company Access';
+    const names = branchOptions.map(branch => branch.name).filter(Boolean);
+    if (names.length === 0) return 'Branch Access';
+    if (names.length <= 2) return `${names.join(', ')} Access`;
+    return `${names.length} Branches Access`;
+  }, [allowedBranchIds, branchOptions]);
 
   const departmentOptions = useMemo(() => departments.map((department) => {
     const id = getValueId(department);
@@ -2956,7 +3204,7 @@ const EmployeeDirectory = () => {
               )}
               {canSeeAllCompanyUsers && (
                 <span className="EmployeeDirectory-super-admin-badge">
-                  • Full Company Access
+                  • {allowedBranchIds ? scopedAccessLabel : 'Full Company Access'}
                 </span>
               )}
             </p>
@@ -3035,6 +3283,19 @@ const EmployeeDirectory = () => {
               {departmentOptions.map((department) => (
                 <option value={department.id} key={department.id}>
                   {department.name} ({department.count})
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="EmployeeDirectory-role-select EmployeeDirectory-branch-select-inline"
+              value={selectedBranch}
+              onChange={(event) => setSelectedBranch(event.target.value)}
+            >
+              <option value="all">All Branches ({employees.length})</option>
+              {branchOptions.map((branch) => (
+                <option value={branch.id} key={branch.id}>
+                  {branch.name} ({branch.count})
                 </option>
               ))}
             </select>
@@ -3125,6 +3386,18 @@ const EmployeeDirectory = () => {
                 </option>
               ))}
             </select>
+            <select
+              className="EmployeeDirectory-role-select"
+              value={selectedBranch}
+              onChange={(event) => setSelectedBranch(event.target.value)}
+            >
+              <option value="all">All Branches ({employees.length})</option>
+              {branchOptions.map((branch) => (
+                <option value={branch.id} key={branch.id}>
+                  {branch.name} ({branch.count})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -3147,6 +3420,7 @@ const EmployeeDirectory = () => {
               setSearchTerm('');
               setSelectedFilter('all');
               setSelectedDepartment('all');
+              setSelectedBranch('all');
             }}
           >
             <FiX size={16} /> Clear Filters
@@ -3168,6 +3442,7 @@ const EmployeeDirectory = () => {
                       emp={emp}
                       onView={handleOpenUser}
                       onMenuOpen={handleMenuOpen}
+                      onToggleStatus={handleStatusToggleClick}
                       currentUserId={currentUserId}
                       jobRoles={jobRoles}
                       departments={departments}
@@ -3187,6 +3462,7 @@ const EmployeeDirectory = () => {
                 emp={emp}
                 onView={handleOpenUser}
                 onMenuOpen={handleMenuOpen}
+                onToggleStatus={handleStatusToggleClick}
                 currentUserId={currentUserId}
                 jobRoles={jobRoles}
                 departments={departments}
@@ -3726,6 +4002,93 @@ const EmployeeDirectory = () => {
         </div>
       )}
 
+      {/* Quick Status Toggle Confirmation Modal (Compact & Clean) */}
+      {statusToggleConfirmOpen && userToToggleStatus && (
+        <div className="EmployeeDirectory-modal-overlay" onClick={() => !togglingStatus && setStatusToggleConfirmOpen(false)}>
+          <div 
+            className="EmployeeDirectory-modal EmployeeDirectory-status-modal" 
+            onClick={e => e.stopPropagation()} 
+            style={{ maxWidth: '380px', padding: '20px' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
+              <div 
+                className={`EmployeeDirectory-status-icon-wrapper ${userToToggleStatus.isActive ? 'EmployeeDirectory-status-icon-deactivate' : 'EmployeeDirectory-status-icon-activate'}`}
+              >
+                {userToToggleStatus.isActive ? <FiUserX /> : <FiUserCheck />}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>
+                  {userToToggleStatus.isActive ? `Deactivate ${userToToggleStatus.name}?` : `Activate ${userToToggleStatus.name}?`}
+                </h4>
+                <p style={{ fontSize: '13px', color: '#475569', margin: 0, lineHeight: '1.4' }}>
+                  Are you sure you want to mark this user as{' '}
+                  <span style={{ 
+                    color: userToToggleStatus.isActive ? '#dc2626' : '#16a34a',
+                    fontWeight: '700' 
+                  }}>
+                    {userToToggleStatus.isActive ? 'Inactive' : 'Active'}
+                  </span>?
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              background: userToToggleStatus.isActive ? '#fff5f5' : '#f0fdf4',
+              border: `1px solid ${userToToggleStatus.isActive ? '#fed7d7' : '#bbf7d0'}`,
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              color: userToToggleStatus.isActive ? '#991b1b' : '#166534',
+              lineHeight: '1.4',
+              textAlign: 'left',
+              marginBottom: '18px'
+            }}>
+              {userToToggleStatus.isActive 
+                ? 'User will immediately lose portal login access.'
+                : 'User will immediately regain portal login access.'}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="EmployeeDirectory-btn EmployeeDirectory-btn-outlined"
+                onClick={() => setStatusToggleConfirmOpen(false)}
+                disabled={togglingStatus}
+                style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '500' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="EmployeeDirectory-btn"
+                onClick={handleStatusToggleConfirm}
+                disabled={togglingStatus}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: '#ffffff',
+                  background: userToToggleStatus.isActive ? '#dc2626' : '#16a34a',
+                  border: 'none',
+                  boxShadow: userToToggleStatus.isActive ? '0 2px 6px rgba(220, 38, 38, 0.25)' : '0 2px 6px rgba(22, 163, 74, 0.25)'
+                }}
+              >
+                {togglingStatus ? (
+                  <>
+                    <div className="EmployeeDirectory-spinner" style={{ width: '13px', height: '13px', marginRight: '6px' }} />
+                    Saving...
+                  </>
+                ) : (
+                  userToToggleStatus.isActive ? 'Deactivate' : 'Activate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Context Menu - Only visible to users with edit access */}
       {canEditOtherEmployees && menuAnchorEl && selectedMenuUser && (
         <>
@@ -3753,6 +4116,26 @@ const EmployeeDirectory = () => {
             >
               <FiEdit size={16} color="#1976d2" />
               <span className="EmployeeDirectory-menu-item-text">Edit Employee</span>
+            </button>
+
+            <button
+              type="button"
+              className="EmployeeDirectory-menu-item"
+              role="menuitem"
+              onClick={() => handleStatusToggleClick(selectedMenuUser)}
+              style={{ color: selectedMenuUser.isActive ? '#d32f2f' : '#2e7d32' }}
+            >
+              {selectedMenuUser.isActive ? (
+                <>
+                  <FiUserX size={16} color="#d32f2f" />
+                  <span className="EmployeeDirectory-menu-item-text">Mark as Inactive</span>
+                </>
+              ) : (
+                <>
+                  <FiUserCheck size={16} color="#2e7d32" />
+                  <span className="EmployeeDirectory-menu-item-text">Mark as Active</span>
+                </>
+              )}
             </button>
             
             {canDeleteUser(selectedMenuUser) && (

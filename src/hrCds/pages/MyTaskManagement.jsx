@@ -1037,7 +1037,7 @@ const MyTaskManagement = () => {
                 return (
                   <tr key={task._id} className={`MyTaskManagement-table-row MyTaskManagement-status-${myStatus}`}>
                     <td>
-                      <div className="MyTaskManagement-task-title">
+                      <div className="MyTaskManagement-task-title" title={task.title}>
                         <strong>{task.title}</strong>
                         {task.isRecurring && (
                           <span className="MyTaskManagement-recurring-icon" title="Recurring Task">🔄</span>

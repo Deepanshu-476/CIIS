@@ -41,6 +41,7 @@ import {
 
 import { FaTasks, FaProjectDiagram, FaCity, FaRupeeSign } from 'react-icons/fa';
 import { Repeat } from 'lucide-react';
+import usePageActionAccess from '../../../hooks/usePageActionAccess';
 
 
 
@@ -1331,20 +1332,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
       setTasks(Array.isArray(tasksData) ? tasksData : []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      const savedTasks = localStorage.getItem(`client_${clientId}_service_${service}_tasks`);
-      if (savedTasks) {
-        try {
-          const parsedTasks = JSON.parse(savedTasks);
-          setTasks(parsedTasks.map(task => ({
-            ...task,
-            dueDate: task.dueDate || null,
-            assignee: task.assignee || '',
-            priority: task.priority || 'Medium'
-          })));
-        } catch (e) {
-          console.error('Error parsing localStorage tasks:', e);
-        }
-      }
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -1447,30 +1435,14 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
         }
       } catch (error) {
         console.error('Error adding task:', error);
-        const newTaskObj = {
-          id: Date.now(),
-          name: newTask.name.trim(),
-          description: newTask.description.trim(),
-          dueDate: convertToISODateString(newTask.dueDate),
-          assignee: newTask.assignee,
-          priority: newTask.priority,
-          isPlanTask: false,
-          completed: false,
-          createdAt: new Date().toISOString(),
-          completedAt: null
-        };
-        const updatedTasks = [...tasks, newTaskObj];
-        setTasks(updatedTasks);
-        localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
-        setNewTask({ name: '', description: '', dueDate: '', assignee: '', priority: 'Medium' });
-        setShowAddTask(false);
         setTaskEditorMessage({
-          type: 'success',
-          text: newTaskObj.assignee ? `Task assigned to ${newTaskObj.assignee}.` : 'Task added successfully.'
+          type: 'error',
+          text: error.response?.data?.message || 'Task could not be saved. Please retry.'
         });
-        if (onTaskUpdate) {
-          onTaskUpdate(service, updatedTasks);
-        }
+        // A browser-only fallback made the task look saved here but it was
+        // unavailable in Task Management (which correctly reads from the API).
+        // Keep both screens consistent by never treating a failed API write as
+        // a successful task creation.
       } finally {
         setSavingTask(false);
       }
@@ -1976,6 +1948,8 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
 
 const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService, companyCode }) => {
   const [newService, setNewService] = useState('');
+  // Add / delete need the "Client Services" page in Page Management (owner and admin always).
+  const { canEdit: canAddService, canDelete: canDeleteService } = usePageActionAccess('/ciisUser/client-services', { enabled: open });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -2007,6 +1981,12 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
             </div>
           )}
           
+          {!canAddService && (
+            <div className="ClientManagement-alert ClientManagement-alert--warning ClientManagement-mb-3">
+              <FiAlertCircle /> You can view services. To add or delete them, ask an admin for "Client Services" access in Page Management.
+            </div>
+          )}
+          {canAddService && (
           <form onSubmit={handleSubmit} className="ClientManagement-mb-3">
             <div className="ClientManagement-grid-2 ClientManagement-gap-2">
               <div>
@@ -2035,6 +2015,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
               </div>
             </div>
           </form>
+          )}
 
           <hr className="ClientManagement-my-2" />
 
@@ -2056,6 +2037,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
                       )}
                     </small>
                   </div>
+                  {canDeleteService && (
                   <div className="ClientManagement-service-item__actions">
                     <button
                       className="ClientManagement-action-button ClientManagement-action-button--error"
@@ -2065,6 +2047,7 @@ const ServicesModal = ({ open, onClose, services, onAddService, onDeleteService,
                       <FiTrash2 />
                     </button>
                   </div>
+                  )}
                 </div>
               ))}
             </div>

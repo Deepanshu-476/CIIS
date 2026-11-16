@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import WeekOffAdminPanel from "../../components/WeekOffAdminPanel";
+import BreakAdminPanel from "../../components/BreakAdminPanel";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
 import CIISLoader from '../../../Loader/CIISLoader'; 
@@ -98,6 +100,14 @@ export const formatTimeForInput = (dateValue) => {
   } catch {
     return d.toTimeString().slice(0, 5);
   }
+};
+
+// Break comes from the server in minutes; Gross is clock-in to clock-out, and Hours Worked is that
+// minus the break — the time actually worked.
+const formatBreakLabel = minutes => {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!total) return "--";
+  return total < 60 ? `${total}m` : `${Math.floor(total / 60)}h ${total % 60}m`;
 };
 
 const parseTimeToMinutes = (timeStr, fallback = 0) => {
@@ -472,6 +482,30 @@ const DepartmentFilter = ({ selected, onChange, departments }) => {
           {option.label}
         </option>
       ))}
+    </select>
+  );
+};
+
+const BranchFilter = ({ selected, onChange, branches = [] }) => {
+  const getBranchDisplayName = (branch) => {
+    const raw = branch?.name || branch?.branchName || branch?.branchCode || '';
+    if (typeof raw === 'string' && /^[0-9a-fA-F]{24}$/.test(raw.trim())) {
+      return branch?.branchCode || 'Head Office';
+    }
+    return raw || 'Branch';
+  };
+
+  return (
+    <select className="EmppAttendence-filter-input" value={selected} onChange={(e) => onChange(e.target.value)}>
+      <option value="all">All Branches</option>
+      {branches.map(branch => {
+        const branchId = branch._id || branch.id;
+        return (
+          <option key={branchId} value={branchId}>
+            {getBranchDisplayName(branch)}
+          </option>
+        );
+      })}
     </select>
   );
 };
@@ -1524,6 +1558,7 @@ const EmployeeAttendance = () => {
   const [records, setRecords] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [departmentsMap, setDepartmentsMap] = useState({});
   
   
@@ -1533,6 +1568,7 @@ const EmployeeAttendance = () => {
   const [dateRangeMode, setDateRangeMode] = useState(false);
   
   const [selectedEmployeeType, setSelectedEmployeeType] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -1806,6 +1842,25 @@ const EmployeeAttendance = () => {
   const fetchAllUsers = async () => {
     try {
       void 0;
+      const storedViewer = currentUser || (() => {
+        try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+      })();
+      const viewerBranchIds = [...new Set([
+        storedViewer?.branch,
+        storedViewer?.branchId,
+        ...(Array.isArray(storedViewer?.assignedBranches) ? storedViewer.assignedBranches : [])
+      ].map(branch => String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim()).filter(Boolean))];
+      const viewerRoles = [
+        storedViewer?.companyRole,
+        storedViewer?.role,
+        storedViewer?.jobRole,
+        storedViewer?.userType
+      ].filter(Boolean).map(role => String(typeof role === 'object' ? (role?.name || role?.roleName || '') : role).trim().toLowerCase().replace(/[\s_-]+/g, '_'));
+      const hasCompanyWideBranchAccess = storedViewer?.isSuperAdmin === true || viewerRoles.some(role => [
+        'owner', 'company_owner', 'companyowner', 'admin', 'company_admin',
+        'companyadmin', 'hr', 'hr_manager', 'super_admin', 'superadmin'
+      ].includes(role));
+      let companyBranchList = [];
       
       
       let deptMap = {};
@@ -1842,6 +1897,21 @@ const EmployeeAttendance = () => {
       }
       
       
+      try {
+        const storedUser = (() => {
+          try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+        })();
+        const companyValue = storedViewer?.company || storedViewer?.companyId || storedUser?.company || storedUser?.companyId || currentUser?.company || currentUser?.companyId;
+        const companyId = currentUserCompanyId || (typeof companyValue === 'object' ? (companyValue?._id || companyValue?.id) : companyValue);
+        if (companyId) {
+          const branchRes = await axios.get(`/branches/company/${companyId}`);
+          const branchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
+          companyBranchList = branchList;
+        }
+      } catch (branchErr) {
+        console.error("Failed to load branches", branchErr);
+      }
+
       const res = await axios.get('/users/company-users');
       
       let usersData = [];
@@ -1863,6 +1933,40 @@ const EmployeeAttendance = () => {
           usersData = res.data;
         }
       }
+
+      if (!companyBranchList.length && usersData.length > 0) {
+        const comp = usersData.find(u => u.company)?.company;
+        const compId = typeof comp === 'object' ? (comp?._id || comp?.id) : comp;
+        if (compId) {
+          try {
+            const branchRes = await axios.get(`/branches/company/${compId}`);
+            companyBranchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
+          } catch (err) {}
+        }
+      }
+
+      const isMongoHexId = (val) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim());
+
+      // Collect all known populated branches into a quick lookup map
+      const branchMap = new Map();
+      companyBranchList.forEach(b => {
+        const id = String(b?._id || b?.id || '').trim();
+        const name = String(b?.name || b?.branchName || '').trim();
+        if (id && name && !isMongoHexId(name)) {
+          branchMap.set(id, b);
+        }
+      });
+      usersData.forEach(u => {
+        [u.branch, ...(Array.isArray(u.assignedBranches) ? u.assignedBranches : [])].forEach(b => {
+          if (b && typeof b === 'object') {
+            const id = String(b._id || b.id || '').trim();
+            const name = String(b.name || b.branchName || '').trim();
+            if (id && name && !isMongoHexId(name) && !branchMap.has(id)) {
+              branchMap.set(id, b);
+            }
+          }
+        });
+      });
       
       const usersWithDepartment = usersData.map(user => {
         let deptId = null;
@@ -1897,6 +2001,8 @@ const EmployeeAttendance = () => {
           name: user.name,
           email: user.email,
           employeeType: user.employeeType || user.employmentType || 'full-time',
+          branch: user.branch || user.branchId || null,
+          assignedBranches: user.assignedBranches || [],
           departmentId: deptId,
           department: deptName,
           departmentName: deptName,
@@ -1904,8 +2010,92 @@ const EmployeeAttendance = () => {
           jobRoleName: jobRoleName
         };
       });
+
+      // Login storage can be stale after a branch assignment changes. Resolve the
+      // current user's branch IDs from the fresh company-user response as well.
+      const currentUserRecord = usersWithDepartment.find(employee =>
+        String(employee._id || employee.id) === String(currentUserId || storedViewer?._id || storedViewer?.id || '')
+      );
+      const resolvedViewerBranchIds = viewerBranchIds.length > 0
+        ? viewerBranchIds
+        : [...new Set([
+          currentUserRecord?.branch,
+          ...(Array.isArray(currentUserRecord?.assignedBranches) ? currentUserRecord.assignedBranches : [])
+        ].map(branch => String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim()).filter(Boolean))];
+      const restrictToAssignedBranches = !hasCompanyWideBranchAccess && resolvedViewerBranchIds.length > 0;
+      const matchingCompanyBranches = companyBranchList.filter(branch =>
+        resolvedViewerBranchIds.includes(String(branch?._id || branch?.id || '').trim())
+      );
+      // Some sessions receive branch details with the user before the branch
+      // directory refreshes. Keep those populated branch objects as a fallback
+      // so the filter is never left with only the "All Branches" option.
+      const assignedBranchOptions = [
+        currentUserRecord?.branch,
+        ...(Array.isArray(currentUserRecord?.assignedBranches) ? currentUserRecord.assignedBranches : []),
+        storedViewer?.branch,
+        ...(Array.isArray(storedViewer?.assignedBranches) ? storedViewer.assignedBranches : [])
+      ].filter(Boolean).reduce((items, branch) => {
+        const id = String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : branch).trim();
+        if (!id) return items;
+        const existingIdx = items.findIndex(item => String(item._id || item.id) === id);
+        let branchObj = typeof branch === 'object' ? { ...branch } : null;
+        if (branchMap.has(id)) {
+          branchObj = { ...branchMap.get(id) };
+        }
+        if (!branchObj || !branchObj.name || isMongoHexId(branchObj.name)) {
+          branchObj = branchObj ? branchObj : { _id: id };
+          if (branchMap.has(id)) {
+            branchObj = { ...branchMap.get(id) };
+          }
+        }
+        if (existingIdx >= 0) {
+          const existingName = String(items[existingIdx]?.name || items[existingIdx]?.branchName || '').trim();
+          const newName = String(branchObj?.name || branchObj?.branchName || '').trim();
+          if ((!existingName || isMongoHexId(existingName)) && newName && !isMongoHexId(newName)) {
+            items[existingIdx] = branchObj;
+          }
+        } else {
+          items.push(branchObj);
+        }
+        return items;
+      }, []);
+
+      let visibleBranchOptions = restrictToAssignedBranches
+        ? (matchingCompanyBranches.length ? matchingCompanyBranches : assignedBranchOptions)
+        : (companyBranchList.length ? companyBranchList : assignedBranchOptions);
+
+      // Resolve any remaining branch options that still have a raw Mongo ID or missing name
+      visibleBranchOptions = await Promise.all(visibleBranchOptions.map(async branch => {
+        const branchId = String(branch?._id || branch?.id || '').trim();
+        const currentName = String(branch?.name || branch?.branchName || '').trim();
+        if (currentName && !isMongoHexId(currentName)) {
+          return branch;
+        }
+        if (branchId && branchMap.has(branchId)) {
+          return branchMap.get(branchId);
+        }
+        if (!branchId) return branch;
+        try {
+          const response = await axios.get(`/branches/${branchId}`);
+          const fetchedBranch = response.data?.branch || response.data?.data || response.data;
+          if (fetchedBranch?.name && !isMongoHexId(fetchedBranch.name)) {
+            return fetchedBranch;
+          }
+        } catch {
+          if (branch?.branchCode) {
+            return { ...branch, name: branch.branchCode.includes('HQ') ? 'Head Office' : branch.branchCode };
+          }
+        }
+        return branch;
+      }));
+      setBranches(visibleBranchOptions);
       
-      setAllUsers(usersWithDepartment);
+      setAllUsers(restrictToAssignedBranches
+        ? usersWithDepartment.filter(employee => [
+          employee.branch,
+          ...(Array.isArray(employee.assignedBranches) ? employee.assignedBranches : [])
+        ].some(branch => resolvedViewerBranchIds.includes(String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim())))
+        : usersWithDepartment);
       void 0;
       
     } catch (err) {
@@ -1949,12 +2139,15 @@ const EmployeeAttendance = () => {
           return {
             ...attendanceRecord,
             user: {
+              ...user,
               id: user.id || user._id,
               _id: user.id || user._id,
               employeeId: user.employeeId || '',
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
+              branch: user.branch || user.branchId || null,
+              assignedBranches: user.assignedBranches || [],
               department: user.department,
               departmentId: user.departmentId,
               jobRole: user.jobRole
@@ -1969,12 +2162,15 @@ const EmployeeAttendance = () => {
           return {
             _id: `absent_${userId}_${date}`,
             user: {
+              ...user,
               id: user.id || user._id,
               _id: user.id || user._id,
               employeeId: user.employeeId || '',
               name: user.name,
               email: user.email,
               employeeType: user.employeeType || 'full-time',
+              branch: user.branch || user.branchId || null,
+              assignedBranches: user.assignedBranches || [],
               department: user.department,
               departmentId: user.departmentId,
               jobRole: user.jobRole
@@ -2102,12 +2298,15 @@ const EmployeeAttendance = () => {
             return {
               ...attendanceRecord,
               user: {
+                ...user,
                 id: user.id || user._id,
                 _id: user.id || user._id,
                 employeeId: user.employeeId || '',
                 name: user.name,
                 email: user.email,
                 employeeType: user.employeeType || 'full-time',
+                branch: user.branch || user.branchId || null,
+                assignedBranches: user.assignedBranches || [],
                 department: user.department,
                 departmentId: user.departmentId,
                 jobRole: user.jobRole
@@ -2122,12 +2321,15 @@ const EmployeeAttendance = () => {
             return {
               _id: `absent_${userId}_${date}`,
               user: {
+                ...user,
                 id: user.id || user._id,
                 _id: user.id || user._id,
                 employeeId: user.employeeId || '',
                 name: user.name,
                 email: user.email,
                 employeeType: user.employeeType || 'full-time',
+                branch: user.branch || user.branchId || null,
+                assignedBranches: user.assignedBranches || [],
                 department: user.department,
                 departmentId: user.departmentId,
                 jobRole: user.jobRole
@@ -2277,6 +2479,7 @@ const EmployeeAttendance = () => {
   const clearFilters = () => {
     setStatusFilter("all");
     setSelectedEmployeeType("all");
+    setSelectedBranch("all");
     setSelectedDepartment("all");
     setSearchTerm("");
     handleDateRangeClear();
@@ -2294,6 +2497,32 @@ const EmployeeAttendance = () => {
   
   const filteredRecords = useMemo(() => {
     let filtered = records;
+
+    if (selectedBranch !== "all") {
+      const selectedId = String(selectedBranch).trim();
+      const allUsersMap = new Map(allUsers.map(u => [String(u._id || u.id), u]));
+      filtered = filtered.filter((rec) => {
+        const u = rec.user;
+        const uid = String(u?._id || u?.id || rec.userId || '').trim();
+        const baseUser = allUsersMap.get(uid) || u;
+        const branchList = [
+          baseUser?.branch,
+          baseUser?.branchId,
+          u?.branch,
+          u?.branchId,
+          rec.branch,
+          rec.branchId,
+          ...(Array.isArray(baseUser?.assignedBranches) ? baseUser.assignedBranches : []),
+          ...(Array.isArray(u?.assignedBranches) ? u.assignedBranches : []),
+          ...(Array.isArray(rec.assignedBranches) ? rec.assignedBranches : [])
+        ].filter(Boolean);
+
+        return branchList.some(branch => {
+          const bId = String(typeof branch === 'object' ? (branch?._id || branch?.id) : branch).trim();
+          return bId === selectedId;
+        });
+      });
+    }
 
     if (selectedEmployeeType !== "all") {
       filtered = filtered.filter(
@@ -2349,10 +2578,36 @@ const EmployeeAttendance = () => {
     });
 
     return filtered;
-  }, [records, selectedEmployeeType, selectedDepartment, searchTerm, statusFilter]);
+  }, [records, allUsers, selectedEmployeeType, selectedBranch, selectedDepartment, searchTerm, statusFilter]);
 
   const statsBaseRecords = useMemo(() => {
     let filtered = records;
+
+    if (selectedBranch !== "all") {
+      const selectedId = String(selectedBranch).trim();
+      const allUsersMap = new Map(allUsers.map(u => [String(u._id || u.id), u]));
+      filtered = filtered.filter((rec) => {
+        const u = rec.user;
+        const uid = String(u?._id || u?.id || rec.userId || '').trim();
+        const baseUser = allUsersMap.get(uid) || u;
+        const branchList = [
+          baseUser?.branch,
+          baseUser?.branchId,
+          u?.branch,
+          u?.branchId,
+          rec.branch,
+          rec.branchId,
+          ...(Array.isArray(baseUser?.assignedBranches) ? baseUser.assignedBranches : []),
+          ...(Array.isArray(u?.assignedBranches) ? u.assignedBranches : []),
+          ...(Array.isArray(rec.assignedBranches) ? rec.assignedBranches : [])
+        ].filter(Boolean);
+
+        return branchList.some(branch => {
+          const bId = String(typeof branch === 'object' ? (branch?._id || branch?.id) : branch).trim();
+          return bId === selectedId;
+        });
+      });
+    }
 
     if (selectedEmployeeType !== "all") {
       filtered = filtered.filter(
@@ -2371,7 +2626,7 @@ const EmployeeAttendance = () => {
     }
 
     return filtered;
-  }, [records, selectedEmployeeType, selectedDepartment]);
+  }, [records, allUsers, selectedEmployeeType, selectedBranch, selectedDepartment]);
 
   useEffect(() => {
     calculateStats(statsBaseRecords);
@@ -2752,6 +3007,8 @@ const EmployeeAttendance = () => {
         const hours = rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00");
         const status = formatStatusLabel(rec.status);
         const lateBy = rec.lateBy || "00:00:00";
+        const breakLabel = formatBreakLabel(rec.breakMinutes);
+        const grossHours = rec.grossTime || "00:00:00";
 
         return [
           index + 1,
@@ -2764,6 +3021,8 @@ const EmployeeAttendance = () => {
           checkIn,
           checkOut,
           hours,
+          breakLabel,
+          grossHours,
           status,
           lateBy
         ];
@@ -2771,7 +3030,7 @@ const EmployeeAttendance = () => {
 
       // 4. Render Table with autoTable
       const tableHeaders = [
-        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Status", "Late By"]
+        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Break", "Gross", "Status", "Late By"]
       ];
 
       const runTable = typeof autoTable === 'function' ? autoTable : doc.autoTable;
@@ -2809,11 +3068,14 @@ const EmployeeAttendance = () => {
           7: { cellWidth: 50, halign: "center" },
           8: { cellWidth: 50, halign: "center" },
           9: { cellWidth: 50, halign: "center" },
-          10: { cellWidth: 68, halign: "center", fontStyle: "bold" },
-          11: { cellWidth: 48, halign: "center" },
+          10: { cellWidth: 40, halign: "center" },
+          11: { cellWidth: 50, halign: "center" },
+          12: { cellWidth: 62, halign: "center", fontStyle: "bold" },
+          13: { cellWidth: 44, halign: "center" },
         },
         didParseCell: (data) => {
-          if (data.section === "body" && data.column.index === 10) {
+          // Status is column 12 now that Break and Gross sit before it.
+          if (data.section === "body" && data.column.index === 12) {
             const rawStatus = String(data.cell.raw || "").toUpperCase();
             if (rawStatus.includes("PRESENT") || rawStatus.includes("ON TIME")) {
               data.cell.styles.textColor = [22, 101, 52];
@@ -3222,6 +3484,8 @@ const EmployeeAttendance = () => {
       'Check Out': formatTime(record.outTime),
       'Check Out Type': getClockOutModeLabel(record),
       'Hours Worked': record.hoursWorked || '00:00:00',
+      'Break': formatBreakLabel(record.breakMinutes),
+      'Gross Hours': record.grossTime || '00:00:00',
       'Status': formatStatusLabel(record.status),
       'Late By': record.lateBy || '00:00:00',
       'Early Leave': record.earlyLeave || '00:00:00',
@@ -3261,7 +3525,7 @@ const EmployeeAttendance = () => {
     
     const worksheet = XLSX.utils.json_to_sheet(allData, {
       header: ['Date', 'Department', 'Employee ID', 'Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-               'Hours Worked', 'Status', 'Late By', 'Early Leave', 'Overtime', 'Total Hours']
+               'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime', 'Total Hours']
     });
     
     const workbook = XLSX.utils.book_new();
@@ -3278,7 +3542,7 @@ const EmployeeAttendance = () => {
     setExportMenuOpen(false);
     
     const headers = ['Date', 'Department', 'Employee Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-                     'Hours Worked', 'Status', 'Late By', 'Early Leave', 'Overtime'];
+                     'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime'];
     
     const csvData = filteredRecords.map(record => [
       record.displayDate || formatDate(record.date),
@@ -3290,6 +3554,8 @@ const EmployeeAttendance = () => {
       formatTime(record.outTime),
       getClockOutModeLabel(record),
       record.hoursWorked || '00:00:00',
+      formatBreakLabel(record.breakMinutes),
+      record.grossTime || '00:00:00',
       formatStatusLabel(record.status),
       record.lateBy || '00:00:00',
       record.earlyLeave || '00:00:00',
@@ -3612,11 +3878,27 @@ const EmployeeAttendance = () => {
           </div>
           
           <div className="EmppAttendence-filter-group">
+            <label className="EmppAttendence-filter-label">Branch</label>
+            <BranchFilter
+              selected={selectedBranch}
+              onChange={(branchId) => {
+                setSelectedBranch(branchId);
+                if (branchId !== 'all') setSelectedDepartment('all');
+              }}
+              branches={branches}
+            />
+          </div>
+
+          <div className="EmppAttendence-filter-group">
             <label className="EmppAttendence-filter-label">Department</label>
             <DepartmentFilter
               selected={selectedDepartment}
               onChange={setSelectedDepartment}
-              departments={departments}
+              departments={selectedBranch === 'all' ? departments : departments.filter(department => {
+                const branch = department.branch || department.branchId;
+                const branchId = typeof branch === 'object' ? (branch?._id || branch?.id) : branch;
+                return !branchId || String(branchId) === String(selectedBranch);
+              })}
             />
           </div>
 
@@ -3674,7 +3956,12 @@ const EmployeeAttendance = () => {
         </div>
       </div>
 
-      
+      {/* Breaks: who is on one now, and the break policy per company / branch / department / shift */}
+      <BreakAdminPanel />
+
+      {/* Weekly off: approve day changes, and set each employee's day */}
+      <WeekOffAdminPanel />
+
       <div className="EmppAttendence-stats-container">
         {[
           { 
@@ -3867,6 +4154,7 @@ const EmployeeAttendance = () => {
                 <th className="EmppAttendence-col-checkin">Check In</th>
                 <th className="EmppAttendence-col-checkout">Check Out</th>
                 <th className="EmppAttendence-col-hours">Hours</th>
+                <th className="EmppAttendence-col-hours">Break</th>
                 <th className="EmppAttendence-col-login">Login Time</th>
                 <th className="EmppAttendence-col-status">Status</th>
                 <th className="EmppAttendence-col-late">Late By</th>
@@ -3882,7 +4170,7 @@ const EmployeeAttendance = () => {
                     <React.Fragment key={date}>
                       
                       <tr className="EmppAttendence-date-header">
-                        <td colSpan={bulkEditMode ? 13 : 12}>
+                        <td colSpan={bulkEditMode ? 14 : 13}>
                           <div className="EmppAttendence-date-title">
                             <FiCalendar size={18} />
                             <strong>{new Date(date).toLocaleDateString("en-US", {
@@ -4008,6 +4296,10 @@ const EmployeeAttendance = () => {
                             })()}
                           </td>
 
+                          <td className="EmppAttendence-col-hours" title={rec.grossTime && rec.grossTime !== '00:00:00' ? `Gross ${rec.grossTime}` : undefined}>
+                            {formatBreakLabel(rec.breakMinutes)}
+                          </td>
+
                           <td className="EmppAttendence-col-login">
                             <div className="EmppAttendence-login-time-info">
                               {getLoginTimeCategory(rec.inTime)}
@@ -4086,7 +4378,7 @@ const EmployeeAttendance = () => {
                     <React.Fragment key={department}>
                       
                       <tr className="EmppAttendence-department-header">
-                        <td colSpan={bulkEditMode ? 13 : 12}>
+                        <td colSpan={bulkEditMode ? 14 : 13}>
                           <div className="EmppAttendence-department-title">
                             <FiUsers size={18} />
                             <strong>{department} Department</strong>
@@ -4262,7 +4554,7 @@ const EmployeeAttendance = () => {
                 )
               ) : (
                 <tr>
-                  <td colSpan={bulkEditMode ? (dateRangeMode ? 13 : 12) : (dateRangeMode ? 12 : 11)}>
+                  <td colSpan={bulkEditMode ? (dateRangeMode ? 14 : 13) : (dateRangeMode ? 13 : 12)}>
                     <div className="EmppAttendence-empty-state">
                       <div className="EmppAttendence-empty-state-icon">
                         <FiCalendar size={48} />

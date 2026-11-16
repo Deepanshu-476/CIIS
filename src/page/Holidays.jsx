@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Holidays.css';
 import API_URL, { API_URL_IMG } from "../config"; 
+import usePageActionAccess from '../hooks/usePageActionAccess';
 
-let xlsxModulePromise;
-const loadXlsx = () => {
-    xlsxModulePromise ||= import('xlsx').then(module => module.default || module);
-    return xlsxModulePromise;
-};
+// The admin panel (/Ciis-network) is for owners. On /ciisUser/holiday the "Holiday"
+// page in Page Management decides who may add / edit (same rule as the backend).
+const HOLIDAY_PAGE_PATH = '/ciisUser/holiday';
+const isAdminPanel = () => typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/ciis-network');
 
 const Holidays = () => {
+    const { canEdit } = usePageActionAccess(HOLIDAY_PAGE_PATH, { fullAccess: isAdminPanel() });
     
     const [holidays, setHolidays] = useState([]);
     const [filteredHolidays, setFilteredHolidays] = useState([]);
@@ -387,6 +388,7 @@ const Holidays = () => {
                     <span>Dashboard</span>
                     <span>Holiday Management</span>
                 </div>
+                {canEdit && (<>
                 <label className={`excel-upload-btn ${uploadingExcel ? 'disabled' : ''}`}>
                     <input
                         type="file"
@@ -405,6 +407,7 @@ const Holidays = () => {
                 >
                     {showForm ? '✖ Cancel' : '➕ Add Holiday'}
                 </button>
+                </>)}
             </div>
 
             <div className="holiday-summary-grid">
@@ -447,7 +450,7 @@ const Holidays = () => {
             {error && <div className="error-message">{error}</div>}
 
             
-            {showForm && (
+            {canEdit && showForm && (
                 <div className="holiday-form-container">
                     <h2>{editingId ? '✏️ Edit Holiday' : '➕ Add New Holiday'}</h2>
                     <form onSubmit={handleSubmit} className="holiday-form">
@@ -548,6 +551,7 @@ const Holidays = () => {
                             <option value="Public Holiday">Public Holiday</option>
                             <option value="Optional Holiday">Optional Holiday</option>
                         </select>
+                        {canEdit && (<>
                         <label className={`holiday-table-upload ${uploadingExcel ? 'disabled' : ''}`}>
                             <input
                                 type="file"
@@ -566,6 +570,7 @@ const Holidays = () => {
                         >
                             + Add Holiday
                         </button>
+                        </>)}
                     </div>
                 </div>
 
@@ -584,9 +589,11 @@ const Holidays = () => {
                 ) : filteredHolidays.length === 0 ? (
                     <div className="holiday-table-empty">
                         <p>No holidays found</p>
+                        {canEdit && (
                         <button onClick={() => setShowForm(true)} className="holiday-add-table-btn">
                             Add First Holiday
                         </button>
+                        )}
                     </div>
                 ) : (
                     <>
@@ -623,7 +630,7 @@ const Holidays = () => {
                                                 <td>All Departments</td>
                                                 <td>
                                                     <div className="holiday-action-buttons">
-                                                        <button className="holiday-icon-action edit" onClick={() => handleEdit(holiday)}>Edit</button>
+                                                        {canEdit ? <button className="holiday-icon-action edit" onClick={() => handleEdit(holiday)}>Edit</button> : '—'}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -651,9 +658,11 @@ const Holidays = () => {
                 ) : filteredHolidays.length === 0 ? (
                     <div className="no-data">
                         <p>😔 No holidays found</p>
+                        {canEdit && (
                         <button onClick={() => setShowForm(true)} className="add-first-btn">
                             Add First Holiday
                         </button>
+                        )}
                     </div>
                 ) : (
                     <>
@@ -708,7 +717,7 @@ const Holidays = () => {
             </div>
             
             
-            <div className="holiday-card-footer">
+            {canEdit && <div className="holiday-card-footer">
                 <button 
                     className="edit-btn"
                     onClick={() => handleEdit(holiday)}
@@ -716,7 +725,7 @@ const Holidays = () => {
                     <span className="btn-icon">✏️</span>
                     <span className="btn-text">Edit</span>
                 </button>
-            </div>
+            </div>}
             
             
             <div className="card-accent"></div>

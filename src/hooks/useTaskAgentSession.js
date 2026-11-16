@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance, { clearAllCaches } from '../utils/axiosConfig';
+import { getSidebarConfigParams } from '../utils/sidebarConfigStore';
 import useSpeech from './useSpeech';
 import { markTaskIdAsCreated, broadcastTaskCreated, broadcastTaskUpdated, invalidateTaskManagementCache } from './useTaskRealtime';
 import { AI_ENDPOINTS } from '../constants/aiEndpoints';
@@ -68,26 +69,33 @@ const getStoredPagePermissions = () => {
                 if (val) {
                     const accessList = Array.isArray(val.accessPages) ? val.accessPages : [];
                     accessList.forEach(p => {
-                        if (p && p.hasAccess !== false) {
+                        const hasDirectAccess = p && (
+                            p.hasAccess === true ||
+                            (currentUserId && (
+                                (Array.isArray(p.viewUsers) && p.viewUsers.map(u => String(u?._id || u?.id || u)).includes(currentUserId)) ||
+                                (Array.isArray(p.editUsers) && p.editUsers.map(u => String(u?._id || u?.id || u)).includes(currentUserId)) ||
+                                (Array.isArray(p.userAccessScopes) && p.userAccessScopes.some(s => String(s?.user?._id || s?.user?.id || s?.user) === currentUserId))
+                            ))
+                        );
+                        if (hasDirectAccess) {
                             if (p.path) perms.push(p.path);
-                            if (p.key) perms.push(p.key);
+                            if (p.key || p.pageKey) perms.push(p.key || p.pageKey);
                             if (p.name) perms.push(p.name);
                         }
                     });
                     if (Array.isArray(val.pages)) {
                         val.pages.forEach(p => {
-                            if (p && p.hasAccess === true) {
+                            const hasDirectAccess = p && (
+                                p.hasAccess === true ||
+                                (currentUserId && (
+                                    (Array.isArray(p.viewUsers) && p.viewUsers.map(u => String(u?._id || u?.id || u)).includes(currentUserId)) ||
+                                    (Array.isArray(p.editUsers) && p.editUsers.map(u => String(u?._id || u?.id || u)).includes(currentUserId))
+                                ))
+                            );
+                            if (hasDirectAccess) {
                                 if (p.path) perms.push(p.path);
-                                if (p.key) perms.push(p.key);
+                                if (p.key || p.pageKey) perms.push(p.key || p.pageKey);
                                 if (p.name) perms.push(p.name);
-                            } else if (p && currentUserId) {
-                                const vUsers = Array.isArray(p.viewUsers) ? p.viewUsers.map(String) : [];
-                                const eUsers = Array.isArray(p.editUsers) ? p.editUsers.map(String) : [];
-                                if (vUsers.includes(currentUserId) || eUsers.includes(currentUserId)) {
-                                    if (p.path) perms.push(p.path);
-                                    if (p.key) perms.push(p.key);
-                                    if (p.name) perms.push(p.name);
-                                }
                             }
                         });
                     }
@@ -1655,11 +1663,10 @@ export default function useTaskAgentSession({
             // Dynamically ensure fresh sidebar permissions if local storage copy was missing or incomplete
             if (!Array.isArray(sidebarConfig?.menuItems) || sidebarConfig.menuItems.length === 0) {
                 const comp = JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}');
-                const companyId = user?.company?._id || user?.company || comp?._id || comp?.id;
-                const role = user?.jobRole?._id || user?.jobRole || user?.role;
-                if (companyId && role) {
+                const sidebarParams = getSidebarConfigParams(user, comp);
+                if (sidebarParams) {
                     axiosInstance.get('/sidebar/config', {
-                        params: { companyId, role }
+                        params: sidebarParams
                     }).then(res => {
                         if (res?.data?.data?.menuItems) {
                             try {

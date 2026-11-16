@@ -1005,13 +1005,16 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
     const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
 
     // Assigning tasks to others requires "Admin Create Task" permission (not general Task Management)
-    const isOnAdminTaskPage = typeof window !== 'undefined' && (
-        window.location?.pathname?.includes('admin-task-create') ||
-        Boolean(document?.querySelector?.('a[href*="admin-task-create"], [data-page="admin-task-create"]'))
-    );
+    const isOnAdminTaskPage = typeof window !== 'undefined' && window.location?.pathname?.includes('admin-task-create');
     const hasAdminTaskCreateMenu = menuSlugs.has('admintaskcreate') || menuSlugs.has('admin-task-create') || menuSlugs.has('admincreatetask') || menuSlugs.has('admin-create-task');
     const hasAdminTaskCreatePerm = permSlugs.has('admintaskcreate') || permSlugs.has('admin-task-create') || permSlugs.has('admincreatetask') || permSlugs.has('admin-create-task');
-    if (isOnAdminTaskPage || hasAdminTaskCreateMenu || hasAdminTaskCreatePerm) {
+    if (isOnAdminTaskPage) {
+        allowed.add('task_assigned_user');
+    } else if (allConfigItems.length > 0) {
+        if (hasAdminTaskCreateMenu) {
+            allowed.add('task_assigned_user');
+        }
+    } else if (hasAdminTaskCreatePerm) {
         allowed.add('task_assigned_user');
     }
     // Creating projects requires administrative project permission

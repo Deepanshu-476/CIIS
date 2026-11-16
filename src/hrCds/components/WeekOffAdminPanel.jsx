@@ -60,6 +60,12 @@ const styles = {
   count: { marginLeft: 6, padding: "1px 7px", borderRadius: 999, background: "#fee2e2", color: "#b91c1c", fontSize: 11, fontWeight: 800 },
 };
 
+const isClient = item => {
+  const dept = String(item?.departmentName || "").trim().toLowerCase();
+  const role = String(item?.role || item?.companyRole || "").trim().toLowerCase();
+  return dept === "client" || role === "client";
+};
+
 export default function WeekOffAdminPanel() {
   const [allowed, setAllowed] = useState(true);
   const [tab, setTab] = useState("requests");
@@ -89,7 +95,10 @@ export default function WeekOffAdminPanel() {
   const loadEmployees = useCallback(async () => {
     try {
       const res = await axios.get("/week-off/employees");
-      if (res.data?.success) setEmployees(res.data.data || []);
+      if (res.data?.success) {
+        const raw = res.data.data || [];
+        setEmployees(raw.filter(item => !isClient(item)));
+      }
     } catch (error) {
       if (error?.response?.status === 403) setAllowed(false);
       else console.error("Failed to load weekly off settings:", error?.message);
@@ -146,8 +155,9 @@ export default function WeekOffAdminPanel() {
 
   const visibleEmployees = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return employees;
-    return employees.filter(item => (
+    const list = employees.filter(item => !isClient(item));
+    if (!needle) return list;
+    return list.filter(item => (
       `${item.name} ${item.email} ${item.employeeId} ${item.departmentName}`.toLowerCase().includes(needle)
     ));
   }, [employees, search]);

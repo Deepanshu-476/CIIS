@@ -22,8 +22,8 @@ const styles = {
   none: { fontSize: 13, color: '#94a3b8' },
 };
 
-// Player + download link. `compact` shows only a small "Recording" badge (for table cells).
-export default function CallRecording({ url, compact = false, emptyText = 'No recording' }) {
+// Player without download link. `compact` shows only a small "Recording" badge (for table cells).
+export default function CallRecording({ url, compact = false, emptyText = 'No recording', showDownload = false }) {
   const href = recordingHref(url);
   if (!href) return emptyText ? <span style={styles.none}>{emptyText}</span> : null;
   if (compact) {
@@ -35,12 +35,14 @@ export default function CallRecording({ url, compact = false, emptyText = 'No re
   }
   return (
     <div style={styles.wrap}>
-      <audio controls preload="none" src={href} style={styles.audio}>
+      <audio controls controlsList="nodownload" preload="none" src={href} style={styles.audio}>
         <a href={href}>Play recording</a>
       </audio>
-      <a href={href} target="_blank" rel="noopener noreferrer" download style={styles.link}>
-        <FiDownload size={13} /> Download
-      </a>
+      {showDownload && (
+        <a href={href} target="_blank" rel="noopener noreferrer" download style={styles.link}>
+          <FiDownload size={13} /> Download
+        </a>
+      )}
     </div>
   );
 }

@@ -2060,6 +2060,14 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     const rosterOthers = callRoster.filter(person => person.userId && person.userId !== currentUserId);
     const rosterJoinedCount = rosterOthers.filter(person => person.status === "joined").length;
+    const totalJoinedCount = rosterJoinedCount + 1;
+    const totalParticipantsCount = callRoster.length > 0
+        ? (callRoster.some(p => p.userId === currentUserId) ? callRoster.length : callRoster.length + 1)
+        : (rosterOthers.length + 1);
+    const sortedRosterOthers = [...rosterOthers].sort((a, b) => {
+        const order = { joined: 1, invited: 2, missed: 3, ended: 4, rejected: 5, removed: 6 };
+        return (order[a.status] || 99) - (order[b.status] || 99);
+    });
     const avatarSrc = getAvatarSrc(call.peerUser?.avatar || call.peerUser?.profileImage || call.peerUser?.image);
     const isVideoCall = call.type === "video";
     const connectedCount = remoteParticipants.filter(participant => participant.stream).length;
@@ -2164,7 +2172,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                 aria-expanded={showRoster}
                             >
                                 <Users size={17} />
-                                <span className="call-roster-count">{rosterJoinedCount}</span>
+                                <span className="call-roster-count">{totalJoinedCount}</span>
                             </button>
                         )}
                         <button type="button" className="call-icon-btn" onClick={() => setIsMinimized(true)} title="Minimize call">
@@ -2182,13 +2190,29 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 {showRoster && rosterOthers.length > 0 && (
                     <div className="call-roster-panel">
                         <div className="call-roster-header">
-                            <strong>People ({rosterJoinedCount + 1} in call)</strong>
+                            <strong>People ({totalJoinedCount} in call{totalParticipantsCount > totalJoinedCount ? ` · ${totalParticipantsCount} total` : ""})</strong>
                             <button type="button" className="call-roster-close" onClick={() => setShowRoster(false)} aria-label="Close"><X size={15} /></button>
                         </div>
                         <div className="call-roster-list">
-                            {rosterOthers.map(person => {
+                            <div className="call-roster-row">
+                                <span className="call-roster-avatar">
+                                    {localAvatarSrc ? (
+                                        <img src={localAvatarSrc} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                                    ) : (
+                                        (localUserName || "You").charAt(0).toUpperCase()
+                                    )}
+                                </span>
+                                <span className="call-roster-info">
+                                    <strong>{localUserName} (You)</strong>
+                                    <small>
+                                        <span className="call-roster-status tone-ok">In call</span>
+                                    </small>
+                                </span>
+                            </div>
+                            {sortedRosterOthers.map(person => {
                                 const status = ROSTER_STATUS[person.status] || { label: person.status, tone: "muted" };
                                 const name = person.user?.name || "Participant";
+                                const personAvatar = getAvatarSrc(person.user?.avatar || person.user?.profileImage || person.user?.image);
                                 const isActive = person.status === "joined" || person.status === "invited";
                                 const detail = person.status === "removed" && person.removedByName
                                     ? `Removed by ${person.removedByName}`
@@ -2197,7 +2221,13 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                         : person.addedBy === currentUserId ? "Added by you" : "";
                                 return (
                                     <div key={person.userId} className="call-roster-row">
-                                        <span className="call-roster-avatar">{name.charAt(0).toUpperCase()}</span>
+                                        <span className="call-roster-avatar">
+                                            {personAvatar ? (
+                                                <img src={personAvatar} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                                            ) : (
+                                                name.charAt(0).toUpperCase()
+                                            )}
+                                        </span>
                                         <span className="call-roster-info">
                                             <strong>{name}</strong>
                                             <small>

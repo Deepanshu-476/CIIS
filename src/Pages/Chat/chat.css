@@ -2970,9 +2970,17 @@
 .call-remote-stage.has-presenter {
     background: #000000;
     padding: 0;
+    min-width: 0;
+    isolation: isolate;
 }
 
 .call-remote-stage.has-presenter .call-video-grid {
+    /* Keep the incoming video's intrinsic dimensions out of stage sizing. */
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     grid-template-columns: none;
     align-items: flex-end;
@@ -3005,10 +3013,22 @@
     border: none;
     border-radius: 0;
     background: #000000;
+    min-width: 0;
+    align-self: stretch;
 }
 
 .call-remote-stage.has-presenter .call-remote-tile.is-presenter .call-remote-video {
+    /* A portrait stream must fit the stage, including after phone rotation. */
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
+    object-position: center;
     background: #000000;
 }
 

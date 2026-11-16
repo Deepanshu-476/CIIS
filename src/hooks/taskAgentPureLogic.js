@@ -1042,13 +1042,19 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         allowed.add('create_client');
     }
 
-    const hasPlanMenu = menuSlugs.has('clientplans') || menuSlugs.has('clientplan') || menuSlugs.has('client-plans');
-    const hasPlanPerm = permSlugs.has('clientplans') || permSlugs.has('clientplan') || permSlugs.has('client-plans');
-    if (allConfigItems.length > 0) {
-        if (hasPlanMenu) {
-            allowed.add('create_client_plan');
-        }
-    } else if (hasPlanPerm) {
+    const isOnClientPage = typeof window !== 'undefined' && (
+        window.location?.pathname?.includes('client-plans') ||
+        window.location?.pathname?.includes('client-management') ||
+        window.location?.pathname?.includes('emp-client') ||
+        window.location?.pathname?.includes('/client')
+    );
+    const hasPlanDOM = typeof document !== 'undefined' && Boolean(
+        document.querySelector?.('a[href*="client-plan"], [data-page*="client-plan"]') ||
+        Array.from(document.querySelectorAll?.('a, button, span')).some(el => /client\s*plans?/i.test(el.textContent || ''))
+    );
+    const hasPlanMenu = menuSlugs.has('clientplans') || menuSlugs.has('clientplan') || menuSlugs.has('client-plans') || menuSlugs.has('clientplanmanagement') || hasClientMenu;
+    const hasPlanPerm = permSlugs.has('clientplans') || permSlugs.has('clientplan') || permSlugs.has('client-plans') || permSlugs.has('clientplanmanagement') || hasClientPerm;
+    if (isOnClientPage || hasPlanDOM || (allConfigItems.length > 0 && hasPlanMenu) || hasPlanPerm) {
         allowed.add('create_client_plan');
     }
 

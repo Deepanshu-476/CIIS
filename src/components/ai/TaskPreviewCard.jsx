@@ -199,7 +199,18 @@ export default function TaskPreviewCard({
                     {preview.taskFor !== 'project' && preview.repeatPattern && (
                         <>
                             <dt>Repeat</dt>
-                            <dd>{preview.repeatPattern !== 'none' ? preview.repeatPattern : 'No repeat'}</dd>
+                            <dd>{(() => {
+                                if (!preview.repeatPattern || preview.repeatPattern === 'none') return 'No repeat';
+                                if (preview.repeat && preview.repeat !== 'daily' && preview.repeat !== 'none') return preview.repeat;
+                                if (preview.repeatLabel && preview.repeatLabel !== 'daily' && preview.repeatLabel !== 'none') return preview.repeatLabel;
+                                const days = Array.isArray(preview.repeatDays) && preview.repeatDays.length > 0
+                                    ? preview.repeatDays.map(d => String(d).charAt(0).toUpperCase() + String(d).slice(1).toLowerCase()).join(', ')
+                                    : '';
+                                const end = preview.recurrenceEndDate
+                                    ? ` tak ${formatDateOnlyCard(preview.recurrenceEndDate)}`
+                                    : '';
+                                return `${days || (preview.repeatPattern === 'daily' ? 'Daily' : preview.repeatPattern)}${end}`;
+                            })()}</dd>
                         </>
                     )}
                         </>

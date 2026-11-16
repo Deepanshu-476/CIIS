@@ -991,8 +991,7 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         ...(Array.isArray(user.allowedPages) ? user.allowedPages : []),
         ...(Array.isArray(user.pagePermissions) ? user.pagePermissions : []),
         ...(Array.isArray(user.permissions) ? user.permissions : []),
-        ...(Array.isArray(pagePermissions) ? pagePermissions : []),
-        ...companyAllowedPages
+        ...(Array.isArray(pagePermissions) ? pagePermissions : [])
     ];
     const permSlugs = new Set();
     userPerms.forEach(p => {

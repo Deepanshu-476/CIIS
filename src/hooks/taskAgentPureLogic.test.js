@@ -2860,6 +2860,24 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.ok(clientChips.some(c => c.action.intent === 'self_task'));
         assert.ok(clientChips.some(c => c.action.intent === 'create_client'));
         assert.ok(clientChips.some(c => c.action.intent === 'create_client_task'));
+
+        // Vansh & Kanika (User role) in company with client-plans page access
+        const vanshUser = { name: 'Vansh Gupta', role: 'employee', jobRoleName: 'User' };
+        const vanshChips = filterWelcomeButtonsByPermissions(vanshUser, {
+            sidebarConfig: {
+                menuItems: [
+                    { id: 'user-dashboard', path: '/ciisUser/user-dashboard' },
+                    { id: 'task-management', path: '/ciisUser/task-management' },
+                    { id: 'project', path: '/ciisUser/project' },
+                ]
+            },
+            companyDetails: { allowedPages: ['client-plans', 'projects'] },
+            language: 'en'
+        });
+        assert.ok(vanshChips.some(c => c.action.intent === 'create_client_plan'), 'Vansh must have create_client_plan button');
+        assert.ok(vanshChips.some(c => c.action.intent === 'self_task'));
+        assert.ok(vanshChips.some(c => c.action.intent === 'task_project'));
+        assert.ok(vanshChips.some(c => c.action.intent === 'create_client_task'));
     });
 
     test('55. English Welcome Greeting & English Buttons Selection', () => {

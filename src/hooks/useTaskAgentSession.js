@@ -54,6 +54,14 @@ const getSidebarConfig = () => {
     }
 };
 
+const getCompanyDetails = () => {
+    try {
+        return JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}');
+    } catch {
+        return {};
+    }
+};
+
 const getStoredPagePermissions = () => {
     try {
         const perms = [];
@@ -341,7 +349,7 @@ export default function useTaskAgentSession({
         const user = getUser();
         const sidebarConfig = getSidebarConfig();
         const welcomeText = getRoleAwareGreeting(user, new Date(), 'en');
-        const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), language: 'en' });
+        const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails(), language: 'en' });
         setMessages([{ role: 'assistant', text: welcomeText, id: 'msg_' + Date.now() }]);
         setResult({
             status: 'open',
@@ -586,7 +594,7 @@ export default function useTaskAgentSession({
             try {
                 const currentUser = getUser();
                 const currentSidebarConfig = getSidebarConfig();
-                const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions() });
+                const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails() });
                 const allowedIntents = allowedButtons.map(b => b.action?.intent).filter(Boolean);
 
                 const currentLanguage = sessionLangRef.current || 'en';
@@ -1464,6 +1472,7 @@ export default function useTaskAgentSession({
         const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, {
             sidebarConfig: currentSidebarConfig,
             pagePermissions: getStoredPagePermissions(),
+            companyDetails: getCompanyDetails(),
             language: isEn ? 'en' : 'hinglish'
         });
         setResult({
@@ -1522,7 +1531,7 @@ export default function useTaskAgentSession({
             currentSessionIdRef.current = null;
             const currentUser = getUser();
             const currentSidebarConfig = getSidebarConfig();
-            const allowed = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions(), language: 'en' });
+            const allowed = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails(), language: 'en' });
             const welcomeText = getRoleAwareGreeting(currentUser, new Date(), 'en');
             const msgId = pushMsg('assistant', welcomeText);
             if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
@@ -1646,7 +1655,7 @@ export default function useTaskAgentSession({
         if (open && messages.length === 0) {
             const user = getUser();
             const sidebarConfig = getSidebarConfig();
-            const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), language: 'en' });
+            const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails(), language: 'en' });
             const greetingText = getRoleAwareGreeting(user, new Date(), 'en');
             const greetingId = pushMsg('assistant', greetingText);
 
@@ -1675,6 +1684,7 @@ export default function useTaskAgentSession({
                             const refreshedAllowed = filterWelcomeButtonsByPermissions(user, {
                                 sidebarConfig: res.data.data,
                                 pagePermissions: getStoredPagePermissions(),
+                                companyDetails: getCompanyDetails(),
                                 language: 'en'
                             });
                             setResult(prev => (!prev?.draft?.intent ? { ...prev, chips: refreshedAllowed } : prev));
@@ -1820,6 +1830,7 @@ export default function useTaskAgentSession({
     const allowedWelcomeButtons = filterWelcomeButtonsByPermissions(currentUser, {
         sidebarConfig: currentSidebarConfig,
         pagePermissions: getStoredPagePermissions(),
+        companyDetails: getCompanyDetails(),
         language: currentLang
     });
     const chips = Array.isArray(result?.chips) && result?.chips.length > 0

@@ -936,11 +936,19 @@ export const isPrivilegedRoleUser = (user) => {
     return roleValues.some(r => PRIVILEGED_ROLES.has(r)) || Boolean(user.isSuperAdmin || user.isPlatformOwner);
 };
 
-export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePermissions, language = 'hinglish', allowAll = false } = {}) => {
+export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePermissions, companyDetails, language = 'hinglish', allowAll = false } = {}) => {
     const baseButtons = language === 'en' ? WELCOME_MENU_BUTTONS_EN : WELCOME_MENU_BUTTONS;
     if (allowAll || !user || isPrivilegedRoleUser(user)) {
         return baseButtons;
     }
+
+    let companyAllowedPages = [];
+    try {
+        const comp = companyDetails || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}') : {});
+        if (Array.isArray(comp?.allowedPages)) {
+            companyAllowedPages = comp.allowedPages;
+        }
+    } catch {}
 
     const rawMenuItems = Array.isArray(sidebarConfig?.menuItems)
         ? sidebarConfig.menuItems
@@ -983,7 +991,8 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         ...(Array.isArray(user.allowedPages) ? user.allowedPages : []),
         ...(Array.isArray(user.pagePermissions) ? user.pagePermissions : []),
         ...(Array.isArray(user.permissions) ? user.permissions : []),
-        ...(Array.isArray(pagePermissions) ? pagePermissions : [])
+        ...(Array.isArray(pagePermissions) ? pagePermissions : []),
+        ...companyAllowedPages
     ];
     const permSlugs = new Set();
     userPerms.forEach(p => {
@@ -1049,12 +1058,16 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
         window.location?.pathname?.includes('/client')
     );
     const hasPlanDOM = typeof document !== 'undefined' && Boolean(
-        document.querySelector?.('a[href*="client-plan"], [data-page*="client-plan"]') ||
-        Array.from(document.querySelectorAll?.('a, button, span')).some(el => /client\s*plans?/i.test(el.textContent || ''))
+        document.querySelector?.('a[href*="client-plan"], [data-page*="client-plan"], [aria-label*="Client Plan" i], [aria-label*="client-plan" i]') ||
+        Array.from(document.querySelectorAll?.('a, button, [role="button"], span, p, div, li')).some(el => /client\s*plans?/i.test(el.getAttribute?.('aria-label') || el.textContent || ''))
     );
-    const hasPlanMenu = menuSlugs.has('clientplans') || menuSlugs.has('clientplan') || menuSlugs.has('client-plans') || menuSlugs.has('clientplanmanagement') || hasClientMenu;
-    const hasPlanPerm = permSlugs.has('clientplans') || permSlugs.has('clientplan') || permSlugs.has('client-plans') || permSlugs.has('clientplanmanagement') || hasClientPerm;
-    if (isOnClientPage || hasPlanDOM || (allConfigItems.length > 0 && hasPlanMenu) || hasPlanPerm) {
+    const hasCompanyPlanAccess = companyAllowedPages.some(p => {
+        const norm = String(p).toLowerCase().replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/[\s_-]+/g, '');
+        return norm === 'clientplans' || norm === 'clientplan' || norm === 'client-plans';
+    });
+    const hasPlanMenu = menuSlugs.has('clientplans') || menuSlugs.has('clientplan') || menuSlugs.has('client-plans') || menuSlugs.has('clientplanmanagement');
+    const hasPlanPerm = permSlugs.has('clientplans') || permSlugs.has('clientplan') || permSlugs.has('client-plans') || permSlugs.has('clientplanmanagement');
+    if (isOnClientPage || hasPlanDOM || hasCompanyPlanAccess || (allConfigItems.length > 0 && hasPlanMenu) || hasPlanPerm) {
         allowed.add('create_client_plan');
     }
 

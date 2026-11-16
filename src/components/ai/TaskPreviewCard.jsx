@@ -207,7 +207,7 @@ export default function TaskPreviewCard({
                                     ? preview.repeatDays.map(d => String(d).charAt(0).toUpperCase() + String(d).slice(1).toLowerCase()).join(', ')
                                     : '';
                                 const end = preview.recurrenceEndDate
-                                    ? ` tak ${formatDateOnlyCard(preview.recurrenceEndDate)}`
+                                    ? `, ${formatDateOnlyCard(preview.recurrenceEndDate)}`
                                     : '';
                                 return `${days || (preview.repeatPattern === 'daily' ? 'Daily' : preview.repeatPattern)}${end}`;
                             })()}</dd>

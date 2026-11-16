@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { attendanceExportValues, attendanceExportSummary, resolveScheduledAttendanceStatus, fetchAttendanceDay } from "../../../utils/attendanceExport";
 import WeekOffAdminPanel from "../../components/WeekOffAdminPanel";
 import BreakAdminPanel from "../../components/BreakAdminPanel";
 import axios from "../../../utils/axiosConfig";
@@ -1498,7 +1499,7 @@ const normalizeAttendanceStatus = (status) => {
   if (normalized === "absent") return "absent";
   if (normalized === "uninformedleave") return "uninformedleave";
   if (normalized === "holiday") return "holiday";
-  if (normalized === "weekend" || normalized === "weeklyoff") return "weekend";
+  if (normalized === "weekend" || normalized === "weeklyoff" || normalized === "weekoff") return "weekend";
   if (normalized === "leave" || normalized === "onleave") return "leave";
   return normalized || "absent";
 };
@@ -2110,10 +2111,7 @@ const EmployeeAttendance = () => {
       const formatted = date;
       void 0;
       
-      const res = await axios.get('/attendance/all', {
-        params: { date: formatted },
-        cache: false
-      });
+      const res = {data: await fetchAttendanceDay(axios, formatted)};
       
       const attendanceMap = {};
       if (res.data && res.data.data && Array.isArray(res.data.data)) {
@@ -2134,7 +2132,7 @@ const EmployeeAttendance = () => {
         
         if (attendanceRecord) {
           const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
-          const finalStatus = normalizeAttendanceStatus(attendanceRecord.status || 'absent');
+          const finalStatus = resolveScheduledAttendanceStatus(attendanceRecord, userId, res.data);
           
           return {
             ...attendanceRecord,
@@ -2183,8 +2181,8 @@ const EmployeeAttendance = () => {
             lateBy: "00:00:00",
             earlyLeave: "00:00:00",
             overTime: "00:00:00",
-            status: "absent",
-            calculatedStatus: "absent",
+            status: resolveScheduledAttendanceStatus(null, userId, res.data),
+            calculatedStatus: resolveScheduledAttendanceStatus(null, userId, res.data),
             isClockedIn: false,
             displayDate: formatted
           };
@@ -2259,14 +2257,11 @@ const EmployeeAttendance = () => {
       
       const fetchPromises = dateRange.map(async (date) => {
         try {
-          const res = await axios.get('/attendance/all', {
-            params: { date },
-            cache: false
-          });
+          const res = {data: await fetchAttendanceDay(axios, date)};
           return { date, data: res.data };
         } catch (error) {
           console.error(`Error fetching attendance for ${date}:`, error);
-          return { date, data: null };
+          throw error;
         }
       });
       
@@ -2293,7 +2288,7 @@ const EmployeeAttendance = () => {
           
           if (attendanceRecord) {
             const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
-            const finalStatus = normalizeAttendanceStatus(attendanceRecord.status || 'absent');
+            const finalStatus = resolveScheduledAttendanceStatus(attendanceRecord, userId, data);
             
             return {
               ...attendanceRecord,
@@ -2342,8 +2337,8 @@ const EmployeeAttendance = () => {
               lateBy: "00:00:00",
               earlyLeave: "00:00:00",
               overTime: "00:00:00",
-              status: "absent",
-              calculatedStatus: "absent",
+              status: resolveScheduledAttendanceStatus(null, userId, data),
+              calculatedStatus: resolveScheduledAttendanceStatus(null, userId, data),
               isClockedIn: false,
               displayDate: date
             };
@@ -2866,6 +2861,8 @@ const EmployeeAttendance = () => {
   };
 
   
+  const exportStats = useMemo(() => attendanceExportSummary(filteredRecords), [filteredRecords]);
+
   const exportToPDF = async () => {
     if (!filteredRecords || filteredRecords.length === 0) {
       showSnackbar("No attendance records found to export", "error");
@@ -2915,7 +2912,7 @@ const EmployeeAttendance = () => {
     try {
       const { jsPDF, autoTable } = await loadPdfModules();
 
-      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const exportedAt = new Date();
@@ -2962,13 +2959,15 @@ const EmployeeAttendance = () => {
 
       // 2. Summary KPI Metric Cards (startY = 82)
       const kpis = [
-        { label: "TOTAL EMPLOYEES", value: stats.total, fill: [241, 245, 249], border: [203, 213, 225], text: [30, 41, 59] },
-        { label: "PRESENT", value: stats.present, fill: [236, 253, 245], border: [167, 243, 208], text: [22, 101, 52] },
-        { label: "LATE", value: stats.late, fill: [254, 243, 199], border: [253, 230, 138], text: [180, 83, 9] },
-        { label: "HALF DAY", value: stats.halfDay, fill: [224, 242, 254], border: [186, 230, 253], text: [3, 105, 161] },
-        { label: "ABSENT", value: stats.absent, fill: [254, 226, 226], border: [254, 202, 202], text: [185, 28, 28] },
-        { label: "UNINFORMED", value: stats.uninformedLeave, fill: [255, 237, 213], border: [254, 215, 170], text: [194, 65, 12] },
-        { label: "HOLIDAY", value: stats.holiday, fill: [243, 232, 255], border: [233, 213, 255], text: [109, 40, 217] },
+        { label: "TOTAL RECORDS", value: exportStats.total, fill: [241, 245, 249], border: [203, 213, 225], text: [30, 41, 59] },
+        { label: "PRESENT", value: exportStats.present, fill: [236, 253, 245], border: [167, 243, 208], text: [22, 101, 52] },
+        { label: "LATE", value: exportStats.late, fill: [254, 243, 199], border: [253, 230, 138], text: [180, 83, 9] },
+        { label: "HALF DAY", value: exportStats.halfDay, fill: [224, 242, 254], border: [186, 230, 253], text: [3, 105, 161] },
+        { label: "ABSENT", value: exportStats.absent, fill: [254, 226, 226], border: [254, 202, 202], text: [185, 28, 28] },
+        { label: "UNINFORMED", value: exportStats.uninformedLeave, fill: [255, 237, 213], border: [254, 215, 170], text: [194, 65, 12] },
+        { label: "WEEKLY OFF", value: exportStats.weekend, fill: [241, 245, 249], border: [203, 213, 225], text: [71, 85, 105] },
+        { label: "OVERTIME", value: exportStats.overtime, fill: [243, 232, 255], border: [233, 213, 255], text: [109, 40, 217] },
+        { label: "HOLIDAY", value: exportStats.holiday, fill: [243, 232, 255], border: [233, 213, 255], text: [109, 40, 217] },
       ];
 
       const kpiMargin = 28;
@@ -3005,7 +3004,7 @@ const EmployeeAttendance = () => {
         const checkIn = formatTime(rec.inTime);
         const checkOut = formatTime(rec.outTime);
         const hours = rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00");
-        const status = formatStatusLabel(rec.status);
+        const status = attendanceExportValues(rec).status;
         const lateBy = rec.lateBy || "00:00:00";
         const breakLabel = formatBreakLabel(rec.breakMinutes);
         const grossHours = rec.grossTime || "00:00:00";
@@ -3024,13 +3023,15 @@ const EmployeeAttendance = () => {
           breakLabel,
           grossHours,
           status,
-          lateBy
+          lateBy,
+          attendanceExportValues(rec).overtime,
+          attendanceExportValues(rec).overtimeApproval
         ];
       });
 
       // 4. Render Table with autoTable
       const tableHeaders = [
-        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Break", "Gross", "Status", "Late By"]
+        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Break", "Gross", "Status", "Late By", "Overtime", "OT Approval"]
       ];
 
       const runTable = typeof autoTable === 'function' ? autoTable : doc.autoTable;
@@ -3070,8 +3071,10 @@ const EmployeeAttendance = () => {
           9: { cellWidth: 50, halign: "center" },
           10: { cellWidth: 40, halign: "center" },
           11: { cellWidth: 50, halign: "center" },
-          12: { cellWidth: 62, halign: "center", fontStyle: "bold" },
+          12: { cellWidth: 90, halign: "center", fontStyle: "bold" },
           13: { cellWidth: 44, halign: "center" },
+          14: { cellWidth: 65, halign: "center" },
+          15: { cellWidth: 65, halign: "center" },
         },
         didParseCell: (data) => {
           // Status is column 12 now that Break and Gross sit before it.
@@ -3085,6 +3088,8 @@ const EmployeeAttendance = () => {
               data.cell.styles.textColor = [185, 28, 28];
             } else if (rawStatus.includes("HALF")) {
               data.cell.styles.textColor = [3, 105, 161];
+            } else if (rawStatus.includes("WEEKLY OFF")) {
+              data.cell.styles.textColor = [71, 85, 105];
             } else if (rawStatus.includes("HOLIDAY")) {
               data.cell.styles.textColor = [109, 40, 217];
             }
@@ -3184,7 +3189,7 @@ const EmployeeAttendance = () => {
       const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
       const exportedAt = new Date();
 
-      const width = 1920;
+      const width = 2400;
       const headerHeight = 120;
       const kpiHeight = 90;
       const tableHeaderHeight = 44;
@@ -3266,13 +3271,15 @@ const EmployeeAttendance = () => {
 
       // 3. KPI Metric Strip
       const kpis = [
-        { label: "TOTAL EMPLOYEES", value: stats.total, bg: "#f1f5f9", border: "#cbd5e1", text: "#1e293b" },
-        { label: "PRESENT", value: stats.present, bg: "#ecfdf5", border: "#a7f3d0", text: "#166534" },
-        { label: "LATE", value: stats.late, bg: "#fffbeb", border: "#fde68a", text: "#b45309" },
-        { label: "HALF DAY", value: stats.halfDay, bg: "#e0f2fe", border: "#bae6fd", text: "#0369a1" },
-        { label: "ABSENT", value: stats.absent, bg: "#fee2e2", border: "#fecaca", text: "#b91c1c" },
-        { label: "UNINFORMED", value: stats.uninformedLeave, bg: "#ffedd5", border: "#fed7aa", text: "#c2410c" },
-        { label: "HOLIDAY", value: stats.holiday, bg: "#f3e8ff", border: "#e9d5ff", text: "#6d28d9" },
+        { label: "TOTAL RECORDS", value: exportStats.total, bg: "#f1f5f9", border: "#cbd5e1", text: "#1e293b" },
+        { label: "PRESENT", value: exportStats.present, bg: "#ecfdf5", border: "#a7f3d0", text: "#166534" },
+        { label: "LATE", value: exportStats.late, bg: "#fffbeb", border: "#fde68a", text: "#b45309" },
+        { label: "HALF DAY", value: exportStats.halfDay, bg: "#e0f2fe", border: "#bae6fd", text: "#0369a1" },
+        { label: "ABSENT", value: exportStats.absent, bg: "#fee2e2", border: "#fecaca", text: "#b91c1c" },
+        { label: "UNINFORMED", value: exportStats.uninformedLeave, bg: "#ffedd5", border: "#fed7aa", text: "#c2410c" },
+        { label: "WEEKLY OFF", value: exportStats.weekend, bg: "#f1f5f9", border: "#cbd5e1", text: "#475569" },
+        { label: "OVERTIME", value: exportStats.overtime, bg: "#f3e8ff", border: "#e9d5ff", text: "#6d28d9" },
+        { label: "HOLIDAY", value: exportStats.holiday, bg: "#f3e8ff", border: "#e9d5ff", text: "#6d28d9" },
       ];
 
       const kpiCardWidth = (width - (padding * 2) - ((kpis.length - 1) * 14)) / kpis.length;
@@ -3308,10 +3315,14 @@ const EmployeeAttendance = () => {
         { label: "Check In", width: 130, align: "center" },
         { label: "Check Out", width: 130, align: "center" },
         { label: "Hours", width: 120, align: "center" },
-        { label: "Status", width: 160, align: "center" },
+        { label: "Status", width: 250, align: "center" },
         { label: "Late By", width: 135, align: "center" },
+        { label: "Overtime", width: 130, align: "center" },
+        { label: "OT Approval", width: 130, align: "center" },
       ];
 
+      const columnScale = (width - padding * 2) / columns.reduce((sum, col) => sum + col.width, 0);
+      columns.forEach(col => { col.width *= columnScale; });
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
       let colX = padding;
@@ -3354,8 +3365,10 @@ const EmployeeAttendance = () => {
           { val: formatTime(rec.inTime), align: "center" },
           { val: formatTime(rec.outTime), align: "center" },
           { val: rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00"), align: "center" },
-          { val: formatStatusLabel(rec.status), align: "center", isStatus: true },
+          { val: attendanceExportValues(rec).status, align: "center", isStatus: true },
           { val: rec.lateBy || "00:00:00", align: "center" },
+          { val: attendanceExportValues(rec).overtime, align: "center" },
+          { val: attendanceExportValues(rec).overtimeApproval, align: "center" },
         ];
 
         let cellX = padding;
@@ -3376,11 +3389,13 @@ const EmployeeAttendance = () => {
               badgeBg = "#fee2e2"; badgeText = "#b91c1c"; badgeBorder = "#fca5a5";
             } else if (statusLabel.includes("HALF")) {
               badgeBg = "#e0f2fe"; badgeText = "#0369a1"; badgeBorder = "#7dd3fc";
+            } else if (statusLabel.includes("WEEKLY OFF")) {
+              badgeBg = "#e2e8f0"; badgeText = "#475569"; badgeBorder = "#cbd5e1";
             } else if (statusLabel.includes("HOLIDAY")) {
               badgeBg = "#f3e8ff"; badgeText = "#6d28d9"; badgeBorder = "#d8b4fe";
             }
 
-            const pillW = Math.min(cWidth - 16, 120);
+            const pillW = cWidth - 16;
             const pillH = 26;
             const pillX = cellX + (cWidth - pillW) / 2;
             const pillY = currentY + (rowHeight - pillH) / 2;
@@ -3390,7 +3405,7 @@ const EmployeeAttendance = () => {
             ctx.textAlign = "center";
             ctx.fillStyle = badgeText;
             ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-            ctx.fillText(statusLabel, pillX + pillW / 2, pillY + 17);
+            ctx.fillText(statusLabel, pillX + pillW / 2, pillY + 17, pillW - 10);
           } else {
             ctx.fillStyle = cell.isBold ? "#0f172a" : "#334155";
             ctx.font = cell.isBold 
@@ -3486,24 +3501,27 @@ const EmployeeAttendance = () => {
       'Hours Worked': record.hoursWorked || '00:00:00',
       'Break': formatBreakLabel(record.breakMinutes),
       'Gross Hours': record.grossTime || '00:00:00',
-      'Status': formatStatusLabel(record.status),
+      'Status': attendanceExportValues(record).status,
       'Late By': record.lateBy || '00:00:00',
       'Early Leave': record.earlyLeave || '00:00:00',
-      'Overtime': record.overTime || '00:00:00',
+      'Overtime': attendanceExportValues(record).overtime,
+      'OT Approval': attendanceExportValues(record).overtimeApproval,
       'Total Hours': record.totalHours?.toFixed(2) || '0.00'
     }));
 
     const summaryRows = [
       {},
       { 'Date': 'SUMMARY REPORT' },
-      { 'Date': 'Total Employees', 'Name': stats.total },
-      { 'Date': 'Present', 'Name': stats.present },
-      { 'Date': 'Late', 'Name': stats.late },
-      { 'Date': 'Half Day', 'Name': stats.halfDay },
-      { 'Date': 'Absent', 'Name': stats.absent },
-      { 'Date': 'Uninformed Leave', 'Name': stats.uninformedLeave },
-      { 'Date': 'Holiday', 'Name': stats.holiday },
-      { 'Date': 'On Time', 'Name': stats.onTime },
+      { 'Date': 'Total Records', 'Name': exportStats.total },
+      { 'Date': 'Present', 'Name': exportStats.present },
+      { 'Date': 'Late', 'Name': exportStats.late },
+      { 'Date': 'Half Day', 'Name': exportStats.halfDay },
+      { 'Date': 'Absent', 'Name': exportStats.absent },
+      { 'Date': 'Uninformed Leave', 'Name': exportStats.uninformedLeave },
+      { 'Date': 'Holiday', 'Name': exportStats.holiday },
+      { 'Date': 'Weekly Off', 'Name': exportStats.weekend },
+      { 'Date': 'Overtime Records', 'Name': exportStats.overtime },
+      { 'Date': 'On Time', 'Name': exportStats.onTime },
       { 'Date': dateRangeMode ? 'Period' : 'Report Date', 'Name': dateRangeMode 
         ? `${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
         : formatExportDate(selectedDate) }
@@ -3525,7 +3543,7 @@ const EmployeeAttendance = () => {
     
     const worksheet = XLSX.utils.json_to_sheet(allData, {
       header: ['Date', 'Department', 'Employee ID', 'Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-               'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime', 'Total Hours']
+               'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime', 'OT Approval', 'Total Hours']
     });
     
     const workbook = XLSX.utils.book_new();
@@ -3542,7 +3560,7 @@ const EmployeeAttendance = () => {
     setExportMenuOpen(false);
     
     const headers = ['Date', 'Department', 'Employee Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-                     'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime'];
+                     'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime', 'OT Approval'];
     
     const csvData = filteredRecords.map(record => [
       record.displayDate || formatDate(record.date),
@@ -3556,22 +3574,25 @@ const EmployeeAttendance = () => {
       record.hoursWorked || '00:00:00',
       formatBreakLabel(record.breakMinutes),
       record.grossTime || '00:00:00',
-      formatStatusLabel(record.status),
+      attendanceExportValues(record).status,
       record.lateBy || '00:00:00',
       record.earlyLeave || '00:00:00',
-      record.overTime || '00:00:00'
+      attendanceExportValues(record).overtime,
+      attendanceExportValues(record).overtimeApproval
     ]);
     
     csvData.push([]);
     csvData.push(['SUMMARY REPORT']);
-    csvData.push(['Total Employees', stats.total]);
-    csvData.push(['Present', stats.present]);
-    csvData.push(['Late', stats.late]);
-    csvData.push(['Half Day', stats.halfDay]);
-    csvData.push(['Absent', stats.absent]);
-    csvData.push(['Uninformed Leave', stats.uninformedLeave]);
-    csvData.push(['Holiday', stats.holiday]);
-    csvData.push(['On Time', stats.onTime]);
+    csvData.push(['Total Records', exportStats.total]);
+    csvData.push(['Present', exportStats.present]);
+    csvData.push(['Late', exportStats.late]);
+    csvData.push(['Half Day', exportStats.halfDay]);
+    csvData.push(['Absent', exportStats.absent]);
+    csvData.push(['Uninformed Leave', exportStats.uninformedLeave]);
+    csvData.push(['Holiday', exportStats.holiday]);
+    csvData.push(['Weekly Off', exportStats.weekend]);
+    csvData.push(['Overtime Records', exportStats.overtime]);
+    csvData.push(['On Time', exportStats.onTime]);
     csvData.push([dateRangeMode ? 'Period' : 'Report Date', dateRangeMode 
       ? `${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
       : formatExportDate(selectedDate)]);
@@ -3588,7 +3609,7 @@ const EmployeeAttendance = () => {
     
     const csvContent = [
       headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...csvData.map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

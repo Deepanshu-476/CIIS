@@ -301,13 +301,6 @@ export default function AiManagement() {
       setSaving(false);
     }
   };
-        severity: "error",
-        message: err.response?.data?.message || "Failed to save AI settings.",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (loading) {
     return (

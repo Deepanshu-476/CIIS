@@ -983,7 +983,12 @@ const CompanyDetails = () => {
             subscriptionAmount: loggedCompany?.subscriptionAmount ?? companyDetails.subscriptionAmount ?? data.company?.subscriptionAmount ?? 0,
             planDurationDays: loggedCompany?.planDurationDays || companyDetails.planDurationDays || data.company?.planDurationDays || 90,
             planFeatures: loggedCompany?.planFeatures || companyDetails.planFeatures || data.company?.planFeatures || [],
-            allowedPages: loggedCompany?.allowedPages || companyDetails.allowedPages || data.company?.allowedPages || []
+            allowedPages: loggedCompany?.allowedPages || companyDetails.allowedPages || data.company?.allowedPages || [],
+            aiDailyTokenLimit: loggedCompany?.aiDailyTokenLimit ?? companyDetails.aiDailyTokenLimit ?? data.company?.aiDailyTokenLimit ?? 0,
+            aiDailyCallLimit: loggedCompany?.aiDailyCallLimit ?? companyDetails.aiDailyCallLimit ?? data.company?.aiDailyCallLimit ?? 0,
+            aiDailySttLimit: loggedCompany?.aiDailySttLimit ?? companyDetails.aiDailySttLimit ?? data.company?.aiDailySttLimit ?? 0,
+            aiApiKeySource: loggedCompany?.aiApiKeySource || companyDetails.aiApiKeySource || data.company?.aiApiKeySource || "platform",
+            customGroqApiKey: loggedCompany?.customGroqApiKey || companyDetails.customGroqApiKey || data.company?.customGroqApiKey || ""
           };
           
           void 0;
@@ -1084,6 +1089,11 @@ const CompanyDetails = () => {
           planDurationDays: companyInfo.planDurationDays || 90,
           planFeatures: companyInfo.planFeatures || [],
           allowedPages: companyInfo.allowedPages || [],
+          aiDailyTokenLimit: companyInfo.aiDailyTokenLimit ?? 0,
+          aiDailyCallLimit: companyInfo.aiDailyCallLimit ?? 0,
+          aiDailySttLimit: companyInfo.aiDailySttLimit ?? 0,
+          aiApiKeySource: companyInfo.aiApiKeySource || "platform",
+          customGroqApiKey: companyInfo.customGroqApiKey || "",
           isActive: companyInfo.isActive ?? true
         };
         
@@ -2079,18 +2089,28 @@ const CompanyDetails = () => {
 
   const daysRemaining = getDaysRemaining(company?.subscriptionExpiry);
   const subscriptionStatus = getSubscriptionStatus(daysRemaining);
-  const currentPlan = company?.selectedPlan && typeof company.selectedPlan === "object" ? company.selectedPlan : null;
+  const currentPlan = (company?.selectedPlan && typeof company.selectedPlan === "object" && company.selectedPlan.name)
+    ? company.selectedPlan
+    : (plans || []).find(p => String(p._id) === String(company?.selectedPlan?._id || company?.selectedPlan))
+      || (plans || []).find(p => p.name && (company?.subscriptionPlan || company?.planName) && p.name.trim().toLowerCase() === String(company.subscriptionPlan || company.planName).trim().toLowerCase())
+      || null;
   const planName = company?.subscriptionPlan || currentPlan?.name || 'Plan not assigned';
   const planAmount = company?.subscriptionAmount ?? currentPlan?.price ?? 0;
   const planDurationDays = company?.planDurationDays || currentPlan?.durationDays || 0;
-  const planFeatures = company?.planFeatures || currentPlan?.features || [];
+  const planFeatures = (company?.planFeatures && company.planFeatures.length) ? company.planFeatures : (currentPlan?.features || []);
   const allowedPagesCount = company?.allowedPages?.length ?? currentPlan?.allowedPages?.length ?? 0;
   const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 90, 1)) * 100, 100);
 
-  const isByokActive = company?.aiApiKeySource === "client" || Boolean(company?.customGroqApiKey);
-  const aiDailyTokens = company?.aiDailyTokenLimit ?? currentPlan?.aiDailyTokenLimit ?? 0;
-  const aiDailyCalls = company?.aiDailyCallLimit ?? currentPlan?.aiDailyCallLimit ?? 0;
-  const aiDailyStt = company?.aiDailySttLimit ?? currentPlan?.aiDailySttLimit ?? 0;
+  const isByokActive = company?.aiApiKeySource === "client" || currentPlan?.aiApiKeySource === "client" || Boolean(company?.customGroqApiKey);
+  const aiDailyTokens = (company?.aiDailyTokenLimit !== undefined && company?.aiDailyTokenLimit !== null && Number(company.aiDailyTokenLimit) > 0)
+    ? Number(company.aiDailyTokenLimit)
+    : Number(currentPlan?.aiDailyTokenLimit || 0);
+  const aiDailyCalls = (company?.aiDailyCallLimit !== undefined && company?.aiDailyCallLimit !== null && Number(company.aiDailyCallLimit) > 0)
+    ? Number(company.aiDailyCallLimit)
+    : Number(currentPlan?.aiDailyCallLimit || 0);
+  const aiDailyStt = (company?.aiDailySttLimit !== undefined && company?.aiDailySttLimit !== null && Number(company.aiDailySttLimit) > 0)
+    ? Number(company.aiDailySttLimit)
+    : Number(currentPlan?.aiDailySttLimit || 0);
   const hasAiFeature = isByokActive || aiDailyTokens > 0 || (company?.allowedPages || []).includes("company-ai-settings") || (currentPlan?.allowedPages || []).includes("company-ai-settings");
 
   

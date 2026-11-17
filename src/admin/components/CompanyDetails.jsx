@@ -2087,6 +2087,12 @@ const CompanyDetails = () => {
   const allowedPagesCount = company?.allowedPages?.length ?? currentPlan?.allowedPages?.length ?? 0;
   const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 90, 1)) * 100, 100);
 
+  const isByokActive = company?.aiApiKeySource === "client" || Boolean(company?.customGroqApiKey);
+  const aiDailyTokens = company?.aiDailyTokenLimit ?? currentPlan?.aiDailyTokenLimit ?? 0;
+  const aiDailyCalls = company?.aiDailyCallLimit ?? currentPlan?.aiDailyCallLimit ?? 0;
+  const aiDailyStt = company?.aiDailySttLimit ?? currentPlan?.aiDailySttLimit ?? 0;
+  const hasAiFeature = isByokActive || aiDailyTokens > 0 || (company?.allowedPages || []).includes("company-ai-settings") || (currentPlan?.allowedPages || []).includes("company-ai-settings");
+
   
   if (pageLoading) {
     return <CIISLoader />;
@@ -2660,6 +2666,28 @@ const CompanyDetails = () => {
                     <p className="CompanyDetails-expiry-text">
                       <strong>Includes:</strong> {allowedPagesCount} pages{planFeatures.length ? ` / ${planFeatures.slice(0, 3).join(", ")}` : ""}
                     </p>
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>AI Plan:</strong>{" "}
+                      {isByokActive ? (
+                        <span style={{ color: "#0284c7", fontWeight: 600 }}>Active (Use Your Own API Key)</span>
+                      ) : hasAiFeature ? (
+                        <span style={{ color: "#059669", fontWeight: 600 }}>Active</span>
+                      ) : (
+                        <span style={{ color: "#64748b", fontWeight: 500 }}>Not Included</span>
+                      )}
+                    </p>
+                    {hasAiFeature && (
+                      <p className="CompanyDetails-expiry-text">
+                        <strong>AI Limits:</strong>{" "}
+                        {isByokActive ? (
+                          <span>Use Your Own API Key</span>
+                        ) : (
+                          <span>
+                            {Number(aiDailyTokens || 0).toLocaleString()} tokens/day • {aiDailyCalls || 0} calls/day • {aiDailyStt || 0} voice/day
+                          </span>
+                        )}
+                      </p>
+                    )}
 
                     <div className="CompanyDetails-progress-container">
                       <div className="CompanyDetails-progress-header">
@@ -2826,6 +2854,28 @@ const CompanyDetails = () => {
                   <p className="CompanyDetails-expiry-text">
                     <strong>Includes:</strong> {allowedPagesCount} pages{planFeatures.length ? ` / ${planFeatures.slice(0, 3).join(", ")}` : ""}
                   </p>
+                  <p className="CompanyDetails-expiry-text">
+                    <strong>AI Plan:</strong>{" "}
+                    {isByokActive ? (
+                      <span style={{ color: "#0284c7", fontWeight: 600 }}>Active (Use Your Own API Key)</span>
+                    ) : hasAiFeature ? (
+                      <span style={{ color: "#059669", fontWeight: 600 }}>Active</span>
+                    ) : (
+                      <span style={{ color: "#64748b", fontWeight: 500 }}>Not Included</span>
+                    )}
+                  </p>
+                  {hasAiFeature && (
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>AI Limits:</strong>{" "}
+                      {isByokActive ? (
+                        <span>Use Your Own API Key</span>
+                      ) : (
+                        <span>
+                          {Number(aiDailyTokens || 0).toLocaleString()} tokens/day • {aiDailyCalls || 0} calls/day • {aiDailyStt || 0} voice/day
+                        </span>
+                      )}
+                    </p>
+                  )}
 
                   <div className="CompanyDetails-progress-container">
                     <div className="CompanyDetails-progress-header">

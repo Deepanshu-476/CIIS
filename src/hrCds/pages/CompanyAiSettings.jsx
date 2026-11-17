@@ -325,7 +325,7 @@ export default function CompanyAiSettings() {
                   checked={aiApiKeySource === 'client'}
                   onChange={e => setAiApiKeySource(e.target.value)}
                 />
-                <strong>Own Groq API Key (BYOK)</strong> (Unlimited Platform Tokens)
+                <strong>Own Groq API Key (BYOK)</strong> (Use Your Own API Key)
               </label>
             </div>
           </div>

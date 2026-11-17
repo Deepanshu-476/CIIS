@@ -20,12 +20,13 @@ import {
   Sync as SyncIcon,
   Add as AddIcon,
   DeleteOutline as DeleteIcon,
-  PlayArrow as PlayIcon,
+  RestoreFromTrash as RestoreIcon,
   Shield as ShieldIcon,
   Star as StarIcon,
   Close as CloseIcon,
-  ContentCopy as CopyIcon,
   Inventory2 as VaultIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from "@mui/icons-material";
 import axiosInstance from "../../utils/axiosConfig";
 import "./JobRoleManagement.css";
@@ -45,8 +46,10 @@ const STT_MODELS = [
 export default function AiManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [actionKeyId, setActionKeyId] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [testResult, setTestResult] = useState(null);
 
   const [settings, setSettings] = useState({
     primaryApiKeyMasked: "",
@@ -57,6 +60,7 @@ export default function AiManagement() {
     secondaryVaultId: null,
     primaryLabel: "",
     keyVault: [],
+    deletedVault: [],
     selectedModel: "qwen/qwen3.8-27b",
     selectedSttModel: "whisper-large-v3-turbo",
     isEnabled: true,
@@ -66,10 +70,16 @@ export default function AiManagement() {
   });
 
   const [form, setForm] = useState({
+    primaryApiKey: "",
+    secondaryApiKey: "",
     selectedModel: "qwen/qwen3.8-27b",
     selectedSttModel: "whisper-large-v3-turbo",
     isEnabled: true,
   });
+
+  const [showPrimaryKey, setShowPrimaryKey] = useState(false);
+  const [showSecondaryKey, setShowSecondaryKey] = useState(false);
+  const [showTrashSection, setShowTrashSection] = useState(false);
 
   // Add Key to Vault Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -91,6 +101,8 @@ export default function AiManagement() {
         const s = res.data.settings;
         setSettings(s);
         setForm({
+          primaryApiKey: "",
+          secondaryApiKey: "",
           selectedModel: s.selectedModel || "qwen/qwen3.8-27b",
           selectedSttModel: s.selectedSttModel || "whisper-large-v3-turbo",
           isEnabled: s.isEnabled !== false,
@@ -150,7 +162,6 @@ export default function AiManagement() {
           severity: res.data.isValid ? "success" : "error",
           message: `[${label}]: ${res.data.message}`,
         });
-        // Refresh settings so badge updates
         await fetchSettings();
       }
     } catch (err) {
@@ -163,9 +174,9 @@ export default function AiManagement() {
     }
   };
 
-  // Delete a Key from the Vault
-  const handleDeleteVaultKey = async (vaultId, label) => {
-    if (!window.confirm(`Are you sure you want to remove "${label}" from your Key Vault?`)) {
+  // Soft Delete a Key from the Vault
+  const handleSoftDeleteVaultKey = async (vaultId, label) => {
+    if (!window.confirm(`Move "${label}" to trash? You can restore it anytime.`)) {
       return;
     }
 
@@ -176,7 +187,7 @@ export default function AiManagement() {
       if (res.data?.success) {
         setNotice({
           severity: "success",
-          message: res.data.message || `Key "${label}" removed from vault.`,
+          message: res.data.message || `Key "${label}" moved to trash.`,
         });
         if (res.data.settings) {
           setSettings(res.data.settings);
@@ -186,6 +197,31 @@ export default function AiManagement() {
       setNotice({
         severity: "error",
         message: err.response?.data?.message || `Failed to remove key "${label}".`,
+      });
+    } finally {
+      setActionKeyId(null);
+    }
+  };
+
+  // Restore a Soft-Deleted Key back to active Vault
+  const handleRestoreVaultKey = async (vaultId, label) => {
+    try {
+      setActionKeyId(`${vaultId}_restore`);
+      setNotice(null);
+      const res = await axiosInstance.post(`/ai-settings/vault/${vaultId}/restore`);
+      if (res.data?.success) {
+        setNotice({
+          severity: "success",
+          message: res.data.message || `Key "${label}" restored to active vault!`,
+        });
+        if (res.data.settings) {
+          setSettings(res.data.settings);
+        }
+      }
+    } catch (err) {
+      setNotice({
+        severity: "error",
+        message: err.response?.data?.message || `Failed to restore key "${label}".`,
       });
     } finally {
       setActionKeyId(null);
@@ -241,7 +277,38 @@ export default function AiManagement() {
     }
   };
 
-  // Save Engine & Model Settings
+  // Manual Test Key Button
+  const handleTestKey = async () => {
+    try {
+      setTesting(true);
+      setTestResult(null);
+      const res = await axiosInstance.post("/ai-settings/test", {
+        apiKey: form.primaryApiKey.trim() || undefined,
+      });
+
+      if (res.data?.isValid) {
+        setTestResult({
+          isValid: true,
+          message: res.data.message || "Groq API Key is valid and active!",
+          models: res.data.models || [],
+        });
+      } else {
+        setTestResult({
+          isValid: false,
+          message: res.data?.message || "Key validation failed with Groq.",
+        });
+      }
+    } catch (err) {
+      setTestResult({
+        isValid: false,
+        message: err.response?.data?.message || "Failed to test key with Groq.",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // Save Engine & Key Settings
   const handleSave = async (e) => {
     e.preventDefault();
     try {
@@ -254,20 +321,33 @@ export default function AiManagement() {
         isEnabled: form.isEnabled,
       };
 
+      if (form.primaryApiKey.trim()) {
+        payload.primaryApiKey = form.primaryApiKey.trim();
+      }
+      if (form.secondaryApiKey.trim() !== "") {
+        payload.secondaryApiKey = form.secondaryApiKey.trim();
+      }
+
       const res = await axiosInstance.put("/ai-settings", payload);
       if (res.data?.success) {
         setNotice({
           severity: "success",
-          message: res.data.message || "AI Engine & Model settings saved successfully!",
+          message: res.data.message || "AI Settings saved and switched successfully!",
         });
         if (res.data.settings) {
           setSettings(res.data.settings);
         }
+        setForm((prev) => ({
+          ...prev,
+          primaryApiKey: "",
+          secondaryApiKey: "",
+        }));
+        setTestResult(null);
       }
     } catch (err) {
       setNotice({
         severity: "error",
-        message: err.response?.data?.message || "Failed to save AI engine settings.",
+        message: err.response?.data?.message || "Failed to save AI settings.",
       });
     } finally {
       setSaving(false);
@@ -287,6 +367,7 @@ export default function AiManagement() {
   const isCurrentKeyValid = settings.testStatus === "valid";
   const isCurrentKeyInvalid = settings.testStatus === "invalid";
   const vaultKeys = settings.keyVault || [];
+  const deletedVaultKeys = settings.deletedVault || [];
 
   return (
     <div className="JobRoleManagement-container">
@@ -295,7 +376,7 @@ export default function AiManagement() {
           <span className="PlanManagement-eyebrow">Platform Engine</span>
           <h1>AI Assistant Management</h1>
           <p>
-            Manage your Groq API key vault, switch models, and control live AI engine settings with zero downtime.
+            Configure Groq API keys, switch models, manage your key vault with soft-delete safety, and control AI settings with zero downtime.
           </p>
         </div>
       </div>
@@ -306,43 +387,66 @@ export default function AiManagement() {
         </Alert>
       )}
 
-      {/* Top Dynamic Stats Grid */}
+      {/* Top Dynamic Stats Grid (4 Cards: Primary Key, Fallback Key, LLM, STT) */}
       <div className="JobRoleManagement-stats-grid" style={{ marginBottom: 24 }}>
-        {/* Active API Key Card */}
+        {/* Active Primary Key Card */}
         <div className="JobRoleManagement-stat-card JobRoleManagement-stat-blue">
           <div className="JobRoleManagement-stat-content">
             <div className="JobRoleManagement-stat-icon-box">
               <KeyIcon className="JobRoleManagement-stat-icon" />
             </div>
             <div className="JobRoleManagement-stat-info">
-              <span className="JobRoleManagement-stat-label">Active API Key</span>
+              <span className="JobRoleManagement-stat-label">Active Primary Key</span>
               <div className="JobRoleManagement-stat-value-wrapper">
-                <span className="JobRoleManagement-stat-value" style={{ fontSize: "14.5px", fontFamily: "monospace" }}>
-                  {settings.primaryApiKeyMasked || "No Active Key"}
+                <span className="JobRoleManagement-stat-value" style={{ fontSize: "14px", fontFamily: "monospace" }}>
+                  {settings.primaryApiKeyMasked || "No Key Set"}
                 </span>
                 <span
                   className="JobRoleManagement-stat-chip"
                   style={{
-                    backgroundColor: !settings.primaryApiKeyMasked ? "#fef3c7" : isCurrentKeyValid ? "#dcfce7" : isCurrentKeyInvalid ? "#fee2e2" : "#eff6ff",
-                    color: !settings.primaryApiKeyMasked ? "#b45309" : isCurrentKeyValid ? "#15803d" : isCurrentKeyInvalid ? "#b91c1c" : "#1d4ed8",
+                    backgroundColor: !settings.primaryApiKeyMasked ? "#fee2e2" : isCurrentKeyValid ? "#dcfce7" : isCurrentKeyInvalid ? "#fee2e2" : "#eff6ff",
+                    color: !settings.primaryApiKeyMasked ? "#b91c1c" : isCurrentKeyValid ? "#15803d" : isCurrentKeyInvalid ? "#b91c1c" : "#1d4ed8",
                   }}
                 >
-                  {!settings.primaryApiKeyMasked ? "Needs Setup" : isCurrentKeyValid ? "Verified" : isCurrentKeyInvalid ? "Error" : "Active"}
+                  {!settings.primaryApiKeyMasked ? "Needs Key" : isCurrentKeyValid ? "Verified" : isCurrentKeyInvalid ? "Error" : "Active"}
                 </span>
               </div>
-              {settings.primaryLabel ? (
-                <div style={{ marginTop: 4 }}>
-                  <span style={{ fontSize: "11px", color: "#1e40af", fontWeight: 600, backgroundColor: "#eff6ff", padding: "2px 8px", borderRadius: 4 }}>
-                    Vault: {settings.primaryLabel}
-                  </span>
-                </div>
-              ) : !settings.primaryApiKeyMasked ? (
-                <div style={{ marginTop: 4 }}>
-                  <span style={{ fontSize: "11px", color: "#92400e" }}>
-                    Select a key from Vault below
-                  </span>
-                </div>
-              ) : null}
+              <div style={{ marginTop: 4 }}>
+                <span style={{ fontSize: "11px", color: "#1e40af", fontWeight: 600 }}>
+                  {settings.primaryLabel ? `Vault: ${settings.primaryLabel}` : "Primary AI Engine"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Secondary Fallback Key Card */}
+        <div className="JobRoleManagement-stat-card" style={{ backgroundColor: "#fffbeb", border: "1px solid #fde68a" }}>
+          <div className="JobRoleManagement-stat-content">
+            <div className="JobRoleManagement-stat-icon-box" style={{ backgroundColor: "#fef3c7", color: "#d97706" }}>
+              <ShieldIcon className="JobRoleManagement-stat-icon" />
+            </div>
+            <div className="JobRoleManagement-stat-info">
+              <span className="JobRoleManagement-stat-label" style={{ color: "#92400e" }}>Secondary Fallback Key</span>
+              <div className="JobRoleManagement-stat-value-wrapper">
+                <span className="JobRoleManagement-stat-value" style={{ fontSize: "14px", fontFamily: "monospace", color: "#78350f" }}>
+                  {settings.secondaryApiKeyMasked || "Optional Fallback"}
+                </span>
+                <span
+                  className="JobRoleManagement-stat-chip"
+                  style={{
+                    backgroundColor: settings.hasSecondaryApiKey ? "#dcfce7" : "#f1f5f9",
+                    color: settings.hasSecondaryApiKey ? "#15803d" : "#64748b",
+                  }}
+                >
+                  {settings.hasSecondaryApiKey ? "Ready" : "Not Set"}
+                </span>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <span style={{ fontSize: "11px", color: "#b45309" }}>
+                  Auto-failover on 429 rate limit
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -356,10 +460,15 @@ export default function AiManagement() {
             <div className="JobRoleManagement-stat-info">
               <span className="JobRoleManagement-stat-label">LLM Model</span>
               <div className="JobRoleManagement-stat-value-wrapper">
-                <span className="JobRoleManagement-stat-value" style={{ fontSize: "14px" }}>
+                <span className="JobRoleManagement-stat-value" style={{ fontSize: "13.5px" }}>
                   {settings.selectedModel}
                 </span>
                 <span className="JobRoleManagement-stat-chip">Groq LPU</span>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <span style={{ fontSize: "11px", color: "#166534" }}>
+                  Chat, Tasks & Slot Filling
+                </span>
               </div>
             </div>
           </div>
@@ -374,10 +483,15 @@ export default function AiManagement() {
             <div className="JobRoleManagement-stat-info">
               <span className="JobRoleManagement-stat-label">Voice STT Model</span>
               <div className="JobRoleManagement-stat-value-wrapper">
-                <span className="JobRoleManagement-stat-value" style={{ fontSize: "14px" }}>
+                <span className="JobRoleManagement-stat-value" style={{ fontSize: "13.5px" }}>
                   {settings.selectedSttModel}
                 </span>
                 <span className="JobRoleManagement-stat-chip">Whisper</span>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <span style={{ fontSize: "11px", color: "#991b1b" }}>
+                  0.2s Audio Transcription
+                </span>
               </div>
             </div>
           </div>
@@ -394,7 +508,7 @@ export default function AiManagement() {
             <div>
               <h2 className="JobRoleManagement-header-title">Groq API Key Vault (Stored Pool)</h2>
               <span style={{ fontSize: "12px", color: "#64748b" }}>
-                Store up to 10+ keys. Click to switch active Primary or Fallback keys in 1 click without re-typing.
+                Store your Groq API keys here. Switch active Primary or Fallback keys in 1 click. Safe soft-delete enabled.
               </span>
             </div>
           </div>
@@ -411,7 +525,7 @@ export default function AiManagement() {
           </div>
         </div>
 
-        {/* Key Vault Table */}
+        {/* Active Key Vault Table */}
         <div className="JobRoleManagement-table-container">
           <table className="JobRoleManagement-table">
             <thead>
@@ -428,7 +542,7 @@ export default function AiManagement() {
                 <tr>
                   <td colSpan={5} className="JobRoleManagement-table-empty" style={{ padding: 32 }}>
                     <VaultIcon className="JobRoleManagement-table-empty-icon" />
-                    <h4>No Keys in Vault</h4>
+                    <h4>No Active Keys in Vault</h4>
                     <p>Click "Add Key to Vault" to store your Groq keys here for 1-click switching.</p>
                   </td>
                 </tr>
@@ -584,16 +698,16 @@ export default function AiManagement() {
                             {actionKeyId === `${item.id}_test` ? "..." : "Test"}
                           </button>
 
-                          {/* Delete Key */}
+                          {/* Soft Delete Key */}
                           <IconButton
                             size="small"
-                            onClick={() => handleDeleteVaultKey(item.id, item.label)}
+                            onClick={() => handleSoftDeleteVaultKey(item.id, item.label)}
                             disabled={isPrimary || actionKeyId !== null}
                             style={{
                               color: isPrimary ? "#cbd5e1" : "#ef4444",
                               opacity: isPrimary ? 0.4 : 1,
                             }}
-                            title={isPrimary ? "Cannot delete active Primary key" : "Delete key from vault"}
+                            title={isPrimary ? "Cannot delete active Primary key" : "Move key to trash (soft delete)"}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -606,9 +720,92 @@ export default function AiManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* Soft-Deleted Keys (Trash & Restore Section) */}
+        {deletedVaultKeys.length > 0 && (
+          <div style={{ marginTop: 18, borderTop: "1px dashed #cbd5e1", paddingTop: 14 }}>
+            <div
+              onClick={() => setShowTrashSection(!showTrashSection)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                padding: "8px 12px",
+                backgroundColor: "#f8fafc",
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <DeleteIcon style={{ fontSize: 18, color: "#64748b" }} />
+                <span style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>
+                  Trash / Soft-Deleted Keys ({deletedVaultKeys.length})
+                </span>
+                <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                  (Keys are safely preserved and can be restored anytime)
+                </span>
+              </div>
+              <IconButton size="small">
+                {showTrashSection ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            </div>
+
+            {showTrashSection && (
+              <div className="JobRoleManagement-table-container" style={{ marginTop: 10, backgroundColor: "#fafafa" }}>
+                <table className="JobRoleManagement-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "35%" }}>Key Nickname</th>
+                      <th style={{ width: "35%" }}>API Key (Masked)</th>
+                      <th style={{ width: "30%", textAlign: "right" }}>Restore Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deletedVaultKeys.map((delItem) => (
+                      <tr key={delItem.id}>
+                        <td>
+                          <span style={{ textDecoration: "line-through", color: "#94a3b8", fontSize: "13px" }}>
+                            {delItem.label}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontFamily: "monospace", fontSize: "12px", color: "#94a3b8" }}>
+                            {delItem.apiKeyMasked}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            type="button"
+                            className="JobRoleManagement-btn-outline"
+                            onClick={() => handleRestoreVaultKey(delItem.id, delItem.label)}
+                            disabled={actionKeyId !== null}
+                            style={{
+                              fontSize: "11.5px",
+                              padding: "4px 12px",
+                              fontWeight: 600,
+                              borderColor: "#86efac",
+                              backgroundColor: "#f0fdf4",
+                              color: "#166534",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <RestoreIcon style={{ fontSize: 14 }} />
+                            {actionKeyId === `${delItem.id}_restore` ? "Restoring..." : "Restore Key"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* SECTION 2: ENGINE & MODEL SETTINGS */}
+      {/* SECTION 2: AI ENGINE & DIRECT KEY SETTINGS */}
       <div className="JobRoleManagement-paper" style={{ padding: "24px 28px" }}>
         <div className="JobRoleManagement-header" style={{ marginBottom: 20 }}>
           <div className="JobRoleManagement-header-left">
@@ -616,7 +813,7 @@ export default function AiManagement() {
               <AiIcon className="JobRoleManagement-header-icon" />
             </div>
             <div>
-              <h2 className="JobRoleManagement-header-title">AI Engine & Model Configuration</h2>
+              <h2 className="JobRoleManagement-header-title">AI Engine & Direct Key Settings</h2>
               <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
                 Instant Zero-Downtime Switch
               </span>
@@ -626,6 +823,74 @@ export default function AiManagement() {
 
         <form onSubmit={handleSave}>
           <Grid container spacing={3}>
+            {/* Primary Key Input */}
+            <Grid item xs={12} md={6}>
+              <div className="JobRoleManagement-form-group">
+                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Primary Groq API Key</span>
+                  {settings.hasPrimaryApiKey && (
+                    <span style={{ fontSize: "11px", color: "#2563eb", fontFamily: "monospace", fontWeight: 600 }}>
+                      Active: {settings.primaryApiKeyMasked}
+                    </span>
+                  )}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPrimaryKey ? "text" : "password"}
+                    className="JobRoleManagement-form-input"
+                    placeholder={settings.hasPrimaryApiKey ? `Current: ${settings.primaryApiKeyMasked} (Enter new to change)` : "Enter gsk_..."}
+                    value={form.primaryApiKey}
+                    onChange={(e) => setForm({ ...form, primaryApiKey: e.target.value })}
+                    style={{ paddingRight: 40 }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowPrimaryKey(!showPrimaryKey)}
+                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
+                  >
+                    {showPrimaryKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </div>
+                <small style={{ color: "#64748b", fontSize: "11.5px", marginTop: 4, display: "block" }}>
+                  Used for all AI interactive chat, task extraction, slot filling, and voice transcription.
+                </small>
+              </div>
+            </Grid>
+
+            {/* Secondary Key Input */}
+            <Grid item xs={12} md={6}>
+              <div className="JobRoleManagement-form-group">
+                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Secondary Groq API Key (429 Fallback)</span>
+                  {settings.hasSecondaryApiKey && (
+                    <span style={{ fontSize: "11px", color: "#d97706", fontFamily: "monospace", fontWeight: 600 }}>
+                      Active: {settings.secondaryApiKeyMasked}
+                    </span>
+                  )}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showSecondaryKey ? "text" : "password"}
+                    className="JobRoleManagement-form-input"
+                    placeholder={settings.hasSecondaryApiKey ? `Current: ${settings.secondaryApiKeyMasked} (optional)` : "Enter gsk_... (optional)"}
+                    value={form.secondaryApiKey}
+                    onChange={(e) => setForm({ ...form, secondaryApiKey: e.target.value })}
+                    style={{ paddingRight: 40 }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowSecondaryKey(!showSecondaryKey)}
+                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
+                  >
+                    {showSecondaryKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </div>
+                <small style={{ color: "#64748b", fontSize: "11.5px", marginTop: 4, display: "block" }}>
+                  If primary key reaches 429 rate limit, requests automatically fail over to this key without error.
+                </small>
+              </div>
+            </Grid>
+
             {/* Model Selection */}
             <Grid item xs={12} md={6}>
               <div className="JobRoleManagement-form-group">
@@ -667,8 +932,18 @@ export default function AiManagement() {
                 </small>
               </div>
             </Grid>
-
           </Grid>
+
+          {/* Test Result Alert */}
+          {testResult && (
+            <Alert
+              severity={testResult.isValid ? "success" : "error"}
+              sx={{ mt: 2, borderRadius: 2 }}
+              onClose={() => setTestResult(null)}
+            >
+              <strong>{testResult.isValid ? "Success:" : "Connection Error:"}</strong> {testResult.message}
+            </Alert>
+          )}
 
           {/* Zero-Downtime Banner */}
           <div style={{
@@ -685,19 +960,29 @@ export default function AiManagement() {
           }}>
             <SyncIcon fontSize="small" />
             <span>
-              <strong>Zero-Downtime Switching:</strong> When you switch a key in the Vault above or change models, the AI engine updates in 0 milliseconds with zero downtime.
+              <strong>Zero-Downtime Switching:</strong> When you switch a key in the Vault or click <strong>Save & Switch Engine Settings</strong>, the backend immediately invalidates its key cache. All ongoing and future AI calls across the portal switch to the new key instantly.
             </span>
           </div>
 
           {/* Actions */}
-          <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, paddingInline: 0, justifyContent: "flex-end" }}>
+          <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, paddingInline: 0 }}>
+            <div>
+              <button
+                type="button"
+                className="JobRoleManagement-btn-outline"
+                onClick={handleTestKey}
+                disabled={testing || (!form.primaryApiKey.trim() && !settings.hasPrimaryApiKey)}
+              >
+                {testing ? "Testing..." : "Test Primary Key"}
+              </button>
+            </div>
             <div className="PlanManagement-footer-actions">
               <button
                 type="submit"
                 className="JobRoleManagement-btn-primary"
                 disabled={saving}
               >
-                {saving ? "Saving Settings..." : "Save Engine Settings"}
+                {saving ? "Saving & Switching..." : "Save & Switch Engine Settings"}
               </button>
             </div>
           </div>

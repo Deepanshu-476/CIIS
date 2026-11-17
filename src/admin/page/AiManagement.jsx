@@ -46,10 +46,8 @@ const STT_MODELS = [
 export default function AiManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
   const [actionKeyId, setActionKeyId] = useState(null);
   const [notice, setNotice] = useState(null);
-  const [testResult, setTestResult] = useState(null);
 
   const [settings, setSettings] = useState({
     primaryApiKeyMasked: "",
@@ -70,15 +68,11 @@ export default function AiManagement() {
   });
 
   const [form, setForm] = useState({
-    primaryApiKey: "",
-    secondaryApiKey: "",
     selectedModel: "qwen/qwen3.8-27b",
     selectedSttModel: "whisper-large-v3-turbo",
     isEnabled: true,
   });
 
-  const [showPrimaryKey, setShowPrimaryKey] = useState(false);
-  const [showSecondaryKey, setShowSecondaryKey] = useState(false);
   const [showTrashSection, setShowTrashSection] = useState(false);
 
   // Add Key to Vault Modal State
@@ -101,8 +95,6 @@ export default function AiManagement() {
         const s = res.data.settings;
         setSettings(s);
         setForm({
-          primaryApiKey: "",
-          secondaryApiKey: "",
           selectedModel: s.selectedModel || "qwen/qwen3.8-27b",
           selectedSttModel: s.selectedSttModel || "whisper-large-v3-turbo",
           isEnabled: s.isEnabled !== false,
@@ -277,38 +269,7 @@ export default function AiManagement() {
     }
   };
 
-  // Manual Test Key Button
-  const handleTestKey = async () => {
-    try {
-      setTesting(true);
-      setTestResult(null);
-      const res = await axiosInstance.post("/ai-settings/test", {
-        apiKey: form.primaryApiKey.trim() || undefined,
-      });
-
-      if (res.data?.isValid) {
-        setTestResult({
-          isValid: true,
-          message: res.data.message || "Groq API Key is valid and active!",
-          models: res.data.models || [],
-        });
-      } else {
-        setTestResult({
-          isValid: false,
-          message: res.data?.message || "Key validation failed with Groq.",
-        });
-      }
-    } catch (err) {
-      setTestResult({
-        isValid: false,
-        message: err.response?.data?.message || "Failed to test key with Groq.",
-      });
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  // Save Engine & Key Settings
+  // Save Engine & Model Settings
   const handleSave = async (e) => {
     e.preventDefault();
     try {
@@ -321,31 +282,25 @@ export default function AiManagement() {
         isEnabled: form.isEnabled,
       };
 
-      if (form.primaryApiKey.trim()) {
-        payload.primaryApiKey = form.primaryApiKey.trim();
-      }
-      if (form.secondaryApiKey.trim() !== "") {
-        payload.secondaryApiKey = form.secondaryApiKey.trim();
-      }
-
       const res = await axiosInstance.put("/ai-settings", payload);
       if (res.data?.success) {
         setNotice({
           severity: "success",
-          message: res.data.message || "AI Settings saved and switched successfully!",
+          message: res.data.message || "AI Engine & Model settings saved successfully!",
         });
         if (res.data.settings) {
           setSettings(res.data.settings);
         }
-        setForm((prev) => ({
-          ...prev,
-          primaryApiKey: "",
-          secondaryApiKey: "",
-        }));
-        setTestResult(null);
       }
     } catch (err) {
       setNotice({
+        severity: "error",
+        message: err.response?.data?.message || "Failed to save AI engine settings.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
         severity: "error",
         message: err.response?.data?.message || "Failed to save AI settings.",
       });
@@ -805,7 +760,7 @@ export default function AiManagement() {
         )}
       </div>
 
-      {/* SECTION 2: AI ENGINE & DIRECT KEY SETTINGS */}
+      {/* SECTION 2: AI ENGINE & MODEL CONFIGURATION */}
       <div className="JobRoleManagement-paper" style={{ padding: "24px 28px" }}>
         <div className="JobRoleManagement-header" style={{ marginBottom: 20 }}>
           <div className="JobRoleManagement-header-left">
@@ -813,7 +768,7 @@ export default function AiManagement() {
               <AiIcon className="JobRoleManagement-header-icon" />
             </div>
             <div>
-              <h2 className="JobRoleManagement-header-title">AI Engine & Direct Key Settings</h2>
+              <h2 className="JobRoleManagement-header-title">AI Engine & Model Configuration</h2>
               <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary">
                 Instant Zero-Downtime Switch
               </span>
@@ -823,74 +778,6 @@ export default function AiManagement() {
 
         <form onSubmit={handleSave}>
           <Grid container spacing={3}>
-            {/* Primary Key Input */}
-            <Grid item xs={12} md={6}>
-              <div className="JobRoleManagement-form-group">
-                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Primary Groq API Key</span>
-                  {settings.hasPrimaryApiKey && (
-                    <span style={{ fontSize: "11px", color: "#2563eb", fontFamily: "monospace", fontWeight: 600 }}>
-                      Active: {settings.primaryApiKeyMasked}
-                    </span>
-                  )}
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showPrimaryKey ? "text" : "password"}
-                    className="JobRoleManagement-form-input"
-                    placeholder={settings.hasPrimaryApiKey ? `Current: ${settings.primaryApiKeyMasked} (Enter new to change)` : "Enter gsk_..."}
-                    value={form.primaryApiKey}
-                    onChange={(e) => setForm({ ...form, primaryApiKey: e.target.value })}
-                    style={{ paddingRight: 40 }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowPrimaryKey(!showPrimaryKey)}
-                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
-                  >
-                    {showPrimaryKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                  </IconButton>
-                </div>
-                <small style={{ color: "#64748b", fontSize: "11.5px", marginTop: 4, display: "block" }}>
-                  Used for all AI interactive chat, task extraction, slot filling, and voice transcription.
-                </small>
-              </div>
-            </Grid>
-
-            {/* Secondary Key Input */}
-            <Grid item xs={12} md={6}>
-              <div className="JobRoleManagement-form-group">
-                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Secondary Groq API Key (429 Fallback)</span>
-                  {settings.hasSecondaryApiKey && (
-                    <span style={{ fontSize: "11px", color: "#d97706", fontFamily: "monospace", fontWeight: 600 }}>
-                      Active: {settings.secondaryApiKeyMasked}
-                    </span>
-                  )}
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showSecondaryKey ? "text" : "password"}
-                    className="JobRoleManagement-form-input"
-                    placeholder={settings.hasSecondaryApiKey ? `Current: ${settings.secondaryApiKeyMasked} (optional)` : "Enter gsk_... (optional)"}
-                    value={form.secondaryApiKey}
-                    onChange={(e) => setForm({ ...form, secondaryApiKey: e.target.value })}
-                    style={{ paddingRight: 40 }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowSecondaryKey(!showSecondaryKey)}
-                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
-                  >
-                    {showSecondaryKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                  </IconButton>
-                </div>
-                <small style={{ color: "#64748b", fontSize: "11.5px", marginTop: 4, display: "block" }}>
-                  If primary key reaches 429 rate limit, requests automatically fail over to this key without error.
-                </small>
-              </div>
-            </Grid>
-
             {/* Model Selection */}
             <Grid item xs={12} md={6}>
               <div className="JobRoleManagement-form-group">
@@ -934,17 +821,6 @@ export default function AiManagement() {
             </Grid>
           </Grid>
 
-          {/* Test Result Alert */}
-          {testResult && (
-            <Alert
-              severity={testResult.isValid ? "success" : "error"}
-              sx={{ mt: 2, borderRadius: 2 }}
-              onClose={() => setTestResult(null)}
-            >
-              <strong>{testResult.isValid ? "Success:" : "Connection Error:"}</strong> {testResult.message}
-            </Alert>
-          )}
-
           {/* Zero-Downtime Banner */}
           <div style={{
             marginTop: 20,
@@ -960,29 +836,19 @@ export default function AiManagement() {
           }}>
             <SyncIcon fontSize="small" />
             <span>
-              <strong>Zero-Downtime Switching:</strong> When you switch a key in the Vault or click <strong>Save & Switch Engine Settings</strong>, the backend immediately invalidates its key cache. All ongoing and future AI calls across the portal switch to the new key instantly.
+              <strong>Zero-Downtime Switching:</strong> When you switch a key in the Vault above or change models, the AI engine updates in 0 milliseconds with zero downtime.
             </span>
           </div>
 
           {/* Actions */}
-          <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, paddingInline: 0 }}>
-            <div>
-              <button
-                type="button"
-                className="JobRoleManagement-btn-outline"
-                onClick={handleTestKey}
-                disabled={testing || (!form.primaryApiKey.trim() && !settings.hasPrimaryApiKey)}
-              >
-                {testing ? "Testing..." : "Test Primary Key"}
-              </button>
-            </div>
+          <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, paddingInline: 0, justifyContent: "flex-end" }}>
             <div className="PlanManagement-footer-actions">
               <button
                 type="submit"
                 className="JobRoleManagement-btn-primary"
                 disabled={saving}
               >
-                {saving ? "Saving & Switching..." : "Save & Switch Engine Settings"}
+                {saving ? "Saving Settings..." : "Save Engine Settings"}
               </button>
             </div>
           </div>

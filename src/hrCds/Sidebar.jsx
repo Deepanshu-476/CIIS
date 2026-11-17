@@ -2296,11 +2296,6 @@ const Sidebar = ({
       return null;
     }
   });
-  useEffect(() => {
-    const update = event => setCompanyData(event.detail);
-    window.addEventListener('ciis-company-subscription-changed', update);
-    return () => window.removeEventListener('ciis-company-subscription-changed', update);
-  }, []);
   const [resolvedJobRoleName, setResolvedJobRoleName] = useState("");
   const [sidebarConfig, setSidebarConfig] = useState(() => readCachedSidebarConfig(userData));
   const [pagePermissions, setPagePermissions] = useState(() => (

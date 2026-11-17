@@ -41,8 +41,6 @@ import {
 import { preloadRouteChunk } from '../../utils/routePreloader';
 import { useAuth } from '../../context/AuthContext';
 import axios from '../../utils/axiosConfig';
-import useCompanySubscription from '../../hooks/useCompanySubscription';
-import {canAccessSuperAdminPage} from '../../utils/subscriptionPolicy';
 
 
 const SidebarContainer = styled(Box)(({ theme }) => ({
@@ -212,8 +210,7 @@ const ContentWrapper = styled(Box)({
 const Sidebar = ({ isOpen, closeSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user } = useAuth();
-  const subscriptionCompany = useCompanySubscription();
+  const { logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -267,7 +264,9 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   const isOwnerSuperAdmin = String(userEmail || '').trim().toLowerCase() === 'ashutoshrai130@gmail.com';
   const isGlobalSuperAdmin = isOwnerSuperAdmin;
 
-  const isAllowedByPlan = item => canAccessSuperAdminPage(subscriptionCompany, item.route, user);
+  // Pages explicitly defined in the Super Admin menu must remain visible.
+  // Role-specific flags below still protect owner/global-only entries.
+  const isAllowedByPlan = () => true;
 
   const ciisUserMenuItems = [
     { heading: 'MPA Management' },

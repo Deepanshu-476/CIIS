@@ -2,16 +2,6 @@ export const isPlatformAccount = user =>
   String(user?.email || '').trim().toLowerCase() === 'ashutoshrai130@gmail.com' ||
   user?.isSuperAdmin === true || user?.superAdmin === true;
 
-export const canAccessSuperAdminPage = (company, route, user) => {
-  if (isPlatformAccount(user)) return true;
-  const key = String(route || '').split('?')[0].toLowerCase().replace(/^\/?ciis-network\/?/, '').split('/').filter(Boolean)[0] || 'company-details';
-  if (['company-details', 'settings', 'notifications', 'profile'].includes(key)) return true;
-  // Existing companies without an assigned plan keep their legacy navigation.
-  if (!company?.selectedPlan) return true;
-  const allowed = company.allowedSuperAdminPages || [];
-  return allowed.some(page => String(page).toLowerCase().replace(/^\/?ciis-network\/?/, '').split('/').filter(Boolean)[0] === key);
-};
-
 export const subscriptionExpiryTime = company => {
   if (!company?.subscriptionExpiry) return null;
   const time = new Date(company.subscriptionExpiry).getTime();

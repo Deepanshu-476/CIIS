@@ -45,10 +45,8 @@ const STT_MODELS = [
 export default function AiManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
   const [actionKeyId, setActionKeyId] = useState(null);
   const [notice, setNotice] = useState(null);
-  const [testResult, setTestResult] = useState(null);
 
   const [settings, setSettings] = useState({
     primaryApiKeyMasked: "",
@@ -68,15 +66,10 @@ export default function AiManagement() {
   });
 
   const [form, setForm] = useState({
-    primaryApiKey: "",
-    secondaryApiKey: "",
     selectedModel: "qwen/qwen3.8-27b",
     selectedSttModel: "whisper-large-v3-turbo",
     isEnabled: true,
   });
-
-  const [showPrimaryKey, setShowPrimaryKey] = useState(false);
-  const [showSecondaryKey, setShowSecondaryKey] = useState(false);
 
   // Add Key to Vault Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -98,8 +91,6 @@ export default function AiManagement() {
         const s = res.data.settings;
         setSettings(s);
         setForm({
-          primaryApiKey: "",
-          secondaryApiKey: "",
           selectedModel: s.selectedModel || "qwen/qwen3.8-27b",
           selectedSttModel: s.selectedSttModel || "whisper-large-v3-turbo",
           isEnabled: s.isEnabled !== false,
@@ -250,37 +241,6 @@ export default function AiManagement() {
     }
   };
 
-  // Manual Test Key Button
-  const handleTestKey = async () => {
-    try {
-      setTesting(true);
-      setTestResult(null);
-      const res = await axiosInstance.post("/ai-settings/test", {
-        apiKey: form.primaryApiKey.trim() || undefined,
-      });
-
-      if (res.data?.isValid) {
-        setTestResult({
-          isValid: true,
-          message: res.data.message || "Groq API Key is valid and active!",
-          models: res.data.models || [],
-        });
-      } else {
-        setTestResult({
-          isValid: false,
-          message: res.data?.message || "Key validation failed with Groq.",
-        });
-      }
-    } catch (err) {
-      setTestResult({
-        isValid: false,
-        message: err.response?.data?.message || "Failed to test key with Groq.",
-      });
-    } finally {
-      setTesting(false);
-    }
-  };
-
   // Save Engine & Model Settings
   const handleSave = async (e) => {
     e.preventDefault();
@@ -294,33 +254,20 @@ export default function AiManagement() {
         isEnabled: form.isEnabled,
       };
 
-      if (form.primaryApiKey.trim()) {
-        payload.primaryApiKey = form.primaryApiKey.trim();
-      }
-      if (form.secondaryApiKey.trim() !== undefined) {
-        payload.secondaryApiKey = form.secondaryApiKey.trim();
-      }
-
       const res = await axiosInstance.put("/ai-settings", payload);
       if (res.data?.success) {
         setNotice({
           severity: "success",
-          message: res.data.message || "AI Settings saved and switched successfully!",
+          message: res.data.message || "AI Engine & Model settings saved successfully!",
         });
         if (res.data.settings) {
           setSettings(res.data.settings);
         }
-        setForm((prev) => ({
-          ...prev,
-          primaryApiKey: "",
-          secondaryApiKey: "",
-        }));
-        setTestResult(null);
       }
     } catch (err) {
       setNotice({
         severity: "error",
-        message: err.response?.data?.message || "Failed to save AI settings.",
+        message: err.response?.data?.message || "Failed to save AI engine settings.",
       });
     } finally {
       setSaving(false);
@@ -371,25 +318,31 @@ export default function AiManagement() {
               <span className="JobRoleManagement-stat-label">Active API Key</span>
               <div className="JobRoleManagement-stat-value-wrapper">
                 <span className="JobRoleManagement-stat-value" style={{ fontSize: "14.5px", fontFamily: "monospace" }}>
-                  {settings.primaryApiKeyMasked || "Using .env key"}
+                  {settings.primaryApiKeyMasked || "No Active Key"}
                 </span>
                 <span
                   className="JobRoleManagement-stat-chip"
                   style={{
-                    backgroundColor: isCurrentKeyValid ? "#dcfce7" : isCurrentKeyInvalid ? "#fee2e2" : "#f1f5f9",
-                    color: isCurrentKeyValid ? "#15803d" : isCurrentKeyInvalid ? "#b91c1c" : "#475569",
+                    backgroundColor: !settings.primaryApiKeyMasked ? "#fef3c7" : isCurrentKeyValid ? "#dcfce7" : isCurrentKeyInvalid ? "#fee2e2" : "#eff6ff",
+                    color: !settings.primaryApiKeyMasked ? "#b45309" : isCurrentKeyValid ? "#15803d" : isCurrentKeyInvalid ? "#b91c1c" : "#1d4ed8",
                   }}
                 >
-                  {isCurrentKeyValid ? "Verified" : isCurrentKeyInvalid ? "Error" : "Active"}
+                  {!settings.primaryApiKeyMasked ? "Needs Setup" : isCurrentKeyValid ? "Verified" : isCurrentKeyInvalid ? "Error" : "Active"}
                 </span>
               </div>
-              {settings.primaryLabel && (
+              {settings.primaryLabel ? (
                 <div style={{ marginTop: 4 }}>
                   <span style={{ fontSize: "11px", color: "#1e40af", fontWeight: 600, backgroundColor: "#eff6ff", padding: "2px 8px", borderRadius: 4 }}>
                     Vault: {settings.primaryLabel}
                   </span>
                 </div>
-              )}
+              ) : !settings.primaryApiKeyMasked ? (
+                <div style={{ marginTop: 4 }}>
+                  <span style={{ fontSize: "11px", color: "#92400e" }}>
+                    Select a key from Vault below
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -715,85 +668,7 @@ export default function AiManagement() {
               </div>
             </Grid>
 
-            {/* Primary Key Input (Manual Override) */}
-            <Grid item xs={12} md={6}>
-              <div className="JobRoleManagement-form-group">
-                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Manual Primary Key Override</span>
-                  {settings.hasPrimaryApiKey && (
-                    <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>
-                      Active: {settings.primaryApiKeyMasked}
-                    </span>
-                  )}
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showPrimaryKey ? "text" : "password"}
-                    className="JobRoleManagement-form-input"
-                    placeholder={settings.hasPrimaryApiKey ? "Enter new key to change (e.g. gsk_...)" : "Enter gsk_..."}
-                    value={form.primaryApiKey}
-                    onChange={(e) => setForm({ ...form, primaryApiKey: e.target.value })}
-                    style={{ paddingRight: 40 }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowPrimaryKey(!showPrimaryKey)}
-                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
-                  >
-                    {showPrimaryKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                  </IconButton>
-                </div>
-                <small style={{ color: "#64748b", fontSize: "11.5px", marginTop: 4, display: "block" }}>
-                  Tip: Use the Key Vault above to switch between stored keys with 1 click.
-                </small>
-              </div>
-            </Grid>
-
-            {/* Secondary Key Input (Manual Override) */}
-            <Grid item xs={12} md={6}>
-              <div className="JobRoleManagement-form-group">
-                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Manual Secondary Key Override (Optional Fallback)</span>
-                  {settings.hasSecondaryApiKey && (
-                    <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>
-                      Active: {settings.secondaryApiKeyMasked}
-                    </span>
-                  )}
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showSecondaryKey ? "text" : "password"}
-                    className="JobRoleManagement-form-input"
-                    placeholder={settings.hasSecondaryApiKey ? "Enter new key to change (optional)" : "Enter gsk_... (optional)"}
-                    value={form.secondaryApiKey}
-                    onChange={(e) => setForm({ ...form, secondaryApiKey: e.target.value })}
-                    style={{ paddingRight: 40 }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowSecondaryKey(!showSecondaryKey)}
-                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
-                  >
-                    {showSecondaryKey ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                  </IconButton>
-                </div>
-                <small style={{ color: "#64748b", fontSize: "11.5px", marginTop: 4, display: "block" }}>
-                  If primary key reaches 429 rate limit, requests automatically fail over to this key without error.
-                </small>
-              </div>
-            </Grid>
           </Grid>
-
-          {/* Test Result Alert */}
-          {testResult && (
-            <Alert
-              severity={testResult.isValid ? "success" : "error"}
-              sx={{ mt: 2, borderRadius: 2 }}
-              onClose={() => setTestResult(null)}
-            >
-              <strong>{testResult.isValid ? "Success:" : "Connection Error:"}</strong> {testResult.message}
-            </Alert>
-          )}
 
           {/* Zero-Downtime Banner */}
           <div style={{
@@ -810,29 +685,19 @@ export default function AiManagement() {
           }}>
             <SyncIcon fontSize="small" />
             <span>
-              <strong>Zero-Downtime Switching:</strong> When you switch a key in the Vault or click <strong>Save & Switch Engine Settings</strong>, the backend immediately invalidates its key cache. All ongoing and future AI calls across the portal switch to the new key instantly.
+              <strong>Zero-Downtime Switching:</strong> When you switch a key in the Vault above or change models, the AI engine updates in 0 milliseconds with zero downtime.
             </span>
           </div>
 
           {/* Actions */}
-          <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, paddingInline: 0 }}>
-            <div>
-              <button
-                type="button"
-                className="JobRoleManagement-btn-outline"
-                onClick={handleTestKey}
-                disabled={testing || (!form.primaryApiKey.trim() && !settings.hasPrimaryApiKey)}
-              >
-                {testing ? "Testing..." : "Test Manual Key"}
-              </button>
-            </div>
+          <div className="JobRoleManagement-modal-footer" style={{ marginTop: 24, paddingInline: 0, justifyContent: "flex-end" }}>
             <div className="PlanManagement-footer-actions">
               <button
                 type="submit"
                 className="JobRoleManagement-btn-primary"
                 disabled={saving}
               >
-                {saving ? "Saving & Switching..." : "Save & Switch Engine Settings"}
+                {saving ? "Saving Settings..." : "Save Engine Settings"}
               </button>
             </div>
           </div>

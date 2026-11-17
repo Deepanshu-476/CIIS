@@ -1,10 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import useCompanySubscription from '../../hooks/useCompanySubscription';
-import {canAccessSuperAdminPage} from '../../utils/subscriptionPolicy';
 
 const ProtectedRoute = ({ children }) => {
   const location = useLocation();
-  const company = useCompanySubscription();
   const path = location.pathname;
 
 
@@ -25,13 +22,11 @@ const ProtectedRoute = ({ children }) => {
 
   if (isSuperAdminRoute) {
     let isSuperAdmin = false;
-    let currentAccount = null;
     try {
       const superAdminRaw = localStorage.getItem('superAdmin');
       if (superAdminRaw) {
         const parsed = JSON.parse(superAdminRaw);
         const account = parsed?.user || parsed;
-        currentAccount = account;
         const role = String(account?.role || account?.jobRole || account?.companyRole || '').trim().toLowerCase();
         if (account?.isSuperAdmin === true || role === 'super_admin' || role === 'superadmin') {
           isSuperAdmin = true;
@@ -42,7 +37,6 @@ const ProtectedRoute = ({ children }) => {
         if (userRaw) {
           const parsed = JSON.parse(userRaw);
           const account = parsed?.user || parsed;
-          currentAccount = account;
           const role = String(account?.role || account?.jobRole || account?.companyRole || '').trim().toLowerCase();
           if (account?.isSuperAdmin === true || role === 'super_admin' || role === 'superadmin') {
             isSuperAdmin = true;
@@ -53,9 +47,6 @@ const ProtectedRoute = ({ children }) => {
       isSuperAdmin = false;
     }
 
-    if (isSuperAdmin && !canAccessSuperAdminPage(company, path, currentAccount)) {
-      return <Navigate to="/Ciis-network/company-details" replace />;
-    }
     if (!isSuperAdmin) {
       // Non-superadmin user attempting to access /Ciis-network routes must be rejected and redirected away
       const isClient = Boolean(localStorage.getItem('client') || localStorage.getItem('authToken'));

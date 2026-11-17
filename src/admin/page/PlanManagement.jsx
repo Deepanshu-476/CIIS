@@ -117,6 +117,7 @@ const emptyForm = {
   durationDays: 30,
   description: "",
   featuresText: "",
+  aiApiKeySource: "platform",
   aiDailyTokenLimit: 25000,
   aiDailyCallLimit: 32,
   aiDailySttLimit: 100,
@@ -255,6 +256,7 @@ export default function PlanManagement() {
       durationDays: plan.durationDays || 30,
       description: plan.description || "",
       featuresText: Array.isArray(plan.features) ? plan.features.join("\n") : "",
+      aiApiKeySource: plan.aiApiKeySource === "client" ? "client" : "platform",
       aiDailyTokenLimit: tokenLim,
       aiDailyCallLimit: callLim,
       aiDailySttLimit: sttLim,
@@ -299,6 +301,7 @@ export default function PlanManagement() {
         durationDays: Number(form.durationDays || 1),
         description: form.description.trim(),
         features: form.featuresText.split("\n").map(item => item.trim()).filter(Boolean),
+        aiApiKeySource: form.aiApiKeySource === "client" ? "client" : "platform",
         aiDailyTokenLimit: Number(form.aiDailyTokenLimit || 25000),
         aiDailyCallLimit: Number(form.aiDailyCallLimit || Math.max(1, Math.round(Number(form.aiDailyTokenLimit || 25000) / 780))),
         aiDailySttLimit: Number(form.aiDailySttLimit || 100),
@@ -427,55 +430,92 @@ export default function PlanManagement() {
                 <input className="JobRoleManagement-form-input" value={form.description} onChange={event => updateForm("description", event.target.value)} />
               </div>
             </Grid>
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12} sm={6} md={form.aiApiKeySource === "client" ? 12 : 3}>
               <div className="JobRoleManagement-form-group">
-                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Daily AI Tokens / User</span>
-                  <span style={{ fontSize: "11px", color: "#1976d2", fontWeight: 600 }}>
-                    ⚡ ~{Math.max(1, Math.round(Number(form.aiDailyTokenLimit || 25000) / 780))} Requests/day
+                <label className="JobRoleManagement-form-label">Using API</label>
+                <select
+                  className="JobRoleManagement-form-input"
+                  value={form.aiApiKeySource}
+                  onChange={event => updateForm("aiApiKeySource", event.target.value)}
+                >
+                  <option value="platform">Our Own API</option>
+                  <option value="client">User API</option>
+                </select>
+              </div>
+            </Grid>
+
+            {form.aiApiKeySource === "client" ? (
+              <Grid item xs={12}>
+                <div style={{
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  backgroundColor: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  color: "#1e40af",
+                  fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}>
+                  <span style={{ fontSize: "18px" }}>🔑</span>
+                  <span>
+                    <strong>User API Mode Active:</strong> Company apna khud ka Groq API key use karegi. Is company ke liye hamari platform API key ka <strong>0 token</strong> use hoga.
                   </span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  className="JobRoleManagement-form-input"
-                  placeholder="e.g. 25000"
-                  value={form.aiDailyTokenLimit}
-                  onChange={event => updateAiTokens(event.target.value)}
-                />
-              </div>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <div className="JobRoleManagement-form-group">
-                <label className="JobRoleManagement-form-label">
-                  Daily AI Requests / User (Call Limit)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  className="JobRoleManagement-form-input"
-                  placeholder="e.g. 35"
-                  value={form.aiDailyCallLimit}
-                  onChange={event => updateForm("aiDailyCallLimit", event.target.value)}
-                />
-              </div>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <div className="JobRoleManagement-form-group">
-                <label className="JobRoleManagement-form-label">
-                  Daily Voice / STT Notes
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  className="JobRoleManagement-form-input"
-                  placeholder="e.g. 100"
-                  value={form.aiDailySttLimit}
-                  onChange={event => updateForm("aiDailySttLimit", event.target.value)}
-                />
-              </div>
-            </Grid>
+                </div>
+              </Grid>
+            ) : (
+              <>
+                <Grid item xs={12} sm={6} md={3}>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>Daily AI Tokens / User</span>
+                      <span style={{ fontSize: "11px", color: "#1976d2", fontWeight: 600 }}>
+                        ⚡ ~{Math.max(1, Math.round(Number(form.aiDailyTokenLimit || 25000) / 780))} Requests/day
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      className="JobRoleManagement-form-input"
+                      placeholder="e.g. 25000"
+                      value={form.aiDailyTokenLimit}
+                      onChange={event => updateAiTokens(event.target.value)}
+                    />
+                  </div>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">
+                      Daily AI Requests / User (Call Limit)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="JobRoleManagement-form-input"
+                      placeholder="e.g. 35"
+                      value={form.aiDailyCallLimit}
+                      onChange={event => updateForm("aiDailyCallLimit", event.target.value)}
+                    />
+                  </div>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <div className="JobRoleManagement-form-group">
+                    <label className="JobRoleManagement-form-label">
+                      Daily Voice / STT Notes
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="JobRoleManagement-form-input"
+                      placeholder="e.g. 100"
+                      value={form.aiDailySttLimit}
+                      onChange={event => updateForm("aiDailySttLimit", event.target.value)}
+                    />
+                  </div>
+                </Grid>
+              </>
+            )}
             <Grid item xs={12}>
               <div className="JobRoleManagement-form-group">
                 <label className="JobRoleManagement-form-label">What will company get?</label>
@@ -672,12 +712,20 @@ export default function PlanManagement() {
                     </span>
                   </div>
                   <div style={{ marginTop: 8, marginBottom: 10, display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                    <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary" style={{ fontSize: "11px", padding: "3px 8px" }}>
-                      ⚡ {(plan.aiDailyTokenLimit ?? 25000).toLocaleString("en-IN")} Tokens/day (~{plan.aiDailyCallLimit ?? Math.max(1, Math.round((plan.aiDailyTokenLimit || 25000) / 780))} Calls)
-                    </span>
-                    <span className="JobRoleManagement-user-chip" style={{ fontSize: "11px", padding: "3px 8px", background: "#f1f5f9", color: "#475569" }}>
-                      🎙️ {plan.aiDailySttLimit ?? 100} Voice notes/day
-                    </span>
+                    {plan.aiApiKeySource === "client" ? (
+                      <span className="JobRoleManagement-user-chip" style={{ fontSize: "11px", padding: "3px 8px", background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" }}>
+                        🔑 User Own API (0 Platform Tokens)
+                      </span>
+                    ) : (
+                      <>
+                        <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary" style={{ fontSize: "11px", padding: "3px 8px" }}>
+                          ⚡ {(plan.aiDailyTokenLimit ?? 25000).toLocaleString("en-IN")} Tokens/day (~{plan.aiDailyCallLimit ?? Math.max(1, Math.round((plan.aiDailyTokenLimit || 25000) / 780))} Calls)
+                        </span>
+                        <span className="JobRoleManagement-user-chip" style={{ fontSize: "11px", padding: "3px 8px", background: "#f1f5f9", color: "#475569" }}>
+                          🎙️ {plan.aiDailySttLimit ?? 100} Voice notes/day
+                        </span>
+                      </>
+                    )}
                   </div>
                   <button className="JobRoleManagement-btn-outline" onClick={() => editPlan(plan)}>Edit</button>
                 </div>

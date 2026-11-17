@@ -142,6 +142,8 @@ const AllCompany = () => {
   const [subscriptionNotes, setSubscriptionNotes] = useState("");
   const [subscriptionActivateCompany, setSubscriptionActivateCompany] = useState(true);
   const [subscriptionExtraTokens, setSubscriptionExtraTokens] = useState(0);
+  const [subscriptionAiApiKeySource, setSubscriptionAiApiKeySource] = useState("platform");
+  const [subscriptionCustomGroqApiKey, setSubscriptionCustomGroqApiKey] = useState("");
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [registrationRequests, setRegistrationRequests] = useState([]);
   const [requestsModalOpen, setRequestsModalOpen] = useState(false);
@@ -392,6 +394,9 @@ const AllCompany = () => {
     setSubscriptionTransactionId("");
     setSubscriptionPaymentDate(todayStr);
     setSubscriptionNotes("");
+    const keyMode = company?.aiApiKeySource || selectedPlan?.aiApiKeySource || "platform";
+    setSubscriptionAiApiKeySource(keyMode);
+    setSubscriptionCustomGroqApiKey(company?.customGroqApiKey || "");
     setSubscriptionActivateCompany(company?.isActive !== false);
     setSubscriptionExtraTokens(company?.aiExtraTokens || 0);
     setSubscriptionModalOpen(true);
@@ -412,6 +417,8 @@ const AllCompany = () => {
     setSubscriptionNotes("");
     setSubscriptionActivateCompany(true);
     setSubscriptionExtraTokens(0);
+    setSubscriptionAiApiKeySource("platform");
+    setSubscriptionCustomGroqApiKey("");
     setSubscriptionSaving(false);
   };
 
@@ -422,6 +429,9 @@ const AllCompany = () => {
     setSubscriptionPlan(selectedPlan.name || "Standard");
     setSubscriptionAmount(String(selectedPlan.price ?? 0));
     setSubscriptionExpiryDate(calculateExpiryDate(subscriptionStartDate, planId));
+    if (selectedPlan.aiApiKeySource) {
+      setSubscriptionAiApiKeySource(selectedPlan.aiApiKeySource);
+    }
   };
 
   const handleStartDateChange = nextDate => {
@@ -451,6 +461,8 @@ const AllCompany = () => {
         paymentStatus: subscriptionPaymentStatus,
         notes: subscriptionNotes,
         isActive: subscriptionActivateCompany,
+        aiApiKeySource: subscriptionAiApiKeySource,
+        customGroqApiKey: subscriptionAiApiKeySource === "client" ? subscriptionCustomGroqApiKey.trim() : null,
         aiExtraTokens: Number(subscriptionExtraTokens || 0),
       };
 
@@ -1049,21 +1061,37 @@ const AllCompany = () => {
                     />
                   </label>
 
-                  <label className="AllCompany-subscription-field">
-                    <span style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span>Extra AI Top-Up Tokens</span>
-                      <strong style={{ color: "#2563eb", fontSize: "11px" }}>⚡ Buffer</strong>
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="5000"
-                      className="AllCompany-input"
-                      value={subscriptionExtraTokens}
-                      onChange={event => setSubscriptionExtraTokens(event.target.value)}
-                      placeholder="e.g. 50000"
-                    />
-                  </label>
+                  {subscriptionAiApiKeySource === "client" ? (
+                    <label className="AllCompany-subscription-field">
+                      <span style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Company Groq API Key</span>
+                        <strong style={{ color: "#d97706", fontSize: "11px" }}>🔑 User API</strong>
+                      </span>
+                      <input
+                        type="password"
+                        className="AllCompany-input"
+                        value={subscriptionCustomGroqApiKey}
+                        onChange={event => setSubscriptionCustomGroqApiKey(event.target.value)}
+                        placeholder="gsk_..."
+                      />
+                    </label>
+                  ) : (
+                    <label className="AllCompany-subscription-field">
+                      <span style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Extra AI Top-Up Tokens</span>
+                        <strong style={{ color: "#2563eb", fontSize: "11px" }}>⚡ Buffer</strong>
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5000"
+                        className="AllCompany-input"
+                        value={subscriptionExtraTokens}
+                        onChange={event => setSubscriptionExtraTokens(event.target.value)}
+                        placeholder="e.g. 50000"
+                      />
+                    </label>
+                  )}
                 </div>
 
                 <label className="AllCompany-subscription-toggle">

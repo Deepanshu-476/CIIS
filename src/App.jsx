@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
+import SubscriptionGuard from './components/SubscriptionGuard';
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import RouteBoundaryLoader from "./components/RouteBoundaryLoader.jsx";
@@ -139,6 +140,7 @@ const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
 function App() {
   return (
     <>
+      <SubscriptionGuard />
       <ErrorBoundary>
         <Suspense fallback={<RouteBoundaryLoader label="Loading page..." />}>
           <Routes>

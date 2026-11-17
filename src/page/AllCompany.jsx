@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import API_URL from "../config";
 import CIISLoader from "../Loader/CIISLoader";
 import "./AllCompany.css";
+import {subscriptionExpiryTime} from '../utils/subscriptionPolicy';
 
 const getId = value => {
   if (!value) return "";
@@ -34,9 +35,9 @@ const formatDate = value => {
 };
 
 const getDaysLeft = value => {
-  if (!value) return null;
-  const diff = new Date(value).getTime() - Date.now();
-  if (Number.isNaN(diff)) return null;
+  const expiry = subscriptionExpiryTime({subscriptionExpiry: value});
+  if (expiry === null) return null;
+  const diff = expiry - Date.now();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 };
 
@@ -107,11 +108,7 @@ const getPaginationItems = (currentPage, totalPages) => {
 };
 
 const getTrialPlanDurationDays = plan => {
-  const isFreeTrialPlan =
-    Number(plan?.price || 0) === 0 ||
-    String(plan?.name || "").trim().toLowerCase().includes("free");
-
-  return isFreeTrialPlan ? 90 : Number(plan?.durationDays || 90);
+  return Number(plan?.durationDays || 0);
 };
 
 const AllCompany = () => {
@@ -729,7 +726,7 @@ const AllCompany = () => {
                     const tone = getCompanyTone(company);
                     const userCount = getUserCount(company);
                     const seatLimit = getSeatLimit(company);
-                    const planName = company?.selectedPlan?.name || company?.subscriptionPlan || "No Plan";
+                    const planName = company?.subscriptionPlan || company?.selectedPlan?.name || "No Plan";
                     const expiryText = formatDate(company?.subscriptionExpiry);
 
                     return (

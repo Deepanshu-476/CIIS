@@ -1,4 +1,5 @@
 import axios from "axios";
+import {guardSubscriptionRequest, showExpiredPlan} from './subscriptionRuntime';
 import API_URL from "../config";
 import { addActivityHeaders } from './activityTracker';
 
@@ -393,6 +394,7 @@ axios.get = (url, config = {}) => cachedGet(originalDefaultGet, url, config);
 axiosInstance.get = (url, config = {}) => cachedGet(originalInstanceGet, url, config);
 
 axios.interceptors.request.use((config) => {
+  guardSubscriptionRequest(config);
   const token = localStorage.getItem("token");
   if (token && !config.headers?.Authorization) {
     config.headers = config.headers || {};
@@ -402,12 +404,14 @@ axios.interceptors.request.use((config) => {
 });
 
 axiosInstance.interceptors.request.use((config) => {
+  guardSubscriptionRequest(config);
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return addActivityHeaders(config);
 });
 
 const responseErrorHandler = (error) => {
+  if (error.response?.data?.errorCode === 'SUBSCRIPTION_EXPIRED') showExpiredPlan();
   if (
     axios.isCancel(error) ||
     error?.code === "ERR_CANCELED" ||

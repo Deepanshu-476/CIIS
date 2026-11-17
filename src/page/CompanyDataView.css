@@ -439,3 +439,15 @@
     border-bottom: 1px solid var(--ac-border, rgba(143, 155, 179, 0.18));
   }
 }
+
+.CDV-usage-title {
+  margin: 22px 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ac-text, #10162f);
+}
+
+.CDV-usage-note {
+  margin-top: 10px;
+  line-height: 1.5;
+}

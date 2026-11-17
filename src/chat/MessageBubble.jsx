@@ -65,6 +65,7 @@ const MessageBubble = ({
     const [audioDuration, setAudioDuration] = useState(0);
     const [mediaUrlIndex, setMediaUrlIndex] = useState(0);
     const [previewUrlIndex, setPreviewUrlIndex] = useState(0);
+    const [thumbUrlIndex, setThumbUrlIndex] = useState(0);
     const [hasMediaLoadFailed, setHasMediaLoadFailed] = useState(false);
     const [localMediaUrl, setLocalMediaUrl] = useState("");
     const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
@@ -321,6 +322,11 @@ const MessageBubble = ({
     const rawPreviewUrl = typeof message.previewFile === "string" ? message.previewFile : "";
     const previewUrlCandidates = useMemo(() => getMediaUrlCandidates(rawPreviewUrl), [rawPreviewUrl]);
     const displayPreviewUrl = previewUrlCandidates[previewUrlIndex] || "";
+    // Small cover picture made by the server (photos and videos). The bubble shows it so the
+    // media itself only downloads when opened or played.
+    const rawThumbUrl = typeof message.thumbFile === "string" ? message.thumbFile : "";
+    const thumbUrlCandidates = useMemo(() => getMediaUrlCandidates(rawThumbUrl), [rawThumbUrl]);
+    const thumbUrl = thumbUrlCandidates[thumbUrlIndex] || "";
     const originalIsBrowserImage = BROWSER_IMAGE_TYPES.has(String(message.fileType || "").toLowerCase().split(";")[0]);
     const normalizedMediaType = (mediaType || "").toLowerCase();
     const mediaPath = (mediaUrl || "").split("?")[0].toLowerCase();
@@ -738,7 +744,7 @@ const MessageBubble = ({
         }
 
         if (isImageMedia) {
-            const imageSrc = displayPreviewUrl || (hasMediaLoadFailed ? "" : (localMediaUrl || mediaUrl));
+            const imageSrc = thumbUrl || displayPreviewUrl || (hasMediaLoadFailed ? "" : (localMediaUrl || mediaUrl));
             return (
                 <button
                     type="button"
@@ -753,8 +759,9 @@ const MessageBubble = ({
                             className="chat-media chat-media-image"
                             loading="lazy"
                             onError={() => {
-                                // Preview missing: try its other hosts, then fall back to the original file.
-                                if (displayPreviewUrl) setPreviewUrlIndex((index) => index + 1);
+                                // Thumbnail / preview missing: try their other hosts, then the original file.
+                                if (thumbUrl) setThumbUrlIndex((index) => index + 1);
+                                else if (displayPreviewUrl) setPreviewUrlIndex((index) => index + 1);
                                 else tryNextMediaUrl();
                             }}
                         />
@@ -782,7 +789,9 @@ const MessageBubble = ({
                         className="chat-media chat-media-video"
                         controls
                         playsInline
-                        preload="metadata"
+                        poster={thumbUrl || undefined}
+                        // With a cover picture nothing is fetched until Play is pressed.
+                        preload={thumbUrl ? "none" : "metadata"}
                         onError={() => {
                             tryNextMediaUrl();
                         }}

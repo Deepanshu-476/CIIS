@@ -29,6 +29,8 @@ const normalizePlanKey = value => String(value || "")
 const PLAN_FREE_PATHS = new Set([
   // Promotions: the server checks access itself (owner or Sidebar Management).
   "promotions",
+  // User Activity: owner/admin always; others need View in Page Management (checked by the server).
+  "user-activity",
   "user-dashboard",
   "dashboard",
   "dashboard-1",
@@ -44,6 +46,7 @@ const PLAN_FREE_PATHS = new Set([
 const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "change-password",
   "promotions",
+  "user-activity",
   "emp-details",
   "emp-leaves",
   "emp-assets",

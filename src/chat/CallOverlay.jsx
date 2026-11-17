@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import API_URL, { API_URL_IMG } from "../config";
 import { resolveAvatarUrl } from "./messageUtils";
+import { findPresenter, isPresenterTile, presenterLabel } from "./callStage";
 import { getCompanyUsers } from "../services/chatService";
 import "../Pages/Chat/chat.css";
 
@@ -24,7 +25,43 @@ const getFallbackIceServers = () => {
     return [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:turn.ciisnetwork.in:3478" },
     ];
+};
+const hasTurnServer = (iceServers) => (
+    Array.isArray(iceServers) && iceServers.some(server => {
+        const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+        return urls.some(url => /^turns?:/i.test(String(url || ""))) && server?.username && server?.credential;
+    })
+);
+// getUserMedia only exists on https:// (localhost counts as secure). On plain http the browser
+// hides navigator.mediaDevices, so answering a call used to fail with no usable reason.
+const isSecureMediaContext = () => (
+    typeof window === "undefined" || window.isSecureContext || window.location?.hostname === "localhost"
+);
+const describeMediaError = (mediaError, callType) => {
+    if (!isSecureMediaContext()) {
+        return "Calls need a secure (https) page. Open the site on https:// and try again.";
+    }
+    const name = mediaError?.name || "";
+    const needsCamera = callType === "video";
+    if (name === "NotAllowedError" || name === "SecurityError") {
+        return needsCamera
+            ? "Microphone/camera permission is blocked. Allow it from the browser address bar, then answer again."
+            : "Microphone permission is blocked. Allow it from the browser address bar, then answer again.";
+    }
+    if (name === "NotFoundError" || name === "OverconstrainedError") {
+        return needsCamera
+            ? "No microphone/camera found on this device."
+            : "No microphone found on this device.";
+    }
+    if (name === "NotReadableError" || name === "AbortError") {
+        return "Microphone/camera is busy in another app. Close it and answer again.";
+    }
+    return mediaError?.message
+        ? `Could not access microphone/camera: ${mediaError.message}`
+        : "Could not access microphone/camera.";
 };
 // Call tracing is for local development only; production builds never log it.
 const isCallDebugEnabled = () => import.meta.env.DEV;
@@ -262,7 +299,7 @@ const useAudioActivity = (stream, enabled = true) => {
     return isSpeaking;
 };
 
-const RemoteVideoTile = ({ participant }) => {
+const RemoteVideoTile = ({ participant, isPresenter = false }) => {
     const videoRef = useRef(null);
     const audioRef = useRef(null);
     const [isMuted, setIsMuted] = useState(false);
@@ -304,7 +341,7 @@ const RemoteVideoTile = ({ participant }) => {
     const participantName = participant.user?.name || "Participant";
 
     return (
-        <div className={`call-remote-tile ${isSpeaking ? "is-speaking" : ""}`}>
+        <div className={`call-remote-tile ${isSpeaking ? "is-speaking" : ""} ${isPresenter ? "is-presenter" : ""}`}>
             <audio ref={audioRef} autoPlay playsInline />
             {participant.stream ? (
                 <video ref={videoRef} autoPlay playsInline className="call-remote-video" />
@@ -423,6 +460,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [isCameraOff, setIsCameraOff] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
+    // Who is sharing a screen right now; their tile becomes the stage for everyone else.
+    const [screenShareUserId, setScreenShareUserId] = useState(null);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [connectionStatus, setConnectionStatus] = useState("");
     const [floatingPosition, setFloatingPosition] = useState({ x: 24, y: 90 });
@@ -457,6 +496,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const pendingInviteIdsRef = useRef([]);
     const iceServersRef = useRef(getFallbackIceServers());
     const iceServersLoadedAtRef = useRef(0);
+    const turnAvailableRef = useRef(false);
+    const iceRestartAttemptsRef = useRef(new Map());
     const currentUserId = getUserId(currentUser) || getUserId(getStoredUser());
 
     const loadIceServers = async () => {
@@ -482,6 +523,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
             iceServersRef.current = iceServers;
             iceServersLoadedAtRef.current = Date.now();
+            turnAvailableRef.current = hasTurnServer(iceServers);
             logCall("Loaded ICE servers", iceServers.map(server => ({
                 urls: Array.isArray(server.urls) ? server.urls : [server.urls],
                 hasUsername: Boolean(server.username),
@@ -490,9 +532,18 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         } catch (turnError) {
             logCall("Using STUN-only fallback; self-hosted TURN credentials unavailable", turnError.message || turnError);
             iceServersRef.current = getFallbackIceServers();
+            turnAvailableRef.current = false;
             return iceServersRef.current;
         }
     };
+
+    // STUN alone cannot punch through symmetric NAT / mobile data, so a call that drops without a
+    // TURN relay must say why instead of looping on "Reconnecting...".
+    const connectionFailureMessage = () => (
+        turnAvailableRef.current
+            ? "Call connection lost. Please check your internet and try again."
+            : "Call relay (TURN) server is unavailable, so calls across different networks cannot connect. Please contact the administrator."
+    );
 
     const stopRingtone = () => {
         if (ringtoneTimerRef.current) {
@@ -543,6 +594,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     const stopScreenShare = async ({ restoreCamera = true } = {}) => {
         const screenTrack = screenTrackRef.current;
+        const sharedCallId = activeCallRef.current?.callId;
+        if (sharedCallId) socket?.emit("call:screen-share", { callId: sharedCallId, sharing: false });
         if (!screenTrack) {
             setIsScreenSharing(false);
             return;
@@ -748,12 +801,14 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         setLocalStream(null);
         cameraVideoTrackRef.current = null;
         setRemoteParticipants([]);
+        setScreenShareUserId(null);
     };
 
     const resetPeers = () => {
         peerConnectionsRef.current.forEach(peerConnection => peerConnection.close());
         peerConnectionsRef.current.clear();
         candidateQueuesRef.current.clear();
+        iceRestartAttemptsRef.current.clear();
     };
 
     const resetCall = () => {
@@ -863,6 +918,67 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         });
     };
 
+    // Is the call on screen still a real call? A ringing or connecting call is alive by definition;
+    // a connected call is alive only while at least one peer connection is not failed/closed.
+    const isActiveCallAlive = () => {
+        const activeCall = activeCallRef.current;
+        if (!activeCall) return false;
+        if (endedCallIdsRef.current.has(activeCall.callId)) return false;
+        if (["incoming", "outgoing", "connecting"].includes(activeCall.status)) return true;
+        const connections = [...peerConnectionsRef.current.values()];
+        if (connections.length) {
+            return connections.some(connection => !["failed", "closed"].includes(connection.connectionState));
+        }
+        // Just answered: the caller's offer has not arrived yet, so there is no peer connection to
+        // judge by. Give that handshake a window before calling the call dead.
+        const connectedAtTime = connectedAtRef.current ? new Date(connectedAtRef.current).getTime() : NaN;
+        return !Number.isNaN(connectedAtTime) && Date.now() - connectedAtTime < 20000;
+    };
+
+    // Only the side that made the offer renegotiates; the other side gets the fresh offer and
+    // answers it, so both ends do not try to restart at the same time.
+    const restartIceForPeer = async (peerUserId) => {
+        const peerConnection = peerConnectionsRef.current.get(peerUserId);
+        if (!peerConnection || peerConnection.connectionState === "closed") return;
+        if (peerConnection.localDescription?.type !== "offer") return;
+        if (peerConnection.signalingState !== "stable") return;
+
+        const attempts = iceRestartAttemptsRef.current.get(peerUserId) || 0;
+        if (attempts >= 2) return;
+        iceRestartAttemptsRef.current.set(peerUserId, attempts + 1);
+
+        try {
+            logCall("ICE restart", { peerUserId, attempt: attempts + 1 });
+            setConnectionStatus("Reconnecting...");
+            const offer = await peerConnection.createOffer({ iceRestart: true });
+            await peerConnection.setLocalDescription(offer);
+            emitToPeer(peerUserId, "call:offer", { offer });
+        } catch (restartError) {
+            logCall("ICE restart failed", { peerUserId, error: restartError?.message || restartError });
+        }
+    };
+
+    // A peer that never came back: in a group call only that person drops out, in a one-to-one call
+    // the whole call is closed so no stale call is left behind.
+    const handleDeadPeer = (peerUserId) => {
+        const activeCall = activeCallRef.current;
+        if (!activeCall) return;
+
+        const livePeerIds = [...peerConnectionsRef.current.entries()]
+            .filter(([id, connection]) => id !== peerUserId && !["failed", "closed"].includes(connection.connectionState))
+            .map(([id]) => id);
+
+        if (activeCall.isGroupCall && livePeerIds.length) {
+            dropCallParticipants([peerUserId]);
+            return;
+        }
+
+        socket?.emit("call:end", { callId: activeCall.callId });
+        completeCall(activeCall.status === "active" ? "ended" : "cancelled");
+        resetCall();
+        setError(connectionFailureMessage());
+    };
+
     const createPeerConnection = (peerUserId, peerUser = null) => {
         if (peerConnectionsRef.current.has(peerUserId)) {
             return peerConnectionsRef.current.get(peerUserId);
@@ -888,6 +1004,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             logCall("iceConnectionState", { peerUserId, state: peerConnection.iceConnectionState });
             if (peerConnection.iceConnectionState === "disconnected") {
                 setConnectionStatus("Reconnecting...");
+            }
+            // A failed ICE path can often be rebuilt with fresh candidates (a network switch from
+            // Wi-Fi to mobile data is the usual cause) instead of killing the call outright.
+            if (peerConnection.iceConnectionState === "failed") {
+                restartIceForPeer(peerUserId);
             }
         };
 
@@ -915,6 +1036,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             logCall("connectionState", { peerUserId, state: peerConnection.connectionState });
             if (["connected", "completed"].includes(peerConnection.connectionState)) {
                 setConnectionStatus("Connected");
+                iceRestartAttemptsRef.current.delete(peerUserId);
                 if (reconnectTimersRef.current.has(peerUserId)) {
                     window.clearTimeout(reconnectTimersRef.current.get(peerUserId));
                     reconnectTimersRef.current.delete(peerUserId);
@@ -922,15 +1044,18 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             }
             if (["disconnected", "failed"].includes(peerConnection.connectionState)) {
                 setConnectionStatus("Reconnecting...");
+                if (peerConnection.connectionState === "failed") restartIceForPeer(peerUserId);
                 if (!reconnectTimersRef.current.has(peerUserId)) {
                     const timer = window.setTimeout(() => {
-                        const latestConnection = peerConnectionsRef.current.get(peerUserId);
-                        if (latestConnection && ["failed", "disconnected", "closed"].includes(latestConnection.connectionState)) {
-                            setRemoteParticipants(prev => prev.filter(participant => participant.userId !== peerUserId));
-                            setConnectionStatus("Connection interrupted");
-                        }
                         reconnectTimersRef.current.delete(peerUserId);
-                    }, 12000);
+                        const latestConnection = peerConnectionsRef.current.get(peerUserId);
+                        if (!latestConnection || !["failed", "disconnected", "closed"].includes(latestConnection.connectionState)) return;
+                        setRemoteParticipants(prev => prev.filter(participant => participant.userId !== peerUserId));
+                        setConnectionStatus("Connection interrupted");
+                        // A dead peer used to leave activeCallRef set forever: the overlay stayed on
+                        // screen and every later incoming call was silently rejected as "busy".
+                        handleDeadPeer(peerUserId);
+                    }, 20000);
                     reconnectTimersRef.current.set(peerUserId, timer);
                 }
             }
@@ -975,6 +1100,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             reconnectTimersRef.current.delete(id);
         }
         candidateQueuesRef.current.delete(id);
+        iceRestartAttemptsRef.current.delete(id);
         setRemoteParticipants(prev => prev.filter(participant => String(participant.userId) !== id));
     };
 
@@ -1004,8 +1130,13 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     const getMediaStream = async (callType) => {
         try {
+            if (!isSecureMediaContext()) {
+                const insecureError = new Error("Insecure context");
+                insecureError.name = "SecurityError";
+                throw insecureError;
+            }
             if (!navigator.mediaDevices?.getUserMedia) {
-                throw new Error("Media devices are not supported.");
+                throw new Error("Media devices are not supported in this browser.");
             }
 
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -1016,7 +1147,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             attachLocalStream(stream);
             return stream;
         } catch (mediaError) {
-            setError("Allow microphone/camera permission, then try again.");
+            // The caller decides whether to keep this on screen: resetCall() clears it, so an
+            // accept failure re-shows the reason after the reset (see acceptCall).
+            const reason = describeMediaError(mediaError, callType);
+            mediaError.userMessage = reason;
+            setError(reason);
             throw mediaError;
         }
     };
@@ -1309,7 +1444,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.emit("call:reject", {
                 callId: activeCall.callId,
             });
+            completeCall("declined");
             resetCall();
+            // resetCall() wipes the error, so the reason is put back afterwards; without this the
+            // call just vanished and the person had no idea the mic was blocked.
+            setError(mediaError?.userMessage || describeMediaError(mediaError, activeCall.type));
         }
     };
 
@@ -1394,6 +1533,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 localVideoRef.current.srcObject = displayStream;
             }
             setIsScreenSharing(true);
+            // Without this the others only see the screen squeezed into my small camera tile.
+            const sharedCallId = activeCallRef.current?.callId;
+            if (sharedCallId) socket?.emit("call:screen-share", { callId: sharedCallId, sharing: true });
             await renegotiatePeers();
         } catch (shareError) {
             logCall("Screen share failed", shareError);
@@ -1426,11 +1568,18 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         if (!socket) return undefined;
 
         const handleIncoming = (data) => {
-            if (activeCallRef.current) {
+            if (activeCallRef.current?.callId === data.callId) return;
+            if (activeCallRef.current && isActiveCallAlive()) {
                 socket.emit("call:reject", {
                     callId: data.callId,
                 });
                 return;
+            }
+            // The old call is dead (every peer connection failed or closed, or it never connected):
+            // clear it out instead of rejecting this call as "busy" forever.
+            if (activeCallRef.current) {
+                logCall("Dropping a dead call before ringing the new one", activeCallRef.current.callId);
+                resetCall();
             }
 
             const myUser = (currentUser && (getUserId(currentUser) || currentUser.name)) ? currentUser : getStoredUser();
@@ -1511,8 +1660,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 setError(data.reason || "Selected users are unavailable.");
                 return;
             }
+            const wasAnswering = Boolean(activeCall && !activeCall.isCaller && ["incoming", "connecting"].includes(activeCall.status));
             resetCall();
-            setError(data.reason || "Users are not available for the call.");
+            setError(wasAnswering
+                ? "This call has already ended on the caller's side."
+                : (data.reason || "Users are not available for the call."));
         };
 
         const handleJoined = (data) => {
@@ -1521,8 +1673,10 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
             const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
             const activeNextCall = activateCall(activeCall, connectedAt ? { connectedAt } : {});
+            applyScreenShareUserId(data.screenShareUserId);
             socket.emit("call:get-roster", { callId: data.callId }, payload => {
                 if (payload?.participants && activeCallRef.current?.callId === data.callId) setCallRoster(payload.participants);
+                if (payload && activeCallRef.current?.callId === data.callId) applyScreenShareUserId(payload.screenShareUserId);
             });
 
             (data.participants || []).forEach(participant => {
@@ -1567,10 +1721,14 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
 
-                const activeNextCall = activateCall({
-                    ...activeCall,
-                    participantIds: uniqueIds([...activeCall.participantIds, data.fromUserId]),
-                });
+                // A re-offer (ICE restart or renegotiation) must not re-announce the call as newly
+                // answered: that wrote a second entry into the call log and reset the timer.
+                if (activeCall.status !== "active") {
+                    activateCall({
+                        ...activeCall,
+                        participantIds: uniqueIds([...activeCall.participantIds, data.fromUserId]),
+                    });
+                }
 
                 emitToPeer(data.fromUserId, "call:answer", { answer });
             } catch (error) {
@@ -1588,7 +1746,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 await flushCandidateQueue(data.fromUserId);
 
-                activateCall(activeCall);
+                // An answer to an ICE-restart offer keeps the existing call; only a first answer
+                // turns a ringing call into an active one.
+                if (activeCall.status !== "active") activateCall(activeCall);
             } catch (error) {
                 logCall("call:answer failed", error);
                 setError("Unable to connect the call.");
@@ -1638,9 +1798,21 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             handleCallClosed({ ...data, status: "missed" });
         };
 
+        const applyScreenShareUserId = (value) => {
+            const sharerId = value ? String(value) : "";
+            // My own share is already on my screen; only someone else's becomes the stage here.
+            setScreenShareUserId(sharerId && sharerId !== String(currentUserId) ? sharerId : null);
+        };
+
         const handleRoster = (data) => {
             if (!data?.callId || activeCallRef.current?.callId !== data.callId) return;
             setCallRoster(Array.isArray(data.participants) ? data.participants : []);
+            applyScreenShareUserId(data.screenShareUserId);
+        };
+
+        const handleScreenShare = (data) => {
+            if (!data?.callId || activeCallRef.current?.callId !== data.callId) return;
+            applyScreenShareUserId(data.screenShareUserId);
         };
 
         const handleNotice = (data) => {
@@ -1671,9 +1843,16 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         const handleConnect = () => {
             socket.emit("chat:get-online-users");
             const activeCall = activeCallRef.current;
-            if (activeCall?.callId) {
-                socket.emit("call:rebind", { callId: activeCall.callId });
+            if (!activeCall?.callId) return;
+            // A call whose peers all died while the socket was down must not survive the reconnect,
+            // otherwise the next incoming call is rejected as "busy" and never rings.
+            if (!isActiveCallAlive()) {
+                logCall("Clearing a dead call on reconnect", activeCall.callId);
+                completeCall("ended");
+                resetCall();
+                return;
             }
+            socket.emit("call:rebind", { callId: activeCall.callId });
         };
 
         socket.on("connect", handleConnect);
@@ -1697,6 +1876,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         socket.on("call:ended", handleCallClosed);
         socket.on("call:missed", handleCallMissed);
         socket.on("call:roster", handleRoster);
+        socket.on("call:screen-share", handleScreenShare);
         socket.on("call:notice", handleNotice);
         socket.on("call:removed", handleRemoved);
 
@@ -1716,6 +1896,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.off("call:ended", handleCallClosed);
             socket.off("call:missed", handleCallMissed);
             socket.off("call:roster", handleRoster);
+            socket.off("call:screen-share", handleScreenShare);
             socket.off("call:notice", handleNotice);
             socket.off("call:removed", handleRemoved);
         };
@@ -1779,9 +1960,11 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     useEffect(() => {
         if (!error) return;
+        // Permission/setup messages need reading time; ordinary status messages stay short.
+        const isActionable = /permission|https|microphone|camera|relay|TURN/i.test(error);
         const timer = setTimeout(() => {
             setError("");
-        }, 5000);
+        }, isActionable ? 12000 : 5000);
         return () => clearTimeout(timer);
     }, [error]);
 
@@ -1877,6 +2060,14 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
 
     const rosterOthers = callRoster.filter(person => person.userId && person.userId !== currentUserId);
     const rosterJoinedCount = rosterOthers.filter(person => person.status === "joined").length;
+    const totalJoinedCount = rosterJoinedCount + 1;
+    const totalParticipantsCount = callRoster.length > 0
+        ? (callRoster.some(p => p.userId === currentUserId) ? callRoster.length : callRoster.length + 1)
+        : (rosterOthers.length + 1);
+    const sortedRosterOthers = [...rosterOthers].sort((a, b) => {
+        const order = { joined: 1, invited: 2, missed: 3, ended: 4, rejected: 5, removed: 6 };
+        return (order[a.status] || 99) - (order[b.status] || 99);
+    });
     const avatarSrc = getAvatarSrc(call.peerUser?.avatar || call.peerUser?.profileImage || call.peerUser?.image);
     const isVideoCall = call.type === "video";
     const connectedCount = remoteParticipants.filter(participant => participant.stream).length;
@@ -1892,6 +2083,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const displayStatus = connectionStatus || statusLabel;
     const callDuration = call.status === "active" ? formatCallDuration(elapsedSeconds) : "00:00";
     const showsVideoStage = isVideoCall || isScreenSharing;
+    // Someone else's shared screen becomes the stage; the cameras shrink into a strip below it.
+    const presenter = showsVideoStage ? findPresenter(remoteParticipants, screenShareUserId) : null;
     const localUserInfo = getCurrentUserPublicInfo(currentUser);
     const localUserName = localUserInfo.name || "You";
     const localAvatarSrc = getAvatarSrc(localUserInfo.avatar);
@@ -1979,7 +2172,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                 aria-expanded={showRoster}
                             >
                                 <Users size={17} />
-                                <span className="call-roster-count">{rosterJoinedCount}</span>
+                                <span className="call-roster-count">{totalJoinedCount}</span>
                             </button>
                         )}
                         <button type="button" className="call-icon-btn" onClick={() => setIsMinimized(true)} title="Minimize call">
@@ -1997,13 +2190,29 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 {showRoster && rosterOthers.length > 0 && (
                     <div className="call-roster-panel">
                         <div className="call-roster-header">
-                            <strong>People ({rosterJoinedCount + 1} in call)</strong>
+                            <strong>People ({totalJoinedCount} in call{totalParticipantsCount > totalJoinedCount ? ` · ${totalParticipantsCount} total` : ""})</strong>
                             <button type="button" className="call-roster-close" onClick={() => setShowRoster(false)} aria-label="Close"><X size={15} /></button>
                         </div>
                         <div className="call-roster-list">
-                            {rosterOthers.map(person => {
+                            <div className="call-roster-row">
+                                <span className="call-roster-avatar">
+                                    {localAvatarSrc ? (
+                                        <img src={localAvatarSrc} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                                    ) : (
+                                        (localUserName || "You").charAt(0).toUpperCase()
+                                    )}
+                                </span>
+                                <span className="call-roster-info">
+                                    <strong>{localUserName} (You)</strong>
+                                    <small>
+                                        <span className="call-roster-status tone-ok">In call</span>
+                                    </small>
+                                </span>
+                            </div>
+                            {sortedRosterOthers.map(person => {
                                 const status = ROSTER_STATUS[person.status] || { label: person.status, tone: "muted" };
                                 const name = person.user?.name || "Participant";
+                                const personAvatar = getAvatarSrc(person.user?.avatar || person.user?.profileImage || person.user?.image);
                                 const isActive = person.status === "joined" || person.status === "invited";
                                 const detail = person.status === "removed" && person.removedByName
                                     ? `Removed by ${person.removedByName}`
@@ -2012,7 +2221,13 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                         : person.addedBy === currentUserId ? "Added by you" : "";
                                 return (
                                     <div key={person.userId} className="call-roster-row">
-                                        <span className="call-roster-avatar">{name.charAt(0).toUpperCase()}</span>
+                                        <span className="call-roster-avatar">
+                                            {personAvatar ? (
+                                                <img src={personAvatar} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                                            ) : (
+                                                name.charAt(0).toUpperCase()
+                                            )}
+                                        </span>
                                         <span className="call-roster-info">
                                             <strong>{name}</strong>
                                             <small>
@@ -2035,12 +2250,26 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                         </div>
                     </div>
                 )}
-                <div className={call.isGroupCall ? "call-remote-stage group-stage" : "call-remote-stage"}>
+                <div className={[
+                    "call-remote-stage",
+                    call.isGroupCall ? "group-stage" : "",
+                    presenter ? "has-presenter" : "",
+                ].filter(Boolean).join(" ")}>
+                    {presenter && (
+                        <div className="call-presenting-pill" role="status">
+                            <MonitorUp size={13} />
+                            <span>{presenterLabel(presenter)}</span>
+                        </div>
+                    )}
                     {showsVideoStage ? (
                         remoteParticipants.length > 0 ? (
                             <div className="call-video-grid">
                                 {remoteParticipants.map(participant => (
-                                    <RemoteVideoTile key={participant.userId} participant={participant} />
+                                    <RemoteVideoTile
+                                        key={participant.userId}
+                                        participant={participant}
+                                        isPresenter={isPresenterTile(participant, presenter)}
+                                    />
                                 ))}
                             </div>
                         ) : (

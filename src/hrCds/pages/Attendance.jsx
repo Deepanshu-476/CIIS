@@ -4,6 +4,16 @@ import axios from "../../utils/axiosConfig";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CIISLoader from "../../Loader/CIISLoader";
+import WeekOffCard from "../components/WeekOffCard";
+import useWeekOffSchedule from "../../hooks/useWeekOffSchedule";
+import BreakCard from "../components/BreakCard";
+// Break comes from the server in minutes; Gross is login to logout and Total Time is that minus
+// the break — the time actually worked.
+const formatBreakLabel = minutes => {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!total) return "-";
+  return total < 60 ? `${total}m` : `${Math.floor(total / 60)}h ${total % 60}m`;
+};
 import "../Css/Attendance.css";
 
 import {
@@ -101,6 +111,9 @@ const Attendance = () => {
   const todayDate = new Date();
   const [currentYear, setCurrentYear] = useState(todayDate.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(todayDate.getMonth()); // 0-indexed
+  const { isWeeklyOff } = useWeekOffSchedule([
+    `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`,
+  ]);
 
   // Filters & Search
   const [timeRange, setTimeRange] = useState("ALL"); // ALL, TODAY, WEEK, MONTH
@@ -533,6 +546,15 @@ const Attendance = () => {
   // Normalize status string with holiday cross-check
   const getNormalizedStatus = useCallback((statusStr, recDate, rec) => {
     const s = statusStr ? String(statusStr).toUpperCase().trim() : "";
+    const targetKey = normalizeToDateKey(recDate || rec?.date || rec?.dateKey);
+    const scheduledOff = targetKey ? isWeeklyOff(targetKey) : null;
+    const hasPunch = Boolean(rec?.inTime || rec?.checkInTime || (rec?.login && !['-', '--'].includes(rec.login)));
+    const isUnworkedStatus = !s || /ABSENT|UNINFORMED|WEEKLY|WEEKEND|^OFF$/.test(s);
+    if (!hasPunch && isUnworkedStatus && holidayDateKeySet.has(targetKey)) return "HOLIDAY";
+    if (!hasPunch && isUnworkedStatus && scheduledOff === true) return "WEEKLY OFF";
+    if (!hasPunch && /WEEKLY|WEEKEND|^OFF$/.test(s) && scheduledOff === false) {
+      return targetKey < normalizeToDateKey(new Date()) ? "ABSENT" : "NONE";
+    }
     if (s.includes("PRESENT")) return "PRESENT";
     if (s.includes("LATE")) return "LATE";
     if (s.includes("HALF")) return "HALF DAY";
@@ -551,10 +573,12 @@ const Attendance = () => {
 
     if (s.includes("ABSENT") || s.includes("UNINFORMED")) return "ABSENT";
     return s || "ABSENT";
-  }, [holidayDateKeySet]);
+  }, [holidayDateKeySet, isWeeklyOff]);
 
   const isCalendarWeeklyOff = (dateKey) => {
     if (!dateKey) return false;
+    const scheduledOff = isWeeklyOff(dateKey);
+    if (scheduledOff !== null) return scheduledOff;
     const [year, month, day] = dateKey.split("-").map(Number);
     const date = new Date(year, month - 1, day);
     if (isNaN(date.getTime())) return false;
@@ -944,6 +968,8 @@ const Attendance = () => {
       "Login Time",
       "Logout Time",
       "Total Time",
+      "Break",
+      "Gross Time",
       "Status",
       "Late By",
       "Auto Clockout",
@@ -990,6 +1016,8 @@ const Attendance = () => {
         loginDisplay,
         logoutDisplay,
         r.totalTime || r.workingHours || "-",
+        formatBreakLabel(r.breakMinutes),
+        r.grossTime || "-",
         displayStatus,
         r.lateBy && r.lateBy !== "00:00:00" ? r.lateBy : "-",
         r.autoClockout ? "Yes" : "No",
@@ -1091,7 +1119,7 @@ const Attendance = () => {
     }
 
     return days;
-  }, [currentYear, currentMonth, attendance, holidays, todayDate]);
+  }, [currentYear, currentMonth, attendance, holidays, todayDate, getNormalizedStatus, isWeeklyOff]);
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -1146,6 +1174,12 @@ const Attendance = () => {
           ))}
         </div>
       </div>
+
+      {/* Working time, which pauses while a break is running */}
+      <BreakCard />
+
+      {/* My weekly off: which day it is this month, and asking to move it */}
+      <WeekOffCard />
 
       {/* 2. Subheader Controls Row */}
       <div className="att-controls-row">
@@ -1431,6 +1465,7 @@ const Attendance = () => {
                     <th>LOGIN</th>
                     <th>LOGOUT</th>
                     <th>TOTAL TIME</th>
+                    <th>BREAK</th>
                     <th>STATUS</th>
                     <th>LATE BY</th>
                     <th style={{ textAlign: "center", width: "70px" }}>ACTIONS</th>
@@ -1439,7 +1474,7 @@ const Attendance = () => {
                 <tbody>
                   {paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan="9">
+                      <td colSpan="10">
                         <div className="att-empty-state">
                           <FiClock className="att-empty-icon" />
                           <p className="att-empty-title">No attendance records found</p>
@@ -1520,6 +1555,15 @@ const Attendance = () => {
                             ) : (
                               item.totalTime || item.workingHours
                             )}
+                          </td>
+                          <td style={{ color: "#475569" }}>
+                            {item.breakMinutes
+                              ? (
+                                <span title={item.grossTime ? `Gross ${item.grossTime}` : undefined}>
+                                  {formatBreakLabel(item.breakMinutes)}
+                                </span>
+                              )
+                              : <span style={{ color: "#94a3b8" }}>—</span>}
                           </td>
                           <td>
                             {(() => {

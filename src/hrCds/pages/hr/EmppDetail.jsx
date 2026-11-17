@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
-import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission, getUserPageRestrictedScope } from '../../../utils/pageAccess';
 
 
 import {
@@ -1972,6 +1972,20 @@ const EmployeeDirectory = () => {
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
   const [pageCanEditEmployees, setPageCanEditEmployees] = useState(true);
+  // Branch / department scope granted on the Page Management screen for this page.
+  // null means "no scope configured for this user" (no extra restriction).
+  const [pageScopeBranchIds, setPageScopeBranchIds] = useState(null);
+  const [pageScopeDepartmentIds, setPageScopeDepartmentIds] = useState(null);
+  // The scope saved in Page Management wins over the generic "assigned branches" rule,
+  // so the directory only shows the branches that page grants.
+  const allowedBranchIds = useMemo(() => {
+    if (pageScopeBranchIds && pageScopeBranchIds.length > 0) return pageScopeBranchIds;
+    if (restrictToAssignedBranches) return currentUserBranchIds;
+    return null;
+  }, [pageScopeBranchIds, restrictToAssignedBranches, currentUserBranchIds]);
+  const allowedDepartmentIds = useMemo(() => (
+    pageScopeDepartmentIds && pageScopeDepartmentIds.length > 0 ? pageScopeDepartmentIds : null
+  ), [pageScopeDepartmentIds]);
   const canEditOtherEmployees = pageAccessReady ? pageCanEditEmployees : user.canEditOtherEmployees;
   const canSeeAllCompanyUsers = pageAccessReady ? pageCanViewEmployees : user.canSeeAllCompanyUsers;
   
@@ -2016,6 +2030,14 @@ const EmployeeDirectory = () => {
 
         setPageCanEditEmployees(canEdit);
         setPageCanViewEmployees(canView);
+
+        // Owners / super admins always keep the whole company in view.
+        const isMasterRole = ['owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin'].includes(fallbackRole)
+          || Boolean(currentUser?.isSuperAdmin || currentUser?.superAdmin);
+        const scope = isMasterRole ? null : getUserPageRestrictedScope(page, currentUserIdValue);
+
+        setPageScopeBranchIds(scope?.branchIds || null);
+        setPageScopeDepartmentIds(scope?.departmentIds || null);
       } catch (error) {
         console.error('Failed to load employee page permissions:', error);
       } finally {
@@ -2105,8 +2127,8 @@ const EmployeeDirectory = () => {
       const branchData = Array.isArray(response.data?.branches || response.data?.data)
         ? (response.data?.branches || response.data?.data)
         : [];
-      const visibleBranches = restrictToAssignedBranches
-        ? branchData.filter(branch => currentUserBranchIds.includes(getValueId(branch)))
+      const visibleBranches = allowedBranchIds
+        ? branchData.filter(branch => allowedBranchIds.includes(getValueId(branch)))
         : branchData;
       setBranches(visibleBranches);
       return visibleBranches;
@@ -2115,7 +2137,7 @@ const EmployeeDirectory = () => {
       setBranches([]);
       return [];
     }
-  }, [currentUserCompanyId, currentUserBranchIds, restrictToAssignedBranches, user.getAuthToken]);
+  }, [currentUserCompanyId, allowedBranchIds, user.getAuthToken]);
 
   const fetchAllEmployeesFromEndpoint = useCallback(async (url, rawParams, config) => {
     // The list no longer carries family/bank/document fields for every employee; they are
@@ -2318,16 +2340,23 @@ const EmployeeDirectory = () => {
         }, config);
       }
 
-      const visibleEmployees = restrictToAssignedBranches
+      const branchScopedEmployees = allowedBranchIds
         ? employeesData.filter(employee => {
           const employeeBranchIds = getIdList([
             employee?.branch,
             employee?.branchId,
-            ...(Array.isArray(employee?.assignedBranches) ? employee.assignedBranches : [])
+            ...(Array.isArray(employee?.assignedBranches) ? employee.assignedBranches : []),
+            ...(Array.isArray(employee?.branchIds) ? employee.branchIds : [])
           ]);
-          return employeeBranchIds.some(branchId => currentUserBranchIds.includes(branchId));
+          return employeeBranchIds.some(branchId => allowedBranchIds.includes(branchId));
         })
         : employeesData;
+      const visibleEmployees = allowedDepartmentIds
+        ? branchScopedEmployees.filter(employee => {
+          const employeeDepartmentIds = getIdList([employee?.department, employee?.departmentId]);
+          return employeeDepartmentIds.some(departmentId => allowedDepartmentIds.includes(departmentId));
+        })
+        : branchScopedEmployees;
       setEmployees(visibleEmployees);
       
       const deptRes = await axios.get("/departments", config);
@@ -2336,9 +2365,23 @@ const EmployeeDirectory = () => {
         const filteredDepartments = deptRes.data.departments.filter(dept => {
           const deptCompanyId = getValueId(dept.company || dept.companyId);
           const deptCompanyCode = dept.companyCode || dept.company?.companyCode || dept.company?.code;
-          return !currentUserCompanyId ||
+          const belongsToCompany = !currentUserCompanyId ||
             sameId(deptCompanyId, currentUserCompanyId) ||
             Boolean(currentUserCompanyCode && deptCompanyCode === currentUserCompanyCode);
+          if (!belongsToCompany) return false;
+          if (allowedDepartmentIds && !allowedDepartmentIds.includes(getValueId(dept))) return false;
+          if (allowedBranchIds) {
+            const deptBranchIds = getIdList([
+              dept.branch,
+              dept.branchId,
+              ...(Array.isArray(dept.branches) ? dept.branches : []),
+              ...(Array.isArray(dept.branchIds) ? dept.branchIds : [])
+            ]);
+            if (deptBranchIds.length > 0 && !deptBranchIds.some(branchId => allowedBranchIds.includes(branchId))) {
+              return false;
+            }
+          }
+          return true;
         });
         
         setDepartments(filteredDepartments);
@@ -2366,8 +2409,8 @@ const EmployeeDirectory = () => {
     fetchJobRoles,
     fetchBranches,
     fetchAllEmployeesFromEndpoint,
-    restrictToAssignedBranches,
-    currentUserBranchIds
+    allowedBranchIds,
+    allowedDepartmentIds
   ]);
   
   // Initial data fetch
@@ -3071,6 +3114,15 @@ const EmployeeDirectory = () => {
   }).filter((branch) => branch.id).sort((a, b) => a.name.localeCompare(b.name)),
   [branches, employees]);
 
+  // Label shown in the header when Page Management limits this user to certain branches.
+  const scopedAccessLabel = useMemo(() => {
+    if (!allowedBranchIds) return 'Full Company Access';
+    const names = branchOptions.map(branch => branch.name).filter(Boolean);
+    if (names.length === 0) return 'Branch Access';
+    if (names.length <= 2) return `${names.join(', ')} Access`;
+    return `${names.length} Branches Access`;
+  }, [allowedBranchIds, branchOptions]);
+
   const departmentOptions = useMemo(() => departments.map((department) => {
     const id = getValueId(department);
     const name = department.name || department.departmentName || 'Unnamed Department';
@@ -3152,7 +3204,7 @@ const EmployeeDirectory = () => {
               )}
               {canSeeAllCompanyUsers && (
                 <span className="EmployeeDirectory-super-admin-badge">
-                  • Full Company Access
+                  • {allowedBranchIds ? scopedAccessLabel : 'Full Company Access'}
                 </span>
               )}
             </p>

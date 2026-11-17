@@ -46,18 +46,24 @@ const styles = {
   sub: { margin: "2px 0 0", fontSize: 12, color: "#64748b" },
   tabs: { display: "flex", gap: 6 },
   tab: { padding: "6px 12px", borderRadius: 999, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer" },
-  tabActive: { background: "#1845b8", borderColor: "#1845b8", color: "#fff" },
+  tabActive: { background: "#1845b8", border: "1px solid #1845b8", color: "#fff" },
   table: { width: "100%", borderCollapse: "collapse", marginTop: 12, fontSize: 12 },
   th: { textAlign: "left", padding: "7px 8px", color: "#64748b", fontWeight: 700, borderBottom: "1px solid #e6ebf3", whiteSpace: "nowrap" },
   td: { padding: "8px", borderBottom: "1px solid #f1f5f9", color: "#0f172a", verticalAlign: "middle" },
   approve: { padding: "5px 10px", borderRadius: 8, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", marginRight: 6 },
   reject: { padding: "5px 10px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" },
   dayBtn: { padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 700, cursor: "pointer" },
-  dayBtnOn: { background: "#1845b8", borderColor: "#1845b8", color: "#fff" },
+  dayBtnOn: { background: "#1845b8", border: "1px solid #1845b8", color: "#fff" },
   badge: { padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 },
   search: { padding: "7px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, minWidth: 180 },
   empty: { fontSize: 12, color: "#94a3b8", padding: "12px 0" },
   count: { marginLeft: 6, padding: "1px 7px", borderRadius: 999, background: "#fee2e2", color: "#b91c1c", fontSize: 11, fontWeight: 800 },
+};
+
+const isClient = item => {
+  const dept = String(item?.departmentName || "").trim().toLowerCase();
+  const role = String(item?.role || item?.companyRole || "").trim().toLowerCase();
+  return dept === "client" || role === "client";
 };
 
 export default function WeekOffAdminPanel() {
@@ -89,7 +95,10 @@ export default function WeekOffAdminPanel() {
   const loadEmployees = useCallback(async () => {
     try {
       const res = await axios.get("/week-off/employees");
-      if (res.data?.success) setEmployees(res.data.data || []);
+      if (res.data?.success) {
+        const raw = res.data.data || [];
+        setEmployees(raw.filter(item => !isClient(item)));
+      }
     } catch (error) {
       if (error?.response?.status === 403) setAllowed(false);
       else console.error("Failed to load weekly off settings:", error?.message);
@@ -146,8 +155,9 @@ export default function WeekOffAdminPanel() {
 
   const visibleEmployees = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return employees;
-    return employees.filter(item => (
+    const list = employees.filter(item => !isClient(item));
+    if (!needle) return list;
+    return list.filter(item => (
       `${item.name} ${item.email} ${item.employeeId} ${item.departmentName}`.toLowerCase().includes(needle)
     ));
   }, [employees, search]);

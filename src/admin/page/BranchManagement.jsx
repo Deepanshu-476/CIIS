@@ -486,13 +486,22 @@ const BranchManagement = () => {
 
     try {
       setAssignmentSaving(true);
-      const primaryBranchId = selectedUserBranches[0];
+      // This dialog grants branch access; it must not silently move a user
+      // to a different home branch just because the selection order changed.
+      const currentPrimaryBranchId = getUserPrimaryBranchId(selectedUser);
+      const primaryBranchId = selectedUserBranches.includes(currentPrimaryBranchId)
+        ? currentPrimaryBranchId
+        : selectedUserBranches[0];
       const primaryBranch = branchMap.get(primaryBranchId);
+      const assignedBranches = [
+        primaryBranchId,
+        ...selectedUserBranches.filter(branchId => branchId !== primaryBranchId),
+      ];
 
       const response = await axiosInstance.put(`/users/admin-update/${selectedUserId}`, {
         branch: primaryBranchId,
         branchCode: primaryBranch?.branchCode || "",
-        assignedBranches: selectedUserBranches,
+        assignedBranches,
       });
 
       if (response.data?.success) {

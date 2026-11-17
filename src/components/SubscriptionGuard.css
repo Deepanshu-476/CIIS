@@ -1,0 +1,8 @@
+.subscription-notice{position:sticky;top:0;z-index:1300;padding:8px 16px;background:#fff4dd;color:#7a4400;text-align:center;font-size:14px}
+.subscription-notice button{margin-left:12px;color:#164caa;background:white;border:1px solid #d2a657;border-radius:6px;padding:5px 10px;cursor:pointer}
+.subscription-backdrop{position:fixed;inset:0;background:#0f172a99;z-index:20000;display:flex;align-items:center;justify-content:center;padding:16px}
+.subscription-dialog{position:relative;background:white;color:#172033;border-radius:16px;padding:24px;width:min(780px,100%);max-height:85vh;overflow:auto;box-shadow:0 12px 48px #0003}
+.subscription-dialog h2{margin:0 30px 12px 0}.subscription-dialog p{margin:12px 0;line-height:1.5}
+.subscription-dialog button{padding:9px 14px;margin:8px 8px 0 0;border:1px solid #d3dbe8;border-radius:8px;cursor:pointer;background:#f1f5ff;color:#164caa}
+.subscription-dialog .subscription-close{position:absolute;right:12px;top:8px;font-size:22px;margin:0;background:transparent}
+.subscription-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.subscription-plans article{padding:16px;border:1px solid #dce3ee;border-radius:10px}.subscription-plans h3{margin:0 0 12px}.subscription-plans ul{padding-left:20px}

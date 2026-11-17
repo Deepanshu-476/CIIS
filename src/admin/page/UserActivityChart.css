@@ -1,0 +1,136 @@
+/* Modern SaaS Bar & Volume Chart Styling (Mixpanel / Datadog Inspired) */
+
+.ua-custom-chart-wrapper {
+  width: 100%;
+  padding-top: 14px;
+}
+
+.ua-chart-bars-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  height: 230px;
+  padding: 10px 14px 0 14px;
+  border-bottom: 2px solid #e2e8f0;
+  position: relative;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.4) 0%, rgba(255, 255, 255, 1) 100%);
+  border-radius: 8px 8px 0 0;
+}
+
+.ua-chart-grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed #e2e8f0;
+  pointer-events: none;
+}
+
+.ua-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ua-chart-col:hover {
+  background: rgba(239, 246, 255, 0.4);
+  border-radius: 8px 8px 0 0;
+}
+
+.ua-chart-col:hover .ua-chart-tooltip {
+  opacity: 1;
+  transform: translateY(-10px);
+  pointer-events: auto;
+}
+
+.ua-chart-bars-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  width: 100%;
+  max-width: 44px;
+  height: 100%;
+  justify-content: center;
+  z-index: 2;
+}
+
+.ua-bar-pill {
+  flex: 1;
+  border-radius: 6px 6px 0 0;
+  min-height: 5px;
+  transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s, opacity 0.15s;
+}
+
+.ua-bar-pill:hover {
+  transform: scaleY(1.04);
+  opacity: 0.9;
+}
+
+.bar-views {
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.bar-users {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.bar-actions {
+  background: linear-gradient(180deg, #f97316 0%, #c2410c 100%);
+  box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2);
+}
+
+.ua-chart-label {
+  margin-top: 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #64748b;
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.ua-chart-tooltip {
+  position: absolute;
+  bottom: 100%;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  box-shadow: 0 14px 28px -4px rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px solid #334155;
+}
+
+.ua-chart-tooltip-header {
+  font-weight: 700;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ua-chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}

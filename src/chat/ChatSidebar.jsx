@@ -6,7 +6,7 @@ import { taskEventText } from "./taskEventText";
 import { describeCallMessage, isCallMessage } from "./callMessage";
 import ImageAdjustModal from "./ImageAdjustModal";
 
-const ChatSidebar = ({
+const ChatSidebar = ({  
     groups,
     users,
     onlineUsers,
@@ -16,7 +16,7 @@ const ChatSidebar = ({
     currentUserId,
     companyUsers = [],
     onCreateGroup,
-    loadError = false,
+    loadError = false,      
     onRetry,
     className = "",
     presenceReady = false,
@@ -229,8 +229,8 @@ const ChatSidebar = ({
         [...companyUsers].sort((first, second) => (
             String(first?.name || "").localeCompare(String(second?.name || ""))
         ))
+        
     ), [companyUsers]);
-
     const selectableCompanyUsers = useMemo(() => (
         sortedCompanyUsers.filter(user => getItemId(user) !== currentUserId)
     ), [sortedCompanyUsers, currentUserId]);

@@ -3416,6 +3416,20 @@ const ClientManagement = () => {
   const [companyIdentifier, setCompanyIdentifier] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [userRole, setUserRole] = useState('');
+
+  const canManageClientPlans = React.useMemo(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const superAdmin = localStorage.getItem('superAdmin');
+      if (superAdmin) return true;
+      const roles = [user.companyRole, user.jobRole, user.role, user.userRole]
+        .map(r => String(r || '').trim().toLowerCase().replace(/[\s-]+/g, '_'));
+      const adminRoles = new Set(['owner', 'admin', 'super_admin', 'superadmin', 'company_owner', 'companyowner']);
+      return roles.some(r => adminRoles.has(r));
+    } catch {
+      return false;
+    }
+  }, []);
   
   const [filters, setFilters] = useState({
     page: 1,
@@ -4447,13 +4461,15 @@ const ClientManagement = () => {
               >
                 <FiBriefcase /> Services ({services.length})
               </button>
-              <button
-                className="ClientManagement-btn ClientManagement-btn--outlined"
-                onClick={() => navigate('/ciisUser/client-plans')}
-                disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
-              >
-                <FiBriefcase /> Client Plans ({clientPlans.length})
-              </button>
+              {canManageClientPlans && (
+                <button
+                  className="ClientManagement-btn ClientManagement-btn--outlined"
+                  onClick={() => navigate('/ciisUser/client-plans')}
+                  disabled={services.length === 0 || (!companyCode && !companyIdentifier)}
+                >
+                  <FiBriefcase /> Client Plans ({clientPlans.length})
+                </button>
+              )}
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary"
                 onClick={() => {

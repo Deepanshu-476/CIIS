@@ -6,6 +6,8 @@ import API_URL from "../../config";
 import "./CompanyDetails.css";
 import "../../page/AllCompany.css";
 import CIISLoader from '../../Loader/CIISLoader';
+import {subscriptionExpiryTime, isPlatformAccount} from '../../utils/subscriptionPolicy';
+import {showAvailablePlans} from '../../utils/subscriptionRuntime';
 
 const CompanyDetails = () => {
   const navigate = useNavigate();
@@ -777,7 +779,7 @@ const CompanyDetails = () => {
       setLoading(true);
       
       const token = localStorage.getItem("token");
-      const loggedCompany = getLoggedCompanyFromStorage();
+      let loggedCompany = getLoggedCompanyFromStorage();
       
       if (!token) {
         toast.error("Please login to view company details");
@@ -786,6 +788,12 @@ const CompanyDetails = () => {
       }
 
       const headers = { Authorization: `Bearer ${token}` };
+
+      // Plan details must come from the company, not a partial user payload or old login cache.
+      try {
+        const {data} = await axios.get(`${API_URL}/company/subscription/current`, {headers, noCache: true, cache: false});
+        if (data.company) loggedCompany = data.company;
+      } catch (error) { console.error('Could not refresh company subscription:', error); }
 
       try {
         const response = await axios.get(
@@ -969,7 +977,7 @@ const CompanyDetails = () => {
             subscriptionExpiry: loggedCompany?.subscriptionExpiry ||
                                companyDetails.subscriptionExpiry || 
                                data.company?.subscriptionExpiry || 
-                               new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+                               null,
             selectedPlan: loggedCompany?.selectedPlan || companyDetails.selectedPlan || data.company?.selectedPlan || null,
             subscriptionPlan: loggedCompany?.subscriptionPlan || companyDetails.subscriptionPlan || data.company?.subscriptionPlan || "Standard",
             subscriptionAmount: loggedCompany?.subscriptionAmount ?? companyDetails.subscriptionAmount ?? data.company?.subscriptionAmount ?? 0,
@@ -1069,7 +1077,7 @@ const CompanyDetails = () => {
           createdAt: companyInfo.createdAt || new Date().toISOString(),
           updatedAt: companyInfo.updatedAt || new Date().toISOString(),
           subscriptionExpiry: companyInfo.subscriptionExpiry || 
-                            new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+                            null,
           selectedPlan: companyInfo.selectedPlan || null,
           subscriptionPlan: companyInfo.subscriptionPlan || "Standard",
           subscriptionAmount: companyInfo.subscriptionAmount || 0,
@@ -1114,7 +1122,7 @@ const CompanyDetails = () => {
           dbIdentifier: `company_${Date.now()}`,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          subscriptionExpiry: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          subscriptionExpiry: null,
           logo: DEFAULT_COMPANY_LOGO,
           isActive: true
         };
@@ -1203,20 +1211,13 @@ const CompanyDetails = () => {
 
   
   const getDaysRemaining = (expiryDate) => {
-    if (!expiryDate) return 90;
-    try {
-      const expiry = new Date(expiryDate);
-      const today = new Date();
-      const diffTime = expiry - today;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 ? diffDays : 0;
-    } catch (error) {
-      return 90;
-    }
+    const expiry = subscriptionExpiryTime({subscriptionExpiry: expiryDate});
+    return expiry === null ? null : Math.max(0, Math.ceil((expiry - Date.now()) / 86400000));
   };
 
   
   const getSubscriptionStatus = (daysRemaining) => {
+    if (daysRemaining === null) return {color: 'warning', text: 'Not available', bg: '#f1f5f9'};
     if (daysRemaining > 15) return { color: 'success', text: 'Active', bg: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)' };
     if (daysRemaining > 7) return { color: 'warning', text: 'Expiring Soon', bg: 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)' };
     if (daysRemaining > 0) return { color: 'error', text: 'Critical', bg: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)' };
@@ -1230,10 +1231,7 @@ const CompanyDetails = () => {
   };
 
   const getTrialPlanDurationDays = (plan) => {
-    const isFreeTrialPlan =
-      Number(plan?.price || 0) === 0 ||
-      String(plan?.name || "").trim().toLowerCase().includes("free");
-    return isFreeTrialPlan ? 90 : Number(plan?.durationDays || 90);
+    return Number(plan?.durationDays || 0);
   };
 
   const getDateAfterDays = (days) => {
@@ -1270,7 +1268,7 @@ const CompanyDetails = () => {
 
   const fetchPlans = async () => {
     try {
-      const response = await axios.get(`${API_URL}/plans?includeInactive=true`, {
+      const response = await axios.get(`${API_URL}/plans`, {
         headers: getAuthHeaders()
       });
       setPlans(response.data?.plans || response.data?.data || []);
@@ -1280,6 +1278,9 @@ const CompanyDetails = () => {
   };
 
   const handleOpenUpgradeModal = () => {
+    let account = null;
+    try { account = JSON.parse(localStorage.getItem('user') || localStorage.getItem('superAdmin') || 'null'); } catch {}
+    if (!isPlatformAccount(account)) {showAvailablePlans(); return;}
     const currentPlanId = company?.selectedPlan && typeof company.selectedPlan === "object" ? company.selectedPlan._id : (company?.selectedPlan || "");
     const selectedPlan = plans.find(plan => plan._id === currentPlanId);
     const todayStr = new Date().toISOString().split("T")[0];
@@ -2079,11 +2080,11 @@ const CompanyDetails = () => {
   const daysRemaining = getDaysRemaining(company?.subscriptionExpiry);
   const subscriptionStatus = getSubscriptionStatus(daysRemaining);
   const currentPlan = company?.selectedPlan && typeof company.selectedPlan === "object" ? company.selectedPlan : null;
-  const planName = currentPlan?.name || company?.subscriptionPlan || "Standard";
-  const planAmount = currentPlan?.price ?? company?.subscriptionAmount ?? 0;
-  const planDurationDays = currentPlan?.durationDays || company?.planDurationDays || 90;
-  const planFeatures = currentPlan?.features || company?.planFeatures || [];
-  const allowedPagesCount = currentPlan?.allowedPages?.length || company?.allowedPages?.length || 0;
+  const planName = company?.subscriptionPlan || currentPlan?.name || 'Plan not assigned';
+  const planAmount = company?.subscriptionAmount ?? currentPlan?.price ?? 0;
+  const planDurationDays = company?.planDurationDays || currentPlan?.durationDays || 0;
+  const planFeatures = company?.planFeatures || currentPlan?.features || [];
+  const allowedPagesCount = company?.allowedPages?.length ?? currentPlan?.allowedPages?.length ?? 0;
   const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 90, 1)) * 100, 100);
 
   

@@ -70,7 +70,7 @@ export default function WeekOffCard() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`/week-off/my-schedule?month=${month}`);
+      const res = await axios.get(`/week-off/my-schedule?month=${month}`, { cache: false });
       if (res.data?.success) setSchedule(res.data);
     } catch (error) {
       // A company that does not use weekly offs (or an employee without access) simply sees nothing.
@@ -83,7 +83,20 @@ export default function WeekOffCard() {
     }
   }, [month]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const refresh = () => {
+      if (document.visibilityState !== "hidden") load();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const timer = window.setInterval(refresh, 60000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(timer);
+    };
+  }, [load]);
 
   // Which of my upcoming off days I could give up: this week onwards.
   const upcomingOffDays = useMemo(() => {

@@ -177,6 +177,13 @@ const ClientPlansPage = () => {
         } else if (userRaw) {
           const parsed = JSON.parse(userRaw);
           localStorageCompany = parsed?.companyCode || parsed?.company || '';
+          const userRole = String(parsed?.companyRole || parsed?.jobRole || parsed?.role || '').toLowerCase().replace(/[\s-]+/g, '_');
+          const isPrivileged = ['owner', 'admin', 'super_admin', 'superadmin', 'company_owner', 'companyowner'].includes(userRole);
+          if (!isPrivileged) {
+            setError('Access Denied: Only administrators and company owners can view or manage Client Plans.');
+            setLoading(false);
+            return;
+          }
         }
 
         const companyCodeFromStorage = localStorage.getItem('companyCode') || localStorageCompany;

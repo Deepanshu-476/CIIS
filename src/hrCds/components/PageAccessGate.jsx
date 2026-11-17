@@ -274,6 +274,12 @@ export const hasCompanyPlanAccess = pagePath => {
     }
 
     const keys = new Set(allowed.map(normalizePlanKey));
+    if (/^telecaller\//i.test(normalizedPath)) {
+      if (keys.has('telecaller') || keys.has('admin-telecaller') || keys.has('crm')) return true;
+      const slug = normalizedPath.replace(/^telecaller\//i, '');
+      return keys.has(`admin-telecaller-${slug}`) || keys.has(`telecaller/${slug}`) || keys.has(slug);
+    }
+
     if (/^crm\/(admin|marketing|reports)\//i.test(normalizedPath)) {
       if (keys.has('crm') || keys.has('admin-crm')) return true;
       const page = CRM_PAGES.find(item => normalizePlanKey(item.path) === normalizedPath);
@@ -288,7 +294,7 @@ export const hasCompanyPlanAccess = pagePath => {
 
     const routeKey = normalizedPath.split("/")[0];
     if (routeKey === "client-plans") {
-      return ["client-plans", "emp-client", "client-management"].some(key => keys.has(key));
+      return keys.has("client-plans");
     }
     if (routeKey === "emp-task-details") {
       return ["task-management", "admin-task-create", "company-all-task"].some(key => keys.has(key));

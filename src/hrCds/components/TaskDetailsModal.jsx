@@ -422,16 +422,24 @@ const TaskDetailsModal = ({
   const knownUserNames = new Map();
   const rememberUser = value => {
     if (!value || typeof value !== 'object') return;
-    const id = String(value._id || value.id || '');
-    const name = value.name || value.fullName;
+    const id = String(value._id || value.id || value.userId || '');
+    const name = value.name || value.fullName || value.userName;
     if (id && name && !knownUserNames.has(id)) knownUserNames.set(id, name);
   };
-  rawActivities.forEach(ev => [ev?.user, ev?.performedBy, ev?.changedBy, ev?.updatedBy].forEach(rememberUser));
+  rawActivities.forEach(ev => [ev?.user, ev?.performedBy, ev?.changedBy, ev?.updatedBy, ev?.createdBy].forEach(rememberUser));
   let loggedInUser = null;
   try { loggedInUser = JSON.parse(localStorage.getItem('user') || 'null'); } catch { loggedInUser = null; }
-  [task.createdBy, task.assignedUser, task.assignedTo, task.assignedUsers, employeeInfo, loggedInUser]
+  [task.createdBy, task.assignedUser, task.assignedTo, task.assignedUsers, employeeInfo, loggedInUser, ...(mentionUsers || [])]
     .flat()
     .forEach(rememberUser);
+
+  const getUserName = (val) => {
+    if (!val) return '';
+    if (typeof val === 'object') return val.name || val.fullName || val.userName || '';
+    const id = String(val);
+    return knownUserNames.get(id) || '';
+  };
+
   const getRemarkAuthor = rem => {
     const author = rem.user || rem.createdBy || rem.addedBy;
     const authorId = String(author?._id || author?.id || author || '');
@@ -943,7 +951,7 @@ const TaskDetailsModal = ({
         const d = getLogTimestamp(ev) || new Date();
         const action = ev.action || ev.type || ev.status || 'Status Update';
         const desc = ev.description || ev.details || ev.remarks || ev.remark || `Status updated to ${action}`;
-        const user = ev.userName || ev.user?.name || ev.changedBy?.name || getUserName(ev.performedBy) || assigneeName;
+        const user = ev.userName || ev.performedByName || ev.user?.name || ev.changedBy?.name || (typeof ev.performedBy === 'object' ? (ev.performedBy?.name || ev.performedBy?.fullName) : null) || getUserName(ev.performedBy) || getUserName(ev.user) || assigneeName;
         const oldVals = ev.oldValues || (ev.oldValue ? { status: ev.oldValue } : null);
         const newVals = ev.newValues || (ev.newValue ? { status: ev.newValue } : null);
         const title = parseActionTitle(action, desc, oldVals, newVals);

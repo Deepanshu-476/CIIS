@@ -700,12 +700,26 @@ const EmployeeLeaves = () => {
       return false;
     }
 
+    const isExplicitApprover = approverPermissionUserIds.includes(String(currentUserId));
+
     if (leave && hasApprovalWorkflow(leave)) {
-      return isCurrentUserPendingApprover(leave);
+      // If current user is already in the leave's workflow steps
+      if (isCurrentUserPendingApprover(leave)) {
+        return true;
+      }
+      // Or if current user has been configured as an approver in Page Management / is Owner
+      if (isExplicitApprover || isOwner) {
+        // As long as the user hasn't already actioned on this leave
+        const existingStep = leave.approvalSteps.find(
+          (step) => getApprovalUserId(step) === String(currentUserId)
+        );
+        return !existingStep || (existingStep.status || "Pending") === "Pending";
+      }
+      return false;
     }
 
     if (approverPermissionUserIds.length > 0) {
-      return approverPermissionUserIds.includes(String(currentUserId));
+      return isExplicitApprover;
     }
 
     return isOwner || isAdmin || isHR || isManager;

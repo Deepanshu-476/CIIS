@@ -10,6 +10,7 @@ import './UserDashboard.css';
 import './UserDashboardMobileV2.css';
 import './UserDashboardResponsive.css';
 import useIsMobile from '../../hooks/useIsMobile';
+import useWeekOffSchedule from '../../hooks/useWeekOffSchedule';
 import {
   CirclePlus, Umbrella, BriefcaseBusiness, UserPlus, Folder, CalendarDays,
   NotebookPen, Clock3, Play, ClipboardCheck, Video, Coffee, CheckCircle2,
@@ -275,7 +276,7 @@ const getAttendanceStatusMeta = status => {
     'HALF DAY': { label: 'Half Day', className: 'halfday' },
     LEAVE: { label: 'Leave', className: 'leave' },
     ABSENT: { label: 'Absent', className: 'absent' },
-    WEEKEND: { label: 'Weekend', className: 'weekend' },
+    WEEKEND: { label: 'Weekly Off', className: 'weekend' },
     HOLIDAY: { label: 'Holiday 🎉', className: 'holiday' },
     'BEFORE JOINING': { label: 'Before Joining', className: 'before-join' },
   };
@@ -743,6 +744,13 @@ const UserDashboard = () => {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
+  const scheduleMonthKey = (year, month) => `${year}-${String(month + 1).padStart(2, '0')}`;
+  const previousMonthDate = new Date(currentYear, currentMonth - 1, 1);
+  const { isWeeklyOff } = useWeekOffSchedule([
+    scheduleMonthKey(calendarYear, calendarMonth),
+    scheduleMonthKey(currentYear, currentMonth),
+    scheduleMonthKey(previousMonthDate.getFullYear(), previousMonthDate.getMonth()),
+  ]);
 
   useEffect(() => {
     const refreshCurrentDate = () => setCurrentDate(new Date());
@@ -1717,11 +1725,12 @@ const UserDashboard = () => {
 
     const dateObj = new Date(year, month, day);
     const key = `${year}-${month}-${day}`;
-    const isWeekend = isConfiguredWeekend(dateObj, getDepartmentSettings(dashboardUser, user));
+    const scheduledOff = isWeeklyOff(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+    const isWeekend = scheduledOff ?? isConfiguredWeekend(dateObj, getDepartmentSettings(dashboardUser, user));
 
     if (holidayDateSet.has(key)) return "holiday";
     if (isBeforeJoinDate(dateObj)) return "before-join";
-    if (weekendDates.includes(key) || (isWeekend && !lateDates.includes(key) && !halfDayDates.includes(key) && !markedDates.includes(key))) return "weekend";
+    if (((scheduledOff === null && weekendDates.includes(key)) || isWeekend) && !lateDates.includes(key) && !halfDayDates.includes(key) && !markedDates.includes(key)) return "weekend";
     if (lateDates.includes(key)) return "late";
     if (halfDayDates.includes(key)) return "halfday";
     if (markedDates.includes(key)) return "present";
@@ -1734,7 +1743,7 @@ const UserDashboard = () => {
     if (dateObj < todayStart) return "absent";
 
     return null;
-  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user, loading.attendance]);
+  }, [currentDate, isBeforeJoinDate, markedDates, lateDates, halfDayDates, leaveDateSet, absentDateSet, holidayDateSet, weekendDates, dashboardUser, user, loading.attendance, isWeeklyOff]);
 
   const { monthlyStats, previousMonthlyStats, previousMonthLabel } = useMemo(() => {
     const calculateMonth = (year, month, maxDay = null) => {
@@ -3339,6 +3348,7 @@ const UserDashboard = () => {
                                     ? `🎉 Holiday: ${holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] || 'Holiday'}`
                                     : isBeforeJoinDate(new Date(calendarYear, calendarMonth, day))
                                       ? 'Before joining date'
+                                      : getDayStatus(day) === 'weekend' ? 'Weekly Off'
                                       : getDayStatus(day)?.charAt(0).toUpperCase() + getDayStatus(day)?.slice(1) || 'No Record'
                                 }
                                 data-holiday-title={getDayStatus(day) === 'holiday' ? holidayTitles[`${calendarYear}-${calendarMonth}-${day}`] : ''}
@@ -3380,7 +3390,7 @@ const UserDashboard = () => {
                 <div className="legend-item"><div className="legend-color color-halfday"></div><span>Half Day</span></div>
                 <div className="legend-item"><div className="legend-color color-leave"></div><span>Leave</span></div>
                 <div className="legend-item"><div className="legend-color color-absent"></div><span>Absent</span></div>
-                <div className="legend-item"><div className="legend-color color-weekend"></div><span>Weekend</span></div>
+                <div className="legend-item"><div className="legend-color color-weekend"></div><span>Weekly Off</span></div>
                 <div className="legend-item"><div className="legend-color color-holiday"></div><span>Holiday 🎉</span></div>
                 <div className="legend-item"><div className="legend-color color-before-join"></div><span>Before Joining</span></div>
               </div>

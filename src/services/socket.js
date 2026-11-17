@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import {showExpiredPlan} from '../utils/subscriptionRuntime';
 import { SOCKET_URL } from '../config';
 
 const isDev = import.meta.env.DEV;
@@ -55,6 +56,7 @@ class SocketService {
         forceNew: false
       });
 
+      this.socket.on('subscription:expired', showExpiredPlan);
       this.socket.on('connect', () => {
         this.isConnecting = false;
       });

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "../../utils/axiosConfig";
 import { toast } from "react-toastify";
+import "./BreakAdminPanel.css";
 
 /**
  * Breaks on Attendance Management: who is on a break right now with today's totals, and the break
@@ -15,6 +16,46 @@ import { toast } from "react-toastify";
  */
 const MODES = ["INHERIT", "OFF", "FIXED", "FLEXIBLE"];
 const MODE_LABEL = { INHERIT: "Inherit", OFF: "Off", FIXED: "Fixed", FLEXIBLE: "Flexible" };
+const GROUP_ICONS = {
+  company: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18" />
+      <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
+      <line x1="9" y1="9" x2="10" y2="9" />
+      <line x1="14" y1="9" x2="15" y2="9" />
+      <line x1="9" y1="13" x2="10" y2="13" />
+      <line x1="14" y1="13" x2="15" y2="13" />
+      <line x1="9" y1="17" x2="10" y2="17" />
+      <line x1="14" y1="17" x2="15" y2="17" />
+    </svg>
+  ),
+  branches: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  ),
+  departments: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  jobRoles: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+};
+
+const renderModeBadge = mode => {
+  const m = mode || "INHERIT";
+  return <span className={`bap-mode-badge bap-mode-${m.toLowerCase()}`}>{MODE_LABEL[m] || m}</span>;
+};
+
 const GROUPS = [
   { key: "company", label: "Company" },
   { key: "branches", label: "Branches" },
@@ -326,238 +367,356 @@ export default function BreakAdminPanel() {
       )}
 
       {open && (
-        <div style={styles.modal} onMouseDown={event => { if (event.target === event.currentTarget) { setOpen(false); setEditing(null); } }}>
-          <div style={styles.sheet}>
-            <div style={styles.sheetHead}>
-              <h3 style={styles.title}>{editing ? `${editing.name} — breaks` : "Break settings"}</h3>
-              <button type="button" style={styles.ghost} onClick={() => (editing ? setEditing(null) : setOpen(false))}>
-                {editing ? "Back" : "Close"}
-              </button>
+        <div
+          className="bap-modal-overlay"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget) {
+              setOpen(false);
+              setEditing(null);
+            }
+          }}
+        >
+          <div className="bap-dialog">
+            <div className="bap-dialog-header">
+              <div className="bap-header-left">
+                <div className="bap-header-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                    <line x1="6" y1="1" x2="6" y2="4"></line>
+                    <line x1="10" y1="1" x2="10" y2="4"></line>
+                    <line x1="14" y1="1" x2="14" y2="4"></line>
+                  </svg>
+                </div>
+                <div className="bap-header-text">
+                  <h3 className="bap-dialog-title">
+                    {editing ? `${editing.name} — Break Policy` : "Break Settings & Policies"}
+                  </h3>
+                  <p className="bap-dialog-subtitle">
+                    {editing ? "Configure custom timing, rules, and limits" : "Manage company, branch, and department break rules"}
+                  </p>
+                </div>
+              </div>
+              <div className="bap-header-actions">
+                {editing && (
+                  <button
+                    type="button"
+                    className="bap-back-btn"
+                    onClick={() => setEditing(null)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="19" y1="12" x2="5" y2="12"></line>
+                      <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="bap-close-btn"
+                  onClick={() => {
+                    setEditing(null);
+                    setOpen(false);
+                  }}
+                  aria-label="Close dialog"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            {!editing && !settings && <div style={styles.empty}>Loading…</div>}
+            <div className="bap-dialog-body">
+              {!editing && !settings && <div style={styles.empty}>Loading settings…</div>}
 
-            {!editing && settings && (
-              <>
-                <p style={styles.sub}>
-                  The most specific setting wins: a shift beats a department, a department beats a branch,
-                  a branch beats the company.
-                </p>
-                {GROUPS.map(group => {
-                  const entries = group.key === "company" ? [settings.company] : (settings[group.key] || []);
-                  if (!entries.length) return null;
-                  return (
-                    <div key={group.key}>
-                      <div style={styles.groupLabel}>{group.label}</div>
-                      {entries.map(entry => (
-                        <div key={`${entry.level}-${entry.id}`} style={styles.levelRow}>
-                          <div>
-                            <strong>{entry.name}</strong>
-                            <div style={{ fontSize: 11, color: "#64748b" }}>
-                              {MODE_LABEL[entry.policy.mode] || entry.policy.mode}
-                              {entry.policy.mode === "FIXED" && entry.policy.fixedBreaks.length
-                                ? ` · ${entry.policy.fixedBreaks.map(item => `${item.name} ${item.start}–${item.end}`).join(", ")}`
-                                : ""}
-                              {entry.policy.mode === "FLEXIBLE" && entry.policy.limits?.enabled
-                                ? ` · limit ${entry.policy.limits.maxBreaksPerDay || "-"} breaks / ${entry.policy.limits.maxMinutesPerDay || "-"}m (${entry.policy.limits.enforce.toLowerCase()})`
-                                : ""}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            style={styles.ghost}
-                            onClick={() => setEditing({ level: entry.level, id: entry.id, name: entry.name, policy: entry.policy })}
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      ))}
+              {!editing && settings && (
+                <>
+                  <div className="bap-rule-banner">
+                    <span className="bap-rule-banner-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                      </svg>
+                    </span>
+                    <div>
+                      <strong>Hierarchy Priority:</strong> Shift → Department → Branch → Company.
+                      The most specific setting always wins. Unset levels automatically inherit from above.
                     </div>
-                  );
-                })}
-              </>
-            )}
+                  </div>
 
-            {editing && (
-              <>
-                <div style={styles.groupLabel}>Mode</div>
-                <div style={styles.modeRow}>
-                  {MODES.map(mode => (
-                    <button
-                      key={mode}
-                      type="button"
-                      style={{ ...styles.modeChip, ...(editing.policy.mode === mode ? styles.modeChipOn : {}) }}
-                      onClick={() => patchPolicy({ mode })}
-                    >
-                      {MODE_LABEL[mode]}
-                    </button>
-                  ))}
-                </div>
-
-                {editing.policy.mode === "FIXED" && (
-                  <>
-                    <div style={styles.groupLabel}>Break windows (24-hour time)</div>
-                    {(editing.policy.fixedBreaks || []).map((window, index) => (
-                      <div key={`window-${index}`} style={styles.windowRow}>
-                        <input
-                          style={styles.wideInput}
-                          value={window.name}
-                          placeholder="Lunch"
-                          onChange={event => patchWindow(index, { name: event.target.value })}
-                        />
-                        <input
-                          style={styles.input}
-                          value={window.start}
-                          placeholder="13:00"
-                          onChange={event => patchWindow(index, { start: event.target.value })}
-                        />
-                        <span style={{ color: "#94a3b8" }}>to</span>
-                        <input
-                          style={styles.input}
-                          value={window.end}
-                          placeholder="13:30"
-                          onChange={event => patchWindow(index, { end: event.target.value })}
-                        />
-                        <label style={{ fontSize: 12, color: "#475569", display: "flex", alignItems: "center", gap: 5 }}>
-                          <input
-                            type="checkbox"
-                            checked={window.autoDeduct !== false}
-                            onChange={event => patchWindow(index, { autoDeduct: event.target.checked })}
-                          />
-                          deduct automatically
-                        </label>
-                        <button
-                          type="button"
-                          style={styles.remove}
-                          onClick={() => patchPolicy({ fixedBreaks: editing.policy.fixedBreaks.filter((_, position) => position !== index) })}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      style={styles.addWindow}
-                      onClick={() => patchPolicy({
-                        fixedBreaks: [...(editing.policy.fixedBreaks || []), { name: "Break", start: "13:00", end: "13:30", autoDeduct: true }],
-                      })}
-                    >
-                      + Add a window
-                    </button>
-                    <label style={styles.toggleRow}>
-                      <input
-                        type="checkbox"
-                        checked={editing.policy.allowExtraBreak !== false}
-                        onChange={event => patchPolicy({ allowExtraBreak: event.target.checked })}
-                      />
-                      Allow an extra break outside these windows (the admin is notified)
-                    </label>
-                  </>
-                )}
-
-                {(editing.policy.mode === "FIXED" || editing.policy.mode === "FLEXIBLE") && (
-                  <>
-                    <label style={styles.toggleRow}>
-                      <input
-                        type="checkbox"
-                        checked={editing.policy.notifyAdmin !== false}
-                        onChange={event => patchPolicy({ notifyAdmin: event.target.checked })}
-                      />
-                      {editing.policy.mode === "FIXED"
-                        ? "Notify the admin when someone takes an extra break"
-                        : "Notify the admin when a break starts and ends"}
-                    </label>
-
-                    <div style={styles.groupLabel}>Break reasons</div>
-                    <input
-                      style={{ ...styles.wideInput, width: "100%" }}
-                      value={(editing.policy.reasons || []).join(", ")}
-                      placeholder="Lunch, Tea, Personal, Meeting, Other"
-                      onChange={event => patchPolicy({ reasons: event.target.value.split(",").map(item => item.trim()).filter(Boolean) })}
-                    />
-                    <label style={styles.toggleRow}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(editing.policy.requireReason)}
-                        onChange={event => patchPolicy({ requireReason: event.target.checked })}
-                      />
-                      The employee must pick a reason before the break starts
-                    </label>
-
-                    <div style={styles.groupLabel}>Daily limit</div>
-                    <label style={styles.toggleRow}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(editing.policy.limits?.enabled)}
-                        onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), enabled: event.target.checked } })}
-                      />
-                      Limit breaks: how many, how long, the gap between them, and one break&apos;s length
-                    </label>
-                    {editing.policy.limits?.enabled && (
-                      <>
-                        <div style={styles.windowRow}>
-                          <input
-                            style={styles.input}
-                            type="number"
-                            min="0"
-                            placeholder="Breaks"
-                            value={editing.policy.limits?.maxBreaksPerDay || ""}
-                            onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxBreaksPerDay: Number(event.target.value) || 0 } })}
-                          />
-                          <span style={{ fontSize: 12, color: "#64748b" }}>breaks a day</span>
-                          <input
-                            style={styles.input}
-                            type="number"
-                            min="0"
-                            placeholder="Minutes"
-                            value={editing.policy.limits?.maxMinutesPerDay || ""}
-                            onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxMinutesPerDay: Number(event.target.value) || 0 } })}
-                          />
-                          <span style={{ fontSize: 12, color: "#64748b" }}>minutes a day</span>
+                  {GROUPS.map(group => {
+                    const entries = group.key === "company" ? [settings.company] : (settings[group.key] || []);
+                    if (!entries.length) return null;
+                    return (
+                      <div key={group.key} className="bap-group-section">
+                        <div className="bap-group-heading">
+                          {GROUP_ICONS[group.key]}
+                          <span>{group.label}</span>
+                          <span className="bap-group-count">{entries.length}</span>
                         </div>
-                        <div style={styles.windowRow}>
-                          <input
-                            style={styles.input}
-                            type="number"
-                            min="0"
-                            placeholder="Gap"
-                            value={editing.policy.limits?.minGapMinutes || ""}
-                            onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), minGapMinutes: Number(event.target.value) || 0 } })}
-                          />
-                          <span style={{ fontSize: 12, color: "#64748b" }}>minutes before the next break</span>
-                          <input
-                            style={styles.input}
-                            type="number"
-                            min="0"
-                            placeholder="One break"
-                            value={editing.policy.limits?.maxSingleBreakMinutes || ""}
-                            onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxSingleBreakMinutes: Number(event.target.value) || 0 } })}
-                          />
-                          <span style={{ fontSize: 12, color: "#64748b" }}>
-                            minutes for one break (after this, the admin and the employee are told it is running long)
-                          </span>
-                        </div>
-                        <div style={styles.modeRow}>
-                          {["WARN", "BLOCK"].map(value => (
-                            <button
-                              key={value}
-                              type="button"
-                              style={{ ...styles.modeChip, ...((editing.policy.limits?.enforce || "WARN") === value ? styles.modeChipOn : {}) }}
-                              onClick={() => patchPolicy({ limits: { ...(editing.policy.limits || {}), enforce: value } })}
-                            >
-                              {value === "WARN" ? "Warn only" : "Block the next break"}
-                            </button>
+                        <div className="bap-level-list">
+                          {entries.map(entry => (
+                            <div key={`${entry.level}-${entry.id}`} className="bap-level-card">
+                              <div className="bap-level-info">
+                                <span className="bap-level-name">{entry.name}</span>
+                                <div className="bap-level-meta">
+                                  {renderModeBadge(entry.policy.mode)}
+                                  {entry.policy.mode === "FIXED" && entry.policy.fixedBreaks?.length > 0 && (
+                                    <span className="bap-level-details">
+                                      · {entry.policy.fixedBreaks.map(item => `${item.name} (${item.start}–${item.end})`).join(", ")}
+                                    </span>
+                                  )}
+                                  {entry.policy.mode === "FLEXIBLE" && entry.policy.limits?.enabled && (
+                                    <span className="bap-level-details">
+                                      · Max {entry.policy.limits.maxBreaksPerDay || "-"} breaks / {entry.policy.limits.maxMinutesPerDay || "-"}m
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="bap-edit-btn"
+                                onClick={() => setEditing({ level: entry.level, id: entry.id, name: entry.name, policy: entry.policy })}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                                Edit
+                              </button>
+                            </div>
                           ))}
                         </div>
-                      </>
-                    )}
-                  </>
-                )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
 
-                <button type="button" style={{ ...styles.save, opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={save}>
-                  {saving ? "Saving…" : "Save"}
+              {editing && (
+                <div className="bap-edit-section">
+                  <div>
+                    <label className="bap-field-label">Break Tracking Mode</label>
+                    <div className="bap-mode-selector">
+                      {MODES.map(mode => (
+                        <button
+                          key={mode}
+                          type="button"
+                          className={`bap-mode-option ${editing.policy.mode === mode ? "active" : ""}`}
+                          onClick={() => patchPolicy({ mode })}
+                        >
+                          {MODE_LABEL[mode]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {editing.policy.mode === "FIXED" && (
+                    <div>
+                      <label className="bap-field-label">Scheduled Break Windows (24-Hour Time)</label>
+                      <div className="bap-windows-container">
+                        {(editing.policy.fixedBreaks || []).map((window, index) => (
+                          <div key={`window-${index}`} className="bap-window-row">
+                            <input
+                              className="bap-input-name"
+                              value={window.name}
+                              placeholder="Break Name (e.g. Lunch)"
+                              onChange={event => patchWindow(index, { name: event.target.value })}
+                            />
+                            <input
+                              className="bap-input-time"
+                              value={window.start}
+                              placeholder="13:00"
+                              onChange={event => patchWindow(index, { start: event.target.value })}
+                            />
+                            <span style={{ color: "#94a3b8", fontSize: 12 }}>to</span>
+                            <input
+                              className="bap-input-time"
+                              value={window.end}
+                              placeholder="13:30"
+                              onChange={event => patchWindow(index, { end: event.target.value })}
+                            />
+                            <label className="bap-window-toggle">
+                              <input
+                                type="checkbox"
+                                checked={window.autoDeduct !== false}
+                                onChange={event => patchWindow(index, { autoDeduct: event.target.checked })}
+                              />
+                              Auto deduct
+                            </label>
+                            <button
+                              type="button"
+                              className="bap-delete-btn"
+                              title="Remove window"
+                              onClick={() => patchPolicy({ fixedBreaks: editing.policy.fixedBreaks.filter((_, position) => position !== index) })}
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="bap-add-window-btn"
+                          onClick={() => patchPolicy({
+                            fixedBreaks: [...(editing.policy.fixedBreaks || []), { name: "Break", start: "13:00", end: "13:30", autoDeduct: true }],
+                          })}
+                        >
+                          + Add Break Window
+                        </button>
+                      </div>
+
+                      <label className="bap-toggle-box" style={{ marginTop: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={editing.policy.allowExtraBreak !== false}
+                          onChange={event => patchPolicy({ allowExtraBreak: event.target.checked })}
+                        />
+                        <span>Allow unscheduled extra breaks outside these windows (admin gets notified)</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {(editing.policy.mode === "FIXED" || editing.policy.mode === "FLEXIBLE") && (
+                    <>
+                      <label className="bap-toggle-box">
+                        <input
+                          type="checkbox"
+                          checked={editing.policy.notifyAdmin !== false}
+                          onChange={event => patchPolicy({ notifyAdmin: event.target.checked })}
+                        />
+                        <span>
+                          {editing.policy.mode === "FIXED"
+                            ? "Notify admin when someone takes an extra unscheduled break"
+                            : "Notify admin whenever a break starts and ends"}
+                        </span>
+                      </label>
+
+                      <div>
+                        <label className="bap-field-label">Allowed Break Reasons</label>
+                        <input
+                          className="bap-input-text"
+                          value={(editing.policy.reasons || []).join(", ")}
+                          placeholder="Lunch, Tea, Personal, Meeting, Other (comma separated)"
+                          onChange={event => patchPolicy({ reasons: event.target.value.split(",").map(item => item.trim()).filter(Boolean) })}
+                        />
+                        <label className="bap-toggle-box" style={{ marginTop: 8 }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(editing.policy.requireReason)}
+                            onChange={event => patchPolicy({ requireReason: event.target.checked })}
+                          />
+                          <span>Mandatory: Employee must pick a reason before starting any break</span>
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="bap-field-label">Daily Break Limits</label>
+                        <label className="bap-toggle-box">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(editing.policy.limits?.enabled)}
+                            onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), enabled: event.target.checked } })}
+                          />
+                          <span>Enforce daily usage constraints (max breaks, max duration, cooldown gap)</span>
+                        </label>
+
+                        {editing.policy.limits?.enabled && (
+                          <div className="bap-limits-box" style={{ marginTop: 8 }}>
+                            <div className="bap-limits-row">
+                              <div className="bap-limit-item">
+                                <input
+                                  className="bap-limit-input"
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  value={editing.policy.limits?.maxBreaksPerDay || ""}
+                                  onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxBreaksPerDay: Number(event.target.value) || 0 } })}
+                                />
+                                <span>max breaks / day</span>
+                              </div>
+                              <div className="bap-limit-item">
+                                <input
+                                  className="bap-limit-input"
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  value={editing.policy.limits?.maxMinutesPerDay || ""}
+                                  onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxMinutesPerDay: Number(event.target.value) || 0 } })}
+                                />
+                                <span>max total mins / day</span>
+                              </div>
+                            </div>
+                            <div className="bap-limits-row">
+                              <div className="bap-limit-item">
+                                <input
+                                  className="bap-limit-input"
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  value={editing.policy.limits?.minGapMinutes || ""}
+                                  onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), minGapMinutes: Number(event.target.value) || 0 } })}
+                                />
+                                <span>min gap between breaks (mins)</span>
+                              </div>
+                              <div className="bap-limit-item">
+                                <input
+                                  className="bap-limit-input"
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  value={editing.policy.limits?.maxSingleBreakMinutes || ""}
+                                  onChange={event => patchPolicy({ limits: { ...(editing.policy.limits || {}), maxSingleBreakMinutes: Number(event.target.value) || 0 } })}
+                                />
+                                <span>single break warning limit (mins)</span>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                              {["WARN", "BLOCK"].map(value => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  className={`bap-mode-option ${((editing.policy.limits?.enforce || "WARN") === value) ? "active" : ""}`}
+                                  style={{ padding: "6px 14px", fontSize: "0.8rem" }}
+                                  onClick={() => patchPolicy({ limits: { ...(editing.policy.limits || {}), enforce: value } })}
+                                >
+                                  {value === "WARN" ? "Warn only" : "Block next break"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {editing && (
+              <div className="bap-dialog-footer">
+                <button
+                  type="button"
+                  className="bap-footer-btn-secondary"
+                  disabled={saving}
+                  onClick={() => setEditing(null)}
+                >
+                  Cancel
                 </button>
-              </>
+                <button
+                  type="button"
+                  className="bap-footer-btn-primary"
+                  disabled={saving}
+                  onClick={save}
+                >
+                  {saving ? "Saving Changes…" : "Save Policy"}
+                </button>
+              </div>
             )}
           </div>
         </div>

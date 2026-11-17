@@ -1915,6 +1915,36 @@ const getMenuAccessKeys = item => {
     keys.add(`client/${clientKey}`);
   }
 
+  const pathLower = cleanPath.toLowerCase();
+  if (pathLower.startsWith('ciisuser/crm/admin/')) {
+    const slug = pathLower.replace('ciisuser/crm/admin/', '');
+    keys.add(`admin-crm-${slug}`);
+    keys.add(`crm/admin/${slug}`);
+  } else if (pathLower.startsWith('ciisuser/crm/reports/')) {
+    const slug = pathLower.replace('ciisuser/crm/reports/', '');
+    keys.add(`admin-crm-reports-${slug}`);
+    keys.add(`crm/reports/${slug}`);
+  } else if (pathLower.startsWith('ciisuser/telecaller/')) {
+    const slug = pathLower.replace('ciisuser/telecaller/', '');
+    keys.add(`admin-telecaller-${slug}`);
+    keys.add(`telecaller/${slug}`);
+  }
+
+  const idLower = id.toLowerCase();
+  if (idLower.startsWith('crm/admin/')) {
+    const slug = idLower.replace('crm/admin/', '');
+    keys.add(`admin-crm-${slug}`);
+  } else if (idLower.startsWith('crm/reports/')) {
+    const slug = idLower.replace('crm/reports/', '');
+    keys.add(`admin-crm-reports-${slug}`);
+  } else if (idLower.startsWith('telecaller/')) {
+    const slug = idLower.replace('telecaller/', '');
+    keys.add(`admin-telecaller-${slug}`);
+  } else if (idLower.startsWith('admin-telecaller-')) {
+    const slug = idLower.replace('admin-telecaller-', '');
+    keys.add(`telecaller/${slug}`);
+  }
+
   // A telecaller's own Add Lead comes with the Call Workspace in the company plan (same rule as the server).
   if (id === 'admin-telecaller-add-lead') {
     ['admin-telecaller-call-workspace', '/ciisUser/telecaller/call-workspace', 'ciisUser/telecaller/call-workspace', 'telecaller/call-workspace']
@@ -2278,6 +2308,11 @@ const Sidebar = ({
       return null;
     }
   });
+  useEffect(() => {
+    const update = event => setCompanyData(event.detail);
+    window.addEventListener('ciis-company-subscription-changed', update);
+    return () => window.removeEventListener('ciis-company-subscription-changed', update);
+  }, []);
   const [resolvedJobRoleName, setResolvedJobRoleName] = useState("");
   const [sidebarConfig, setSidebarConfig] = useState(() => readCachedSidebarConfig(userData));
   const [pagePermissions, setPagePermissions] = useState(() => (
@@ -3076,6 +3111,12 @@ const Sidebar = ({
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
         // A saved role menu controls placement, not individual CRM access.
         if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+        // Client Plans is a sensitive client-management page.  Its presence
+        // in a role's saved sidebar only controls placement; it must never
+        // grant a user access to the page.
+        if (itemPath === '/ciisuser/client-plans') {
+          return isPageAccessAdmin || hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+        }
         if (roleConfiguredPaths.has(itemPath)) return true;
         if (isPageAccessAdmin) return true;
         if (requiresPageAccess(itemPath)) {
@@ -3266,6 +3307,27 @@ const Sidebar = ({
       accessFilteredItems = accessFilteredItems.filter(item => (
         item.id !== 'company-ai-settings' &&
         String(item.path || '').toLowerCase() !== '/ciisuser/company-ai-settings'
+      ));
+    }
+
+    // Client Plans is an administrative pricing/package configuration tool.
+    // Ordinary employees must never have Client Plans in their sidebar.
+    const clientPlanAdminRoles = new Set([
+      'owner', 'admin', 'super_admin', 'superadmin',
+      'company_owner', 'companyowner'
+    ]);
+    const canManageClientPlans = [
+      userData?.companyRole,
+      userData?.jobRole,
+      userData?.role
+    ].some(value => clientPlanAdminRoles.has(
+      normalizeAdministrativeRole(getRecordDisplayName(value) || value)
+    ));
+
+    if (!canManageClientPlans) {
+      accessFilteredItems = accessFilteredItems.filter(item => (
+        item.id !== 'client-plans' &&
+        String(item.path || '').toLowerCase() !== '/ciisuser/client-plans'
       ));
     }
 

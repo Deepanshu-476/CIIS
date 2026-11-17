@@ -2968,7 +2968,7 @@ useEffect(() => {
 
             {projectTask && <TaskDetailsModal open task={projectTask} canEdit={false}
                 employeeInfo={currentUser} onClose={() => setProjectTask(null)}
-                mentionUsers={selectedUser?.members || []}
+                mentionUsers={availableMentionMembers}
                 onRemarkAdded={async (task, text, _files, mentions) => {
                     const key = JSON.stringify([task.clientId || task.projectId, task._id, text, mentions]);
                     const requestId = remarkRequests.current.get(key) || crypto.randomUUID();

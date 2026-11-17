@@ -460,7 +460,7 @@ export default function PlanManagement() {
                 }}>
                   <span style={{ fontSize: "18px" }}>🔑</span>
                   <span>
-                    <strong>User API Mode Active:</strong> Company apna khud ka Groq API key use karegi. Is company ke liye hamari platform API key ka <strong>0 token</strong> use hoga.
+                    <strong>User API Mode Active:</strong> The company will use their own Groq API key. Exactly <strong>0 platform tokens</strong> will be consumed from our account.
                   </span>
                 </div>
               </Grid>

@@ -86,6 +86,7 @@ const SUPER_ADMIN_ROUTES = [
   { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "management" },
   { id: "page-management", path: "page-management", name: "Page Management", category: "management" },
   { id: "plans", path: "plans", name: "Plans", category: "owner" },
+  { id: "ai-management", path: "ai-management", name: "AI Management", category: "owner" },
   { id: "email-settings", path: "email-settings", name: "Email Settings", category: "owner" },
   { id: "app-version-control", path: "app-version-control", name: "App Version", category: "owner" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "management" },

@@ -83,6 +83,7 @@ const ChatPage = lazy(() => import("./Pages/Chat/ChatPage"));
 const ClientServicesTasks = lazy(() => import("./hrCds/pages/ClientServicesTasks.jsx"));
 const ClientAccountSettingsPage = lazy(() => import("./hrCds/pages/client/AccountSettingsPage.jsx"));
 const Settings = lazy(() => import("./admin/page/Settings.jsx"));
+const AiManagement = lazy(() => import("./admin/page/AiManagement.jsx"));
 const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const PlatformPromotionsPage = lazy(() => import("./promotions/PlatformPromotionsPage.jsx"));
@@ -277,6 +278,7 @@ function App() {
               <Route path="SidebarManagement" element={<SidebarManagement />} />
               <Route path="page-management" element={<PageManagement />} />
               <Route path="plans" element={<PlanManagement />} />
+              <Route path="ai-management" element={<AiManagement />} />
               <Route path="holiday" element={<Holiday />} />
               <Route path="branch" element={<BranchManagement />} />
               <Route path="support-operations" element={<SupportOperations />} />

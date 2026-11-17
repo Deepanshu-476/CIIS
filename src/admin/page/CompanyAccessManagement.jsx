@@ -66,6 +66,7 @@ const APP_ROUTES = [
   { id: "create-user", path: "create-user", name: "Create User", category: "administration" },
   { id: "register-request", path: "register-request", name: "Register Request", category: "administration" },
   { id: "SidebarManagement", path: "SidebarManagement", name: "Sidebar Management", category: "administration" },
+  { id: "company-ai-settings", path: "company-ai-settings", name: "Company AI & Tokens", category: "administration" },
   { id: "manage-groups", path: "manage-groups", name: "Manage Groups", category: "administration" },
   { id: "task-management", path: "task-management", name: "Create Task", category: "tasks" },
   { id: "admin-task-create", path: "admin-task-create", name: "Admin Create Task", category: "tasks" },

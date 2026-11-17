@@ -48,6 +48,7 @@ const Alerts = lazy(() => import("./hrCds/pages/Alerts"));
 const Attendance = lazy(() => import("./hrCds/pages/Attendance"));
 const MyAssets = lazy(() => import("./hrCds/pages/MyAssets"));
 const MyLeaves = lazy(() => import("./hrCds/pages/MyLeaves"));
+const CompanyAiSettings = lazy(() => import("./hrCds/pages/CompanyAiSettings"));
 const Profile = lazy(() => import("./hrCds/pages/Profile"));
 const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
 const DashboardOverview = lazy(() => import("./hrCds/pages/DashboardOverview"));
@@ -342,6 +343,7 @@ function App() {
               <Route path="manage-groups" element={<ManageGroups />} />
               <Route path="admin-meeting" element={<AdminMeetingPage />} />
               <Route path="adminproject" element={<AdminProject />} />
+              <Route path="company-ai-settings" element={<CompanyAiSettings />} />
               <Route path="company-all-task" element={<EmpAllTask />} />
               <Route path="department-all-task" element={<EmpDepartmentAllTask />} />
               <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />

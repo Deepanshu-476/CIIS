@@ -92,6 +92,7 @@ const VALID_CIIS_USER_SINGLE_SLUGS = new Set([
   "jobrolemanagement",
   "job-role-management",
   "sidebarmanagement",
+  "company-ai-settings",
   "create-alert",
   "user-profile",
   "chat",
@@ -297,6 +298,9 @@ export const hasCompanyPlanAccess = pagePath => {
     }
     if (routeKey === "jobrolemanagement" || routeKey === "job-role-management") {
       return ["jobrolemanagement", "job-role-management", "job-roles"].some(key => keys.has(key));
+    }
+    if (routeKey === "company-ai-settings") {
+      return ["company-ai-settings", "/ciisuser/company-ai-settings", "company-ai"].some(key => keys.has(key));
     }
     return keys.has(routeKey) || keys.has(normalizedPath);
   } catch { return true; }

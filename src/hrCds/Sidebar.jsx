@@ -2273,8 +2273,7 @@ const Sidebar = ({
   });
   const [companyData, setCompanyData] = useState(() => {
     try {
-      const stored = localStorage.getItem('companyDetails') || localStorage.getItem('company');
-      return JSON.parse(stored || 'null');
+      return JSON.parse(localStorage.getItem('companyDetails') || 'null');
     } catch {
       return null;
     }
@@ -2454,7 +2453,7 @@ const Sidebar = ({
     const fetchLocalData = async () => {
       try {
         const user = localStorage.getItem("user");
-        const companyDetails = localStorage.getItem("companyDetails") || localStorage.getItem("company");
+        const companyDetails = localStorage.getItem("companyDetails");
         let parsedUser = null;
         let parsedCompany = null;
 
@@ -3263,33 +3262,7 @@ const Sidebar = ({
       normalizeAdministrativeRole(getRecordDisplayName(value) || value)
     ));
 
-    const allowedPagesList = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
-    const normalizedAllowedSet = new Set(
-      allowedPagesList.map(p => String(p || '').trim().replace(/^\/+/, '').toLowerCase()).filter(Boolean)
-    );
-    const hasCompanyAiAccess = allowedPagesList.length === 0 ||
-      normalizedAllowedSet.has('company-ai-settings') ||
-      normalizedAllowedSet.has('/ciisuser/company-ai-settings') ||
-      normalizedAllowedSet.has('ciisuser/company-ai-settings');
-
-    if (canManageCompanyAi && hasCompanyAiAccess) {
-      if (!accessFilteredItems.some(item =>
-        item.id === 'company-ai-settings' ||
-        String(item.path || '').toLowerCase() === '/ciisuser/company-ai-settings'
-      )) {
-        accessFilteredItems = [
-          ...accessFilteredItems,
-          {
-            id: 'company-ai-settings',
-            name: 'Company AI & Tokens',
-            icon: 'Bot',
-            path: '/ciisUser/company-ai-settings',
-            category: 'administration',
-            order: 29.3
-          }
-        ];
-      }
-    } else {
+    if (!canManageCompanyAi) {
       accessFilteredItems = accessFilteredItems.filter(item => (
         item.id !== 'company-ai-settings' &&
         String(item.path || '').toLowerCase() !== '/ciisuser/company-ai-settings'

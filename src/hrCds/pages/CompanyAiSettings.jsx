@@ -207,7 +207,15 @@ export default function CompanyAiSettings() {
           </p>
         </div>
 
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            className="company-ai-btn-secondary"
+            onClick={() => { fetchSettings(); fetchEmployees(); }}
+            style={{ padding: '6px 12px', fontSize: '13px' }}
+          >
+            <RefreshCw size={14} /> Refresh Stats
+          </button>
           {aiApiKeySource === 'client' ? (
             <span className="company-ai-badge-active">
               <Zap size={14} /> BYOK Custom Key Active {maskedKey ? `(${maskedKey})` : ''}
@@ -377,6 +385,27 @@ export default function CompanyAiSettings() {
                 value={defaultTokens}
                 onChange={e => setDefaultTokens(e.target.value)}
               />
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                {[5000, 10000, 25000, 50000].map(val => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setDefaultTokens(val)}
+                    style={{
+                      background: Number(defaultTokens) === val ? '#eff6ff' : '#f8fafc',
+                      color: Number(defaultTokens) === val ? '#2563eb' : '#64748b',
+                      border: `1px solid ${Number(defaultTokens) === val ? '#bfdbfe' : '#e2e8f0'}`,
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {val >= 1000 ? `${val / 1000}k` : val}
+                  </button>
+                ))}
+              </div>
               <span style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', display: 'block' }}>
                 Standard allocation for each employee every day (~12-15 task parses).
               </span>

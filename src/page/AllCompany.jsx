@@ -141,6 +141,7 @@ const AllCompany = () => {
   const [subscriptionPaymentDate, setSubscriptionPaymentDate] = useState("");
   const [subscriptionNotes, setSubscriptionNotes] = useState("");
   const [subscriptionActivateCompany, setSubscriptionActivateCompany] = useState(true);
+  const [subscriptionExtraTokens, setSubscriptionExtraTokens] = useState(0);
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [registrationRequests, setRegistrationRequests] = useState([]);
   const [requestsModalOpen, setRequestsModalOpen] = useState(false);
@@ -392,6 +393,7 @@ const AllCompany = () => {
     setSubscriptionPaymentDate(todayStr);
     setSubscriptionNotes("");
     setSubscriptionActivateCompany(company?.isActive !== false);
+    setSubscriptionExtraTokens(company?.aiExtraTokens || 0);
     setSubscriptionModalOpen(true);
   };
 
@@ -409,6 +411,7 @@ const AllCompany = () => {
     setSubscriptionPaymentDate("");
     setSubscriptionNotes("");
     setSubscriptionActivateCompany(true);
+    setSubscriptionExtraTokens(0);
     setSubscriptionSaving(false);
   };
 
@@ -448,6 +451,7 @@ const AllCompany = () => {
         paymentStatus: subscriptionPaymentStatus,
         notes: subscriptionNotes,
         isActive: subscriptionActivateCompany,
+        aiExtraTokens: Number(subscriptionExtraTokens || 0),
       };
 
       const response = await axios.patch(
@@ -1042,6 +1046,22 @@ const AllCompany = () => {
                       value={subscriptionTransactionId}
                       onChange={event => setSubscriptionTransactionId(event.target.value)}
                       placeholder="Optional"
+                    />
+                  </label>
+
+                  <label className="AllCompany-subscription-field">
+                    <span style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>Extra AI Top-Up Tokens</span>
+                      <strong style={{ color: "#2563eb", fontSize: "11px" }}>⚡ Buffer</strong>
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="5000"
+                      className="AllCompany-input"
+                      value={subscriptionExtraTokens}
+                      onChange={event => setSubscriptionExtraTokens(event.target.value)}
+                      placeholder="e.g. 50000"
                     />
                   </label>
                 </div>

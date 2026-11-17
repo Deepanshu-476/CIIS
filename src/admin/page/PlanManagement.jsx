@@ -117,6 +117,9 @@ const emptyForm = {
   durationDays: 30,
   description: "",
   featuresText: "",
+  aiDailyTokenLimit: 25000,
+  aiDailyCallLimit: 32,
+  aiDailySttLimit: 100,
   allowedPages: [],
   allowedSuperAdminPages: [],
   isActive: true,
@@ -231,14 +234,30 @@ export default function PlanManagement() {
     }));
   };
 
+  const updateAiTokens = (tokens) => {
+    const num = Math.max(0, parseInt(tokens, 10) || 0);
+    const approxCalls = Math.max(1, Math.round(num / 780));
+    setForm(prev => ({
+      ...prev,
+      aiDailyTokenLimit: tokens,
+      aiDailyCallLimit: approxCalls,
+    }));
+  };
+
   const editPlan = plan => {
     setEditingId(plan._id);
+    const tokenLim = plan.aiDailyTokenLimit ?? 25000;
+    const callLim = plan.aiDailyCallLimit ?? Math.max(1, Math.round(tokenLim / 780));
+    const sttLim = plan.aiDailySttLimit ?? 100;
     setForm({
       name: plan.name || "",
       price: plan.price ?? "",
       durationDays: plan.durationDays || 30,
       description: plan.description || "",
       featuresText: Array.isArray(plan.features) ? plan.features.join("\n") : "",
+      aiDailyTokenLimit: tokenLim,
+      aiDailyCallLimit: callLim,
+      aiDailySttLimit: sttLim,
       allowedPages: Array.isArray(plan.allowedPages) ? plan.allowedPages : [],
       allowedSuperAdminPages: Array.isArray(plan.allowedSuperAdminPages) ? plan.allowedSuperAdminPages : [],
       isActive: plan.isActive !== false,
@@ -280,6 +299,9 @@ export default function PlanManagement() {
         durationDays: Number(form.durationDays || 1),
         description: form.description.trim(),
         features: form.featuresText.split("\n").map(item => item.trim()).filter(Boolean),
+        aiDailyTokenLimit: Number(form.aiDailyTokenLimit || 25000),
+        aiDailyCallLimit: Number(form.aiDailyCallLimit || Math.max(1, Math.round(Number(form.aiDailyTokenLimit || 25000) / 780))),
+        aiDailySttLimit: Number(form.aiDailySttLimit || 100),
         allowedPages: form.allowedPages,
         allowedSuperAdminPages: form.allowedSuperAdminPages,
         isActive: form.isActive,
@@ -403,6 +425,55 @@ export default function PlanManagement() {
               <div className="JobRoleManagement-form-group">
                 <label className="JobRoleManagement-form-label">Description</label>
                 <input className="JobRoleManagement-form-input" value={form.description} onChange={event => updateForm("description", event.target.value)} />
+              </div>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <div className="JobRoleManagement-form-group">
+                <label className="JobRoleManagement-form-label" style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Daily AI Tokens / User</span>
+                  <span style={{ fontSize: "11px", color: "#1976d2", fontWeight: 600 }}>
+                    ⚡ ~{Math.max(1, Math.round(Number(form.aiDailyTokenLimit || 25000) / 780))} Requests/day
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  className="JobRoleManagement-form-input"
+                  placeholder="e.g. 25000"
+                  value={form.aiDailyTokenLimit}
+                  onChange={event => updateAiTokens(event.target.value)}
+                />
+              </div>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <div className="JobRoleManagement-form-group">
+                <label className="JobRoleManagement-form-label">
+                  Daily AI Requests / User (Call Limit)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="JobRoleManagement-form-input"
+                  placeholder="e.g. 35"
+                  value={form.aiDailyCallLimit}
+                  onChange={event => updateForm("aiDailyCallLimit", event.target.value)}
+                />
+              </div>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <div className="JobRoleManagement-form-group">
+                <label className="JobRoleManagement-form-label">
+                  Daily Voice / STT Notes
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="JobRoleManagement-form-input"
+                  placeholder="e.g. 100"
+                  value={form.aiDailySttLimit}
+                  onChange={event => updateForm("aiDailySttLimit", event.target.value)}
+                />
               </div>
             </Grid>
             <Grid item xs={12}>
@@ -598,6 +669,14 @@ export default function PlanManagement() {
                     <PaymentsIcon className="JobRoleManagement-description-icon" />
                     <span className="JobRoleManagement-description-text">
                       {plan.allowedPages?.length || 0} employee pages, {plan.allowedSuperAdminPages?.length || 0} super admin pages, {plan.features?.length || 0} features
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 8, marginBottom: 10, display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    <span className="JobRoleManagement-user-chip JobRoleManagement-chip-primary" style={{ fontSize: "11px", padding: "3px 8px" }}>
+                      ⚡ {(plan.aiDailyTokenLimit ?? 25000).toLocaleString("en-IN")} Tokens/day (~{plan.aiDailyCallLimit ?? Math.max(1, Math.round((plan.aiDailyTokenLimit || 25000) / 780))} Calls)
+                    </span>
+                    <span className="JobRoleManagement-user-chip" style={{ fontSize: "11px", padding: "3px 8px", background: "#f1f5f9", color: "#475569" }}>
+                      🎙️ {plan.aiDailySttLimit ?? 100} Voice notes/day
                     </span>
                   </div>
                   <button className="JobRoleManagement-btn-outline" onClick={() => editPlan(plan)}>Edit</button>

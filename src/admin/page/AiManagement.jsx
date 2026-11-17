@@ -80,6 +80,7 @@ export default function AiManagement() {
 
   // Add Key to Vault Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [modalNotice, setModalNotice] = useState(null);
   const [newVaultKey, setNewVaultKey] = useState({
     label: "",
     apiKey: "",
@@ -203,12 +204,14 @@ export default function AiManagement() {
   // Add a New Key into Vault
   const handleAddVaultKeySubmit = async (e) => {
     e.preventDefault();
+    setModalNotice(null);
+
     if (!newVaultKey.label.trim()) {
-      setNotice({ severity: "error", message: "Please provide a nickname/label for this key." });
+      setModalNotice("Please provide a nickname/label for this key.");
       return;
     }
     if (!newVaultKey.apiKey.trim().startsWith("gsk_")) {
-      setNotice({ severity: "error", message: "Groq API key must start with 'gsk_'." });
+      setModalNotice("Groq API key must start with 'gsk_'.");
       return;
     }
 
@@ -231,6 +234,7 @@ export default function AiManagement() {
           setSettings(res.data.settings);
         }
         setIsAddModalOpen(false);
+        setModalNotice(null);
         setNewVaultKey({
           label: "",
           apiKey: "",
@@ -239,10 +243,8 @@ export default function AiManagement() {
         });
       }
     } catch (err) {
-      setNotice({
-        severity: "error",
-        message: err.response?.data?.message || "Failed to add key to vault.",
-      });
+      const errMsg = err.response?.data?.message || "Failed to add key to vault.";
+      setModalNotice(errMsg);
     } finally {
       setAddingToVault(false);
     }
@@ -864,6 +866,12 @@ export default function AiManagement() {
 
             <form onSubmit={handleAddVaultKeySubmit}>
               <div className="JobRoleManagement-modal-body" style={{ padding: 24 }}>
+                {modalNotice && (
+                  <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setModalNotice(null)}>
+                    {modalNotice}
+                  </Alert>
+                )}
+
                 {/* Key Nickname / Label */}
                 <div className="JobRoleManagement-form-group" style={{ marginBottom: 18 }}>
                   <label className="JobRoleManagement-form-label">Key Nickname / Label *</label>

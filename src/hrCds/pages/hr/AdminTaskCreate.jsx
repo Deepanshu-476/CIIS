@@ -1,3 +1,4 @@
+import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from '../../../utils/axiosConfig';
 import { API_URL_IMG } from '../../../config';
@@ -2026,8 +2027,8 @@ const AdminTaskManagement = () => {
   };
 
   const openStatusChangeDialog = (task, userId = '') => {
-    if (task.overallStatus === 'overdue') {
-      showSnackbar('Cannot change status of an overdue task', 'error');
+    if (hasOverdueStatus(task, getTaskStatus(task))) {
+      showSnackbar(OVERDUE_STATUS_MESSAGE, 'error');
       return;
     }
     setSelectedTask(task);
@@ -4596,7 +4597,7 @@ const AdminTaskManagement = () => {
                       <span style={{ fontSize: '11px', color: '#666', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Admin Check:</span>
                       <select
                         value={typeof task.creatorStatus === 'object' ? (task.creatorStatus?.status || 'pending') : (task.creatorStatus || 'pending')}
-                        disabled={task.overallStatus === 'overdue' || !canCreateTask}
+                        disabled={hasOverdueStatus(task, getTaskStatus(task)) || !canCreateTask}
                         onChange={async (e) => {
                           const newAdminStatus = e.target.value;
                           setTasksRefreshing(true);
@@ -4617,7 +4618,7 @@ const AdminTaskManagement = () => {
                           border: '1px solid #ccc',
                           fontSize: '12px',
                           backgroundColor: '#fff',
-                          cursor: (task.overallStatus === 'overdue' || !canCreateTask) ? 'not-allowed' : 'pointer'
+                          cursor: (hasOverdueStatus(task, getTaskStatus(task)) || !canCreateTask) ? 'not-allowed' : 'pointer'
                         }}
                       >
                         <option value="pending">Pending</option>

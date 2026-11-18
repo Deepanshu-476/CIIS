@@ -1,3 +1,4 @@
+import { hasOverdueStatus } from '../../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -1538,6 +1539,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
   };
 
   const toggleTaskCompletion = async (task) => {
+    if (hasOverdueStatus(task) || isClientTaskOverdue(task)) return;
     try {
       const updatedTasks = tasks.map(t => {
         if (isSameTask(t, task)) {
@@ -1860,6 +1862,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
                           <input
                             type="checkbox"
                             checked={!!task.completed}
+                            disabled={hasOverdueStatus(task) || isClientTaskOverdue(task)}
                             onChange={() => toggleTaskCompletion(task)}
                           />
                           <span className={task.completed ? 'ClientManagement-text-line-through ClientManagement-text-muted' : ''}>

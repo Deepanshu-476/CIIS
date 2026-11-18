@@ -2888,3 +2888,8 @@ textarea.EmppAttendence-form-input {
   font-weight: 700 !important;
 }
 
+
+.EmppAttendence-mobile-punch-details { display: none; }
+@media (max-width: 768px) {
+  .EmppAttendence-mobile-punch-details { display: block; margin: 8px 0 0; font-size: 0.8rem; }
+}

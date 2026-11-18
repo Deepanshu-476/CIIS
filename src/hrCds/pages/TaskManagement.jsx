@@ -1,3 +1,4 @@
+import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -116,6 +117,7 @@ const getCleanCheckpoints = (checkpoints = []) => (
   Array.isArray(checkpoints)
     ? checkpoints
         .map(item => ({
+          _id: item?._id || item?.id,
           title: String(item?.title || '').trim(),
           completed: Boolean(item?.completed)
         }))
@@ -354,6 +356,8 @@ const normalizeStatus = (status) => {
     'In Progress': 'in-progress',
     'In-Progress': 'in-progress',
     'inprogress': 'in-progress',
+    'in progress': 'in-progress',
+    'in_progress': 'in-progress',
     'Pending': 'pending',
     'Completed': 'completed',
     'Overdue': 'overdue',
@@ -2370,6 +2374,7 @@ const UserCreateTask = () => {
     if (normalizedStatus === 'reopen' && taskSource !== 'client') {
       return [
         { value: 'reopen', label: 'Reopen' },
+        { value: 'in-progress', label: 'In Progress' },
         { value: 'completed', label: 'Completed' }
       ];
     }
@@ -5125,48 +5130,45 @@ const UserCreateTask = () => {
     };
   }, [authError, userId, taskViewMode, refreshCurrentTaskView]);
 
+  const canToggleCheckpoint = (task) => {
+    const status = getStatusForTask(task);
+    return normalizeStatus(status) === 'in-progress' &&
+      (!task.overallStatus || normalizeStatus(task.overallStatus) === 'in-progress');
+  };
+
   const handleCheckpointToggle = async (task, checkpoint) => {
     const taskId = task?._id || task?.id;
     const checkpointId = checkpoint?._id || checkpoint?.id;
+    if (!taskId || !checkpointId || updatingCheckpointId || !canToggleCheckpoint(task)) return;
+
     const taskSource = getTaskSource(task);
-
-    if (!taskId || !checkpointId) return;
-
     const nextCompleted = !checkpoint.completed;
-    const updateSelectedCheckpoint = (completed) => {
-      setSelectedTaskDetails(prev => {
-        if (!prev || String(prev._id || prev.id) !== String(taskId)) return prev;
-        return {
-          ...prev,
-          checkpoints: (prev.checkpoints || []).map(item => (
-            String(item._id || item.id) === String(checkpointId)
-              ? { ...item, completed }
-              : item
-          ))
-        };
-      });
-    };
-
-    // Reflect the tap immediately; the request below only confirms persistence.
-    updateSelectedCheckpoint(nextCompleted);
     setUpdatingCheckpointId(checkpointId);
     try {
       const endpoint = taskSource === 'client'
         ? `/tasks/client-tasks/${taskId}/checkpoints/${checkpointId}`
         : taskSource === 'project'
           ? `/tasks/project/${task.projectId}/tasks/${taskId}/checkpoints/${checkpointId}`
-        : taskSource === 'self'
+          : taskSource === 'self'
           ? `/tasks/self/${taskId}/checkpoints/${checkpointId}`
           : `/tasks/assigned/${taskId}/checkpoints/${checkpointId}`;
 
-      await axios.patch(endpoint, { completed: nextCompleted });
+      const { data } = await axios.patch(endpoint, { completed: nextCompleted });
+      const savedTask = data.task || data.data;
+      setSelectedTaskDetails(current => {
+        if (String(current?._id || current?.id) !== String(taskId)) return current;
+        const status = savedTask.overallStatus || savedTask.status;
+        return {
+          ...current,
+          checkpoints: savedTask.checkpoints,
+          ...(normalizeStatus(status) === 'completed'
+            ? { status, overallStatus: status, userStatus: status, completed: true }
+            : {}),
+        };
+      });
       showSnackbar(nextCompleted ? 'Checkpoint completed' : 'Checkpoint reopened', 'success');
-      void Promise.allSettled([
-        refreshCurrentTaskView(taskSource),
-        fetchOverdueTasks()
-      ]);
+      void Promise.allSettled([refreshCurrentTaskView(taskSource), fetchOverdueTasks()]);
     } catch (err) {
-      updateSelectedCheckpoint(!nextCompleted);
       console.error('Error updating checkpoint:', err);
       showSnackbar(err.response?.data?.message || err.response?.data?.error || 'Failed to update checkpoint', 'error');
     } finally {
@@ -5195,7 +5197,7 @@ const UserCreateTask = () => {
     try {
       let response;
       const checkpoints = [
-        ...existingCheckpoints.map(item => ({ title: item.title, completed: Boolean(item.completed) })),
+        ...existingCheckpoints.map(item => ({ _id: item._id || item.id, title: item.title })),
         { title, completed: false }
       ];
 
@@ -5209,12 +5211,10 @@ const UserCreateTask = () => {
         response = await axios.post(`/tasks/assigned/${taskId}/checkpoints`, { title });
       }
 
-      const savedCheckpoint = response?.data?.checkpoint;
-      const optimisticCheckpoint = savedCheckpoint || { _id: `new-${Date.now()}`, title, completed: false };
-      setSelectedTaskDetails(prev => prev ? {
-        ...prev,
-        checkpoints: [...(prev.checkpoints || []), optimisticCheckpoint]
-      } : prev);
+      const savedTask = response.data?.task || response.data?.data;
+      setSelectedTaskDetails(prev => String(prev?._id || prev?.id) === String(taskId)
+        ? { ...prev, checkpoints: savedTask.checkpoints }
+        : prev);
       setNewCheckpointTitle('');
       await refreshCurrentTaskView(taskSource);
       showSnackbar('Checkpoint added successfully', 'success');
@@ -5240,7 +5240,7 @@ const UserCreateTask = () => {
     try {
       const checkpoints = existingCheckpoints
         .filter(item => String(item._id || item.id || item.title) !== String(deleteKey))
-        .map(item => ({ title: item.title, completed: Boolean(item.completed) }));
+        .map(item => ({ _id: item._id || item.id, title: item.title }));
 
       if (taskSource === 'client') {
         await axios.put(`/tasks/client-tasks/${taskId}`, { checkpoints });
@@ -5329,6 +5329,11 @@ const UserCreateTask = () => {
   const handleTaskStatusSelection = async (task, nextStatus, taskSource) => {
     const taskId = task?._id || task?.id;
     if (!taskId || !nextStatus) return;
+    const currentStatus = getStatusForTask(task);
+    if (hasOverdueStatus(task, currentStatus) || isOverdue(getDueDateForTask(task), currentStatus, task)) {
+      showSnackbar(OVERDUE_STATUS_MESSAGE, 'warning');
+      return;
+    }
     // Pending and On Hold need a reason: the remark dialog saves remark (+ optional image) and status together.
     if (STATUS_NEEDS_REMARK.includes(normalizeStatus(nextStatus))) {
       setNewRemark('');
@@ -5356,60 +5361,6 @@ const UserCreateTask = () => {
       savingTaskIdsRef.current.delete(saveKey);
       setSavingTaskIds(new Set(savingTaskIdsRef.current));
     }
-  };
-
-  
-  const markTaskAsOverdue = async (taskId, remarks = '', taskSource = taskViewMode) => {
-    if (authError || !userId) {
-      showSnackbar('Please log in to mark task as overdue', 'error');
-      return;
-    }
-
-    if (taskSource === 'project') {
-      await handleProjectTaskStatusChange(taskId, 'onhold', remarks || 'Marked for review after overdue');
-      return;
-    }
-
-    const snapshot = takeTaskStateSnapshot();
-    patchTaskStatusLocally(taskId, taskSource, 'overdue', remarks || 'Manually marked as overdue');
-    void (async () => {
-      try {
-        if (taskSource === 'client') {
-          await saveTaskStatus(`/tasks/client-tasks/assigned/${taskId}/status`, {
-            status: 'overdue',
-            remarks: remarks || 'Manually marked as overdue'
-          });
-        } else if (taskSource === 'self') {
-          await saveTaskStatus(`/tasks/self/${taskId}/status`, {
-            status: 'overdue',
-            remarks: remarks || 'Manually marked as overdue'
-          });
-        } else if (taskSource === 'assigned') {
-          await saveTaskStatus(`/tasks/assigned/${taskId}/status`, {
-            status: 'overdue',
-            remarks: remarks || 'Manually marked as overdue'
-          });
-        } else {
-          await axios.patch(`/task/${taskId}/overdue`, { 
-            remarks: remarks || 'Manually marked as overdue'
-          });
-        }
-
-        scheduleAllTasksRefresh(1200);
-        void fetchOverdueTasks();
-        
-        showSnackbar('Task marked as overdue', 'warning');
-      } catch (err) {
-        console.error("Error marking task as overdue:", err.response || err);
-        restoreTaskStateSnapshot(snapshot);
-        if (err.response?.status === 401) {
-          setAuthError(true);
-          showSnackbar('Session expired. Please log in again.', 'error');
-        } else {
-          showSnackbar(err?.response?.data?.error || 'Failed to mark task as overdue', 'error');
-        }
-      }
-    })();
   };
 
   
@@ -6614,7 +6565,7 @@ const UserCreateTask = () => {
               </div>
             </div>
             <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#d32f2f', marginTop: '4px' }}>
-              Tasks past their due date requiring immediate attention
+              {OVERDUE_STATUS_MESSAGE}
             </div>
           </div>
 
@@ -6684,20 +6635,6 @@ const UserCreateTask = () => {
                               {taskSource === 'client' && task.service && (
                                 <div className="user-create-task-service-chip">Service: {task.service}</div>
                               )}
-                            </div>
-                            <div className="user-create-task-flex user-create-task-gap-1">
-                              <button
-                                className="user-create-task-button user-create-task-button-outlined"
-                                onClick={() => markTaskAsOverdue(taskSource === 'project' ? task : task._id, 'Manual overdue marking', taskSource)}
-                                style={{
-                                  padding: isMobile ? '6px 8px' : '8px 12px',
-                                  borderColor: '#f44336',
-                                  color: '#f44336',
-                                  fontSize: isMobile ? '11px' : '12px'
-                                }}
-                              >
-                                Mark
-                              </button>
                             </div>
                           </div>
                           <div className="user-create-task-flex user-create-task-justify-between user-create-task-align-center" style={{ marginTop: '8px' }}>
@@ -7584,8 +7521,8 @@ const UserCreateTask = () => {
                                   <div style={{ minWidth: '90px' }}>
                                     <select
                                       value={displayedSelectValue}
-                                      disabled={savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
-                                      title={savingTaskIds.has(`${taskSource}:${task._id || task.id}`) ? 'Saving status...' : 'Change Status'}
+                                      disabled={taskIsOverdue || hasOverdueStatus(task, status) || savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
+                                      title={taskIsOverdue || hasOverdueStatus(task, status) ? OVERDUE_STATUS_MESSAGE : 'Change Status'}
                                       onChange={(e) => {
                                         const selectedStatus = e.target.value;
                                         handleTaskStatusSelection(task, selectedStatus, taskSource);
@@ -7931,8 +7868,8 @@ const UserCreateTask = () => {
                               <td style={{ padding: isMobile ? '8px' : '12px' }}>
                                 <select
                                   value={displayedSelectValue}
-                                      disabled={savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
-                                      title={savingTaskIds.has(`${taskSource}:${task._id || task.id}`) ? 'Saving status...' : 'Change Status'}
+                                      disabled={taskIsOverdue || hasOverdueStatus(task, status) || savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
+                                      title={taskIsOverdue || hasOverdueStatus(task, status) ? OVERDUE_STATUS_MESSAGE : 'Change Status'}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
                                     handleTaskStatusSelection(task, selectedStatus, taskSource);
@@ -8544,8 +8481,9 @@ const UserCreateTask = () => {
         const detailCheckpoints = Array.isArray(selectedTaskDetails.checkpoints) ? selectedTaskDetails.checkpoints : [];
         const completedCheckpoints = detailCheckpoints.filter(item => item.completed).length;
         const detailFiles = Array.isArray(selectedTaskDetails.files) ? selectedTaskDetails.files : [];
-        const detailIsOverdue = isOverdue(detailDueDate, detailStatus, selectedTaskDetails);
-        const checkpointUpdatesLocked = ['overdue', 'rejected', 'cancelled', 'onhold'].includes(normalizeStatus(detailStatus));
+        const detailIsOverdue = normalizeStatus(detailStatus) !== 'in-progress' &&
+          isOverdue(detailDueDate, detailStatus, selectedTaskDetails);
+        const checkpointUpdatesLocked = !canToggleCheckpoint(selectedTaskDetails);
 
         return (
           <div
@@ -8675,13 +8613,14 @@ const UserCreateTask = () => {
                 {detailCheckpoints.length > 0 && (
                   <div className="task-details-checkpoints">
                     <div className="task-details-section-title">Checkpoints</div>
+                    {checkpointUpdatesLocked && <small>Checkpoints can be updated while the task is In Progress.</small>}
                     {detailCheckpoints.map(checkpoint => (
                       <div className={checkpoint.completed ? 'completed' : ''} key={checkpoint._id || checkpoint.id || checkpoint.title}>
                         <label className="task-details-checkpoint-label">
                           <input
                             type="checkbox"
                             checked={Boolean(checkpoint.completed)}
-                            disabled={checkpointUpdatesLocked || updatingCheckpointId === (checkpoint._id || checkpoint.id)}
+                            disabled={checkpointUpdatesLocked || Boolean(updatingCheckpointId) || !(checkpoint._id || checkpoint.id)}
                             onChange={() => handleCheckpointToggle(selectedTaskDetails, checkpoint)}
                           />
                           <span>{checkpoint.title}</span>

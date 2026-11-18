@@ -1,3 +1,4 @@
+import { hasOverdueStatus } from '../../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from '../../../utils/axiosConfig';
 import { API_URL_IMG } from '../../../config';
@@ -763,6 +764,7 @@ const UserCreateTask = () => {
 
     const task = allTasks.find(item => (item?._id || item?.id)?.toString() === taskId?.toString());
     const currentStatus = getStatusForUser(task, userId);
+    if (hasOverdueStatus(task, currentStatus)) return;
     if (
       normalizeTaskStatus(newStatus) !== 'overdue' &&
       (currentStatus === 'overdue' || (canMoveToOverdue(currentStatus) && isOverdue(task)))
@@ -987,6 +989,7 @@ const UserCreateTask = () => {
       <FormControl size="small" sx={{ minWidth: isSmallMobile ? 100 : 120 }}>
         <Select
           value={myStatus || 'pending'}
+          disabled={hasOverdueStatus(task, myStatus)}
           onChange={(e) => handleStatusChange(task._id, e.target.value)}
           sx={{
             borderRadius: theme.shape.borderRadius,

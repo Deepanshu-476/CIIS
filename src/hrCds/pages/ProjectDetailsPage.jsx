@@ -1,3 +1,4 @@
+import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -121,6 +122,7 @@ const getCleanCheckpoints = (checkpoints = []) =>
   Array.isArray(checkpoints)
     ? checkpoints
         .map((item) => ({
+          _id: item?._id || item?.id,
           title: String(item?.title || "").trim(),
           completed: Boolean(item?.completed),
         }))
@@ -128,7 +130,7 @@ const getCleanCheckpoints = (checkpoints = []) =>
     : [];
 
 const normalizeTaskStatus = (status) =>
-  String(status || "pending").trim().toLowerCase().replace(/-/g, " ");
+  String(status || "pending").trim().toLowerCase().replace(/[-_]+/g, " ").replace(/^inprogress$/, "in progress");
 
 const getTaskDueDate = (task) => {
   const rawDueDate = task?.dueDateTime || task?.dueDate;
@@ -237,6 +239,7 @@ const ProjectDetailsPage = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [statusRemark, setStatusRemark] = useState("");
   const [remarkSubmittingTaskId, setRemarkSubmittingTaskId] = useState(null);
+  const [savingCheckpoint, setSavingCheckpoint] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -738,6 +741,10 @@ const ProjectDetailsPage = () => {
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     const taskForStatus = tasks.find((task) => task._id === taskId) || selectedTask;
+    if (hasOverdueStatus(taskForStatus) || (normalizeTaskStatus(taskForStatus?.status) === "pending" && isTaskOverdue(taskForStatus))) {
+      showSnackbar(OVERDUE_STATUS_MESSAGE, "warning");
+      return;
+    }
     if (
       normalizeTaskStatus(newStatus) === "in progress" &&
       !hasTaskAssignees(taskForStatus)
@@ -769,6 +776,26 @@ const ProjectDetailsPage = () => {
       );
     } finally {
       setLoading((prev) => ({ ...prev, tasks: false }));
+    }
+  };
+
+  const handleToggleCheckpoint = async (task, checkpoint) => {
+    const checkpointId = checkpoint._id || checkpoint.id;
+    if (!checkpointId || savingCheckpoint || normalizeTaskStatus(task.status) !== "in progress") return;
+
+    setSavingCheckpoint(true);
+    try {
+      const { data } = await axios.patch(
+        `/projects/${projectId}/tasks/${task._id}/checkpoints/${checkpointId}`,
+        { completed: !checkpoint.completed }
+      );
+      setTasks((items) => items.map((item) => item._id === task._id
+        ? { ...item, status: data.task.status, checkpoints: data.task.checkpoints }
+        : item));
+    } catch (error) {
+      showSnackbar(error.response?.data?.message || "Unable to update checkpoint.", "error");
+    } finally {
+      setSavingCheckpoint(false);
     }
   };
 
@@ -879,7 +906,7 @@ const ProjectDetailsPage = () => {
         assignedTo,
         dueDate,
         priority: newTask.priority,
-        status: newTask.status,
+        ...(hasOverdueStatus(editingTask) ? {} : { status: newTask.status }),
         checkpoints: getCleanCheckpoints(newTask.checkpoints),
         reminderSettings: buildReminderPayload(newTask.reminderSettings),
       };
@@ -1512,6 +1539,8 @@ const ProjectDetailsPage = () => {
   const detailTask = detailTaskId
     ? tasks.find((task) => task._id === detailTaskId)
     : null;
+  const checkpointsEditable = detailTask &&
+    normalizeTaskStatus(detailTask.status) === "in progress";
   const pauseTaskWorkspaceRender = openTaskDialog;
 
   // Mini components
@@ -1747,9 +1776,10 @@ const ProjectDetailsPage = () => {
                       </button>
                     </Tooltip>
                   )}
-                  <Tooltip title="Update Status">
+                  <Tooltip title={hasOverdueStatus(t) ? OVERDUE_STATUS_MESSAGE : "Update Status"}>
                     <button
                       className="pdp-icon-button"
+                      disabled={hasOverdueStatus(t) || (normalizeTaskStatus(t.status) === "pending" && isTaskOverdue(t))}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenStatusDialog(t);
@@ -3032,21 +3062,26 @@ const ProjectDetailsPage = () => {
                       }
                       /{detailTask.checkpoints.length})
                     </h4>
+                    {!checkpointsEditable && <small>Checkpoints can be updated while the task is In Progress.</small>}
                     <div className="pdp-checkpoint-display-list">
                       {detailTask.checkpoints.map((cp, idx) => (
-                        <div
+                        <label
                           key={cp._id || cp.id || idx}
                           className={`pdp-checkpoint-display-item ${
                             cp.completed ? "completed" : ""
                           }`}
                         >
-                          <span className="pdp-checkpoint-check">
-                            {cp.completed ? "✅" : "⬜"}
-                          </span>
+                          <input
+                            type="checkbox"
+                            className="pdp-checkpoint-check"
+                            checked={Boolean(cp.completed)}
+                            disabled={!checkpointsEditable || savingCheckpoint || !(cp._id || cp.id)}
+                            onChange={() => handleToggleCheckpoint(detailTask, cp)}
+                          />
                           <span className="pdp-checkpoint-title">
                             {cp.title}
                           </span>
-                        </div>
+                        </label>
                       ))}
                     </div>
                   </div>
@@ -3639,11 +3674,14 @@ const ProjectDetailsPage = () => {
                     <label>Initial Status</label>
                     <select
                       className="pdp-select"
-                      value={newTask.status}
+                      value={hasOverdueStatus(editingTask) ? "overdue" : newTask.status}
+                      disabled={hasOverdueStatus(editingTask)}
+                      title={hasOverdueStatus(editingTask) ? OVERDUE_STATUS_MESSAGE : undefined}
                       onChange={(e) =>
                         setNewTask({ ...newTask, status: e.target.value })
                       }
                     >
+                      {hasOverdueStatus(editingTask) && <option value="overdue">Overdue</option>}
                       {TASK_STATUS_OPTIONS.map((status) => (
                         <option
                           key={status.value}

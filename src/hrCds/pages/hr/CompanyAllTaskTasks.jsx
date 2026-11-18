@@ -302,6 +302,7 @@ const normalizeStatus = (status) => {
     "in progress": "in-progress",
     inprogress: "in-progress",
     "in-progress": "in-progress",
+    in_progress: "in-progress",
     "on hold": "onhold",
     onhold: "onhold",
     "re-open": "reopen",
@@ -1462,16 +1463,16 @@ const CompanyAllTaskTasks = () => {
     const source = getTaskSource(task);
     const endpoint =
       source === "client"
-        ? `/tasks/client-tasks/${task._id}`
+        ? `/tasks/all/company/client/${task._id}`
         : source === "project"
-          ? `/tasks/project/${task.projectId}/tasks/${task._id}/status`
+          ? `/tasks/all/company/project/${task.projectId}/tasks/${task._id}/status`
           : source === "self"
-            ? `/tasks/self/${task._id}/status`
-            : `/task/${task._id}/status`;
+            ? `/tasks/all/company/self/${task._id}/status`
+            : `/tasks/all/company/assigned/${task._id}/status`;
     const payload =
       source === "client"
-        ? { status: nextStatus, completed: nextStatus === "completed", allowCompanyAllTaskEdit: true }
-        : { status: nextStatus, remarks: "Status updated from Company All Task", allowCompanyAllTaskEdit: true };
+        ? { status: nextStatus, completed: nextStatus === "completed" }
+        : { status: nextStatus, remarks: "Status updated from Company All Task" };
 
     // Optimistic UI update. getDisplayStatus reads userStatus first, so it must change too
     // or the row keeps the old status until the page is refreshed.
@@ -1578,43 +1579,50 @@ const CompanyAllTaskTasks = () => {
     });
   }, [fetchTaskDetails, handleTaskStatusChange]);
 
+  const canToggleCheckpoint = (task) => canEditTask(task) &&
+    getDisplayStatus(task) === "in-progress" &&
+    (!task.overallStatus || normalizeStatus(task.overallStatus) === "in-progress");
+
   const handleCheckpointToggle = async (task, checkpoint) => {
-    if (!task?._id || !checkpoint?._id) return;
+    const checkpointId = checkpoint?._id || checkpoint?.id;
+    if (!task?._id || !checkpointId || savingTaskId || !canToggleCheckpoint(task)) return;
 
     const source = getTaskSource(task);
     const endpoint =
       source === "client"
-        ? `/tasks/client-tasks/${task._id}/checkpoints/${checkpoint._id}`
+        ? `/tasks/client-tasks/${task._id}/checkpoints/${checkpointId}`
         : source === "project"
-          ? `/tasks/project/${task.projectId}/tasks/${task._id}/checkpoints/${checkpoint._id}`
+          ? `/tasks/project/${task.projectId}/tasks/${task._id}/checkpoints/${checkpointId}`
           : source === "self"
-            ? `/tasks/self/${task._id}/checkpoints/${checkpoint._id}`
-            : `/tasks/assigned/${task._id}/checkpoints/${checkpoint._id}`;
+            ? `/tasks/self/${task._id}/checkpoints/${checkpointId}`
+            : `/tasks/assigned/${task._id}/checkpoints/${checkpointId}`;
 
-    const nextCompleted = !checkpoint.completed;
-
-    // Optimistic UI update
-    setTasks((prevTasks) =>
-      prevTasks.map((t) => {
-        if (String(t._id || "") === String(task._id || "")) {
-          const updatedCps = (t.checkpoints || []).map((cp) =>
-            String(cp._id || "") === String(checkpoint._id || "")
-              ? { ...cp, completed: nextCompleted }
-              : cp
-          );
-          return { ...t, checkpoints: updatedCps };
-        }
-        return t;
-      })
-    );
-
+    setSavingTaskId(task._id);
     setError("");
     try {
-      await axios.patch(endpoint, { completed: nextCompleted });
+      const { data } = await axios.patch(endpoint, { completed: !checkpoint.completed });
+      const savedTask = data.task || data.data;
+      const updateTask = (item) => {
+        const status = savedTask.overallStatus || savedTask.status;
+        return {
+          ...item,
+          checkpoints: savedTask.checkpoints,
+          ...(normalizeStatus(status) === "completed"
+            ? { status, overallStatus: status, userStatus: status, completed: true }
+            : {}),
+        };
+      };
+      setTasks((items) => items.map((item) => String(item._id) === String(task._id) ? updateTask(item) : item));
+      setTaskDetailsModal((current) => current.open && String(current.task?._id) === String(task._id)
+        ? { ...current, task: updateTask(current.task) }
+        : current);
+      void fetchTasks(true);
     } catch (err) {
       console.error("Failed to update checkpoint:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || "Unable to update checkpoint.");
-      fetchTasks();
+      void fetchTasks(true);
+    } finally {
+      setSavingTaskId(null);
     }
   };
 
@@ -1689,7 +1697,7 @@ const CompanyAllTaskTasks = () => {
     // 3. BACKGROUND PERSISTENCE: Single fast request
     try {
       if (source === "client") {
-        await axios.put(`/tasks/client-tasks/${task._id}`, {
+        await axios.put(`/tasks/all/company/client/${task._id}`, {
           name: updatedTitle,
           description: updatedDesc,
           dueDate: dueDateIso,
@@ -1697,37 +1705,33 @@ const CompanyAllTaskTasks = () => {
           status: updatedStatus,
           completed: updatedStatus === "completed",
           checkpoints: cleanCheckpoints,
-          allowCompanyAllTaskEdit: true,
         });
       } else if (source === "project") {
-        await axios.put(`/tasks/project/${task.projectId}/tasks/${task._id}`, {
+        await axios.put(`/tasks/all/company/project/${task.projectId}/tasks/${task._id}`, {
           title: updatedTitle,
           description: updatedDesc,
           dueDateTime: dueDateIso,
           priority: updatedPriority,
           status: updatedStatus,
           checkpoints: cleanCheckpoints,
-          allowCompanyAllTaskEdit: true,
         });
       } else if (source === "self") {
-        await axios.put(`/tasks/self/${task._id}`, {
+        await axios.put(`/tasks/all/company/self/${task._id}`, {
           title: updatedTitle,
           description: updatedDesc,
           dueDateTime: dueDateIso,
           priority: updatedPriority,
           status: updatedStatus,
           checkpoints: cleanCheckpoints,
-          allowCompanyAllTaskEdit: true,
         });
       } else {
-        await axios.put(`/task/${task._id}`, {
+        await axios.put(`/tasks/all/company/assigned/${task._id}`, {
           title: updatedTitle,
           description: updatedDesc,
           dueDateTime: dueDateIso,
           priority: updatedPriority,
           status: updatedStatus,
           checkpoints: cleanCheckpoints,
-          allowCompanyAllTaskEdit: true,
         });
       }
       fetchTasks(true);
@@ -3135,13 +3139,14 @@ const CompanyAllTaskTasks = () => {
                                     <h5>Checkpoints & Deliverables</h5>
                                     <span>{completedCP} of {totalCP} completed</span>
                                   </div>
+                                  {isTaskEditable && !canToggleCheckpoint(task) && <small>Checkpoints can be updated while the task is In Progress.</small>}
                                   <div className="cp-checklist">
                                     {checkpoints.map((cp, idx) => (
                                       <label className={`cp-item ${cp.completed ? "completed" : ""}`} key={cp._id || idx}>
                                         <input
                                           type="checkbox"
                                           checked={Boolean(cp.completed)}
-                                          disabled={!isTaskEditable || savingTaskId === task._id}
+                                          disabled={!canToggleCheckpoint(task) || Boolean(savingTaskId) || !(cp._id || cp.id)}
                                           onChange={() => handleCheckpointToggle(task, cp)}
                                         />
                                         <span>{cp.title || "Deliverable"}</span>
@@ -4562,16 +4567,7 @@ const CompanyAllTaskTasks = () => {
             onClose={() => setTaskDetailsModal({ open: false, task: null })}
             onStatusChange={handleStatusChangeFromModal}
             onRemarkAdded={handleAddRemarkFromModal}
-            onCheckpointToggle={async (task, cp) => {
-              await handleCheckpointToggle(task, cp);
-              setTaskDetailsModal((prev) => {
-                if (!prev.open || !prev.task) return prev;
-                const updatedCps = Array.isArray(prev.task.checkpoints)
-                  ? prev.task.checkpoints.map((c) => (String(c._id || c.id) === String(cp._id || cp.id) ? { ...c, completed: !c.completed } : c))
-                  : [];
-                return { ...prev, task: { ...prev.task, checkpoints: updatedCps } };
-              });
-            }}
+            onCheckpointToggle={handleCheckpointToggle}
             canEdit={canEditCompanyTasks}
           />
         )}

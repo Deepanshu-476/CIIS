@@ -1,3 +1,4 @@
+import { hasOverdueStatus } from '../../../utils/taskStatusAccess';
 import React, { useEffect, useState } from 'react';
 import axios from '../../../utils/axiosConfig';
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../../components/TaskReminderControl';
@@ -989,7 +990,7 @@ const EmmpTask = () => {
                             <TableBody>
                               {task.statusInfo.map((status, sIndex) => {
                                 const isCurrentUser = status.userId === userId;
-                                const canChangeStatus = isCurrentUser;
+                                const canChangeStatus = isCurrentUser && !hasOverdueStatus(task, status.status);
 
                                 return (
                                   <StyledTableRow 

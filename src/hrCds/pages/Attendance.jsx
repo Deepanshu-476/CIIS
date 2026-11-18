@@ -6,6 +6,8 @@ import "react-toastify/dist/ReactToastify.css";
 import CIISLoader from "../../Loader/CIISLoader";
 import WeekOffCard from "../components/WeekOffCard";
 import useWeekOffSchedule from "../../hooks/useWeekOffSchedule";
+import { AttendancePunchDetails } from "../components/AttendanceEvidence";
+import { attendanceReportFields, attendanceCsvCell, attendanceRowsFromResponse } from "../../utils/attendanceExport";
 import BreakCard from "../components/BreakCard";
 // Break comes from the server in minutes; Gross is login to logout and Total Time is that minus
 // the break — the time actually worked.
@@ -292,7 +294,7 @@ const Attendance = () => {
       if (res.data && Array.isArray(res.data.data)) data = res.data.data;
       else if (Array.isArray(res.data)) data = res.data;
       else if (res.data && Array.isArray(res.data.attendance)) data = res.data.attendance;
-      setAttendance(data);
+      setAttendance(attendanceRowsFromResponse(res, data));
     } catch (err) {
       console.error("Error fetching attendance records:", err);
       toast.error("Failed to load attendance records");
@@ -322,7 +324,7 @@ const Attendance = () => {
         timeout: 10000,
       });
       if (res.data) {
-        setTodayClockData(res.data);
+        setTodayClockData(attendanceRowsFromResponse(res, [res.data])[0]);
       }
     } catch (err) {
       console.error("Failed to load today clock status:", err);
@@ -680,6 +682,7 @@ const Attendance = () => {
           ? formatShiftWindow(todayClockData.shiftStart, todayClockData.shiftEnd)
           : "--");
       setSelectedDayRecord({
+        ...todayClockData,
         date: todayClockData.date || new Date().toISOString().split("T")[0],
         checkInTime: todayClockData.inTime,
         checkOutTime: todayClockData.outTime,
@@ -689,6 +692,7 @@ const Attendance = () => {
         shiftEnd: todayClockData.shiftEnd,
         shiftTime: shiftTime,
         totalTime:
+          todayClockData.workingTime ||
           todayClockData.totalTime ||
           (clockInTime && clockOutTime
             ? `${String(liveWorkingTime.hours).padStart(2, "0")}h ${String(
@@ -962,79 +966,15 @@ const Attendance = () => {
       return;
     }
 
-    const headers = [
-      "Date",
-      "Shift",
-      "Login Time",
-      "Logout Time",
-      "Total Time",
-      "Break",
-      "Gross Time",
-      "Status",
-      "Late By",
-      "Auto Clockout",
-      "Notes",
-    ];
-
-    const rows = filteredRecords.map((r) => {
-      const normStatus = getNormalizedStatus(r.status, r.date, r);
-      const loginDisplay = getRecordLoginDisplay(r);
-      const logoutDisplay = getRecordLogoutDisplay(r);
-
-      const formattedShiftTime = getRecordShiftDisplay(r);
-      const shiftDisplay =
-        normStatus === "WEEKLY OFF"
-          ? "Weekly Off"
-          : normStatus === "HOLIDAY"
-          ? "Holiday"
-          : normStatus === "ON LEAVE"
-          ? "On Leave"
-          : formattedShiftTime !== "--"
-          ? `${r.shiftName || "General Shift"} (${formattedShiftTime})`
-          : r.shiftName || "General Shift";
-
-      const displayStatus =
-        normStatus === "PRESENT"
-          ? "Present"
-          : normStatus === "ABSENT"
-          ? "Absent"
-          : normStatus === "LATE"
-          ? "Late"
-          : normStatus === "HALF DAY"
-          ? "Half Day"
-          : normStatus === "WEEKLY OFF"
-          ? "Weekly Off"
-          : normStatus === "HOLIDAY"
-          ? "Holiday"
-          : normStatus === "ON LEAVE"
-          ? "On Leave"
-          : r.status || "-";
-
-      return [
-        formatDate(r.date),
-        shiftDisplay,
-        loginDisplay,
-        logoutDisplay,
-        r.totalTime || r.workingHours || "-",
-        formatBreakLabel(r.breakMinutes),
-        r.grossTime || "-",
-        displayStatus,
-        r.lateBy && r.lateBy !== "00:00:00" ? r.lateBy : "-",
-        r.autoClockout ? "Yes" : "No",
-        r.notes || "-",
-      ];
+    const records = filteredRecords.map(record => {
+      const status = getNormalizedStatus(record.status, record.date, record);
+      return attendanceReportFields({ ...record, status }, axios.defaults.baseURL);
     });
-
-    const csvString =
-      "\uFEFF" +
-      [
-        headers.join(","),
-        ...rows.map((row) =>
-          row
-            .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-            .join(",")
-        ),
-      ].join("\r\n");
+    const headers = Object.keys(records[0]);
+    const csvString = "\uFEFF" + [
+      headers.join(","),
+      ...records.map(fields => headers.map(header => attendanceCsvCell(fields[header])).join(",")),
+    ].join("\r\n");
 
     const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -2083,6 +2023,8 @@ const Attendance = () => {
                     </span>
                   </div>
                 </div>
+
+                <AttendancePunchDetails record={selectedDayRecord} />
 
                 {/* Additional Info / Device & Location */}
                 <div className="att-modal-section">

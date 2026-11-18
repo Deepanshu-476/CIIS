@@ -987,6 +987,7 @@ const CompanyDetails = () => {
             aiDailyTokenLimit: loggedCompany?.aiDailyTokenLimit ?? companyDetails.aiDailyTokenLimit ?? data.company?.aiDailyTokenLimit ?? 0,
             aiDailyCallLimit: loggedCompany?.aiDailyCallLimit ?? companyDetails.aiDailyCallLimit ?? data.company?.aiDailyCallLimit ?? 0,
             aiDailySttLimit: loggedCompany?.aiDailySttLimit ?? companyDetails.aiDailySttLimit ?? data.company?.aiDailySttLimit ?? 0,
+            aiExtraTokens: loggedCompany?.aiExtraTokens ?? companyDetails.aiExtraTokens ?? data.company?.aiExtraTokens ?? 0,
             aiApiKeySource: loggedCompany?.aiApiKeySource || companyDetails.aiApiKeySource || data.company?.aiApiKeySource || "platform",
             customGroqApiKey: loggedCompany?.customGroqApiKey || companyDetails.customGroqApiKey || data.company?.customGroqApiKey || ""
           };
@@ -1092,6 +1093,7 @@ const CompanyDetails = () => {
           aiDailyTokenLimit: companyInfo.aiDailyTokenLimit ?? 0,
           aiDailyCallLimit: companyInfo.aiDailyCallLimit ?? 0,
           aiDailySttLimit: companyInfo.aiDailySttLimit ?? 0,
+          aiExtraTokens: companyInfo.aiExtraTokens ?? 0,
           aiApiKeySource: companyInfo.aiApiKeySource || "platform",
           customGroqApiKey: companyInfo.customGroqApiKey || "",
           isActive: companyInfo.isActive ?? true
@@ -1357,7 +1359,8 @@ const CompanyDetails = () => {
           transactionId: subscriptionTransactionId,
           paymentDate: subscriptionPaymentDate || new Date().toISOString(),
           notes: subscriptionNotes,
-          isActive: true
+          isActive: true,
+          aiExtraTokens: Number(company?.aiExtraTokens || 0)
         },
         { headers: getAuthHeaders() }
       );
@@ -2111,7 +2114,8 @@ const CompanyDetails = () => {
   const aiDailyStt = (company?.aiDailySttLimit !== undefined && company?.aiDailySttLimit !== null && Number(company.aiDailySttLimit) > 0)
     ? Number(company.aiDailySttLimit)
     : Number(currentPlan?.aiDailySttLimit || 0);
-  const hasAiFeature = isByokActive || aiDailyTokens > 0 || (company?.allowedPages || []).includes("company-ai-settings") || (currentPlan?.allowedPages || []).includes("company-ai-settings");
+  const aiExtraTokens = Number(company?.aiExtraTokens || 0);
+  const hasAiFeature = isByokActive || aiDailyTokens > 0 || aiExtraTokens > 0 || (company?.allowedPages || []).includes("company-ai-settings") || (currentPlan?.allowedPages || []).includes("company-ai-settings");
 
   
   if (pageLoading) {
@@ -2703,9 +2707,18 @@ const CompanyDetails = () => {
                           <span>Use Your Own API Key</span>
                         ) : (
                           <span>
-                            {Number(aiDailyTokens || 0).toLocaleString()} tokens/day • {aiDailyCalls || 0} calls/day • {aiDailyStt || 0} voice/day
+                            {Number(aiDailyTokens || 0).toLocaleString()} tokens/day
+                            {aiExtraTokens > 0 ? ` (+${Number(aiExtraTokens).toLocaleString()} extra)` : ""} • {aiDailyCalls || 0} calls/day • {aiDailyStt || 0} voice/day
                           </span>
                         )}
+                      </p>
+                    )}
+                    {hasAiFeature && !isByokActive && aiExtraTokens > 0 && (
+                      <p className="CompanyDetails-expiry-text">
+                        <strong>Extra AI Tokens:</strong>{" "}
+                        <span style={{ color: "#2563eb", fontWeight: 600 }}>
+                          +{Number(aiExtraTokens).toLocaleString()} top-up tokens
+                        </span>
                       </p>
                     )}
 
@@ -2891,9 +2904,18 @@ const CompanyDetails = () => {
                         <span>Use Your Own API Key</span>
                       ) : (
                         <span>
-                          {Number(aiDailyTokens || 0).toLocaleString()} tokens/day • {aiDailyCalls || 0} calls/day • {aiDailyStt || 0} voice/day
+                          {Number(aiDailyTokens || 0).toLocaleString()} tokens/day
+                          {aiExtraTokens > 0 ? ` (+${Number(aiExtraTokens).toLocaleString()} extra)` : ""} • {aiDailyCalls || 0} calls/day • {aiDailyStt || 0} voice/day
                         </span>
                       )}
+                    </p>
+                  )}
+                  {hasAiFeature && !isByokActive && aiExtraTokens > 0 && (
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>Extra AI Tokens:</strong>{" "}
+                      <span style={{ color: "#2563eb", fontWeight: 600 }}>
+                        +{Number(aiExtraTokens).toLocaleString()} top-up tokens
+                      </span>
                     </p>
                   )}
 

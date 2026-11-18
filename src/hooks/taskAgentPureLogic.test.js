@@ -1491,6 +1491,22 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         const singleAssignedEntries = assignedFormDataEntries.filter(([k]) => k === 'assignedUsers');
         assert.equal(singleAssignedEntries.length, 1, 'Assigned user task must have single assignedUsers entry containing JSON string');
         assert.equal(singleAssignedEntries[0][1], JSON.stringify(['u_rohit', 'u_rahul']));
+
+        assert.equal(assignedPayload.fields.repeatPattern, 'none');
+        assert.equal(assignedPayload.fields.repeatDays, '[]');
+        assert.equal(assignedPayload.fields.recurrenceEndDate, '');
+
+        // Recurrence on assigned task
+        const recurringAssignedDraft = {
+            ...assignedDraft,
+            repeatPattern: 'daily',
+            repeatDays: ['monday', 'friday'],
+            recurrenceEndDate: '2026-12-31T23:59:59.999Z',
+        };
+        const recPayload = buildConfirmPayloadFromDraft(recurringAssignedDraft);
+        assert.equal(recPayload.fields.repeatPattern, 'daily');
+        assert.deepEqual(JSON.parse(recPayload.fields.repeatDays), ['monday', 'friday']);
+        assert.equal(recPayload.fields.recurrenceEndDate, '2026-12-31T23:59:59.999Z');
     });
 
     class MockSpeechEngine {

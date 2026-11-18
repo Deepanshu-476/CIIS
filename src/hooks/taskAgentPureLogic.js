@@ -460,6 +460,21 @@ export const buildConfirmPayloadFromDraft = (draft, fallbackPayload = null) => {
                     reminderTime: draft.reminderTime || null,
                 }),
                 priorityDays: draft.priorityDays ? Number(draft.priorityDays) : 1,
+                repeatPattern: draft.repeatPattern || 'none',
+                repeatDays: JSON.stringify(
+                    draft.repeatPattern && draft.repeatPattern !== 'none'
+                        ? ((Array.isArray(draft.repeatDays) && draft.repeatDays.length > 0)
+                            ? draft.repeatDays
+                            : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
+                        : (draft.repeatDays || [])
+                ),
+                recurrenceEndDate: draft.repeatPattern && draft.repeatPattern !== 'none'
+                    ? (draft.recurrenceEndDate || (() => {
+                        const baseDue = draft.dueDateTime ? new Date(draft.dueDateTime) : new Date();
+                        const end = new Date(baseDue.getTime() + 30 * 24 * 60 * 60 * 1000);
+                        return end.toISOString().slice(0, 10) + 'T23:59:59.999Z';
+                    })())
+                    : '',
             },
         };
     }

@@ -39,6 +39,8 @@ export default function CompanyAiSettings() {
   const [defaultCalls, setDefaultCalls] = useState(30);
   const [companyPlanTokens, setCompanyPlanTokens] = useState(25000);
   const [companyExtraTokens, setCompanyExtraTokens] = useState(0);
+  const [companyExtraCalls, setCompanyExtraCalls] = useState(0);
+  const [companyExtraStt, setCompanyExtraStt] = useState(0);
   const [companyCallsLimit, setCompanyCallsLimit] = useState(35);
   const [companySttLimit, setCompanySttLimit] = useState(100);
   const [todayUsage, setTodayUsage] = useState({ totalTokens: 0, totalCalls: 0, activeUsersCount: 0 });
@@ -86,6 +88,8 @@ export default function CompanyAiSettings() {
         setDefaultCalls(d.byokDefaultEmployeeDailyCalls ?? 30);
         setCompanyPlanTokens(d.companyDailyTokenLimit ?? d.platformPlanTokenLimit ?? 25000);
         setCompanyExtraTokens(Number(d.companyExtraTokens || 0));
+        setCompanyExtraCalls(Number(d.companyExtraCalls || 0));
+        setCompanyExtraStt(Number(d.companyExtraStt || 0));
         setCompanyCallsLimit(d.companyDailyCallLimit ?? 35);
         setCompanySttLimit(d.companyDailySttLimit ?? 100);
         setTodayUsage(d.todayUsage || { totalTokens: 0, totalCalls: 0, activeUsersCount: 0 });
@@ -274,10 +278,13 @@ export default function CompanyAiSettings() {
             <Coins size={22} />
           </div>
           <div className="company-ai-stat-info">
-            <h3 style={{ color: companyExtraTokens > 0 ? '#4f46e5' : '#0f172a' }}>
+            <h3 style={{ color: (companyExtraTokens > 0 || companyExtraCalls > 0 || companyExtraStt > 0) ? '#4f46e5' : '#0f172a' }}>
               {companyExtraTokens > 0 ? `+${companyExtraTokens.toLocaleString()}` : '0'}
             </h3>
-            <p>Extra Top-Up Tokens</p>
+            <p>
+              Extra Top-Up Tokens
+              {(companyExtraCalls > 0 || companyExtraStt > 0) ? ` (+${companyExtraCalls}c / +${companyExtraStt}v)` : ''}
+            </p>
           </div>
         </div>
 
@@ -408,7 +415,9 @@ export default function CompanyAiSettings() {
             {aiApiKeySource === 'platform' && (
               <div style={{ marginTop: '12px', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', color: '#475569' }}>
                 💡 <strong>Current Platform Subscription:</strong> Your company has <strong>{companyPlanTokens.toLocaleString()} tokens/day</strong>
-                {companyExtraTokens > 0 ? ` + ${companyExtraTokens.toLocaleString()} extra top-up tokens` : ''} ({companyCallsLimit} requests/day & {companySttLimit} voice notes/day).
+                {companyExtraTokens > 0 ? ` (+${companyExtraTokens.toLocaleString()} extra tokens)` : ''} • {companyCallsLimit} requests/day
+                {companyExtraCalls > 0 ? ` (+${companyExtraCalls} extra calls)` : ''} • {companySttLimit} voice notes/day
+                {companyExtraStt > 0 ? ` (+${companyExtraStt} extra voice)` : ''}.
               </div>
             )}
           </div>

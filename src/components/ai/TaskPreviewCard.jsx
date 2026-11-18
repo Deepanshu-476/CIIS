@@ -21,7 +21,7 @@ const assigneeText = (a, taskFor) => {
 const formatDateOnlyCard = (d) => {
     if (!d || typeof d !== 'string') return '—';
     const cleaned = d.replace(/,\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?/g, '').trim();
-    const isoMatch = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const isoMatch = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (isoMatch) {
         const year = isoMatch[1];
         const monthNum = parseInt(isoMatch[2], 10);
@@ -29,6 +29,11 @@ const formatDateOnlyCard = (d) => {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const monthName = months[monthNum - 1] || isoMatch[2];
         return `${day} ${monthName} ${year}`;
+    }
+    const dObj = new Date(d);
+    if (!isNaN(dObj.getTime())) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${dObj.getDate()} ${months[dObj.getMonth()]} ${dObj.getFullYear()}`;
     }
     return cleaned;
 };
@@ -188,19 +193,20 @@ export default function TaskPreviewCard({
                     {preview.taskFor === 'self' && (
                         <>
                             <dt>Reminder</dt>
-                    <dd>
-                        {preview.reminder && preview.reminder !== 'Nahi (No)' && preview.reminder !== 'Nahi' && preview.reminder !== 'No' && preview.reminder !== false
-                            ? (typeof preview.reminder === 'string' && !['Yes', 'Haan', 'true'].includes(preview.reminder)
-                                ? preview.reminder
-                                : `Haan (${preview.repeatIntervalMinutes ? `Every ${preview.repeatIntervalMinutes} min` : preview.minutesBeforeDue ? `${preview.minutesBeforeDue} min before due` : preview.reminderOption === 'halfHourly' ? 'Every 30 min' : preview.reminderOption === 'hourly' ? 'Every 1 hour' : '1 hour before'})`)
-                            : 'Nahi (No)'}
-                    </dd>
+                            <dd>
+                                {preview.reminder && preview.reminder !== 'Nahi (No)' && preview.reminder !== 'Nahi' && preview.reminder !== 'No' && preview.reminder !== false
+                                    ? (typeof preview.reminder === 'string' && !['Yes', 'Haan', 'true'].includes(preview.reminder)
+                                        ? preview.reminder
+                                        : `Haan (${preview.repeatIntervalMinutes ? `Every ${preview.repeatIntervalMinutes} min` : preview.minutesBeforeDue ? `${preview.minutesBeforeDue} min before due` : preview.reminderOption === 'halfHourly' ? 'Every 30 min' : preview.reminderOption === 'hourly' ? 'Every 1 hour' : '1 hour before'})`)
+                                    : 'Nahi (No)'}
+                            </dd>
+                        </>
+                    )}
 
-                    {preview.taskFor !== 'project' && preview.repeatPattern && (
+                    {preview.taskFor !== 'project' && preview.repeatPattern && preview.repeatPattern !== 'none' && (
                         <>
                             <dt>Repeat</dt>
                             <dd>{(() => {
-                                if (!preview.repeatPattern || preview.repeatPattern === 'none') return 'No repeat';
                                 if (preview.repeat && preview.repeat !== 'daily' && preview.repeat !== 'none') return preview.repeat;
                                 if (preview.repeatLabel && preview.repeatLabel !== 'daily' && preview.repeatLabel !== 'none') return preview.repeatLabel;
                                 const days = Array.isArray(preview.repeatDays) && preview.repeatDays.length > 0
@@ -211,8 +217,6 @@ export default function TaskPreviewCard({
                                     : '';
                                 return `${days || (preview.repeatPattern === 'daily' ? 'Daily' : preview.repeatPattern)}${end}`;
                             })()}</dd>
-                        </>
-                    )}
                         </>
                     )}
 

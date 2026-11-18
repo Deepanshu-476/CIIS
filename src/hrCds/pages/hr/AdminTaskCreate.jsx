@@ -22,8 +22,50 @@ import {
   FiEye, FiClock, FiCheckCircle, FiXCircle, FiAlertTriangle,
   FiMoreVertical, FiRefreshCw, FiUserCheck, FiUserX,
   FiLogOut, FiEdit3, FiMessageCircle,
-  FiZoomIn, FiImage, FiCamera, FiBriefcase, FiLock
+  FiZoomIn, FiImage, FiCamera, FiBriefcase, FiLock, FiSlash
 } from 'react-icons/fi';
+
+const RECURRING_REPEAT_DAYS = [
+  { value: 'monday', label: 'Mon' },
+  { value: 'tuesday', label: 'Tue' },
+  { value: 'wednesday', label: 'Wed' },
+  { value: 'thursday', label: 'Thu' },
+  { value: 'friday', label: 'Fri' },
+  { value: 'saturday', label: 'Sat' },
+  { value: 'sunday', label: 'Sun' }
+];
+
+const REPEAT_PATTERN_LABELS = {
+  none: 'No repeat',
+  daily: 'Repeat Task'
+};
+
+const REPEAT_PATTERN_DESCRIPTIONS = {
+  none: 'Create one task only.',
+  daily: 'Auto-create a repeat task every day, or only on selected weekdays. Tasks will not repeat on days when assignees are absent.'
+};
+
+const formatDateInputValue = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const getEndOfLocalDayIso = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setHours(23, 59, 59, 999);
+  return date.toISOString();
+};
+
+const getMaxRepeatEndDate = (dueDate) => {
+  const max = new Date(dueDate);
+  max.setDate(max.getDate() + 365);
+  max.setHours(23, 59, 59, 999);
+  return max;
+};
 
 const createEmptyCheckpoint = () => ({ title: '', completed: false });
 
@@ -217,7 +259,10 @@ const AdminTaskManagement = () => {
     priority: 'medium',
     files: null,
     voiceNote: null,
-    checkpoints: []
+    checkpoints: [],
+    repeatPattern: 'none',
+    repeatDays: [],
+    recurrenceEndDate: ''
   });
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [voicePreviewUrl, setVoicePreviewUrl] = useState('');
@@ -234,7 +279,10 @@ const AdminTaskManagement = () => {
     assignedUsers: [],
     assignedGroups: [],
     priorityDays: '1',
-    priority: 'medium'
+    priority: 'medium',
+    repeatPattern: 'none',
+    repeatDays: [],
+    recurrenceEndDate: ''
   });
 
   const [newGroup, setNewGroup] = useState({
@@ -1350,6 +1398,33 @@ const AdminTaskManagement = () => {
         return;
       }
 
+      const recurrenceEndDate = newTask.repeatPattern !== 'none'
+        ? getEndOfLocalDayIso(newTask.recurrenceEndDate)
+        : '';
+      if (newTask.repeatPattern !== 'none') {
+        if (!recurrenceEndDate) {
+          const msg = 'Please select repeat end date.';
+          setCreateTaskModalError(msg);
+          showSnackbar(msg, 'error');
+          setIsCreatingTask(false);
+          return;
+        }
+        if (new Date(recurrenceEndDate) < parsedDueDateTime) {
+          const msg = 'Repeat end date cannot be before due date.';
+          setCreateTaskModalError(msg);
+          showSnackbar(msg, 'error');
+          setIsCreatingTask(false);
+          return;
+        }
+        if (new Date(recurrenceEndDate) > getMaxRepeatEndDate(parsedDueDateTime)) {
+          const msg = 'Repeat end date can be at most 1 year after due date.';
+          setCreateTaskModalError(msg);
+          showSnackbar(msg, 'error');
+          setIsCreatingTask(false);
+          return;
+        }
+      }
+
       const formData = new FormData();
       
       formData.append('title', newTask.title);
@@ -1357,6 +1432,9 @@ const AdminTaskManagement = () => {
       formData.append('dueDateTime', parsedDueDateTime.toISOString());
       formData.append('priorityDays', newTask.priorityDays || '1');
       formData.append('priority', newTask.priority);
+      formData.append('repeatPattern', newTask.repeatPattern || 'none');
+      formData.append('repeatDays', JSON.stringify(newTask.repeatDays || []));
+      formData.append('recurrenceEndDate', recurrenceEndDate);
       formData.append('assignedUsers', JSON.stringify(newTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups));
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
@@ -1439,6 +1517,34 @@ const AdminTaskManagement = () => {
         return;
       }
 
+      const isChildOccurrence = Boolean(selectedTask?.recurrenceSourceId);
+      const editRecurrenceEndDate = !isChildOccurrence && editTask.repeatPattern !== 'none'
+        ? getEndOfLocalDayIso(editTask.recurrenceEndDate)
+        : '';
+      if (!isChildOccurrence && editTask.repeatPattern !== 'none') {
+        if (!editRecurrenceEndDate) {
+          const msg = 'Please select repeat end date.';
+          setEditTaskModalError(msg);
+          showSnackbar(msg, 'error');
+          setIsUpdatingTask(false);
+          return;
+        }
+        if (new Date(editRecurrenceEndDate) < parsedDueDateTime) {
+          const msg = 'Repeat end date cannot be before due date.';
+          setEditTaskModalError(msg);
+          showSnackbar(msg, 'error');
+          setIsUpdatingTask(false);
+          return;
+        }
+        if (new Date(editRecurrenceEndDate) > getMaxRepeatEndDate(parsedDueDateTime)) {
+          const msg = 'Repeat end date can be at most 1 year after due date.';
+          setEditTaskModalError(msg);
+          showSnackbar(msg, 'error');
+          setIsUpdatingTask(false);
+          return;
+        }
+      }
+
       const formData = new FormData();
       
       formData.append('title', editTask.title);
@@ -1446,6 +1552,11 @@ const AdminTaskManagement = () => {
       formData.append('dueDateTime', parsedDueDateTime.toISOString());
       formData.append('priorityDays', editTask.priorityDays || '1');
       formData.append('priority', editTask.priority);
+      if (!isChildOccurrence) {
+        formData.append('repeatPattern', editTask.repeatPattern || 'none');
+        formData.append('repeatDays', JSON.stringify(editTask.repeatDays || []));
+        formData.append('recurrenceEndDate', editRecurrenceEndDate);
+      }
       formData.append('assignedUsers', JSON.stringify(editTask.assignedUsers));
       formData.append('assignedGroups', JSON.stringify(editTask.assignedGroups));
       formData.append('reminderSettings', JSON.stringify(normalizeReminderSettings(editTask.reminderSettings)));
@@ -1459,6 +1570,18 @@ const AdminTaskManagement = () => {
       console.error('Error updating task:', error);
     } finally {
       setIsUpdatingTask(false);
+    }
+  };
+
+  const handleStopRecurringTask = async (task) => {
+    const taskId = task?._id || task?.id;
+    if (!taskId) return;
+    try {
+      await apiCall('patch', `/task/${taskId}/stop-recurring`);
+      showSnackbar('Repeat task stopped successfully', 'success');
+      fetchAllData(page, rowsPerPage);
+    } catch (error) {
+      console.error('Error stopping repeat task:', error);
     }
   };
 
@@ -1825,13 +1948,17 @@ const AdminTaskManagement = () => {
       title: '',
       description: '',
       dueDateTime: '',
+      reminderSettings: createDefaultReminderSettings(),
       assignedUsers: [],
       assignedGroups: [],
       priorityDays: '1',
       priority: 'medium',
       files: null,
       voiceNote: null,
-      checkpoints: []
+      checkpoints: [],
+      repeatPattern: 'none',
+      repeatDays: [],
+      recurrenceEndDate: ''
     });
     clearVoiceRecordingPreview();
     setUserSearch('');
@@ -1886,10 +2013,14 @@ const AdminTaskManagement = () => {
       title: task.title || '',
       description: task.description || '',
       dueDateTime: formattedDueDateTime,
+      reminderSettings: normalizeReminderSettings(task.reminderSettings),
       assignedUsers: assignedUserIds,
       assignedGroups: assignedGroupIds,
       priorityDays: task.priorityDays || '1',
-      priority: task.priority || 'medium'
+      priority: task.priority || 'medium',
+      repeatPattern: task.repeatPattern || (task.isRecurring ? 'daily' : 'none'),
+      repeatDays: Array.isArray(task.repeatDays) ? task.repeatDays : [],
+      recurrenceEndDate: formatDateInputValue(task.recurrenceEndDate)
     });
     setOpenEditDialog(true);
   };
@@ -3030,6 +3161,118 @@ const AdminTaskManagement = () => {
     };
   };
 
+  const renderRepeatTaskSection = (formState, setFormState, isChildOccurrence = false) => {
+    if (isChildOccurrence) return null;
+    const repeatPattern = formState.repeatPattern || 'none';
+    const repeatDays = Array.isArray(formState.repeatDays) ? formState.repeatDays : [];
+    const dueBase = formState.dueDateTime ? parseDateTimeInput(formState.dueDateTime) : null;
+    const safeDueDate = dueBase && !Number.isNaN(dueBase.getTime()) ? dueBase : new Date();
+    const minEndDate = formatDateInputValue(safeDueDate);
+    const maxEndDate = formatDateInputValue(getMaxRepeatEndDate(safeDueDate));
+
+    const updatePattern = (value) => {
+      setFormState(prev => ({
+        ...prev,
+        repeatPattern: value,
+        repeatDays: value === 'daily' ? (prev.repeatDays || []) : [],
+        recurrenceEndDate: value !== 'none' ? prev.recurrenceEndDate : '',
+      }));
+    };
+
+    const toggleDay = (dayValue) => {
+      setFormState(prev => {
+        const currentDays = prev.repeatDays || [];
+        return {
+          ...prev,
+          repeatDays: currentDays.includes(dayValue)
+            ? currentDays.filter(day => day !== dayValue)
+            : [...currentDays, dayValue],
+        };
+      });
+    };
+
+    return (
+      <div className="AdminTaskManagement-form-group admin-task-recurring-section">
+        <div className="admin-task-recurring-header">
+          <div>
+            <label>Repeat Task</label>
+            <div className="admin-task-recurring-note">
+              Set how this assigned task should auto-create itself later.
+            </div>
+          </div>
+          <span className={`admin-task-recurring-badge repeat-${repeatPattern}`}>
+            {REPEAT_PATTERN_LABELS[repeatPattern] || 'No repeat'}
+          </span>
+        </div>
+
+        <div className="admin-task-recurring-grid">
+          <div className="AdminTaskManagement-form-group admin-task-recurring-control">
+            <select
+              className="AdminTaskManagement-form-select"
+              value={repeatPattern}
+              onChange={(e) => updatePattern(e.target.value)}
+            >
+              <option value="none">No Repeat</option>
+              <option value="daily">Repeat Task</option>
+            </select>
+            <div className="admin-task-recurring-helper">
+              {REPEAT_PATTERN_DESCRIPTIONS[repeatPattern] || REPEAT_PATTERN_DESCRIPTIONS.none}
+            </div>
+          </div>
+
+          <div className="admin-task-recurring-summary">
+            <div className="admin-task-recurring-summary-label">Current Setup</div>
+            <div className="admin-task-recurring-summary-value">
+              {repeatPattern === 'daily'
+                ? `${REPEAT_PATTERN_LABELS[repeatPattern] || 'No repeat'}${repeatDays.length ? ` on ${repeatDays.map(day => day.slice(0, 3).toUpperCase()).join(', ')}` : ''}`
+                : (REPEAT_PATTERN_LABELS[repeatPattern] || 'No repeat')}
+            </div>
+            <div className="admin-task-recurring-summary-text">
+              Auto-created tasks keep the same due time as the source task. Tasks will not repeat on days when assignees are marked absent.
+            </div>
+          </div>
+        </div>
+
+        {repeatPattern !== 'none' && (
+          <div className="AdminTaskManagement-form-group" style={{ marginBottom: 0 }}>
+            <label>Repeat End Date *</label>
+            <input
+              type="date"
+              className="AdminTaskManagement-form-input"
+              value={formatDateInputValue(formState.recurrenceEndDate)}
+              min={minEndDate}
+              max={maxEndDate}
+              onChange={(e) => setFormState(prev => ({ ...prev, recurrenceEndDate: e.target.value }))}
+            />
+          </div>
+        )}
+
+        {repeatPattern === 'daily' && (
+          <div className="admin-task-week-days">
+            <div className="admin-task-week-days-label">
+              Select Days
+            </div>
+            <div className="admin-task-week-grid">
+              {RECURRING_REPEAT_DAYS.map(day => (
+                <button
+                  key={day.value}
+                  type="button"
+                  className={`admin-task-week-chip ${repeatDays.includes(day.value) ? 'selected' : ''}`}
+                  onClick={() => toggleDay(day.value)}
+                >
+                  {day.label}
+                </button>
+              ))}
+            </div>
+            <div className="admin-task-recurring-helper">
+              Pick one or more weekdays. If you leave them blank, Repeat Task runs every day.
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderReminderSettings = (settings, dueDateTime, onChange, taskTitle = 'Task') => {
     const normalized = normalizeReminderSettings(settings);
     return (
@@ -3386,6 +3629,8 @@ const AdminTaskManagement = () => {
                 />
               </div>
             </div>
+
+            {renderRepeatTaskSection(newTask, setNewTask)}
 
             
             <div className="AdminTaskManagement-form-group">
@@ -3844,6 +4089,8 @@ const AdminTaskManagement = () => {
                 />
               </div>
             </div>
+
+            {renderRepeatTaskSection(editTask, setEditTask, Boolean(selectedTask?.recurrenceSourceId))}
 
             
             <div className="AdminTaskManagement-form-group">
@@ -4319,6 +4566,24 @@ const AdminTaskManagement = () => {
                   <div className="AdminTaskManagement-task-title-cell">
                     <div className="AdminTaskManagement-task-title">{task.title}</div>
                     <div className="AdminTaskManagement-task-description">{task.description}</div>
+                    {(task.isRecurring || (task.repeatPattern && task.repeatPattern !== 'none')) && (
+                      <div className="admin-task-repeat-meta">
+                        <span>Repeat until {formatDateInputValue(task.recurrenceEndDate) || 'not set'}</span>
+                        {canCreateTask && (
+                          <button
+                            type="button"
+                            className="admin-task-stop-repeat-btn"
+                            title="Stop repeat"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleStopRecurringTask(task);
+                            }}
+                          >
+                            <FiSlash size={11} /> Stop
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td>

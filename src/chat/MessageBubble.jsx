@@ -11,9 +11,16 @@ const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|svg|heic|heif|avif|tiff?)$/i
 // server-made webp preview while downloads still give the original file.
 const BROWSER_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/avif", "image/svg+xml", "image/bmp"]);
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|oga|opus|flac)$/i;
-const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|mov|m4v|avi|mkv|flv|wmv)$/i;
+const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|mov|m4v|avi|mkv|flv|wmv|3gp)$/i;
 const DOCUMENT_EXTENSIONS = /\.(pdf|docx?|xlsx?|csv|pptx?|txt|rtf|odt|ods|odp|zip|rar|7z)$/i;
 const ATTACHMENT_CACHE_NAME = "ciis-chat-attachments-v1";
+const MAX_CACHEABLE_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+const MIME_EXTENSIONS = {
+    "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/heic": "heic",
+    "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm", "video/3gpp": "3gp", "video/x-matroska": "mkv", "video/x-m4v": "m4v", "video/x-msvideo": "avi",
+    "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/wav": "wav", "audio/ogg": "ogg", "audio/opus": "opus",
+    "application/pdf": "pdf",
+};
 
 const getBackendUrl = (path) => `${API_URL_IMG.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 const getUploadOriginUrl = (origin, path) => `${String(origin || "").replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
@@ -69,6 +76,7 @@ const MessageBubble = ({
     const [hasMediaLoadFailed, setHasMediaLoadFailed] = useState(false);
     const [localMediaUrl, setLocalMediaUrl] = useState("");
     const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
+    const [isDownloadingAttachment, setIsDownloadingAttachment] = useState(false);
     const audioRef = useRef(null);
     const audioUserPausedRef = useRef(false);
     const audioEndedRef = useRef(false);
@@ -370,14 +378,23 @@ const MessageBubble = ({
         || /\.pdf$/i.test(rawFileName);
 
     const getAttachmentName = () => {
-        const rawName = message.fileName || message.filename || message.name;
-        if (rawName && typeof rawName === "string") return rawName;
-        const pathName = rawMediaUrl.split(/[\\/]/).pop() || "Attachment";
+        const pathSegment = rawMediaUrl.split("?")[0].split(/[\\/]/).pop() || "Attachment";
+        let fallbackName = pathSegment;
         try {
-            return decodeURIComponent(pathName).replace(/^\d+-/, "") || "Attachment";
+            fallbackName = decodeURIComponent(pathSegment).replace(/^\d+-/, "") || "Attachment";
         } catch {
-            return pathName.replace(/^\d+-/, "") || "Attachment";
+            fallbackName = pathSegment.replace(/^\d+-/, "") || "Attachment";
         }
+        const rawName = message.fileName || message.filename || message.name;
+        let resolvedName = (rawName && typeof rawName === "string") ? rawName.trim() : fallbackName;
+        if (!resolvedName) resolvedName = fallbackName;
+        if (!/\.[a-z0-9]{1,10}$/i.test(resolvedName)) {
+            const pathExt = fallbackName.match(/\.([a-z0-9]{1,10})$/i)?.[1];
+            const mimeExt = MIME_EXTENSIONS[String(message.fileType || message.mediaType || "").split(";")[0].trim().toLowerCase()];
+            const ext = pathExt || mimeExt;
+            if (ext) resolvedName = `${resolvedName}.${ext}`;
+        }
+        return resolvedName;
     };
     const attachmentName = getAttachmentName();
     const isAudioOnly = Boolean(isAudioMedia && mediaUrl && !displayMessageText && !isDeletedForEveryone);
@@ -520,10 +537,43 @@ const MessageBubble = ({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [previewMedia]);
 
-    const getCachedAttachmentBlob = async () => {
+    const getOrderedDownloadUrls = () => {
+        if (!mediaUrlCandidates.length) return mediaUrl ? [mediaUrl] : [];
+        return Array.from(new Set([
+            ...mediaUrlCandidates.slice(mediaUrlIndex),
+            ...mediaUrlCandidates.slice(0, mediaUrlIndex),
+        ]));
+    };
+
+    const buildDirectDownloadUrl = (url) => {
+        try {
+            const parsed = new URL(url, window.location.href);
+            parsed.searchParams.set("download", "1");
+            if (attachmentName) parsed.searchParams.set("filename", attachmentName);
+            return parsed.toString();
+        } catch {
+            return url;
+        }
+    };
+
+    const triggerAnchorDownload = (href, { openInNewTab = false } = {}) => {
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = attachmentName;
+        if (openInNewTab) {
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+        }
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const getCachedAttachmentBlob = async ({ skipCache = false } = {}) => {
         if (!mediaUrl) return null;
 
-        const downloadUrls = mediaUrlCandidates.length ? mediaUrlCandidates.slice(mediaUrlIndex) : [mediaUrl];
+        const downloadUrls = getOrderedDownloadUrls();
+        const useCacheStorage = !skipCache && !isVideoMedia && typeof window !== "undefined" && "caches" in window;
         let lastError = null;
         const validateResponse = response => {
             if (!response.ok) throw new Error(`Download failed: ${response.status}`);
@@ -535,30 +585,52 @@ const MessageBubble = ({
 
         for (const url of downloadUrls) {
             try {
-                if ("caches" in window) {
-                    const cache = await caches.open(ATTACHMENT_CACHE_NAME);
-                    const cachedResponse = await cache.match(url);
-                    if (cachedResponse) {
+                if (useCacheStorage) {
+                    try {
+                        const cache = await caches.open(ATTACHMENT_CACHE_NAME);
+                        const cachedResponse = await cache.match(url);
+                        if (cachedResponse) {
+                            try {
+                                validateResponse(cachedResponse);
+                                setMediaUrlIndex(Math.max(0, mediaUrlCandidates.indexOf(url)));
+                                return await cachedResponse.blob();
+                            } catch {
+                                await cache.delete(url);
+                            }
+                        }
+                    } catch {
+                        // CacheStorage may be unavailable or full; fall through to network fetch.
+                    }
+                }
+
+                // Bypass the browser's HTTP cache for videos so a prior non-CORS <video>
+                // request does not cause a CORS failure on download.
+                const fetchOptions = (isVideoMedia || skipCache)
+                    ? { credentials: "include", cache: "no-store" }
+                    : { credentials: "include" };
+                let response;
+                try {
+                    response = await fetch(url, fetchOptions);
+                } catch (firstError) {
+                    if (fetchOptions.cache === "no-store") throw firstError;
+                    response = await fetch(url, { credentials: "include", cache: "no-store" });
+                }
+                validateResponse(response);
+
+                if (useCacheStorage && response.status === 200) {
+                    const contentLength = Number(response.headers.get("content-length") || 0);
+                    if (!contentLength || contentLength <= MAX_CACHEABLE_ATTACHMENT_BYTES) {
                         try {
-                            validateResponse(cachedResponse);
-                            setMediaUrlIndex(Math.max(0, mediaUrlCandidates.indexOf(url)));
-                            return await cachedResponse.blob();
+                            const cache = await caches.open(ATTACHMENT_CACHE_NAME);
+                            await cache.put(url, response.clone());
                         } catch {
-                            await cache.delete(url);
+                            // Ignore CacheStorage quota/partial errors so the download still completes.
                         }
                     }
                 }
 
-                const response = await fetch(url, { credentials: "include" });
-                validateResponse(response);
-
-                if ("caches" in window) {
-                    const cache = await caches.open(ATTACHMENT_CACHE_NAME);
-                    await cache.put(url, response.clone());
-                }
-
                 setMediaUrlIndex(Math.max(0, mediaUrlCandidates.indexOf(url)));
-                return response.blob();
+                return await response.blob();
             } catch (error) {
                 lastError = error;
             }
@@ -587,6 +659,14 @@ const MessageBubble = ({
             setPreviewMedia({ kind, url: displayPreviewUrl });
             return;
         }
+        // Stream videos directly in the preview modal instead of buffering the whole file into memory first.
+        if (kind === "video") {
+            const directVideoUrl = localMediaUrl || mediaUrl;
+            if (directVideoUrl) {
+                setPreviewMedia({ kind, url: directVideoUrl });
+                return;
+            }
+        }
         try {
             const previewUrl = await getLocalAttachmentUrl();
             if (previewUrl) {
@@ -604,22 +684,25 @@ const MessageBubble = ({
     };
 
     const downloadAttachment = async () => {
-        if (!mediaUrl) return;
+        if (!mediaUrl || isDownloadingAttachment) return;
 
+        setIsDownloadingAttachment(true);
         try {
-            const blob = await getCachedAttachmentBlob();
+            const blob = await getCachedAttachmentBlob({ skipCache: isVideoMedia });
             if (!blob) throw new Error("No downloadable attachment found");
 
             const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = blobUrl;
-            link.download = attachmentName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(blobUrl);
+            triggerAnchorDownload(blobUrl);
+            // Give the browser time to hand the blob off to its download manager before revoking.
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
         } catch (error) {
-            console.error("Attachment download failed", error);
+            console.error("Attachment download failed, falling back to direct download", error);
+            const fallbackUrl = getOrderedDownloadUrls()[0] || mediaUrl;
+            if (fallbackUrl) {
+                triggerAnchorDownload(buildDirectDownloadUrl(fallbackUrl), { openInNewTab: true });
+            }
+        } finally {
+            setIsDownloadingAttachment(false);
         }
     };
 
@@ -796,7 +879,7 @@ const MessageBubble = ({
                             tryNextMediaUrl();
                         }}
                     />
-                    <div className="chat-media-video-toolbar">
+                    <div className={`chat-media-video-toolbar ${isDownloadingAttachment ? "is-busy" : ""}`}>
                         <button
                             type="button"
                             className="chat-video-action-btn"
@@ -810,8 +893,9 @@ const MessageBubble = ({
                             type="button"
                             className="chat-video-action-btn"
                             onClick={downloadAttachment}
-                            title="Download video"
-                            aria-label="Download video"
+                            disabled={isDownloadingAttachment}
+                            title={isDownloadingAttachment ? "Downloading video..." : "Download video"}
+                            aria-label={isDownloadingAttachment ? "Downloading video" : "Download video"}
                         >
                             <Download size={14} />
                         </button>
@@ -985,10 +1069,11 @@ const MessageBubble = ({
                     <div className="chat-media-preview-overlay" onClick={() => setPreviewMedia(null)}>
                         <div className="chat-media-preview" onClick={(e) => e.stopPropagation()}>
                             <a
-                                href={previewMedia.url}
+                                href={buildDirectDownloadUrl(previewMedia.url)}
                                 download={attachmentName}
                                 className="chat-media-preview-download"
-                                title="Download"
+                                title={isDownloadingAttachment ? "Downloading..." : "Download"}
+                                aria-busy={isDownloadingAttachment}
                                 onClick={(event) => {
                                     event.preventDefault();
                                     downloadAttachment();
@@ -1007,7 +1092,7 @@ const MessageBubble = ({
                             {previewMedia.kind === "image" ? (
                                 <img src={previewMedia.url} alt="attachment preview" />
                             ) : (
-                                <video src={previewMedia.url} controls autoPlay className="chat-media-preview-video" />
+                                <video src={previewMedia.url} controls autoPlay playsInline className="chat-media-preview-video" />
                             )}
                         </div>
                     </div>

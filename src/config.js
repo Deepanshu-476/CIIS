@@ -19,7 +19,7 @@ export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_ORIGIN;
 
 export const CHAT_UPLOAD_ORIGINS = [
   API_URL_IMG,
-  // 'https://backendappapp.ciisnetwork.in/',
+  'https://backendapp.ciisnetwork.in/',
   'https://backendcds.ciisnetwork.in/',
 ];
 

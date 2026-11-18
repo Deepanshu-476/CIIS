@@ -249,6 +249,13 @@ export default function CompanyAiSettings() {
         </div>
       )}
 
+      {aiApiKeySource !== 'client' && companyPlanTokens === 0 && companyExtraTokens === 0 && (
+        <div className="company-ai-alert warning" style={{ backgroundColor: '#fffbeb', borderColor: '#fef3c7', color: '#b45309', marginBottom: '1.25rem', padding: '0.75rem 1rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <AlertCircle size={18} />
+          <span>Aapki company ke active plan mein AI Assistant shamil nahi hai. AI tokens activate karne ke liye Super Admin se plan upgrade karwayein.</span>
+        </div>
+      )}
+
       {/* Top Stats Overview */}
       <div className="company-ai-stats-grid">
         <div className="company-ai-stat-card">

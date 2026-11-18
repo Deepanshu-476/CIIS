@@ -3298,7 +3298,14 @@ const Sidebar = ({
       normalizeAdministrativeRole(getRecordDisplayName(value) || value)
     ));
 
-    if (!canManageCompanyAi) {
+    const hasAiEntitlement = Boolean(
+      companyData?.aiApiKeySource === 'client' ||
+      Number(companyData?.aiDailyTokenLimit || 0) > 0 ||
+      Number(companyData?.aiExtraTokens || 0) > 0 ||
+      (companyData?.allowedPages || []).includes('company-ai-settings')
+    );
+
+    if (!canManageCompanyAi || !hasAiEntitlement) {
       accessFilteredItems = accessFilteredItems.filter(item => (
         item.id !== 'company-ai-settings' &&
         String(item.path || '').toLowerCase() !== '/ciisuser/company-ai-settings'

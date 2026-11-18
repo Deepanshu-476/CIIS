@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { attendanceExportValues, attendanceExportSummary, resolveScheduledAttendanceStatus, fetchAttendanceDay } from "../../../utils/attendanceExport";
+import { attendanceReportFields, attendanceReportRows, attendanceReportImage, attendanceWorkedTime, attendanceCsvCell, attendanceRowsFromResponse, formatAttendanceWorksheet, attendanceExportSummary, resolveScheduledAttendanceStatus, fetchAttendanceDay } from "../../../utils/attendanceExport";
+import { AttendancePunch, AttendanceBreaks, AttendancePunchDetails } from "../../components/AttendanceEvidence";
 import WeekOffAdminPanel from "../../components/WeekOffAdminPanel";
 import BreakAdminPanel from "../../components/BreakAdminPanel";
 import axios from "../../../utils/axiosConfig";
@@ -8,8 +9,6 @@ import CIISLoader from '../../../Loader/CIISLoader';
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 const loadXlsx = () => import('xlsx').then(module => module.default || module);
-const loadHtml2Canvas = () => import('html2canvas').then(module => module.default || module);
-const loadJsPdf = () => import('jspdf').then(module => module.default || module);
 const loadPdfModules = async () => {
   const [jsPdfModule, autoTableModule] = await Promise.all([
     import('jspdf'),
@@ -196,6 +195,7 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
     leave: leaveByDate.get(getIndiaDateKey(record.date))
   }));
   const count = (...statuses) => normalizedRecords.filter(item => statuses.includes(item.normalizedStatus)).length;
+  const weeklyOff = normalizedRecords.filter(item => item.isWeeklyOff).length;
   const present = count('PRESENT');
   const absent = count('ABSENT', 'NO RECORD');
   const uninformedLeave = count('UNINFORMED LEAVE');
@@ -237,6 +237,7 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
                 <article className="halfday"><span>Half Day</span><strong>{halfDay}</strong></article>
                 <article className="absent"><span>Uninformed Leave</span><strong>{uninformedLeave}</strong></article>
                 <article className="leave"><span>Holiday</span><strong>{holiday}</strong></article>
+                <article><span>Weekly Off</span><strong>{weeklyOff}</strong></article>
                 <article className="leave"><span>Approved Leave</span><strong>{leaveDays}</strong></article>
               </div>
               <div className="EmppAttendence-monthly-calendar-card">
@@ -253,75 +254,17 @@ const MonthlyAttendanceModal = ({ state, onClose }) => {
                 </div>
                 <div className="EmppAttendence-monthly-legend"><span className="present">Present</span><span className="absent">Absent / No record</span><span className="late">Late</span><span className="half-day">Half Day</span><span className="leave">Approved Leave</span></div>
               </div>
+              {normalizedRecords.filter(record => record.inTime || record.outTime).map(record => (
+                <details key={record._id || record.date} style={{ marginTop: 12 }}>
+                  <summary>{getIndiaDateKey(record.date)} · {record.normalizedStatus}</summary>
+                  <AttendancePunchDetails record={record} />
+                </details>
+              ))}
             </>
           )}
         </div>
       </section>
     </div>
-  );
-};
-
-const calculateDistance = (lat1, lon1, lat2 = 30.707949, lon2 = 76.6860975) => {
-  if (lat1 === undefined || lat1 === null || lon1 === undefined || lon1 === null) return null;
-  const R = 6371e3; // Earth radius in meters
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  const d = R * c; // in meters
-  return Math.round(d);
-};
-
-const hasValidLocation = (location) => {
-  const latitude = Number(location?.latitude);
-  const longitude = Number(location?.longitude);
-  return Number.isFinite(latitude) && Number.isFinite(longitude);
-};
-
-const formatLocation = (location) => {
-  if (!hasValidLocation(location)) return "";
-  return `${Number(location.latitude).toFixed(6)}, ${Number(location.longitude).toFixed(6)}`;
-};
-
-const getMapsUrl = (location) => {
-  if (!hasValidLocation(location)) return "#";
-  return `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
-};
-
-const LocationMeta = ({ location, label = "Location", compact = false }) => {
-  if (!hasValidLocation(location)) return null;
-
-  const distance = calculateDistance(location.latitude, location.longitude);
-  const accuracy = Number(location.accuracy);
-
-  return (
-    <span style={{ fontSize: compact ? '0.72rem' : '0.8rem', color: '#666', display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: compact ? '2px' : '4px', lineHeight: 1.35 }}>
-      {distance !== null && (
-        <span style={{ background: '#f1f5f9', color: '#334155', padding: '1px 6px', borderRadius: '999px', fontWeight: 600 }}>
-          {compact ? `${distance}m` : `${label} distance: ${distance}m`}
-        </span>
-      )}
-      {!compact && Number.isFinite(accuracy) && (
-        <span>
-          Accuracy: <strong>{Math.round(accuracy)}m</strong>
-        </span>
-      )}
-      <a
-        href={getMapsUrl(location)}
-        target="_blank"
-        rel="noreferrer"
-        style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}
-        title={`Coordinates: ${formatLocation(location)}`}
-      >
-        View on map
-      </a>
-    </span>
   );
 };
 
@@ -1153,7 +1096,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                   disabled={!canEditRecord || isAbsentType}
                   placeholder={isAbsentType ? "Cleared for absent status" : ""}
                 />
-                <LocationMeta location={record?.inLocation} label="Login" />
+                <AttendancePunch record={record} direction="in" />
               </div>
 
               {/* Check Out Time */}
@@ -1169,7 +1112,8 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
                   disabled={!canEditRecord || isAbsentType}
                   placeholder={isAbsentType ? "Cleared for absent status" : ""}
                 />
-                <LocationMeta location={record?.outLocation} label="Logout" />
+                <AttendancePunch record={record} direction="out" />
+                <AttendanceBreaks record={record} />
               </div>
             </div>
 
@@ -1408,30 +1352,6 @@ const QuickEditModal = ({ records, onClose, onSave }) => {
 };
 
 
-const isMongoId = (val) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
-
-const getDisplayEmployeeInfo = (user) => {
-  if (!user) return { name: "N/A", email: "-", code: "" };
-  
-  const rawCode = user.employeeId || user.empId || user.employeeCode || "";
-  const code = (rawCode && !isMongoId(rawCode)) ? String(rawCode).trim() : "";
-  
-  const name = user.name ? String(user.name).trim() : "N/A";
-  let email = "-";
-  
-  if (user.email && typeof user.email === 'string' && user.email.includes('@')) {
-    email = String(user.email).trim();
-  } else if (code) {
-    email = code;
-  }
-  
-  return {
-    name: code ? `${name} (${code})` : name,
-    email,
-    code
-  };
-};
-
 const getInitials = (name) => {
   if (!name) return 'U';
   return name
@@ -1535,24 +1455,6 @@ const getStatusExplanation = (status) => {
   if (normalizedStatus === 'leave') return 'Approved leave';
   return '';
 };
-
-const calculateHoursWorked = (inTime, outTime) => {
-  if (!inTime || !outTime) return { hours: 0, formatted: "00:00:00" };
-  
-  const start = new Date(inTime);
-  const end = new Date(outTime);
-  const diffMs = end - start;
-  const totalSeconds = Math.floor(diffMs / 1000);
-  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
-  const seconds = String(totalSeconds % 60).padStart(2, "0");
-  
-  return {
-    hours: diffMs / (1000 * 60 * 60),
-    formatted: `${hours}:${minutes}:${seconds}`
-  };
-};
-
 
 const EmployeeAttendance = () => {
   const [pageLoading, setPageLoading] = useState(true);
@@ -1957,7 +1859,9 @@ const EmployeeAttendance = () => {
           try {
             const branchRes = await axios.get(`/branches/company/${compId}`);
             companyBranchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
-          } catch (err) {}
+          } catch (err) {
+            console.warn("Unable to load company branches", err);
+          }
         }
       }
 
@@ -2146,12 +2050,13 @@ const EmployeeAttendance = () => {
         const attendanceRecord = attendanceMap[userId];
         
         if (attendanceRecord) {
-          const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
+          const hoursWorked = attendanceWorkedTime(attendanceRecord);
           const finalStatus = resolveScheduledAttendanceStatus(attendanceRecord, userId, res.data);
           
           return {
             ...attendanceRecord,
             user: {
+              ...attendanceRecord.user,
               ...user,
               id: user.id || user._id,
               _id: user.id || user._id,
@@ -2165,9 +2070,11 @@ const EmployeeAttendance = () => {
               departmentId: user.departmentId,
               jobRole: user.jobRole
             },
+            isWeeklyOff: res.data.weeklyOffUserIds?.includes(String(userId)),
+            holidayName: res.data.holidayName || attendanceRecord.holidayName,
             status: finalStatus,
             calculatedStatus: finalStatus,
-            hoursWorked: hoursWorked.formatted,
+            hoursWorked: hoursWorked.net,
             totalHours: hoursWorked.hours,
             displayDate: formatted
           };
@@ -2197,6 +2104,8 @@ const EmployeeAttendance = () => {
             earlyLeave: "00:00:00",
             overTime: "00:00:00",
             status: resolveScheduledAttendanceStatus(null, userId, res.data),
+            isWeeklyOff: res.data.weeklyOffUserIds?.includes(String(userId)),
+            holidayName: res.data.holidayName,
             calculatedStatus: resolveScheduledAttendanceStatus(null, userId, res.data),
             isClockedIn: false,
             displayDate: formatted
@@ -2233,14 +2142,14 @@ const EmployeeAttendance = () => {
     setMonthlyAttendance({ open: true, employee, records: [], leaves: [], loading: true, error: '', month, year });
     try {
       const [attendanceResponse, leaveResponse] = await Promise.all([
-        axios.get(`/attendance/user/${employeeId}`, { params: { month, year } }),
+        axios.get(`/attendance/user/${employeeId}`, { params: { month, year, includePunchDetails: true } }),
         axios.get('/leaves/all', { params: { userId: employeeId, month, year, limit: 100 } })
       ]);
       setMonthlyAttendance(current => current.open && String(current.employee?._id || current.employee?.id) === String(employeeId)
         ? {
             ...current,
             loading: false,
-            records: Array.isArray(attendanceResponse.data?.data) ? attendanceResponse.data.data : [],
+            records: Array.isArray(attendanceResponse.data?.data) ? attendanceRowsFromResponse(attendanceResponse) : [],
             leaves: Array.isArray(leaveResponse.data?.data?.leaves) ? leaveResponse.data.data.leaves : []
           }
         : current);
@@ -2302,12 +2211,13 @@ const EmployeeAttendance = () => {
           const attendanceRecord = attendanceMap[userId];
           
           if (attendanceRecord) {
-            const hoursWorked = calculateHoursWorked(attendanceRecord.inTime, attendanceRecord.outTime);
+            const hoursWorked = attendanceWorkedTime(attendanceRecord);
             const finalStatus = resolveScheduledAttendanceStatus(attendanceRecord, userId, data);
             
             return {
               ...attendanceRecord,
               user: {
+                ...attendanceRecord.user,
                 ...user,
                 id: user.id || user._id,
                 _id: user.id || user._id,
@@ -2321,9 +2231,11 @@ const EmployeeAttendance = () => {
                 departmentId: user.departmentId,
                 jobRole: user.jobRole
               },
+              isWeeklyOff: data.weeklyOffUserIds?.includes(String(userId)),
+              holidayName: data.holidayName || attendanceRecord.holidayName,
               status: finalStatus,
               calculatedStatus: finalStatus,
-              hoursWorked: hoursWorked.formatted,
+              hoursWorked: hoursWorked.net,
               totalHours: hoursWorked.hours,
               displayDate: date
             };
@@ -2353,6 +2265,8 @@ const EmployeeAttendance = () => {
               earlyLeave: "00:00:00",
               overTime: "00:00:00",
               status: resolveScheduledAttendanceStatus(null, userId, data),
+              isWeeklyOff: data.weeklyOffUserIds?.includes(String(userId)),
+              holidayName: data.holidayName,
               calculatedStatus: resolveScheduledAttendanceStatus(null, userId, data),
               isClockedIn: false,
               displayDate: date
@@ -2877,6 +2791,43 @@ const EmployeeAttendance = () => {
 
   
   const exportStats = useMemo(() => attendanceExportSummary(filteredRecords), [filteredRecords]);
+  const reportPeriod = dateRangeMode ? `${selectedStartDate} to ${selectedEndDate}` : selectedDate;
+  const reportFileName = dateRangeMode
+    ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}`
+    : `attendance_report_${selectedDate}`;
+  const reportSummary = [
+    ['Total Records', exportStats.total],
+    ['Present', exportStats.present],
+    ['Late', exportStats.late],
+    ['Half Day', exportStats.halfDay],
+    ['Absent', exportStats.absent],
+    ['Uninformed Leave', exportStats.uninformedLeave],
+    ['Holiday', exportStats.holiday],
+    ['Weekly Off', exportStats.weekend],
+    ['Approved Leave', exportStats.leave],
+    ['Overtime Records', exportStats.overtime],
+    ['On Time', exportStats.onTime],
+    [dateRangeMode ? 'Period' : 'Report Date', reportPeriod],
+    ...(dateRangeMode ? [
+      ['Total Days', dateRangeStats.totalDays],
+      ['Avg Present %', `${dateRangeStats.averagePresent}%`],
+      ['Avg Late %', `${dateRangeStats.averageLate}%`],
+      ['Avg Uninformed Leave %', `${dateRangeStats.averageUninformedLeave}%`],
+      ['Avg Holiday %', `${dateRangeStats.averageHoliday}%`],
+      ['Best Day', dateRangeStats.bestDay || 'N/A'],
+      ['Worst Day', dateRangeStats.worstDay || 'N/A'],
+    ] : []),
+  ];
+  const downloadReport = (blob, extension) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${reportFileName}.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   const exportToPDF = async () => {
     if (!filteredRecords || filteredRecords.length === 0) {
@@ -2983,6 +2934,7 @@ const EmployeeAttendance = () => {
         { label: "WEEKLY OFF", value: exportStats.weekend, fill: [241, 245, 249], border: [203, 213, 225], text: [71, 85, 105] },
         { label: "OVERTIME", value: exportStats.overtime, fill: [243, 232, 255], border: [233, 213, 255], text: [109, 40, 217] },
         { label: "HOLIDAY", value: exportStats.holiday, fill: [243, 232, 255], border: [233, 213, 255], text: [109, 40, 217] },
+        { label: "APPROVED LEAVE", value: exportStats.leave, fill: [243, 232, 255], border: [233, 213, 255], text: [109, 40, 217] },
       ];
 
       const kpiMargin = 28;
@@ -3009,50 +2961,12 @@ const EmployeeAttendance = () => {
         doc.text(kpi.label, cx + cardWidth / 2, cardY + 28, { align: "center" });
       });
 
-      // 3. Build Table Rows
-      const rows = filteredRecords.map((rec, index) => {
-        const dateStr = rec.displayDate || (rec.date ? formatDate(rec.date) : "N/A");
-        const empInfo = getDisplayEmployeeInfo(rec.user);
-        const dept = rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned";
-        const empType = rec.user?.employeeType ? rec.user.employeeType.toUpperCase() : "N/A";
-        const shift = getShiftLabel(rec);
-        const checkIn = formatTime(rec.inTime);
-        const checkOut = formatTime(rec.outTime);
-        const hours = rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00");
-        const status = attendanceExportValues(rec).status;
-        const lateBy = rec.lateBy || "00:00:00";
-        const breakLabel = formatBreakLabel(rec.breakMinutes);
-        const grossHours = rec.grossTime || "00:00:00";
-
-        return [
-          index + 1,
-          dateStr,
-          empInfo.name,
-          empInfo.email,
-          dept,
-          empType,
-          shift,
-          checkIn,
-          checkOut,
-          hours,
-          breakLabel,
-          grossHours,
-          status,
-          lateBy,
-          attendanceExportValues(rec).overtime,
-          attendanceExportValues(rec).overtimeApproval
-        ];
-      });
-
-      // 4. Render Table with autoTable
-      const tableHeaders = [
-        ["#", "Date", "Employee Name", "Email", "Department", "Type", "Shift", "Check In", "Check Out", "Hours", "Break", "Gross", "Status", "Late By", "Overtime", "OT Approval"]
-      ];
+      const { headers, rows } = attendanceReportRows(filteredRecords, axios.defaults.baseURL);
 
       const runTable = typeof autoTable === 'function' ? autoTable : doc.autoTable;
       runTable(doc, {
         startY: 126,
-        head: tableHeaders,
+        head: [headers],
         body: rows,
         theme: "grid",
         headStyles: {
@@ -3073,45 +2987,17 @@ const EmployeeAttendance = () => {
         alternateRowStyles: {
           fillColor: [248, 250, 252],
         },
-        columnStyles: {
-          0: { cellWidth: 24, halign: "center" },
-          1: { cellWidth: 58, halign: "center" },
-          2: { cellWidth: 105, halign: "left" },
-          3: { cellWidth: 110, halign: "left" },
-          4: { cellWidth: 75, halign: "left" },
-          5: { cellWidth: 54, halign: "center" },
-          6: { cellWidth: 60, halign: "center" },
-          7: { cellWidth: 50, halign: "center" },
-          8: { cellWidth: 50, halign: "center" },
-          9: { cellWidth: 50, halign: "center" },
-          10: { cellWidth: 40, halign: "center" },
-          11: { cellWidth: 50, halign: "center" },
-          12: { cellWidth: 90, halign: "center", fontStyle: "bold" },
-          13: { cellWidth: 44, halign: "center" },
-          14: { cellWidth: 65, halign: "center" },
-          15: { cellWidth: 65, halign: "center" },
-        },
-        didParseCell: (data) => {
-          // Status is column 12 now that Break and Gross sit before it.
-          if (data.section === "body" && data.column.index === 12) {
-            const rawStatus = String(data.cell.raw || "").toUpperCase();
-            if (rawStatus.includes("PRESENT") || rawStatus.includes("ON TIME")) {
-              data.cell.styles.textColor = [22, 101, 52];
-            } else if (rawStatus.includes("LATE")) {
-              data.cell.styles.textColor = [180, 83, 9];
-            } else if (rawStatus.includes("ABSENT") || rawStatus.includes("UNINFORMED")) {
-              data.cell.styles.textColor = [185, 28, 28];
-            } else if (rawStatus.includes("HALF")) {
-              data.cell.styles.textColor = [3, 105, 161];
-            } else if (rawStatus.includes("WEEKLY OFF")) {
-              data.cell.styles.textColor = [71, 85, 105];
-            } else if (rawStatus.includes("HOLIDAY")) {
-              data.cell.styles.textColor = [109, 40, 217];
-            }
-          }
+        horizontalPageBreak: true,
+        horizontalPageBreakRepeat: [0, 1, 2],
+        styles: { overflow: "linebreak" },
+        columnStyles: Object.fromEntries(headers.map((header, index) => [
+          index, { cellWidth: /Breaks|Schedule|Location|Photo|Map|Notes/.test(header) ? 160 : 85 },
+        ])),
+        didDrawCell: ({ section, column, cell }) => {
+          if (section !== "body" || !/(Map|Photo)$/.test(headers[column.index]) || !cell.raw) return;
+          doc.link(cell.x, cell.y, cell.width, cell.height, { url: cell.raw });
         },
         didDrawPage: (data) => {
-          const totalPages = doc.internal.getNumberOfPages();
           const currentPage = data.pageNumber;
           doc.setFontSize(7.5);
           doc.setTextColor(148, 163, 184);
@@ -3121,14 +3007,12 @@ const EmployeeAttendance = () => {
           doc.line(28, pageHeight - 20, pageWidth - 28, pageHeight - 20);
 
           doc.text("CIIS Network  •  Confidential Employee Attendance Report", 28, pageHeight - 10);
-          doc.text(`Page ${currentPage} of ${totalPages}`, pageWidth - 28, pageHeight - 10, { align: "right" });
+          doc.text(`Page ${currentPage}`, pageWidth - 28, pageHeight - 10, { align: "right" });
         },
         margin: { left: 28, right: 28, bottom: 26 },
       });
 
-      const fileName = dateRangeMode 
-        ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}.pdf`
-        : `attendance_report_${selectedDate}.pdf`;
+      const fileName = `${reportFileName}.pdf`;
 
       const pdfBlob = doc.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -3136,7 +3020,7 @@ const EmployeeAttendance = () => {
       if (previewTab && !previewTab.closed) {
         previewTab.location.href = pdfUrl;
       } else {
-        try { window.open(pdfUrl, "_blank"); } catch (e) {}
+        window.open(pdfUrl, "_blank");
       }
 
       doc.save(fileName);
@@ -3155,490 +3039,73 @@ const EmployeeAttendance = () => {
   };
 
   const exportToImage = async () => {
-    if (!filteredRecords || filteredRecords.length === 0) {
-      showSnackbar("No attendance records found to export", "error");
-      return;
-    }
-
+    if (!filteredRecords.length) return showSnackbar("No attendance records found to export", "error");
     setExportMenuOpen(false);
-
-    // Open tab synchronously on click to avoid browser popup blockers
-    const previewTab = typeof window !== 'undefined' ? window.open('', '_blank') : null;
-    if (previewTab) {
-      try {
-        previewTab.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Preparing Attendance Report Image...</title>
-              <style>
-                body {
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                  display: flex; align-items: center; justify-content: center;
-                  height: 100vh; margin: 0; background: #0f172a; color: #f8fafc;
-                }
-                .box { text-align: center; padding: 28px 36px; border-radius: 12px; background: #1e293b; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-                .spinner { width: 42px; height: 42px; border: 4px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
-                @keyframes spin { to { transform: rotate(360deg); } }
-                h3 { margin: 0 0 8px; font-weight: 600; font-size: 18px; color: #ffffff; }
-                p { margin: 0; font-size: 13.5px; color: #94a3b8; }
-              </style>
-            </head>
-            <body>
-              <div class="box">
-                <div class="spinner"></div>
-                <h3>Generating Attendance Report Image</h3>
-                <p>Rendering high-res format & downloading...</p>
-              </div>
-            </body>
-          </html>
-        `);
-      } catch (e) {
-        console.warn("Could not write to preview tab:", e);
-      }
-    }
-
     setLoading(true);
-    
     try {
-      const deptName = selectedDepartment === "all" ? "All Departments" : selectedDepartment;
-      const exportedAt = new Date();
-
-      const width = 2400;
-      const headerHeight = 120;
-      const kpiHeight = 90;
-      const tableHeaderHeight = 44;
-      const rowHeight = 40;
-      const footerHeight = 50;
-      const padding = 30;
-
-      const recordCount = filteredRecords.length;
-      const totalHeight = headerHeight + kpiHeight + tableHeaderHeight + (recordCount * rowHeight) + footerHeight + (padding * 2);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = totalHeight;
-      const ctx = canvas.getContext("2d");
-
-      const drawRoundRect = (x, y, w, h, r, fill, stroke) => {
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(x, y, w, h, r);
-        } else {
-          ctx.moveTo(x + r, y);
-          ctx.lineTo(x + w - r, y);
-          ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-          ctx.lineTo(x + w, y + h - r);
-          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-          ctx.lineTo(x + r, y + h);
-          ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-          ctx.lineTo(x, y + r);
-          ctx.quadraticCurveTo(x, y, x + r, y);
-        }
-        if (fill) {
-          ctx.fillStyle = fill;
-          ctx.fill();
-        }
-        if (stroke) {
-          ctx.strokeStyle = stroke;
-          ctx.stroke();
-        }
-      };
-
-      // 1. Base Background
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, totalHeight);
-
-      // 2. Header Banner
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(0, 0, width, headerHeight);
-
-      // Accent Bottom Bar
-      ctx.fillStyle = "#2563eb";
-      ctx.fillRect(0, headerHeight - 4, width, 4);
-
-      // Left Header Text
-      ctx.fillStyle = "#38bdf8";
-      ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText("CIIS NETWORK  •  HR OPERATIONS", padding, 38);
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText("EMPLOYEE ATTENDANCE REPORT", padding, 74);
-
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = "14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(`Department: ${deptName}   |   Status Filter: ${getStatusFilterLabel(statusFilter)}`, padding, 100);
-
-      // Right Header Text
-      ctx.textAlign = "right";
-      const datePeriodText = dateRangeMode
-        ? `Period: ${new Date(selectedStartDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })} - ${new Date(selectedEndDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}`
-        : `Date: ${formatExportDate(selectedDate)}`;
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(datePeriodText, width - padding, 48);
-
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = "13.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText(`Exported: ${exportedAt.toLocaleString("en-IN")}   |   Total Records: ${recordCount}`, width - padding, 78);
-      ctx.textAlign = "left";
-
-      // 3. KPI Metric Strip
-      const kpis = [
-        { label: "TOTAL RECORDS", value: exportStats.total, bg: "#f1f5f9", border: "#cbd5e1", text: "#1e293b" },
-        { label: "PRESENT", value: exportStats.present, bg: "#ecfdf5", border: "#a7f3d0", text: "#166534" },
-        { label: "LATE", value: exportStats.late, bg: "#fffbeb", border: "#fde68a", text: "#b45309" },
-        { label: "HALF DAY", value: exportStats.halfDay, bg: "#e0f2fe", border: "#bae6fd", text: "#0369a1" },
-        { label: "ABSENT", value: exportStats.absent, bg: "#fee2e2", border: "#fecaca", text: "#b91c1c" },
-        { label: "UNINFORMED", value: exportStats.uninformedLeave, bg: "#ffedd5", border: "#fed7aa", text: "#c2410c" },
-        { label: "WEEKLY OFF", value: exportStats.weekend, bg: "#f1f5f9", border: "#cbd5e1", text: "#475569" },
-        { label: "OVERTIME", value: exportStats.overtime, bg: "#f3e8ff", border: "#e9d5ff", text: "#6d28d9" },
-        { label: "HOLIDAY", value: exportStats.holiday, bg: "#f3e8ff", border: "#e9d5ff", text: "#6d28d9" },
-      ];
-
-      const kpiCardWidth = (width - (padding * 2) - ((kpis.length - 1) * 14)) / kpis.length;
-      const kpiY = headerHeight + 16;
-
-      kpis.forEach((kpi, idx) => {
-        const kx = padding + idx * (kpiCardWidth + 14);
-        drawRoundRect(kx, kpiY, kpiCardWidth, 58, 8, kpi.bg, kpi.border);
-
-        ctx.textAlign = "center";
-        ctx.fillStyle = kpi.text;
-        ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-        ctx.fillText(String(kpi.value || 0), kx + kpiCardWidth / 2, kpiY + 28);
-
-        ctx.fillStyle = "#64748b";
-        ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-        ctx.fillText(kpi.label, kx + kpiCardWidth / 2, kpiY + 46);
-        ctx.textAlign = "left";
+      const report = attendanceReportRows(filteredRecords, axios.defaults.baseURL);
+      const { svg, width, height } = attendanceReportImage({
+        ...report, title: "Employee Attendance Report", subtitle: reportPeriod, summaryRows: reportSummary,
       });
-
-      // 4. Table Header
-      const tableY = headerHeight + kpiHeight + 14;
-      drawRoundRect(padding, tableY, width - padding * 2, tableHeaderHeight, 6, "#1e293b", null);
-
-      const columns = [
-        { label: "#", width: 55, align: "center" },
-        { label: "Date", width: 140, align: "center" },
-        { label: "Employee Name", width: 260, align: "left" },
-        { label: "Email", width: 270, align: "left" },
-        { label: "Department", width: 180, align: "left" },
-        { label: "Type", width: 130, align: "center" },
-        { label: "Shift", width: 150, align: "center" },
-        { label: "Check In", width: 130, align: "center" },
-        { label: "Check Out", width: 130, align: "center" },
-        { label: "Hours", width: 120, align: "center" },
-        { label: "Status", width: 250, align: "center" },
-        { label: "Late By", width: 135, align: "center" },
-        { label: "Overtime", width: 130, align: "center" },
-        { label: "OT Approval", width: 130, align: "center" },
-      ];
-
-      const columnScale = (width - padding * 2) / columns.reduce((sum, col) => sum + col.width, 0);
-      columns.forEach(col => { col.width *= columnScale; });
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      let colX = padding;
-      columns.forEach(col => {
-        if (col.align === "center") {
-          ctx.textAlign = "center";
-          ctx.fillText(col.label, colX + col.width / 2, tableY + 27);
-        } else {
-          ctx.textAlign = "left";
-          ctx.fillText(col.label, colX + 12, tableY + 27);
+      const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      let png;
+      // Keep within browser canvas limits for large date ranges.
+      if (width <= 16384 && height <= 16384 && width * height <= 16777216) {
+        const svgUrl = URL.createObjectURL(svgBlob);
+        try {
+          const image = new Image();
+          image.src = svgUrl;
+          await image.decode();
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext("2d").drawImage(image, 0, 0);
+          png = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+        } catch (error) {
+          console.warn("Attendance PNG conversion failed", error);
+        } finally {
+          URL.revokeObjectURL(svgUrl);
         }
-        colX += col.width;
-      });
-
-      // 5. Table Rows
-      let currentY = tableY + tableHeaderHeight;
-
-      filteredRecords.forEach((rec, idx) => {
-        const empInfo = getDisplayEmployeeInfo(rec.user);
-        const rowBg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
-        ctx.fillStyle = rowBg;
-        ctx.fillRect(padding, currentY, width - padding * 2, rowHeight);
-
-        // Bottom border line
-        ctx.strokeStyle = "#e2e8f0";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(padding, currentY + rowHeight);
-        ctx.lineTo(width - padding, currentY + rowHeight);
-        ctx.stroke();
-
-        const rowData = [
-          { val: String(idx + 1), align: "center" },
-          { val: rec.displayDate || (rec.date ? formatDate(rec.date) : "N/A"), align: "center" },
-          { val: empInfo.name, align: "left", isBold: true },
-          { val: empInfo.email, align: "left" },
-          { val: rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || "Unassigned", align: "left" },
-          { val: rec.user?.employeeType ? rec.user.employeeType.toUpperCase() : "N/A", align: "center" },
-          { val: getShiftLabel(rec), align: "center" },
-          { val: formatTime(rec.inTime), align: "center" },
-          { val: formatTime(rec.outTime), align: "center" },
-          { val: rec.hoursWorked || (rec.totalHours ? `${rec.totalHours.toFixed(1)} hrs` : "00:00:00"), align: "center" },
-          { val: attendanceExportValues(rec).status, align: "center", isStatus: true },
-          { val: rec.lateBy || "00:00:00", align: "center" },
-          { val: attendanceExportValues(rec).overtime, align: "center" },
-          { val: attendanceExportValues(rec).overtimeApproval, align: "center" },
-        ];
-
-        let cellX = padding;
-        rowData.forEach((cell, cIdx) => {
-          const cWidth = columns[cIdx].width;
-
-          if (cell.isStatus) {
-            const statusLabel = String(cell.val || "N/A").toUpperCase();
-            let badgeBg = "#f1f5f9";
-            let badgeText = "#334155";
-            let badgeBorder = "#cbd5e1";
-
-            if (statusLabel.includes("PRESENT") || statusLabel.includes("ON TIME")) {
-              badgeBg = "#dcfce7"; badgeText = "#15803d"; badgeBorder = "#86efac";
-            } else if (statusLabel.includes("LATE")) {
-              badgeBg = "#fef3c7"; badgeText = "#b45309"; badgeBorder = "#fcd34d";
-            } else if (statusLabel.includes("ABSENT") || statusLabel.includes("UNINFORMED")) {
-              badgeBg = "#fee2e2"; badgeText = "#b91c1c"; badgeBorder = "#fca5a5";
-            } else if (statusLabel.includes("HALF")) {
-              badgeBg = "#e0f2fe"; badgeText = "#0369a1"; badgeBorder = "#7dd3fc";
-            } else if (statusLabel.includes("WEEKLY OFF")) {
-              badgeBg = "#e2e8f0"; badgeText = "#475569"; badgeBorder = "#cbd5e1";
-            } else if (statusLabel.includes("HOLIDAY")) {
-              badgeBg = "#f3e8ff"; badgeText = "#6d28d9"; badgeBorder = "#d8b4fe";
-            }
-
-            const pillW = cWidth - 16;
-            const pillH = 26;
-            const pillX = cellX + (cWidth - pillW) / 2;
-            const pillY = currentY + (rowHeight - pillH) / 2;
-
-            drawRoundRect(pillX, pillY, pillW, pillH, 13, badgeBg, badgeBorder);
-
-            ctx.textAlign = "center";
-            ctx.fillStyle = badgeText;
-            ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-            ctx.fillText(statusLabel, pillX + pillW / 2, pillY + 17, pillW - 10);
-          } else {
-            ctx.fillStyle = cell.isBold ? "#0f172a" : "#334155";
-            ctx.font = cell.isBold 
-              ? "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-              : "12.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-
-            if (cell.align === "center") {
-              ctx.textAlign = "center";
-              ctx.fillText(cell.val, cellX + cWidth / 2, currentY + 25);
-            } else {
-              ctx.textAlign = "left";
-              let textToDraw = cell.val;
-              const maxTextWidth = cWidth - 20;
-              if (ctx.measureText(textToDraw).width > maxTextWidth) {
-                while (textToDraw.length > 3 && ctx.measureText(textToDraw + '...').width > maxTextWidth) {
-                  textToDraw = textToDraw.slice(0, -1);
-                }
-                textToDraw += '...';
-              }
-              ctx.fillText(textToDraw, cellX + 12, currentY + 25);
-            }
-          }
-
-          cellX += cWidth;
-        });
-
-        currentY += rowHeight;
-      });
-
-      // 6. Footer
-      currentY += 10;
-      drawRoundRect(padding, currentY, width - padding * 2, footerHeight, 6, "#0f172a", null);
-
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = "13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText("CIIS Network  •  Confidential Employee Attendance Report  •  HR Operations", padding + 16, currentY + 31);
-
-      ctx.textAlign = "right";
-      ctx.fillText(`Total Records: ${recordCount}   |   Generated: ${exportedAt.toLocaleString("en-IN")}`, width - padding - 16, currentY + 31);
-
-      // 7. Convert to Blob, Open in Tab & Download
-      const fileName = dateRangeMode 
-        ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}.png`
-        : `attendance_report_${selectedDate}.png`;
-
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          throw new Error("Failed to generate image blob");
-        }
-        const imageUrl = URL.createObjectURL(blob);
-
-        if (previewTab && !previewTab.closed) {
-          previewTab.location.href = imageUrl;
-        } else {
-          try { window.open(imageUrl, "_blank"); } catch (e) {}
-        }
-
-        const link = document.createElement("a");
-        link.download = fileName;
-        link.href = imageUrl;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(imageUrl), 60000);
-
-        showSnackbar("Attendance Image exported & opened successfully!", "success");
-        setLoading(false);
-      }, "image/png");
-
-    } catch (error) {
-      console.error("Error exporting to image:", error);
-      if (previewTab && !previewTab.closed) {
-        previewTab.close();
       }
-      showSnackbar("Error exporting image", "error");
+      downloadReport(png || svgBlob, png ? "png" : "svg");
+      showSnackbar("Attendance image exported successfully!", "success");
+    } catch (error) {
+      console.error("Attendance image export failed", error);
+      showSnackbar("Failed to export attendance image", "error");
+    } finally {
       setLoading(false);
     }
   };
 
   const exportToExcel = async () => {
-    const XLSX = await loadXlsx();
+    if (!filteredRecords.length) return showSnackbar("No attendance records found to export", "error");
     setExportMenuOpen(false);
-    
-    const excelData = filteredRecords.map(record => ({
-      'Date': record.displayDate || formatDate(record.date),
-      'Department': record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || 'Unassigned',
-      'Employee ID': record.user?.id || record.user?._id || 'N/A',
-      'Name': record.user?.name || 'N/A',
-      'Email': record.user?.email || 'N/A',
-      'Employee Type': record.user?.employeeType?.toUpperCase() || 'N/A',
-      'Check In': formatTime(record.inTime),
-      'Check Out': formatTime(record.outTime),
-      'Check Out Type': getClockOutModeLabel(record),
-      'Hours Worked': record.hoursWorked || '00:00:00',
-      'Break': formatBreakLabel(record.breakMinutes),
-      'Gross Hours': record.grossTime || '00:00:00',
-      'Status': attendanceExportValues(record).status,
-      'Late By': record.lateBy || '00:00:00',
-      'Early Leave': record.earlyLeave || '00:00:00',
-      'Overtime': attendanceExportValues(record).overtime,
-      'OT Approval': attendanceExportValues(record).overtimeApproval,
-      'Total Hours': record.totalHours?.toFixed(2) || '0.00'
-    }));
-
-    const summaryRows = [
-      {},
-      { 'Date': 'SUMMARY REPORT' },
-      { 'Date': 'Total Records', 'Name': exportStats.total },
-      { 'Date': 'Present', 'Name': exportStats.present },
-      { 'Date': 'Late', 'Name': exportStats.late },
-      { 'Date': 'Half Day', 'Name': exportStats.halfDay },
-      { 'Date': 'Absent', 'Name': exportStats.absent },
-      { 'Date': 'Uninformed Leave', 'Name': exportStats.uninformedLeave },
-      { 'Date': 'Holiday', 'Name': exportStats.holiday },
-      { 'Date': 'Weekly Off', 'Name': exportStats.weekend },
-      { 'Date': 'Overtime Records', 'Name': exportStats.overtime },
-      { 'Date': 'On Time', 'Name': exportStats.onTime },
-      { 'Date': dateRangeMode ? 'Period' : 'Report Date', 'Name': dateRangeMode 
-        ? `${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
-        : formatExportDate(selectedDate) }
-    ];
-
-    if (dateRangeMode) {
-      summaryRows.push(
-        { 'Date': 'Total Days', 'Name': dateRangeStats.totalDays },
-        { 'Date': 'Avg Present %', 'Name': `${dateRangeStats.averagePresent}%` },
-        { 'Date': 'Avg Late %', 'Name': `${dateRangeStats.averageLate}%` },
-        { 'Date': 'Avg Uninformed Leave %', 'Name': `${dateRangeStats.averageUninformedLeave}%` },
-        { 'Date': 'Avg Holiday %', 'Name': `${dateRangeStats.averageHoliday}%` },
-        { 'Date': 'Best Day', 'Name': dateRangeStats.bestDay ? new Date(dateRangeStats.bestDay).toLocaleDateString() : 'N/A' },
-        { 'Date': 'Worst Day', 'Name': dateRangeStats.worstDay ? new Date(dateRangeStats.worstDay).toLocaleDateString() : 'N/A' }
-      );
+    try {
+      const XLSX = await loadXlsx();
+      const data = filteredRecords.map(record => attendanceReportFields(record, axios.defaults.baseURL));
+      const summary = reportSummary.map(([Date, Name]) => ({ Date, Name }));
+      const headers = Object.keys(data[0]);
+      const worksheet = XLSX.utils.json_to_sheet([...data, {}, { Date: "SUMMARY REPORT" }, ...summary], { header: headers });
+      formatAttendanceWorksheet(worksheet, headers, data.length, XLSX.utils.encode_cell);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+      XLSX.writeFile(workbook, `${reportFileName}.xlsx`);
+      showSnackbar("Excel file exported successfully!", "success");
+    } catch (error) {
+      console.error("Attendance Excel export failed", error);
+      showSnackbar("Failed to export attendance Excel", "error");
     }
-
-    const allData = [...excelData, ...summaryRows];
-    
-    const worksheet = XLSX.utils.json_to_sheet(allData, {
-      header: ['Date', 'Department', 'Employee ID', 'Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-               'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime', 'OT Approval', 'Total Hours']
-    });
-    
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
-    
-    XLSX.writeFile(workbook, dateRangeMode 
-      ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}.xlsx`
-      : `attendance_report_${selectedDate}.xlsx`
-    );
-    showSnackbar("Excel file exported successfully!", "success");
   };
 
   const exportToCSV = () => {
+    if (!filteredRecords.length) return showSnackbar("No attendance records found to export", "error");
     setExportMenuOpen(false);
-    
-    const headers = ['Date', 'Department', 'Employee Name', 'Email', 'Employee Type', 'Check In', 'Check Out', 'Check Out Type',
-                     'Hours Worked', 'Break', 'Gross Hours', 'Status', 'Late By', 'Early Leave', 'Overtime', 'OT Approval'];
-    
-    const csvData = filteredRecords.map(record => [
-      record.displayDate || formatDate(record.date),
-      record.user?.departmentName || (typeof record.user?.department === 'object' ? record.user?.department?.name : record.user?.department) || 'Unassigned',
-      record.user?.name || 'N/A',
-      record.user?.email || 'N/A',
-      record.user?.employeeType?.toUpperCase() || 'N/A',
-      formatTime(record.inTime),
-      formatTime(record.outTime),
-      getClockOutModeLabel(record),
-      record.hoursWorked || '00:00:00',
-      formatBreakLabel(record.breakMinutes),
-      record.grossTime || '00:00:00',
-      attendanceExportValues(record).status,
-      record.lateBy || '00:00:00',
-      record.earlyLeave || '00:00:00',
-      attendanceExportValues(record).overtime,
-      attendanceExportValues(record).overtimeApproval
-    ]);
-    
-    csvData.push([]);
-    csvData.push(['SUMMARY REPORT']);
-    csvData.push(['Total Records', exportStats.total]);
-    csvData.push(['Present', exportStats.present]);
-    csvData.push(['Late', exportStats.late]);
-    csvData.push(['Half Day', exportStats.halfDay]);
-    csvData.push(['Absent', exportStats.absent]);
-    csvData.push(['Uninformed Leave', exportStats.uninformedLeave]);
-    csvData.push(['Holiday', exportStats.holiday]);
-    csvData.push(['Weekly Off', exportStats.weekend]);
-    csvData.push(['Overtime Records', exportStats.overtime]);
-    csvData.push(['On Time', exportStats.onTime]);
-    csvData.push([dateRangeMode ? 'Period' : 'Report Date', dateRangeMode 
-      ? `${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
-      : formatExportDate(selectedDate)]);
-    
-    if (dateRangeMode) {
-      csvData.push(['Total Days', dateRangeStats.totalDays]);
-      csvData.push(['Avg Present %', `${dateRangeStats.averagePresent}%`]);
-      csvData.push(['Avg Late %', `${dateRangeStats.averageLate}%`]);
-      csvData.push(['Avg Uninformed Leave %', `${dateRangeStats.averageUninformedLeave}%`]);
-      csvData.push(['Avg Holiday %', `${dateRangeStats.averageHoliday}%`]);
-      csvData.push(['Best Day', dateRangeStats.bestDay ? new Date(dateRangeStats.bestDay).toLocaleDateString() : 'N/A']);
-      csvData.push(['Worst Day', dateRangeStats.worstDay ? new Date(dateRangeStats.worstDay).toLocaleDateString() : 'N/A']);
-    }
-    
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', dateRangeMode 
-      ? `attendance_report_${selectedStartDate}_to_${selectedEndDate}.csv`
-      : `attendance_report_${selectedDate}.csv`
-    );
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const { headers, rows } = attendanceReportRows(filteredRecords, axios.defaults.baseURL);
+    const content = [
+      headers.join(","),
+      ...[...rows, [], ["SUMMARY REPORT"], ...reportSummary].map(row => row.map(attendanceCsvCell).join(",")),
+    ].join("\r\n");
+    downloadReport(new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }), "csv");
   };
 
   const normalizeRole = (role) => {
@@ -4260,6 +3727,12 @@ const EmployeeAttendance = () => {
                                 </div>
                               </div>
                             </div>
+                            {(rec.inTime || rec.outTime) && (
+                              <details className="EmppAttendence-mobile-punch-details">
+                                <summary>Punch details</summary>
+                                <AttendancePunchDetails record={rec} />
+                              </details>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-department">
@@ -4295,7 +3768,7 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
-                            <LocationMeta location={rec.inLocation} label="Login" compact />
+                            <AttendancePunch record={rec} direction="in" />
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
@@ -4307,7 +3780,7 @@ const EmployeeAttendance = () => {
                                 {getClockOutModeLabel(rec)}
                               </div>
                             )}
-                            <LocationMeta location={rec.outLocation} label="Logout" compact />
+                            <AttendancePunch record={rec} direction="out" />
                           </td>
 
                           <td className="EmppAttendence-col-hours">
@@ -4334,6 +3807,7 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-break" title={rec.grossTime && rec.grossTime !== '00:00:00' ? `Gross ${rec.grossTime}` : undefined}>
                             {formatBreakLabel(rec.breakMinutes)}
+                            <AttendanceBreaks record={rec} />
                           </td>
 
                           <td className="EmppAttendence-col-login">
@@ -4452,6 +3926,12 @@ const EmployeeAttendance = () => {
                                 </div>
                               </div>
                             </div>
+                            {(rec.inTime || rec.outTime) && (
+                              <details className="EmppAttendence-mobile-punch-details">
+                                <summary>Punch details</summary>
+                                <AttendancePunchDetails record={rec} />
+                              </details>
+                            )}
                           </td>
 
                           <td className="EmppAttendence-col-department">
@@ -4485,7 +3965,7 @@ const EmployeeAttendance = () => {
                             <div style={{ fontWeight: 500 }}>
                               {formatTime(rec.inTime)}
                             </div>
-                            <LocationMeta location={rec.inLocation} label="Login" compact />
+                            <AttendancePunch record={rec} direction="in" />
                           </td>
 
                           <td className="EmppAttendence-col-checkout">
@@ -4497,7 +3977,7 @@ const EmployeeAttendance = () => {
                                 {getClockOutModeLabel(rec)}
                               </div>
                             )}
-                            <LocationMeta location={rec.outLocation} label="Logout" compact />
+                            <AttendancePunch record={rec} direction="out" />
                           </td>
 
                           <td className="EmppAttendence-col-hours">
@@ -4524,6 +4004,7 @@ const EmployeeAttendance = () => {
 
                           <td className="EmppAttendence-col-break" title={rec.grossTime && rec.grossTime !== '00:00:00' ? `Gross ${rec.grossTime}` : undefined}>
                             {formatBreakLabel(rec.breakMinutes)}
+                            <AttendanceBreaks record={rec} />
                           </td>
 
                           <td className="EmppAttendence-col-login">

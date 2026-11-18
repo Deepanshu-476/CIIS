@@ -1,3 +1,4 @@
+import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../utils/taskStatusAccess';
 import React, { useEffect, useState, useRef } from 'react';
 import axios from '../../utils/axiosConfig';
 import { API_URL_IMG } from '../../config';
@@ -869,7 +870,7 @@ const MyTaskManagement = () => {
       assignedUserId === userId || assignedUserId._id === userId
     );
     
-    return isTaskCreator || isAssignedUser;
+    return !hasOverdueStatus(task, getUserStatusForTask(task, userId)) && (isTaskCreator || isAssignedUser);
   };
 
   const renderActionButtons = (task) => {
@@ -943,7 +944,7 @@ const MyTaskManagement = () => {
           }
         }}
         disabled={!canChangeStatus}
-        title={canChangeStatus ? '' : 'You are not authorized to update status for this task'}
+        title={hasOverdueStatus(task, getUserStatusForTask(task, userId)) ? OVERDUE_STATUS_MESSAGE : canChangeStatus ? '' : 'You are not authorized to update status for this task'}
       >
         <option value="pending">Pending</option>
         <option value="in-progress">In Progress</option>

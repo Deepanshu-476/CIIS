@@ -17,6 +17,8 @@ import {
   Save,
   Activity,
   Layers,
+  Coins,
+  PlusCircle,
 } from 'lucide-react';
 import './CompanyAiSettings.css';
 
@@ -35,6 +37,10 @@ export default function CompanyAiSettings() {
   const [maskedKey, setMaskedKey] = useState(null);
   const [defaultTokens, setDefaultTokens] = useState(10000);
   const [defaultCalls, setDefaultCalls] = useState(30);
+  const [companyPlanTokens, setCompanyPlanTokens] = useState(25000);
+  const [companyExtraTokens, setCompanyExtraTokens] = useState(0);
+  const [companyCallsLimit, setCompanyCallsLimit] = useState(35);
+  const [companySttLimit, setCompanySttLimit] = useState(100);
   const [todayUsage, setTodayUsage] = useState({ totalTokens: 0, totalCalls: 0, activeUsersCount: 0 });
 
   // Employees state
@@ -78,6 +84,10 @@ export default function CompanyAiSettings() {
         setMaskedKey(d.maskedKey);
         setDefaultTokens(d.byokDefaultEmployeeDailyTokens ?? 10000);
         setDefaultCalls(d.byokDefaultEmployeeDailyCalls ?? 30);
+        setCompanyPlanTokens(d.companyDailyTokenLimit ?? d.platformPlanTokenLimit ?? 25000);
+        setCompanyExtraTokens(Number(d.companyExtraTokens || 0));
+        setCompanyCallsLimit(d.companyDailyCallLimit ?? 35);
+        setCompanySttLimit(d.companyDailySttLimit ?? 100);
         setTodayUsage(d.todayUsage || { totalTokens: 0, totalCalls: 0, activeUsersCount: 0 });
       }
     } catch (err) {
@@ -249,11 +259,35 @@ export default function CompanyAiSettings() {
 
         <div className="company-ai-stat-card">
           <div className="company-ai-stat-icon emerald">
-            <Activity size={22} />
+            <ShieldCheck size={22} />
           </div>
           <div className="company-ai-stat-info">
-            <h3>{todayUsage.totalCalls || 0}</h3>
-            <p>AI Requests Today</p>
+            <h3>
+              {aiApiKeySource === 'client' ? 'BYOK Mode' : companyPlanTokens.toLocaleString()}
+            </h3>
+            <p>{aiApiKeySource === 'client' ? 'Use Your Own API Key' : 'Company Daily Quota'}</p>
+          </div>
+        </div>
+
+        <div className="company-ai-stat-card">
+          <div className="company-ai-stat-icon indigo">
+            <Coins size={22} />
+          </div>
+          <div className="company-ai-stat-info">
+            <h3 style={{ color: companyExtraTokens > 0 ? '#4f46e5' : '#0f172a' }}>
+              {companyExtraTokens > 0 ? `+${companyExtraTokens.toLocaleString()}` : '0'}
+            </h3>
+            <p>Extra Top-Up Tokens</p>
+          </div>
+        </div>
+
+        <div className="company-ai-stat-card">
+          <div className="company-ai-stat-icon purple">
+            <Sliders size={22} />
+          </div>
+          <div className="company-ai-stat-info">
+            <h3>{defaultTokens.toLocaleString()}</h3>
+            <p>Per-Employee Daily Limit</p>
           </div>
         </div>
 
@@ -266,17 +300,59 @@ export default function CompanyAiSettings() {
             <p>Active Employees Today</p>
           </div>
         </div>
+      </div>
 
-        <div className="company-ai-stat-card">
-          <div className="company-ai-stat-icon purple">
-            <Sliders size={22} />
+      {/* Company Plan Usage Progress Bar (Platform Managed AI) */}
+      {aiApiKeySource !== 'client' && (
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '28px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>
+                Company Daily Plan Usage Today
+              </span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: ((todayUsage.totalTokens || 0) / (companyPlanTokens || 1)) >= 1 ? '#dc2626' : '#059669',
+                background: ((todayUsage.totalTokens || 0) / (companyPlanTokens || 1)) >= 1 ? '#fef2f2' : '#ecfdf5',
+                padding: '2px 8px',
+                borderRadius: '6px'
+              }}>
+                {((todayUsage.totalTokens || 0) / (companyPlanTokens || 1)) >= 1 ? 'Daily Quota Exhausted' : 'Quota Active'}
+              </span>
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+              <strong>{(todayUsage.totalTokens || 0).toLocaleString()}</strong> / {companyPlanTokens.toLocaleString()} tokens
+              <span style={{ color: '#64748b', fontWeight: 500, marginLeft: '6px' }}>
+                ({companyPlanTokens > 0 ? Math.min(100, Math.round(((todayUsage.totalTokens || 0) / companyPlanTokens) * 100)) : 0}%)
+              </span>
+              {companyExtraTokens > 0 && (
+                <span style={{ marginLeft: '12px', color: '#4f46e5', fontWeight: 600 }}>
+                  • +{companyExtraTokens.toLocaleString()} extra top-up in reserve
+                </span>
+              )}
+            </div>
           </div>
-          <div className="company-ai-stat-info">
-            <h3>{defaultTokens.toLocaleString()}</h3>
-            <p>Default Daily Token Quota</p>
+          <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                borderRadius: '4px',
+                width: `${companyPlanTokens > 0 ? Math.min(100, ((todayUsage.totalTokens || 0) / companyPlanTokens) * 100) : 0}%`,
+                background: ((todayUsage.totalTokens || 0) / (companyPlanTokens || 1)) >= 1 ? '#ef4444' : 'linear-gradient(90deg, #3b82f6 0%, #10b981 100%)',
+                transition: 'width 0.4s ease'
+              }}
+            />
           </div>
         </div>
-      </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="company-ai-tabs">
@@ -328,6 +404,13 @@ export default function CompanyAiSettings() {
                 <strong>Own Groq API Key (BYOK)</strong> (Use Your Own API Key)
               </label>
             </div>
+
+            {aiApiKeySource === 'platform' && (
+              <div style={{ marginTop: '12px', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', color: '#475569' }}>
+                💡 <strong>Current Platform Subscription:</strong> Your company has <strong>{companyPlanTokens.toLocaleString()} tokens/day</strong>
+                {companyExtraTokens > 0 ? ` + ${companyExtraTokens.toLocaleString()} extra top-up tokens` : ''} ({companyCallsLimit} requests/day & {companySttLimit} voice notes/day).
+              </div>
+            )}
           </div>
 
           <div className="company-ai-input-group">

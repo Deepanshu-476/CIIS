@@ -402,3 +402,88 @@
   color: #64748b;
 }
 
+/* Bulk Actions Bar */
+.company-ai-bulk-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.company-ai-bulk-counter {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e40af;
+  background: #dbeafe;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.company-ai-btn-bulk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.company-ai-btn-bulk:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.company-ai-btn-bulk-enable {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.company-ai-btn-bulk-enable:hover:not(:disabled) {
+  background: #059669;
+}
+
+.company-ai-btn-bulk-disable {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.company-ai-btn-bulk-disable:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.company-ai-btn-bulk-quota {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.company-ai-btn-bulk-quota:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.company-ai-btn-bulk-clear {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.company-ai-btn-bulk-clear:hover {
+  background: #ffffff;
+  color: #334155;
+}
+
+

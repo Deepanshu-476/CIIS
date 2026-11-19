@@ -25,6 +25,8 @@ import {
   TrendingUp,
   Award,
   Filter,
+  Check,
+  X,
 } from 'lucide-react';
 import './CompanyAiSettings.css';
 
@@ -55,6 +57,10 @@ export default function CompanyAiSettings() {
   const [employees, setEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkQuotaInput, setBulkQuotaInput] = useState('');
   const [savingUserId, setSavingUserId] = useState(null);
 
   // History tab state
@@ -270,7 +276,16 @@ export default function CompanyAiSettings() {
 
   const departments = useMemo(() => {
     const set = new Set(employees.map(e => e.department).filter(Boolean));
-    return ['ALL', ...Array.from(set)];
+    return ['ALL', ...Array.from(set).sort()];
+  }, [employees]);
+
+  const roles = useMemo(() => {
+    const set = new Set(
+      employees
+        .map(e => e.jobRole || e.companyRole)
+        .filter(Boolean)
+    );
+    return ['ALL', ...Array.from(set).sort()];
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
@@ -280,11 +295,57 @@ export default function CompanyAiSettings() {
         !q ||
         emp.name?.toLowerCase().includes(q) ||
         emp.email?.toLowerCase().includes(q) ||
-        emp.jobRole?.toLowerCase().includes(q);
+        emp.jobRole?.toLowerCase().includes(q) ||
+        emp.companyRole?.toLowerCase().includes(q);
       const matchesDept = departmentFilter === 'ALL' || emp.department === departmentFilter;
-      return matchesSearch && matchesDept;
+      const empRole = emp.jobRole || emp.companyRole;
+      const matchesRole = roleFilter === 'ALL' || empRole === roleFilter;
+      return matchesSearch && matchesDept && matchesRole;
     });
-  }, [employees, searchQuery, departmentFilter]);
+  }, [employees, searchQuery, departmentFilter, roleFilter]);
+
+  const selectableEmployees = useMemo(
+    () => filteredEmployees.filter(e => !e.isOwnerAdmin),
+    [filteredEmployees]
+  );
+
+  const isAllSelected =
+    selectableEmployees.length > 0 &&
+    selectableEmployees.every(e => selectedIds.includes(e._id));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(selectableEmployees.map(e => e._id));
+    }
+  };
+
+  const toggleSelectOne = (empId) => {
+    setSelectedIds(prev =>
+      prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
+    );
+  };
+
+  const handleBulkUpdate = async (updates, label = 'Updated') => {
+    if (selectedIds.length === 0) return;
+    try {
+      setBulkLoading(true);
+      const res = await axios.put(
+        `/company/${companyId}/ai-settings/employees/bulk`,
+        { userIds: selectedIds, updates }
+      );
+      if (res.data?.success) {
+        showNotice('success', res.data.message || `${label} ${selectedIds.length} employees`);
+        setSelectedIds([]);
+        fetchEmployees();
+      }
+    } catch (err) {
+      showNotice('error', err.response?.data?.message || 'Failed to bulk update');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -658,7 +719,7 @@ export default function CompanyAiSettings() {
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', width: '220px' }}>
                 <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                 <input
@@ -683,13 +744,94 @@ export default function CompanyAiSettings() {
                   </option>
                 ))}
               </select>
+
+              <select
+                className="company-ai-input"
+                style={{ width: '160px', fontSize: '13px' }}
+                value={roleFilter}
+                onChange={e => setRoleFilter(e.target.value)}
+              >
+                {roles.map(role => (
+                  <option key={role} value={role}>
+                    {role === 'ALL' ? 'All Roles' : role}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedIds.length > 0 && (
+            <div className="company-ai-bulk-actions-bar">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span className="company-ai-bulk-counter">
+                  {selectedIds.length} {selectedIds.length === 1 ? 'employee' : 'employees'} selected
+                </span>
+                <button
+                  type="button"
+                  className="company-ai-btn-bulk company-ai-btn-bulk-enable"
+                  disabled={bulkLoading}
+                  onClick={() => handleBulkUpdate({ enabled: true }, 'Enabled AI Access for')}
+                >
+                  <Check size={14} /> Enable AI Access
+                </button>
+                <button
+                  type="button"
+                  className="company-ai-btn-bulk company-ai-btn-bulk-disable"
+                  disabled={bulkLoading}
+                  onClick={() => handleBulkUpdate({ enabled: false }, 'Disabled AI Access for')}
+                >
+                  <X size={14} /> Disable AI Access
+                </button>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="1000"
+                    placeholder="e.g. 15000"
+                    className="company-ai-input"
+                    style={{ width: '110px', padding: '5px 8px', fontSize: '12px' }}
+                    value={bulkQuotaInput}
+                    onChange={e => setBulkQuotaInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="company-ai-btn-bulk company-ai-btn-bulk-quota"
+                    disabled={bulkLoading || !bulkQuotaInput}
+                    onClick={() => {
+                      const val = Number(bulkQuotaInput);
+                      if (val > 0) {
+                        handleBulkUpdate({ customDailyTokenLimit: val }, `Set ${val.toLocaleString()} tokens for`);
+                        setBulkQuotaInput('');
+                      }
+                    }}
+                  >
+                    Set Quota
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="company-ai-btn-bulk-clear"
+                onClick={() => setSelectedIds([])}
+              >
+                Clear Selection
+              </button>
+            </div>
+          )}
 
           <div className="company-ai-table-container">
             <table className="company-ai-table">
               <thead>
                 <tr>
+                  <th style={{ width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      aria-label="Select all employees"
+                      checked={isAllSelected}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th>Employee</th>
                   <th>Department & Role</th>
                   <th>AI Access</th>
@@ -702,20 +844,33 @@ export default function CompanyAiSettings() {
               <tbody>
                 {filteredEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
                       No employees found matching the filters.
                     </td>
                   </tr>
                 ) : (
                   filteredEmployees.map(emp => {
                     const isSaving = savingUserId === emp._id;
+                    const isSelected = selectedIds.includes(emp._id);
                     const usedTokens = emp.todayUsage?.tokensUsed || 0;
                     const limitVal = emp.effectiveTokenLimit === 'Unlimited' ? Infinity : Number(emp.effectiveTokenLimit || defaultTokens);
                     const percent = limitVal !== Infinity && limitVal > 0 ? Math.min(100, Math.round((usedTokens / limitVal) * 100)) : 0;
                     const isOver = percent >= 100;
 
                     return (
-                      <tr key={emp._id}>
+                      <tr key={emp._id} style={{ background: isSelected ? '#f0f7ff' : undefined }}>
+                        <td style={{ textAlign: 'center' }}>
+                          {emp.isOwnerAdmin ? (
+                            <span title="Owner / Admin (Permanent Access)" style={{ color: '#94a3b8', fontSize: '11px' }}>—</span>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${emp.name}`}
+                              checked={isSelected}
+                              onChange={() => toggleSelectOne(emp._id)}
+                            />
+                          )}
+                        </td>
                         <td>
                           <div style={{ fontWeight: 600, color: '#0f172a' }}>{emp.name}</div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>{emp.email}</div>

@@ -19,11 +19,17 @@ import {
   Layers,
   Coins,
   PlusCircle,
+  History,
+  Calendar,
+  Download,
+  TrendingUp,
+  Award,
+  Filter,
 } from 'lucide-react';
 import './CompanyAiSettings.css';
 
 export default function CompanyAiSettings() {
-  const [activeTab, setActiveTab] = useState('key'); // 'key' or 'employees'
+  const [activeTab, setActiveTab] = useState('key'); // 'key', 'employees', or 'history'
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState(false);
   const [testingKey, setTestingKey] = useState(false);
@@ -50,6 +56,17 @@ export default function CompanyAiSettings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [savingUserId, setSavingUserId] = useState(null);
+
+  // History tab state
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyData, setHistoryData] = useState(null);
+  const [historyDateRange, setHistoryDateRange] = useState('7d'); // 'today' | '7d' | '30d' | 'month' | 'custom'
+  const [historyStartDate, setHistoryStartDate] = useState('');
+  const [historyEndDate, setHistoryEndDate] = useState('');
+  const [historyKeySource, setHistoryKeySource] = useState('all'); // 'all' | 'platform' | 'client'
+  const [historyDeptFilter, setHistoryDeptFilter] = useState('ALL');
+  const [historySearch, setHistorySearch] = useState('');
+  const [historySubView, setHistorySubView] = useState('daily'); // 'daily' or 'leaderboard'
 
   // Retrieve current company ID
   const companyId = useMemo(() => {
@@ -118,6 +135,76 @@ export default function CompanyAiSettings() {
     fetchSettings();
     fetchEmployees();
   }, [fetchSettings, fetchEmployees]);
+
+  const getCalculatedDateRange = useCallback((rangeKey) => {
+    const today = new Date();
+    const end = today.toISOString().split('T')[0];
+    let start = end;
+
+    if (rangeKey === 'today') {
+      start = end;
+    } else if (rangeKey === '7d') {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 7);
+      start = d.toISOString().split('T')[0];
+    } else if (rangeKey === '30d') {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 30);
+      start = d.toISOString().split('T')[0];
+    } else if (rangeKey === 'month') {
+      const d = new Date(today.getFullYear(), today.getMonth(), 1);
+      start = d.toISOString().split('T')[0];
+    }
+    return { start, end };
+  }, []);
+
+  const fetchHistory = useCallback(async (start, end, keySource, dept, search) => {
+    if (!companyId) return;
+    setHistoryLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (start) params.set('startDate', start);
+      if (end) params.set('endDate', end);
+      if (keySource && keySource !== 'all') params.set('keySource', keySource);
+      if (dept && dept !== 'ALL') params.set('department', dept);
+      if (search && search.trim()) params.set('search', search.trim());
+
+      const res = await axios.get(`/company/${companyId}/ai-settings/history?${params.toString()}`);
+      if (res.data?.success) {
+        setHistoryData(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load AI usage history', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [companyId]);
+
+  const handleExportCsv = () => {
+    if (!historyData) return;
+    const { dailyBreakdown, employeeLeaderboard } = historyData;
+
+    let csv = "=== DAILY AI TOKEN CONSUMPTION ===\r\n";
+    csv += "Date,Platform Tokens,BYOK Tokens,Total Tokens,AI Requests,Active Employees\r\n";
+    (dailyBreakdown || []).forEach(row => {
+      csv += `"${row.date}",${row.platformTokens || 0},${row.byokTokens || 0},${row.totalTokens || 0},${row.calls || 0},${row.activeUsersCount || 0}\r\n`;
+    });
+
+    csv += "\r\n=== EMPLOYEE CONSUMPTION LEADERBOARD ===\r\n";
+    csv += "Rank,Employee Name,Email,Department,Job Role,Platform Tokens,BYOK Tokens,Total Tokens,AI Requests,Percent of Total\r\n";
+    (employeeLeaderboard || []).forEach(emp => {
+      csv += `${emp.rank},"${emp.name}","${emp.email}","${emp.department}","${emp.jobRole}",${emp.platformTokens || 0},${emp.byokTokens || 0},${emp.totalTokens || 0},${emp.calls || 0},"${emp.percentOfTotal}%"\r\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `CIIS_AI_Token_History_${historyStartDate || 'from'}_to_${historyEndDate || 'to'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleTestKey = async () => {
     if (!customApiKey && !hasCustomApiKey) {
@@ -383,6 +470,21 @@ export default function CompanyAiSettings() {
           onClick={() => setActiveTab('employees')}
         >
           <Users size={16} /> Employee Token Allocation ({employees.length})
+        </button>
+        <button
+          type="button"
+          className={`company-ai-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('history');
+            if (!historyData) {
+              const { start, end } = getCalculatedDateRange('7d');
+              setHistoryStartDate(start);
+              setHistoryEndDate(end);
+              fetchHistory(start, end, historyKeySource, historyDeptFilter, historySearch);
+            }
+          }}
+        >
+          <History size={16} /> Token Usage & History
         </button>
       </div>
 
@@ -710,6 +812,402 @@ export default function CompanyAiSettings() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* TAB 3: Token Usage & History */}
+      {activeTab === 'history' && (
+        <div className="company-ai-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h2 className="company-ai-card-title" style={{ margin: 0 }}>
+                <History size={20} color="#2563eb" /> AI Token Consumption & Usage History
+              </h2>
+              <span style={{ fontSize: '13px', color: '#64748b' }}>
+                Historical audit trail of token consumption, employee activity, and Platform vs BYOK differentiation.
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="company-ai-export-btn"
+                onClick={handleExportCsv}
+                disabled={!historyData || historyLoading}
+              >
+                <Download size={15} /> Export CSV
+              </button>
+
+              <button
+                type="button"
+                className="company-ai-btn-secondary"
+                style={{ padding: '8px 14px', fontSize: '13px' }}
+                onClick={() => fetchHistory(historyStartDate, historyEndDate, historyKeySource, historyDeptFilter, historySearch)}
+                disabled={historyLoading}
+              >
+                <RefreshCw size={14} className={historyLoading ? 'animate-spin' : ''} /> Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Filters Bar */}
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+              {/* Quick Date Chips */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Calendar size={14} /> Timeframe:
+                </span>
+                <div className="company-ai-chip-group">
+                  {[
+                    { key: 'today', label: 'Today' },
+                    { key: '7d', label: 'Last 7 Days' },
+                    { key: '30d', label: 'Last 30 Days' },
+                    { key: 'month', label: 'This Month' },
+                    { key: 'custom', label: 'Custom Range' },
+                  ].map(chip => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      className={`company-ai-chip ${historyDateRange === chip.key ? 'active' : ''}`}
+                      onClick={() => {
+                        setHistoryDateRange(chip.key);
+                        if (chip.key !== 'custom') {
+                          const { start, end } = getCalculatedDateRange(chip.key);
+                          setHistoryStartDate(start);
+                          setHistoryEndDate(end);
+                          fetchHistory(start, end, historyKeySource, historyDeptFilter, historySearch);
+                        }
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Key Source Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Filter size={14} /> Key Source:
+                </span>
+                <select
+                  className="company-ai-input"
+                  style={{ width: '200px', padding: '6px 10px', fontSize: '13px' }}
+                  value={historyKeySource}
+                  onChange={e => {
+                    setHistoryKeySource(e.target.value);
+                    fetchHistory(historyStartDate, historyEndDate, e.target.value, historyDeptFilter, historySearch);
+                  }}
+                >
+                  <option value="all">All Sources (Platform + BYOK)</option>
+                  <option value="platform">🔵 Platform Quota Only</option>
+                  <option value="client">🟣 Own BYOK Key Only</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Custom Range Picker (if custom selected) */}
+            {historyDateRange === 'custom' && (
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '14px', flexWrap: 'wrap', paddingTop: '12px', borderTop: '1px dashed #cbd5e1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>From:</span>
+                  <input
+                    type="date"
+                    className="company-ai-input"
+                    style={{ width: '150px', padding: '6px 10px', fontSize: '13px' }}
+                    value={historyStartDate}
+                    onChange={e => setHistoryStartDate(e.target.value)}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>To:</span>
+                  <input
+                    type="date"
+                    className="company-ai-input"
+                    style={{ width: '150px', padding: '6px 10px', fontSize: '13px' }}
+                    value={historyEndDate}
+                    onChange={e => setHistoryEndDate(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="company-ai-btn-primary"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => fetchHistory(historyStartDate, historyEndDate, historyKeySource, historyDeptFilter, historySearch)}
+                >
+                  Apply Filter
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* History KPI Cards */}
+          {historyData && (
+            <div className="company-ai-stats-grid" style={{ marginBottom: '24px' }}>
+              <div className="company-ai-stat-card">
+                <div className="company-ai-stat-icon indigo">
+                  <Coins size={22} />
+                </div>
+                <div className="company-ai-stat-info">
+                  <h3>{(historyData.summary?.totalTokens || 0).toLocaleString()}</h3>
+                  <p>Total Tokens in Period</p>
+                </div>
+              </div>
+
+              <div className="company-ai-stat-card">
+                <div className="company-ai-stat-icon blue">
+                  <Zap size={22} />
+                </div>
+                <div className="company-ai-stat-info">
+                  <h3>{(historyData.summary?.platformTokens || 0).toLocaleString()}</h3>
+                  <p>
+                    <span className="company-ai-badge-platform" style={{ padding: '2px 8px', fontSize: '11px', marginRight: '4px' }}>Platform</span>
+                    Plan Quota Tokens
+                  </p>
+                </div>
+              </div>
+
+              <div className="company-ai-stat-card">
+                <div className="company-ai-stat-icon purple">
+                  <KeyRound size={22} />
+                </div>
+                <div className="company-ai-stat-info">
+                  <h3>{(historyData.summary?.byokTokens || 0).toLocaleString()}</h3>
+                  <p>
+                    <span className="company-ai-badge-byok" style={{ padding: '2px 8px', fontSize: '11px', marginRight: '4px' }}>BYOK</span>
+                    Own Groq Key Tokens
+                  </p>
+                </div>
+              </div>
+
+              <div className="company-ai-stat-card">
+                <div className="company-ai-stat-icon amber">
+                  <Award size={22} />
+                </div>
+                <div className="company-ai-stat-info">
+                  <h3 style={{ fontSize: '16px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '160px' }}>
+                    {historyData.summary?.topUser?.name || 'None'}
+                  </h3>
+                  <p>
+                    Top Active User
+                    {historyData.summary?.topUser ? ` (${(historyData.summary.topUser.tokens || 0).toLocaleString()} tokens)` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-view switcher: Daily Breakdown vs Leaderboard */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className={`company-ai-tab-btn ${historySubView === 'daily' ? 'active' : ''}`}
+                style={{ padding: '8px 16px', fontSize: '13px' }}
+                onClick={() => setHistorySubView('daily')}
+              >
+                <Calendar size={15} /> Daily Consumption Log ({(historyData?.dailyBreakdown || []).length} days)
+              </button>
+              <button
+                type="button"
+                className={`company-ai-tab-btn ${historySubView === 'leaderboard' ? 'active' : ''}`}
+                style={{ padding: '8px 16px', fontSize: '13px' }}
+                onClick={() => setHistorySubView('leaderboard')}
+              >
+                <TrendingUp size={15} /> Employee Consumption Leaderboard ({(historyData?.employeeLeaderboard || []).length})
+              </button>
+            </div>
+
+            {historySubView === 'leaderboard' && (
+              <div style={{ position: 'relative', width: '220px' }}>
+                <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="Search user..."
+                  className="company-ai-input"
+                  style={{ paddingLeft: '32px', padding: '6px 12px 6px 32px', fontSize: '13px' }}
+                  value={historySearch}
+                  onChange={e => {
+                    setHistorySearch(e.target.value);
+                    fetchHistory(historyStartDate, historyEndDate, historyKeySource, historyDeptFilter, e.target.value);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Loading Indicator */}
+          {historyLoading && (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+              <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px auto', color: '#2563eb' }} />
+              <p style={{ margin: 0, fontSize: '14px' }}>Loading historical token records...</p>
+            </div>
+          )}
+
+          {/* SUB-VIEW 1: Daily Breakdown Table */}
+          {!historyLoading && historySubView === 'daily' && (
+            <div className="company-ai-table-container">
+              <table className="company-ai-table">
+                <thead>
+                  <tr>
+                    <th>Date (IST)</th>
+                    <th>Platform Quota Tokens</th>
+                    <th>Own BYOK Tokens</th>
+                    <th>Total Tokens Used</th>
+                    <th>AI Requests (Turns)</th>
+                    <th>Active Employees</th>
+                    <th>Key Breakdown</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!historyData?.dailyBreakdown?.length ? (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                        No token consumption recorded for this timeframe.
+                      </td>
+                    </tr>
+                  ) : (
+                    historyData.dailyBreakdown.map((row) => {
+                      const total = row.totalTokens || 0;
+                      const platformPct = total > 0 ? Math.round(((row.platformTokens || 0) / total) * 100) : 0;
+                      const byokPct = total > 0 ? Math.round(((row.byokTokens || 0) / total) * 100) : 0;
+
+                      return (
+                        <tr key={row.date}>
+                          <td>
+                            <strong style={{ color: '#0f172a' }}>{row.date}</strong>
+                          </td>
+                          <td>
+                            <span className="company-ai-badge-platform" style={{ padding: '3px 10px', fontSize: '12px' }}>
+                              {(row.platformTokens || 0).toLocaleString()}
+                            </span>
+                          </td>
+                          <td>
+                            {(row.byokTokens || 0) > 0 ? (
+                              <span className="company-ai-badge-byok">
+                                {(row.byokTokens || 0).toLocaleString()}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: '12px' }}>0</span>
+                            )}
+                          </td>
+                          <td>
+                            <strong style={{ color: '#1e293b' }}>{total.toLocaleString()}</strong>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '13px', color: '#475569' }}>{row.calls} calls</span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '13px', color: '#475569' }}>{row.activeUsersCount} active</span>
+                          </td>
+                          <td style={{ minWidth: '140px' }}>
+                            <div style={{ display: 'flex', height: '6px', borderRadius: '3px', overflow: 'hidden', background: '#f1f5f9' }}>
+                              <div style={{ width: `${platformPct}%`, background: '#2563eb' }} title={`Platform: ${platformPct}%`} />
+                              <div style={{ width: `${byokPct}%`, background: '#7c3aed' }} title={`BYOK: ${byokPct}%`} />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', marginTop: '3px' }}>
+                              <span>{platformPct}% Plat</span>
+                              <span>{byokPct}% BYOK</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* SUB-VIEW 2: Employee Leaderboard Table */}
+          {!historyLoading && historySubView === 'leaderboard' && (
+            <div className="company-ai-table-container">
+              <table className="company-ai-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '50px' }}>Rank</th>
+                    <th>Employee</th>
+                    <th>Department & Role</th>
+                    <th>Platform Tokens</th>
+                    <th>Own BYOK Tokens</th>
+                    <th>Total Tokens</th>
+                    <th>AI Requests</th>
+                    <th>% Share of Company</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!historyData?.employeeLeaderboard?.length ? (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                        No employee token activity found for this timeframe.
+                      </td>
+                    </tr>
+                  ) : (
+                    historyData.employeeLeaderboard.map((emp) => {
+                      const rankClass = emp.rank === 1 ? 'gold' : emp.rank === 2 ? 'silver' : emp.rank === 3 ? 'bronze' : 'default';
+
+                      return (
+                        <tr key={emp.userId}>
+                          <td>
+                            <span className={`company-ai-rank-badge ${rankClass}`}>
+                              {emp.rank}
+                            </span>
+                          </td>
+                          <td>
+                            <div>
+                              <strong style={{ color: '#0f172a', fontSize: '14px' }}>{emp.name}</strong>
+                              <span style={{ fontSize: '12px', color: '#64748b', display: 'block' }}>{emp.email}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '13px', color: '#334155', fontWeight: 500 }}>{emp.department}</span>
+                            <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>{emp.jobRole}</span>
+                          </td>
+                          <td>
+                            <span className="company-ai-badge-platform" style={{ padding: '2px 8px', fontSize: '12px' }}>
+                              {(emp.platformTokens || 0).toLocaleString()}
+                            </span>
+                          </td>
+                          <td>
+                            {(emp.byokTokens || 0) > 0 ? (
+                              <span className="company-ai-badge-byok" style={{ padding: '2px 8px', fontSize: '12px' }}>
+                                {(emp.byokTokens || 0).toLocaleString()}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: '12px' }}>0</span>
+                            )}
+                          </td>
+                          <td>
+                            <strong style={{ color: '#0f172a' }}>{(emp.totalTokens || 0).toLocaleString()}</strong>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '13px', color: '#475569' }}>{emp.calls} calls</span>
+                          </td>
+                          <td style={{ minWidth: '130px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ flex: 1, height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div
+                                  style={{
+                                    height: '100%',
+                                    width: `${Math.min(100, emp.percentOfTotal || 0)}%`,
+                                    background: 'linear-gradient(90deg, #3b82f6 0%, #7c3aed 100%)',
+                                  }}
+                                />
+                              </div>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                                {emp.percentOfTotal}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

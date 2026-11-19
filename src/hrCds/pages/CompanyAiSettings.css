@@ -304,3 +304,101 @@
   color: #991b1b;
   border: 1px solid #fecaca;
 }
+
+/* History Tab & Analytics Styles */
+.company-ai-badge-byok {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.company-ai-chip-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.company-ai-chip {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.company-ai-chip:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.company-ai-chip.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  font-weight: 600;
+}
+
+.company-ai-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.company-ai-export-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.company-ai-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.company-ai-rank-badge.gold {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.company-ai-rank-badge.silver {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.company-ai-rank-badge.bronze {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.company-ai-rank-badge.default {
+  background: #f8fafc;
+  color: #64748b;
+}
+

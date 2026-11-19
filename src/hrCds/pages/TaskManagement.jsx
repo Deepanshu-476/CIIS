@@ -8550,7 +8550,7 @@ const UserCreateTask = () => {
                   <div><FiPaperclip /><span>Files</span><strong>{detailFiles.length}</strong></div>
                 </div>
 
-                {detailSource === 'self' && (selectedTaskDetails.isRecurring || (selectedTaskDetails.repeatPattern && selectedTaskDetails.repeatPattern !== 'none')) && (
+                {(selectedTaskDetails.isRecurring || (selectedTaskDetails.repeatPattern && selectedTaskDetails.repeatPattern !== 'none')) && (
                   <div className="task-details-info-row">
                     <span>Repeat Ends</span>
                     <strong>{formatDateInputValue(selectedTaskDetails.recurrenceEndDate) || 'Not set'}</strong>

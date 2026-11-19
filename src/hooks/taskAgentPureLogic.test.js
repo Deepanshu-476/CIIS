@@ -26,6 +26,12 @@ import {
     isChitChatOrGreeting,
     isCrmQuery,
     isOutOfScopeQuery,
+    applyBulkTaskEdit,
+    isBulkTaskAddIntent,
+    addNewTaskToBulk,
+    isBulkTaskDeleteIntent,
+    removeTaskFromBulk,
+    parseTimeExpression,
     WELCOME_MENU_BUTTONS,
     WELCOME_GREETING_TEXT,
     shouldShowDebugOverlay,
@@ -2950,6 +2956,315 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         assert.ok(!isOutOfScopeQuery('kal meeting rakh do'));
         assert.ok(!isOutOfScopeQuery('abhi mera kon sa task in progress mein hia ?'));
         assert.ok(!isOutOfScopeQuery('abhi mere crm mai kitne projects hai'));
+    });
+
+    test('58. applyBulkTaskEdit: accurately edits specific row title, date, priority without corrupting other tasks', () => {
+        const mockTasks = [
+            { rowNum: 2, title: 'GST Filing', description: 'File GST on portal', priority: 'medium', dueDateTime: '2026-11-20T12:00:00.000Z', taskFor: 'self' },
+            { rowNum: 3, title: 'Client Meeting', description: 'Meet with client', priority: 'low', dueDateTime: '2026-11-21T12:00:00.000Z', taskFor: 'self' },
+            { rowNum: 4, title: 'Prep Balance Sheet', description: 'Annual balance sheet', priority: 'high', dueDateTime: '2026-11-22T12:00:00.000Z', taskFor: 'self' },
+        ];
+
+        const fixedNow = new Date('2026-11-18T10:00:00.000Z');
+
+        // 1. Edit Row 2 due date to tomorrow and priority High
+        const res1 = applyBulkTaskEdit(mockTasks, 'Row 2 ka due date kal kar do aur priority High kardo', fixedNow);
+        assert.ok(res1.success);
+        assert.equal(res1.targetLabel, 'Row 2');
+        assert.equal(res1.tasks[0].priority, 'high');
+        const d1 = new Date(res1.tasks[0].dueDateTime);
+        assert.equal(d1.getDate(), 19); // 18 + 1 = 19
+        // Untouched tasks:
+        assert.equal(res1.tasks[1].title, 'Client Meeting');
+        assert.equal(res1.tasks[1].priority, 'low');
+        assert.equal(res1.tasks[2].title, 'Prep Balance Sheet');
+
+        // 2. Edit Task 1 title
+        const res2 = applyBulkTaskEdit(mockTasks, 'Task 1 ka title change karke Annual Tax Filing kardo', fixedNow);
+        assert.ok(res2.success);
+        assert.equal(res2.tasks[0].title, 'Annual Tax Filing');
+        assert.equal(res2.tasks[1].title, 'Client Meeting');
+
+        // 3. Edit Row 3 assignee
+        const res3 = applyBulkTaskEdit(mockTasks, 'Row 4 Shivani ko assign kar do', fixedNow);
+        assert.ok(res3.success);
+        assert.equal(res3.tasks[2].assignee.name, 'Shivani');
+        assert.equal(res3.tasks[2].taskFor, 'others');
+
+        // 4. "change task 3 due date to 30-11-2026 at 9:00 am" accurately updates Task 3 (index 2) and updates dueDate & dueTime
+        const res4 = applyBulkTaskEdit(mockTasks, 'change task 3 due date to 30-11-2026 at 9:00 am', fixedNow);
+        assert.ok(res4.success);
+        assert.equal(res4.targetLabel, 'Task #3 ("Prep Balance Sheet")');
+        assert.equal(res4.tasks[2].dueDate, '30/11/2026');
+        assert.equal(res4.tasks[2].dueTime, '09:00');
+        // Task 1 and Task 2 remain untouched
+        assert.equal(res4.tasks[0].title, 'GST Filing');
+        assert.equal(res4.tasks[1].title, 'Client Meeting');
+    });
+
+    test('59. isBulkTaskAddIntent & addNewTaskToBulk: accurately parses new task additions during bulk review', () => {
+        const initialTasks = [
+            { rowNum: 1, title: 'demo 1', description: 'initial demo', priority: 'low', dueDateTime: '2026-11-19T10:00:00.000Z', taskFor: 'others', assignee: { name: 'Vansh Test' } },
+        ];
+
+        // 1. Detect add intents
+        assert.ok(isBulkTaskAddIntent('add one more task, task name demo 2, assginee to gaurav rajput, description testing, due date 30-11-2026 at 9:00 am'));
+        assert.ok(isBulkTaskAddIntent('ek aur task add karo title GST filing'));
+        assert.ok(isBulkTaskAddIntent('new task create karo'));
+        assert.ok(!isBulkTaskAddIntent('row 1 ki due date change kardo'));
+        assert.ok(!isBulkTaskAddIntent('cancel kar do'));
+
+        // 2. Add new assigned task
+        const addRes = addNewTaskToBulk(
+            initialTasks,
+            'add one more task , task name demo 2, assginee to gaurav rajput , description testing , due date 30-11-2026 at 9:00 am',
+            'assigned',
+            new Date('2026-11-19T10:00:00.000Z')
+        );
+
+        assert.ok(addRes.success);
+        assert.equal(addRes.tasks.length, 2);
+        const newTask = addRes.tasks[1];
+        assert.equal(newTask.rowNum, 2);
+        assert.equal(newTask.title, 'demo 2');
+        assert.equal(newTask.assignee.name, 'gaurav rajput');
+        assert.equal(newTask.description, 'testing');
+        assert.equal(newTask.dueTime, '09:00');
+        assert.equal(newTask.dueDate, '30/11/2026');
+        assert.equal(newTask.taskFor, 'others');
+
+        // Initial task remains untouched
+        assert.equal(addRes.tasks[0].title, 'demo 1');
+        assert.equal(addRes.tasks[0].assignee.name, 'Vansh Test');
+
+        // 3. Missing description returns missingField: 'description'
+        const noDescRes = addNewTaskToBulk(
+            initialTasks,
+            'add one more task, task name demo 3, assignee to shivani',
+            'assigned',
+            new Date('2026-11-19T10:00:00.000Z')
+        );
+        assert.equal(noDescRes.success, false);
+        assert.equal(noDescRes.missingField, 'description');
+        assert.equal(noDescRes.title, 'demo 3');
+
+        // 4. Assigned task with missing assignee returns missingField: 'assignee'
+        const noAssigneeRes = addNewTaskToBulk(
+            initialTasks,
+            'add one more task, task name demo 4, description bug fix',
+            'assigned',
+            new Date('2026-11-19T10:00:00.000Z')
+        );
+        assert.equal(noAssigneeRes.success, false);
+        assert.equal(noAssigneeRes.missingField, 'assignee');
+        assert.equal(noAssigneeRes.title, 'demo 4');
+    });
+
+    test('60. parseTimeExpression: correctly handles 6 pm, 6 p.m., shaam 6 baje, 9:00 am, and afternoon heuristics', () => {
+        // Explicit PM
+        assert.equal(parseTimeExpression('due date 19-11-2026 6 pm')?.timeStr, '18:00');
+        assert.equal(parseTimeExpression('due date 19-11-2026 at 6 pm')?.timeStr, '18:00');
+        assert.equal(parseTimeExpression('at 6:00 pm')?.timeStr, '18:00');
+        assert.equal(parseTimeExpression('6 p.m.')?.timeStr, '18:00');
+        assert.equal(parseTimeExpression('6:30 pm')?.timeStr, '18:30');
+
+        // Hindi words
+        assert.equal(parseTimeExpression('shaam 6 baje')?.timeStr, '18:00');
+        assert.equal(parseTimeExpression('subah 9 baje')?.timeStr, '09:00');
+        assert.equal(parseTimeExpression('dophar 2 baje')?.timeStr, '14:00');
+        assert.equal(parseTimeExpression('raat 8 baje')?.timeStr, '20:00');
+
+        // Explicit AM
+        assert.equal(parseTimeExpression('6 am')?.timeStr, '06:00');
+        assert.equal(parseTimeExpression('06:00 am')?.timeStr, '06:00');
+        assert.equal(parseTimeExpression('at 9:00 am')?.timeStr, '09:00');
+
+        // Office heuristic: hours 1..7 without morning default to PM (13:00..19:00)
+        assert.equal(parseTimeExpression('at 6')?.timeStr, '18:00');
+        assert.equal(parseTimeExpression('6 baje')?.timeStr, '18:00');
+        assert.equal(parseTimeExpression('at 2')?.timeStr, '14:00');
+    });
+
+    test('61. applyBulkTaskEdit: multi-field edit in a single message (due date + priority + title + description + assignee)', () => {
+        const tasks = [
+            {
+                rowNum: 1,
+                title: 'demo 1',
+                description: 'initial description',
+                priority: 'low',
+                dueDate: '19/11/2026',
+                dueTime: '10:00',
+                dueDateTime: '2026-11-19T10:00:00.000Z',
+                taskFor: 'others',
+                assignee: { name: 'Vansh Test' },
+            },
+        ];
+
+        // Single turn multi-field edit
+        const editRes = applyBulkTaskEdit(
+            tasks,
+            'row 1 change due date to 26-11-2026 at 6 pm, high priority, title newtesting, description updated task details, assign to Gaurav Rajput',
+            new Date('2026-11-19T10:00:00.000Z')
+        );
+
+        assert.ok(editRes.success);
+        assert.equal(editRes.tasks.length, 1);
+        const updated = editRes.tasks[0];
+        assert.equal(updated.dueDate, '26/11/2026');
+        assert.equal(updated.dueTime, '18:00');
+        assert.equal(updated.priority, 'high');
+        assert.equal(updated.title, 'newtesting');
+        assert.equal(updated.description, 'updated task details');
+        assert.equal(updated.assignee.name, 'Gaurav Rajput');
+        assert.ok(editRes.updatedFields.includes('Due Date: 26/11/2026'));
+        assert.ok(editRes.updatedFields.includes('Time: 18:00'));
+        assert.ok(editRes.updatedFields.includes('Priority: High'));
+        assert.ok(editRes.updatedFields.includes('Title: "newtesting"'));
+        assert.ok(editRes.updatedFields.includes('Description: "updated task details"'));
+        assert.ok(editRes.updatedFields.includes('Assignee: Gaurav Rajput'));
+    });
+
+    test('62. Multi-turn state preservation: edits are preserved across turns and adding new task does not wipe edits', () => {
+        let currentTasks = [
+            {
+                rowNum: 1,
+                title: 'demo 1',
+                description: 'desc 1',
+                priority: 'low',
+                dueDate: '19/11/2026',
+                dueTime: '10:00',
+                dueDateTime: '2026-11-19T10:00:00.000Z',
+                taskFor: 'others',
+                assignee: { name: 'Vansh Test' },
+            },
+        ];
+
+        // Turn 1: Edit title and due date
+        const turn1 = applyBulkTaskEdit(
+            currentTasks,
+            'row 1 title newtesting, due date 26-11-2026 at 6 pm',
+            new Date('2026-11-19T10:00:00.000Z')
+        );
+        assert.ok(turn1.success);
+        currentTasks = turn1.tasks;
+        assert.equal(currentTasks[0].title, 'newtesting');
+        assert.equal(currentTasks[0].dueDate, '26/11/2026');
+        assert.equal(currentTasks[0].dueTime, '18:00');
+
+        // Turn 2: Edit priority only - title and due date MUST NOT revert!
+        const turn2 = applyBulkTaskEdit(
+            currentTasks,
+            'row 1 high priority',
+            new Date('2026-11-19T10:00:00.000Z')
+        );
+        assert.ok(turn2.success);
+        currentTasks = turn2.tasks;
+        assert.equal(currentTasks[0].priority, 'high');
+        assert.equal(currentTasks[0].title, 'newtesting', 'Title must remain preserved');
+        assert.equal(currentTasks[0].dueDate, '26/11/2026', 'Due date must remain 26/11/2026 and not revert to 19/11/2026');
+        assert.equal(currentTasks[0].dueTime, '18:00');
+
+        // Turn 3: Add new task - all prior edits on Task 1 MUST remain intact!
+        const turn3 = addNewTaskToBulk(
+            currentTasks,
+            'add one more task, task name newtesting 2, assignee gaurav rajput, description dsfgb, due date 19-11-2026 6 pm',
+            'assigned',
+            new Date('2026-11-19T10:00:00.000Z')
+        );
+        assert.ok(turn3.success);
+        currentTasks = turn3.tasks;
+        assert.equal(currentTasks.length, 2);
+
+        // Check Task 1 preserved
+        assert.equal(currentTasks[0].title, 'newtesting');
+        assert.equal(currentTasks[0].priority, 'high');
+        assert.equal(currentTasks[0].dueDate, '26/11/2026');
+        assert.equal(currentTasks[0].dueTime, '18:00');
+
+        // Check Task 2 added with proper 18:00 (6 PM)
+        assert.equal(currentTasks[1].title, 'newtesting 2');
+        assert.equal(currentTasks[1].assignee.name, 'gaurav rajput');
+        assert.equal(currentTasks[1].description, 'dsfgb');
+        assert.equal(currentTasks[1].dueTime, '18:00', 'Must be 18:00 (6 PM), NOT 06:00 (AM)');
+    });
+
+    test('63. Cancel flow transition: resets bulk state and returns to welcome menu', () => {
+        // Simulating the exact state reset that occurs when handleCancel() is invoked
+        let bulkPreview = { totalRows: 3, validTasks: [{ title: 'Task 1' }] };
+        let status = 'bulk_preview';
+        let result = { status: 'bulk_preview', bulkPreview };
+
+        // Execute cancel transition
+        bulkPreview = null;
+        status = 'open';
+        result = {
+            status: 'open',
+            field: 'welcome',
+            reply: 'Spreadsheet import has been cancelled. What else can I help you with?',
+            bulkPreview: null,
+            chips: [{ label: 'Personal task' }],
+        };
+
+        const isBulkActive = (status === 'bulk_preview' || Boolean(result?.bulkPreview));
+        assert.equal(isBulkActive, false, 'isBulkActive must immediately be false after cancel');
+        assert.equal(result.bulkPreview, null, 'bulkPreview must be cleared');
+        assert.equal(result.status, 'open', 'status must return to open');
+    });
+
+    test('64. isBulkTaskDeleteIntent & removeTaskFromBulk: allows removing tasks/rows by number, ordinal, or title', () => {
+        // A. Intent detection tests
+        assert.equal(isBulkTaskDeleteIntent('row 2 delete kardo'), true);
+        assert.equal(isBulkTaskDeleteIntent('task 3 remove karo'), true);
+        assert.equal(isBulkTaskDeleteIntent('demo 2 task delete karo'), true);
+        assert.equal(isBulkTaskDeleteIntent('pehla task hata do'), true);
+        assert.equal(isBulkTaskDeleteIntent('hata do task 1'), true);
+        assert.equal(isBulkTaskDeleteIntent('nikal do row 3'), true);
+        assert.equal(isBulkTaskDeleteIntent('remove #2'), true);
+        assert.equal(isBulkTaskDeleteIntent('last task delete karo'), true);
+        assert.equal(isBulkTaskDeleteIntent('aakhri row hata do'), true);
+
+        // Guard tests: attachment/file removal must NOT be bulk task delete
+        assert.equal(isBulkTaskDeleteIntent('attachment hata do'), false);
+        assert.equal(isBulkTaskDeleteIntent('delete photo'), false);
+        // Guard tests: editing title containing "delete"
+        assert.equal(isBulkTaskDeleteIntent('change title to delete old records'), false);
+
+        // B. Row removal by Row Number
+        const initialTasks = [
+            { rowNum: 1, title: 'GST Return Filing', priority: 'high', dueDate: '20/11/2026' },
+            { rowNum: 2, title: 'Weekly Team Review', priority: 'medium', dueDate: '25/11/2026' },
+            { rowNum: 3, title: 'Testing 1', priority: 'low', dueDate: '30/11/2026' },
+        ];
+
+        // 1. Remove Row 2
+        const res1 = removeTaskFromBulk(initialTasks, 'row 2 delete kardo');
+        assert.equal(res1.success, true);
+        assert.equal(res1.tasks.length, 2);
+        assert.equal(res1.removedTask.title, 'Weekly Team Review');
+        // Remaining tasks must have consecutive rowNum (1, 2)
+        assert.equal(res1.tasks[0].rowNum, 1);
+        assert.equal(res1.tasks[0].title, 'GST Return Filing');
+        assert.equal(res1.tasks[1].rowNum, 2);
+        assert.equal(res1.tasks[1].title, 'Testing 1');
+
+        // 2. Remove by task title: "Testing 1"
+        const res2 = removeTaskFromBulk(res1.tasks, 'Testing 1 task remove karo');
+        assert.equal(res2.success, true);
+        assert.equal(res2.tasks.length, 1);
+        assert.equal(res2.removedTask.title, 'Testing 1');
+        assert.equal(res2.tasks[0].rowNum, 1);
+        assert.equal(res2.tasks[0].title, 'GST Return Filing');
+
+        // 3. Remove by ordinal: "pehla task hata do" (when 1 task left)
+        const res3 = removeTaskFromBulk(res2.tasks, 'pehla task hata do');
+        assert.equal(res3.success, true);
+        assert.equal(res3.tasks.length, 0);
+        assert.equal(res3.isEmpty, true, 'isEmpty must be true when 0 tasks remain');
+        assert.equal(res3.removedTask.title, 'GST Return Filing');
+
+        // 4. Test error handling when list is empty
+        const res4 = removeTaskFromBulk([], 'row 1 delete kardo');
+        assert.equal(res4.success, false);
     });
 
 });

@@ -17,6 +17,9 @@ import {
     createTtsWatchdog,
     validateAttachmentFile,
     buildTaskFormDataEntries,
+    isPrivilegedRoleUser,
+    generateCsvTemplate,
+    downloadCsvFile,
     getRoleAwareGreeting,
     getRoleAwareGreetingHindi,
     filterWelcomeButtonsByPermissions,
@@ -34,6 +37,11 @@ import {
     MAX_FILES,
     MAX_FILE_SIZE_BYTES,
     ALLOWED_EXTS,
+    applyBulkTaskEdit,
+    isBulkTaskAddIntent,
+    addNewTaskToBulk,
+    isBulkTaskDeleteIntent,
+    removeTaskFromBulk,
 } from './taskAgentPureLogic';
 
 const axios = axiosInstance;
@@ -139,6 +147,10 @@ export default function useTaskAgentSession({
     const [uploadProgress, setUploadProgress] = useState(null);
     const [result, setResult] = useState(null);
     const [autoSpeak, setAutoSpeak] = useState(true);
+    const autoSpeakRef = useRef(autoSpeak);
+    useEffect(() => {
+        autoSpeakRef.current = autoSpeak;
+    }, [autoSpeak]);
     const [autoSendVoice, setAutoSendVoice] = useState(false);
     const [autoSendCountdown, setAutoSendCountdown] = useState(null);
     const [readyCountdown, setReadyCountdown] = useState(null);
@@ -149,11 +161,15 @@ export default function useTaskAgentSession({
     const [highlightPaperclip, setHighlightPaperclip] = useState(false);
     const [liveTranscriptText, setLiveTranscriptText] = useState('');
     const [enHindiHint, setEnHindiHint] = useState(null);
+    const [isAiDisabled, setIsAiDisabled] = useState(false);
 
     const draftRef = useRef(null);
     const resultRef = useRef(null);
     const sessionLangRef = useRef('en');
     const currentSessionIdRef = useRef(null);
+    const pendingSpreadsheetRef = useRef(null);
+    const pendingBulkNewTaskRef = useRef(null);
+    const bulkPreviewRef = useRef(null);
     const activeEntityContextRef = useRef({
         lastActiveType: null,
         lastProjectId: null,
@@ -189,6 +205,7 @@ export default function useTaskAgentSession({
     const micSkipReasonRef = useRef(null);
     const pendingStartRef = useRef(false);
     const isEditingRef = useRef(false);
+    const isEditingBulkRef = useRef(false);
 
     const cancelAutoSend = useCallback(() => {
         if (autoSendIntervalRef.current) {
@@ -295,7 +312,13 @@ export default function useTaskAgentSession({
     const resetFlow = useCallback(() => {
         draftRef.current = null;
         resultRef.current = null;
+        bulkPreviewRef.current = null;
         isCreatingRef.current = false;
+        isEditingBulkRef.current = false;
+        pendingSpreadsheetRef.current = null;
+        pendingBulkNewTaskRef.current = null;
+        setCreating(false);
+        setLoading(false);
         setResult(null);
         setFiles([]);
         setVoiceNoteBlob(null);
@@ -336,17 +359,40 @@ export default function useTaskAgentSession({
                 const next = [sessionData, ...filtered].slice(0, 20);
                 try {
                     window.localStorage.setItem('ciis_ai_chat_sessions', JSON.stringify(next));
-                } catch {}
+                } catch { }
                 return next;
             });
-        } catch {}
+        } catch { }
     }, []);
+
+    // Ensure all conversations (including CSV bulk operations, edits & chip clicks) are persistently saved to History
+    useEffect(() => {
+        if (!messages || messages.length === 0) return;
+        persistSession(messages, draftRef.current, resultRef.current);
+    }, [messages, persistSession]);
 
     const startNewChat = useCallback(() => {
         resetFlow();
         currentSessionIdRef.current = null;
         sessionLangRef.current = 'en';
         const user = getUser();
+        const isPrivileged = isPrivilegedRoleUser(user);
+        const isAccessDisabled = !isPrivileged && user?.aiConfig && user?.aiConfig?.enabled === false;
+        if (isAccessDisabled) {
+            const disabledMsg = "You don't have access to use CIIS AI. Please contact your company administrator.";
+            setMessages([{ role: 'assistant', text: disabledMsg, id: 'msg_' + Date.now(), isError: true }]);
+            setResult({
+                status: 'blocked',
+                field: 'blocked',
+                reply: disabledMsg,
+                speech: disabledMsg,
+                speakText: disabledMsg,
+                chips: [],
+                draft: null,
+            });
+            setIsAiDisabled(true);
+            return;
+        }
         const sidebarConfig = getSidebarConfig();
         const welcomeText = getRoleAwareGreeting(user, new Date(), 'en');
         const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails(), language: 'en' });
@@ -380,7 +426,7 @@ export default function useTaskAgentSession({
                 if (typeof window !== 'undefined') {
                     window.localStorage.setItem('ciis_ai_chat_sessions', JSON.stringify(next));
                 }
-            } catch {}
+            } catch { }
             return next;
         });
         if (currentSessionIdRef.current === sessionId) {
@@ -504,6 +550,23 @@ export default function useTaskAgentSession({
     // Send Turn to Backend Task Agent
     const sendTurn = useCallback(
         async ({ text = '', action, pick, draftPatch, display, source }) => {
+            if (isAiDisabled) return;
+            const currentUserNow = getUser();
+            if (!isPrivilegedRoleUser(currentUserNow) && currentUserNow?.aiConfig && currentUserNow?.aiConfig?.enabled === false) {
+                const disabledMsg = "You don't have access to use CIIS AI. Please contact your company administrator.";
+                pushMsg('assistant', disabledMsg, { isError: true });
+                setResult({
+                    status: 'blocked',
+                    field: 'blocked',
+                    reply: disabledMsg,
+                    speech: disabledMsg,
+                    speakText: disabledMsg,
+                    chips: [],
+                    draft: null,
+                });
+                setIsAiDisabled(true);
+                return;
+            }
             cancelAutoSend();
             cancelReadyCountdown();
             // Sending a message (typed, chip, voice) clears mute from the previous window (Requirement 1)
@@ -531,6 +594,458 @@ export default function useTaskAgentSession({
             setLoading(true);
             cancelSpeech();
             stop('turn-send');
+
+            // Handle Bulk Tasks Review mode (Edit / Create / Cancel / Clarify)
+            const currentBulkPreview = bulkPreviewRef.current || resultRef.current?.bulkPreview || result?.bulkPreview;
+            if (currentBulkPreview && text && !action && !pick) {
+                const lowerText = text.toLowerCase().trim();
+                const userLang = detectMessageLanguage(text, sessionLangRef.current || 'en');
+                sessionLangRef.current = userLang;
+                const isEn = userLang === 'en';
+
+                // 1. Cancel bulk tasks
+                if (/^(?:cancel|rehne\s*do|chhod\s*do|nahi|nahin|band\s*karo|stop)\b/i.test(lowerText) && !lowerText.includes('edit') && !isBulkTaskDeleteIntent(text)) {
+                    setLoading(false);
+                    handleCancel();
+                    return;
+                }
+
+                // 2. Create / Confirm bulk tasks
+                if (isConfirmationIntent(lowerText) || /^(?:create|bana\s*do|haan\s*bana\s*do|yes|confirm|proceed|theek\s*hai|ok|kar\s*do)\b/i.test(lowerText)) {
+                    setLoading(false);
+                    handleChip({
+                        action: {
+                            type: 'bulk_create_confirm',
+                            tasks: currentBulkPreview.validTasks,
+                            taskType: currentBulkPreview.taskType,
+                            lang: userLang,
+                        }
+                    });
+                    return;
+                }
+
+                // 3. User says edit without specifics
+                if (isRefusalOrEditIntent(lowerText) && !hasFieldChangeIntent(lowerText) && !/(?:title|date|due|prio|priority|time|desc|assign|row|task\s*#?\d+)/i.test(lowerText)) {
+                    setLoading(false);
+                    handleChip({ action: { type: 'edit_bulk_tasks', lang: userLang } });
+                    return;
+                }
+
+                // 3b. Handle missing field response for pending bulk new task (e.g. description or assignee)
+                if (pendingBulkNewTaskRef.current) {
+                    setLoading(false);
+                    const pending = pendingBulkNewTaskRef.current;
+                    if (pending.missingField === 'assignee') {
+                        const rawAssignee = text.trim()
+                            .replace(/^(?:assignee|assign\s*to|kisko|naam|name)\s*(?:is|ko|ka|:|=)?\s*/i, '')
+                            .replace(/\s+(?:ko|ka|to)$/i, '')
+                            .trim();
+                        const updatedPartial = {
+                            ...pending.partialTask,
+                            assignee: { name: rawAssignee },
+                        };
+                        if (!updatedPartial.description) {
+                            pendingBulkNewTaskRef.current = {
+                                partialTask: updatedPartial,
+                                missingField: 'description',
+                                title: pending.title,
+                            };
+                            const promptDesc = isEn
+                                ? `Got it, assigned to **"${rawAssignee}"**. Now please provide the **description** for "${pending.title}" (Description is mandatory):`
+                                : `Theek hai, **"${rawAssignee}"** ko assign kar diya gaya hai. Ab kripya "${pending.title}" ka **description** (vivran) batayein (description zaroori hai):`;
+                            const msgId = pushMsg('assistant', promptDesc);
+                            const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                            if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                                spokenMessageIdsRef.current.add(msgId);
+                                cancelSpeech();
+                                speak(cleanForSpeech(promptDesc), cleanForSpeech(promptDesc));
+                            }
+                            inputRef.current?.focus();
+                            return;
+                        } else {
+                            const newTask = updatedPartial;
+                            pendingBulkNewTaskRef.current = null;
+                            const updatedValidTasks = [...(currentBulkPreview.validTasks || []), newTask];
+                            const confirmAddMsg = isEn
+                                ? `Task **"${newTask.title}"** has been added successfully!`
+                                : `Naya task **"${newTask.title}"** successfully add ho gaya hai!`;
+                            const fullReply = isEn
+                                ? `${confirmAddMsg}\n\nI have updated the review card below (${updatedValidTasks.length} tasks total). Please check:`
+                                : `${confirmAddMsg}\n\nMaine task review card update kar diya hai (Total ${updatedValidTasks.length} tasks). Niche check karein:`;
+                            const speechReply = isEn
+                                ? `${confirmAddMsg} I have updated the task review card.`
+                                : `${confirmAddMsg} Maine task review card update kar diya hai.`;
+                            const updatedBulkPreview = {
+                                ...currentBulkPreview,
+                                totalRows: updatedValidTasks.length,
+                                validTasks: updatedValidTasks,
+                                validCount: updatedValidTasks.length,
+                            };
+                            const msgId = pushMsg('assistant', fullReply, { bulkPreview: updatedBulkPreview });
+                            const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                            if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                                spokenMessageIdsRef.current.add(msgId);
+                                cancelSpeech();
+                                speak(cleanForSpeech(speechReply), cleanForSpeech(fullReply));
+                            }
+                            bulkPreviewRef.current = updatedBulkPreview;
+                            const nextRes = {
+                                status: 'bulk_preview',
+                                field: 'bulk_preview',
+                                reply: fullReply,
+                                speech: speechReply,
+                                speakText: fullReply,
+                                chips: [],
+                                draft: {
+                                    intent: currentBulkPreview.taskType === 'assigned' ? 'bulk_assigned_task_csv' : 'bulk_self_task_csv',
+                                    bulkData: { ...currentBulkPreview, validTasks: updatedValidTasks },
+                                },
+                                bulkPreview: updatedBulkPreview,
+                            };
+                            resultRef.current = nextRes;
+                            setResult(nextRes);
+                            return;
+                        }
+                    } else if (pending.missingField === 'description') {
+                        const rawDesc = text.trim()
+                            .replace(/^(?:description|desc|vivran|detail)\s*(?:is|ko|ka|:|=)?\s*/i, '')
+                            .trim();
+                        const newTask = {
+                            ...pending.partialTask,
+                            description: rawDesc,
+                        };
+                        pendingBulkNewTaskRef.current = null;
+                        const updatedValidTasks = [...(currentBulkPreview.validTasks || []), newTask];
+                        const confirmAddMsg = isEn
+                            ? `Task **"${newTask.title}"** has been added successfully!`
+                            : `Naya task **"${newTask.title}"** successfully add ho gaya hai!`;
+                        const fullReply = isEn
+                            ? `${confirmAddMsg}\n\nI have updated the review card below (${updatedValidTasks.length} tasks total). Please check:`
+                            : `${confirmAddMsg}\n\nMaine task review card update kar diya hai (Total ${updatedValidTasks.length} tasks). Niche check karein:`;
+                        const speechReply = isEn
+                            ? `${confirmAddMsg} I have updated the task review card.`
+                            : `${confirmAddMsg} Maine task review card update kar diya hai.`;
+                        const updatedBulkPreview = {
+                            ...currentBulkPreview,
+                            totalRows: updatedValidTasks.length,
+                            validTasks: updatedValidTasks,
+                            validCount: updatedValidTasks.length,
+                        };
+                        const msgId = pushMsg('assistant', fullReply, { bulkPreview: updatedBulkPreview });
+                        const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                        if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                            spokenMessageIdsRef.current.add(msgId);
+                            cancelSpeech();
+                            speak(cleanForSpeech(speechReply), cleanForSpeech(fullReply));
+                        }
+                        bulkPreviewRef.current = updatedBulkPreview;
+                        const nextRes = {
+                            status: 'bulk_preview',
+                            field: 'bulk_preview',
+                            reply: fullReply,
+                            speech: speechReply,
+                            speakText: fullReply,
+                            chips: [],
+                            draft: {
+                                intent: currentBulkPreview.taskType === 'assigned' ? 'bulk_assigned_task_csv' : 'bulk_self_task_csv',
+                                bulkData: { ...currentBulkPreview, validTasks: updatedValidTasks },
+                            },
+                            bulkPreview: updatedBulkPreview,
+                        };
+                        resultRef.current = nextRes;
+                        setResult(nextRes);
+                        return;
+                    }
+                }
+
+                // 4. Try removing a task from bulk review
+                if (isBulkTaskDeleteIntent(text)) {
+                    setLoading(false);
+                    isEditingBulkRef.current = false;
+                    const delRes = removeTaskFromBulk(currentBulkPreview.validTasks, text);
+                    if (delRes.success) {
+                        if (delRes.isEmpty) {
+                            handleCancel();
+                            return;
+                        }
+
+                        const updatedValidTasks = delRes.tasks;
+                        const confirmDelMsg = isEn
+                            ? `Task **${delRes.targetLabel}** has been removed successfully!`
+                            : `Task **${delRes.targetLabel}** successfully remove kar diya gaya hai!`;
+
+                        const fullReply = isEn
+                            ? `${confirmDelMsg}\n\nI have updated the review card below (${updatedValidTasks.length} task(s) remaining). Please check:`
+                            : `${confirmDelMsg}\n\nMaine task review card update kar diya hai (Ab kul ${updatedValidTasks.length} task bache hain). Niche check karein:`;
+                        const speechReply = isEn
+                            ? `${confirmDelMsg} ${updatedValidTasks.length} task(s) remaining.`
+                            : `${confirmDelMsg} Ab kul ${updatedValidTasks.length} task bache hain.`;
+
+                        const updatedBulkPreview = {
+                            ...currentBulkPreview,
+                            totalRows: updatedValidTasks.length,
+                            validTasks: updatedValidTasks,
+                            validCount: updatedValidTasks.length,
+                        };
+
+                        const msgId = pushMsg('assistant', fullReply, { bulkPreview: updatedBulkPreview });
+                        const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                        if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                            spokenMessageIdsRef.current.add(msgId);
+                            cancelSpeech();
+                            speak(cleanForSpeech(speechReply), cleanForSpeech(fullReply));
+                        }
+
+                        const updatedChips = [
+                            {
+                                label: `✓ Create Tasks (${updatedValidTasks.length} tasks)`,
+                                action: { type: 'bulk_create_confirm', tasks: updatedValidTasks, taskType: currentBulkPreview.taskType, lang: userLang }
+                            },
+                            {
+                                label: '✏️ Edit',
+                                action: { type: 'edit_bulk_tasks', lang: userLang }
+                            },
+                            {
+                                label: '❌ Cancel',
+                                action: { type: 'cancel_bulk_tasks', lang: userLang }
+                            }
+                        ];
+
+                        bulkPreviewRef.current = updatedBulkPreview;
+                        const nextRes = {
+                            status: 'bulk_preview',
+                            field: 'bulk_preview',
+                            reply: fullReply,
+                            speech: speechReply,
+                            speakText: fullReply,
+                            chips: updatedChips,
+                            draft: {
+                                intent: currentBulkPreview.taskType === 'assigned' ? 'bulk_assigned_task_csv' : 'bulk_self_task_csv',
+                                bulkData: { ...currentBulkPreview, validTasks: updatedValidTasks },
+                            },
+                            bulkPreview: updatedBulkPreview,
+                        };
+                        resultRef.current = nextRes;
+                        setResult(nextRes);
+                        return;
+                    } else {
+                        const failMsg = isEn
+                            ? delRes.message || 'Could not determine which task or row to remove. Please specify like: "Row 2 delete kardo" or "Task 3 remove karo".'
+                            : delRes.message || 'Kaunsa task ya row remove karna hai samajh nahi aaya. Kripya batayein, jaise: "Row 2 delete kardo" ya "Task 3 remove karo".';
+                        const msgId = pushMsg('assistant', failMsg, { bulkPreview: currentBulkPreview });
+                        const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                        if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                            spokenMessageIdsRef.current.add(msgId);
+                            cancelSpeech();
+                            speak(cleanForSpeech(failMsg), cleanForSpeech(failMsg));
+                        }
+                        inputRef.current?.focus();
+                        return;
+                    }
+                }
+
+                // 5. Try adding a new task to bulk review
+                if (isBulkTaskAddIntent(text)) {
+                    setLoading(false);
+                    isEditingBulkRef.current = false;
+                    const addRes = addNewTaskToBulk(currentBulkPreview.validTasks, text, currentBulkPreview.taskType);
+                    if (addRes.success) {
+                        const updatedValidTasks = addRes.tasks;
+                        const newTask = addRes.newTask;
+                        const confirmAddMsg = isEn
+                            ? `Task **"${newTask.title}"** has been added successfully!`
+                            : `Naya task **"${newTask.title}"** successfully add ho gaya hai!`;
+
+                        const fullReply = isEn
+                            ? `${confirmAddMsg}\n\nI have updated the review card below (${updatedValidTasks.length} tasks total). Please check:`
+                            : `${confirmAddMsg}\n\nMaine task review card update kar diya hai (Total ${updatedValidTasks.length} tasks). Niche check karein:`;
+                        const speechReply = isEn
+                            ? `${confirmAddMsg} I have updated the task review card.`
+                            : `${confirmAddMsg} Maine task review card update kar diya hai.`;
+
+                        const updatedBulkPreview = {
+                            ...currentBulkPreview,
+                            totalRows: updatedValidTasks.length,
+                            validTasks: updatedValidTasks,
+                            validCount: updatedValidTasks.length,
+                        };
+
+                        const msgId = pushMsg('assistant', fullReply, { bulkPreview: updatedBulkPreview });
+                        const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                        if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                            spokenMessageIdsRef.current.add(msgId);
+                            cancelSpeech();
+                            speak(cleanForSpeech(speechReply), cleanForSpeech(fullReply));
+                        }
+
+                        bulkPreviewRef.current = updatedBulkPreview;
+                        const nextRes = {
+                            status: 'bulk_preview',
+                            field: 'bulk_preview',
+                            reply: fullReply,
+                            speech: speechReply,
+                            speakText: fullReply,
+                            chips: [],
+                            draft: {
+                                intent: currentBulkPreview.taskType === 'assigned' ? 'bulk_assigned_task_csv' : 'bulk_self_task_csv',
+                                bulkData: { ...currentBulkPreview, validTasks: updatedValidTasks },
+                            },
+                            bulkPreview: updatedBulkPreview,
+                        };
+                        resultRef.current = nextRes;
+                        setResult(nextRes);
+                        return;
+                    } else if (addRes.missingField === 'description') {
+                        pendingBulkNewTaskRef.current = {
+                            partialTask: addRes.partialTask,
+                            missingField: 'description',
+                            title: addRes.title,
+                        };
+                        const askMsg = isEn
+                            ? `I have noted the new task **"${addRes.title}"**. Please provide its **description** (description is mandatory).`
+                            : `Maine naya task **"${addRes.title}"** note kar liya hai. Kripya iska **description** (vivran) batayein (description zaroori hai).`;
+                        const speechMsg = isEn
+                            ? `Please provide a description for ${addRes.title}. Description is mandatory.`
+                            : `कृपया ${addRes.title} का डिस्क्रिप्शन बताएं। डिस्क्रिप्शन जरूरी है।`;
+                        const msgId = pushMsg('assistant', askMsg);
+                        const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                        if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                            spokenMessageIdsRef.current.add(msgId);
+                            cancelSpeech();
+                            speak(cleanForSpeech(speechMsg), cleanForSpeech(askMsg));
+                        }
+                        inputRef.current?.focus();
+                        return;
+                    } else if (addRes.missingField === 'assignee') {
+                        pendingBulkNewTaskRef.current = {
+                            partialTask: addRes.partialTask,
+                            missingField: 'assignee',
+                            title: addRes.title,
+                        };
+                        const askMsg = isEn
+                            ? `I have noted the new task **"${addRes.title}"**. Please specify who this task should be **assigned to**.`
+                            : `Maine naya task **"${addRes.title}"** note kar liya hai. Kripya batayein yeh task **kise assign** karna hai?`;
+                        const speechMsg = isEn
+                            ? `Who should be assigned to ${addRes.title}?`
+                            : `यह टास्क किसे असाइन करना है?`;
+                        const msgId = pushMsg('assistant', askMsg);
+                        const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                        if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                            spokenMessageIdsRef.current.add(msgId);
+                            cancelSpeech();
+                            speak(cleanForSpeech(speechMsg), cleanForSpeech(askMsg));
+                        }
+                        inputRef.current?.focus();
+                        return;
+                    }
+                }
+
+                // 5. Try applying bulk task edit to validTasks
+                const editRes = applyBulkTaskEdit(currentBulkPreview.validTasks, text);
+                if (editRes.success || editRes.modified) {
+                    setLoading(false);
+                    isEditingBulkRef.current = false;
+                    const updatedValidTasks = editRes.tasks || editRes.updatedTasks;
+                    const targetRow = editRes.targetRow || 1;
+                    const updatedTask = updatedValidTasks[targetRow - 1] || updatedValidTasks[0];
+                    const assigneeDisplayName = typeof updatedTask.assignee === 'object'
+                        ? (updatedTask.assignee?.name || updatedTask.assignee?.email || updatedTask.assignee?.id)
+                        : String(updatedTask.assignee || '');
+
+                    let confirmEditMsg = isEn
+                        ? `Row ${targetRow} successfully updated!`
+                        : `Row ${targetRow} successfully update ho gayi hai!`;
+
+                    const fieldsList = Array.isArray(editRes.updatedFields) ? editRes.updatedFields.join(', ') : '';
+                    if (fieldsList) {
+                        confirmEditMsg = isEn
+                            ? `Row ${targetRow} updated: ${fieldsList}`
+                            : `Row ${targetRow} update ho gayi hai: ${fieldsList}`;
+                    }
+
+                    const fullReply = isEn
+                        ? `${confirmEditMsg}\n\nI have updated the review card below. Please check:`
+                        : `${confirmEditMsg}\n\nMaine task review card update kar diya hai. Niche check karein:`;
+                    const speechReply = isEn
+                        ? `${confirmEditMsg} I have updated the task review card.`
+                        : `${confirmEditMsg} Maine task review card update kar diya hai.`;
+
+                    const updatedBulkPreview = {
+                        ...currentBulkPreview,
+                        validTasks: updatedValidTasks,
+                        validCount: updatedValidTasks.length,
+                    };
+
+                    const msgId = pushMsg('assistant', fullReply, { bulkPreview: updatedBulkPreview });
+                    const canSpeakTurn = Boolean(autoSpeakRef.current && (listeningRef.current || turnSource === 'voice') && !userMutedRef.current);
+                    if (canSpeakTurn && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                        spokenMessageIdsRef.current.add(msgId);
+                        cancelSpeech();
+                        speak(cleanForSpeech(speechReply), cleanForSpeech(fullReply));
+                    }
+
+                    const updatedChips = [
+                        {
+                            label: isEn ? `✓ Create Tasks (${updatedValidTasks.length} tasks)` : `✓ Create Tasks (${updatedValidTasks.length} tasks)`,
+                            action: { type: 'bulk_create_confirm', tasks: updatedValidTasks, taskType: currentBulkPreview.taskType, lang: userLang }
+                        },
+                        {
+                            label: '✏️ Edit',
+                            action: { type: 'edit_bulk_tasks', lang: userLang }
+                        },
+                        {
+                            label: '❌ Cancel',
+                            action: { type: 'cancel_bulk_tasks', lang: userLang }
+                        }
+                    ];
+
+                    bulkPreviewRef.current = updatedBulkPreview;
+                    const nextBulkResult = {
+                        status: 'bulk_preview',
+                        field: 'bulk_preview',
+                        reply: fullReply,
+                        speech: speechReply,
+                        speakText: fullReply,
+                        chips: updatedChips,
+                        draft: {
+                            intent: currentBulkPreview.taskType === 'assigned' ? 'bulk_assigned_task_csv' : 'bulk_self_task_csv',
+                            bulkData: { ...currentBulkPreview, validTasks: updatedValidTasks },
+                        },
+                        bulkPreview: updatedBulkPreview,
+                    };
+                    resultRef.current = nextBulkResult;
+                    setResult(nextBulkResult);
+                    return;
+                } else if (isEditingBulkRef.current) {
+                    setLoading(false);
+                    const clarifyMsg = isEn
+                        ? 'I could not determine which row or field to update. Please specify like:\n• "Row 2 due date tomorrow"\n• "Task 1 title ABC"\n• "Row 3 high priority"\nOr add a task: "Add one more task, title XYZ..."'
+                        : 'Main samajh nahi paayi ki kaunsi row ya field badalni hai. Kripya aise batayein:\n• "Row 2 ki due date kal kardo"\n• "Task 1 ka title ABC kardo"\n• "Row 3 ko high priority kardo"\nYa naya task jodein: "Ek aur task add karo, title XYZ..."';
+                    pushMsg('assistant', clarifyMsg);
+                    return;
+                }
+            }
+
+            if (pendingSpreadsheetRef.current && text && !action && !pick) {
+                const lowerText = text.toLowerCase().trim();
+                if (/personal|self|apne\s*liye|mere\s*liye|apna/i.test(lowerText)) {
+                    setLoading(false);
+                    uploadAndParseSpreadsheet(pendingSpreadsheetRef.current, 'self');
+                    return;
+                }
+                if (/assign|team|dusro|doosro|kisi\s*aur|dusre/i.test(lowerText)) {
+                    setLoading(false);
+                    uploadAndParseSpreadsheet(pendingSpreadsheetRef.current, 'assigned');
+                    return;
+                }
+                if (/cancel|rehne\s*do|hata\s*do|chhod\s*do/i.test(lowerText)) {
+                    setLoading(false);
+                    pendingSpreadsheetRef.current = null;
+                    pushMsg('assistant', 'Spreadsheet import cancel kar diya gaya hai.');
+                    setResult(null);
+                    return;
+                }
+            }
 
             // When ready to create, check if message is a field change, confirmation, or refusal
             const isReady = !isEditingRef.current && (readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready');
@@ -680,10 +1195,10 @@ export default function useTaskAgentSession({
                 const spokenSpeech = isEnglishTurn
                     ? cleanForSpeech(data.speech || data.speakText || spokenText)
                     : (data.speakTextHi
-                    ? cleanForSpeech(data.speakTextHi)
-                    : (data.speechDevanagari
-                    ? cleanForSpeech(data.speechDevanagari)
-                    : ((data.speech && !data.reply) ? cleanForSpeech(data.speech) : spokenText)));
+                        ? cleanForSpeech(data.speakTextHi)
+                        : (data.speechDevanagari
+                            ? cleanForSpeech(data.speechDevanagari)
+                            : ((data.speech && !data.reply) ? cleanForSpeech(data.speech) : spokenText)));
 
                 const isTypingNow = Boolean(isTypingRef.current || inputRef.current?.value?.trim()?.length > 0);
 
@@ -727,6 +1242,33 @@ export default function useTaskAgentSession({
             } catch (err) {
                 // Every single failure path produces a visible error message bubble
                 const msg = mapTaskAgentError(err);
+                const isAccessDisabled = err?.response?.data?.code === 'AI_ACCESS_DISABLED_BY_ADMIN' ||
+                    (err?.response?.status === 403 && (/don't have access to use CIIS AI/i.test(msg) || /admin ne aapka AI Assistant access disable/i.test(msg)));
+
+                if (isAccessDisabled) {
+                    setIsAiDisabled(true);
+                    userMutedRef.current = true;
+                    setUserMuted(true);
+                    cancelSpeech();
+                    stop('cancelled');
+                    setResult({
+                        status: 'blocked',
+                        field: 'blocked',
+                        reply: msg,
+                        speech: msg,
+                        speakText: msg,
+                        chips: [],
+                        draft: null,
+                    });
+                    try {
+                        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+                        if (stored && typeof stored === 'object') {
+                            stored.aiConfig = { ...(stored.aiConfig || {}), enabled: false };
+                            localStorage.setItem('user', JSON.stringify(stored));
+                        }
+                    } catch { }
+                }
+
                 const errId = pushMsg('assistant', msg, { isError: true });
                 const cleanError = cleanForSpeech(msg);
 
@@ -742,7 +1284,7 @@ export default function useTaskAgentSession({
                     cancelSpeech();
                     speak('कुछ गड़बड़ हो गई', cleanError);
                 }
-                if (turnSource === 'voice' && !userMutedRef.current) {
+                if (turnSource === 'voice' && !userMutedRef.current && !isAccessDisabled) {
                     setTimeout(() => start(), 500);
                 }
             } finally {
@@ -944,9 +1486,129 @@ export default function useTaskAgentSession({
     handleFinalTranscriptRef.current = handleFinalTranscript;
 
     // File addition handler with strict validation
+    const uploadAndParseSpreadsheet = useCallback((file, taskType = 'auto') => {
+        pendingSpreadsheetRef.current = null;
+        pendingBulkNewTaskRef.current = null;
+        isEditingBulkRef.current = false;
+        pushMsg('user', `📎 Uploaded task spreadsheet: ${file.name}`);
+        setLoading(true);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('taskType', taskType);
+
+        axiosInstance.post(AI_ENDPOINTS.PARSE_CSV, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 45000,
+        }).then(res => {
+            setLoading(false);
+            const data = res?.data?.data;
+            if (!data) return;
+
+            const { totalRows, validTasks, invalidTasks } = data;
+            const resolvedTaskType = data.taskType || (taskType !== 'auto' ? taskType : 'self');
+            const isAssigned = resolvedTaskType === 'assigned';
+            const typeLabel = isAssigned ? '👥 Assigned Tasks (Team)' : '📄 Personal Tasks';
+            sessionLangRef.current = 'en';
+
+            let replyText = '';
+            let replySpeech = '';
+            const chips = [];
+
+            if (invalidTasks.length === 0) {
+                replyText = `I have analyzed your spreadsheet. Total **${totalRows} task${totalRows > 1 ? 's' : ''}** detected:\n\n• Task Type: **${typeLabel}**\n• Status: All details are valid!\n\nPlease review the preview card below. Would you like me to create these tasks, or make any edits?`;
+                replySpeech = `Total ${totalRows} task${totalRows > 1 ? 's' : ''} detected. Task type is ${isAssigned ? 'Assigned to Team' : 'Personal Tasks'}. Would you like me to create these tasks, or make any edits?`;
+
+                chips.push({
+                    label: `✓ Create Tasks (${validTasks.length} tasks)`,
+                    action: { type: 'bulk_create_confirm', tasks: validTasks, taskType: resolvedTaskType, lang: 'en' }
+                });
+                chips.push({ label: '✏️ Edit', action: { type: 'edit_bulk_tasks', lang: 'en' } });
+                chips.push({ label: '❌ Cancel', action: { type: 'cancel_bulk_tasks', lang: 'en' } });
+            } else {
+                const issuesList = invalidTasks.map(inv => {
+                    const missingLabels = inv.missingFields.map(m => m.label || m.field).join(', ');
+                    return `• Row ${inv.rowNum}: ${missingLabels} is missing`;
+                }).slice(0, 5).join('\n');
+
+                replyText = `I have analyzed your spreadsheet. Out of **${totalRows} tasks**, **${validTasks.length} task${validTasks.length > 1 ? 's are' : ' is'} valid**, but **${invalidTasks.length} task${invalidTasks.length > 1 ? 's have' : ' has'}** missing details:\n\n• Task Type: **${typeLabel}**\n${issuesList}${invalidTasks.length > 5 ? `\n• ...and ${invalidTasks.length - 5} more rows` : ''}\n\nYou can create the valid tasks, edit them, or cancel.`;
+                replySpeech = `Out of ${totalRows} tasks, ${validTasks.length} are valid, and ${invalidTasks.length} have missing details. Would you like to create the valid tasks or make edits?`;
+
+                if (validTasks.length > 0) {
+                    chips.push({
+                        label: `✓ Create Tasks (${validTasks.length} tasks)`,
+                        action: { type: 'bulk_create_confirm', tasks: validTasks, taskType: resolvedTaskType, lang: 'en' }
+                    });
+                }
+                chips.push({ label: '✏️ Edit', action: { type: 'edit_bulk_tasks', lang: 'en' } });
+                chips.push({ label: '❌ Cancel', action: { type: 'cancel_bulk_tasks', lang: 'en' } });
+                chips.push({ label: '📥 Download Sample Template', action: { type: 'download_template', templateType: resolvedTaskType } });
+            }
+
+            const bulkPreviewObj = {
+                totalRows,
+                validCount: validTasks.length,
+                invalidCount: invalidTasks.length,
+                validTasks,
+                invalidTasks,
+                taskType: resolvedTaskType,
+            };
+
+            const msgId = pushMsg('assistant', replyText, { bulkPreview: bulkPreviewObj });
+            // Issue 1 Fix: NEVER speak if mic is OFF or speaker is muted!
+            const canSpeak = Boolean(autoSpeakRef.current && listeningRef.current && !userMutedRef.current);
+            if (canSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                spokenMessageIdsRef.current.add(msgId);
+                cancelSpeech();
+                speak(cleanForSpeech(replySpeech), cleanForSpeech(replyText));
+            }
+
+            bulkPreviewRef.current = bulkPreviewObj;
+            const nextUploadResult = {
+                status: 'bulk_preview',
+                field: 'bulk_preview',
+                reply: replyText,
+                speech: replySpeech,
+                speakText: replyText,
+                chips,
+                draft: {
+                    intent: isAssigned ? 'bulk_assigned_task_csv' : 'bulk_self_task_csv',
+                    bulkData: data,
+                },
+                bulkPreview: bulkPreviewObj,
+            };
+            resultRef.current = nextUploadResult;
+            setResult(nextUploadResult);
+        }).catch(err => {
+            setLoading(false);
+            const errMsg = err.response?.data?.message || err.message || 'Spreadsheet parse karne mein error aayi';
+            pushMsg('assistant', `Spreadsheet Error: ${errMsg}. Kripya format check karke dobara upload karein.`, { isError: true });
+        });
+    }, [pushMsg, setLoading, setResult, autoSpeak, speak, cancelSpeech]);
+
+    const uploadAndParseSpreadsheetRef = useRef(null);
+    uploadAndParseSpreadsheetRef.current = uploadAndParseSpreadsheet;
+
     const handleAddFiles = useCallback(
         (newFilesList) => {
             setFileError(null);
+
+            const csvFile = Array.from(newFilesList || []).find(f => {
+                const ext = (f.name ? '.' + f.name.split('.').pop() : '').toLowerCase();
+                return ext === '.csv' || ext === '.xlsx' || ext === '.xls';
+            });
+
+            if (csvFile) {
+                const currentIntent = resultRef.current?.draft?.intent || result?.draft?.intent;
+                const initialType = (currentIntent === 'bulk_assigned_task_csv' || currentIntent === 'task_assigned_user')
+                    ? 'assigned'
+                    : (currentIntent === 'bulk_self_task_csv' || currentIntent === 'self_task')
+                        ? 'self'
+                        : 'auto';
+                uploadAndParseSpreadsheetRef.current?.(csvFile, initialType);
+                return;
+            }
+
             const valid = [];
             const isClientFlow = resultRef.current?.draft?.intent === 'create_client' || result?.draft?.intent === 'create_client';
             const clientAllowedExts = ['.png', '.jpg', '.jpeg', '.webp'];
@@ -1451,12 +2113,26 @@ export default function useTaskAgentSession({
     const handleCancel = useCallback(() => {
         cancelReadyCountdown();
         stop('button-click');
+        clearUserMute();
+        isEditingBulkRef.current = false;
+        pendingSpreadsheetRef.current = null;
+        pendingBulkNewTaskRef.current = null;
+
+        const isBulk = Boolean(bulkPreviewRef.current || resultRef.current?.bulkPreview || result?.bulkPreview || resultRef.current?.status === 'bulk_preview' || result?.status === 'bulk_preview');
         const activeDraft = resultRef.current?.draft || draftRef.current || result?.draft;
         const activeIntent = activeDraft?.intent;
         const isEn = sessionLangRef.current === 'en';
         let cancelText = isEn ? 'Alright, task creation has been cancelled.' : 'Theek hai, task cancel kar diya.';
         let cancelSpoken = isEn ? 'Task creation cancelled.' : 'टास्क कैंसिल कर दिया गया';
-        if (activeIntent === 'create_client') {
+
+        if (isBulk || activeIntent === 'bulk_assigned_task_csv' || activeIntent === 'bulk_self_task_csv') {
+            cancelText = isEn
+                ? 'Spreadsheet import has been cancelled. What else can I help you with?'
+                : 'Spreadsheet import cancel kar diya gaya hai. Main aapki aur kya madad kar sakti hoon?';
+            cancelSpoken = isEn
+                ? 'Spreadsheet import has been cancelled.'
+                : 'Spreadsheet import cancel kar diya gaya hai.';
+        } else if (activeIntent === 'create_client') {
             cancelText = isEn ? 'Alright, adding client has been cancelled.' : 'Theek hai, client add karna cancel kar diya.';
             cancelSpoken = isEn ? 'Adding client cancelled.' : 'क्लाइंट जोड़ना कैंसिल कर दिया गया';
         } else if (activeIntent === 'create_client_plan') {
@@ -1466,7 +2142,12 @@ export default function useTaskAgentSession({
             cancelText = isEn ? 'Alright, project creation has been cancelled.' : 'Theek hai, project banana cancel kar diya.';
             cancelSpoken = isEn ? 'Project creation cancelled.' : 'प्रोजेक्ट बनाना कैंसिल कर दिया गया';
         }
+
+        pushMsg('user', '❌ Cancel');
         resetFlow();
+        sessionLangRef.current = 'en';
+        currentSessionIdRef.current = null;
+
         const currentUser = getUser();
         const currentSidebarConfig = getSidebarConfig();
         const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, {
@@ -1475,7 +2156,9 @@ export default function useTaskAgentSession({
             companyDetails: getCompanyDetails(),
             language: isEn ? 'en' : 'hinglish'
         });
-        setResult({
+
+        bulkPreviewRef.current = null;
+        const nextCancelResult = {
             status: 'open',
             field: 'welcome',
             reply: cancelText,
@@ -1483,12 +2166,17 @@ export default function useTaskAgentSession({
             speakText: cancelText,
             chips: allowedButtons,
             draft: null,
-        });
+            bulkPreview: null,
+        };
+        resultRef.current = nextCancelResult;
+        setResult(nextCancelResult);
+
         const msgId = pushMsg('assistant', cancelText);
-        if (autoSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+        const canSpeak = Boolean(autoSpeakRef.current && listeningRef.current && !userMutedRef.current);
+        if (canSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
             spokenMessageIdsRef.current.add(msgId);
             cancelSpeech();
-            speak(cancelSpoken, cancelText);
+            speak(cleanForSpeech(cancelSpoken), cleanForSpeech(cancelText));
         }
     }, [result, resetFlow, pushMsg, cancelReadyCountdown, autoSpeak, speak, stop, cancelSpeech]);
 
@@ -1511,12 +2199,111 @@ export default function useTaskAgentSession({
     }, [pushMsg, cancelReadyCountdown, autoSpeak, speak, cancelSpeech]);
 
     const handleChip = (chip) => {
+        if (isAiDisabled) return;
         cancelAutoSend();
         cancelReadyCountdown();
         stop('chip-click');
         clearUserMute();
         inputSourceRef.current = 'chip';
         const turnSource = 'chip';
+        if (chip.action?.type === 'download_template') {
+            const tType = chip.action.templateType || 'self';
+            const filename = tType === 'assigned' ? 'sample_assigned_tasks.csv' : 'sample_personal_tasks.csv';
+            downloadCsvFile(filename, generateCsvTemplate(tType));
+            pushMsg('assistant', `📥 Sample template '${filename}' download ho gaya hai! Isme apne tasks fill karke paperclip 📎 se upload karein.`);
+            return;
+        }
+        if (chip.action?.type === 'process_pending_spreadsheet') {
+            const taskType = chip.action.taskType || 'self';
+            const targetFile = pendingSpreadsheetRef.current;
+            if (!targetFile) {
+                pushMsg('assistant', 'Koi pending spreadsheet nahi mili. Kripya dobara file attach karein.', { isError: true });
+                return;
+            }
+            uploadAndParseSpreadsheet(targetFile, taskType);
+            return;
+        }
+        if (chip.action?.type === 'cancel_pending_spreadsheet') {
+            pendingSpreadsheetRef.current = null;
+            pushMsg('assistant', 'Spreadsheet import cancel kar diya gaya hai.');
+            setResult(null);
+            return;
+        }
+        if (chip.action?.type === 'edit_bulk_tasks') {
+            isEditingBulkRef.current = true;
+            cancelSpeech();
+            stop('chip-click');
+            const isEn = (chip.action?.lang || sessionLangRef.current) === 'en';
+            pushMsg('user', '✏️ Edit');
+            const replyMsg = isEn
+                ? 'Please tell me what changes you want to make. For example: "Task 2 due date tomorrow" or "Task 1 title XYZ".'
+                : 'Ji batayein kya change karna hai? Jaise: "Task 2 ki due date kal kardo" ya "Task 1 ka title XYZ kardo".';
+            const speechMsg = isEn
+                ? 'Please tell me what changes you want to make.'
+                : 'जी बताएं क्या बदलाव करने हैं? जैसे रो २ की ड्यू डेट कल कर दो।';
+            const msgId = pushMsg('assistant', replyMsg);
+            const canSpeak = Boolean(autoSpeakRef.current && listeningRef.current && !userMutedRef.current);
+            if (canSpeak && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+                spokenMessageIdsRef.current.add(msgId);
+                speak(cleanForSpeech(speechMsg), cleanForSpeech(replyMsg));
+            }
+            inputRef.current?.focus();
+            return;
+        }
+        if (chip.action?.type === 'cancel_bulk_tasks' || chip.action?.type === 'cancel' || chip.label === 'Cancel' || chip.label === '❌ Cancel') {
+            handleCancel();
+            return;
+        }
+        if (chip.action?.type === 'bulk_create_confirm') {
+            const { tasks, taskType } = chip.action;
+            const isEn = (chip.action?.lang || sessionLangRef.current) === 'en';
+            if (!Array.isArray(tasks) || tasks.length === 0) {
+                pushMsg('assistant', isEn ? 'No valid tasks found to create.' : 'Koi valid tasks nahi mile create karne ke liye.', { isError: true });
+                return;
+            }
+            setCreating(true);
+            setLoading(true);
+            pushMsg('user', `✓ Create Tasks (${tasks.length} tasks)`);
+
+            axiosInstance.post(AI_ENDPOINTS.BULK_CREATE, { tasks, taskType }).then(res => {
+                setCreating(false);
+                setLoading(false);
+                const count = res.data?.count || tasks.length;
+                const successMsg = isEn
+                    ? `🎉 Great! All **${count} tasks** have been successfully created!`
+                    : `🎉 Badhiya! Sabhi **${count} tasks** successfully create ho gaye hain!`;
+                const successSpeech = isEn
+                    ? `All ${count} tasks have been successfully created!`
+                    : `Sabhi ${count} tasks successfully create ho gaye hain!`;
+                pushMsg('assistant', successMsg);
+
+                const canSpeak = Boolean(autoSpeakRef.current && listeningRef.current && !userMutedRef.current);
+                if (canSpeak) {
+                    cancelSpeech();
+                    speak(cleanForSpeech(successSpeech), cleanForSpeech(successMsg));
+                }
+
+                clearAllCaches();
+                const currentUser = getUser();
+                const currentSidebarConfig = getSidebarConfig();
+                const allowed = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails(), language: isEn ? 'en' : 'hinglish' });
+                setResult({
+                    status: 'open',
+                    field: 'welcome',
+                    reply: successMsg,
+                    speech: successSpeech,
+                    speakText: successMsg,
+                    chips: allowed,
+                    draft: null,
+                });
+            }).catch(err => {
+                setCreating(false);
+                setLoading(false);
+                const errMsg = err.response?.data?.message || err.message || (isEn ? 'Error creating bulk tasks' : 'Tasks create karne mein error aayi');
+                pushMsg('assistant', `Error creating bulk tasks: ${errMsg}`, { isError: true });
+            });
+            return;
+        }
         if (chip.action?.type === 'confirm') {
             handleConfirm(resultRef.current?.payload || result?.payload);
             return;
@@ -1652,8 +2439,56 @@ export default function useTaskAgentSession({
 
     // Greeting on open (visible in messages list)
     useEffect(() => {
-        if (open && messages.length === 0) {
-            const user = getUser();
+        if (!open) return;
+        const user = getUser();
+        const isPrivileged = isPrivilegedRoleUser(user);
+        const isAccessDisabled = !isPrivileged && user?.aiConfig && user?.aiConfig?.enabled === false;
+
+        if (isAccessDisabled) {
+            const disabledMsg = "You don't have access to use CIIS AI. Please contact your company administrator.";
+            setMessages([{ role: 'assistant', text: disabledMsg, id: 'msg_' + Date.now(), isError: true }]);
+            setResult({
+                status: 'blocked',
+                field: 'blocked',
+                reply: disabledMsg,
+                speech: disabledMsg,
+                speakText: disabledMsg,
+                chips: [],
+                draft: null,
+            });
+            setIsAiDisabled(true);
+            return;
+        }
+
+        // Fresh profile verification in background on drawer open
+        const userId = user?._id || user?.id;
+        if (userId && !isPrivileged && user?.companyRole !== 'client') {
+            axiosInstance.get(`/users/profile/${userId}`).then(res => {
+                const latest = res.data?.user || res.data?.data || res.data;
+                if (latest?.aiConfig) {
+                    const updatedUser = { ...user, aiConfig: latest.aiConfig };
+                    try { localStorage.setItem('user', JSON.stringify(updatedUser)); } catch { }
+                    if (latest.aiConfig.enabled === false) {
+                        const disabledMsg = "You don't have access to use CIIS AI. Please contact your company administrator.";
+                        setMessages([{ role: 'assistant', text: disabledMsg, id: 'msg_' + Date.now(), isError: true }]);
+                        setResult({
+                            status: 'blocked',
+                            field: 'blocked',
+                            reply: disabledMsg,
+                            speech: disabledMsg,
+                            speakText: disabledMsg,
+                            chips: [],
+                            draft: null,
+                        });
+                        setIsAiDisabled(true);
+                        cancelSpeech();
+                        stop('cancelled');
+                    }
+                }
+            }).catch(() => { });
+        }
+
+        if (messages.length === 0) {
             const sidebarConfig = getSidebarConfig();
             const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails(), language: 'en' });
             const greetingText = getRoleAwareGreeting(user, new Date(), 'en');
@@ -1680,7 +2515,7 @@ export default function useTaskAgentSession({
                         if (res?.data?.data?.menuItems) {
                             try {
                                 localStorage.setItem('sidebarConfig', JSON.stringify(res.data.data));
-                            } catch {}
+                            } catch { }
                             const refreshedAllowed = filterWelcomeButtonsByPermissions(user, {
                                 sidebarConfig: res.data.data,
                                 pagePermissions: getStoredPagePermissions(),
@@ -1689,7 +2524,7 @@ export default function useTaskAgentSession({
                             });
                             setResult(prev => (!prev?.draft?.intent ? { ...prev, chips: refreshedAllowed } : prev));
                         }
-                    }).catch(() => {});
+                    }).catch(() => { });
                 }
             }
 
@@ -1718,7 +2553,7 @@ export default function useTaskAgentSession({
         if (wasClosed && messages.length > 0 && autoSpeak && sttSupported && !userMutedRef.current) {
             const t = setTimeout(() => {
                 micModeRef.current = 'voice';
-                start({ force: true })?.catch?.(() => {});
+                start({ force: true })?.catch?.(() => { });
             }, 300);
             return () => clearTimeout(t);
         }
@@ -1843,10 +2678,10 @@ export default function useTaskAgentSession({
         speechError === 'not-allowed'
             ? 'Mic permission nahi mili. Aap type karke task bana sakte hain.'
             : speechError === 'no-speech'
-            ? 'Kuch sunai nahi diya, dobara try karein.'
-            : speechError && speechError !== 'aborted'
-            ? 'Mic mein problem aayi: ' + speechError
-            : null;
+                ? 'Kuch sunai nahi diya, dobara try karein.'
+                : speechError && speechError !== 'aborted'
+                    ? 'Mic mein problem aayi: ' + speechError
+                    : null;
 
     const isChromeOrEdge =
         typeof navigator !== 'undefined' &&
@@ -2016,6 +2851,7 @@ export default function useTaskAgentSession({
         orbState,
         formatDueChip,
         voiceInfo,
+        isAiDisabled,
         // Chat History & Sessions
         chatSessions,
         loadChatSession,

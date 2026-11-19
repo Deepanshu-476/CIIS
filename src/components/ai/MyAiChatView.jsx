@@ -168,6 +168,208 @@ function AssistantMessageContent({ text, isLatest, isError }) {
   );
 }
 
+function BulkTaskPreviewCard({ bulkPreview, busy, onConfirm, onEdit, onCancel, isPast }) {
+  if (!bulkPreview || !Array.isArray(bulkPreview.validTasks)) return null;
+  const isAssigned = bulkPreview.taskType === 'assigned';
+
+  return (
+    <div style={{
+      margin: '8px 0',
+      padding: '14px 16px',
+      backgroundColor: '#f8fafc',
+      border: '1px solid #cbd5e1',
+      borderRadius: '12px',
+      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+      fontSize: '13px',
+      opacity: isPast ? 0.75 : 1,
+      width: '100%',
+      maxWidth: '620px'
+    }}>
+      {/* Header with Type & Count Badges */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '14px' }}>
+            📋 Bulk Tasks Review
+          </span>
+          <span style={{
+            fontSize: '11px',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            backgroundColor: isAssigned ? '#e0e7ff' : '#ecfdf5',
+            color: isAssigned ? '#3730a3' : '#065f46',
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            {isAssigned ? '👥 Assigned Tasks' : '📄 Personal Tasks'}
+          </span>
+          {isPast && (
+            <span style={{ fontSize: '10px', color: '#64748b', fontStyle: 'italic' }}>
+              (Previous Version)
+            </span>
+          )}
+        </div>
+        <span style={{
+          fontSize: '11px',
+          padding: '3px 8px',
+          borderRadius: '6px',
+          backgroundColor: bulkPreview.invalidCount > 0 ? '#fef3c7' : '#dcfce7',
+          color: bulkPreview.invalidCount > 0 ? '#b45309' : '#15803d',
+          fontWeight: 600
+        }}>
+          {bulkPreview.validCount} Valid {bulkPreview.invalidCount > 0 ? `• ${bulkPreview.invalidCount} Incomplete` : ''}
+        </span>
+      </div>
+
+      {/* Tasks List */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        maxHeight: '220px',
+        overflowY: 'auto',
+        paddingRight: '4px'
+      }}>
+        {bulkPreview.validTasks.map((vt, i) => {
+          const assigneeName = typeof vt.assignee === 'object'
+            ? (vt.assignee?.name || vt.assignee?.email || vt.assignee?.id)
+            : (vt.assignee ? String(vt.assignee) : null);
+
+          return (
+            <div key={i} style={{
+              padding: '8px 10px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>
+                    #{i + 1}
+                  </span>
+                  <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={vt.title}>
+                    {vt.title}
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: '10px',
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: vt.priority === 'high' ? '#fee2e2' : vt.priority === 'low' ? '#f1f5f9' : '#fef3c7',
+                  color: vt.priority === 'high' ? '#dc2626' : vt.priority === 'low' ? '#475569' : '#b45309',
+                  fontWeight: 600,
+                  textTransform: 'capitalize',
+                  flexShrink: 0
+                }}>
+                  {vt.priority || 'Medium'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', flexWrap: 'wrap', gap: '4px' }}>
+                {isAssigned && assigneeName && (
+                  <span>👤 <strong>{assigneeName}</strong></span>
+                )}
+                <span>
+                  📅 {vt.dueDate || (vt.dueDateTime ? new Date(vt.dueDateTime).toLocaleDateString() : 'Today')} {vt.dueTime ? `⏰ ${vt.dueTime}` : ''}
+                </span>
+                {vt.repeatPattern && vt.repeatPattern !== 'none' && (
+                  <span style={{ color: '#0284c7' }}>🔄 {typeof vt.repeatPattern === 'object' ? JSON.stringify(vt.repeatPattern) : String(vt.repeatPattern)}</span>
+                )}
+              </div>
+
+              {vt.description && (
+                <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={vt.description}>
+                  {vt.description}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Action Buttons: only active on latest card */}
+      {!isPast && (
+        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy || bulkPreview.validTasks.length === 0}
+            style={{
+              flex: 2,
+              padding: '8px 12px',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              opacity: (busy || bulkPreview.validTasks.length === 0) ? 0.6 : 1
+            }}
+          >
+            ✓ Create Tasks ({bulkPreview.validTasks.length})
+          </button>
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={busy}
+            style={{
+              flex: 1,
+              padding: '8px 10px',
+              backgroundColor: '#ffffff',
+              color: '#1e293b',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            ✏️ Edit
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e?.preventDefault?.();
+              e?.stopPropagation?.();
+              onCancel?.();
+            }}
+            style={{
+              flex: 1,
+              padding: '8px 10px',
+              backgroundColor: '#ffffff',
+              color: '#dc2626',
+              border: '1px solid #fecaca',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            ❌ Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MyAiChatView({ onBack, onClose }) {
   const { isExpanded, toggleExpanded, closeMyAi } = useMyAi();
 
@@ -257,6 +459,7 @@ export default function MyAiChatView({ onBack, onClose }) {
     loadChatSession,
     deleteChatSession,
     startNewChat,
+    isAiDisabled,
   } = session;
 
   const [showHistory, setShowHistory] = useState(false);
@@ -282,13 +485,21 @@ export default function MyAiChatView({ onBack, onClose }) {
   );
 
   const handleChipClick = (c) => {
+    if (!c) return;
+    const isCancelAction = c.action?.type === 'cancel' || c.action?.type === 'cancel_bulk_tasks' || c.action?.type === 'cancel_pending_spreadsheet' || c.label === 'Cancel' || c.label === '❌ Cancel' || c.label === 'Abhi nahi';
+    if (isCancelAction) {
+      setSelectedMultiChips([]);
+      handleCancel();
+      return;
+    }
+
     if (!isMultiSelectFlow) {
       handleChip(c);
       return;
     }
 
-    const isHoGaya = c.label.includes('Done') || c.label.includes('Ho gaya') || c.action?.type === 'finish_members' || c.action?.type === 'finish_client_services';
-    const isControlChip = c.label === 'Cancel' || c.label === 'Abhi nahi' || c.label === 'Sirf main' || c.label === 'Aur dikhao' || c.action?.type === 'cancel' || c.action?.type === 'show_more_members';
+    const isHoGaya = c.label?.includes('Done') || c.label?.includes('Ho gaya') || c.action?.type === 'finish_members' || c.action?.type === 'finish_client_services';
+    const isControlChip = c.label === 'Cancel' || c.label === 'Abhi nahi' || c.label === 'Sirf main' || c.label === 'Aur dikhao' || c.action?.type === 'cancel' || c.action?.type === 'cancel_bulk_tasks' || c.action?.type === 'show_more_members';
 
     if (isControlChip) {
       setSelectedMultiChips([]);
@@ -352,7 +563,7 @@ export default function MyAiChatView({ onBack, onClose }) {
       const canvas = document.createElement('canvas');
       const supported = Boolean(
         window.WebGLRenderingContext &&
-          (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+        (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
       );
       setHasWebGL(supported);
     } catch {
@@ -587,19 +798,21 @@ export default function MyAiChatView({ onBack, onClose }) {
         <div className="my-ai-messages-list">
           {(() => {
             const lastPreviewIdx = messages.reduce((last, m, idx) => m.preview ? idx : last, -1);
+            const lastBulkPreviewIdx = messages.reduce((last, m, idx) => m.bulkPreview ? idx : last, -1);
             return messages.map((m, idx) => {
               const isUser = m.role === 'user';
               const isLatestAssistant = !isUser && idx === messages.length - 1;
               const isPastPreview = Boolean(m.preview && idx < lastPreviewIdx);
+              const isBulkActive = (status === 'bulk_preview' || Boolean(result?.bulkPreview));
+              const isPastBulkPreview = !isBulkActive || Boolean(m.bulkPreview && idx < lastBulkPreviewIdx);
 
               return (
                 <React.Fragment key={m.id || idx}>
                   {m.text && (
                     <div className={`my-ai-message-row ${isUser ? 'user' : 'assistant'}`}>
                       <div
-                        className={`my-ai-bubble ${isUser ? 'user' : 'assistant'} ${
-                          m.isError ? 'error-bubble' : ''
-                        }`}
+                        className={`my-ai-bubble ${isUser ? 'user' : 'assistant'} ${m.isError ? 'error-bubble' : ''
+                          }`}
                       >
                         {isUser ? (
                           <span>{renderFormattedMarkdown(m.text)}</span>
@@ -626,6 +839,28 @@ export default function MyAiChatView({ onBack, onClose }) {
                           onEdit={handleEdit}
                           onCancel={handleCancel}
                           isPast={isPastPreview}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {!isUser && m.bulkPreview && (
+                    <div className="my-ai-message-row assistant preview-card-row">
+                      <div className="my-ai-preview-card-wrap" style={{ width: '100%', maxWidth: '640px' }}>
+                        <BulkTaskPreviewCard
+                          bulkPreview={m.bulkPreview}
+                          busy={creating}
+                          onConfirm={() => handleChipClick({
+                            label: 'Create Tasks',
+                            action: {
+                              type: 'bulk_create_confirm',
+                              tasks: m.bulkPreview.validTasks,
+                              taskType: m.bulkPreview.taskType
+                            }
+                          })}
+                          onEdit={() => handleChipClick({ label: 'Edit', action: { type: 'edit_bulk_tasks' } })}
+                          onCancel={handleCancel}
+                          isPast={isPastBulkPreview}
                         />
                       </div>
                     </div>
@@ -657,14 +892,14 @@ export default function MyAiChatView({ onBack, onClose }) {
                   const label = c.name || c.projectName || c.label;
                   const subtitle = result?.field === 'project'
                     ? [
-                        c.status ? (c.status.charAt(0).toUpperCase() + c.status.slice(1)) : null,
-                        c.startDate ? `Start: ${formatCandidateDate(c.startDate)}` : null,
-                        Array.isArray(c.users) ? `${c.users.length} members` : (c.memberCount ? `${c.memberCount} members` : null),
-                        c._id ? `#${String(c._id).slice(-6)}` : null,
-                      ].filter(Boolean).join(' • ')
+                      c.status ? (c.status.charAt(0).toUpperCase() + c.status.slice(1)) : null,
+                      c.startDate ? `Start: ${formatCandidateDate(c.startDate)}` : null,
+                      Array.isArray(c.users) ? `${c.users.length} members` : (c.memberCount ? `${c.memberCount} members` : null),
+                      c._id ? `#${String(c._id).slice(-6)}` : null,
+                    ].filter(Boolean).join(' • ')
                     : [c.employeeId, c.jobRole || c.role, c.department]
-                        .filter(Boolean)
-                        .join(' • ');
+                      .filter(Boolean)
+                      .join(' • ');
 
                   return (
                     <button
@@ -683,8 +918,10 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
 
-          {/* Slot-filling choice chips (hide redundant chips when preview card is displayed in ready state) */}
-          {chips.length > 0 && status !== 'ready' && !chips.some((c) => c.action?.type === 'confirm') && (
+
+
+          {/* Slot-filling choice chips (hide redundant chips when preview card is displayed in ready state or bulk preview card) */}
+          {!isAiDisabled && chips.length > 0 && status !== 'ready' && status !== 'bulk_preview' && !result?.bulkPreview && !chips.some((c) => c.action?.type === 'confirm') && (
             <div className="my-ai-chips-container">
               {(() => {
                 const hasHoGayaInChips = chips.some(
@@ -838,7 +1075,7 @@ export default function MyAiChatView({ onBack, onClose }) {
             ref={fileInputRef}
             type="file"
             multiple={result?.payload?.maxFiles !== 1}
-            accept={result?.payload?.accept ? (Array.isArray(result.payload.accept) ? result.payload.accept.join(',') : result.payload.accept) : ".jpg,.jpeg,.png,.pdf,.mp4,.mp3,.wav,.avi,.mkv,.webm,image/*,application/pdf,video/*,audio/*"}
+            accept={result?.payload?.accept ? (Array.isArray(result.payload.accept) ? result.payload.accept.join(',') : result.payload.accept) : ".csv,.xlsx,.xls,.jpg,.jpeg,.png,.pdf,.mp4,.mp3,.wav,.avi,.mkv,.webm,image/*,application/pdf,video/*,audio/*"}
             style={{ display: 'none' }}
             onChange={(e) => {
               if (e.target.files && e.target.files.length > 0) {
@@ -854,7 +1091,8 @@ export default function MyAiChatView({ onBack, onClose }) {
               type="button"
               className={`my-ai-composer-icon-btn ${highlightPaperclip ? 'highlighted' : ''}`}
               onClick={() => fileInputRef.current?.click()}
-              title="File ya photo attach karein"
+              disabled={isAiDisabled}
+              title={isAiDisabled ? 'AI Assistant access disabled by admin' : 'File ya photo attach karein'}
               aria-label="Attach file"
             >
               <Paperclip size={18} />
@@ -864,13 +1102,15 @@ export default function MyAiChatView({ onBack, onClose }) {
             <button
               type="button"
               className={`my-ai-composer-icon-btn mic-btn ${listening ? 'is-listening' : ''} ${recordingVoiceNote ? 'recording' : ''}`}
+              disabled={isAiDisabled}
               onClick={() => {
+                if (isAiDisabled) return;
                 if (isSpeaking) {
                   cancelSpeech();
                 }
                 handleOrbClick();
               }}
-              title={listening ? 'AI sun raha hai (Tap to pause)' : 'Mic chalu karein'}
+              title={isAiDisabled ? 'AI Assistant access disabled by admin' : (listening ? 'AI sun raha hai (Tap to pause)' : 'Mic chalu karein')}
               aria-label={listening ? 'Mic on, listening' : 'Mic off'}
             >
               <Mic size={18} className={listening || recordingVoiceNote ? 'text-red-600' : ''} />
@@ -882,7 +1122,9 @@ export default function MyAiChatView({ onBack, onClose }) {
               rows={1}
               className="my-ai-composer-input"
               value={input}
+              disabled={isAiDisabled}
               onChange={(e) => {
+                if (isAiDisabled) return;
                 const val = e.target.value;
                 setInput(val);
                 if (isTypingRef) isTypingRef.current = Boolean(val && val.trim().length > 0);
@@ -899,6 +1141,7 @@ export default function MyAiChatView({ onBack, onClose }) {
                 el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
               }}
               onKeyDown={(e) => {
+                if (isAiDisabled) return;
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   if (!loading && !isTranscribing && input.trim()) {
@@ -910,13 +1153,15 @@ export default function MyAiChatView({ onBack, onClose }) {
                 }
               }}
               placeholder={
-                isTranscribing
-                  ? 'Transcribing…'
-                  : loading
-                  ? 'Thinking…'
-                  : listening
-                  ? 'Listening… (Mic ON)'
-                  : 'Task likhein ya mic dabayein…'
+                isAiDisabled
+                  ? "You don't have access to use CIIS AI"
+                  : isTranscribing
+                    ? 'Transcribing…'
+                    : loading
+                      ? 'Thinking…'
+                      : listening
+                        ? 'Listening… (Mic ON)'
+                        : 'Task likhein ya mic dabayein…'
               }
               maxLength={600}
             />
@@ -937,8 +1182,8 @@ export default function MyAiChatView({ onBack, onClose }) {
               <button
                 type="submit"
                 className="my-ai-composer-submit-btn"
-                disabled={loading || isTranscribing || !input.trim()}
-                title="Send message"
+                disabled={isAiDisabled || loading || isTranscribing || !input.trim()}
+                title={isAiDisabled ? 'AI Assistant access disabled' : 'Send message'}
                 aria-label="Send message"
               >
                 <Send size={15} />
@@ -974,28 +1219,28 @@ export default function MyAiChatView({ onBack, onClose }) {
           }}>
             <span>Mic State: <strong>{
               listening ? 'active'
-              : (isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'speaking'
-              : micSkipReason ? `idle - skipped: ${micSkipReason}`
-              : userMuted ? 'idle - skipped: muted'
-              : (isTypingRef?.current || input?.trim?.()) ? 'idle - skipped: typing'
-              : !autoSpeak ? 'idle - skipped: speaker off'
-              : (micPermission === 'denied' || speechError === 'not-allowed') ? 'idle - skipped: permission'
-              : 'idle'
+                : (isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'speaking'
+                  : micSkipReason ? `idle - skipped: ${micSkipReason}`
+                    : userMuted ? 'idle - skipped: muted'
+                      : (isTypingRef?.current || input?.trim?.()) ? 'idle - skipped: typing'
+                        : !autoSpeak ? 'idle - skipped: speaker off'
+                          : (micPermission === 'denied' || speechError === 'not-allowed') ? 'idle - skipped: permission'
+                            : 'idle'
             }</strong>
-            {!listening && (
-              <span style={{ marginLeft: 6, fontSize: '0.85em', opacity: 0.85 }}>
-                (speakerOn: {autoSpeak ? 'true' : 'false'}, awaitingAnswer: {(!status || ['needs_input', 'needs_disambiguation', 'ready', 'open', 'idle'].includes(status)) ? 'true' : 'false'}, muted: {userMuted ? 'true' : 'false'}, typing: {(isTypingRef?.current || input?.trim?.()) ? 'true' : 'false'}, listening: {listening ? 'true' : 'false'}, speaking: {(isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'true' : 'false'}, permission: {micPermission || (speechError === 'not-allowed' ? 'denied' : 'prompt')}, pendingStart: {pendingStartRef?.current ? 'true' : 'false'})
-              </span>
-            )}
+              {!listening && (
+                <span style={{ marginLeft: 6, fontSize: '0.85em', opacity: 0.85 }}>
+                  (speakerOn: {autoSpeak ? 'true' : 'false'}, awaitingAnswer: {(!status || ['needs_input', 'needs_disambiguation', 'ready', 'open', 'idle'].includes(status)) ? 'true' : 'false'}, muted: {userMuted ? 'true' : 'false'}, typing: {(isTypingRef?.current || input?.trim?.()) ? 'true' : 'false'}, listening: {listening ? 'true' : 'false'}, speaking: {(isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) ? 'true' : 'false'}, permission: {micPermission || (speechError === 'not-allowed' ? 'denied' : 'prompt')}, pendingStart: {pendingStartRef?.current ? 'true' : 'false'})
+                </span>
+              )}
             </span>
             <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
               <span>Speak: <strong>{speakDiag ? (speakDiag.status === 'skipped' ? `skipped(${speakDiag.reason})` : speakDiag.status) : 'idle'}</strong></span>
             </div>
             <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>
               <span>Voice: <strong>{voiceInfo?.name ? `${voiceInfo.name} (${voiceInfo.lang})${voiceInfo.isFallback ? ' [fallback]' : ''}` : 'none'}</strong>
-              {allVoices && allVoices.length > 0 && (
-                <span style={{ marginLeft: 6, opacity: 0.8 }}>| All: [{allVoices.map((v) => v.name).join(', ')}]</span>
-              )}
+                {allVoices && allVoices.length > 0 && (
+                  <span style={{ marginLeft: 6, opacity: 0.8 }}>| All: [{allVoices.map((v) => v.name).join(', ')}]</span>
+                )}
               </span>
             </div>
             <div style={{ width: '100%', marginTop: 2, fontSize: '0.9em' }}>

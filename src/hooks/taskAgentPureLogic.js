@@ -890,6 +890,36 @@ export const WELCOME_MENU_BUTTONS_EN = [
     { label: 'Create client plan', action: { type: 'set_intent', intent: 'create_client_plan' } },
 ];
 
+export const generateCsvTemplate = (taskType = 'self') => {
+    if (taskType === 'assigned') {
+        const headers = ['Task Title', 'Assignee', 'Description', 'Due Date', 'Due Time', 'Priority', 'Repeat Pattern', 'Repeat Days', 'Repeat End Date', 'Checkpoints', 'File / Link URL'];
+        const sampleRow1 = ['Prepare Monthly Accounts', 'Shivani Chandel', 'Reconcile ledger and complete GST entries', '25-11-2026', '06:00 PM', 'High', 'Monthly', '', '31-12-2026', 'Collect bank statement; Verify tax; Submit', 'https://drive.google.com/sample'];
+        const sampleRow2 = ['Website Security Audit', 'Pallavi Kanwar', 'Perform vulnerability scan on staging server', '28-11-2026', '05:00 PM', 'Medium', 'None', '', '', 'Port scan; SSL check', ''];
+        return [headers.join(','), sampleRow1.map(v => `"${v}"`).join(','), sampleRow2.map(v => `"${v}"`).join(',')].join('\n');
+    }
+
+    const headers = ['Task Title', 'Description', 'Due Date', 'Due Time', 'Priority', 'Repeat Pattern', 'Repeat Days', 'Repeat End Date', 'Checkpoints', 'File / Link URL'];
+    const sampleRow1 = ['GST Return Filing', 'Compile sales and purchase data and file GSTR-3B', '20-11-2026', '06:00 PM', 'High', 'Monthly', '', '31-12-2026', 'Collect invoices; Check portal; Submit return', 'https://drive.google.com/sample'];
+    const sampleRow2 = ['Weekly Team Review', 'Review team goals and sprint progress', 'Tomorrow', '04:00 PM', 'Medium', 'Weekly', 'Monday; Friday', '31-12-2026', 'Check blockers; Update board', ''];
+    return [headers.join(','), sampleRow1.map(v => `"${v}"`).join(','), sampleRow2.map(v => `"${v}"`).join(',')].join('\n');
+};
+
+export const downloadCsvFile = (filename, content) => {
+    try {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error('downloadCsvFile error:', err);
+    }
+};
+
 export const getTimeBasedSalutation = (now = new Date()) => {
     const hours = now.getHours();
     if (hours < 12) return { en: 'Good morning', hi: 'गुड मॉर्निंग' };
@@ -1025,7 +1055,7 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
 
     const hasSlug = (...keys) => keys.some(k => menuSlugs.has(k) || permSlugs.has(k));
 
-    const allowed = new Set(['self_task']); // Personal task is always allowed for all employees
+    const allowed = new Set(['self_task']); // Personal tasks are always allowed for all employees
 
     // Assigning tasks to others requires "Admin Create Task" permission (not general Task Management)
     const isOnAdminTaskPage = typeof window !== 'undefined' && window.location?.pathname?.includes('admin-task-create');
@@ -1520,6 +1550,589 @@ export const waitForVoices = (speechSynth, timeoutMs = 1500) => {
         }, timeoutMs);
     });
 };
+
+/**
+ * Unified robust time parser for task creation and editing.
+ * Parses 12-hour/24-hour time, AM/PM, Indian Hindi time words (baje, shaam, subah).
+ * Office heuristics: Hour 1-7 without explicit morning/AM defaults to PM (e.g. 6 pm -> 18:00).
+ */
+export function parseTimeExpression(text) {
+    if (!text || typeof text !== 'string') return null;
+    const clean = text.trim().toLowerCase();
+    const normalized = clean.replace(/([ap])\s*\.\s*m\s*\./gi, '$1m');
+
+    const isShaamOrEvening = /\b(?:shaam|sham|evening|dophar|dopahar|afternoon|raat|night)\b/i.test(normalized);
+    const isSubahOrMorning = /\b(?:subah|morning|early\s*morning)\b/i.test(normalized);
+
+    const strictTimeMatch = normalized.match(/(?:(?:at|time|samay)\s*[:=]?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|baaje)?)|(?:\b(\d{1,2}):(\d{2})\s*(am|pm|baje|baaje)?)|(?:\b(\d{1,2})\s*(am|pm|baje|baaje)\b)/i);
+
+    if (!strictTimeMatch) return null;
+
+    let h = parseInt(strictTimeMatch[1] || strictTimeMatch[4] || strictTimeMatch[7], 10);
+    const m = parseInt(strictTimeMatch[2] || strictTimeMatch[5] || '0', 10);
+    const rawMer = (strictTimeMatch[3] || strictTimeMatch[6] || strictTimeMatch[8] || '').toLowerCase();
+
+    if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) return null;
+
+    let isPm = false;
+    let isAm = false;
+
+    if (rawMer === 'pm') {
+        isPm = true;
+    } else if (rawMer === 'am') {
+        isAm = true;
+    } else if (isShaamOrEvening) {
+        isPm = true;
+    } else if (isSubahOrMorning) {
+        isAm = true;
+    } else if (rawMer === 'baje' || rawMer === 'baaje' || !rawMer) {
+        // Business heuristic: 1 to 7 without morning defaults to PM (13:00 to 19:00)
+        if (h >= 1 && h <= 7) {
+            isPm = true;
+        }
+    }
+
+    if (isPm && h < 12) h += 12;
+    if (isAm && h === 12) h = 0;
+
+    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return { hours: h, minutes: m, timeStr };
+}
+
+/**
+ * Deterministically applies an edit instruction to an array of parsed bulk tasks.
+ * Zero-hallucination: matches row number and field cleanly, updating only the target task.
+ */
+export const applyBulkTaskEdit = (tasks, editText, now = new Date()) => {
+    if (!Array.isArray(tasks) || tasks.length === 0 || !editText || typeof editText !== 'string') {
+        return { success: false, tasks: tasks || [], message: 'Koi task ya edit text nahi mila.' };
+    }
+
+    const text = editText.trim();
+    const lower = text.toLowerCase();
+
+    // 1. Determine target task index
+    let targetIdx = -1;
+    let targetLabel = '';
+
+    // 1. Explicit task index: "task 3", "task #3", "#3", "item 3"
+    const taskNumMatch = lower.match(/(?:task|item|item\s*no\.?)\s*#?\s*(\d+)/i) || lower.match(/#(\d+)/);
+    if (taskNumMatch) {
+        const num = parseInt(taskNumMatch[1], 10);
+        if (num >= 1 && num <= tasks.length) {
+            targetIdx = num - 1;
+            targetLabel = `Task #${num}${tasks[targetIdx]?.title ? ` ("${tasks[targetIdx].title}")` : ''}`;
+        }
+    }
+
+    // 2. Row index: "row 2", "line 3"
+    if (targetIdx === -1) {
+        const rowNumMatch = lower.match(/(?:row|line|line\s*no\.?)\s*#?\s*(\d+)/i);
+        if (rowNumMatch) {
+            const num = parseInt(rowNumMatch[1], 10);
+            const byRowNum = tasks.findIndex(t => t.rowNum === num);
+            if (byRowNum !== -1) {
+                targetIdx = byRowNum;
+                targetLabel = `Row ${num}`;
+            } else if (num >= 1 && num <= tasks.length) {
+                targetIdx = num - 1;
+                targetLabel = `Task #${num}`;
+            }
+        }
+    }
+
+    // Match ordinals: pehla/first, doosra/second, teesra/third, aakhri/last
+    if (targetIdx === -1) {
+        if (/pehla|pahla|first|1st/i.test(lower)) {
+            targetIdx = 0;
+            targetLabel = 'Task 1';
+        } else if (/doosra|dusra|second|2nd/i.test(lower)) {
+            targetIdx = Math.min(1, tasks.length - 1);
+            targetLabel = 'Task 2';
+        } else if (/teesra|tisra|third|3rd/i.test(lower)) {
+            targetIdx = Math.min(2, tasks.length - 1);
+            targetLabel = 'Task 3';
+        } else if (/chautha|fourth|4th/i.test(lower)) {
+            targetIdx = Math.min(3, tasks.length - 1);
+            targetLabel = 'Task 4';
+        } else if (/paanchwa|panchwa|fifth|5th/i.test(lower)) {
+            targetIdx = Math.min(4, tasks.length - 1);
+            targetLabel = 'Task 5';
+        } else if (/aakhri|akhri|last/i.test(lower)) {
+            targetIdx = tasks.length - 1;
+            targetLabel = `Task ${tasks.length}`;
+        }
+    }
+
+    // Match by existing task title in quotes or word match
+    if (targetIdx === -1) {
+        const titleMatchIdx = tasks.findIndex(t => {
+            const tTitle = (t.title || '').toLowerCase().trim();
+            return tTitle.length > 2 && lower.includes(tTitle);
+        });
+        if (titleMatchIdx !== -1) {
+            targetIdx = titleMatchIdx;
+            targetLabel = `"${tasks[targetIdx].title}"`;
+        }
+    }
+
+    // If only 1 task exists in list, default to it
+    if (targetIdx === -1 && tasks.length === 1) {
+        targetIdx = 0;
+        targetLabel = 'Task 1';
+    }
+
+    if (targetIdx === -1 || targetIdx >= tasks.length) {
+        return {
+            success: false,
+            tasks,
+            message: `Kaunse task ya row ko edit karna hai, yeh samajh nahi aaya (Jaise: "Row 2 ka due date kal kardo" ya "Task 1 ka title change kardo").`,
+        };
+    }
+
+    const targetTask = { ...tasks[targetIdx] };
+    const updatedFields = [];
+
+    // 2. Identify fields to update
+
+    // Priority
+    if (/\b(?:priority|prathmikta)\b/i.test(lower) || /\b(?:high|medium|low|urgent)\b/i.test(lower)) {
+        if (/\b(?:high|urgent)\b/i.test(lower)) {
+            targetTask.priority = 'high';
+            updatedFields.push('Priority: High');
+        } else if (/\b(?:low|kam)\b/i.test(lower)) {
+            targetTask.priority = 'low';
+            updatedFields.push('Priority: Low');
+        } else if (/\b(?:medium|madhyam)\b/i.test(lower)) {
+            targetTask.priority = 'medium';
+            updatedFields.push('Priority: Medium');
+        }
+    }
+
+    // Due Date
+    let newDate = null;
+    if (/\b(?:kal|tomorrow)\b/i.test(lower)) {
+        newDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    } else if (/\b(?:parso|day\s+after\s+tomorrow)\b/i.test(lower)) {
+        newDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    } else if (/\b(?:aaj|today)\b/i.test(lower)) {
+        newDate = new Date(now);
+    } else {
+        const dateMatch = text.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/);
+        if (dateMatch) {
+            let [ , d, m, y ] = dateMatch;
+            if (y.length === 2) y = '20' + y;
+            newDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+        }
+    }
+
+    if (newDate && !isNaN(newDate.getTime())) {
+        const currentDue = targetTask.dueDateTime ? new Date(targetTask.dueDateTime) : new Date(now);
+        newDate.setHours(currentDue.getHours() || 18, currentDue.getMinutes() || 0, 0, 0);
+        targetTask.dueDateTime = newDate.toISOString();
+        const dStr = `${String(newDate.getDate()).padStart(2, '0')}/${String(newDate.getMonth() + 1).padStart(2, '0')}/${newDate.getFullYear()}`;
+        targetTask.dueDate = dStr;
+        updatedFields.push(`Due Date: ${dStr}`);
+    }
+
+    // Due Time
+    const parsedTime = parseTimeExpression(text);
+    if (parsedTime) {
+        const { hours, minutes, timeStr } = parsedTime;
+        const currentDue = targetTask.dueDateTime ? new Date(targetTask.dueDateTime) : new Date(now);
+        currentDue.setHours(hours, minutes, 0, 0);
+        targetTask.dueDateTime = currentDue.toISOString();
+        targetTask.dueTime = timeStr;
+        updatedFields.push(`Time: ${timeStr}`);
+    }
+
+    // Title
+    const titleMatch = text.match(/(?:title|naam|heading)\s*(?:ko|ka|karke|rakho|bana\s*do|change\s*karo|update\s*karo|:|=|\s+)*[:=]?\s*['"]?([^,'".]+)['"]?/i);
+    if (titleMatch && titleMatch[1]) {
+        let newTitle = titleMatch[1].trim()
+            .replace(/^(?:change\s*karke|badal\s*ke|change\s*karo|badal\s*do|update\s*karo|karke|ko|ka|rakho|bana\s*do|ye|yeh)\s+/i, '')
+            .replace(/\s+(?:kar\s*do|bana\s*do|kardo|rakho|hoga|hai)$/i, '')
+            .trim();
+        if (newTitle.length > 0) {
+            targetTask.title = newTitle;
+            updatedFields.push(`Title: "${newTitle}"`);
+        }
+    }
+
+    // Description
+    const descMatch = text.match(/(?:description|desc|detail|vivran)\s*(?:ko|ka|karke|rakho|bana\s*do|change\s*karo|update\s*karo|:|=|\s+)*[:=]?\s*['"]?([^,'"]+)['"]?/i);
+    if (descMatch && descMatch[1]) {
+        let newDesc = descMatch[1].trim()
+            .replace(/^(?:change\s*karke|badal\s*ke|change\s*karo|badal\s*do|update\s*karo|karke|ko|ka|rakho|bana\s*do|ye|yeh)\s+/i, '')
+            .replace(/\s+(?:kar\s*do|bana\s*do|kardo|rakho|hoga|hai)$/i, '')
+            .trim();
+        if (newDesc.length > 0) {
+            targetTask.description = newDesc;
+            updatedFields.push(`Description: "${newDesc}"`);
+        }
+    }
+
+    // Assignee (e.g. "Shivani ko assign kardo" OR "assign to Shivani")
+    let rawName = '';
+    const assignAfterMatch = text.match(/(?:(?:row|task)\s*#?\d+\s+)?([a-zA-Z\s]+?)\s*ko\s*assign/i);
+    if (assignAfterMatch && assignAfterMatch[1]) {
+        rawName = assignAfterMatch[1].trim();
+    } else {
+        const assignBeforeMatch = text.match(/(?:assignee|assign\s+to|kisko)\s*(?:ko|ka|karke|rakho|bana\s*do|:|=)?\s*[:=]?\s*['"]?([a-zA-Z\s]+)['"]?/i);
+        if (assignBeforeMatch && assignBeforeMatch[1]) {
+            rawName = assignBeforeMatch[1].trim().replace(/\s+(?:ko|assign|kardo|kar\s*do)$/i, '');
+        }
+    }
+    if (rawName && rawName.length > 2) {
+        targetTask.assignee = {
+            ...(targetTask.assignee || {}),
+            name: rawName,
+        };
+        targetTask.taskFor = 'others';
+        updatedFields.push(`Assignee: ${rawName}`);
+    }
+
+    if (updatedFields.length === 0) {
+        return {
+            success: false,
+            tasks,
+            message: `${targetLabel} mein kya badalna hai yeh samajh nahi aaya. Kripya title, due date, priority ya assignee batayein.`,
+        };
+    }
+
+    const nextTasks = [...tasks];
+    nextTasks[targetIdx] = targetTask;
+
+    return {
+        success: true,
+        modified: true,
+        tasks: nextTasks,
+        updatedTasks: nextTasks,
+        targetRow: targetTask.rowNum || (targetIdx + 1),
+        targetTask,
+        targetLabel,
+        updatedFields,
+        message: `✓ **${targetLabel}** update ho gaya hai (${updatedFields.join(', ')})!`,
+    };
+};
+
+export const isBulkTaskAddIntent = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const lower = text.toLowerCase().trim();
+    return /(?:add|naya|new|insert|aur)\s+(?:one\s+more\s+task|task|row|line)|(?:ek\s+aur\s+task|add\s+another\s+task)/i.test(lower);
+};
+
+export const addNewTaskToBulk = (tasks = [], text = '', taskType = 'self', now = new Date()) => {
+    if (!text || typeof text !== 'string') {
+        return { success: false, message: 'No task details provided.' };
+    }
+
+    const clean = text.trim();
+
+    // 1. Title / Task Name
+    let title = '';
+    const titleMatch = clean.match(/(?:task\s*name|task\s*title|title|task\s*naam|naam|heading)\s*(?:is|ko|ka|karke|bana\s*do|:|=)?\s*[:=]?\s*['"]?([^,;\n]+?)['"]?(?=\s*(?:,|$|ass|desc|detail|due|date|priority|prio))/i);
+    if (titleMatch) {
+        title = titleMatch[1].trim()
+            .replace(/^(?:change\s*karke|badal\s*ke|change\s*karo|badal\s*do|update\s*karo|karke|ko|ka|rakho|bana\s*do|ye|yeh)\s+/i, '')
+            .replace(/\s+(?:kar\s*do|bana\s*do|kardo|rakho|hoga|hai)$/i, '')
+            .trim();
+    }
+    if (!title) {
+        const directAddMatch = clean.match(/(?:add|new)\s+(?:task|row)\s+['"]?([^,;\n]+?)['"]?(?=\s*(?:,|$|ass|desc|detail|due|date|priority|prio))/i);
+        if (directAddMatch && !/^(?:one\s+more|another|new|naya)$/i.test(directAddMatch[1].trim())) {
+            title = directAddMatch[1].trim();
+        }
+    }
+    if (!title) {
+        title = `Task ${tasks.length + 1}`;
+    }
+
+    // 2. Assignee
+    let assigneeName = '';
+    const assignMatch = clean.match(/(?:ass?g?in(?:ee)?|assign(?:ee)?|assigned\s*to|kisko)\s*(?:to|ko|ka|:|=)?\s*[:=]?\s*['"]?([a-zA-Z\s]+?)['"]?(?=\s*(?:,|$|desc|detail|due|date|priority|prio|time))/i);
+    if (assignMatch) {
+        assigneeName = assignMatch[1].trim().replace(/\s+(?:to|ko|ka)$/i, '');
+    }
+
+    // 3. Description
+    let description = '';
+    const descMatch = clean.match(/(?:description|desc|detail|vivran)\s*(?:is|ko|ka|:|=)?\s*[:=]?\s*['"]?([^,;\n]+?)['"]?(?=\s*(?:,|$|due|date|priority|prio|time|ass))/i);
+    if (descMatch) {
+        description = descMatch[1].trim();
+    }
+
+    // 4. Due Date
+    let dueDateTime = null;
+    let dueDateStr = '';
+    const dateMatch = clean.match(/(?:due\s*date|date|tarikh|tareekh|due)\s*(?:is|ko|ka|:|=)?\s*[:=]?\s*['"]?(\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|today|tomorrow|aaj|kal|parso)['"]?/i);
+    if (dateMatch) {
+        const rawDate = dateMatch[1].trim().toLowerCase();
+        if (rawDate === 'tomorrow' || rawDate === 'kal') {
+            const d = new Date(now);
+            d.setDate(d.getDate() + 1);
+            dueDateTime = d;
+            dueDateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        } else if (rawDate === 'today' || rawDate === 'aaj') {
+            dueDateTime = new Date(now);
+            dueDateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+        } else if (rawDate === 'parso') {
+            const d = new Date(now);
+            d.setDate(d.getDate() + 2);
+            dueDateTime = d;
+            dueDateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        } else {
+            const parts = rawDate.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/);
+            if (parts) {
+                const day = parseInt(parts[1], 10);
+                const month = parseInt(parts[2], 10) - 1;
+                const year = parts[3].length === 2 ? 2000 + parseInt(parts[3], 10) : parseInt(parts[3], 10);
+                dueDateTime = new Date(year, month, day);
+                dueDateStr = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
+            }
+        }
+    }
+    if (!dueDateTime) {
+        dueDateTime = new Date(now);
+        dueDateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+    }
+
+    // 5. Due Time
+    let dueTimeStr = '';
+    const parsedTime = parseTimeExpression(clean);
+    if (parsedTime) {
+        const { hours, minutes, timeStr } = parsedTime;
+        dueDateTime.setHours(hours, minutes, 0, 0);
+        dueTimeStr = timeStr;
+    } else {
+        dueDateTime.setHours(18, 0, 0, 0);
+        dueTimeStr = '18:00';
+    }
+
+    // 6. Priority
+    let priority = 'medium';
+    if (/\b(?:high|urgent)\b/i.test(clean)) priority = 'high';
+    else if (/\b(?:low)\b/i.test(clean)) priority = 'low';
+
+    const nextRowNum = tasks.length > 0
+        ? Math.max(...tasks.map(t => t.rowNum || 0)) + 1
+        : 1;
+
+    // Assigned task requires assignee
+    if (taskType === 'assigned' && !assigneeName) {
+        return {
+            success: false,
+            missingField: 'assignee',
+            partialTask: {
+                rowNum: nextRowNum,
+                title,
+                description: description || null,
+                dueDateTime: dueDateTime.toISOString(),
+                dueDate: dueDateStr,
+                dueTime: dueTimeStr || null,
+                priority,
+                repeatPattern: 'none',
+                taskFor: 'others',
+                assignee: null,
+            },
+            title,
+            message: `Please specify who should be assigned to "${title}".`,
+        };
+    }
+
+    // Both task types require description (mandatory)
+    if (!description) {
+        return {
+            success: false,
+            missingField: 'description',
+            partialTask: {
+                rowNum: nextRowNum,
+                title,
+                description: null,
+                dueDateTime: dueDateTime.toISOString(),
+                dueDate: dueDateStr,
+                dueTime: dueTimeStr || null,
+                priority,
+                repeatPattern: 'none',
+                taskFor: (taskType === 'assigned' || assigneeName) ? 'others' : 'self',
+                assignee: assigneeName ? { name: assigneeName } : null,
+            },
+            title,
+            message: `Please provide a description for "${title}" (Description is mandatory).`,
+        };
+    }
+
+    const newTask = {
+        rowNum: nextRowNum,
+        title,
+        description,
+        dueDateTime: dueDateTime.toISOString(),
+        dueDate: dueDateStr,
+        dueTime: dueTimeStr || null,
+        priority,
+        repeatPattern: 'none',
+        taskFor: (taskType === 'assigned' || assigneeName) ? 'others' : 'self',
+        assignee: assigneeName ? { name: assigneeName } : null,
+    };
+
+    const nextTasks = [...tasks, newTask];
+
+    return {
+        success: true,
+        modified: true,
+        isAdd: true,
+        tasks: nextTasks,
+        updatedTasks: nextTasks,
+        newTask,
+        message: `Task "${title}" added successfully.`,
+    };
+};
+
+export const isBulkTaskDeleteIntent = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const lower = text.toLowerCase().trim();
+
+    // Ignore file/attachment removal
+    if (/(?:attachment|file|photo|image|document)\s*(?:delete|remove|hata|nikaal)|(?:delete|remove|hata|nikaal)\s*(?:attachment|file|photo|image|document)/i.test(lower)) {
+        return false;
+    }
+
+    // Must have a deletion keyword
+    const hasDeleteWord = /\b(?:delete|remove|hata\s*do|hatao|hataao|hataiye|nikaal\s*do|nikal\s*do|nikalo|nikaalo|delete\s*kardo|delete\s*karo|remove\s*kardo|remove\s*karo)\b/i.test(lower)
+        || /^(?:hata\s*do|nikaal\s*do|delete|remove)\b/i.test(lower);
+
+    if (!hasDeleteWord) return false;
+
+    // Guard: If setting title or desc to something containing "delete"
+    if (/(?:title|naam|heading|description|desc|vivran)\s*(?:is|ko|ka|karke|change|bana|rakho|to|badal)\b/i.test(lower)
+        && !/(?:row|task|line|item|#\d+|pehla|pahla|doosra|dusra|teesra|tisra|aakhri|last|first|second)\s*(?:ko\s*)?(?:delete|remove|hata|nikaal)/i.test(lower)) {
+        return false;
+    }
+
+    // Has reference to task, row, line, item, ordinal, or title
+    const hasTargetRef = /(?:task|row|line|item|#\d+|pehla|pahla|doosra|dusra|teesra|tisra|chautha|paanchwa|aakhri|last|first|second|third|fourth|fifth)/i.test(lower);
+
+    return hasTargetRef || lower.length < 50;
+};
+
+export const removeTaskFromBulk = (tasks = [], text = '') => {
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+        return { success: false, message: 'No tasks available to remove.' };
+    }
+
+    if (!text || typeof text !== 'string') {
+        return { success: false, message: 'No task specified to remove.' };
+    }
+
+    const lower = text.toLowerCase().trim();
+    let targetIdx = -1;
+    let targetLabel = '';
+
+    // 1. Explicit task index: "task 3", "task #3", "#3", "item 3"
+    const taskNumMatch = lower.match(/(?:task|item|item\s*no\.?)\s*#?\s*(\d+)/i) || lower.match(/#(\d+)/);
+    if (taskNumMatch) {
+        const num = parseInt(taskNumMatch[1], 10);
+        if (num >= 1 && num <= tasks.length) {
+            targetIdx = num - 1;
+            targetLabel = tasks[targetIdx]?.title ? `Task #${num} ("${tasks[targetIdx].title}")` : `Task #${num}`;
+        }
+    }
+
+    // 2. Row index: "row 2", "line 3"
+    if (targetIdx === -1) {
+        const rowNumMatch = lower.match(/(?:row|line|line\s*no\.?)\s*#?\s*(\d+)/i);
+        if (rowNumMatch) {
+            const num = parseInt(rowNumMatch[1], 10);
+            const byRowNum = tasks.findIndex(t => t.rowNum === num);
+            if (byRowNum !== -1) {
+                targetIdx = byRowNum;
+                targetLabel = tasks[targetIdx]?.title ? `Row ${num} ("${tasks[targetIdx].title}")` : `Row ${num}`;
+            } else if (num >= 1 && num <= tasks.length) {
+                targetIdx = num - 1;
+                targetLabel = tasks[targetIdx]?.title ? `Task #${num} ("${tasks[targetIdx].title}")` : `Task #${num}`;
+            }
+        }
+    }
+
+    // 3. Match ordinals: pehla/first, doosra/second, teesra/third, aakhri/last
+    if (targetIdx === -1) {
+        if (/pehla|pahla|first|1st/i.test(lower)) {
+            targetIdx = 0;
+            targetLabel = tasks[0]?.title ? `Task 1 ("${tasks[0].title}")` : 'Task 1';
+        } else if (/doosra|dusra|second|2nd/i.test(lower)) {
+            targetIdx = Math.min(1, tasks.length - 1);
+            targetLabel = tasks[targetIdx]?.title ? `Task 2 ("${tasks[targetIdx].title}")` : 'Task 2';
+        } else if (/teesra|tisra|third|3rd/i.test(lower)) {
+            targetIdx = Math.min(2, tasks.length - 1);
+            targetLabel = tasks[targetIdx]?.title ? `Task 3 ("${tasks[targetIdx].title}")` : 'Task 3';
+        } else if (/chautha|fourth|4th/i.test(lower)) {
+            targetIdx = Math.min(3, tasks.length - 1);
+            targetLabel = tasks[targetIdx]?.title ? `Task 4 ("${tasks[targetIdx].title}")` : 'Task 4';
+        } else if (/paanchwa|panchwa|fifth|5th/i.test(lower)) {
+            targetIdx = Math.min(4, tasks.length - 1);
+            targetLabel = tasks[targetIdx]?.title ? `Task 5 ("${tasks[targetIdx].title}")` : 'Task 5';
+        } else if (/aakhri|akhri|last/i.test(lower)) {
+            targetIdx = tasks.length - 1;
+            targetLabel = tasks[targetIdx]?.title ? `Task ${tasks.length} ("${tasks[targetIdx].title}")` : `Task ${tasks.length}`;
+        }
+    }
+
+    // 4. Match by task title match in text
+    if (targetIdx === -1) {
+        const cleanForTitle = lower
+            .replace(/\b(?:delete|remove|hata\s*do|hatao|hataao|hataiye|nikaal\s*do|nikal\s*do|nikalo|nikaalo|delete\s*kardo|delete\s*karo|remove\s*kardo|remove\s*karo|task|row|line|item|ko|ka|kardo|karo)\b/gi, '')
+            .trim();
+
+        const titleMatchIdx = tasks.findIndex(t => {
+            const tTitle = (t.title || '').toLowerCase().trim();
+            if (tTitle.length > 1 && lower.includes(tTitle)) return true;
+            if (cleanForTitle.length > 2 && tTitle.includes(cleanForTitle)) return true;
+            return false;
+        });
+
+        if (titleMatchIdx !== -1) {
+            targetIdx = titleMatchIdx;
+            targetLabel = `"${tasks[targetIdx].title}"`;
+        }
+    }
+
+    // 5. If only 1 task exists in list and user says delete/remove it
+    if (targetIdx === -1 && tasks.length === 1) {
+        targetIdx = 0;
+        targetLabel = tasks[0]?.title ? `Task 1 ("${tasks[0].title}")` : 'Task 1';
+    }
+
+    if (targetIdx === -1 || targetIdx >= tasks.length) {
+        return {
+            success: false,
+            tasks,
+            message: `Kaunse task ya row ko remove karna hai, yeh samajh nahi aaya (Jaise: "Row 2 delete kardo" ya "Task 3 remove karo").`,
+        };
+    }
+
+    const removedTask = { ...tasks[targetIdx] };
+    const nextTasks = tasks.filter((_, idx) => idx !== targetIdx);
+
+    // Re-index remaining tasks rowNum so they are consecutive (1, 2, 3...)
+    nextTasks.forEach((t, i) => {
+        t.rowNum = i + 1;
+    });
+
+    return {
+        success: true,
+        modified: true,
+        isDelete: true,
+        tasks: nextTasks,
+        updatedTasks: nextTasks,
+        removedTask,
+        removedIndex: targetIdx,
+        targetRow: targetIdx + 1,
+        targetLabel: targetLabel || `"${removedTask.title}"`,
+        isEmpty: nextTasks.length === 0,
+        message: `Task "${removedTask.title || `Row ${targetIdx + 1}`}" remove ho gaya hai.`,
+    };
+};
+
 
 
 

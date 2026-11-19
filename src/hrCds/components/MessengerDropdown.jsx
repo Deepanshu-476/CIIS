@@ -348,13 +348,10 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     const handleCloseFromSupport = () => {
       setIsOpenInternal(false);
       if (onClose) onClose();
-      if (myAi?.isOpen) {
-        myAi.closeMyAi();
-      }
     };
     window.addEventListener("close-messenger-widget", handleCloseFromSupport);
     return () => window.removeEventListener("close-messenger-widget", handleCloseFromSupport);
-  }, [onClose, myAi]);
+  }, [onClose]);
 
   // Sync open state and active view when My AI is opened globally
   useEffect(() => {

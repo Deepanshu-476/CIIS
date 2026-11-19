@@ -465,12 +465,6 @@ export default function CompanyAiSettings() {
                 {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            <span style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', display: 'block' }}>
-              You can get a free, high-speed Groq API key from{' '}
-              <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>
-                console.groq.com/keys
-              </a>.
-            </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>

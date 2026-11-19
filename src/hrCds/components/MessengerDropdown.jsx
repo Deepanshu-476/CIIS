@@ -355,20 +355,21 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
   // Sync open state and active view when My AI is opened globally
   useEffect(() => {
-    if (myAi?.isOpen) {
+    if (myAi?.isOpen && myAi?.hasAiAccess) {
       setActiveView("my-ai");
       setIsOpenInternal(true);
     }
-  }, [myAi?.isOpen]);
+  }, [myAi?.isOpen, myAi?.hasAiAccess]);
 
   useEffect(() => {
     const handleOpenMyAiEvent = () => {
+      if (!myAi?.hasAiAccess) return;
       setIsOpenInternal(true);
       setActiveView("my-ai");
     };
     window.addEventListener("open-messenger-widget-my-ai", handleOpenMyAiEvent);
     return () => window.removeEventListener("open-messenger-widget-my-ai", handleOpenMyAiEvent);
-  }, []);
+  }, [myAi?.hasAiAccess]);
 
   // Close when clicking outside widget/menus or on Escape
   useEffect(() => {
@@ -1142,9 +1143,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
         className={`fb-messenger-dropdown ${myAi?.isExpanded && activeView === "my-ai" ? "is-expanded" : ""}`}
         aria-label="Messenger Chats Popup"
       >
-        {activeView === "my-ai" ? (
+        {activeView === "my-ai" && myAi?.hasAiAccess ? (
           <MyAiChatView onBack={() => setActiveView("list")} onClose={handleCloseWidget} />
-        ) : activeView === "list" ? (
+        ) : (activeView === "list" || activeView === "my-ai") ? (
           <>
             {/* Header */}
             <div className="fb-messenger-header">
@@ -1281,8 +1282,8 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               </div>
             )}
             <div className="fb-messenger-list">
-              {/* Pinned My AI Task Assistant Row (Shown on all tab and search match, hidden for clients) */}
-              {!myAi?.isClient && (
+              {/* Pinned My AI Task Assistant Row (Shown when user has AI access, hidden for clients or disabled employees) */}
+              {myAi?.hasAiAccess && (
                 <MyAiPinnedRow
                   searchQuery={searchQuery}
                   activeTab={activeTab}

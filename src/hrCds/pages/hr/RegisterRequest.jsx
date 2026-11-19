@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Eye, FileText, Inbox, Mail, Paperclip, Power, PowerOff, RefreshCw, Save, Search, Trash2, Upload, UserRoundCheck, Users, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import axios from '../../../utils/axiosConfig';
+import { getRegistrationDateBounds, isRegistrationDateInRange, registrationDateOptions } from '../../../utils/registrationRequestDates';
 import './RegisterRequest.css';
 
 const getName = value => {
@@ -20,6 +24,10 @@ const getStatus = request => request.registrationStatus || (request.isActive ? '
 const getJobRoleName = request => request.jobRoleName || getName(request.jobRole) || request.companyRole || 'Unassigned Role';
 const getDepartmentName = request => request.departmentName || getName(request.department) || 'Not provided';
 const getErrorMessage = (error, fallback) => error.response?.data?.message || error.response?.data?.error || fallback;
+const datePickerSlots = {
+  textField: { size: 'small', fullWidth: true },
+  mobilePaper: { sx: { m: { xs: 0, sm: 4 } } },
+};
 
 const profileGroups = [
   ['Personal Details', [['name', 'Full Name'], ['email', 'Email'], ['phone', 'Phone'], ['dob', 'Date of Birth', 'date'], ['gender', 'Gender'], ['maritalStatus', 'Marital Status']]],
@@ -40,6 +48,9 @@ export default function RegisterRequest() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [fromDate, setFromDate] = useState(null);
+  const [toDate, setToDate] = useState(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -57,11 +68,16 @@ export default function RegisterRequest() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [canVerify, setCanVerify] = useState(false);
 
-  const statusCounts = useMemo(() => requests.reduce((counts, request) => {
+  const [dateStart, dateEnd] = getRegistrationDateBounds(dateFilter, fromDate, toDate);
+  const dateFilteredRequests = useMemo(() => dateStart === undefined ? requests : requests.filter(request => (
+    isRegistrationDateInRange(request.createdAt, dateStart, dateEnd)
+  )), [requests, dateStart, dateEnd]);
+
+  const statusCounts = useMemo(() => dateFilteredRequests.reduce((counts, request) => {
     const status = getStatus(request);
     counts[status] = (counts[status] || 0) + 1;
     return counts;
-  }, { pending: 0, active: 0, rejected: 0 }), [requests]);
+  }, { pending: 0, active: 0, rejected: 0 }), [dateFilteredRequests]);
 
   const jobRoleOptions = useMemo(() => [...new Set(requests.map(request => (
     getJobRoleName(request)
@@ -69,7 +85,7 @@ export default function RegisterRequest() {
 
   const filteredRequests = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return requests.filter(request => {
+    return dateFilteredRequests.filter(request => {
       const searchable = `${request.name || ''} ${request.email || ''} ${request.companyCode || ''} ${getName(request.company)}`.toLowerCase();
       const role = getJobRoleName(request);
       const matchesStatus = statusFilter === 'all'
@@ -77,13 +93,13 @@ export default function RegisterRequest() {
         : getStatus(request) === statusFilter;
       return matchesStatus && (roleFilter === 'all' || role === roleFilter) && (!term || searchable.includes(term));
     });
-  }, [requests, search, statusFilter, roleFilter]);
+  }, [dateFilteredRequests, search, statusFilter, roleFilter]);
 
   const pageSize = 8;
   const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
   const visibleRequests = useMemo(() => filteredRequests.slice((page - 1) * pageSize, page * pageSize), [filteredRequests, page]);
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, roleFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, roleFilter, dateStart, dateEnd]);
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
 
   const replaceRequest = request => setRequests(current => current.map(item => String(item._id) === String(request._id) ? { ...item, ...request, jobRoleName: request.jobRoleName || item.jobRoleName } : item));
@@ -346,12 +362,43 @@ export default function RegisterRequest() {
         <div className="RegisterRequest-toolbar">
           <div><h2>{statusFilter === 'all' ? 'All Registration Requests' : statusFilter === 'active' ? 'Activated Users' : 'Pending Requests'}</h2><p>{filteredRequests.length} request{filteredRequests.length === 1 ? '' : 's'} found</p></div>
           <div className="RegisterRequest-filters">
+            <div className="RegisterRequest-date-filter">
+              <CalendarDays size={17} aria-hidden="true" />
+              <select value={dateFilter} onChange={event => setDateFilter(event.target.value)} aria-label="Filter by application date">
+                {registrationDateOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
             <select value={roleFilter} onChange={event => setRoleFilter(event.target.value)} aria-label="Filter by job role">
               <option value="all">All Job Roles</option>
               {jobRoleOptions.map(role => <option key={role} value={role}>{role}</option>)}
             </select>
             <label><Search size={18} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search by name or email" /></label>
           </div>
+          {dateFilter === 'custom' && (
+            <div className="RegisterRequest-custom-dates" role="group" aria-label="Custom application date range">
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="From date"
+                  value={fromDate}
+                  onChange={setFromDate}
+                  referenceDate={Number.isFinite(toDate?.getTime()) ? toDate : undefined}
+                  maxDate={Number.isFinite(toDate?.getTime()) ? toDate : undefined}
+                  format="dd/MM/yyyy"
+                  slotProps={datePickerSlots}
+                />
+                <DatePicker
+                  label="To date"
+                  value={toDate}
+                  onChange={setToDate}
+                  referenceDate={Number.isFinite(fromDate?.getTime()) ? fromDate : undefined}
+                  minDate={Number.isFinite(fromDate?.getTime()) ? fromDate : undefined}
+                  format="dd/MM/yyyy"
+                  slotProps={datePickerSlots}
+                />
+              </LocalizationProvider>
+              {dateStart === undefined && <p role="status">Select a valid start and end date to filter requests.</p>}
+            </div>
+          )}
         </div>
 
         <div className="RegisterRequest-role-sections">
@@ -384,7 +431,7 @@ export default function RegisterRequest() {
           {!loading && filteredRequests.length > 0 && <div className="RegisterRequest-result-count"><span>Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filteredRequests.length)} of {filteredRequests.length} applications</span><div><button type="button" disabled={page === 1} onClick={() => setPage(current => current - 1)} aria-label="Previous page"><ChevronLeft size={18} /></button><span>{page} / {totalPages}</span><button type="button" disabled={page === totalPages} onClick={() => setPage(current => current + 1)} aria-label="Next page"><ChevronRight size={18} /></button></div></div>}
           {loading && <div className="RegisterRequest-loading" aria-live="polite"><span /><span /><span /><p>Loading registration requests...</p></div>}
           {!loading && loadError && <div className="RegisterRequest-empty error"><Users size={34} /><strong>Unable to load requests</strong><span>{loadError}</span><button type="button" onClick={loadRequests}><RefreshCw size={16} /> Try Again</button></div>}
-          {!loading && !loadError && !filteredRequests.length && <div className="RegisterRequest-empty"><Users size={34} /><strong>No matching requests</strong><span>Registration requests for this company will appear here.</span></div>}
+          {!loading && !loadError && !filteredRequests.length && <div className="RegisterRequest-empty"><Users size={34} /><strong>No matching requests</strong><span>{dateStart !== undefined ? 'Try a different application date range.' : 'Registration requests for this company will appear here.'}</span></div>}
         </div>
       </section>
 

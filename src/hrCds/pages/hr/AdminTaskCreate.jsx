@@ -948,7 +948,7 @@ const AdminTaskManagement = () => {
   };
 
   
-  const apiCall = async (method, url, data = null, config = {}) => {
+  const apiCall = async (method, url, data, config = {}) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -963,7 +963,7 @@ const AdminTaskManagement = () => {
         }
       };
 
-      if (!(data instanceof FormData) && !config.headers?.['Content-Type']) {
+      if (data != null && !(data instanceof FormData) && !config.headers?.['Content-Type']) {
         defaultConfig.headers['Content-Type'] = 'application/json';
       }
 

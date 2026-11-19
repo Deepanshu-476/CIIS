@@ -66,3 +66,71 @@
 .RegisterRequest-preview-modal>header{flex:0 0 auto;min-height:58px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5ebf4;background:#fff}.RegisterRequest-preview-modal>header>div{min-width:0;display:flex;align-items:center;gap:10px;color:#12213e}.RegisterRequest-preview-modal>header strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.RegisterRequest-preview-modal>header button{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:9px;background:#f3f6fb;color:#5e6d85;cursor:pointer}.RegisterRequest-preview-modal>header button:hover{background:#e8eef8;color:#172743}
 .RegisterRequest-preview-content{flex:1;min-height:0;padding:14px;display:flex;align-items:center;justify-content:center;overflow:auto;background:#f2f5fa}.RegisterRequest-preview-content img{display:block;max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 3px 18px rgba(16,35,69,.12)}.RegisterRequest-preview-content iframe{width:100%;height:100%;border:0;border-radius:8px;background:#fff}.RegisterRequest-preview-unsupported{display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;color:#66758e}.RegisterRequest-preview-unsupported strong{color:#1a2945}
 @media(max-width:600px){.RegisterRequest-preview-backdrop{padding:16px}.RegisterRequest-preview-modal{width:min(100%,400px);height:min(420px,65vh);border-radius:13px}.RegisterRequest-preview-content{padding:9px}}
+
+.RegisterRequest-toolbar {
+  flex-wrap: wrap;
+}
+
+.RegisterRequest-filters {
+  flex-wrap: wrap;
+}
+
+.RegisterRequest-date-filter {
+  position: relative;
+}
+
+.RegisterRequest-date-filter > svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: #1765dc;
+  pointer-events: none;
+}
+
+.RegisterRequest-filters .RegisterRequest-date-filter select {
+  width: 100%;
+  min-width: 152px;
+  padding-left: 36px;
+}
+
+.RegisterRequest-custom-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 176px));
+  gap: 12px;
+  flex-basis: 100%;
+}
+
+.RegisterRequest-custom-dates p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (min-width: 651px) and (max-width: 820px) {
+  .RegisterRequest-filters {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.3fr);
+  }
+
+  .RegisterRequest-filters select,
+  .RegisterRequest-filters label {
+    width: 100%;
+  }
+}
+
+@media (max-width: 650px) {
+  .RegisterRequest-date-filter,
+  .RegisterRequest-custom-dates {
+    width: 100%;
+  }
+
+  .RegisterRequest-custom-dates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 375px) {
+  .RegisterRequest-custom-dates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

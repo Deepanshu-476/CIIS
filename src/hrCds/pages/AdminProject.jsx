@@ -34,6 +34,7 @@ import {
   FiSend
 } from "react-icons/fi";
 import axios from "../../utils/axiosConfig";
+import { FALLBACK_API_URL } from "../../config";
 import "../Css/AdminProject.css";
 import CIISLoader from "../../Loader/CIISLoader"; 
 import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
@@ -96,7 +97,6 @@ const getUserId = (user) => user?._id || user?.id;
 const getProjectId = (p) => p?._id || p?.id;
 const getTaskId = (t) => t?._id || t?.id || (typeof t === 'string' ? t : null);
 const isImageFile = (value = "") => /\.(avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(String(value));
-const LIVE_API_URL = "https://backendciisnetwork.com/api";
 
 const sanitizeDocName = (value, fallback = 'Document') => {
   const clean = String(value || '')
@@ -1063,7 +1063,7 @@ export const AdminProject = () => {
                     alt={selectedPdfName || "Task attachment"}
                     className="ap-image-viewer"
                     onError={(event) => {
-                      const fallbackUrl = getProjectFileUrl(selectedPdfPath, LIVE_API_URL);
+                      const fallbackUrl = getProjectFileUrl(selectedPdfPath, FALLBACK_API_URL);
                       if (fallbackUrl && event.currentTarget.src !== fallbackUrl) {
                         event.currentTarget.src = fallbackUrl;
                       }

@@ -1,5 +1,5 @@
 // Lead submission for the marketing forms (Book Demo, Start Trial, Contact).
-// Uses the app's existing axios instance, so requests go to `${VITE_API_URL}` (e.g. https://backendciisnetwork.com/api).
+// The shared Axios instance sends requests to the configured API.
 import api from "../../utils/axiosConfig";
 
 export class LeadSubmitError extends Error {

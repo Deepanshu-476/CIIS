@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
+import { FALLBACK_API_URL } from "../../config";
 import "../Css/ProjectDetailsPage.css";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings, normalizeReminderSettings } from '../components/TaskReminderControl';
 import ProjectBulkImportModal from '../components/ProjectBulkImportModal';
@@ -149,7 +150,7 @@ const isTaskOverdue = (task) => {
   return Boolean(dueDate && dueDate < new Date());
 };
 
-const LIVE_UPLOAD_BASE = "https://backendciisnetwork.com/api/uploads";
+const LIVE_UPLOAD_BASE = `${FALLBACK_API_URL}/uploads`;
 
 const TASK_STATUS_OPTIONS = [
   { value: "pending", label: "Pending", color: "#FFA726" },

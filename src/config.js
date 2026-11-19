@@ -1,4 +1,5 @@
 export const API_URL = (import.meta.env.VITE_API_URL || 'https://backendcds.ciisnetwork.in/api').replace(/\/+$/, '');
+export const FALLBACK_API_URL = (import.meta.env.VITE_FALLBACK_API_URL || 'https://backendcds.ciisnetwork.in/api').replace(/\/+$/, '');
 export const API_ORIGIN = new URL(API_URL).origin;
 export const API_URL_IMG = import.meta.env.VITE_API_URL_IMG || `${API_ORIGIN}/`;
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_ORIGIN;

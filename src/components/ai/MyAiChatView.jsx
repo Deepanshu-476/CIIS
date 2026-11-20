@@ -374,19 +374,20 @@ function BulkTaskPreviewCard({ bulkPreview, busy, onConfirm, onEdit, onCancel, i
 
 export default function MyAiChatView({ onBack, onClose }) {
   const { isExpanded, toggleExpanded, closeMyAi } = useMyAi();
+  const cancelSpeechRef = useRef(null);
 
   const handleClose = useCallback((e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    cancelSpeech();
+    cancelSpeechRef.current?.();
     closeMyAi();
     if (onClose) {
       onClose();
     }
     window.dispatchEvent(new CustomEvent('close-messenger-widget'));
-  }, [cancelSpeech, closeMyAi, onClose]);
+  }, [closeMyAi, onClose]);
 
   // Single source of truth: Voice task agent session hook
   const session = useTaskAgentSession({
@@ -464,6 +465,8 @@ export default function MyAiChatView({ onBack, onClose }) {
     startNewChat,
     isAiDisabled,
   } = session;
+
+  cancelSpeechRef.current = cancelSpeech;
 
   const [showHistory, setShowHistory] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);

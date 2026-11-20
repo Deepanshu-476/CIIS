@@ -46,7 +46,8 @@ export default function GptVoiceOrb({
       });
     }
 
-    let currentScale = 1.0;
+    let currentScaleX = 1.0;
+    let currentScaleY = 1.0;
     let currentRotation = 0;
 
     const render = () => {
@@ -58,14 +59,14 @@ export default function GptVoiceOrb({
       const isSpeaking = currentState === 'speaking';
       const isThinking = currentState === 'thinking';
 
-      // Speed rates
-      const timeSpeed = isPaused ? 0.012 : isThinking ? 0.045 : isSpeaking ? 0.036 : 0.024;
+      // Speed rates based on conversational state
+      const timeSpeed = isPaused ? 0.012 : isThinking ? 0.045 : isSpeaking ? 0.038 : 0.024;
       time += timeSpeed;
 
-      const rotSpeed = isThinking ? 0.025 : isSpeaking ? 0.008 : 0.004;
+      const rotSpeed = isThinking ? 0.028 : isSpeaking ? 0.009 : 0.004;
       currentRotation += rotSpeed;
 
-      // Handle Retina / High DPI
+      // Handle Retina / High DPI display
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const width = size;
       const height = size;
@@ -83,20 +84,27 @@ export default function GptVoiceOrb({
       const centerY = height / 2;
       const baseRadius = size * 0.38;
 
-      // Dynamic breathing scale
-      let targetScale = 1.0;
+      // Organic Squash & Stretch inertia: scaleX and scaleY dynamic breathing
+      let targetScaleX = 1.0;
+      let targetScaleY = 1.0;
       if (isSpeaking) {
-        targetScale = 1.0 + Math.sin(time * 3.5) * 0.05 + currentAmp * 0.22;
+        targetScaleX = 1.0 + Math.sin(time * 3.4) * 0.04 + currentAmp * 0.16;
+        targetScaleY = 1.0 - Math.sin(time * 3.4) * 0.03 + currentAmp * 0.22;
       } else if (isListening) {
-        targetScale = 1.0 + Math.sin(time * 2.5) * 0.025 + currentAmp * 0.14;
+        targetScaleX = 1.0 + Math.sin(time * 2.4) * 0.025 + currentAmp * 0.12;
+        targetScaleY = 1.0 - Math.sin(time * 2.4) * 0.02 + currentAmp * 0.15;
       } else if (isThinking) {
-        targetScale = 1.0 + Math.sin(time * 4) * 0.04;
+        targetScaleX = 1.0 + Math.sin(time * 4) * 0.035;
+        targetScaleY = 1.0 - Math.sin(time * 4) * 0.035;
       } else {
-        targetScale = 1.0 + Math.sin(time * 1.5) * 0.02;
+        // Paused / Idle: subtle sine oscillation (~1.2s period)
+        targetScaleX = 1.0 + Math.sin(time * 1.5) * 0.02;
+        targetScaleY = 1.0 + Math.sin(time * 1.5) * 0.02;
       }
-      currentScale += (targetScale - currentScale) * 0.15;
+      currentScaleX += (targetScaleX - currentScaleX) * 0.16;
+      currentScaleY += (targetScaleY - currentScaleY) * 0.16;
 
-      // Calculate perimeter harmonic wave ripples
+      // Calculate perimeter harmonic wave ripples (16-point cubic/quadratic spline)
       for (let i = 0; i < numPoints; i++) {
         const pt = points[i];
         const a = pt.angle + currentRotation;
@@ -108,9 +116,9 @@ export default function GptVoiceOrb({
           const w3 = Math.sin(a * 5 - time * 2.5) * (3 + currentAmp * 8);
           deformation = w1 + w2 + w3;
         } else if (isListening) {
-          const w1 = Math.sin(a * 3 - time * 2.6) * (4 + currentAmp * 15);
-          const w2 = Math.cos(a * 2 + time * 2.1) * (3 + currentAmp * 10);
-          const w3 = Math.sin(a * 4 - time * 1.6) * (2 + currentAmp * 6);
+          const w1 = Math.sin(a * 3 - time * 2.6) * (4 + currentAmp * 16);
+          const w2 = Math.cos(a * 2 + time * 2.1) * (3 + currentAmp * 11);
+          const w3 = Math.sin(a * 4 - time * 1.6) * (2 + currentAmp * 7);
           deformation = w1 + w2 + w3;
         } else if (isThinking) {
           const w1 = Math.sin(a * 3 - time * 5) * 6;
@@ -120,16 +128,16 @@ export default function GptVoiceOrb({
           deformation = Math.sin(a * 2 + time * 1.5) * 1.5;
         }
 
-        const targetR = (baseRadius + deformation) * currentScale;
+        const targetR = baseRadius + deformation;
         pt.currentRadius += (targetR - pt.currentRadius) * 0.18;
       }
 
-      // Build closed spline curve path
+      // Calculate coordinates with squash & stretch applied
       const coords = points.map((pt) => {
         const a = pt.angle + currentRotation;
         return {
-          x: centerX + Math.cos(a) * pt.currentRadius,
-          y: centerY + Math.sin(a) * pt.currentRadius,
+          x: centerX + Math.cos(a) * pt.currentRadius * currentScaleX,
+          y: centerY + Math.sin(a) * pt.currentRadius * currentScaleY,
         };
       });
 

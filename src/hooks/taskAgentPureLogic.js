@@ -928,7 +928,8 @@ export const getTimeBasedSalutation = (now = new Date()) => {
 };
 
 export const getUserFirstName = (user) => {
-    const rawName = String(user?.name || user?.userName || '').trim();
+    const raw = user?.user || user;
+    const rawName = String(raw?.name || raw?.userName || raw?.fullName || '').trim();
     if (!rawName) return '';
     return rawName.split(/\s+/)[0];
 };
@@ -965,7 +966,9 @@ export const getRoleAwareGreetingHindi = (user = null, now = new Date()) => {
 
 export const isPrivilegedRoleUser = (user) => {
     if (!user) return false;
-    const roleValues = [user.companyRole, user.role, user.jobRole, user.jobRoleName]
+    const raw = user?.user || user;
+    if (!raw || typeof raw !== 'object' || Object.keys(raw).length === 0) return false;
+    const roleValues = [raw.companyRole, raw.role, raw.jobRole, raw.jobRoleName]
         .filter(Boolean)
         .map(r => String(typeof r === 'object' ? r.name || r.role || '' : r).trim().toLowerCase().replace(/[\s-]+/g, '_'));
 
@@ -974,22 +977,31 @@ export const isPrivilegedRoleUser = (user) => {
         'company_owner',
         'companyowner',
         'admin',
+        'company_admin',
+        'companyadmin',
         'super_admin',
         'superadmin'
     ]);
 
-    return roleValues.some(r => PRIVILEGED_ROLES.has(r)) || Boolean(user.isSuperAdmin || user.isPlatformOwner);
+    return roleValues.some(r => PRIVILEGED_ROLES.has(r)) || Boolean(raw.isSuperAdmin || raw.isPlatformOwner);
 };
 
 export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePermissions, companyDetails, language = 'hinglish', allowAll = false } = {}) => {
     const baseButtons = language === 'en' ? WELCOME_MENU_BUTTONS_EN : WELCOME_MENU_BUTTONS;
-    if (allowAll || !user || isPrivilegedRoleUser(user)) {
+    const rawUser = user?.user || user;
+    if (allowAll || isPrivilegedRoleUser(rawUser)) {
         return baseButtons;
+    }
+
+    if (!rawUser || typeof rawUser !== 'object' || Object.keys(rawUser).length === 0) {
+        return baseButtons.filter(b => b.action?.intent === 'self_task');
     }
 
     let companyAllowedPages = [];
     try {
-        const comp = companyDetails || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}') : {});
+        const comp = companyDetails ||
+            (typeof sessionStorage !== 'undefined' ? JSON.parse(sessionStorage.getItem('companyDetails') || sessionStorage.getItem('company') || 'null') : null) ||
+            (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}') : {});
         if (Array.isArray(comp?.allowedPages)) {
             companyAllowedPages = comp.allowedPages;
         }
@@ -1142,7 +1154,6 @@ export const filterWelcomeButtonsByPermissions = (user, { sidebarConfig, pagePer
     ) ||
     hasClientMenu ||
     hasClientPerm ||
-    !hasExplicitPermsOrConfig ||
     (typeof window !== 'undefined' && (
         window.location?.pathname?.includes('/task-management') ||
         window.location?.pathname?.includes('/create-task') ||

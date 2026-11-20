@@ -12,6 +12,8 @@
   position: relative;
   overflow: hidden;
   font-family: inherit;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
 }
 
 /* -------------------------------------------------------------
@@ -239,6 +241,8 @@
   flex-direction: column;
   position: relative;
   z-index: 1;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
 }
 
 .my-ai-view-container.is-expanded .my-ai-thread-scroll {

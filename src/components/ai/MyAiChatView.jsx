@@ -472,9 +472,51 @@ export default function MyAiChatView({ onBack, onClose }) {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [hasWebGL, setHasWebGL] = useState(true);
   const [selectedMultiChips, setSelectedMultiChips] = useState([]);
+  const containerRef = useRef(null);
   const threadEndRef = useRef(null);
   const localInputRef = useRef(null);
   const inputRef = session?.inputRef || localInputRef;
+
+  // Prevent background page from scrolling when scrolling inside AI assistant
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e) => {
+      const scrollable = el.querySelector('.my-ai-history-list') || el.querySelector('.my-ai-thread-scroll');
+      if (!scrollable) {
+        e.preventDefault();
+        return;
+      }
+
+      const { deltaY } = e;
+      const isScrollable = scrollable.scrollHeight > scrollable.clientHeight;
+
+      if (!isScrollable) {
+        e.preventDefault();
+        return;
+      }
+
+      const atTop = scrollable.scrollTop <= 0 && deltaY < 0;
+      const atBottom = Math.ceil(scrollable.scrollTop + scrollable.clientHeight) >= scrollable.scrollHeight && deltaY > 0;
+
+      if (atTop || atBottom) {
+        e.preventDefault();
+        return;
+      }
+
+      // If wheel occurred outside scrollable thread (e.g. on header or composer), forward scroll directly
+      if (!e.target.closest('.my-ai-thread-scroll') && !e.target.closest('.my-ai-history-list')) {
+        e.preventDefault();
+        scrollable.scrollTop += deltaY;
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   const handleEnterVoiceMode = () => {
     setIsVoiceMode(true);
@@ -639,7 +681,7 @@ export default function MyAiChatView({ onBack, onClose }) {
   }
 
   return (
-    <div className={`my-ai-view-container ${isExpanded ? 'is-expanded' : ''} ${isVoiceMode ? 'is-voice-mode' : ''}`}>
+    <div ref={containerRef} className={`my-ai-view-container ${isExpanded ? 'is-expanded' : ''} ${isVoiceMode ? 'is-voice-mode' : ''}`}>
       {/* =====================================================================
           REGION 1: TOP HEADER (~56px)
           Clean title, no "Astra", no internal STT counter ("Voice 0/12").

@@ -653,13 +653,13 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: 4.5 seconds (4-5s) of natural silence after speech -> turn mic off!
-                            if (silenceMs >= 4500 && speechDurationMs >= 80) {
+                            // Utterance end: 1.4 seconds (1.4s) of natural silence after speech -> send transcript!
+                            if (silenceMs >= 1400 && speechDurationMs >= 80) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 4500 && speechDurationMs < 80) {
+                            } else if (silenceMs >= 1400 && speechDurationMs < 80) {
                                 // False onset (mic transient < 80ms): reset speech detection and keep listening
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
@@ -668,12 +668,12 @@ export default function useSpeech({
                         }
                     }
                 } else if (onSilenceExceeded) {
-                    // Speech NOT yet detected: prompt at 3.5s, auto-close at 5.5s
+                    // Speech NOT yet detected: prompt at 8s, auto-close at 15s
                     const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
-                    if (silenceDuration >= 3500 && inactivityPhaseRef.current === 0) {
+                    if (silenceDuration >= 8000 && inactivityPhaseRef.current === 0) {
                         inactivityPhaseRef.current = 1;
                         if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
-                    } else if (silenceDuration >= 5500) {
+                    } else if (silenceDuration >= 15000) {
                         inactivityPhaseRef.current = 0;
                         lastSpeechOrListenStartRef.current = now;
                         if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
@@ -731,10 +731,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // 4.5 seconds (4-5s) silence pause for natural speech completion
+            // 1.4 seconds silence pause for natural speech completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 4500);
+            }, 1400);
         };
 
         const createAndStart = () => {
@@ -803,17 +803,24 @@ export default function useSpeech({
             };
 
             rec.onend = () => {
+                const finalText = accumulatedTextRef.current.trim();
+                if (finalText && (userStoppedRef.current || !speechDetectedRef.current)) {
+                    setListeningTracked(false);
+                    cleanupAudioNodes();
+                    dispatchFinalText(finalText);
+                    return;
+                }
                 if (!userStoppedRef.current) {
                     try {
                         createAndStart();
                     } catch {
                         setListeningTracked(false);
                         cleanupAudioNodes();
+                        if (finalText) dispatchFinalText(finalText);
                     }
                 } else {
                     setListeningTracked(false);
                     cleanupAudioNodes();
-                    const finalText = accumulatedTextRef.current.trim();
                     if (finalText) {
                         dispatchFinalText(finalText);
                     }
@@ -1590,5 +1597,6 @@ export default function useSpeech({
         setLastTranscriptDiag,
         updateTranscriptDiag,
         voiceInfo,
+        speechDetectedRef,
     };
 }

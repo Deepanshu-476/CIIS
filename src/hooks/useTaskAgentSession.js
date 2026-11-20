@@ -160,7 +160,7 @@ export default function useTaskAgentSession({
     const [creating, setCreating] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(null);
     const [result, setResult] = useState(null);
-    const [autoSpeak, setAutoSpeak] = useState(Boolean(startWithMic));
+    const [autoSpeak, setAutoSpeak] = useState(true);
     const autoSpeakRef = useRef(autoSpeak);
     useEffect(() => {
         autoSpeakRef.current = autoSpeak;
@@ -290,6 +290,7 @@ export default function useTaskAgentSession({
         allVoices,
         speakDiag,
         setSpeakDiag,
+        speechDetectedRef,
     } = useSpeech({
         defaultEngine: 'whisper',
         defaultLang: 'auto', // Defaults to auto language detection
@@ -2758,17 +2759,17 @@ export default function useTaskAgentSession({
         cancelReadyCountdown();
         setSpeechError?.(null);
         setNotice(null);
-        if (isSpeaking || listening) {
+        if (isSpeaking) {
             cancelSpeech();
-            stop('manual');
             setIsPaused(true);
-            if (typeof window !== 'undefined' && window.speechSynthesis) {
-                try {
-                    window.speechSynthesis.pause();
-                    window.speechSynthesis.cancel();
-                } catch {
-                    /* ignore */
-                }
+        } else if (listening) {
+            if (speechDetectedRef?.current) {
+                // User spoke and tapped orb to submit -> immediately transcribe and send!
+                stop('silence');
+            } else {
+                cancelSpeech();
+                stop('manual');
+                setIsPaused(true);
             }
         } else {
             setIsPaused(false);

@@ -521,14 +521,12 @@ export default function MyAiChatView({ onBack, onClose }) {
   const handleEnterVoiceMode = () => {
     setIsVoiceMode(true);
     setAutoSpeak(true);
-    if (!listening) {
-      handleOrbClick();
-    }
+    clearUserMute();
+    start({ force: true });
   };
 
   const handleExitVoiceMode = () => {
     setIsVoiceMode(false);
-    setAutoSpeak(false);
     if (listening) {
       stop('manual');
     }
@@ -1211,8 +1209,15 @@ export default function MyAiChatView({ onBack, onClose }) {
               <button
                 type="button"
                 className={`my-ai-voice-dock-mic-btn ${listening ? 'active' : 'muted'}`}
-                onClick={handleOrbClick}
-                title={listening ? 'Mute microphone' : 'Unmute microphone'}
+                onClick={() => {
+                  if (listening) {
+                    stop('silence');
+                  } else {
+                    clearUserMute();
+                    start({ force: true });
+                  }
+                }}
+                title={listening ? 'Done speaking (Send)' : 'Tap to speak'}
               >
                 {listening ? <Mic size={16} /> : <MicOff size={16} />}
               </button>

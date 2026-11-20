@@ -1321,82 +1321,18 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
 }
 
 /* =====================================================================
-   CHATGPT ADVANCED VOICE MODE (Matches Reference Screenshot 1:1)
+   CHATGPT ADVANCED VOICE MODE (Light Theme Clean UI)
    ===================================================================== */
 .my-ai-view-container.is-voice-mode {
-  background-color: #000000 !important;
-  color: #f3f4f6;
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-header {
-  background-color: #000000;
-  border-bottom-color: rgba(255, 255, 255, 0.08);
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-title {
-  color: #ffffff;
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-icon-btn {
-  color: #94a3b8;
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-icon-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-thread-scroll {
-  background-color: #000000;
-}
-
-/* User message bubble: Blue capsule on right (matches reference 'Hello') */
-.my-ai-view-container.is-voice-mode .my-ai-message-row.user .my-ai-bubble {
-  background: #1d4ed8;
-  color: #ffffff;
-  border-radius: 9999px;
-  padding: 8px 18px;
-  font-size: 15px;
-  border: none;
-  box-shadow: 0 2px 10px rgba(29, 78, 216, 0.3);
-}
-
-/* Assistant message: Clean plain text without box (matches reference 'Hey! What's up?') */
-.my-ai-view-container.is-voice-mode .my-ai-message-row.assistant .my-ai-bubble {
-  background: transparent;
-  color: #f1f5f9;
-  border: none;
-  padding: 6px 4px;
-  font-size: 15px;
-  line-height: 1.5;
-  box-shadow: none;
+  /* Voice Mode stays on normal clean light background */
 }
 
 .my-ai-view-container.is-voice-mode .my-ai-voice-orb-stage {
-  margin: 28px auto 16px auto;
+  margin: 24px auto 16px auto;
   padding: 10px;
 }
 
-.my-ai-view-container.is-voice-mode .my-ai-voice-status-pill {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-voice-orb-caption .live-transcript {
-  color: #60a5fa;
-  font-size: 14px;
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-voice-orb-caption .ai-speech-hint {
-  color: #93c5fd;
-}
-
-.my-ai-view-container.is-voice-mode .my-ai-voice-orb-caption .idle-speech-hint {
-  color: #64748b;
-}
-
-/* Floating Bottom Dock (Matches ChatGPT Advanced Voice Mode) */
+/* Floating Bottom Dock (Matches ChatGPT Advanced Voice Mode, sleek dark pill on light background) */
 .my-ai-view-container.is-voice-mode .my-ai-composer-dock {
   background-color: transparent;
   border-top: none;
@@ -1407,14 +1343,15 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #212121;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 9999px;
   padding: 6px 8px 6px 14px;
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(8px);
 }
 
 .my-ai-voice-dock-type-btn {
@@ -1423,8 +1360,8 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
   gap: 8px;
   background: transparent;
   border: none;
-  color: #9ca3af;
-  font-size: 15px;
+  color: #cbd5e1;
+  font-size: 14.5px;
   font-weight: 500;
   padding: 8px 12px;
   cursor: pointer;
@@ -1434,7 +1371,7 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
 
 .my-ai-voice-dock-type-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .my-ai-voice-dock-controls {
@@ -1447,7 +1384,7 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #2f2f2f;
+  background: #334155;
   border: none;
   color: #ffffff;
   display: flex;
@@ -1458,12 +1395,18 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
 }
 
 .my-ai-voice-dock-mic-btn:hover {
-  background: #3a3a3a;
+  background: #475569;
+}
+
+.my-ai-voice-dock-mic-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.35);
 }
 
 .my-ai-voice-dock-mic-btn.muted {
-  background: #3f3f46;
-  color: #ef4444;
+  background: #334155;
+  color: #f87171;
 }
 
 .my-ai-voice-dock-close-btn {
@@ -1478,7 +1421,7 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
 }
 
 .my-ai-voice-dock-close-btn:hover {

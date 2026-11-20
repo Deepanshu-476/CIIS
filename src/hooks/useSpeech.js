@@ -1426,15 +1426,38 @@ export default function useSpeech({
     );
 
     const cancelSpeech = useCallback(() => {
-        if (ttsSupported) {
+        if (ttsSupported && typeof window !== 'undefined' && window.speechSynthesis) {
             try {
-                window.speechSynthesis.pause();
+                // Strip onend and onerror handlers from all utterances in window.__ciisUtterances before canceling so no completion callbacks fire
+                if (Array.isArray(window.__ciisUtterances)) {
+                    window.__ciisUtterances.forEach((u) => {
+                        if (u) {
+                            u.onend = null;
+                            u.onerror = null;
+                            u.onstart = null;
+                            u.onpause = null;
+                            u.onresume = null;
+                        }
+                    });
+                }
+                if (activeUtteranceRef.current) {
+                    activeUtteranceRef.current.onend = null;
+                    activeUtteranceRef.current.onerror = null;
+                }
+                if (window.__ciisCurrentUtterance) {
+                    window.__ciisCurrentUtterance.onend = null;
+                    window.__ciisCurrentUtterance.onerror = null;
+                }
+                // In Chromium, if paused, calling cancel() can silently hang unless resume() is called first
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                }
                 window.speechSynthesis.cancel();
+                lastCancelTimeRef.current = Date.now();
             } catch {
                 /* ignore */
             }
         }
-        setIsSpeaking(false);
         if (speakTimeoutRef.current) {
             clearInterval(speakTimeoutRef.current);
             speakTimeoutRef.current = null;

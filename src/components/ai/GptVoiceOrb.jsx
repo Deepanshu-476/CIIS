@@ -3,10 +3,15 @@ import useAudioAnalyser from './useAudioAnalyser';
 
 /**
  * GptVoiceOrb
- * Recreates the exact ChatGPT Advanced Voice Mode fluid sphere from reference image:
- * - Circular sphere with organic liquid ripples on boundary
- * - Internal atmospheric sky-blue and white glowing cloud nebula
- * - Real-time audio reactivity: bulges, waves, and pulses with user speech & AI speech
+ * Recreates the authentic ChatGPT Advanced Voice Mode fluid sphere:
+ * - Pristine, smooth outer circular boundary (never deformed into irregular/egg shapes)
+ * - ALL dynamic fluid waves ("hil-jhul"), swirling glowing white clouds, and audio reactivity
+ *   happen strictly INSIDE the circle (clipped to circle perimeter)
+ * - Multi-layered nebula:
+ *   - Top: deep celestial royal blue (#1e40af ~ #2563eb)
+ *   - Middle: horizontal drifting, glowing white cloud (#ffffff) that expands with audio
+ *   - Bottom: soft sky-blue (#93c5fd ~ #bfdbfe)
+ *   - Subtle top specular curved sheen & soft ambient outer glow
  * - 60fps lightweight Canvas 2D
  */
 export default function GptVoiceOrb({
@@ -35,36 +40,23 @@ export default function GptVoiceOrb({
     const ctx = canvas.getContext('2d');
     let animationFrameId;
     let time = 0;
-
-    // 16 control points around circle perimeter for fluid ripple boundary
-    const numPoints = 16;
-    const points = [];
-    for (let i = 0; i < numPoints; i++) {
-      points.push({
-        angle: (i / numPoints) * Math.PI * 2,
-        currentRadius: 0,
-      });
-    }
-
-    let currentScaleX = 1.0;
-    let currentScaleY = 1.0;
-    let currentRotation = 0;
+    let smoothAmp = 0;
 
     const render = () => {
       const currentState = stateRef.current;
-      const currentAmp = ampRef.current;
+      const targetAmp = ampRef.current || 0;
+
+      // Smooth amplitude tracking for fluid organic reaction
+      smoothAmp += (targetAmp - smoothAmp) * 0.22;
 
       const isPaused = currentState === 'paused' || currentState === 'idle';
       const isListening = currentState === 'listening';
       const isSpeaking = currentState === 'speaking';
       const isThinking = currentState === 'thinking';
 
-      // Speed rates based on conversational state
-      const timeSpeed = isPaused ? 0.012 : isThinking ? 0.045 : isSpeaking ? 0.038 : 0.024;
+      // Conversational state speed adjustments
+      const timeSpeed = isPaused ? 0.012 : isThinking ? 0.042 : isSpeaking ? 0.035 : 0.022;
       time += timeSpeed;
-
-      const rotSpeed = isThinking ? 0.028 : isSpeaking ? 0.009 : 0.004;
-      currentRotation += rotSpeed;
 
       // Handle Retina / High DPI display
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -84,161 +76,138 @@ export default function GptVoiceOrb({
       const centerY = height / 2;
       const baseRadius = size * 0.38;
 
-      // Organic Squash & Stretch inertia: scaleX and scaleY dynamic breathing
-      let targetScaleX = 1.0;
-      let targetScaleY = 1.0;
-      if (isSpeaking) {
-        targetScaleX = 1.0 + Math.sin(time * 3.4) * 0.04 + currentAmp * 0.16;
-        targetScaleY = 1.0 - Math.sin(time * 3.4) * 0.03 + currentAmp * 0.22;
-      } else if (isListening) {
-        targetScaleX = 1.0 + Math.sin(time * 2.4) * 0.025 + currentAmp * 0.12;
-        targetScaleY = 1.0 - Math.sin(time * 2.4) * 0.02 + currentAmp * 0.15;
-      } else if (isThinking) {
-        targetScaleX = 1.0 + Math.sin(time * 4) * 0.035;
-        targetScaleY = 1.0 - Math.sin(time * 4) * 0.035;
-      } else {
-        // Paused / Idle: subtle sine oscillation (~1.2s period)
-        targetScaleX = 1.0 + Math.sin(time * 1.5) * 0.02;
-        targetScaleY = 1.0 + Math.sin(time * 1.5) * 0.02;
-      }
-      currentScaleX += (targetScaleX - currentScaleX) * 0.16;
-      currentScaleY += (targetScaleY - currentScaleY) * 0.16;
-
-      // Calculate perimeter harmonic wave ripples (16-point cubic/quadratic spline)
-      for (let i = 0; i < numPoints; i++) {
-        const pt = points[i];
-        const a = pt.angle + currentRotation;
-
-        let deformation = 0;
-        if (isSpeaking) {
-          const w1 = Math.sin(a * 4 - time * 4.2) * (7 + currentAmp * 20);
-          const w2 = Math.cos(a * 3 + time * 3.2) * (5 + currentAmp * 14);
-          const w3 = Math.sin(a * 5 - time * 2.5) * (3 + currentAmp * 8);
-          deformation = w1 + w2 + w3;
-        } else if (isListening) {
-          const w1 = Math.sin(a * 3 - time * 2.6) * (4 + currentAmp * 16);
-          const w2 = Math.cos(a * 2 + time * 2.1) * (3 + currentAmp * 11);
-          const w3 = Math.sin(a * 4 - time * 1.6) * (2 + currentAmp * 7);
-          deformation = w1 + w2 + w3;
-        } else if (isThinking) {
-          const w1 = Math.sin(a * 3 - time * 5) * 6;
-          const w2 = Math.cos(a * 2 + time * 3.5) * 4;
-          deformation = w1 + w2;
-        } else {
-          deformation = Math.sin(a * 2 + time * 1.5) * 1.5;
-        }
-
-        const targetR = baseRadius + deformation;
-        pt.currentRadius += (targetR - pt.currentRadius) * 0.18;
-      }
-
-      // Calculate coordinates with squash & stretch applied
-      const coords = points.map((pt) => {
-        const a = pt.angle + currentRotation;
-        return {
-          x: centerX + Math.cos(a) * pt.currentRadius * currentScaleX,
-          y: centerY + Math.sin(a) * pt.currentRadius * currentScaleY,
-        };
-      });
-
-      ctx.beginPath();
-      for (let i = 0; i < numPoints; i++) {
-        const curr = coords[i];
-        const next = coords[(i + 1) % numPoints];
-        const midX = (curr.x + next.x) / 2;
-        const midY = (curr.y + next.y) / 2;
-
-        if (i === 0) {
-          ctx.moveTo(midX, midY);
-        } else {
-          ctx.quadraticCurveTo(curr.x, curr.y, midX, midY);
-        }
-      }
-      ctx.closePath();
-
-      // Outer Ambient Soft Atmospheric Glow
-      ctx.shadowBlur = isSpeaking ? 32 : isListening ? 24 : 16;
-      ctx.shadowColor = isSpeaking
-        ? 'rgba(96, 165, 250, 0.65)'
-        : isListening
-        ? 'rgba(56, 189, 248, 0.55)'
-        : 'rgba(99, 102, 241, 0.35)';
-
-      // Clip inside spline boundary to draw the authentic ChatGPT fluid cloud
+      // 1. Soft Ambient Atmospheric Outer Glow (Drawn outside circle with pristine circular blur)
       ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
+      ctx.shadowBlur = isSpeaking ? 28 : isListening ? 22 : 14;
+      ctx.shadowColor = isSpeaking
+        ? 'rgba(96, 165, 250, 0.7)'
+        : isListening
+        ? 'rgba(56, 189, 248, 0.6)'
+        : 'rgba(59, 130, 246, 0.35)';
+      ctx.fillStyle = '#1e40af';
+      ctx.fill();
+      ctx.restore();
+
+      // 2. Strictly clip inside the pristine CIRCLE boundary
+      // All fluid ripples, swirling clouds, and internal motion ("hil-jhul") stay INSIDE
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
       ctx.clip();
 
-      // 1. Base Gradient: Deep royal celestial blue on top down to ethereal baby blue on bottom (Matches reference screenshot 1:1)
+      // 2a. Base celestial gradient:
+      // Top celestial royal blue (#1e40af ~ #2563eb) down to soft sky-blue (#93c5fd ~ #bfdbfe) at bottom
       const baseGrad = ctx.createLinearGradient(
         centerX,
-        centerY - baseRadius * 1.05,
+        centerY - baseRadius,
         centerX,
-        centerY + baseRadius * 1.05
+        centerY + baseRadius
       );
-      baseGrad.addColorStop(0, '#1e40af');   // deep cobalt/royal blue at top
-      baseGrad.addColorStop(0.22, '#2563eb'); // intense celestial azure
-      baseGrad.addColorStop(0.55, '#60a5fa'); // sky blue
-      baseGrad.addColorStop(0.85, '#93c5fd'); // ethereal baby blue
-      baseGrad.addColorStop(1, '#bfdbfe');   // soft pastel blue at bottom
+      baseGrad.addColorStop(0, '#1e40af');     // Deep royal blue top
+      baseGrad.addColorStop(0.24, '#2563eb');  // Intense celestial azure
+      baseGrad.addColorStop(0.55, '#3b82f6');  // Sky azure
+      baseGrad.addColorStop(0.82, '#93c5fd');  // Soft sky-blue
+      baseGrad.addColorStop(1, '#bfdbfe');     // Pastel baby blue bottom
       ctx.fillStyle = baseGrad;
-      ctx.fill();
+      ctx.fillRect(centerX - baseRadius - 2, centerY - baseRadius - 2, (baseRadius + 2) * 2, (baseRadius + 2) * 2);
 
-      // 2. Swirling glowing white cloud nebula band across middle (Matches luminous core in reference image)
-      const cloudX = centerX + Math.cos(time * 1.6) * (baseRadius * 0.16);
-      const cloudY = centerY - baseRadius * 0.06 + Math.sin(time * 1.2) * (baseRadius * 0.1);
+      // 2b. Internal organic fluid wave harmonics ("hil-jhul")
+      // Three undulating harmonic liquid layers inside the sphere reacting to audio amplitude
+      const waveCount = 3;
+      for (let w = 0; w < waveCount; w++) {
+        const waveSpeed = time * (1.7 + w * 0.6);
+        const waveAmp = (4 + w * 3) + smoothAmp * (10 + w * 6);
+        const waveY = centerY + (w - 0.9) * (baseRadius * 0.28) + Math.sin(waveSpeed * 0.7) * (baseRadius * 0.08);
+
+        ctx.beginPath();
+        ctx.moveTo(centerX - baseRadius, centerY + baseRadius);
+        ctx.lineTo(centerX - baseRadius, waveY);
+
+        const segments = 16;
+        const step = (baseRadius * 2) / segments;
+        for (let s = 0; s <= segments; s++) {
+          const x = centerX - baseRadius + s * step;
+          const nx = (s / segments) * Math.PI * 2;
+          const y = waveY +
+            Math.sin(nx * 2 + waveSpeed) * waveAmp * 0.55 +
+            Math.cos(nx * 3 - waveSpeed * 1.3) * (waveAmp * 0.35);
+          ctx.lineTo(x, y);
+        }
+
+        ctx.lineTo(centerX + baseRadius, centerY + baseRadius);
+        ctx.closePath();
+
+        const waveGrad = ctx.createLinearGradient(centerX, waveY - waveAmp, centerX, centerY + baseRadius);
+        if (w === 0) {
+          waveGrad.addColorStop(0, 'rgba(147, 197, 253, 0.45)');
+          waveGrad.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
+        } else if (w === 1) {
+          waveGrad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+          waveGrad.addColorStop(1, 'rgba(191, 219, 254, 0.15)');
+        } else {
+          waveGrad.addColorStop(0, 'rgba(224, 242, 254, 0.4)');
+          waveGrad.addColorStop(1, 'rgba(147, 197, 253, 0)');
+        }
+        ctx.fillStyle = waveGrad;
+        ctx.fill();
+      }
+
+      // 2c. Middle horizontal drifting glowing white cloud (#ffffff core)
+      // Expands and swirls with voice amplitude
+      const cloudX = centerX + Math.cos(time * 1.4) * (baseRadius * 0.16) + Math.sin(time * 2.2) * (baseRadius * 0.06);
+      const cloudY = centerY - baseRadius * 0.05 + Math.sin(time * 1.1) * (baseRadius * 0.1);
+      const cloudRadius = baseRadius * (0.8 + smoothAmp * 0.42);
 
       ctx.save();
       ctx.translate(cloudX, cloudY);
-      ctx.scale(1.22, 0.65); // Elliptical horizontal stretch matching the screenshot
+      ctx.scale(1.24, 0.66); // Horizontal elliptical stretch matching reference screenshot
+
       const cloudGrad = ctx.createRadialGradient(
-        0,
-        0,
-        baseRadius * 0.04,
-        0,
-        0,
-        baseRadius * (0.85 + currentAmp * 0.35)
+        0, 0, baseRadius * 0.04,
+        0, 0, cloudRadius
       );
       cloudGrad.addColorStop(0, '#ffffff');
-      cloudGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.96)');
-      cloudGrad.addColorStop(0.65, 'rgba(224, 242, 254, 0.58)');
-      cloudGrad.addColorStop(0.92, 'rgba(147, 197, 253, 0.15)');
+      cloudGrad.addColorStop(0.32, 'rgba(255, 255, 255, 0.98)');
+      cloudGrad.addColorStop(0.62, 'rgba(224, 242, 254, 0.65)');
+      cloudGrad.addColorStop(0.88, 'rgba(147, 197, 253, 0.2)');
       cloudGrad.addColorStop(1, 'rgba(96, 165, 250, 0)');
 
       ctx.fillStyle = cloudGrad;
       ctx.beginPath();
-      ctx.arc(0, 0, baseRadius * (0.85 + currentAmp * 0.35), 0, Math.PI * 2);
+      ctx.arc(0, 0, cloudRadius, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // 3. Second luminous atmospheric swirl for organic internal fluid depth
-      const swirlX = centerX + Math.sin(-time * 1.3) * (baseRadius * 0.22);
-      const swirlY = centerY - baseRadius * 0.18 + Math.cos(time * 1.4) * (baseRadius * 0.14);
-      const swirlRadius = baseRadius * 0.65;
+      // 2d. Second luminous swirling atmospheric vortex for deep organic liquid depth
+      const vortexAngle = -time * 1.5;
+      const vortexDist = baseRadius * (0.16 + smoothAmp * 0.1);
+      const vortexX = centerX + Math.cos(vortexAngle) * vortexDist;
+      const vortexY = centerY - baseRadius * 0.16 + Math.sin(vortexAngle * 1.2) * (baseRadius * 0.08);
+      const vortexRadius = baseRadius * (0.58 + smoothAmp * 0.28);
 
-      const swirlGrad = ctx.createRadialGradient(
-        swirlX,
-        swirlY,
-        baseRadius * 0.03,
-        swirlX,
-        swirlY,
-        swirlRadius
+      const vortexGrad = ctx.createRadialGradient(
+        vortexX, vortexY, baseRadius * 0.02,
+        vortexX, vortexY, vortexRadius
       );
-      swirlGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
-      swirlGrad.addColorStop(0.42, 'rgba(186, 230, 253, 0.45)');
-      swirlGrad.addColorStop(1, 'rgba(59, 130, 246, 0)');
+      vortexGrad.addColorStop(0, 'rgba(255, 255, 255, 0.88)');
+      vortexGrad.addColorStop(0.42, 'rgba(186, 230, 253, 0.48)');
+      vortexGrad.addColorStop(0.8, 'rgba(96, 165, 250, 0.14)');
+      vortexGrad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
 
-      ctx.fillStyle = swirlGrad;
+      ctx.fillStyle = vortexGrad;
       ctx.beginPath();
-      ctx.arc(swirlX, swirlY, swirlRadius, 0, Math.PI * 2);
+      ctx.arc(vortexX, vortexY, vortexRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // 4. Subtle top specular sheen (gives 3D spherical lens depth)
+      // 2e. Subtle top specular curved sheen (spherical lens depth)
       ctx.beginPath();
       ctx.ellipse(
         centerX,
         centerY - baseRadius * 0.48,
-        baseRadius * 0.55,
-        baseRadius * 0.2,
+        baseRadius * 0.52,
+        baseRadius * 0.18,
         0,
         0,
         Math.PI * 2
@@ -246,8 +215,32 @@ export default function GptVoiceOrb({
       ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
       ctx.fill();
 
-      ctx.restore(); // restore clipping
-      ctx.restore(); // restore state
+      // 2f. Soft inner perimeter rim glow for crisp spherical edge
+      const rimGrad = ctx.createRadialGradient(
+        centerX, centerY, baseRadius * 0.86,
+        centerX, centerY, baseRadius
+      );
+      rimGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      rimGrad.addColorStop(1, 'rgba(255, 255, 255, 0.22)');
+      ctx.fillStyle = rimGrad;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore(); // Restore clipping context
+
+      // 3. Pristine perimeter stroke to guarantee an impeccably crisp circle boundary
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = isSpeaking
+        ? 'rgba(147, 197, 253, 0.55)'
+        : isListening
+        ? 'rgba(125, 211, 252, 0.45)'
+        : 'rgba(191, 219, 254, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.restore(); // Restore dpr scaling context
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -293,4 +286,3 @@ export default function GptVoiceOrb({
     </div>
   );
 }
-

@@ -380,12 +380,13 @@ export default function MyAiChatView({ onBack, onClose }) {
       e.preventDefault();
       e.stopPropagation();
     }
+    cancelSpeech();
     closeMyAi();
     if (onClose) {
       onClose();
     }
     window.dispatchEvent(new CustomEvent('close-messenger-widget'));
-  }, [closeMyAi, onClose]);
+  }, [cancelSpeech, closeMyAi, onClose]);
 
   // Single source of truth: Voice task agent session hook
   const session = useTaskAgentSession({
@@ -474,6 +475,7 @@ export default function MyAiChatView({ onBack, onClose }) {
 
   const handleEnterVoiceMode = () => {
     setIsVoiceMode(true);
+    setAutoSpeak(true);
     if (!listening) {
       handleOrbClick();
     }
@@ -481,6 +483,7 @@ export default function MyAiChatView({ onBack, onClose }) {
 
   const handleExitVoiceMode = () => {
     setIsVoiceMode(false);
+    setAutoSpeak(false);
     if (listening) {
       stop('manual');
     }

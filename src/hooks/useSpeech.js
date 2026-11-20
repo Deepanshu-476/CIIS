@@ -955,8 +955,11 @@ export default function useSpeech({
                     let noticeText = 'Whisper service abhi busy hai. Dobara try karein.';
                     if (rCode === 'STT_NO_SPEECH') {
                         noticeText = 'Awaaz saaf nahi aayi, dobara bolein';
-                    } else if (rCode === 'STT_RATE_LIMIT' || rCode === 'STT_BUDGET_EXCEEDED') {
-                        noticeText = 'Voice limit khatam, text se continue karein';
+                    } else if (rCode === 'STT_RATE_LIMIT' || rCode === 'STT_BUDGET_EXCEEDED' || retryErr?.response?.status === 429) {
+                        noticeText = SR
+                            ? 'Whisper rate limit reached. Switched to Live Browser voice.'
+                            : 'Voice limit khatam, text se continue karein';
+                        if (SR) setEngine('browser');
                     } else if (rCode === 'STT_BAD_AUDIO') {
                         noticeText = 'Awaaz record theek se nahi hui, dobara bolein';
                     } else if (rCode === 'STT_FORMAT_ERROR') {
@@ -972,7 +975,12 @@ export default function useSpeech({
                 const errCode = firstErr?.response?.data?.code;
                 const errMsg = firstErr?.response?.data?.message || firstErr?.response?.data?.error;
                 let noticeText = 'Whisper service abhi busy hai. Dobara try karein.';
-                if (errCode === 'STT_NO_SPEECH') {
+                if (status === 429 || errCode === 'STT_RATE_LIMIT' || errCode === 'STT_BUDGET_EXCEEDED') {
+                    noticeText = SR
+                        ? 'Whisper rate limit reached. Switched to Live Browser voice.'
+                        : 'Voice limit khatam, text se continue karein';
+                    if (SR) setEngine('browser');
+                } else if (errCode === 'STT_NO_SPEECH') {
                     noticeText = 'Awaaz saaf nahi aayi, dobara bolein';
                 } else if (errMsg) {
                     noticeText = errMsg;

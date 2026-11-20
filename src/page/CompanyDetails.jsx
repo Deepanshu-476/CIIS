@@ -871,6 +871,27 @@ const CompanyDetails = () => {
                           }
                         }}
                       />
+
+                      <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px dashed #e2e8f0', display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip
+                          size="small"
+                          label={`⚡ AI Quota: ${(company.aiDailyTokenLimit || company.selectedPlan?.aiDailyTokenLimit || 25000).toLocaleString('en-IN')} Tokens/day (~${company.aiDailyCallLimit || company.selectedPlan?.aiDailyCallLimit || Math.round((company.aiDailyTokenLimit || 25000) / 780)} req)`}
+                          color="primary"
+                          variant="outlined"
+                        />
+                        <Chip
+                          size="small"
+                          label={`🎙️ Voice STT: ${company.aiDailySttLimit || 100}/day`}
+                          variant="outlined"
+                        />
+                        {Boolean(company.aiExtraTokens > 0) && (
+                          <Chip
+                            size="small"
+                            label={`⚡ Extra Top-Up: ${company.aiExtraTokens.toLocaleString('en-IN')} tokens`}
+                            color="success"
+                          />
+                        )}
+                      </Box>
                     </Box>
                   </Box>
                 </Grid>

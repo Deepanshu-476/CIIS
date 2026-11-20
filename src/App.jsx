@@ -49,6 +49,7 @@ const Alerts = lazy(() => import("./hrCds/pages/Alerts"));
 const Attendance = lazy(() => import("./hrCds/pages/Attendance"));
 const MyAssets = lazy(() => import("./hrCds/pages/MyAssets"));
 const MyLeaves = lazy(() => import("./hrCds/pages/MyLeaves"));
+const CompanyAiSettings = lazy(() => import("./hrCds/pages/CompanyAiSettings"));
 const Profile = lazy(() => import("./hrCds/pages/Profile"));
 const UserDashboard = lazy(() => import("./hrCds/pages/UserDashboard"));
 const DashboardOverview = lazy(() => import("./hrCds/pages/DashboardOverview"));
@@ -84,6 +85,7 @@ const ChatPage = lazy(() => import("./Pages/Chat/ChatPage"));
 const ClientServicesTasks = lazy(() => import("./hrCds/pages/ClientServicesTasks.jsx"));
 const ClientAccountSettingsPage = lazy(() => import("./hrCds/pages/client/AccountSettingsPage.jsx"));
 const Settings = lazy(() => import("./admin/page/Settings.jsx"));
+const AiManagement = lazy(() => import("./admin/page/AiManagement.jsx"));
 const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const PlatformPromotionsPage = lazy(() => import("./promotions/PlatformPromotionsPage.jsx"));
@@ -136,6 +138,10 @@ const WorkloadDistribution = lazy(() => import("./crm/admin/WorkloadDistribution
 const CallHistory = lazy(() => import("./crm/admin/CallHistory.jsx"));
 const ScheduledCalls = lazy(() => import("./crm/admin/ScheduledCalls.jsx"));
 const LiveCrmReport = lazy(() => import("./crm/admin/LiveCrmReport.jsx"));
+
+const DevMyAiPreview = import.meta.env.DEV
+  ? lazy(() => import("./components/ai/DevMyAiPreview.jsx"))
+  : null;
 
 function App() {
   return (
@@ -275,6 +281,7 @@ function App() {
               <Route path="SidebarManagement" element={<SidebarManagement />} />
               <Route path="page-management" element={<PageManagement />} />
               <Route path="plans" element={<PlanManagement />} />
+              <Route path="ai-management" element={<AiManagement />} />
               <Route path="holiday" element={<Holiday />} />
               <Route path="branch" element={<BranchManagement />} />
               <Route path="support-operations" element={<SupportOperations />} />
@@ -323,6 +330,7 @@ function App() {
 
 
 
+
               <Route path="change-password" element={<ChangePassword />} />
               <Route path="emp-details" element={<EmppDetail />} />
               <Route path="emp-leaves" element={<EmppLeave />} />
@@ -337,6 +345,7 @@ function App() {
               <Route path="manage-groups" element={<ManageGroups />} />
               <Route path="admin-meeting" element={<AdminMeetingPage />} />
               <Route path="adminproject" element={<AdminProject />} />
+              <Route path="company-ai-settings" element={<CompanyAiSettings />} />
               <Route path="company-all-task" element={<EmpAllTask />} />
               <Route path="department-all-task" element={<EmpDepartmentAllTask />} />
               <Route path="company-all-task/tasks" element={<CompanyAllTaskTasks />} />
@@ -558,9 +567,12 @@ function App() {
               <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
             </Route>
 
+            {import.meta.env.DEV && DevMyAiPreview && (
+              <Route path="/__my-ai-preview" element={<DevMyAiPreview />} />
+            )}
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-
         </Suspense>
       </ErrorBoundary>
 

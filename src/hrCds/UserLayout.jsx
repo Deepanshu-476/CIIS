@@ -13,9 +13,11 @@ import Sidebar from './Sidebar';
 import SupportChatWidget from './pages/SupportChatWidget';
 import MessengerDropdown from './components/MessengerDropdown';
 import { CallProvider } from '../context/CallContext';
+import { MyAiProvider } from '../context/MyAiContext';
 import RouteBoundaryLoader from '../components/RouteBoundaryLoader';
 import PageAccessGate, { hasCompanyPlanAccess } from './components/PageAccessGate';
 import FeedbackQuestionnairePopup from '../components/FeedbackQuestionnairePopup';
+import useTaskRealtime from '../hooks/useTaskRealtime';
 import PromoPopup from '../promotions/PromoPopup';
 import { useAuth } from '../context/useAuth';
 import { trackPageView } from '../utils/activityTracker';
@@ -59,6 +61,7 @@ const MainContent = styled('main', {
 }));
 
 const UserLayout = () => {
+  useTaskRealtime();
   const { user } = useAuth();
   const location = useLocation();
   const normalizedPath = location.pathname.replace(/\/+$/, '');
@@ -145,7 +148,8 @@ const UserLayout = () => {
   return (
     // CallProvider wraps the chat popup as well as the pages: outside it, useCall() is a no-op.
     <CallProvider>
-    <LayoutContainer>
+      <MyAiProvider>
+        <LayoutContainer>
       <CssBaseline />
 
       <Header
@@ -241,12 +245,13 @@ const UserLayout = () => {
               </PageAccessGate>
             </Suspense>
           </Box>
-      </MainContent>
-      <FeedbackQuestionnairePopup />
-      <PromoPopup userId={user?._id || user?.id} enabled={!isClientUser} />
-      {!isClientUser && <SupportChatWidget />}
-      {!isClientUser && hasCompanyPlanAccess('chat') && <MessengerDropdown />}
-    </LayoutContainer>
+        </MainContent>
+        <FeedbackQuestionnairePopup />
+        <PromoPopup userId={user?._id || user?.id} enabled={!isClientUser} />
+        {!isClientUser && <SupportChatWidget />}
+        {!isClientUser && hasCompanyPlanAccess('chat') && <MessengerDropdown />}
+        </LayoutContainer>
+      </MyAiProvider>
     </CallProvider>
   );
 };

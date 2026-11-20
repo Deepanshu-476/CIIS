@@ -959,7 +959,7 @@ const Attendance = () => {
   }, [holidays, currentYear, currentMonth]);
 
   // ----------------------------------------------------
-  // 12. Export to CSV Functionality
+  // 12. Export Functionality (Excel, PDF, CSV)
   // ----------------------------------------------------
   const handleExportCSV = () => {
     if (filteredRecords.length === 0) {
@@ -990,6 +990,53 @@ const Attendance = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success("Attendance CSV exported successfully!");
+  };
+
+  const handleExportExcel = async () => {
+    if (filteredRecords.length === 0) {
+      toast.info("No attendance records to export");
+      return;
+    }
+    try {
+      const records = filteredRecords.map(record => {
+        const status = getNormalizedStatus(record.status, record.date, record);
+        return attendanceReportFields({ ...record, status }, axios.defaults.baseURL);
+      });
+      const { exportToExcel } = await import('../../utils/exportUtils');
+      await exportToExcel(records, `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}`, 'Attendance');
+      toast.success("Attendance Excel exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export Excel");
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (filteredRecords.length === 0) {
+      toast.info("No attendance records to export");
+      return;
+    }
+    try {
+      const records = filteredRecords.map(record => {
+        const status = getNormalizedStatus(record.status, record.date, record);
+        return attendanceReportFields({ ...record, status }, axios.defaults.baseURL);
+      });
+      const headers = Object.keys(records[0] || {});
+      const rows = records.map(r => headers.map(h => r[h] ?? '-'));
+      const { exportToPdf } = await import('../../utils/exportUtils');
+      await exportToPdf({
+        title: 'MY ATTENDANCE REPORT',
+        subtitle: `Month: ${MONTH_NAMES[currentMonth]} ${currentYear}`,
+        headers,
+        rows,
+        filename: `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}`,
+        orientation: 'landscape'
+      });
+      toast.success("Attendance PDF exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export PDF");
+    }
   };
 
   // ----------------------------------------------------
@@ -1278,15 +1325,36 @@ const Attendance = () => {
             )}
           </div>
 
-          {/* Export CSV Button */}
-          <button
-            type="button"
-            className="att-export-btn"
-            onClick={handleExportCSV}
-          >
-            <FiDownload />
-            <span>Export CSV</span>
-          </button>
+          {/* Export Buttons (Excel, PDF, CSV) */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="att-export-btn"
+              onClick={handleExportExcel}
+              title="Export as Excel Sheet"
+            >
+              <FiDownload />
+              <span>Export Excel</span>
+            </button>
+            <button
+              type="button"
+              className="att-export-btn"
+              onClick={handleExportPDF}
+              title="Export as PDF Document"
+            >
+              <FiDownload />
+              <span>Export PDF</span>
+            </button>
+            <button
+              type="button"
+              className="att-export-btn"
+              onClick={handleExportCSV}
+              title="Export as CSV File"
+            >
+              <FiDownload />
+              <span>CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 

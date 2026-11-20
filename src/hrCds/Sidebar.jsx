@@ -57,6 +57,7 @@ import {
   Wrench,
   MessageSquareQuote,
   KeyRound,
+  Bot,
   Handshake,
   Building2,
   Crown,
@@ -569,6 +570,7 @@ const iconMap = {
   'Wrench': Wrench,
   'MessageSquareQuote': MessageSquareQuote,
   'KeyRound': KeyRound,
+  'Bot': Bot,
   'Handshake': Handshake,
   'Building2': Building2,
   'Crown': Crown,
@@ -1193,6 +1195,14 @@ const allPagesItems = [
     order: 9
   },
   {
+    id: 'company-ai-settings',
+    name: 'Company AI & Tokens',
+    icon: 'Bot',
+    path: '/ciisUser/company-ai-settings',
+    category: 'administration',
+    order: 9.5
+  },
+  {
     id: 'employee-leaves',
     name: 'Leave Management',
     icon: 'CalendarCheck',
@@ -1697,6 +1707,8 @@ const getPathFromName = (name) => {
     'My Projects': '/ciisUser/project',
     'Employee Details': '/ciisUser/emp-details',
     'Sidebar Management': '/ciisUser/SidebarManagement',
+    'Company AI & Tokens': '/ciisUser/company-ai-settings',
+    'company-ai-settings': '/ciisUser/company-ai-settings',
     'Employee Leaves': '/ciisUser/emp-leaves',
     'Team Leaves': '/ciisUser/emp-leaves',
     'Leave Management': '/ciisUser/emp-leaves',
@@ -3272,6 +3284,31 @@ const Sidebar = ({
       accessFilteredItems = accessFilteredItems.filter(item => (
         item.id !== 'SidebarManagement' &&
         String(item.path || '').toLowerCase() !== '/ciisuser/sidebarmanagement'
+      ));
+    }
+
+    const companyAiRoles = new Set([
+      'owner', 'admin', 'super_admin', 'superadmin', 'company_owner', 'companyowner', 'company_admin'
+    ]);
+    const canManageCompanyAi = [
+      userData?.companyRole,
+      userData?.jobRole,
+      userData?.role
+    ].some(value => companyAiRoles.has(
+      normalizeAdministrativeRole(getRecordDisplayName(value) || value)
+    ));
+
+    const hasAiEntitlement = Boolean(
+      companyData?.aiApiKeySource === 'client' ||
+      Number(companyData?.aiDailyTokenLimit || 0) > 0 ||
+      Number(companyData?.aiExtraTokens || 0) > 0 ||
+      (companyData?.allowedPages || []).includes('company-ai-settings')
+    );
+
+    if (!canManageCompanyAi || !hasAiEntitlement) {
+      accessFilteredItems = accessFilteredItems.filter(item => (
+        item.id !== 'company-ai-settings' &&
+        String(item.path || '').toLowerCase() !== '/ciisuser/company-ai-settings'
       ));
     }
 

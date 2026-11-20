@@ -139,6 +139,11 @@ const AllCompany = () => {
   const [subscriptionPaymentDate, setSubscriptionPaymentDate] = useState("");
   const [subscriptionNotes, setSubscriptionNotes] = useState("");
   const [subscriptionActivateCompany, setSubscriptionActivateCompany] = useState(true);
+  const [subscriptionExtraTokens, setSubscriptionExtraTokens] = useState(0);
+  const [subscriptionExtraCalls, setSubscriptionExtraCalls] = useState(0);
+  const [subscriptionExtraStt, setSubscriptionExtraStt] = useState(0);
+  const [subscriptionAiApiKeySource, setSubscriptionAiApiKeySource] = useState("platform");
+  const [subscriptionCustomGroqApiKey, setSubscriptionCustomGroqApiKey] = useState("");
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [registrationRequests, setRegistrationRequests] = useState([]);
   const [requestsModalOpen, setRequestsModalOpen] = useState(false);
@@ -389,7 +394,13 @@ const AllCompany = () => {
     setSubscriptionTransactionId("");
     setSubscriptionPaymentDate(todayStr);
     setSubscriptionNotes("");
+    const keyMode = company?.aiApiKeySource || selectedPlan?.aiApiKeySource || "platform";
+    setSubscriptionAiApiKeySource(keyMode);
+    setSubscriptionCustomGroqApiKey(company?.customGroqApiKey || "");
     setSubscriptionActivateCompany(company?.isActive !== false);
+    setSubscriptionExtraTokens(company?.aiExtraTokens || 0);
+    setSubscriptionExtraCalls(company?.aiExtraCalls || 0);
+    setSubscriptionExtraStt(company?.aiExtraStt || 0);
     setSubscriptionModalOpen(true);
   };
 
@@ -407,6 +418,11 @@ const AllCompany = () => {
     setSubscriptionPaymentDate("");
     setSubscriptionNotes("");
     setSubscriptionActivateCompany(true);
+    setSubscriptionExtraTokens(0);
+    setSubscriptionExtraCalls(0);
+    setSubscriptionExtraStt(0);
+    setSubscriptionAiApiKeySource("platform");
+    setSubscriptionCustomGroqApiKey("");
     setSubscriptionSaving(false);
   };
 
@@ -417,6 +433,9 @@ const AllCompany = () => {
     setSubscriptionPlan(selectedPlan.name || "Standard");
     setSubscriptionAmount(String(selectedPlan.price ?? 0));
     setSubscriptionExpiryDate(calculateExpiryDate(subscriptionStartDate, planId));
+    if (selectedPlan.aiApiKeySource) {
+      setSubscriptionAiApiKeySource(selectedPlan.aiApiKeySource);
+    }
   };
 
   const handleStartDateChange = nextDate => {
@@ -446,6 +465,11 @@ const AllCompany = () => {
         paymentStatus: subscriptionPaymentStatus,
         notes: subscriptionNotes,
         isActive: subscriptionActivateCompany,
+        aiApiKeySource: subscriptionAiApiKeySource,
+        customGroqApiKey: subscriptionAiApiKeySource === "client" ? subscriptionCustomGroqApiKey.trim() : null,
+        aiExtraTokens: Number(subscriptionExtraTokens || 0),
+        aiExtraCalls: Number(subscriptionExtraCalls || 0),
+        aiExtraStt: Number(subscriptionExtraStt || 0),
       };
 
       const response = await axios.patch(
@@ -1042,6 +1066,70 @@ const AllCompany = () => {
                       placeholder="Optional"
                     />
                   </label>
+
+                  {subscriptionAiApiKeySource === "client" ? (
+                    <label className="AllCompany-subscription-field">
+                      <span style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Company Groq API Key</span>
+                        <strong style={{ color: "#d97706", fontSize: "11px" }}>🔑 User API</strong>
+                      </span>
+                      <input
+                        type="password"
+                        className="AllCompany-input"
+                        value={subscriptionCustomGroqApiKey}
+                        onChange={event => setSubscriptionCustomGroqApiKey(event.target.value)}
+                        placeholder="gsk_..."
+                      />
+                    </label>
+                  ) : (
+                    <>
+                      <label className="AllCompany-subscription-field">
+                        <span style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span>Extra AI Top-Up Tokens</span>
+                          <strong style={{ color: "#2563eb", fontSize: "11px" }}>⚡ Tokens</strong>
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="5000"
+                          className="AllCompany-input"
+                          value={subscriptionExtraTokens}
+                          onChange={event => setSubscriptionExtraTokens(event.target.value)}
+                          placeholder="e.g. 50000"
+                        />
+                      </label>
+                      <label className="AllCompany-subscription-field">
+                        <span style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span>Extra AI Requests (Calls)</span>
+                          <strong style={{ color: "#059669", fontSize: "11px" }}>📞 Calls</strong>
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="5"
+                          className="AllCompany-input"
+                          value={subscriptionExtraCalls}
+                          onChange={event => setSubscriptionExtraCalls(event.target.value)}
+                          placeholder="e.g. 20"
+                        />
+                      </label>
+                      <label className="AllCompany-subscription-field">
+                        <span style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span>Extra Voice / STT Notes</span>
+                          <strong style={{ color: "#7c3aed", fontSize: "11px" }}>🎙️ Voice</strong>
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          className="AllCompany-input"
+                          value={subscriptionExtraStt}
+                          onChange={event => setSubscriptionExtraStt(event.target.value)}
+                          placeholder="e.g. 50"
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
 
                 <label className="AllCompany-subscription-toggle">

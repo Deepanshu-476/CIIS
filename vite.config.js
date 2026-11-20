@@ -36,6 +36,14 @@ export default defineConfig({
         // pages that import them instead of on the login page.
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
+          // Large standalone export tools that don't depend on React
+          if (id.includes('jspdf') || id.includes('xlsx') || id.includes('html2canvas')) {
+            return 'vendor-export';
+          }
+          // Three.js 3D Voice Orb lazy chunk (loaded only when My AI opens)
+          if (id.includes('three') || id.includes('@react-three')) {
+            return 'vendor-three';
+          }
           if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
             return 'vendor-react';
           }

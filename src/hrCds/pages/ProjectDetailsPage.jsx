@@ -8,6 +8,7 @@ import { FALLBACK_API_URL } from "../../config";
 import "../Css/ProjectDetailsPage.css";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings, normalizeReminderSettings } from '../components/TaskReminderControl';
 import ProjectBulkImportModal from '../components/ProjectBulkImportModal';
+import { downloadBackendReport, exportToPdf } from '../../utils/exportUtils';
 import { FiUploadCloud } from "react-icons/fi";
 
 const SHOW_TASK_DOCUMENTS = false;
@@ -315,6 +316,25 @@ const ProjectDetailsPage = () => {
   useEffect(() => {
     if (!projectId) return;
     loadProjectDetails(projectId);
+  }, [projectId]);
+
+  // Real-time synchronization when CIIS AI or another user creates or updates tasks
+  useEffect(() => {
+    const handleTaskChange = () => {
+      if (projectId) {
+        loadProjectDetails(projectId);
+      }
+    };
+    window.addEventListener('ciis:task-updated', handleTaskChange);
+    window.addEventListener('task:updated', handleTaskChange);
+    window.addEventListener('ciis:task-created', handleTaskChange);
+    window.addEventListener('task:new', handleTaskChange);
+    return () => {
+      window.removeEventListener('ciis:task-updated', handleTaskChange);
+      window.removeEventListener('task:updated', handleTaskChange);
+      window.removeEventListener('ciis:task-created', handleTaskChange);
+      window.removeEventListener('task:new', handleTaskChange);
+    };
   }, [projectId]);
 
   // Debounced search for tasks
@@ -2234,6 +2254,65 @@ const ProjectDetailsPage = () => {
           </div>
 
           <div className="pdp-hero-actions" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="pdp-button pdp-button-outline"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#ffffff",
+                borderColor: "#10b981",
+                color: "#059669",
+                fontWeight: 600,
+              }}
+              onClick={() => {
+                downloadBackendReport(
+                  `/api/export-reports/project/${projectId}/tasks?format=xlsx`,
+                  `Project_${(projectDetails.projectName || 'Tasks').replace(/\s+/g, '_')}_Tasks.xlsx`
+                );
+              }}
+              disabled={loading.tasks || tasks.length === 0}
+              title="Export all project tasks to Excel"
+            >
+              <Icons.Download />
+              Export Tasks (Excel)
+            </button>
+            <button
+              type="button"
+              className="pdp-button pdp-button-outline"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#ffffff",
+                borderColor: "#2563eb",
+                color: "#2563eb",
+                fontWeight: 600,
+              }}
+              onClick={() => {
+                const headers = ['Task Title', 'Description', 'Due Date', 'Priority', 'Status'];
+                const rows = tasks.map(t => [
+                  t.title || 'Untitled',
+                  t.description || '-',
+                  t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '-',
+                  (t.priority || 'medium').toUpperCase(),
+                  (t.status || 'pending').toUpperCase()
+                ]);
+                exportToPdf({
+                  title: `PROJECT REPORT - ${(projectDetails.projectName || 'Project').toUpperCase()}`,
+                  subtitle: `Total Tasks: ${tasks.length} | Status: ${(projectDetails.status || 'Active').toUpperCase()} | Generated: ${new Date().toLocaleDateString()}`,
+                  headers,
+                  rows,
+                  filename: `Project_${(projectDetails.projectName || 'Tasks').replace(/\s+/g, '_')}_Report`
+                });
+              }}
+              disabled={loading.tasks || tasks.length === 0}
+              title="Export all project tasks as PDF"
+            >
+              <Icons.Download />
+              Export Tasks (PDF)
+            </button>
             <button
               type="button"
               className="pdp-button pdp-button-outline"

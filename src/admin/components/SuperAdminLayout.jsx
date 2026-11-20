@@ -12,6 +12,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import Header from './SuperAdminHeader';
 import Sidebar from './SuperAdminSidebar';
 import RouteBoundaryLoader from '../../components/RouteBoundaryLoader';
+import useTaskRealtime from '../../hooks/useTaskRealtime';
   
 const drawerWidthOpen = 260;
 const drawerWidthClosed = 70;
@@ -59,6 +60,8 @@ const MainContent = styled('main', {
 }));
 
 const SuperAdminLayout = () => {
+  useTaskRealtime();
+
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const theme = useTheme();
@@ -91,6 +94,7 @@ const SuperAdminLayout = () => {
       setMobileSidebarOpen(false);
     }
   }, [isMobile]);
+
 
   let isSuperAdmin = false;
   try {

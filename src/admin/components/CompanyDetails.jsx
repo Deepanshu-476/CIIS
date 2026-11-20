@@ -984,7 +984,15 @@ const CompanyDetails = () => {
             subscriptionAmount: loggedCompany?.subscriptionAmount ?? companyDetails.subscriptionAmount ?? data.company?.subscriptionAmount ?? 0,
             planDurationDays: loggedCompany?.planDurationDays || companyDetails.planDurationDays || data.company?.planDurationDays || 90,
             planFeatures: loggedCompany?.planFeatures || companyDetails.planFeatures || data.company?.planFeatures || [],
-            allowedPages: loggedCompany?.allowedPages || companyDetails.allowedPages || data.company?.allowedPages || []
+            allowedPages: loggedCompany?.allowedPages || companyDetails.allowedPages || data.company?.allowedPages || [],
+            aiDailyTokenLimit: loggedCompany?.aiDailyTokenLimit ?? companyDetails.aiDailyTokenLimit ?? data.company?.aiDailyTokenLimit ?? 0,
+            aiDailyCallLimit: loggedCompany?.aiDailyCallLimit ?? companyDetails.aiDailyCallLimit ?? data.company?.aiDailyCallLimit ?? 0,
+            aiDailySttLimit: loggedCompany?.aiDailySttLimit ?? companyDetails.aiDailySttLimit ?? data.company?.aiDailySttLimit ?? 0,
+            aiExtraTokens: loggedCompany?.aiExtraTokens ?? companyDetails.aiExtraTokens ?? data.company?.aiExtraTokens ?? 0,
+            aiExtraCalls: loggedCompany?.aiExtraCalls ?? companyDetails.aiExtraCalls ?? data.company?.aiExtraCalls ?? 0,
+            aiExtraStt: loggedCompany?.aiExtraStt ?? companyDetails.aiExtraStt ?? data.company?.aiExtraStt ?? 0,
+            aiApiKeySource: loggedCompany?.aiApiKeySource || companyDetails.aiApiKeySource || data.company?.aiApiKeySource || "platform",
+            customGroqApiKey: loggedCompany?.customGroqApiKey || companyDetails.customGroqApiKey || data.company?.customGroqApiKey || ""
           };
           
           void 0;
@@ -1085,6 +1093,14 @@ const CompanyDetails = () => {
           planDurationDays: companyInfo.planDurationDays || 90,
           planFeatures: companyInfo.planFeatures || [],
           allowedPages: companyInfo.allowedPages || [],
+          aiDailyTokenLimit: companyInfo.aiDailyTokenLimit ?? 0,
+          aiDailyCallLimit: companyInfo.aiDailyCallLimit ?? 0,
+          aiDailySttLimit: companyInfo.aiDailySttLimit ?? 0,
+          aiExtraTokens: companyInfo.aiExtraTokens ?? 0,
+          aiExtraCalls: companyInfo.aiExtraCalls ?? 0,
+          aiExtraStt: companyInfo.aiExtraStt ?? 0,
+          aiApiKeySource: companyInfo.aiApiKeySource || "platform",
+          customGroqApiKey: companyInfo.customGroqApiKey || "",
           isActive: companyInfo.isActive ?? true
         };
         
@@ -1348,7 +1364,10 @@ const CompanyDetails = () => {
           transactionId: subscriptionTransactionId,
           paymentDate: subscriptionPaymentDate || new Date().toISOString(),
           notes: subscriptionNotes,
-          isActive: true
+          isActive: true,
+          aiExtraTokens: Number(company?.aiExtraTokens || 0),
+          aiExtraCalls: Number(company?.aiExtraCalls || 0),
+          aiExtraStt: Number(company?.aiExtraStt || 0)
         },
         { headers: getAuthHeaders() }
       );
@@ -2080,13 +2099,33 @@ const CompanyDetails = () => {
 
   const daysRemaining = getDaysRemaining(company?.subscriptionExpiry);
   const subscriptionStatus = getSubscriptionStatus(daysRemaining);
-  const currentPlan = company?.selectedPlan && typeof company.selectedPlan === "object" ? company.selectedPlan : null;
+  const currentPlan = (company?.selectedPlan && typeof company.selectedPlan === "object" && company.selectedPlan.name)
+    ? company.selectedPlan
+    : (plans || []).find(p => String(p._id) === String(company?.selectedPlan?._id || company?.selectedPlan))
+      || (plans || []).find(p => p.name && (company?.subscriptionPlan || company?.planName) && p.name.trim().toLowerCase() === String(company.subscriptionPlan || company.planName).trim().toLowerCase())
+      || null;
   const planName = company?.subscriptionPlan || currentPlan?.name || 'Plan not assigned';
   const planAmount = company?.subscriptionAmount ?? currentPlan?.price ?? 0;
   const planDurationDays = company?.planDurationDays || currentPlan?.durationDays || 0;
-  const planFeatures = company?.planFeatures || currentPlan?.features || [];
+  const planFeatures = (company?.planFeatures && company.planFeatures.length) ? company.planFeatures : (currentPlan?.features || []);
   const allowedPagesCount = company?.allowedPages?.length ?? currentPlan?.allowedPages?.length ?? 0;
   const subscriptionProgress = Math.min((daysRemaining / Math.max(planDurationDays || 90, 1)) * 100, 100);
+
+  const isByokActive = company?.aiApiKeySource === "client" || currentPlan?.aiApiKeySource === "client" || Boolean(company?.customGroqApiKey);
+  const aiDailyTokens = (company?.aiDailyTokenLimit !== undefined && company?.aiDailyTokenLimit !== null && Number(company.aiDailyTokenLimit) > 0)
+    ? Number(company.aiDailyTokenLimit)
+    : Number(currentPlan?.aiDailyTokenLimit || 0);
+  const aiDailyCalls = (company?.aiDailyCallLimit !== undefined && company?.aiDailyCallLimit !== null && Number(company.aiDailyCallLimit) > 0)
+    ? Number(company.aiDailyCallLimit)
+    : Number(currentPlan?.aiDailyCallLimit || 0);
+  const aiDailyStt = (company?.aiDailySttLimit !== undefined && company?.aiDailySttLimit !== null && Number(company.aiDailySttLimit) > 0)
+    ? Number(company.aiDailySttLimit)
+    : Number(currentPlan?.aiDailySttLimit || 0);
+  const aiExtraTokens = Number(company?.aiExtraTokens || 0);
+  const aiExtraCalls = Number(company?.aiExtraCalls || 0);
+  const aiExtraStt = Number(company?.aiExtraStt || 0);
+  const hasExtraAi = aiExtraTokens > 0 || aiExtraCalls > 0 || aiExtraStt > 0;
+  const hasAiFeature = isByokActive || aiDailyTokens > 0 || hasExtraAi || (company?.allowedPages || []).includes("company-ai-settings") || (currentPlan?.allowedPages || []).includes("company-ai-settings");
 
   
   if (pageLoading) {
@@ -2661,6 +2700,43 @@ const CompanyDetails = () => {
                     <p className="CompanyDetails-expiry-text">
                       <strong>Includes:</strong> {allowedPagesCount} pages{planFeatures.length ? ` / ${planFeatures.slice(0, 3).join(", ")}` : ""}
                     </p>
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>AI Plan:</strong>{" "}
+                      {isByokActive ? (
+                        <span style={{ color: "#0284c7", fontWeight: 600 }}>Active (Use Your Own API Key)</span>
+                      ) : hasAiFeature ? (
+                        <span style={{ color: "#059669", fontWeight: 600 }}>Active</span>
+                      ) : (
+                        <span style={{ color: "#64748b", fontWeight: 500 }}>Not Included</span>
+                      )}
+                    </p>
+                    {hasAiFeature && (
+                      <p className="CompanyDetails-expiry-text">
+                        <strong>AI Limits:</strong>{" "}
+                        {isByokActive ? (
+                          <span>Use Your Own API Key</span>
+                        ) : (
+                          <span>
+                            {Number(aiDailyTokens || 0).toLocaleString()} tokens/day
+                            {aiExtraTokens > 0 ? ` (+${Number(aiExtraTokens).toLocaleString()} extra)` : ""} • {aiDailyCalls || 0} calls/day
+                            {aiExtraCalls > 0 ? ` (+${aiExtraCalls} extra)` : ""} • {aiDailyStt || 0} voice/day
+                            {aiExtraStt > 0 ? ` (+${aiExtraStt} extra)` : ""}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    {hasAiFeature && !isByokActive && hasExtraAi && (
+                      <p className="CompanyDetails-expiry-text">
+                        <strong>Extra AI Allocation:</strong>{" "}
+                        <span style={{ color: "#2563eb", fontWeight: 600 }}>
+                          {[
+                            aiExtraTokens > 0 ? `+${Number(aiExtraTokens).toLocaleString()} tokens` : null,
+                            aiExtraCalls > 0 ? `+${aiExtraCalls} calls` : null,
+                            aiExtraStt > 0 ? `+${aiExtraStt} voice notes` : null,
+                          ].filter(Boolean).join(" • ")}
+                        </span>
+                      </p>
+                    )}
 
                     <div className="CompanyDetails-progress-container">
                       <div className="CompanyDetails-progress-header">
@@ -2827,6 +2903,43 @@ const CompanyDetails = () => {
                   <p className="CompanyDetails-expiry-text">
                     <strong>Includes:</strong> {allowedPagesCount} pages{planFeatures.length ? ` / ${planFeatures.slice(0, 3).join(", ")}` : ""}
                   </p>
+                  <p className="CompanyDetails-expiry-text">
+                    <strong>AI Plan:</strong>{" "}
+                    {isByokActive ? (
+                      <span style={{ color: "#0284c7", fontWeight: 600 }}>Active (Use Your Own API Key)</span>
+                    ) : hasAiFeature ? (
+                      <span style={{ color: "#059669", fontWeight: 600 }}>Active</span>
+                    ) : (
+                      <span style={{ color: "#64748b", fontWeight: 500 }}>Not Included</span>
+                    )}
+                  </p>
+                  {hasAiFeature && (
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>AI Limits:</strong>{" "}
+                      {isByokActive ? (
+                        <span>Use Your Own API Key</span>
+                      ) : (
+                        <span>
+                          {Number(aiDailyTokens || 0).toLocaleString()} tokens/day
+                          {aiExtraTokens > 0 ? ` (+${Number(aiExtraTokens).toLocaleString()} extra)` : ""} • {aiDailyCalls || 0} calls/day
+                          {aiExtraCalls > 0 ? ` (+${aiExtraCalls} extra)` : ""} • {aiDailyStt || 0} voice/day
+                          {aiExtraStt > 0 ? ` (+${aiExtraStt} extra)` : ""}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {hasAiFeature && !isByokActive && hasExtraAi && (
+                    <p className="CompanyDetails-expiry-text">
+                      <strong>Extra AI Allocation:</strong>{" "}
+                      <span style={{ color: "#2563eb", fontWeight: 600 }}>
+                        {[
+                          aiExtraTokens > 0 ? `+${Number(aiExtraTokens).toLocaleString()} tokens` : null,
+                          aiExtraCalls > 0 ? `+${aiExtraCalls} calls` : null,
+                          aiExtraStt > 0 ? `+${aiExtraStt} voice notes` : null,
+                        ].filter(Boolean).join(" • ")}
+                      </span>
+                    </p>
+                  )}
 
                   <div className="CompanyDetails-progress-container">
                     <div className="CompanyDetails-progress-header">

@@ -630,7 +630,7 @@ export default function MyAiChatView({ onBack, onClose }) {
   }
 
   return (
-    <div className={`my-ai-view-container ${isVoiceMode ? 'is-voice-mode' : ''} ${isExpanded ? 'is-expanded' : ''}`}>
+    <div className={`my-ai-view-container ${isExpanded ? 'is-expanded' : ''}`}>
       {/* =====================================================================
           REGION 1: TOP HEADER (~56px)
           Clean title, no "Astra", no internal STT counter ("Voice 0/12").
@@ -1144,42 +1144,7 @@ export default function MyAiChatView({ onBack, onClose }) {
           Always pinned at bottom, flex-shrink 0, clean container
           ===================================================================== */}
       <footer className="my-ai-composer-dock">
-        {isVoiceMode ? (
-          <div className="my-ai-chatgpt-voice-dock">
-            {/* Left: + Type button (matches user screenshot) */}
-            <button
-              type="button"
-              className="my-ai-gpt-type-btn"
-              onClick={handleExitVoiceMode}
-              title="Switch to typing text"
-            >
-              <Plus size={16} />
-              <span>Type</span>
-            </button>
-
-            {/* Right: Mic button & Blue circular Close button (matches user screenshot) */}
-            <div className="my-ai-gpt-dock-right">
-              <button
-                type="button"
-                className={`my-ai-gpt-mic-btn ${listening ? 'active' : 'paused'}`}
-                onClick={handleOrbClick}
-                title={listening ? 'Mute microphone' : 'Unmute microphone'}
-              >
-                {listening ? <Mic size={18} /> : <MicOff size={18} />}
-              </button>
-
-              <button
-                type="button"
-                className="my-ai-gpt-close-btn"
-                onClick={handleExitVoiceMode}
-                title="Exit Voice Mode"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form className="my-ai-composer-form" onSubmit={onSubmit}>
+        <form className="my-ai-composer-form" onSubmit={onSubmit}>
           <input
             ref={fileInputRef}
             type="file"
@@ -1310,7 +1275,6 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
         </form>
-        )}
 
         {/* Dev-only live VAD diagnostic overlay - hidden by default unless ?aidebug=1 or localStorage 'ciis_ai_debug' === '1' */}
         {shouldShowDebugOverlay() && (

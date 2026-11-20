@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -19,7 +20,7 @@ import { ServiceProgressCard } from './Client.jsx';
 import './client-management.css';
 import './ClientPlansPage.css';
 
-const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+const getAuthToken = () => accountStorage.getItem('token') || accountStorage.getItem('authToken');
 
 const clientApi = axios.create({
   baseURL: `${API_URL}/clientsservice`,
@@ -106,7 +107,7 @@ const ClientDetailsPage = () => {
   useEffect(() => {
     const fetchProjectManagers = async () => {
       try {
-        const userStr = localStorage.getItem('user');
+        const userStr = accountStorage.getItem('user');
         const currentUser = userStr ? JSON.parse(userStr) : {};
         const companyRole = (currentUser.companyRole || currentUser.role || currentUser.userRole || '').toLowerCase();
         const apiEndpoint = companyRole === 'employee' ? '/department-users' : '/company-users';

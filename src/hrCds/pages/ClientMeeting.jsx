@@ -1,21 +1,22 @@
+import { accountStorage } from '../../utils/authSession';
 import { useEffect, useState, useMemo, useCallback } from "react";
 import axiosInstance from "../../utils/axiosConfig";
 import "./ClientMeeting.css";
 
 const getCompanyCode = () => {
   try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const company = JSON.parse(localStorage.getItem("company") || "{}");
-    const companyDetails = JSON.parse(localStorage.getItem("companyDetails") || "{}");
+    const user = JSON.parse(accountStorage.getItem("user") || "{}");
+    const company = JSON.parse(accountStorage.getItem("company") || "{}");
+    const companyDetails = JSON.parse(accountStorage.getItem("companyDetails") || "{}");
     return (
-      localStorage.getItem("companyCode") ||
+      accountStorage.getItem("companyCode") ||
       user.companyCode ||
       company.companyCode ||
       companyDetails.companyCode ||
       ""
     );
   } catch {
-    return localStorage.getItem("companyCode") || "";
+    return accountStorage.getItem("companyCode") || "";
   }
 };
 

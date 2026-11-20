@@ -1,10 +1,11 @@
+import { accountStorage } from '../utils/authSession';
 import axios from "axios";
 import API_URL from "../config";
 
 const API = `${API_URL}/chat`;
 
 const getToken = () => {
-    return localStorage.getItem("token");
+    return accountStorage.getItem("token");
 };
 
 // Share concurrent reads from the full chat page, popup and socket callbacks.

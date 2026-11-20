@@ -1,3 +1,4 @@
+import { accountStorage, clearTabSession, notifyAuthChanged } from '../../utils/authSession';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -20,20 +21,6 @@ export const closeSuperAdminModal = () => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(CLOSE_SA_MODAL_EVENT));
   }
-};
-
-const clearPreviousLoginStorage = () => {
-  [
-    'token',
-    'user',
-    'superAdmin',
-    'company',
-    'companyDetails',
-    'companyIdentifier',
-    'companyCode',
-    'client',
-    'sidebarConfig',
-  ].forEach(key => localStorage.removeItem(key));
 };
 
 const SuperAdminModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) => {
@@ -240,15 +227,16 @@ const SuperAdminModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose 
         setView('otp');
         toast.success('Security verification OTP sent to your email!');
       } else if (response.data.success) {
-        clearPreviousLoginStorage();
-        localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
-        localStorage.setItem('token', response.data.token);
+        clearTabSession();
+        accountStorage.setItem('superAdmin', JSON.stringify(response.data.user));
+        accountStorage.setItem('token', response.data.token);
         if (response.data.companyDetails) {
-          localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
+          accountStorage.setItem('company', JSON.stringify(response.data.companyDetails));
         }
 
         toast.success('Super Admin Login successful! Redirecting...');
         handleModalClose();
+        notifyAuthChanged();
         navigate('/Ciis-network/company-details');
       } else {
         const msg = response.data.message || 'Super Admin login failed';
@@ -285,15 +273,16 @@ const SuperAdminModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose 
       });
 
       if (response.data.success) {
-        clearPreviousLoginStorage();
-        localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
-        localStorage.setItem('token', response.data.token);
+        clearTabSession();
+        accountStorage.setItem('superAdmin', JSON.stringify(response.data.user));
+        accountStorage.setItem('token', response.data.token);
         if (response.data.companyDetails) {
-          localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
+          accountStorage.setItem('company', JSON.stringify(response.data.companyDetails));
         }
 
         toast.success('Super Admin authenticated! Redirecting...');
         handleModalClose();
+        notifyAuthChanged();
         navigate('/Ciis-network/company-details');
       } else {
         const msg = response.data.message || 'OTP verification failed';

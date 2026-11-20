@@ -1,3 +1,4 @@
+import { accountStorage, endTabSession } from '../../../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -45,7 +46,7 @@ import {
 
 ChartJS.register(ArcElement, Legend, Tooltip);
 
-const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+const getAuthToken = () => accountStorage.getItem('token') || accountStorage.getItem('authToken');
 
 const normalizeMatchValue = value => String(value || '').trim().toLowerCase();
 
@@ -231,11 +232,11 @@ const ServicesTasks = () => {
       if (response.data?.success) {
         return (response.data.data || []).map(task => ({ ...task, serviceName }));
       }
-      const savedTasks = localStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
+      const savedTasks = accountStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
       return savedTasks ? JSON.parse(savedTasks).map(task => ({ ...task, serviceName })) : [];
     } catch (err) {
       console.error(`Error fetching tasks for ${serviceName}:`, err);
-      const savedTasks = localStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
+      const savedTasks = accountStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
       return savedTasks ? JSON.parse(savedTasks).map(task => ({ ...task, serviceName })) : [];
     }
   };
@@ -274,7 +275,7 @@ const ServicesTasks = () => {
       setLoading(true);
       setError('');
 
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         setError('User not found. Please login again.');
         return;
@@ -284,7 +285,7 @@ const ServicesTasks = () => {
       const user = storedUser;
       storedClient = (() => {
         try {
-          return JSON.parse(localStorage.getItem('client') || 'null');
+          return JSON.parse(accountStorage.getItem('client') || 'null');
         } catch {
           return null;
         }
@@ -339,7 +340,7 @@ const ServicesTasks = () => {
           }
           return 0;
         });
-      const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+      const selectedClientId = normalizeMatchValue(accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const currentClient = (
         storedClientId
@@ -360,8 +361,8 @@ const ServicesTasks = () => {
 
       const serviceList = Array.isArray(currentClient.services) ? currentClient.services : [];
       setClient(currentClient);
-      localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
-      localStorage.setItem('client', JSON.stringify(currentClient));
+      accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+      accountStorage.setItem('client', JSON.stringify(currentClient));
       setServices(serviceList);
       setProjectManagers(collectProjectMembers(currentClient, companyUsers));
       await fetchAllServiceTasks(currentClient, serviceList);
@@ -374,7 +375,7 @@ const ServicesTasks = () => {
           const fallbackServices = Array.isArray(fallbackClient.services) ? fallbackClient.services : [];
           const cachedTasks = fallbackServices.flatMap(service => {
             try {
-              const saved = localStorage.getItem(`client_${fallbackClient._id || fallbackClient.id}_service_${service}_tasks`);
+              const saved = accountStorage.getItem(`client_${fallbackClient._id || fallbackClient.id}_service_${service}_tasks`);
               return saved ? JSON.parse(saved).map(task => ({ ...task, serviceName: service })) : [];
             } catch {
               return [];
@@ -405,15 +406,7 @@ const ServicesTasks = () => {
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('companyCode');
-    localStorage.removeItem('companyIdentifier');
-    localStorage.removeItem('company');
-    localStorage.removeItem('client');
-    localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
-    window.dispatchEvent(new Event('ciis-auth-changed'));
+    endTabSession();
     window.location.replace('/');
   };
 

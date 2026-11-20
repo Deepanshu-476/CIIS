@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
@@ -33,14 +34,14 @@ import {
 
 const getHeaders = () => ({
   headers: {
-    Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    Authorization: `Bearer ${accountStorage.getItem("token") || ""}`,
     "Content-Type": "application/json",
   },
 });
 
 const getUserId = () => {
   try {
-    const stored = localStorage.getItem("user");
+    const stored = accountStorage.getItem("user");
     if (stored) {
       const parsed = JSON.parse(stored);
       return String(
@@ -48,14 +49,14 @@ const getUserId = () => {
           parsed.id ||
           parsed.user?._id ||
           parsed.user?.id ||
-          localStorage.getItem("userId") ||
+          accountStorage.getItem("userId") ||
           ""
       );
     }
   } catch (err) {
     console.error("Error reading userId:", err);
   }
-  return localStorage.getItem("userId") || "";
+  return accountStorage.getItem("userId") || "";
 };
 
 const formatAlertDate = (dateStr) => {

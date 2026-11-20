@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText,
@@ -85,8 +86,8 @@ const LeavePolicy = () => {
   // Extract Logged-in Company Info from LocalStorage dynamically
   const companyInfo = useMemo(() => {
     try {
-      const userStr = localStorage.getItem('user') || localStorage.getItem('superAdmin');
-      const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+      const userStr = accountStorage.getItem('user') || accountStorage.getItem('superAdmin');
+      const companyStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
       const user = userStr ? JSON.parse(userStr) : null;
       const company = companyStr ? JSON.parse(companyStr) : null;
 

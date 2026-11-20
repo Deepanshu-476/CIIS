@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../../utils/axiosConfig";
 import { invalidateGetCache } from "../../utils/axiosConfig";
@@ -509,7 +510,7 @@ const mergePagesWithFallback = (pages = []) => {
 
 const readStoredJson = (key) => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = accountStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

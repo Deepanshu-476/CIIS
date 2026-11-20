@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
@@ -138,7 +139,7 @@ const CompanyDetails = () => {
 
     for (const key of storageKeys) {
       try {
-        const raw = localStorage.getItem(key);
+        const raw = accountStorage.getItem(key);
         if (!raw) continue;
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === "object") {
@@ -146,25 +147,25 @@ const CompanyDetails = () => {
           break;
         }
       } catch (error) {
-        console.warn(`Unable to parse ${key} from localStorage`, error);
+        console.warn(`Unable to parse ${key} from accountStorage`, error);
       }
     }
 
     try {
-      const rawAdmin = localStorage.getItem("superAdmin") || localStorage.getItem("user");
+      const rawAdmin = accountStorage.getItem("superAdmin") || accountStorage.getItem("user");
       const adminData = rawAdmin ? JSON.parse(rawAdmin) : null;
 
       if (adminData && typeof adminData === "object") {
         return {
           ...(companyData || {}),
           companyName: adminData.companyName || companyData?.companyName || companyData?.name,
-          companyCode: adminData.companyCode || companyData?.companyCode || companyData?.code || localStorage.getItem("companyCode"),
+          companyCode: adminData.companyCode || companyData?.companyCode || companyData?.code || accountStorage.getItem("companyCode"),
           ownerName: companyData?.ownerName || companyData?.owner,
           companyEmail: adminData.email || companyData?.companyEmail || companyData?.email,
         };
       }
     } catch (error) {
-      console.warn("Unable to parse logged user from localStorage", error);
+      console.warn("Unable to parse logged user from accountStorage", error);
     }
 
     return companyData;
@@ -182,7 +183,7 @@ const CompanyDetails = () => {
     try {
       const storageKeys = ["user", "superAdmin"];
       for (const key of storageKeys) {
-        const rawUser = localStorage.getItem(key);
+        const rawUser = accountStorage.getItem(key);
         const user = rawUser ? JSON.parse(rawUser) : null;
         const name = user?.name || user?.username || user?.fullName || user?.ownerName || "";
         if (name) return name;
@@ -278,7 +279,7 @@ const CompanyDetails = () => {
     
     try {
       setLoadingDepartments(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
       const response = await axios.get(
@@ -327,7 +328,7 @@ const CompanyDetails = () => {
     
     try {
       setLoadingJobRoles(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
       const response = await axios.get(
@@ -778,7 +779,7 @@ const CompanyDetails = () => {
     try {
       setLoading(true);
       
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       let loggedCompany = getLoggedCompanyFromStorage();
       
       if (!token) {
@@ -1009,10 +1010,10 @@ const CompanyDetails = () => {
           }
           
           
-          localStorage.setItem("company", JSON.stringify(companyData));
+          accountStorage.setItem("company", JSON.stringify(companyData));
           
           if (companyData.companyCode) {
-            localStorage.setItem("companyCode", companyData.companyCode);
+            accountStorage.setItem("companyCode", companyData.companyCode);
           }
           
           
@@ -1139,7 +1140,7 @@ const CompanyDetails = () => {
           logo: defaultCompany.logo
         });
         
-        localStorage.setItem("company", JSON.stringify(defaultCompany));
+        accountStorage.setItem("company", JSON.stringify(defaultCompany));
         await fetchTodayLoginCount(headers);
         await fetchWeeklyLoginAnalytics(headers);
       }
@@ -1251,7 +1252,7 @@ const CompanyDetails = () => {
   };
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
+    const token = accountStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
@@ -1279,7 +1280,7 @@ const CompanyDetails = () => {
 
   const handleOpenUpgradeModal = () => {
     let account = null;
-    try { account = JSON.parse(localStorage.getItem('user') || localStorage.getItem('superAdmin') || 'null'); } catch {}
+    try { account = JSON.parse(accountStorage.getItem('user') || accountStorage.getItem('superAdmin') || 'null'); } catch {}
     if (!isPlatformAccount(account)) {showAvailablePlans(); return;}
     const currentPlanId = company?.selectedPlan && typeof company.selectedPlan === "object" ? company.selectedPlan._id : (company?.selectedPlan || "");
     const selectedPlan = plans.find(plan => plan._id === currentPlanId);
@@ -1385,7 +1386,7 @@ const CompanyDetails = () => {
     setSearchParams(nextParams);
 
     if (company?._id) {
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       await fetchCompanyUsers(company._id, headers, branchId);
     }
@@ -1426,7 +1427,7 @@ const CompanyDetails = () => {
   const handleSaveCompany = async () => {
     try {
       setCompanyEditLoading(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
       const updateData = {};
@@ -1520,9 +1521,9 @@ const CompanyDetails = () => {
       };
       
       setCompany(updatedCompany);
-      localStorage.setItem("company", JSON.stringify(updatedCompany));
-      localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
-      localStorage.setItem("companyCode", updatedCompany.companyCode || "");
+      accountStorage.setItem("company", JSON.stringify(updatedCompany));
+      accountStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
+      accountStorage.setItem("companyCode", updatedCompany.companyCode || "");
       
       setCompanyEditSuccess(true);
       
@@ -1746,7 +1747,7 @@ const CompanyDetails = () => {
     
     try {
       setSaveLoading(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       
       if (!token) {
         toast.error("Authentication token not found. Please login again.");
@@ -1893,7 +1894,7 @@ const CompanyDetails = () => {
     
     try {
       setSaveLoading(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       
       if (!token) {
         toast.error("Authentication token not found. Please login again.");
@@ -2026,7 +2027,7 @@ const CompanyDetails = () => {
     const newDept = prompt("Enter new department name:");
     if (newDept && newDept.trim()) {
       try {
-        const token = localStorage.getItem("token");
+        const token = accountStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}` };
         
         const response = await axios.post(

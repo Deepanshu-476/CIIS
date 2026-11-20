@@ -1,7 +1,8 @@
+import { accountStorage, clearTabSession, notifyAuthChanged } from '../../utils/authSession';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
-import { useAuth, sanitizeUserForStorage, clearAuthStorageCaches } from '../../context/AuthContext';
+import { useAuth, sanitizeUserForStorage } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import { lockBackgroundScroll, unlockBackgroundScroll } from '../../utils/scrollLock';
 import './LoginModal.css';
@@ -21,21 +22,6 @@ export const closeLoginModal = () => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(CLOSE_MODAL_EVENT));
   }
-};
-
-const clearPreviousLoginStorage = () => {
-  clearAuthStorageCaches();
-  [
-    'token',
-    'user',
-    'superAdmin',
-    'company',
-    'companyDetails',
-    'companyIdentifier',
-    'companyCode',
-    'client',
-    'sidebarConfig',
-  ].forEach(key => localStorage.removeItem(key));
 };
 
 const getCompanyAuthPath = (companyIdentifier, action) => {
@@ -94,7 +80,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
   // Load remembered company code
   useEffect(() => {
     if (!initialCompanyCodeSet.current) {
-      const savedCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier') || '';
+      const savedCode = accountStorage.getItem('companyCode') || accountStorage.getItem('companyIdentifier') || '';
       if (savedCode) {
         setForm(prev => ({ ...prev, companyCode: savedCode }));
       }
@@ -298,35 +284,35 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
 
   // Process successful auth response
   const handleLoginSuccess = (data, activeCompanyCode) => {
-    clearPreviousLoginStorage();
+    clearTabSession();
 
     if (data.token) {
-      localStorage.setItem('token', data.token);
+      accountStorage.setItem('token', data.token);
       setToken?.(data.token);
     }
 
     if (data.user) {
       const storedUser = sanitizeUserForStorage(data.user);
-      localStorage.setItem('user', JSON.stringify(storedUser));
+      accountStorage.setItem('user', JSON.stringify(storedUser));
       setUser?.(storedUser);
       setIsAuthenticated?.(true);
     }
 
     if (data.client) {
-      localStorage.setItem('client', JSON.stringify(sanitizeUserForStorage(data.client)));
+      accountStorage.setItem('client', JSON.stringify(sanitizeUserForStorage(data.client)));
       const clientId = String(data.client._id || data.client.id || data.client.clientId || '');
       if (clientId) {
-        localStorage.setItem('client_portal_selected_client_id', clientId);
+        accountStorage.setItem('client_portal_selected_client_id', clientId);
       }
     }
 
     if (activeCompanyCode) {
-      localStorage.setItem('companyCode', activeCompanyCode);
-      localStorage.setItem('companyIdentifier', activeCompanyCode);
+      accountStorage.setItem('companyCode', activeCompanyCode);
+      accountStorage.setItem('companyIdentifier', activeCompanyCode);
     }
 
     if (data.companyDetails) {
-      localStorage.setItem('companyDetails', JSON.stringify(sanitizeUserForStorage(data.companyDetails)));
+      accountStorage.setItem('companyDetails', JSON.stringify(sanitizeUserForStorage(data.companyDetails)));
     }
 
     toast.success('Login successful!');
@@ -345,6 +331,7 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
       redirectPath = '/admin/dashboard';
     }
 
+    notifyAuthChanged();
     navigate(redirectPath);
   };
 

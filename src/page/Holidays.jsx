@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Holidays.css';
@@ -168,7 +169,7 @@ const Holidays = () => {
                 return;
             }
 
-            const token = localStorage.getItem('token');
+            const token = accountStorage.getItem('token');
             let added = 0;
             let skipped = parsedHolidays.length - uniqueHolidays.length;
 
@@ -202,7 +203,7 @@ const Holidays = () => {
     const fetchHolidays = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
+            const token = accountStorage.getItem('token');
             
             
             let url = `${API_URL}/holidays`; 
@@ -287,7 +288,7 @@ const Holidays = () => {
         e.preventDefault();
         
         try {
-            const token = localStorage.getItem('token');
+            const token = accountStorage.getItem('token');
             
             
             if (!formData.title || !formData.date || !formData.month) {

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
@@ -331,7 +332,7 @@ const readEmpUsersCache = (cacheKey) => {
   if (!cacheKey || typeof window === "undefined") return null;
 
   try {
-    const raw = sessionStorage.getItem(cacheKey);
+    const raw = accountStorage.getItem(cacheKey);
     if (!raw) return null;
 
     const parsed = JSON.parse(raw);
@@ -350,7 +351,7 @@ const writeEmpUsersCache = (cacheKey, snapshot) => {
   if (!Array.isArray(snapshot?.users) || snapshot.users.length === 0) return;
 
   try {
-    sessionStorage.setItem(cacheKey, JSON.stringify({
+    accountStorage.setItem(cacheKey, JSON.stringify({
       ...snapshot,
       savedAt: Date.now(),
     }));
@@ -920,7 +921,7 @@ const TaskDetails = () => {
 
   const fetchDepartments = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       if (!token) return;
 
       const config = {
@@ -947,7 +948,7 @@ const TaskDetails = () => {
 
   const fetchJobRoles = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       if (!token) return;
 
       const config = {
@@ -1684,7 +1685,7 @@ const TaskDetails = () => {
     const fetchUserData = () => {
       try {
         const stored = getStoredUser();
-        const userStr = localStorage.getItem("user") || localStorage.getItem("currentUser") || localStorage.getItem("superAdmin");
+        const userStr = accountStorage.getItem("user") || accountStorage.getItem("currentUser") || accountStorage.getItem("superAdmin");
         const parsed = stored || (userStr ? JSON.parse(userStr) : null);
         if (!parsed) {
           setError("Please log in to access this page");
@@ -1787,7 +1788,7 @@ const TaskDetails = () => {
       setError("");
 
       try {
-        const token = localStorage.getItem('token');
+        const token = accountStorage.getItem('token');
         if (!token) {
           setError("Please log in to access this page");
           setUsersLoading(false);
@@ -2313,7 +2314,7 @@ const TaskDetails = () => {
       // out), load the same company employee list directly instead of showing
       // a false "no data" message.
       if (!targetUsers || targetUsers.length === 0) {
-        const token = localStorage.getItem('token');
+        const token = accountStorage.getItem('token');
         const response = await axios.get('/users/company-users', {
           params: { noPagination: 'true', view: 'task-overview' },
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -3183,7 +3184,7 @@ const TaskDetails = () => {
 
     try {
       const todayStr = getDateInputValue();
-      sessionStorage.removeItem(buildEmpUsersCacheKey({ fromDate: todayStr, toDate: todayStr }));
+      accountStorage.removeItem(buildEmpUsersCacheKey({ fromDate: todayStr, toDate: todayStr }));
     } catch {
       // ignore
     }

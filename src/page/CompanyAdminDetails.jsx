@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -206,7 +207,7 @@ export default function CompanyAdminDetails() {
 
     try {
       const res = await axios.get(`${API_URL}/company/${companyId}/admins`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: { Authorization: `Bearer ${accountStorage.getItem("token")}` },
       });
       setData(res.data);
     } catch (err) {

@@ -1,3 +1,4 @@
+import { accountStorage, clearTabSession, notifyAuthChanged } from '../utils/authSession';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -6,20 +7,6 @@ import { toast } from 'react-toastify';
 import './SuperAdminLogin.css';
 
 const companyLogo = '/logoo.png';
-
-const clearPreviousLoginStorage = () => {
-  [
-    'token',
-    'user',
-    'superAdmin',
-    'company',
-    'companyDetails',
-    'companyIdentifier',
-    'companyCode',
-    'client',
-    'sidebarConfig',
-  ].forEach(key => localStorage.removeItem(key));
-};
 
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
@@ -140,12 +127,13 @@ const SuperAdminLogin = () => {
         toast.success('OTP sent to your email! Please verify.');
       } else if (response.data.success) {
         
-        clearPreviousLoginStorage();
-        localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
+        clearTabSession();
+        accountStorage.setItem('superAdmin', JSON.stringify(response.data.user));
+        accountStorage.setItem('token', response.data.token);
+        accountStorage.setItem('company', JSON.stringify(response.data.companyDetails));
 
         toast.success('Login successful! Redirecting...');
+        notifyAuthChanged();
         navigate('/Ciis-network/company-details');
       } else {
         toast.error(response.data.message || 'Login failed');
@@ -178,12 +166,13 @@ const SuperAdminLogin = () => {
       });
       
       if (response.data.success) {
-        clearPreviousLoginStorage();
-        localStorage.setItem('superAdmin', JSON.stringify(response.data.user));
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('company', JSON.stringify(response.data.companyDetails));
+        clearTabSession();
+        accountStorage.setItem('superAdmin', JSON.stringify(response.data.user));
+        accountStorage.setItem('token', response.data.token);
+        accountStorage.setItem('company', JSON.stringify(response.data.companyDetails));
 
         toast.success('Login successful! Redirecting...');
+        notifyAuthChanged();
         navigate('/Ciis-network/company-details');
       } else {
         toast.error(response.data.message || 'OTP verification failed');

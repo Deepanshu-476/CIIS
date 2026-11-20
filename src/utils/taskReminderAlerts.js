@@ -61,7 +61,7 @@ export const showTaskReminderSystemNotification = async notification => {
   try {
     const registration = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
     if (registration?.active) {
-      await registration.showNotification(title, options);
+      registration.active.postMessage({ type: 'task-reminder', title, options });
     } else {
       const alert = new Notification(title, options);
       alert.onclick = () => {window.focus(); window.location.assign(options.data.url); alert.close();};

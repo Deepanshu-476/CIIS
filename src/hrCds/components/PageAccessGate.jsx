@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { CRM_PAGES, resolveCrmPermissionPath } from '../../config/crmPages';
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -260,7 +261,7 @@ export const isKnownAppRoute = (pathname = "") => {
 
 export const hasCompanyPlanAccess = pagePath => {
   try {
-    const company = JSON.parse(localStorage.getItem('companyDetails') || '{}');
+    const company = JSON.parse(accountStorage.getItem('companyDetails') || '{}');
     const allowed = company?.allowedPages || [];
     if (!allowed.length) return true;
 
@@ -452,7 +453,7 @@ const PageAccessGate = ({ children }) => {
     const checkAccess = async () => {
       if (telecallerPage) {
         let company;
-        try { company = JSON.parse(localStorage.getItem('companyDetails') || '{}'); } catch { company = {}; }
+        try { company = JSON.parse(accountStorage.getItem('companyDetails') || '{}'); } catch { company = {}; }
         if (!hasTelecallerCompanyAccess(telecallerPage, company)) {
           const companyRef = currentUser?.companyId || currentUser?.company;
           const companyId = company?._id || company?.id || currentUser?.companyDetails?._id
@@ -463,7 +464,7 @@ const PageAccessGate = ({ children }) => {
               const latest = data?.company || data?.data || data;
               if (Array.isArray(latest?.allowedPages)) {
                 company = { ...company, ...latest };
-                if (!cancelled) localStorage.setItem('companyDetails', JSON.stringify(company));
+                if (!cancelled) accountStorage.setItem('companyDetails', JSON.stringify(company));
               }
             } catch { /* An unavailable company lookup must not grant access. */ }
           }

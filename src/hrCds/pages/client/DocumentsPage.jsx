@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
@@ -31,7 +32,7 @@ const clientDocumentsApi = axios.create({
 });
 
 clientDocumentsApi.interceptors.request.use(config => {
-  const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+  const token = accountStorage.getItem("token") || accountStorage.getItem("authToken");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

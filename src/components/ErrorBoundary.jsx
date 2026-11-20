@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React from 'react';
 import { Box, Button, Typography, Paper } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -36,10 +37,10 @@ class ErrorBoundary extends React.Component {
 
   handleReload = () => {
     try {
-      localStorage.removeItem('sidebarConfig');
-      Object.keys(localStorage)
+      accountStorage.removeItem('sidebarConfig');
+      Object.keys(accountStorage)
         .filter(key => key.startsWith('ciis-api-cache:'))
-        .forEach(key => localStorage.removeItem(key));
+        .forEach(key => accountStorage.removeItem(key));
     } catch {
       // Ignore storage errors
     }

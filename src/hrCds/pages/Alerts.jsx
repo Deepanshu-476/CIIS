@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import axios from "../../utils/axiosConfig";
 import CIISLoader from "../../Loader/CIISLoader";
@@ -33,7 +34,7 @@ import { FaFilePdf } from "react-icons/fa";
 
 const getHeaders = () => ({
   headers: {
-    Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    Authorization: `Bearer ${accountStorage.getItem("token") || ""}`,
   },
 });
 
@@ -330,13 +331,13 @@ const Alerts = () => {
   ].includes(String(role || "").toLowerCase().replace(/[\s-]+/g, "_"));
 
   const getUserId = useCallback(() => {
-    const storedUser = currentUser || JSON.parse(localStorage.getItem("user") || "null");
+    const storedUser = currentUser || JSON.parse(accountStorage.getItem("user") || "null");
     return String(
       storedUser?._id ||
         storedUser?.id ||
         storedUser?.user?._id ||
         storedUser?.user?.id ||
-        localStorage.getItem("userId") ||
+        accountStorage.getItem("userId") ||
         ""
     );
   }, [currentUser]);
@@ -350,11 +351,11 @@ const Alerts = () => {
       const list = getApiList(response.data, ["groups"]);
       const ids = list.map((g) => String(g?._id || g?.id || g)).filter(Boolean);
       setUserGroupIds(ids);
-      localStorage.setItem("userGroups", JSON.stringify(ids));
+      accountStorage.setItem("userGroups", JSON.stringify(ids));
       return ids;
     } catch {
       try {
-        const stored = JSON.parse(localStorage.getItem("userGroups") || "[]");
+        const stored = JSON.parse(accountStorage.getItem("userGroups") || "[]");
         const ids = asArray(stored).map((g) => String(g?._id || g?.id || g)).filter(Boolean);
         setUserGroupIds(ids);
         return ids;
@@ -432,7 +433,7 @@ const Alerts = () => {
   const loadData = async () => {
     setPageLoading(true);
     try {
-      const storedUser = localStorage.getItem("user");
+      const storedUser = accountStorage.getItem("user");
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
@@ -441,7 +442,7 @@ const Alerts = () => {
             parsed?.companyRole || parsed?.role || parsed?.jobRole || parsed?.userRole || "";
           setRole(String(userRole).toLowerCase().replace(/[\s-]+/g, "_"));
           const userId = parsed?._id || parsed?.id || parsed?.user?._id || parsed?.user?.id || "";
-          if (userId) localStorage.setItem("userId", userId);
+          if (userId) accountStorage.setItem("userId", userId);
           await getUserGroups(String(userId || ""));
         } catch {
           setCurrentUser(null);
@@ -669,10 +670,10 @@ const Alerts = () => {
         setNotification({ type: "success", message: "Alert marked as read." });
       }
 
-      // Update unread count in localStorage for app-wide badge sync
-      const currentCount = parseInt(localStorage.getItem("unreadCount") || "0", 10);
+      // Update unread count in accountStorage for app-wide badge sync
+      const currentCount = parseInt(accountStorage.getItem("unreadCount") || "0", 10);
       const nextCount = currentlyRead ? currentCount + 1 : Math.max(0, currentCount - 1);
-      localStorage.setItem("unreadCount", String(nextCount));
+      accountStorage.setItem("unreadCount", String(nextCount));
       // Server stats (read/unread counts) and the unread tab depend on this change.
       if (serverPage) void fetchAlerts({ silent: true });
     } catch {

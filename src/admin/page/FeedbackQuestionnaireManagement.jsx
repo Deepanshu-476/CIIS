@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../../utils/axiosConfig';
 import {
@@ -65,7 +66,7 @@ const getBranchLabel = branch => {
 
 const readStoredJson = key => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = accountStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -89,7 +90,7 @@ const getLoggedCompany = () => {
     return {
       _id: id,
       companyName: source.companyName || source.name || storedUser?.companyName || 'Company',
-      companyCode: source.companyCode || storedUser?.companyCode || localStorage.getItem('companyCode') || '',
+      companyCode: source.companyCode || storedUser?.companyCode || accountStorage.getItem('companyCode') || '',
     };
   }
 
@@ -159,7 +160,7 @@ const FeedbackQuestionnaireManagement = () => {
 
   const headers = {
     headers: {
-      Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+      Authorization: `Bearer ${accountStorage.getItem('token') || ''}`,
     },
   };
 

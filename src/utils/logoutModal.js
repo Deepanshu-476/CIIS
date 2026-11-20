@@ -1,4 +1,5 @@
 import Swal from "sweetalert2";
+import { endTabSession } from "./authSession";
 
 const MODAL_STYLE_ID = "ciis-logout-modal-styles";
 
@@ -189,17 +190,7 @@ export const handleAppLogout = async ({ navigate, redirectPath = "/" } = {}) => 
     return;
   }
 
-  // Clear auth keys immediately
-  try {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("companyDetails");
-    localStorage.removeItem("sidebarConfig");
-    localStorage.removeItem("unreadCount");
-    localStorage.removeItem("superAdmin");
-  } catch (err) {
-    console.error("Logout cleanup error:", err);
-  }
+  endTabSession();
 
   // Immediate redirect: no lingering timer or delayed popup!
   if (navigate) {

@@ -1,5 +1,6 @@
+import { accountStorage } from './authSession';
 // The sidebar config is requested at login (to pick the landing page), by the sidebar and by
-// the user dashboard. They share the copy saved in localStorage: one saved in the last minute
+// the user dashboard. They share the copy saved in accountStorage: one saved in the last minute
 // for the same user, company, department, role and branch is used without another request.
 
 const SIDEBAR_CONFIG_KEY = 'sidebarConfig';
@@ -52,7 +53,7 @@ export const saveSidebarConfig = (config, userId, params) => {
     _savedAt: Date.now(),
   };
   try {
-    localStorage.setItem(SIDEBAR_CONFIG_KEY, JSON.stringify(record));
+    accountStorage.setItem(SIDEBAR_CONFIG_KEY, JSON.stringify(record));
   } catch {
     // Storage full or blocked: the in-memory config still works.
   }
@@ -61,7 +62,7 @@ export const saveSidebarConfig = (config, userId, params) => {
 
 export const readFreshSidebarConfig = (userId, params) => {
   try {
-    const record = JSON.parse(localStorage.getItem(SIDEBAR_CONFIG_KEY) || 'null');
+    const record = JSON.parse(accountStorage.getItem(SIDEBAR_CONFIG_KEY) || 'null');
     if (!record || record._paramsKey !== paramsKey(userId, params)) return null;
     return Date.now() - Number(record._savedAt || 0) < SIDEBAR_CONFIG_FRESH_MS ? record : null;
   } catch {

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axiosConfig';
@@ -278,7 +279,7 @@ const JobRoleManagement = () => {
 
   const getCompanyFromStorage = () => {
     try {
-      const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+      const companyStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
       return companyStr ? JSON.parse(companyStr) : null;
     } catch (error) {
       console.error('Error parsing company data:', error);
@@ -322,9 +323,9 @@ const JobRoleManagement = () => {
 
   
   const getUserFromStorage = () => {
-    let userStr = localStorage.getItem('user');
-    if (!userStr) userStr = sessionStorage.getItem('user');
-    if (!userStr) userStr = localStorage.getItem('superAdmin') || sessionStorage.getItem('superAdmin');
+    let userStr = accountStorage.getItem('user');
+
+    if (!userStr) userStr = accountStorage.getItem('superAdmin');
     
     if (!userStr) {
       void 0;

@@ -1,3 +1,4 @@
+import { accountStorage, endTabSession } from '../../../utils/authSession';
 import { hasOverdueStatus } from '../../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from '../../../utils/axiosConfig';
@@ -366,7 +367,7 @@ const UserCreateTask = () => {
   
  const fetchUserData = () => {
   try {
-    const userStr = localStorage.getItem('user');
+    const userStr = accountStorage.getItem('user');
     if (!userStr) {
       setAuthError(true);
       setSnackbar({
@@ -916,9 +917,7 @@ const UserCreateTask = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    window.dispatchEvent(new Event('ciis-auth-changed'));
+    endTabSession();
     navigate('/', { replace: true });
   };
 
@@ -1907,7 +1906,7 @@ const UserCreateTask = () => {
     }
   }, [authError, userId]);
 
-  if (authError && !localStorage.getItem('token')) {
+  if (authError && !accountStorage.getItem('token')) {
     return (
       <Box sx={{
         display: 'flex',

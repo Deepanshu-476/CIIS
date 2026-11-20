@@ -1,3 +1,4 @@
+import { accountStorage } from './authSession';
 import axios from "./axiosConfig";
 import { CRM_PAGES, resolveCrmPermissionPath } from "../config/crmPages";
 import { TELECALLER_PAGES } from "../crm/telecaller/telecallerPages";
@@ -31,7 +32,7 @@ const withPermissionRetry = async load => {
 const permissionScope = () => {
   const user = getStoredUser();
   return JSON.stringify([user?._id || user?.id, user?.company || user?.companyId,
-    localStorage.getItem('companyDetails'), localStorage.getItem('token')]);
+    accountStorage.getItem('companyDetails'), accountStorage.getItem('token')]);
 };
 
 const permissionSessionKey = () => {
@@ -103,10 +104,9 @@ export const isTelecallerPage = path => /^\/ciisuser\/telecaller(\/|$)/i.test(St
 
 export const getStoredUser = () => {
   try {
-    const raw = localStorage.getItem("user")
-      || localStorage.getItem("currentUser")
-      || localStorage.getItem("superAdmin")
-      || sessionStorage.getItem("superAdmin");
+    const raw = accountStorage.getItem("user")
+      || accountStorage.getItem("currentUser")
+      || accountStorage.getItem("superAdmin");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?.user || parsed;

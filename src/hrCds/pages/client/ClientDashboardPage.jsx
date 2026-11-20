@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -49,7 +50,7 @@ import {
 } from 'react-icons/fi';
 
 const getAuthToken = () => {
-  return localStorage.getItem('token') || localStorage.getItem('authToken');
+  return accountStorage.getItem('token') || accountStorage.getItem('authToken');
 };
 
 const getPersonName = person => {
@@ -402,16 +403,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('client') || 'null');
+      return JSON.parse(accountStorage.getItem('client') || 'null');
     } catch {
       return null;
     }
   });
   const [availableClients, setAvailableClients] = useState(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem('client_available_clients') || '[]');
+      const stored = JSON.parse(accountStorage.getItem('client_available_clients') || '[]');
       if (Array.isArray(stored) && stored.length > 0) return stored;
-      const current = JSON.parse(localStorage.getItem('client') || 'null');
+      const current = JSON.parse(accountStorage.getItem('client') || 'null');
       return current ? [current] : [];
     } catch {
       return [];
@@ -420,7 +421,7 @@ const Dashboard = () => {
   const [companyTaskCounts, setCompanyTaskCounts] = useState({});
   const [services, setServices] = useState(() => {
     try {
-      const current = JSON.parse(localStorage.getItem('client') || 'null');
+      const current = JSON.parse(accountStorage.getItem('client') || 'null');
       return Array.isArray(current?.services) ? current.services : [];
     } catch {
       return [];
@@ -432,7 +433,7 @@ const Dashboard = () => {
   const [supportTicketsLoading, setSupportTicketsLoading] = useState(false);
   const [supportTicketsError, setSupportTicketsError] = useState('');
   const [isDashboardLoading, setIsDashboardLoading] = useState(() => {
-    return !localStorage.getItem('client');
+    return !accountStorage.getItem('client');
   });
   const [companyInfo, setCompanyInfo] = useState(() => getClientPortalCompanyContext());
   const [dashboardFilter, setDashboardFilter] = useState('active-services');
@@ -586,7 +587,7 @@ const Dashboard = () => {
 
     try {
       setSupportTicketsLoading(true);
-      const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+      const selectedClientId = normalizeMatchValue(accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const response = await api.get('/dashboard-overview', {
         params: {
@@ -603,14 +604,14 @@ const Dashboard = () => {
       const currentClient = overview.client || null;
       setAvailableClients(matchingClients);
       if (matchingClients.length > 0) {
-        localStorage.setItem('client_available_clients', JSON.stringify(matchingClients));
+        accountStorage.setItem('client_available_clients', JSON.stringify(matchingClients));
       }
       fetchCompaniesTaskSummary(matchingClients);
 
       if (currentClient) {
         setClient(currentClient);
-        localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
-        localStorage.setItem('client', JSON.stringify(currentClient));
+        accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+        accountStorage.setItem('client', JSON.stringify(currentClient));
         setServices(overview.services || currentClient.services || []);
         setProjectManagers(overview.projectManagers || []);
         setServiceTasks(applyClientSubscriptionDueDates(overview.serviceTasks || [], currentClient));
@@ -636,7 +637,7 @@ const Dashboard = () => {
         setIsDashboardLoading(true);
       }
 
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         return;
       }
@@ -644,7 +645,7 @@ const Dashboard = () => {
       const user = JSON.parse(userStr);
       const storedClient = (() => {
         try {
-          return JSON.parse(localStorage.getItem('client') || 'null');
+          return JSON.parse(accountStorage.getItem('client') || 'null');
         } catch {
           return null;
         }
@@ -697,10 +698,10 @@ const Dashboard = () => {
         const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
         setAvailableClients(effectiveClients);
         if (effectiveClients.length > 0) {
-          localStorage.setItem('client_available_clients', JSON.stringify(effectiveClients));
+          accountStorage.setItem('client_available_clients', JSON.stringify(effectiveClients));
         }
         fetchCompaniesTaskSummary(effectiveClients);
-        const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+        const selectedClientId = normalizeMatchValue(accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
         const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
 
         const currentClient = (
@@ -711,8 +712,8 @@ const Dashboard = () => {
 
         if (currentClient) {
           setClient(currentClient);
-          localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
-          localStorage.setItem('client', JSON.stringify(currentClient));
+          accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+          accountStorage.setItem('client', JSON.stringify(currentClient));
           setProjectManagers(collectProjectMembers(currentClient, companyUsers));
           fetchSupportTickets();
 
@@ -750,8 +751,8 @@ const Dashboard = () => {
   const handleCompanySelect = nextClient => {
     if (!nextClient?._id) return;
     const nextClientId = String(nextClient._id);
-    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, nextClientId);
-    localStorage.setItem('client', JSON.stringify(nextClient));
+    accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, nextClientId);
+    accountStorage.setItem('client', JSON.stringify(nextClient));
     window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
       detail: { clientId: nextClientId }
     }));
@@ -833,7 +834,7 @@ const Dashboard = () => {
 
   const user = React.useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
+      return JSON.parse(accountStorage.getItem('user') || 'null');
     } catch {
       return null;
     }

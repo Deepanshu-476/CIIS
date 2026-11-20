@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, {
     useEffect,
     useRef,
@@ -617,7 +618,7 @@ const ChatBox = ({
         setIsContactSearchOpen(false);
         setContactSearchTerm("");
         try {
-            const savedPrefs = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
+            const savedPrefs = JSON.parse(accountStorage.getItem(contactPrefsKey) || "{}");
             setContactWallpaper(savedPrefs.wallpaper || "");
             setContactSound(savedPrefs.sound || "default");
             setStarredMessageIds(Array.isArray(savedPrefs.starredMessageIds) ? savedPrefs.starredMessageIds : []);
@@ -678,8 +679,8 @@ const ChatBox = ({
 
     const saveContactPrefs = (patch) => {
         try {
-            const existing = JSON.parse(localStorage.getItem(contactPrefsKey) || "{}");
-            localStorage.setItem(contactPrefsKey, JSON.stringify({ ...existing, ...patch }));
+            const existing = JSON.parse(accountStorage.getItem(contactPrefsKey) || "{}");
+            accountStorage.setItem(contactPrefsKey, JSON.stringify({ ...existing, ...patch }));
         } catch {
             void 0;
         }

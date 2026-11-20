@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CallOverlay from "../chat/CallOverlay";
 import { useSocket } from "./SocketContext";
@@ -12,7 +13,7 @@ export const useCall = () => useContext(CallContext);
 
 const getStoredUser = () => {
   try {
-    return JSON.parse(localStorage.getItem("user") || localStorage.getItem("superAdmin")) || {};
+    return JSON.parse(accountStorage.getItem("user") || accountStorage.getItem("superAdmin")) || {};
   } catch {
     return {};
   }
@@ -33,7 +34,7 @@ const getCallHistoryKeys = (user = getStoredUser()) => {
 const readSavedCallHistory = (user = getStoredUser()) => {
   for (const key of getCallHistoryKeys(user)) {
     try {
-      const saved = JSON.parse(localStorage.getItem(key) || "[]");
+      const saved = JSON.parse(accountStorage.getItem(key) || "[]");
       if (Array.isArray(saved) && saved.length) return saved;
     } catch {
       void 0;
@@ -46,7 +47,7 @@ const writeSavedCallHistory = (user, history) => {
   const keys = getCallHistoryKeys(user);
   keys.forEach(key => {
     try {
-      localStorage.setItem(key, JSON.stringify(history));
+      accountStorage.setItem(key, JSON.stringify(history));
     } catch {
       void 0;
     }
@@ -135,7 +136,7 @@ export const CallProvider = ({ children }) => {
     setCallHistory([]);
     getCallHistoryKeys(currentUser).forEach(key => {
       try {
-        localStorage.removeItem(key);
+        accountStorage.removeItem(key);
       } catch {
         void 0;
       }

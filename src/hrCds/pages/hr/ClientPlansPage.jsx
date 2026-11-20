@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import API_URL from '../../../config';
@@ -41,7 +42,7 @@ import {
 import './ClientPlansPage.css';
 
 const getAuthToken = () => {
-  return localStorage.getItem('token') || localStorage.getItem('authToken');
+  return accountStorage.getItem('token') || accountStorage.getItem('authToken');
 };
 
 const clientPlansApi = axios.create({
@@ -167,8 +168,8 @@ const ClientPlansPage = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const superAdminRaw = localStorage.getItem('superAdmin');
-        const userRaw = localStorage.getItem('user');
+        const superAdminRaw = accountStorage.getItem('superAdmin');
+        const userRaw = accountStorage.getItem('user');
 
         let localStorageCompany = '';
         if (superAdminRaw) {
@@ -186,7 +187,7 @@ const ClientPlansPage = () => {
           }
         }
 
-        const companyCodeFromStorage = localStorage.getItem('companyCode') || localStorageCompany;
+        const companyCodeFromStorage = accountStorage.getItem('companyCode') || localStorageCompany;
         setCompanyCode(companyCodeFromStorage);
 
         if (!companyCodeFromStorage) {

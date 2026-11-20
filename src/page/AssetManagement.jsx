@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from '../utils/axiosConfig';
@@ -138,9 +139,8 @@ const AssetManagement = () => {
 
   
   const getUserFromStorage = () => {
-    let userStr = localStorage.getItem('superAdmin');
-    if (!userStr) userStr = localStorage.getItem('user');
-    if (!userStr) userStr = sessionStorage.getItem('superAdmin') || sessionStorage.getItem('user');
+    const userStr = accountStorage.getItem('superAdmin') || accountStorage.getItem('user');
+
     
     if (!userStr) {
       void 0;

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -17,7 +18,7 @@ import {
 } from 'react-icons/fi';
 
 const getAuthToken = () => {
-  return localStorage.getItem('token') || localStorage.getItem('authToken');
+  return accountStorage.getItem('token') || accountStorage.getItem('authToken');
 };
 
 const api = axios.create({
@@ -121,8 +122,8 @@ const AddClientPage = () => {
   useEffect(() => {
     const loadCompanyAndData = async () => {
       try {
-        const superAdminRaw = localStorage.getItem('superAdmin');
-        const userRaw = localStorage.getItem('user');
+        const superAdminRaw = accountStorage.getItem('superAdmin');
+        const userRaw = accountStorage.getItem('user');
         
         let localStorageCompany = '';
         if (superAdminRaw) {
@@ -133,7 +134,7 @@ const AddClientPage = () => {
           localStorageCompany = parsed?.companyCode || parsed?.company || '';
         }
 
-        const companyCodeFromStorage = localStorage.getItem('companyCode') || localStorageCompany;
+        const companyCodeFromStorage = accountStorage.getItem('companyCode') || localStorageCompany;
         setCompanyCode(companyCodeFromStorage);
 
         if (!companyCodeFromStorage) {
@@ -164,7 +165,7 @@ const AddClientPage = () => {
 
         // Fetch team members
         const token = getAuthToken();
-        const userStr = localStorage.getItem('user');
+        const userStr = accountStorage.getItem('user');
         let currentUser = {};
 
         if (userStr) {

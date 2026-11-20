@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useRef, useState } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -29,6 +30,7 @@ import {
   useClientPortalData,
 } from "../../utils/clientPortalData";
 import API_URL from "../../../config";
+import { getReceiptPath, useReceiptPreview } from "../../utils/useReceiptPreview";
 import "./PaymentsInvoicesPage.css";
 
 const getInitials = value => String(value || "C").trim().slice(0, 1).toUpperCase();
@@ -44,10 +46,21 @@ const sanitizeDownloadName = value => String(value || "payment-history")
   .replace(/-+/g, "-")
   .replace(/^-|-$/g, "") || "payment-history";
 
-const getReceiptDownloadUrl = receipt => {
-  const receiptImage = receipt?.receiptImage || "";
-  if (!receiptImage) return "";
-  return `${API_URL}/clientsservice/receipt-image/${encodeURIComponent(receiptImage.split("/").pop())}`;
+const ReceiptLink = ({ receipt }) => {
+  const legacyUrl = receipt.receiptUrl || '';
+  const apiPath = legacyUrl.startsWith(`${API_URL}/`) ? legacyUrl.slice(API_URL.length) : legacyUrl;
+  const path = getReceiptPath(receipt) || (apiPath.startsWith('/clientsservice/') ? apiPath : '');
+  const preview = useReceiptPreview(path);
+  if (preview?.error) return <span>Receipt unavailable</span>;
+  if (path && !preview) return <span>Loading receipt…</span>;
+  const url = preview?.url || (legacyUrl.startsWith('http') ? legacyUrl : legacyUrl && `${API_URL}${legacyUrl}`);
+  if (!url) return null;
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="PaymentsPage-receiptLink" title="View receipt">
+      <FiExternalLink /> View
+    </a>
+  );
 };
 
 const PaymentsInvoicesPage = () => {
@@ -83,7 +96,7 @@ const PaymentsInvoicesPage = () => {
       rawId: receipt._id,
       type: "receipt",
       source: receipt,
-      downloadUrl: getReceiptDownloadUrl(receipt),
+      downloadUrl: getReceiptPath(receipt),
       period: `${formatDate(receipt.startDate || payment.latest?.startDate)} - ${formatDate(receipt.endDate || payment.latest?.endDate)}`,
       amount: formatMoney(receipt.amount || receipt.price || receipt.paidAmount || payment.subscriptionPrice),
       dueDate: formatDate(receipt.paymentDate || receipt.createdAt || payment.nextDueDate),
@@ -113,7 +126,7 @@ const PaymentsInvoicesPage = () => {
     if (!window.confirm("Are you sure you want to remove this uploaded payment proof?")) return;
     try {
       setDeletingReceiptId(receiptId);
-      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      const token = accountStorage.getItem("token") || accountStorage.getItem("authToken");
       await axios.delete(`${API_URL}/clientsservice/${client._id}/receipt/${receiptId}`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -144,7 +157,7 @@ const PaymentsInvoicesPage = () => {
 
     try {
       setUploadingReceipt(true);
-      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      const token = accountStorage.getItem("token") || accountStorage.getItem("authToken");
       await axios.post(`${API_URL}/clientsservice/upload-receipt/${client._id}`, formData, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -274,8 +287,8 @@ const PaymentsInvoicesPage = () => {
   const handleDownloadHistory = async invoice => {
     try {
       if (invoice.downloadUrl) {
-        const token = localStorage.getItem("token") || localStorage.getItem("authToken");
-        const response = await axios.get(invoice.downloadUrl, {
+        const token = accountStorage.getItem("token") || accountStorage.getItem("authToken");
+        const response = await axios.get(`${API_URL}${invoice.downloadUrl}`, {
           responseType: "blob",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -516,17 +529,7 @@ const PaymentsInvoicesPage = () => {
                         </span>
                       </div>
                       <div className="PaymentsPage-receiptItemRight">
-                        {rec.receiptUrl && (
-                          <a
-                            href={rec.receiptUrl.startsWith('http') ? rec.receiptUrl : `${API_URL}${rec.receiptUrl}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="PaymentsPage-receiptLink"
-                            title="View receipt"
-                          >
-                            <FiExternalLink /> View
-                          </a>
-                        )}
+                        <ReceiptLink receipt={rec} />
                         <button
                           type="button"
                           className="PaymentsPage-removeReceiptBtn"

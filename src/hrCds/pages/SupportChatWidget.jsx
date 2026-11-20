@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCheck,
@@ -174,7 +175,7 @@ const SupportChatWidget = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const hasFetchedForOpenRef = useRef(false);
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUser = JSON.parse(accountStorage.getItem("user") || "{}");
   const currentUserId = getEntityId(currentUser);
   const currentUserName = String(currentUser.name || currentUser.fullName || "").trim().toLowerCase();
 

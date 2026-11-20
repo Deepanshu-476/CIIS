@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useState } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { TELECALLER_BASE as BASE, TELECALLER_PAGES, hasTelecallerCompanyAccess } from "./telecallerPages";
@@ -18,7 +19,7 @@ import { TelecallerContext } from "./useTelecaller";
 
 const getCompany = () => {
   try {
-    return JSON.parse(localStorage.getItem("companyDetails") || "{}");
+    return JSON.parse(accountStorage.getItem("companyDetails") || "{}");
   } catch {
     return {};
   }

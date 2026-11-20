@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -13,7 +14,7 @@ const SHOW_TASK_DOCUMENTS = false;
 
 const parseStoredJson = (key) => {
   try {
-    const value = localStorage.getItem(key);
+    const value = accountStorage.getItem(key);
     return value ? JSON.parse(value) : null;
   } catch {
     return null;

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useState } from "react";
 import axios from "../../utils/axiosConfig";
 import API_URL from "../../config";
@@ -14,8 +15,8 @@ export default function EmployeeMeetingPage() {
 
   
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    const id = storedUser?._id || storedUser?.id || localStorage.getItem("userId");
+    const storedUser = JSON.parse(accountStorage.getItem("user"));
+    const id = storedUser?._id || storedUser?.id || accountStorage.getItem("userId");
     const name = storedUser?.name || "Employee";
     
     if (!id) {

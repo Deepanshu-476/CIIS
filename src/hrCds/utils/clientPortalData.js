@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
@@ -13,13 +14,13 @@ export const isSubscriptionEnded = (endDate, now = new Date()) => {
 export const rupee = '\u20b9';
 export const CLIENT_PORTAL_REQUEST_TIMEOUT_MS = 30000;
 
-export const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+export const getAuthToken = () => accountStorage.getItem('token') || accountStorage.getItem('authToken');
 export const CLIENT_PORTAL_SELECTED_CLIENT_KEY = 'clientPortalSelectedClientId';
 export const CLIENT_PORTAL_SELECTION_EVENT = 'client-portal-company-change';
 
 const readStoredJson = key => {
   try {
-    return JSON.parse(localStorage.getItem(key) || 'null');
+    return JSON.parse(accountStorage.getItem(key) || 'null');
   } catch {
     return null;
   }
@@ -34,10 +35,10 @@ export const getClientPortalCompanyContext = (user = null, client = null) => {
   const storedClient = client || readStoredJson('client') || {};
   const companyDetails = readStoredJson('companyDetails') || {};
   const companyObject = readStoredJson('company') || {};
-  const rawCompany = localStorage.getItem('company') || '';
+  const rawCompany = accountStorage.getItem('company') || '';
 
   const companyCode = pickFirstString([
-    localStorage.getItem('companyCode'),
+    accountStorage.getItem('companyCode'),
     storedUser.companyCode,
     storedUser.company?.companyCode,
     storedUser.companyDetails?.companyCode,
@@ -51,7 +52,7 @@ export const getClientPortalCompanyContext = (user = null, client = null) => {
   ]);
 
   const companyIdentifier = pickFirstString([
-    localStorage.getItem('companyIdentifier'),
+    accountStorage.getItem('companyIdentifier'),
     storedUser.companyIdentifier,
     storedUser.company?._id,
     storedUser.company,
@@ -596,8 +597,8 @@ export const useClientPortalData = () => {
 
   const persistSelectedClient = useCallback(nextClient => {
     if (!nextClient?._id) return;
-    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextClient._id));
-    localStorage.setItem('client', JSON.stringify(nextClient));
+    accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextClient._id));
+    accountStorage.setItem('client', JSON.stringify(nextClient));
     window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, { detail: { clientId: nextClient._id } }));
   }, []);
 
@@ -644,7 +645,7 @@ export const useClientPortalData = () => {
       setLoading(true);
       setError('');
 
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         setError('User not found. Please login again.');
         return;
@@ -653,7 +654,7 @@ export const useClientPortalData = () => {
       const user = JSON.parse(userStr);
       const storedClient = (() => {
         try {
-          return JSON.parse(localStorage.getItem('client') || 'null');
+          return JSON.parse(accountStorage.getItem('client') || 'null');
         } catch {
           return null;
         }
@@ -704,7 +705,7 @@ export const useClientPortalData = () => {
           return 0;
         });
       const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
-      const selectedClientId = normalizeMatchValue(localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+      const selectedClientId = normalizeMatchValue(accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const currentClient = (
         storedClientId
@@ -728,8 +729,8 @@ export const useClientPortalData = () => {
       if (isMounted.current) {
         setClient(currentClient);
         setAvailableClients(effectiveClients);
-        localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
-        localStorage.setItem('client', JSON.stringify(currentClient));
+        accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
+        accountStorage.setItem('client', JSON.stringify(currentClient));
         setServices(serviceList);
         setTasks(normalizedTasks);
         setProjectManagers(collectProjectMembers(currentClient, companyUsers));

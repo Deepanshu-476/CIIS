@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -152,10 +153,10 @@ const normalizePermissionRole = value => String(value || '')
 
 const readCachedSidebarConfig = user => {
   try {
-    const cached = JSON.parse(localStorage.getItem('sidebarConfig') || 'null');
+    const cached = JSON.parse(accountStorage.getItem('sidebarConfig') || 'null');
     if (!cached || typeof cached !== 'object') return null;
     const userId = String(user?._id || user?.id || '').trim();
-    const storedCompany = JSON.parse(localStorage.getItem('companyDetails') || 'null');
+    const storedCompany = JSON.parse(accountStorage.getItem('companyDetails') || 'null');
     const company = user?.company || user?.companyId || user?.companyDetails || storedCompany;
     const companyId = String(
       (typeof company === 'object' ? company?._id || company?.id : company) || ''
@@ -202,7 +203,7 @@ const getPermissionUserIds = page => [
 const readBadgeCache = userId => {
   try {
     const key = getBadgeCacheKey(userId);
-    const cached = JSON.parse(sessionStorage.getItem(key) || localStorage.getItem(key) || 'null');
+    const cached = JSON.parse(accountStorage.getItem(key) || 'null');
     if (!cached || !cached.counts || Date.now() - cached.savedAt >= BADGE_CACHE_TTL) return null;
     return cached.counts;
   } catch {
@@ -214,8 +215,7 @@ const writeBadgeCache = (userId, counts) => {
   try {
     const key = getBadgeCacheKey(userId);
     const payload = JSON.stringify({ counts, savedAt: Date.now() });
-    sessionStorage.setItem(key, payload);
-    localStorage.setItem(key, payload);
+    accountStorage.setItem(key, payload);
   } catch {
     // Session storage may be unavailable in restricted browser modes.
   }
@@ -2284,14 +2284,14 @@ const Sidebar = ({
   const [isHovered, setIsHovered] = useState(false);
   const [userData, setUserData] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
+      return JSON.parse(accountStorage.getItem('user') || 'null');
     } catch {
       return null;
     }
   });
   const [companyData, setCompanyData] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('companyDetails') || 'null');
+      return JSON.parse(accountStorage.getItem('companyDetails') || 'null');
     } catch {
       return null;
     }
@@ -2367,7 +2367,7 @@ const Sidebar = ({
 
     const readStoredClient = () => {
       try {
-        return JSON.parse(localStorage.getItem("client") || "null");
+        return JSON.parse(accountStorage.getItem("client") || "null");
       } catch {
         return null;
       }
@@ -2418,7 +2418,7 @@ const Sidebar = ({
           : [];
         const companies = matchingClients.length ? matchingClients : (storedClient ? [storedClient] : []);
         const selectedId =
-          localStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY) ||
+          accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY) ||
           storedClient?._id ||
           storedClient?.id ||
           companies[0]?._id ||
@@ -2470,8 +2470,8 @@ const Sidebar = ({
   useEffect(() => {
     const fetchLocalData = async () => {
       try {
-        const user = localStorage.getItem("user");
-        const companyDetails = localStorage.getItem("companyDetails");
+        const user = accountStorage.getItem("user");
+        const companyDetails = accountStorage.getItem("companyDetails");
         let parsedUser = null;
         let parsedCompany = null;
 
@@ -2510,7 +2510,7 @@ const Sidebar = ({
                 };
                 setProfileCompletionOverride(latestCompletion);
                 setUserData(parsedUser);
-                localStorage.setItem('user', JSON.stringify(parsedUser));
+                accountStorage.setItem('user', JSON.stringify(parsedUser));
               }
             } catch (profileError) {
               console.warn('Could not refresh profile completion data:', profileError.message);
@@ -2542,7 +2542,7 @@ const Sidebar = ({
                   ? latestCompany.allowedPages
                   : parsedCompany?.allowedPages || []
               };
-              localStorage.setItem("companyDetails", JSON.stringify(parsedCompany));
+              accountStorage.setItem("companyDetails", JSON.stringify(parsedCompany));
             }
           } catch (companyError) {
             console.warn("Could not refresh company access, using stored company details:", companyError.message);
@@ -2693,7 +2693,7 @@ const Sidebar = ({
     }
 
     try {
-      setSeenBadgeCounts(JSON.parse(localStorage.getItem(badgeSeenStorageKey) || '{}'));
+      setSeenBadgeCounts(JSON.parse(accountStorage.getItem(badgeSeenStorageKey) || '{}'));
     } catch {
       setSeenBadgeCounts({});
     }
@@ -2715,7 +2715,7 @@ const Sidebar = ({
         }
       });
 
-      if (changed) localStorage.setItem(badgeSeenStorageKey, JSON.stringify(next));
+      if (changed) accountStorage.setItem(badgeSeenStorageKey, JSON.stringify(next));
       return changed ? next : current;
     });
   }, [badgeSeenStorageKey, menuBadgeCounts]);
@@ -2762,7 +2762,7 @@ const Sidebar = ({
     try {
       setError(null);
 
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
 
       const response = await axiosInstance.get(`/sidebar/config`, {
         params: {
@@ -2792,7 +2792,7 @@ const Sidebar = ({
             _cacheContext: { userId, companyId: sidebarCompanyId }
           };
           setSidebarConfig(fallbackConfig);
-          localStorage.setItem('sidebarConfig', JSON.stringify(fallbackConfig));
+          accountStorage.setItem('sidebarConfig', JSON.stringify(fallbackConfig));
         }
       } else {
         throw new Error(response.data?.message || 'Failed to fetch sidebar config');
@@ -2953,7 +2953,7 @@ const Sidebar = ({
 
     setSeenBadgeCounts(current => {
       const next = { ...current, [badgeKey]: currentCount };
-      localStorage.setItem(badgeSeenStorageKey, JSON.stringify(next));
+      accountStorage.setItem(badgeSeenStorageKey, JSON.stringify(next));
       return next;
     });
   }, [badgeSeenStorageKey, menuBadgeCounts]);
@@ -2987,9 +2987,9 @@ const Sidebar = ({
     const nextId = clientCompany?._id || clientCompany?.id;
     if (!nextId) return;
 
-    localStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextId));
-    localStorage.setItem("client", JSON.stringify(clientCompany));
-    localStorage.removeItem("sidebarConfig");
+    accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextId));
+    accountStorage.setItem("client", JSON.stringify(clientCompany));
+    accountStorage.removeItem("sidebarConfig");
     setSelectedClientCompanyId(String(nextId));
     window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
       detail: { clientId: nextId }
@@ -4417,7 +4417,7 @@ const Sidebar = ({
 
   const [customSectionOrder, setCustomSectionOrder] = useState(() => {
     try {
-      const saved = localStorage.getItem(`ciis_custom_section_order_${userId || 'default'}`);
+      const saved = accountStorage.getItem(`ciis_custom_section_order_${userId || 'default'}`);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -4434,7 +4434,7 @@ const Sidebar = ({
   useEffect(() => {
     if (!userId) return;
     try {
-      const saved = localStorage.getItem(`ciis_custom_section_order_${userId}`);
+      const saved = accountStorage.getItem(`ciis_custom_section_order_${userId}`);
       if (saved) {
         setCustomSectionOrder(JSON.parse(saved));
       }
@@ -4587,7 +4587,7 @@ const Sidebar = ({
 
     setCustomSectionOrder(currentOrder);
     try {
-      localStorage.setItem(`ciis_custom_section_order_${userId || 'default'}`, JSON.stringify(currentOrder));
+      accountStorage.setItem(`ciis_custom_section_order_${userId || 'default'}`, JSON.stringify(currentOrder));
     } catch (err) {
       console.warn('Could not save custom sidebar section order:', err);
     }

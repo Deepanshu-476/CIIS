@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import {showExpiredPlan} from '../utils/subscriptionRuntime';
 import { SOCKET_URL } from '../config';
+import { isDesktopApp } from '../utils/authSession';
 
 const isDev = import.meta.env.DEV;
 
@@ -13,9 +14,10 @@ class SocketService {
 
   connect(token) {
     if (!token) return null;
+    const auth = isDesktopApp ? { token } : { token, mode: 'tab' };
 
     if (this.socket && this.token === token) {
-      this.socket.auth = { token };
+      this.socket.auth = auth;
 
       if (!this.socket.connected && !this.isConnecting) {
         this.isConnecting = true;
@@ -36,18 +38,18 @@ class SocketService {
     this.isConnecting = true;
 
     if (this.socket) {
-      this.socket.auth = { token };
+      this.socket.auth = auth;
       this.socket.connect();
       return this.socket;
     }
 
     try {
       this.socket = io(SOCKET_URL, {
-        auth: { token },
+        auth,
         transports: ['websocket', 'polling'],
         // Try polling when a proxy or network blocks the initial WebSocket.
         tryAllTransports: true,
-        withCredentials: true,
+        withCredentials: isDesktopApp,
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,

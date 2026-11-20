@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -91,21 +92,21 @@ const CreateUser = () => {
         let token = null;
         
         
-        const superAdminStr = localStorage.getItem('superAdmin');
+        const superAdminStr = accountStorage.getItem('superAdmin');
         if (superAdminStr) {
           userData = JSON.parse(superAdminStr);
           void 0;
         }
         
         
-        const userStr = localStorage.getItem('user');
+        const userStr = accountStorage.getItem('user');
         if (userStr && !userData) {
           userData = JSON.parse(userStr);
           void 0;
         }
         
         
-        token = localStorage.getItem('token');
+        token = accountStorage.getItem('token');
         
         if (userData) {
           setCurrentUser(userData);
@@ -133,7 +134,7 @@ const CreateUser = () => {
             setCompanyCode(companyCodeValue);
           } else {
             
-            const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+            const companyStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
             if (companyStr) {
               const companyData = JSON.parse(companyStr);
               void 0;
@@ -146,7 +147,7 @@ const CreateUser = () => {
           }
         } else if (token) {
           
-          const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+          const companyStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
           if (companyStr) {
             const companyData = JSON.parse(companyStr);
             void 0;
@@ -162,7 +163,7 @@ const CreateUser = () => {
           navigate('/login');
         }
       } catch (error) {
-        console.error("❌ Error parsing localStorage data:", error);
+        console.error("❌ Error parsing accountStorage data:", error);
         toast.error("Error loading user data");
         navigate('/login');
       }
@@ -184,9 +185,9 @@ const CreateUser = () => {
         void 0;
         
         const timer = setTimeout(() => {
-          const storedCompanyValue = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+          const storedCompanyValue = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
           const storedCompany = storedCompanyValue ? JSON.parse(storedCompanyValue) : null;
-          const retryCompanyId = localStorage.getItem('companyId') || getId(storedCompany);
+          const retryCompanyId = accountStorage.getItem('companyId') || getId(storedCompany);
           if (retryCompanyId) {
             setCompanyId(String(retryCompanyId));
           } else {

@@ -1,3 +1,4 @@
+import { accountStorage, openPortalTab } from "../utils/authSession";
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -144,14 +145,14 @@ const AllCompany = () => {
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   const getAuthHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    Authorization: `Bearer ${accountStorage.getItem("token")}`,
   });
 
   // "View Data" (read-only company data) is served only to the platform owner, same rule as the backend
   // isPlatformOwner(); company owners who open this panel only see their own company anyway.
   const canViewCompanyData = useMemo(() => {
     try {
-      const admin = JSON.parse(localStorage.getItem("superAdmin") || localStorage.getItem("user") || "{}");
+      const admin = JSON.parse(accountStorage.getItem("superAdmin") || accountStorage.getItem("user") || "{}");
       return String(admin?.email || "").trim().toLowerCase() === "ashutoshrai130@gmail.com" || admin?.isSuperAdmin === true;
     } catch {
       return false;
@@ -488,10 +489,10 @@ const AllCompany = () => {
         navigate(`/Ciis-network/all-company/${company._id}/users`);
         break;
       case "admins":
-        window.open(`/Ciis-network/all-company/${company._id}/admins`, "_blank", "noopener,noreferrer");
+        openPortalTab(`/Ciis-network/all-company/${company._id}/admins`);
         break;
       case "data":
-        window.open(`/Ciis-network/all-company/${company._id}/view`, "_blank", "noopener,noreferrer");
+        openPortalTab(`/Ciis-network/all-company/${company._id}/view`);
         break;
       case "subscription":
         openSubscriptionModal(company);

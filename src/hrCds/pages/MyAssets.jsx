@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
@@ -344,8 +345,7 @@ const MyAssets = () => {
   // Safe User Information Retrieval
   const getUser = () => {
     try {
-      let userStr = localStorage.getItem("user") || localStorage.getItem("superAdmin");
-      if (!userStr) userStr = sessionStorage.getItem("user") || sessionStorage.getItem("superAdmin");
+      const userStr = accountStorage.getItem("user") || accountStorage.getItem("superAdmin");
       if (userStr) {
         const parsed = JSON.parse(userStr);
         setUserInfo(parsed);
@@ -396,7 +396,7 @@ const MyAssets = () => {
     if (showToastNotice) setRefreshing(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const res = await axios.get("/asset-requests/my-requests", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -439,7 +439,7 @@ const MyAssets = () => {
     assetsFetchInFlightRef.current = true;
 
     try {
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       let assets = [];
@@ -537,7 +537,7 @@ const MyAssets = () => {
     setSubmittingRequest(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const res = await axios.post(
         "/asset-requests/request",
         {

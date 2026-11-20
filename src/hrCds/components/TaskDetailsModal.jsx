@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FiX,
@@ -428,7 +429,7 @@ const TaskDetailsModal = ({
   };
   rawActivities.forEach(ev => [ev?.user, ev?.performedBy, ev?.changedBy, ev?.updatedBy, ev?.createdBy].forEach(rememberUser));
   let loggedInUser = null;
-  try { loggedInUser = JSON.parse(localStorage.getItem('user') || 'null'); } catch { loggedInUser = null; }
+  try { loggedInUser = JSON.parse(accountStorage.getItem('user') || 'null'); } catch { loggedInUser = null; }
   [task.createdBy, task.assignedUser, task.assignedTo, task.assignedUsers, employeeInfo, loggedInUser, ...(mentionUsers || [])]
     .flat()
     .forEach(rememberUser);

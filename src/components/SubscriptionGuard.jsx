@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import {useCallback, useEffect, useState} from 'react';
 import {useAuth} from '../context/AuthContext';
 import api from '../utils/axiosConfig';
@@ -19,11 +20,11 @@ export default function SubscriptionGuard() {
     if (!token) return;
     try {
       const {data} = await api.get('/company/subscription/current', {noCache: true, cache: false, _skipErrorNotify: true});
-      if (localStorage.getItem('token') !== token) return;
+      if (accountStorage.getItem('token') !== token) return;
       setCompany(data.company);
       setSubscriptionCompany(data.company, user);
-      localStorage.setItem('companyDetails', JSON.stringify(data.company));
-      localStorage.setItem('company', JSON.stringify(data.company));
+      accountStorage.setItem('companyDetails', JSON.stringify(data.company));
+      accountStorage.setItem('company', JSON.stringify(data.company));
       window.dispatchEvent(new window.CustomEvent('ciis-company-subscription-changed', {detail: data.company}));
     } catch { /* Keep the last known subscription during a connection failure. */ }
   }, [token, user]);
@@ -32,7 +33,7 @@ export default function SubscriptionGuard() {
     setOpen(false);
     setCompany(null);
     let stored = null;
-    try { stored = JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || 'null'); } catch {}
+    try { stored = JSON.parse(accountStorage.getItem('companyDetails') || accountStorage.getItem('company') || 'null'); } catch {}
     setSubscriptionCompany(token ? stored : null, user);
     if (token) setCompany(stored);
     void refresh();

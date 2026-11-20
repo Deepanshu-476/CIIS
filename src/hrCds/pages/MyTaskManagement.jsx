@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../utils/taskStatusAccess';
 import React, { useEffect, useState, useRef } from 'react';
 import axios from '../../utils/axiosConfig';
@@ -149,9 +150,9 @@ const MyTaskManagement = () => {
 
   const fetchUserData = () => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
-        console.error('No user data found in localStorage');
+        console.error('No user data found in accountStorage');
         setAuthError(true);
         setSnackbar({
           open: true,
@@ -992,7 +993,7 @@ const MyTaskManagement = () => {
     }
   }, [statusFilter, authError, userId, tab]);
 
-  if (authError && !localStorage.getItem('token')) {
+  if (authError && !accountStorage.getItem('token')) {
     return (
       <div className="MyTaskManagement-auth-error">
         <div className="MyTaskManagement-error-card">

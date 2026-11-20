@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
@@ -32,7 +33,7 @@ import {
 
 const getStoredUser = () => {
   try {
-    return JSON.parse(localStorage.getItem("user") || "null");
+    return JSON.parse(accountStorage.getItem("user") || "null");
   } catch {
     return null;
   }
@@ -360,7 +361,7 @@ const Profile = () => {
 
       setProfile(mergedUser);
       setFormData(buildInitialForm(mergedUser));
-      localStorage.setItem("user", JSON.stringify(mergedUser));
+      accountStorage.setItem("user", JSON.stringify(mergedUser));
       window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
     } catch (error) {
       console.error("Failed to load profile:", error);
@@ -495,7 +496,7 @@ const Profile = () => {
       setProfile(mergedUser);
       setFormData(buildInitialForm(mergedUser));
       setProfileImageError(false);
-      localStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser, profileImage: "" }));
+      accountStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser, profileImage: "" }));
       window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
       setMessage({ type: "success", text: "Profile picture removed successfully." });
     } catch (error) {
@@ -580,7 +581,7 @@ const Profile = () => {
       const mergedUser = { ...profile, ...updatedUser, profileImage: updatedUser?.profileImage || cropped };
       setProfile(mergedUser);
       setFormData(buildInitialForm(mergedUser));
-      localStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser }));
+      accountStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser }));
       window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
       setMessage({ type: "success", text: "Profile picture updated successfully." });
       closeProfileCrop();
@@ -933,7 +934,7 @@ const Profile = () => {
 
       setProfile(mergedUser);
       setFormData(buildInitialForm(mergedUser));
-      localStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser }));
+      accountStorage.setItem("user", JSON.stringify({ ...storedUser, ...mergedUser }));
       window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
       setEditOpen(false);
       setEditSection("all");

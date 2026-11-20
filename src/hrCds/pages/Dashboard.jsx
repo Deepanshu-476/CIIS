@@ -1,3 +1,4 @@
+import { accountStorage, endTabSession } from '../../utils/authSession';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
@@ -58,7 +59,7 @@ const dashboardFontFamily = '"Roboto", "Helvetica", "Arial", sans-serif';
 
 
 const getAuthToken = () => {
-  return localStorage.getItem('token') || localStorage.getItem('authToken');
+  return accountStorage.getItem('token') || accountStorage.getItem('authToken');
 };
 
 const getPersonName = person => {
@@ -457,7 +458,7 @@ const Dashboard = () => {
       if (!isMounted.current) return;
       setLoading(true);
       
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         setError('User not found. Please login again.');
         return;
@@ -542,13 +543,7 @@ const Dashboard = () => {
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('companyCode');
-    localStorage.removeItem('companyIdentifier');
-    localStorage.removeItem('company');
-    window.dispatchEvent(new Event('ciis-auth-changed'));
+    endTabSession();
     window.location.replace('/');
   };
 

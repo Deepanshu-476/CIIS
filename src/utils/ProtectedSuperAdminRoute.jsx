@@ -1,14 +1,15 @@
+import { accountStorage } from './authSession';
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 
 const ProtectedSuperAdminRoute = ({ children }) => {
   let superAdmin = null;
   try {
-    superAdmin = JSON.parse(localStorage.getItem('superAdmin') || 'null');
+    superAdmin = JSON.parse(accountStorage.getItem('superAdmin') || 'null');
   } catch {
     superAdmin = null;
   }
-  const token = localStorage.getItem('token');
+  const token = accountStorage.getItem('token');
 
   if (!superAdmin || !token) {
     return <Navigate to="/SuperAdminLogin" replace />;

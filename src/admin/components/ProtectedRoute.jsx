@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { Navigate, useLocation } from 'react-router-dom';
 
 const ProtectedRoute = ({ children }) => {
@@ -5,11 +6,11 @@ const ProtectedRoute = ({ children }) => {
   const path = location.pathname;
 
 
-  const token = localStorage.getItem('token');
+  const token = accountStorage.getItem('token');
   const isSuperAdminRoute = path.startsWith('/Ciis-network');
 
   if (!token) {
-    const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
+    const companyCode = accountStorage.getItem('companyCode') || accountStorage.getItem('companyIdentifier');
 
     if (isSuperAdminRoute) {
       return <Navigate to="/SuperAdminLogin" replace />;
@@ -23,7 +24,7 @@ const ProtectedRoute = ({ children }) => {
   if (isSuperAdminRoute) {
     let isSuperAdmin = false;
     try {
-      const superAdminRaw = localStorage.getItem('superAdmin');
+      const superAdminRaw = accountStorage.getItem('superAdmin');
       if (superAdminRaw) {
         const parsed = JSON.parse(superAdminRaw);
         const account = parsed?.user || parsed;
@@ -33,7 +34,7 @@ const ProtectedRoute = ({ children }) => {
         }
       }
       if (!isSuperAdmin) {
-        const userRaw = localStorage.getItem('user');
+        const userRaw = accountStorage.getItem('user');
         if (userRaw) {
           const parsed = JSON.parse(userRaw);
           const account = parsed?.user || parsed;
@@ -49,11 +50,11 @@ const ProtectedRoute = ({ children }) => {
 
     if (!isSuperAdmin) {
       // Non-superadmin user attempting to access /Ciis-network routes must be rejected and redirected away
-      const isClient = Boolean(localStorage.getItem('client') || localStorage.getItem('authToken'));
+      const isClient = Boolean(accountStorage.getItem('client') || accountStorage.getItem('authToken'));
       if (isClient) {
         return <Navigate to="/client/dashboard" replace />;
       }
-      const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
+      const companyCode = accountStorage.getItem('companyCode') || accountStorage.getItem('companyIdentifier');
       if (companyCode) {
         return <Navigate to="/ciisUser/user-dashboard" replace />;
       }

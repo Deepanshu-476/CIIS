@@ -1,3 +1,4 @@
+import { accountStorage } from './utils/authSession';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, useLocation } from 'react-router-dom';
 import './index.css';
@@ -35,7 +36,7 @@ const RealtimePortalProviders = ({ children }) => {
 
   // Realtime sockets and employee/client notifications belong only to the
   // authenticated product areas. Keeping these providers unmounted on public
-  // marketing/login/register routes prevents stale localStorage sessions from
+  // marketing/login/register routes prevents stale accountStorage sessions from
   // showing private company notifications on the public website.
   if (!isAuthenticatedPortalRoute) {
     return children;

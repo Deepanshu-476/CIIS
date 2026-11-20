@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 
 import React, { useState, useEffect } from "react";
 import {
@@ -137,7 +138,7 @@ const resolveApiPreviewUrl = (url) => {
 
 const parseStoredJson = (key) => {
   try {
-    const value = localStorage.getItem(key);
+    const value = accountStorage.getItem(key);
     return value ? JSON.parse(value) : null;
   } catch {
     return null;
@@ -149,13 +150,13 @@ const getCompanyContext = () => {
   const companyDetails = parseStoredJson("companyDetails") || {};
   const storedCompany = parseStoredJson("company") || {};
   const userCompany = typeof user.company === "object" && user.company ? user.company : {};
-  const rawCompany = localStorage.getItem("company") || "";
+  const rawCompany = accountStorage.getItem("company") || "";
   const localCompanyCode = String(
-    localStorage.getItem("companyCode")
-    || localStorage.getItem("company_code")
-    || localStorage.getItem("company_code_url")
-    || localStorage.getItem("companySlug")
-    || localStorage.getItem("companyName")
+    accountStorage.getItem("companyCode")
+    || accountStorage.getItem("company_code")
+    || accountStorage.getItem("company_code_url")
+    || accountStorage.getItem("companySlug")
+    || accountStorage.getItem("companyName")
     || ""
   ).trim();
 
@@ -180,7 +181,7 @@ const getCompanyContext = () => {
       || companyDetails.id
       || storedCompany._id
       || storedCompany.id
-      || localStorage.getItem("companyIdentifier")
+      || accountStorage.getItem("companyIdentifier")
       || ""
     ).trim()
   };
@@ -465,7 +466,7 @@ export const AdminProject = () => {
 
       // The API resolves the company from the authenticated user. Do not block
       // a valid session merely because a legacy login has no companyCode saved
-      // in localStorage.
+      // in accountStorage.
       const res = await axios.get("/projects", {
         // Loading every embedded task for every project makes this list request
         // slow enough to hit the browser timeout. Full data is loaded only when

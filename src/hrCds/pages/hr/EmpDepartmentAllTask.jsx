@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "../../../utils/axiosConfig";
 import "./EmpDepartmentAllTask.css";
@@ -112,7 +113,7 @@ const TaskDetails = () => {
   useEffect(() => {
     const fetchUserData = () => {
       try {
-        const userStr = localStorage.getItem("user");
+        const userStr = accountStorage.getItem("user");
         if (!userStr) {
           setError("Please log in to access this page");
           return;
@@ -210,7 +211,7 @@ const TaskDetails = () => {
       void 0;
 
       
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       if (!token) {
         setError("Please log in to access this page");
         setUsersLoading(false);

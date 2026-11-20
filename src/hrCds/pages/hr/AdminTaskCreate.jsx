@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from '../../../utils/axiosConfig';
@@ -804,8 +805,8 @@ const AdminTaskManagement = () => {
   
   const fetchUserData = () => {
     try {
-      const userStr = localStorage.getItem('user');
-      const token = localStorage.getItem('token');  
+      const userStr = accountStorage.getItem('user');
+      const token = accountStorage.getItem('token');
       
       if (!userStr || !token) {
         setAuthError(true);
@@ -950,7 +951,7 @@ const AdminTaskManagement = () => {
   
   const apiCall = async (method, url, data, config = {}) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       if (!token) {
         setAuthError(true);
         throw new Error('No authentication token found');
@@ -4388,7 +4389,7 @@ const AdminTaskManagement = () => {
 
   useEffect(() => {
     if (initialAuthCheck && pageAccessReady) {
-      if (authError && !localStorage.getItem('token')) {
+      if (authError && !accountStorage.getItem('token')) {
         void 0;
       } else if (userId) {
         fetchTasks(page, rowsPerPage, getCurrentFilters());

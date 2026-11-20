@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState } from 'react';
 import {
   Box, Typography, MenuItem, Menu, Button, Checkbox, ListItemText,
@@ -36,7 +37,7 @@ export default function Calendar() {
   const theme = useTheme();
 
   
-  const userName = localStorage.getItem("userName") || "User";
+  const userName = accountStorage.getItem("userName") || "User";
 
   const [statusAnchorEl, setStatusAnchorEl] = useState(null);
   const [selectedStatuses, setSelectedStatuses] = useState([]);

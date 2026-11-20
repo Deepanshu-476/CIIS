@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "../../../utils/axiosConfig";
 import './employee-leaves.css';
@@ -691,7 +692,7 @@ const EmployeeLeaves = () => {
       return deletePermissionUserIds.includes(String(currentUserId));
     }
 
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const user = JSON.parse(accountStorage.getItem("user") || "{}");
     return isOwner || isAdmin || isHR || isManager || user.jobRole === "superadmin";
   }, [deletePermissionUserIds, currentUserId, isOwner, isAdmin, isHR, isManager]);
 
@@ -730,7 +731,7 @@ const EmployeeLeaves = () => {
   
   const fetchCurrentUserAndCompany = useCallback(async () => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         void 0;
         return;
@@ -791,7 +792,7 @@ const EmployeeLeaves = () => {
         try {
           response = await axios.get(`/company/${currentUserCompanyId}`);
         } catch (err2) {
-          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          const user = JSON.parse(accountStorage.getItem('user') || '{}');
           setCompanyName(user.companyName || 'Company');
           return;
         }
@@ -1411,7 +1412,7 @@ const EmployeeLeaves = () => {
 
   const handleDeleteLeave = async (leaveOrId) => {
   try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const user = JSON.parse(accountStorage.getItem("user") || "{}");
     const leaveId = typeof leaveOrId === 'object' ? leaveOrId?._id : leaveOrId;
 
     const leave = (

@@ -1,3 +1,4 @@
+import { accountStorage, endTabSession } from '../../utils/authSession';
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -19,10 +20,7 @@ import {
   FiMenu,
   FiX
 } from 'react-icons/fi';
-import {
-  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
-  useClientPortalData
-} from '../utils/clientPortalData';
+import { useClientPortalData } from '../utils/clientPortalData';
 import './ClientLayout.css';
 
 const ClientLayout = () => {
@@ -62,21 +60,13 @@ const ClientLayout = () => {
   ];
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('companyCode');
-    localStorage.removeItem('companyIdentifier');
-    localStorage.removeItem('company');
-    localStorage.removeItem('client');
-    localStorage.removeItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
-    window.dispatchEvent(new Event('ciis-auth-changed'));
+    endTabSession();
     navigate('/');
   };
 
   const getClientName = () => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
         return user.name || user.client || 'Client';
@@ -88,7 +78,7 @@ const ClientLayout = () => {
   };
 
   const getCompanyCode = () => {
-    return client?.company || localStorage.getItem('companyCode') || localStorage.getItem('company') || 'Company';
+    return client?.company || accountStorage.getItem('companyCode') || accountStorage.getItem('company') || 'Company';
   };
 
   const getCompanyName = item => (

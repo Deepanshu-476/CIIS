@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -110,8 +111,8 @@ const CompanyDetails = () => {
       todayLogins: overview.stats?.todayLogins ?? 0
     });
     setUserRole(overview.currentUser?.name || overview.currentUser?.role || "");
-    localStorage.setItem("company", JSON.stringify(companyData));
-    if (companyData.companyCode) localStorage.setItem("companyCode", companyData.companyCode);
+    accountStorage.setItem("company", JSON.stringify(companyData));
+    if (companyData.companyCode) accountStorage.setItem("companyCode", companyData.companyCode);
   };
 
   
@@ -119,7 +120,7 @@ const CompanyDetails = () => {
     try {
       setLoading(true);
       
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       
       if (!token) {
         toast.error("Please login to view company details");
@@ -237,11 +238,11 @@ const CompanyDetails = () => {
           }
           
           
-          localStorage.setItem("company", JSON.stringify(companyData));
+          accountStorage.setItem("company", JSON.stringify(companyData));
           
           
           if (companyData.companyCode) {
-            localStorage.setItem("companyCode", companyData.companyCode);
+            accountStorage.setItem("companyCode", companyData.companyCode);
           }
           
           return;
@@ -271,7 +272,7 @@ const CompanyDetails = () => {
   const fetchCompanyDirectly = async (headers) => {
     try {
       
-      const storedCompany = localStorage.getItem("company");
+      const storedCompany = accountStorage.getItem("company");
       if (storedCompany) {
         const companyInfo = JSON.parse(storedCompany);
         const companyId = companyInfo._id;
@@ -349,7 +350,7 @@ const CompanyDetails = () => {
   
   const fetchCompanyFromLocalStorage = async (headers) => {
     try {
-      const companyData = localStorage.getItem("company");
+      const companyData = accountStorage.getItem("company");
       if (companyData) {
         const companyInfo = JSON.parse(companyData);
         
@@ -379,10 +380,10 @@ const CompanyDetails = () => {
         if (fullCompanyData._id) {
           await fetchCompanyUsers(fullCompanyData._id, headers);
         } else {
-          toast.error("Company ID not found in localStorage");
+          toast.error("Company ID not found in accountStorage");
         }
       } else {
-        toast.error("Company data not found in localStorage");
+        toast.error("Company data not found in accountStorage");
         
         
         const fetched = await fetchCompanyDirectly(headers);
@@ -406,7 +407,7 @@ const CompanyDetails = () => {
             subscriptionExpiry: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
           };
           setCompany(dummyCompany);
-          localStorage.setItem("company", JSON.stringify(dummyCompany));
+          accountStorage.setItem("company", JSON.stringify(dummyCompany));
         }
       }
     } catch (error) {
@@ -485,7 +486,7 @@ const CompanyDetails = () => {
     
     try {
       setSaveLoading(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
       
@@ -536,7 +537,7 @@ const CompanyDetails = () => {
     
     try {
       setSaveLoading(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
       const userId = selectedUser.id || selectedUser._id;

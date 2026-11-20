@@ -9,7 +9,7 @@ import * as policy from '../src/utils/subscriptionPolicy.js';
 
 const require = createRequire(import.meta.url);
 const dom = new JSDOM('<div id="root"></div><button id="edit">Edit</button><button id="view">View record</button>', {url: 'http://localhost/ciisUser/projects'});
-Object.assign(globalThis, {window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, Event: dom.window.Event, IS_REACT_ACT_ENVIRONMENT: true});
+Object.assign(globalThis, {window: dom.window, document: dom.window.document, sessionStorage: dom.window.sessionStorage, Event: dom.window.Event, IS_REACT_ACT_ENVIRONMENT: true});
 const React = require('react');
 const {createRoot} = require('react-dom/client');
 const {act} = React;
@@ -20,7 +20,7 @@ const catalog = [{_id: 'created-plan', name: 'Created Premium', price: 499, dura
 const loadComponent = (file, mocks) => {
   const code = transformSync(fs.readFileSync(file, 'utf8'), {loader: 'jsx', format: 'cjs', jsx: 'automatic'}).code;
   const module = {exports: {}};
-  vm.runInNewContext(code, {module, exports: module.exports, setInterval, clearInterval, window, document, localStorage, Event,
+  vm.runInNewContext(code, {module, exports: module.exports, setInterval, clearInterval, window, document, sessionStorage, Event,
     require: name => name in mocks ? mocks[name] : name.endsWith('.css') ? {} : require(name)});
   return module.exports.default;
 };
@@ -29,13 +29,14 @@ const click = async element => act(async () => {element.dispatchEvent(new dom.wi
 
 test('web expired company can view, action opens created plans, and renewal restores actions', async () => {
   const auth = {token: 'session', user: {email: 'owner@example.com', jobRole: 'super_admin'}};
-  localStorage.setItem('token', auth.token);
+  sessionStorage.setItem('token', auth.token);
   let renewed = false, writes = 0, views = 0;
   const requests = [];
   const api = {get: async path => {requests.push(path); return {data: path === '/plans' ? {plans: catalog} : {company: renewed ? {...expired, subscriptionExpiry: '2099-01-01'} : expired}};}};
   const Guard = loadComponent(new URL('../src/components/SubscriptionGuard.jsx', import.meta.url), {
     '../context/AuthContext': {useAuth: () => auth}, '../utils/axiosConfig': api,
     '../utils/subscriptionPolicy': policy, '../utils/subscriptionRuntime': runtime,
+    '../utils/authSession': {accountStorage: sessionStorage},
   });
   const root = createRoot(document.getElementById('root'));
   document.getElementById('edit').onclick = () => writes++;
@@ -57,7 +58,7 @@ test('web expired company can view, action opens created plans, and renewal rest
     assert.equal(document.querySelector('[role="dialog"]'), null);
     assert.equal(document.querySelector('.subscription-notice'), null);
     await click(document.getElementById('edit')); assert.equal(writes, 1);
-  } finally { await act(async () => root.unmount()); localStorage.clear(); }
+  } finally { await act(async () => root.unmount()); sessionStorage.clear(); }
 });
 
 test('app expired-plan modal renders the actual catalog, preserves viewing and refreshes renewal', async () => {

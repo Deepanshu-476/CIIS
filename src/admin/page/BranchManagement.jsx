@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../utils/axiosConfig";
@@ -81,7 +82,7 @@ const getUserPrimaryBranchId = (user = {}) => getRecordId(
 
 const readStoredJson = (key) => {
   try {
-    const value = localStorage.getItem(key);
+    const value = accountStorage.getItem(key);
     return value ? JSON.parse(value) : null;
   } catch {
     return null;
@@ -103,7 +104,7 @@ const getStoredCompanyContext = () => {
     record?.companyCode ||
     record?.code ||
     user?.companyCode ||
-    localStorage.getItem("companyCode") ||
+    accountStorage.getItem("companyCode") ||
     ""
   );
 
@@ -150,8 +151,8 @@ const BranchManagement = () => {
           resolvedCompanyId = getRecordId(resolvedCompany);
 
           if (resolvedCompanyId) {
-            localStorage.setItem("company", JSON.stringify(resolvedCompany));
-            localStorage.setItem("companyDetails", JSON.stringify(resolvedCompany));
+            accountStorage.setItem("company", JSON.stringify(resolvedCompany));
+            accountStorage.setItem("companyDetails", JSON.stringify(resolvedCompany));
           }
         }
 

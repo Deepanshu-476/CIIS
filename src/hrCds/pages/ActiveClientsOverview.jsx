@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -30,7 +31,7 @@ import {
 } from '../utils/clientPortalData';
 import './ActiveClientsOverview.css';
 
-const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+const getAuthToken = () => accountStorage.getItem('token') || accountStorage.getItem('authToken');
 const ACTIVE_CLIENTS_PAGE_SIZE = 50;
 const RELATED_FETCH_CONCURRENCY = 5;
 const CLIENT_DOCUMENT_FILE_LIMIT = 10 * 1024 * 1024;
@@ -87,7 +88,7 @@ const formatDate = value => {
 
 const parseStoredJson = key => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = accountStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -96,12 +97,12 @@ const parseStoredJson = key => {
 
 const getCompanyContext = user => {
   const companyDetails = parseStoredJson('companyDetails') || {};
-  const rawCompany = localStorage.getItem('company') || '';
+  const rawCompany = accountStorage.getItem('company') || '';
   const parsedCompany = parseStoredJson('company') || {};
   const userCompany = typeof user?.company === 'object' ? user.company : {};
 
   const companyCode = String(
-    localStorage.getItem('companyCode') ||
+    accountStorage.getItem('companyCode') ||
     companyDetails.companyCode ||
     companyDetails.code ||
     parsedCompany.companyCode ||
@@ -115,7 +116,7 @@ const getCompanyContext = user => {
   return {
     companyCode,
     companyIdentifier:
-      localStorage.getItem('companyIdentifier') ||
+      accountStorage.getItem('companyIdentifier') ||
       companyDetails._id ||
       companyDetails.id ||
       parsedCompany._id ||
@@ -300,7 +301,7 @@ const ActiveClientsOverview = () => {
 
   const user = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || '{}');
+      return JSON.parse(accountStorage.getItem('user') || '{}');
     } catch {
       return {};
     }

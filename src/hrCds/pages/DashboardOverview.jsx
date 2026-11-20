@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -41,7 +42,7 @@ import './DashboardOverview.css';
 
 const readUser = () => {
   try {
-    return JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+    return JSON.parse(accountStorage.getItem('user') || accountStorage.getItem('currentUser') || '{}');
   } catch {
     return {};
   }

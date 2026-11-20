@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useRef, useState } from 'react';
 import axios from '../../../utils/axiosConfig';
 import CIISLoader from '../../../Loader/CIISLoader';
@@ -72,7 +73,7 @@ const EmpAssets = () => {
   });
 
   
-  const companyCode = localStorage.getItem('companyCode') || 'Mohit';
+  const companyCode = accountStorage.getItem('companyCode') || 'Mohit';
 
   const getUploadUrls = (fileValue) => {
     if (!fileValue) return [];
@@ -194,7 +195,7 @@ const EmpAssets = () => {
 
   const fetchCurrentUserAndCompany = async () => {
     try {
-      const userStr = localStorage.getItem('user') || localStorage.getItem('currentUser');
+      const userStr = accountStorage.getItem('user') || accountStorage.getItem('currentUser');
       if (!userStr) {
         void 0;
         return;
@@ -204,8 +205,8 @@ const EmpAssets = () => {
       const user = parsedData?.user || parsedData;
       
       const userId = user._id || user.id || '';
-      const companyId = user.company || user.companyId || (typeof user.company === 'object' ? user.company._id : '') || localStorage.getItem('companyId') || '';
-      const companyCode = user.companyCode || user.companyDetails?.companyCode || (typeof user.company === 'object' ? user.company.companyCode : '') || localStorage.getItem('companyCode') || '';
+      const companyId = user.company || user.companyId || (typeof user.company === 'object' ? user.company._id : '') || accountStorage.getItem('companyId') || '';
+      const companyCode = user.companyCode || user.companyDetails?.companyCode || (typeof user.company === 'object' ? user.company.companyCode : '') || accountStorage.getItem('companyCode') || '';
       const department = user.department || '';
       const name = user.name || user.username || 'User';
       let role = user.companyRole || user.jobRole || user.role || '';
@@ -908,7 +909,7 @@ const EmpAssets = () => {
     }
     
     setEditingCommentReq(req);
-    setCommentText(localStorage.getItem(`asset-comment-draft-${req._id}`) || '');
+    setCommentText(accountStorage.getItem(`asset-comment-draft-${req._id}`) || '');
     setCommentImages([]);
   };
 
@@ -969,7 +970,7 @@ const EmpAssets = () => {
   };
 
   const handleSaveCommentDraft = () => {
-    localStorage.setItem(`asset-comment-draft-${editingCommentReq._id}`, commentText);
+    accountStorage.setItem(`asset-comment-draft-${editingCommentReq._id}`, commentText);
     setNotification({ message: 'Draft saved on this device', severity: 'success' });
   };
 
@@ -997,7 +998,7 @@ const EmpAssets = () => {
       await axios.patch(`/asset-requests/update/${editingCommentReq._id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      localStorage.removeItem(`asset-comment-draft-${editingCommentReq._id}`);
+      accountStorage.removeItem(`asset-comment-draft-${editingCommentReq._id}`);
       setNotification({ message: 'Comment saved and employee notified', severity: 'success' });
       
         await fetchRequests();

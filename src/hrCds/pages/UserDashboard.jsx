@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
@@ -169,10 +170,10 @@ const dashboardMemoryCache = new Map();
 
 const getDashboardCacheKey = () => {
   try {
-    const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+    const storedUser = JSON.parse(accountStorage.getItem('user') || 'null');
     const userId = getCurrentUserId(storedUser);
     if (userId) {
-      localStorage.removeItem(`ciis-user-dashboard:${userId}`);
+      accountStorage.removeItem(`ciis-user-dashboard:${userId}`);
     }
     return userId ? `ciis-user-dashboard:${userId}` : '';
   } catch {
@@ -414,15 +415,15 @@ const UserDashboard = () => {
 
     const checkAssignedDashboard = async () => {
       try {
-        let rawSidebar = localStorage.getItem('sidebarConfig');
+        let rawSidebar = accountStorage.getItem('sidebarConfig');
         let cfg = rawSidebar ? JSON.parse(rawSidebar) : null;
 
-        // If sidebar config is not yet cached in localStorage, fetch it immediately (with
+        // If sidebar config is not yet cached in accountStorage, fetch it immediately (with
         // company and role: without them the API answers 400).
         if (!cfg) {
           try {
-            const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
-            const storedCompany = JSON.parse(localStorage.getItem('companyDetails') || 'null');
+            const storedUser = JSON.parse(accountStorage.getItem('user') || 'null');
+            const storedCompany = JSON.parse(accountStorage.getItem('companyDetails') || 'null');
             const sidebarParams = getSidebarConfigParams(storedUser, storedCompany);
             const res = sidebarParams ? await axios.get('/sidebar/config', { params: sidebarParams }) : null;
             if (res?.data?.data) {
@@ -446,7 +447,7 @@ const UserDashboard = () => {
           }
         }
 
-        const company = JSON.parse(localStorage.getItem('company') || localStorage.getItem('companyDetails') || '{}');
+        const company = JSON.parse(accountStorage.getItem('company') || accountStorage.getItem('companyDetails') || '{}');
         const allowedPages = Array.isArray(company?.allowedPages) ? company.allowedPages : [];
         if (allowedPages.includes('dashboard-overview') && !allowedPages.includes('user-dashboard') && !isCancelled) {
           navigate('/ciisUser/dashboard-overview', { replace: true });
@@ -592,7 +593,7 @@ const UserDashboard = () => {
 
   const user = useMemo(() => {
     try {
-      const userData = localStorage.getItem('user');
+      const userData = accountStorage.getItem('user');
       return userData ? JSON.parse(userData) : null;
     } catch {
       return null;
@@ -604,7 +605,7 @@ const UserDashboard = () => {
     return ['work-from-home', 'work from home', 'wfh'].includes(employeeType);
   }, [dashboardUser?.employeeType, user?.employeeType]);
 
-  const token = useMemo(() => localStorage.getItem('token'), []);
+  const token = useMemo(() => accountStorage.getItem('token'), []);
 
   const canAssignQuickTasks = useMemo(() => {
     const roleSources = [user, dashboardUser].filter(Boolean);
@@ -683,7 +684,7 @@ const UserDashboard = () => {
 
   const companyDetails = useMemo(() => {
     try {
-      const details = localStorage.getItem('companyDetails');
+      const details = accountStorage.getItem('companyDetails');
       return details ? JSON.parse(details) : null;
     } catch {
       return null;
@@ -1246,7 +1247,7 @@ const UserDashboard = () => {
 
   const fetchDashboardProjects = useCallback(async () => {
     if (!isUserInCurrentCompany) return;
-    const companyCode = String(companyDetails?.companyCode || user?.companyCode || localStorage.getItem('companyCode') || '').trim();
+    const companyCode = String(companyDetails?.companyCode || user?.companyCode || accountStorage.getItem('companyCode') || '').trim();
     if (!companyCode) {
       setDashboardProjects([]);
       return;
@@ -2300,7 +2301,7 @@ const UserDashboard = () => {
     const loadClients = async () => {
       setQuickClientsLoading(true);
       try {
-        const companyCode = companyDetails?.companyCode || user?.companyCode || localStorage.getItem('companyCode');
+        const companyCode = companyDetails?.companyCode || user?.companyCode || accountStorage.getItem('companyCode');
         const response = await axios.get('/clientsservice', { params: { companyCode, limit: 500 } });
         const rows = Array.isArray(response.data?.data) ? response.data.data
           : Array.isArray(response.data?.clients) ? response.data.clients

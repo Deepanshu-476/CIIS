@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -224,7 +225,7 @@ const CompanyAssetManagement = () => {
 
   const getCompanyFromStorage = () => {
     try {
-      const companyStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
+      const companyStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
       return companyStr ? JSON.parse(companyStr) : null;
     } catch (error) {
       console.error('Error parsing company data:', error);
@@ -353,10 +354,9 @@ const CompanyAssetManagement = () => {
   
   const getUser = () => {
     try {
-      let userStr = localStorage.getItem('superAdmin');
-      if (!userStr) userStr = localStorage.getItem('user');
-      if (!userStr) userStr = sessionStorage.getItem('superAdmin');
-      if (!userStr) userStr = sessionStorage.getItem('user');
+      let userStr = accountStorage.getItem('superAdmin');
+      if (!userStr) userStr = accountStorage.getItem('user');
+
       
       if (userStr) {
         const user = JSON.parse(userStr);

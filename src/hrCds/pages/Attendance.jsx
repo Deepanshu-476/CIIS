@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import axios from "../../utils/axiosConfig";
@@ -72,14 +73,14 @@ const Attendance = () => {
   // ----------------------------------------------------
   const user = useMemo(() => {
     try {
-      const stored = localStorage.getItem("user");
+      const stored = accountStorage.getItem("user");
       return stored ? JSON.parse(stored) : null;
     } catch (e) {
-      console.error("Failed to parse user from localStorage", e);
+      console.error("Failed to parse user from accountStorage", e);
       return null;
     }
   }, []);
-  const token = localStorage.getItem("token");
+  const token = accountStorage.getItem("token");
 
   // User Join Date
   const userJoinDate = useMemo(() => {

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import CIISLoader from "../../../Loader/CIISLoader";
@@ -139,8 +140,8 @@ const ServiceMarketplacePage = () => {
     contact: "WhatsApp",
   });
 
-  const companyCode = localStorage.getItem("companyCode") || localStorage.getItem("company") || client?.companyCode || "";
-  const companyIdentifier = localStorage.getItem("companyIdentifier") || client?.companyIdentifier || "";
+  const companyCode = accountStorage.getItem("companyCode") || accountStorage.getItem("company") || client?.companyCode || "";
+  const companyIdentifier = accountStorage.getItem("companyIdentifier") || client?.companyIdentifier || "";
 
   useEffect(() => {
     const fetchCompanyServices = async () => {

@@ -18,7 +18,7 @@ function fixture({permission = 'granted', worker = true} = {}) {
     static async requestPermission() {calls.permissions++; return this.permission = 'granted';}
     constructor(title, options) {calls.notifications.push({title, options});}
   }
-  const registration = {active: true, showNotification: async (title, options) => calls.notifications.push({title, options})};
+  const registration = {active: {postMessage: ({title, options}) => calls.notifications.push({title, options})}};
   const navigator = worker ? {serviceWorker: {getRegistration: async () => registration, register: async () => registration}} : {};
   const context = {window: {AudioContext: Audio, Notification}, Notification, navigator};
   const source = fs.readFileSync('src/utils/taskReminderAlerts.js', 'utf8').replaceAll('export const ', 'const ');

@@ -2213,6 +2213,31 @@ export default function useTaskAgentSession({
             pushMsg('assistant', `📥 Sample template '${filename}' download ho gaya hai! Isme apne tasks fill karke paperclip 📎 se upload karein.`);
             return;
         }
+        if (chip.action?.type === 'download_report' || chip.action?.type === 'download_file') {
+            const relUrl = chip.action.url;
+            const filename = chip.action.filename || 'report.xlsx';
+            (async () => {
+                try {
+                    const response = await axiosInstance.get(relUrl, {
+                        responseType: 'blob'
+                    });
+                    const blob = new Blob([response.data]);
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(blobUrl);
+                    pushMsg('assistant', `📥 '${filename}' safaltapoorvak download ho gayi hai!`);
+                } catch (err) {
+                    console.error('[useTaskAgentSession] download report error:', err);
+                    pushMsg('assistant', 'File download karne mein dikkat aayi. Kripya dobara koshish karein.', { isError: true });
+                }
+            })();
+            return;
+        }
         if (chip.action?.type === 'process_pending_spreadsheet') {
             const taskType = chip.action.taskType || 'self';
             const targetFile = pendingSpreadsheetRef.current;

@@ -4,6 +4,7 @@ import axios from "../../../utils/axiosConfig";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../../components/TaskReminderControl';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { downloadBackendReport } from "../../../utils/exportUtils";
 import TaskDetailsModal from "../../components/TaskDetailsModal";
 import {
   FiArrowLeft,
@@ -2303,7 +2304,18 @@ const CompanyAllTaskTasks = () => {
               disabled={exportingPdf}
               title="Export tasks as PDF"
             >
-              <FiDownload size={14} /> Export
+              <FiDownload size={14} /> Export PDF
+            </button>
+            <button
+              type="button"
+              className="hero-btn-outline"
+              onClick={() => {
+                downloadBackendReport('/api/export-reports/tasks?type=all&format=xlsx', `Company_All_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+              }}
+              title="Export tasks as Excel (.xlsx)"
+              style={{ color: '#059669', borderColor: '#10B981' }}
+            >
+              <FiDownload size={14} /> Export Excel
             </button>
             <button
               type="button"

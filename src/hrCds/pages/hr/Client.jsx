@@ -36,8 +36,10 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiCreditCard,
-  FiUpload
+  FiUpload,
+  FiDownload
 } from 'react-icons/fi';
+import { downloadBackendReport } from '../../../utils/exportUtils';
 
 
 import { FaTasks, FaProjectDiagram, FaCity, FaRupeeSign } from 'react-icons/fa';
@@ -4473,6 +4475,16 @@ const ClientManagement = () => {
                   <FiBriefcase /> Client Plans ({clientPlans.length})
                 </button>
               )}
+              <button
+                className="ClientManagement-btn ClientManagement-btn--outlined"
+                onClick={() => {
+                  downloadBackendReport('/api/export-reports/clients-master?format=xlsx', `Clients_Master_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                }}
+                title="Export Clients Master Sheet with Subscriptions, Expiry Dates, Tasks & Services"
+                style={{ borderColor: '#10B981', color: '#059669', fontWeight: 600 }}
+              >
+                <FiDownload /> Export Master (.xlsx)
+              </button>
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary"
                 onClick={() => {

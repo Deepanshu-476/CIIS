@@ -690,7 +690,7 @@ const ChatSidebar = ({
                                                 return avatarSrc ? (
                                                     <span style={{ width: 18, height: 18, borderRadius: "50%", overflow: "hidden", display: "inline-flex", flexShrink: 0 }}>
                                                         <img
-                                                            src={avatarSrc}
+                                                                    src={avatarSrc}
                                                             alt=""
                                                             style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                                             onError={(e) => { e.currentTarget.parentElement.style.display = "none"; }}

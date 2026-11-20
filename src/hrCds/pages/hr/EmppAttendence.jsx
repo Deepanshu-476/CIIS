@@ -1533,6 +1533,10 @@ const EmployeeAttendance = () => {
   const [adminOtActioning, setAdminOtActioning] = useState(false);
   const [adminOtFullDayCheck, setAdminOtFullDayCheck] = useState({});
 
+  const pendingAdminOtCount = useMemo(() => {
+    return adminOtRequests.filter(r => String(r?.status || '').toLowerCase() === 'pending').length;
+  }, [adminOtRequests]);
+
   const fetchAdminOvertimeRequests = useCallback(async () => {
     try {
       setLoadingAdminOt(true);
@@ -1611,6 +1615,10 @@ const EmployeeAttendance = () => {
   useEffect(() => {
     if (pageAccessReady && (canViewAllAttendance || canEditAttendance)) {
       fetchAdminOvertimeRequests();
+      const otInterval = setInterval(() => {
+        fetchAdminOvertimeRequests();
+      }, 30000);
+      return () => clearInterval(otInterval);
     }
   }, [pageAccessReady, canViewAllAttendance, canEditAttendance, fetchAdminOvertimeRequests]);
 
@@ -2587,12 +2595,18 @@ const EmployeeAttendance = () => {
   };
 
   const formatExportDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    if (!dateStr) return "";
+    const str = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const [y, m, d] = str.split("-");
+      return `${d}-${m}-${y}`;
+    }
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return str;
+    const d = String(date.getDate()).padStart(2, "0");
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const y = date.getFullYear();
+    return `${d}-${m}-${y}`;
   };
 
   const handleEditRecord = (record) => {
@@ -2915,7 +2929,7 @@ const EmployeeAttendance = () => {
       doc.setFontSize(9.5);
       doc.setTextColor(255, 255, 255);
       const datePeriodText = dateRangeMode
-        ? `Period: ${new Date(selectedStartDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })} - ${new Date(selectedEndDate).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}`
+        ? `Period: ${formatExportDate(selectedStartDate)} - ${formatExportDate(selectedEndDate)}`
         : `Date: ${formatExportDate(selectedDate)}`;
       doc.text(datePeriodText, pageWidth - 28, 28, { align: "right" });
 
@@ -3287,14 +3301,41 @@ const EmployeeAttendance = () => {
             title="Manage Employee Overtime Requests"
             style={{
               marginRight: '8px',
-              background: '#ffffff',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              fontWeight: 600
+              background: pendingAdminOtCount > 0 ? '#fff7ed' : '#ffffff',
+              color: pendingAdminOtCount > 0 ? '#c2410c' : '#334155',
+              border: pendingAdminOtCount > 0 ? '1.5px solid #fdba74' : '1px solid #cbd5e1',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: pendingAdminOtCount > 0 ? '0 2px 8px rgba(234, 88, 12, 0.15)' : 'none',
+              transition: 'all 0.2s ease'
             }}
           >
-            <FiClock size={16} />
-            <span>Overtime Requests {adminOtRequests.filter(r => r.status === 'Pending').length > 0 ? `(${adminOtRequests.filter(r => r.status === 'Pending').length})` : ''}</span>
+            <FiClock size={16} color={pendingAdminOtCount > 0 ? '#ea580c' : '#64748b'} />
+            <span>Overtime Requests</span>
+            {pendingAdminOtCount > 0 && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: '22px',
+                  height: '22px',
+                  padding: '0 6px',
+                  borderRadius: '9999px',
+                  background: 'linear-gradient(135deg, #ea580c, #dc2626)',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  boxShadow: '0 2px 4px rgba(220, 38, 38, 0.3)',
+                  animation: 'pulse 2s infinite'
+                }}
+              >
+                {pendingAdminOtCount}
+              </span>
+            )}
           </button>
 
           <button

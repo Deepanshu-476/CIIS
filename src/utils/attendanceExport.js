@@ -148,11 +148,8 @@ export function attendanceReportFields(record = {}, apiBase) {
   const shiftWindow = record.shiftStart && record.shiftEnd
     ? `${attendanceReportTime(record.shiftStart)} – ${attendanceReportTime(record.shiftEnd)}` : '';
   return {
-    'Date': record.displayDate || record.dateKey || indiaReportDate(record.date),
+    'Date': indiaReportDate(record.displayDate || record.dateKey || record.date),
     'Name': employee.name || '',
-    'Employee ID': employee.employeeId || employee.employeeCode || employee.empId || employee.id || employee._id || '',
-    'Email': employee.email || '',
-    'Company': record.companyCode || employee.companyCode || employee.company?.companyCode || '',
     'Branch': employee.branchName || employee.branch?.name || '',
     'Department': employee.departmentName || department || '',
     'Employee Type': String(employee.employeeType || '').toUpperCase(),
@@ -197,10 +194,19 @@ export function attendanceReportFields(record = {}, apiBase) {
 const indiaDate = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'});
 
 function indiaReportDate(value) {
-  const date = value && new Date(value);
-  if (!date || Number.isNaN(date.getTime())) return '';
+  if (!value) return '';
+  const str = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-');
+    return `${d}-${m}-${y}`;
+  }
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    return str;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return str;
   const parts = Object.fromEntries(indiaDate.formatToParts(date).map(part => [part.type, part.value]));
-  return `${parts.year}-${parts.month}-${parts.day}`;
+  return `${parts.day}-${parts.month}-${parts.year}`;
 }
 
 export function attendanceReportRows(records, apiBase) {

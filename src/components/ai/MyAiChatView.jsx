@@ -394,7 +394,7 @@ export default function MyAiChatView({ onBack, onClose }) {
     open: true,
     onClose: handleClose,
     variant: 'voice',
-    startWithMic: true,
+    startWithMic: false,
   });
 
   const {

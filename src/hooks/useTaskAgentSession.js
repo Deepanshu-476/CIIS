@@ -160,7 +160,7 @@ export default function useTaskAgentSession({
     const [creating, setCreating] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(null);
     const [result, setResult] = useState(null);
-    const [autoSpeak, setAutoSpeak] = useState(true);
+    const [autoSpeak, setAutoSpeak] = useState(Boolean(startWithMic));
     const autoSpeakRef = useRef(autoSpeak);
     useEffect(() => {
         autoSpeakRef.current = autoSpeak;
@@ -212,7 +212,7 @@ export default function useTaskAgentSession({
     const isCreatingRef = useRef(false);
     const inputSourceRef = useRef('typed'); // 'voice' | 'typed'
     // Session-level mic mode state: 'voice' once spoken or tapped, 'typed' when keyboard text sent or muted
-    const micModeRef = useRef(variant === 'voice' || startWithMic ? 'voice' : 'typed');
+    const micModeRef = useRef(startWithMic ? 'voice' : 'typed');
     const spokenMessageIdsRef = useRef(new Set());
     const isTypingRef = useRef(false);
     const [micSkipReason, setMicSkipReason] = useState(null);
@@ -2577,7 +2577,7 @@ export default function useTaskAgentSession({
                 }
             }
 
-            if (autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
+            if (startWithMic && autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
                 spokenMessageIdsRef.current.add(greetingId);
                 cancelSpeech();
                 const watchdog = createTtsWatchdog(() => {
@@ -2588,7 +2588,7 @@ export default function useTaskAgentSession({
                     watchdog.cancel();
                     (ensureListeningRef.current || ensureListening)();
                 });
-            } else if (sttSupported && !userMutedRef.current) {
+            } else if (startWithMic && sttSupported && !userMutedRef.current) {
                 (ensureListeningRef.current || ensureListening)();
             }
         }

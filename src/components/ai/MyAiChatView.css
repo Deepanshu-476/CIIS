@@ -1332,26 +1332,32 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
   padding: 10px;
 }
 
-/* Floating Bottom Dock (Matches ChatGPT Advanced Voice Mode, sleek dark pill on light background) */
+/* Floating Bottom Dock (Clean Light Theme UI) */
 .my-ai-view-container.is-voice-mode .my-ai-composer-dock {
-  background-color: transparent;
-  border-top: none;
-  padding: 10px 16px 20px 16px;
+  background-color: #ffffff;
+  border-top: 1px solid rgba(226, 232, 240, 0.85);
+  padding: 8px 12px 10px 12px;
 }
 
 .my-ai-voice-dock {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 9999px;
-  padding: 6px 8px 6px 14px;
+  padding: 4px 6px 4px 14px;
   width: 100%;
-  max-width: 480px;
+  max-width: 720px;
   margin: 0 auto;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.my-ai-voice-dock:hover {
+  background: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
 
 .my-ai-voice-dock-type-btn {
@@ -1360,73 +1366,77 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
   gap: 8px;
   background: transparent;
   border: none;
-  color: #cbd5e1;
-  font-size: 14.5px;
+  color: #94a3b8;
+  font-size: 13.5px;
   font-weight: 500;
-  padding: 8px 12px;
+  padding: 6px 8px;
   cursor: pointer;
   border-radius: 9999px;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .my-ai-voice-dock-type-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
+  color: #0f172a;
 }
 
 .my-ai-voice-dock-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .my-ai-voice-dock-mic-btn {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #334155;
-  border: none;
-  color: #ffffff;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .my-ai-voice-dock-mic-btn:hover {
-  background: #475569;
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .my-ai-voice-dock-mic-btn.active {
-  background: #2563eb;
-  color: #ffffff;
-  box-shadow: 0 0 12px rgba(37, 99, 235, 0.35);
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+  animation: my-ai-mic-pulse 1.3s infinite ease-in-out;
 }
 
 .my-ai-voice-dock-mic-btn.muted {
-  background: #334155;
-  color: #f87171;
+  background: #f8fafc;
+  color: #94a3b8;
+  border-color: #e2e8f0;
 }
 
 .my-ai-voice-dock-close-btn {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #0284c7;
   border: none;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.2);
 }
 
 .my-ai-voice-dock-close-btn:hover {
-  background: #1d4ed8;
-  transform: scale(1.04);
+  background: #0369a1;
+  transform: scale(1.05);
 }
 
 

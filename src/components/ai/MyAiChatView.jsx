@@ -1163,7 +1163,7 @@ export default function MyAiChatView({ onBack, onClose }) {
               title="Switch to typing"
             >
               <Plus size={16} />
-              <span>Type</span>
+              <span>Task likhein ya type karein…</span>
             </button>
             <div className="my-ai-voice-dock-controls">
               <button
@@ -1172,7 +1172,7 @@ export default function MyAiChatView({ onBack, onClose }) {
                 onClick={handleOrbClick}
                 title={listening ? 'Mute microphone' : 'Unmute microphone'}
               >
-                {listening ? <Mic size={18} /> : <MicOff size={18} />}
+                {listening ? <Mic size={16} /> : <MicOff size={16} />}
               </button>
               <button
                 type="button"
@@ -1180,7 +1180,7 @@ export default function MyAiChatView({ onBack, onClose }) {
                 onClick={handleExitVoiceMode}
                 title="End voice mode"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
           </div>

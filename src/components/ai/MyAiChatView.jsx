@@ -485,6 +485,9 @@ export default function MyAiChatView({ onBack, onClose }) {
       stop('manual');
     }
     cancelSpeech();
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
   };
 
   const handleToggleVoiceMode = () => {
@@ -630,7 +633,7 @@ export default function MyAiChatView({ onBack, onClose }) {
   }
 
   return (
-    <div className={`my-ai-view-container ${isExpanded ? 'is-expanded' : ''}`}>
+    <div className={`my-ai-view-container ${isExpanded ? 'is-expanded' : ''} ${isVoiceMode ? 'is-voice-mode' : ''}`}>
       {/* =====================================================================
           REGION 1: TOP HEADER (~56px)
           Clean title, no "Astra", no internal STT counter ("Voice 0/12").
@@ -1108,7 +1111,7 @@ export default function MyAiChatView({ onBack, onClose }) {
                 <GptVoiceOrb
                   state={orbState}
                   onClick={handleOrbClick}
-                  size={isExpanded ? 135 : 105}
+                  size={isExpanded ? 160 : 125}
                 />
               </div>
 
@@ -1142,9 +1145,41 @@ export default function MyAiChatView({ onBack, onClose }) {
       {/* =====================================================================
           REGION 4: PINNED COMPOSER DOCK
           Always pinned at bottom, flex-shrink 0, clean container
+          When in Voice Mode, displays the ChatGPT floating dock (+ Type, Mic, Close)
           ===================================================================== */}
       <footer className="my-ai-composer-dock">
-        <form className="my-ai-composer-form" onSubmit={onSubmit}>
+        {isVoiceMode ? (
+          <div className="my-ai-voice-dock animate-fadeIn">
+            <button
+              type="button"
+              className="my-ai-voice-dock-type-btn"
+              onClick={handleExitVoiceMode}
+              title="Switch to typing"
+            >
+              <Plus size={16} />
+              <span>Type</span>
+            </button>
+            <div className="my-ai-voice-dock-controls">
+              <button
+                type="button"
+                className={`my-ai-voice-dock-mic-btn ${listening ? 'active' : 'muted'}`}
+                onClick={handleOrbClick}
+                title={listening ? 'Mute microphone' : 'Unmute microphone'}
+              >
+                {listening ? <Mic size={18} /> : <MicOff size={18} />}
+              </button>
+              <button
+                type="button"
+                className="my-ai-voice-dock-close-btn"
+                onClick={handleExitVoiceMode}
+                title="End voice mode"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form className="my-ai-composer-form" onSubmit={onSubmit}>
           <input
             ref={fileInputRef}
             type="file"
@@ -1275,6 +1310,7 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
         </form>
+        )}
 
         {/* Dev-only live VAD diagnostic overlay - hidden by default unless ?aidebug=1 or localStorage 'ciis_ai_debug' === '1' */}
         {shouldShowDebugOverlay() && (

@@ -168,58 +168,63 @@ export default function GptVoiceOrb({
       ctx.save();
       ctx.clip();
 
-      // 1. Base Gradient (Soft azure sky)
+      // 1. Base Gradient: Deep royal celestial blue on top down to ethereal baby blue on bottom (Matches reference screenshot 1:1)
       const baseGrad = ctx.createLinearGradient(
         centerX,
-        centerY - baseRadius * 1.2,
+        centerY - baseRadius * 1.05,
         centerX,
-        centerY + baseRadius * 1.2
+        centerY + baseRadius * 1.05
       );
-      baseGrad.addColorStop(0, '#93c5fd');   // light sky blue
-      baseGrad.addColorStop(0.4, '#60a5fa'); // celestial blue
-      baseGrad.addColorStop(0.8, '#3b82f6'); // rich azure
-      baseGrad.addColorStop(1, '#1d4ed8');   // deep cobalt
+      baseGrad.addColorStop(0, '#1e40af');   // deep cobalt/royal blue at top
+      baseGrad.addColorStop(0.22, '#2563eb'); // intense celestial azure
+      baseGrad.addColorStop(0.55, '#60a5fa'); // sky blue
+      baseGrad.addColorStop(0.85, '#93c5fd'); // ethereal baby blue
+      baseGrad.addColorStop(1, '#bfdbfe');   // soft pastel blue at bottom
       ctx.fillStyle = baseGrad;
       ctx.fill();
 
-      // 2. Swirling glowing white cloud layer (matches the white luminous core in user image)
-      const cloudX = centerX + Math.cos(time * 1.8) * (baseRadius * 0.25);
-      const cloudY = centerY - baseRadius * 0.35 + Math.sin(time * 1.5) * (baseRadius * 0.15);
-      const cloudRadius = baseRadius * (0.85 + currentAmp * 0.35);
+      // 2. Swirling glowing white cloud nebula band across middle (Matches luminous core in reference image)
+      const cloudX = centerX + Math.cos(time * 1.6) * (baseRadius * 0.16);
+      const cloudY = centerY - baseRadius * 0.06 + Math.sin(time * 1.2) * (baseRadius * 0.1);
 
+      ctx.save();
+      ctx.translate(cloudX, cloudY);
+      ctx.scale(1.22, 0.65); // Elliptical horizontal stretch matching the screenshot
       const cloudGrad = ctx.createRadialGradient(
-        cloudX,
-        cloudY,
-        baseRadius * 0.05,
-        cloudX,
-        cloudY,
-        cloudRadius
+        0,
+        0,
+        baseRadius * 0.04,
+        0,
+        0,
+        baseRadius * (0.85 + currentAmp * 0.35)
       );
       cloudGrad.addColorStop(0, '#ffffff');
-      cloudGrad.addColorStop(0.45, 'rgba(255, 255, 255, 0.85)');
-      cloudGrad.addColorStop(0.75, 'rgba(186, 230, 253, 0.45)');
+      cloudGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.96)');
+      cloudGrad.addColorStop(0.65, 'rgba(224, 242, 254, 0.58)');
+      cloudGrad.addColorStop(0.92, 'rgba(147, 197, 253, 0.15)');
       cloudGrad.addColorStop(1, 'rgba(96, 165, 250, 0)');
 
       ctx.fillStyle = cloudGrad;
       ctx.beginPath();
-      ctx.arc(cloudX, cloudY, cloudRadius, 0, Math.PI * 2);
+      ctx.arc(0, 0, baseRadius * (0.85 + currentAmp * 0.35), 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
-      // 3. Second luminous atmospheric swirl
-      const swirlX = centerX + Math.sin(-time * 1.4) * (baseRadius * 0.3);
-      const swirlY = centerY + baseRadius * 0.1 + Math.cos(time * 1.2) * (baseRadius * 0.2);
-      const swirlRadius = baseRadius * 0.7;
+      // 3. Second luminous atmospheric swirl for organic internal fluid depth
+      const swirlX = centerX + Math.sin(-time * 1.3) * (baseRadius * 0.22);
+      const swirlY = centerY - baseRadius * 0.18 + Math.cos(time * 1.4) * (baseRadius * 0.14);
+      const swirlRadius = baseRadius * 0.65;
 
       const swirlGrad = ctx.createRadialGradient(
         swirlX,
         swirlY,
-        baseRadius * 0.05,
+        baseRadius * 0.03,
         swirlX,
         swirlY,
         swirlRadius
       );
-      swirlGrad.addColorStop(0, 'rgba(224, 242, 254, 0.75)');
-      swirlGrad.addColorStop(0.5, 'rgba(147, 197, 253, 0.35)');
+      swirlGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+      swirlGrad.addColorStop(0.42, 'rgba(186, 230, 253, 0.45)');
       swirlGrad.addColorStop(1, 'rgba(59, 130, 246, 0)');
 
       ctx.fillStyle = swirlGrad;
@@ -227,18 +232,18 @@ export default function GptVoiceOrb({
       ctx.arc(swirlX, swirlY, swirlRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // 4. Subtle top specular sheen (gives 3D lens depth)
+      // 4. Subtle top specular sheen (gives 3D spherical lens depth)
       ctx.beginPath();
       ctx.ellipse(
         centerX,
-        centerY - baseRadius * 0.5,
-        baseRadius * 0.6,
-        baseRadius * 0.25,
+        centerY - baseRadius * 0.48,
+        baseRadius * 0.55,
+        baseRadius * 0.2,
         0,
         0,
         Math.PI * 2
       );
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
       ctx.fill();
 
       ctx.restore(); // restore clipping

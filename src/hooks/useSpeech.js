@@ -1428,11 +1428,13 @@ export default function useSpeech({
     const cancelSpeech = useCallback(() => {
         if (ttsSupported) {
             try {
+                window.speechSynthesis.pause();
                 window.speechSynthesis.cancel();
             } catch {
                 /* ignore */
             }
         }
+        setIsSpeaking(false);
         if (speakTimeoutRef.current) {
             clearInterval(speakTimeoutRef.current);
             speakTimeoutRef.current = null;

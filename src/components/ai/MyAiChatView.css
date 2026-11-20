@@ -1138,3 +1138,331 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
   font-size: 12px;
   color: #94a3b8;
 }
+
+/* =====================================================================
+   CHATGPT ADVANCED VOICE MODE (Matches Reference Screenshot 1:1)
+   ===================================================================== */
+
+/* Top Header Voice Mode Pill Toggle */
+.my-ai-voice-toggle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: 6px;
+}
+
+.my-ai-voice-toggle-pill:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.my-ai-voice-toggle-pill.active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.voice-toggle-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #94a3b8;
+  transition: all 0.2s ease;
+}
+
+.voice-toggle-dot.listening {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.65);
+  animation: voiceDotPulse 1.4s infinite;
+}
+
+.voice-toggle-dot.speaking {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.65);
+  animation: voiceDotPulse 1.4s infinite;
+}
+
+.voice-toggle-dot.thinking {
+  background: #a855f7;
+  animation: voiceDotPulse 0.9s infinite;
+}
+
+.voice-toggle-dot.paused {
+  background: #f59e0b;
+}
+
+@keyframes voiceDotPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.75;
+  }
+}
+
+/* Dark Theme Container when in Voice Mode (Matches Reference Screenshot) */
+.my-ai-view-container.is-voice-mode {
+  background: #09090b !important;
+  color: #f1f5f9 !important;
+}
+
+.my-ai-view-container.is-voice-mode .my-ai-header {
+  background: #09090b !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.my-ai-view-container.is-voice-mode .my-ai-title {
+  color: #ffffff !important;
+}
+
+.my-ai-view-container.is-voice-mode .my-ai-icon-btn {
+  color: #a1a1aa !important;
+}
+
+.my-ai-view-container.is-voice-mode .my-ai-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.my-ai-view-container.is-voice-mode .my-ai-thread-scroll {
+  background: #09090b !important;
+}
+
+/* User Message Bubble in Voice Mode: Rounded Blue Pill on Top Right */
+.my-ai-view-container.is-voice-mode .my-ai-message-row.user .my-ai-bubble.user {
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+  border-radius: 20px !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.3) !important;
+}
+
+/* Assistant Message Text in Voice Mode: Clean Left-aligned White Text */
+.my-ai-view-container.is-voice-mode .my-ai-message-row.assistant .my-ai-bubble.assistant {
+  background: transparent !important;
+  color: #f4f4f5 !important;
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+  padding: 4px 6px !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.my-ai-view-container.is-voice-mode .my-ai-composer-dock {
+  background: transparent !important;
+  border-top: none !important;
+  padding: 12px 16px 16px 16px !important;
+}
+
+/* Centered ChatGPT Voice Orb Stage */
+.my-ai-voice-orb-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 12px 16px;
+  margin-top: auto;
+  gap: 12px;
+  animation: fadeInStage 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInStage {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.my-ai-voice-orb-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.my-ai-voice-orb-wrapper:hover {
+  transform: scale(1.05);
+}
+
+.my-ai-voice-orb-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  max-width: 320px;
+}
+
+.my-ai-voice-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+  backdrop-filter: blur(8px);
+}
+
+.my-ai-voice-status-pill.listening {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+}
+
+.my-ai-voice-status-pill.speaking {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+
+.my-ai-voice-status-pill.thinking {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+}
+
+.my-ai-voice-status-pill.paused {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
+.voice-status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.my-ai-voice-orb-caption .live-transcript {
+  font-size: 13.5px;
+  font-style: italic;
+  color: #38bdf8;
+  font-weight: 500;
+}
+
+.my-ai-voice-orb-caption .ai-speech-hint {
+  font-size: 12px;
+  color: #93c5fd;
+}
+
+.my-ai-voice-orb-caption .idle-speech-hint {
+  font-size: 12px;
+  color: #71717a;
+}
+
+/* =====================================================================
+   ChatGPT Bottom Floating Dock (Matches Reference Screenshot 1:1)
+   [ + Type                      🎙️  (✕) ]
+   ===================================================================== */
+.my-ai-chatgpt-voice-dock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  height: 52px;
+  padding: 0 8px 0 16px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+}
+
+/* Left: + Type button */
+.my-ai-gpt-type-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  transition: all 0.15s ease;
+}
+
+.my-ai-gpt-type-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Right Group: Mic toggle & Blue Close Button */
+.my-ai-gpt-dock-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-ai-gpt-mic-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #27272a;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.my-ai-gpt-mic-btn:hover {
+  background: #3f3f46;
+}
+
+.my-ai-gpt-mic-btn.paused {
+  background: #3f3f46;
+  color: #fbbf24;
+}
+
+.my-ai-gpt-mic-btn.active {
+  color: #60a5fa;
+}
+
+/* Circular Blue Close Button (matches reference screenshot) */
+.my-ai-gpt-close-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.my-ai-gpt-close-btn:hover {
+  background: #1d4ed8;
+  transform: scale(1.05);
+}
+

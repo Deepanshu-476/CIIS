@@ -310,10 +310,11 @@ export default function useTaskAgentSession({
 
     // Formats any spoken speech phonetically (e.g. "CIIS AI" -> "C I I S A I") so TTS never mispronounces it
     const speak = useCallback((speechText, fallbackText, onEnd) => {
+        if (!autoSpeak || isPaused || userMutedRef.current) return;
         const fmtSpeech = formatSpokenForTTS(speechText);
         const fmtFallback = formatSpokenForTTS(fallbackText);
         rawSpeak(fmtSpeech, fmtFallback, onEnd);
-    }, [rawSpeak]);
+    }, [rawSpeak, autoSpeak, isPaused, userMutedRef]);
 
     // Auto-dismiss mic error notices after 5 seconds
     useEffect(() => {
@@ -2757,13 +2758,18 @@ export default function useTaskAgentSession({
         cancelReadyCountdown();
         setSpeechError?.(null);
         setNotice(null);
-        if (listening) {
+        if (isSpeaking || listening) {
+            cancelSpeech();
             stop('manual');
             setIsPaused(true);
-        } else if (isSpeaking) {
-            cancelSpeech();
-            clearUserMute();
-            start({ force: true });
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                try {
+                    window.speechSynthesis.pause();
+                    window.speechSynthesis.cancel();
+                } catch {
+                    /* ignore */
+                }
+            }
         } else {
             setIsPaused(false);
             setNotice(null);

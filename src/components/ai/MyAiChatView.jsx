@@ -12,6 +12,7 @@ import {
   Minimize2,
   X,
   Mic,
+  MicOff,
   Send,
   Paperclip,
   Volume2,
@@ -27,6 +28,7 @@ import { useMyAi } from '../../context/MyAiContext';
 import useTaskAgentSession from '../../hooks/useTaskAgentSession';
 import { formatCandidateDate, shouldShowDebugOverlay } from '../../hooks/taskAgentPureLogic';
 import TaskPreviewCard from './TaskPreviewCard';
+import GptVoiceOrb from './GptVoiceOrb';
 import './MyAiChatView.css';
 
 // Lazy-load Three.js AuraFluidRing for code-splitting
@@ -463,11 +465,35 @@ export default function MyAiChatView({ onBack, onClose }) {
   } = session;
 
   const [showHistory, setShowHistory] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [hasWebGL, setHasWebGL] = useState(true);
   const [selectedMultiChips, setSelectedMultiChips] = useState([]);
   const threadEndRef = useRef(null);
   const localInputRef = useRef(null);
   const inputRef = session?.inputRef || localInputRef;
+
+  const handleEnterVoiceMode = () => {
+    setIsVoiceMode(true);
+    if (!listening) {
+      handleOrbClick();
+    }
+  };
+
+  const handleExitVoiceMode = () => {
+    setIsVoiceMode(false);
+    if (listening) {
+      stop('manual');
+    }
+    cancelSpeech();
+  };
+
+  const handleToggleVoiceMode = () => {
+    if (isVoiceMode) {
+      handleExitVoiceMode();
+    } else {
+      handleEnterVoiceMode();
+    }
+  };
 
   // Reset selected chips when moving to another field
   const currentField = result?.field;
@@ -604,7 +630,7 @@ export default function MyAiChatView({ onBack, onClose }) {
   }
 
   return (
-    <div className={`my-ai-view-container ${isExpanded ? 'is-expanded' : ''}`}>
+    <div className={`my-ai-view-container ${isVoiceMode ? 'is-voice-mode' : ''} ${isExpanded ? 'is-expanded' : ''}`}>
       {/* =====================================================================
           REGION 1: TOP HEADER (~56px)
           Clean title, no "Astra", no internal STT counter ("Voice 0/12").
@@ -626,11 +652,19 @@ export default function MyAiChatView({ onBack, onClose }) {
           <div className="my-ai-header-title-wrap">
             <h2 className="my-ai-title">CIIS AI</h2>
             {isExpanded && <span className="my-ai-subtitle-badge">Assistant</span>}
-            <div className={`my-ai-status-indicator ${orbState}`}>
-              <span className={`my-ai-status-dot ${orbState}`} />
-              <span className="my-ai-status-label">{statusText}</span>
-            </div>
           </div>
+
+          {/* ChatGPT-style Voice Mode toggle pill right at the top */}
+          <button
+            type="button"
+            className={`my-ai-voice-toggle-pill ${isVoiceMode ? 'active' : ''}`}
+            onClick={handleToggleVoiceMode}
+            title={isVoiceMode ? 'Voice Mode Active - Click to switch to Text Mode' : 'Switch to Voice Mode'}
+          >
+            <span className={`voice-toggle-dot ${isVoiceMode ? (listening ? 'listening' : orbState) : 'idle'}`} />
+            <Mic size={13} className={isVoiceMode ? 'text-blue-500' : 'text-slate-500'} />
+            <span>Voice Mode</span>
+          </button>
         </div>
 
         <div className="my-ai-header-right">
@@ -1061,6 +1095,46 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
 
+          {/* Centered ChatGPT Voice Orb Stage (visible in voice mode with previous chat visible above) */}
+          {isVoiceMode && (
+            <div className="my-ai-voice-orb-stage animate-fadeIn">
+              <div
+                className="my-ai-voice-orb-wrapper"
+                onClick={handleOrbClick}
+                role="button"
+                tabIndex={0}
+                title={listening ? 'Tap orb to pause' : 'Tap orb to speak'}
+              >
+                <GptVoiceOrb
+                  state={orbState}
+                  onClick={handleOrbClick}
+                  size={isExpanded ? 135 : 105}
+                />
+              </div>
+
+              {/* Status and dynamic transcript feedback */}
+              <div className="my-ai-voice-orb-caption">
+                <span className={`my-ai-voice-status-pill ${orbState}`}>
+                  <span className="voice-status-pulse-dot" />
+                  {orbState === 'listening'
+                    ? 'Listening…'
+                    : orbState === 'thinking'
+                    ? 'Thinking…'
+                    : orbState === 'speaking'
+                    ? 'Speaking…'
+                    : 'Paused'}
+                </span>
+                {interim ? (
+                  <span className="live-transcript">"{interim}"</span>
+                ) : isSpeaking ? (
+                  <span className="ai-speech-hint">CIIS AI bol raha hai…</span>
+                ) : (
+                  <span className="idle-speech-hint">Aap boliye, sun raha hoon</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div ref={threadEndRef} />
         </div>
       </main>
@@ -1070,7 +1144,42 @@ export default function MyAiChatView({ onBack, onClose }) {
           Always pinned at bottom, flex-shrink 0, clean container
           ===================================================================== */}
       <footer className="my-ai-composer-dock">
-        <form className="my-ai-composer-form" onSubmit={onSubmit}>
+        {isVoiceMode ? (
+          <div className="my-ai-chatgpt-voice-dock">
+            {/* Left: + Type button (matches user screenshot) */}
+            <button
+              type="button"
+              className="my-ai-gpt-type-btn"
+              onClick={handleExitVoiceMode}
+              title="Switch to typing text"
+            >
+              <Plus size={16} />
+              <span>Type</span>
+            </button>
+
+            {/* Right: Mic button & Blue circular Close button (matches user screenshot) */}
+            <div className="my-ai-gpt-dock-right">
+              <button
+                type="button"
+                className={`my-ai-gpt-mic-btn ${listening ? 'active' : 'paused'}`}
+                onClick={handleOrbClick}
+                title={listening ? 'Mute microphone' : 'Unmute microphone'}
+              >
+                {listening ? <Mic size={18} /> : <MicOff size={18} />}
+              </button>
+
+              <button
+                type="button"
+                className="my-ai-gpt-close-btn"
+                onClick={handleExitVoiceMode}
+                title="Exit Voice Mode"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form className="my-ai-composer-form" onSubmit={onSubmit}>
           <input
             ref={fileInputRef}
             type="file"
@@ -1098,7 +1207,7 @@ export default function MyAiChatView({ onBack, onClose }) {
               <Paperclip size={18} />
             </button>
 
-            {/* Mic listening toggle & active red indicator */}
+            {/* Mic listening toggle & active indicator */}
             <button
               type="button"
               className={`my-ai-composer-icon-btn mic-btn ${listening ? 'is-listening' : ''} ${recordingVoiceNote ? 'recording' : ''}`}
@@ -1108,12 +1217,12 @@ export default function MyAiChatView({ onBack, onClose }) {
                 if (isSpeaking) {
                   cancelSpeech();
                 }
-                handleOrbClick();
+                handleEnterVoiceMode();
               }}
-              title={isAiDisabled ? 'AI Assistant access disabled by admin' : (listening ? 'AI sun raha hai (Tap to pause)' : 'Mic chalu karein')}
-              aria-label={listening ? 'Mic on, listening' : 'Mic off'}
+              title={isAiDisabled ? 'AI Assistant access disabled by admin' : 'Voice Mode start karein'}
+              aria-label="Start Voice Mode"
             >
-              <Mic size={18} className={listening || recordingVoiceNote ? 'text-red-600' : ''} />
+              <Mic size={18} className={listening || recordingVoiceNote ? 'text-blue-500' : ''} />
             </button>
 
             {/* WhatsApp-style auto-expanding multi-line textarea */}
@@ -1201,6 +1310,7 @@ export default function MyAiChatView({ onBack, onClose }) {
             </div>
           )}
         </form>
+        )}
 
         {/* Dev-only live VAD diagnostic overlay - hidden by default unless ?aidebug=1 or localStorage 'ciis_ai_debug' === '1' */}
         {shouldShowDebugOverlay() && (

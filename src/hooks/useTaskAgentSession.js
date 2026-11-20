@@ -2869,6 +2869,7 @@ export default function useTaskAgentSession({
         setNotice,
         start,
         stop,
+        clearUserMute,
         speak,
         cancelSpeech,
         recordingVoiceNote,

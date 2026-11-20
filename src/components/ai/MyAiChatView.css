@@ -1323,13 +1323,34 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
 /* =====================================================================
    CHATGPT ADVANCED VOICE MODE (Light Theme Clean UI)
    ===================================================================== */
-.my-ai-view-container.is-voice-mode {
-  /* Voice Mode stays on normal clean light background */
+.my-ai-view-container.is-voice-mode .my-ai-thread-scroll {
+  padding: 16px 16px 80px 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+.my-ai-view-container.is-voice-mode.is-expanded .my-ai-thread-scroll {
+  padding: 20px 20px 90px 20px !important;
+}
+
+.my-ai-view-container.is-voice-mode .my-ai-messages-list {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
 }
 
 .my-ai-view-container.is-voice-mode .my-ai-voice-orb-stage {
-  margin: 24px auto 16px auto;
-  padding: 10px;
+  margin: auto !important;
+  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
 }
 
 /* Floating Bottom Dock (Clean Light Theme UI) */

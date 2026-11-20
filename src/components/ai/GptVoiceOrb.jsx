@@ -4,14 +4,14 @@ import useAudioAnalyser from './useAudioAnalyser';
 /**
  * GptVoiceOrb
  * Recreates the authentic ChatGPT Advanced Voice Mode fluid sphere:
- * - Pristine, smooth outer circular boundary (never deformed into irregular/egg shapes)
- * - ALL dynamic fluid waves ("hil-jhul"), swirling glowing white clouds, and audio reactivity
+ * - Smooth, matte circular perimeter without artificial glass highlights or lens reflections
+ * - ALL dynamic fluid waves ("hil-jhul"), swirling cloud nebula, and audio reactivity
  *   happen strictly INSIDE the circle (clipped to circle perimeter)
  * - Multi-layered nebula:
- *   - Top: deep celestial royal blue (#1e40af ~ #2563eb)
- *   - Middle: horizontal drifting, glowing white cloud (#ffffff) that expands with audio
- *   - Bottom: soft sky-blue (#93c5fd ~ #bfdbfe)
- *   - Subtle top specular curved sheen & soft ambient outer glow
+ *   - Top: deep celestial royal blue (#1d4ed8 ~ #2563eb)
+ *   - Middle: horizontal drifting, luminous cloud nebula that smoothly pulses with voice amplitude
+ *   - Bottom: soft ethereal sky-blue (#93c5fd ~ #bfdbfe)
+ *   - Soft ambient atmospheric glow around circle (no harsh glass shine)
  * - 60fps lightweight Canvas 2D
  */
 export default function GptVoiceOrb({
@@ -76,17 +76,17 @@ export default function GptVoiceOrb({
       const centerY = height / 2;
       const baseRadius = size * 0.38;
 
-      // 1. Soft Ambient Atmospheric Outer Glow (Drawn outside circle with pristine circular blur)
+      // 1. Soft Ambient Atmospheric Outer Glow (Soft aura, no harsh glass rim)
       ctx.save();
       ctx.beginPath();
       ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-      ctx.shadowBlur = isSpeaking ? 28 : isListening ? 22 : 14;
+      ctx.shadowBlur = isSpeaking ? 24 : isListening ? 18 : 12;
       ctx.shadowColor = isSpeaking
-        ? 'rgba(96, 165, 250, 0.7)'
+        ? 'rgba(59, 130, 246, 0.45)'
         : isListening
-        ? 'rgba(56, 189, 248, 0.6)'
-        : 'rgba(59, 130, 246, 0.35)';
-      ctx.fillStyle = '#1e40af';
+        ? 'rgba(14, 165, 233, 0.4)'
+        : 'rgba(59, 130, 246, 0.22)';
+      ctx.fillStyle = '#1d4ed8';
       ctx.fill();
       ctx.restore();
 
@@ -98,7 +98,7 @@ export default function GptVoiceOrb({
       ctx.clip();
 
       // 2a. Base celestial gradient:
-      // Top celestial royal blue (#1e40af ~ #2563eb) down to soft sky-blue (#93c5fd ~ #bfdbfe) at bottom
+      // Top celestial royal blue down to soft sky-blue at bottom (warm matte nebula feel)
       const baseGrad = ctx.createLinearGradient(
         centerX,
         centerY - baseRadius,
@@ -106,9 +106,9 @@ export default function GptVoiceOrb({
         centerY + baseRadius
       );
       baseGrad.addColorStop(0, '#1e40af');     // Deep royal blue top
-      baseGrad.addColorStop(0.24, '#2563eb');  // Intense celestial azure
-      baseGrad.addColorStop(0.55, '#3b82f6');  // Sky azure
-      baseGrad.addColorStop(0.82, '#93c5fd');  // Soft sky-blue
+      baseGrad.addColorStop(0.26, '#2563eb');  // Intense celestial azure
+      baseGrad.addColorStop(0.58, '#3b82f6');  // Sky azure
+      baseGrad.addColorStop(0.84, '#93c5fd');  // Soft sky-blue
       baseGrad.addColorStop(1, '#bfdbfe');     // Pastel baby blue bottom
       ctx.fillStyle = baseGrad;
       ctx.fillRect(centerX - baseRadius - 2, centerY - baseRadius - 2, (baseRadius + 2) * 2, (baseRadius + 2) * 2);
@@ -141,20 +141,20 @@ export default function GptVoiceOrb({
 
         const waveGrad = ctx.createLinearGradient(centerX, waveY - waveAmp, centerX, centerY + baseRadius);
         if (w === 0) {
-          waveGrad.addColorStop(0, 'rgba(147, 197, 253, 0.45)');
-          waveGrad.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
+          waveGrad.addColorStop(0, 'rgba(147, 197, 253, 0.32)');
+          waveGrad.addColorStop(1, 'rgba(59, 130, 246, 0.06)');
         } else if (w === 1) {
-          waveGrad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
-          waveGrad.addColorStop(1, 'rgba(191, 219, 254, 0.15)');
-        } else {
           waveGrad.addColorStop(0, 'rgba(224, 242, 254, 0.4)');
+          waveGrad.addColorStop(1, 'rgba(191, 219, 254, 0.1)');
+        } else {
+          waveGrad.addColorStop(0, 'rgba(224, 242, 254, 0.25)');
           waveGrad.addColorStop(1, 'rgba(147, 197, 253, 0)');
         }
         ctx.fillStyle = waveGrad;
         ctx.fill();
       }
 
-      // 2c. Middle horizontal drifting glowing white cloud (#ffffff core)
+      // 2c. Middle horizontal drifting glowing cloud nebula (soft diffused core, no hard glass glare)
       // Expands and swirls with voice amplitude
       const cloudX = centerX + Math.cos(time * 1.4) * (baseRadius * 0.16) + Math.sin(time * 2.2) * (baseRadius * 0.06);
       const cloudY = centerY - baseRadius * 0.05 + Math.sin(time * 1.1) * (baseRadius * 0.1);
@@ -162,16 +162,16 @@ export default function GptVoiceOrb({
 
       ctx.save();
       ctx.translate(cloudX, cloudY);
-      ctx.scale(1.24, 0.66); // Horizontal elliptical stretch matching reference screenshot
+      ctx.scale(1.24, 0.66); // Horizontal elliptical stretch matching authentic nebula
 
       const cloudGrad = ctx.createRadialGradient(
         0, 0, baseRadius * 0.04,
         0, 0, cloudRadius
       );
-      cloudGrad.addColorStop(0, '#ffffff');
-      cloudGrad.addColorStop(0.32, 'rgba(255, 255, 255, 0.98)');
-      cloudGrad.addColorStop(0.62, 'rgba(224, 242, 254, 0.65)');
-      cloudGrad.addColorStop(0.88, 'rgba(147, 197, 253, 0.2)');
+      cloudGrad.addColorStop(0, 'rgba(255, 255, 255, 0.88)');
+      cloudGrad.addColorStop(0.3, 'rgba(240, 249, 255, 0.78)');
+      cloudGrad.addColorStop(0.58, 'rgba(224, 242, 254, 0.48)');
+      cloudGrad.addColorStop(0.85, 'rgba(147, 197, 253, 0.16)');
       cloudGrad.addColorStop(1, 'rgba(96, 165, 250, 0)');
 
       ctx.fillStyle = cloudGrad;
@@ -180,7 +180,7 @@ export default function GptVoiceOrb({
       ctx.fill();
       ctx.restore();
 
-      // 2d. Second luminous swirling atmospheric vortex for deep organic liquid depth
+      // 2d. Second luminous swirling atmospheric vortex for organic liquid depth
       const vortexAngle = -time * 1.5;
       const vortexDist = baseRadius * (0.16 + smoothAmp * 0.1);
       const vortexX = centerX + Math.cos(vortexAngle) * vortexDist;
@@ -191,9 +191,9 @@ export default function GptVoiceOrb({
         vortexX, vortexY, baseRadius * 0.02,
         vortexX, vortexY, vortexRadius
       );
-      vortexGrad.addColorStop(0, 'rgba(255, 255, 255, 0.88)');
-      vortexGrad.addColorStop(0.42, 'rgba(186, 230, 253, 0.48)');
-      vortexGrad.addColorStop(0.8, 'rgba(96, 165, 250, 0.14)');
+      vortexGrad.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
+      vortexGrad.addColorStop(0.42, 'rgba(186, 230, 253, 0.38)');
+      vortexGrad.addColorStop(0.8, 'rgba(96, 165, 250, 0.1)');
       vortexGrad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
 
       ctx.fillStyle = vortexGrad;
@@ -201,45 +201,7 @@ export default function GptVoiceOrb({
       ctx.arc(vortexX, vortexY, vortexRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2e. Subtle top specular curved sheen (spherical lens depth)
-      ctx.beginPath();
-      ctx.ellipse(
-        centerX,
-        centerY - baseRadius * 0.48,
-        baseRadius * 0.52,
-        baseRadius * 0.18,
-        0,
-        0,
-        Math.PI * 2
-      );
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.fill();
-
-      // 2f. Soft inner perimeter rim glow for crisp spherical edge
-      const rimGrad = ctx.createRadialGradient(
-        centerX, centerY, baseRadius * 0.86,
-        centerX, centerY, baseRadius
-      );
-      rimGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-      rimGrad.addColorStop(1, 'rgba(255, 255, 255, 0.22)');
-      ctx.fillStyle = rimGrad;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-      ctx.fill();
-
       ctx.restore(); // Restore clipping context
-
-      // 3. Pristine perimeter stroke to guarantee an impeccably crisp circle boundary
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-      ctx.strokeStyle = isSpeaking
-        ? 'rgba(147, 197, 253, 0.55)'
-        : isListening
-        ? 'rgba(125, 211, 252, 0.45)'
-        : 'rgba(191, 219, 254, 0.3)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
       ctx.restore(); // Restore dpr scaling context
 
       animationFrameId = requestAnimationFrame(render);

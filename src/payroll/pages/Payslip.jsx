@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiCalendar, FiDownload, FiFileText } from "react-icons/fi";
 import axiosInstance from "../../utils/axiosConfig";
@@ -40,7 +41,7 @@ const isActiveUser = (user) => {
 };
 
 const storedCompany = () => {
-  try { return JSON.parse(localStorage.getItem("companyDetails") || "null") || {}; }
+  try { return JSON.parse(accountStorage.getItem("companyDetails") || "null") || {}; }
   catch { return {}; }
 };
 

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import API_URL from "../config";
+import { accountStorage, endTabSession } from "../utils/authSession";
 import "./UserProfile.css";
 import CIISLoader from '../Loader/CIISLoader';
 
@@ -37,8 +38,8 @@ const UserProfile = () => {
   
   const getUserFromStorage = () => {
     try {
-      const userStr = localStorage.getItem("user");
-      const token = localStorage.getItem("token");
+      const userStr = accountStorage.getItem("user");
+      const token = accountStorage.getItem("token");
       
       if (!userStr || !token) {
         toast.error("Please login first");
@@ -51,7 +52,7 @@ const UserProfile = () => {
     } catch (error) {
       console.error("Error parsing user data:", error);
       toast.error("Session expired. Please login again.");
-      localStorage.clear();
+      endTabSession();
       navigate("/");
       return null;
     }
@@ -61,7 +62,7 @@ const UserProfile = () => {
     if (!departmentId) return;
     
     try {
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
       const response = await axios.get(`${API_URL}/department/${departmentId}`, { headers });
@@ -80,7 +81,7 @@ const UserProfile = () => {
     if (!companyId) return;
     
     try {
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       
       const response = await axios.get(`${API_URL}/company/${companyId}`, { headers });
@@ -102,7 +103,7 @@ const UserProfile = () => {
       const user = getUserFromStorage();
       if (!user) return;
 
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
       
@@ -130,7 +131,7 @@ const UserProfile = () => {
         });
         
         
-        localStorage.setItem("user", JSON.stringify(userProfile));
+        accountStorage.setItem("user", JSON.stringify(userProfile));
         
         
         if (userProfile.department) {
@@ -172,7 +173,7 @@ const UserProfile = () => {
   };
 
   const documentRequest = async (url, download = false) => {
-    const token = localStorage.getItem("token");
+    const token = accountStorage.getItem("token");
     const response = await axios.get(`${API_URL}${url}`, {
       headers: { Authorization: `Bearer ${token}` },
       responseType: 'blob'
@@ -199,7 +200,7 @@ const UserProfile = () => {
       form.append('document', documentFile);
       form.append('name', documentName || documentFile.name);
       const response = await axios.post(`${API_URL}/users/${userData._id}/documents`, form, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        headers: { Authorization: `Bearer ${accountStorage.getItem("token")}` }
       });
       setDocuments(prev => [...prev, response.data.document]);
       setDocumentName('');
@@ -217,7 +218,7 @@ const UserProfile = () => {
     if (!window.confirm('Delete this document?')) return;
     try {
       await axios.delete(`${API_URL}/users/${userData._id}/documents/${documentId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        headers: { Authorization: `Bearer ${accountStorage.getItem("token")}` }
       });
       setDocuments(prev => prev.filter(doc => doc._id !== documentId));
       toast.success('Document deleted');
@@ -230,7 +231,7 @@ const UserProfile = () => {
   const persistProfileChanges = async (payload, { closeEditMode = true, successMessage = "Profile updated successfully!" } = {}) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
       const response = await axios.put(
@@ -246,7 +247,7 @@ const UserProfile = () => {
           ...(prev || {}),
           ...updatedUser
         }));
-        localStorage.setItem("user", JSON.stringify(updatedUser));
+        accountStorage.setItem("user", JSON.stringify(updatedUser));
         toast.success(successMessage);
         if (closeEditMode) {
           setEditMode(false);

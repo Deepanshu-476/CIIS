@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useRef, useEffect } from 'react';
 import { FiPlay, FiSquare, FiClock, FiCamera, FiMapPin, FiX } from 'react-icons/fi';
 import { toast } from 'react-toastify';
@@ -20,7 +21,7 @@ const ClockInSection = ({
   const attendanceMode = config?.settings?.attendanceMode || 'normal';
   const employeeType = String(user?.employeeType || '').trim().toLowerCase();
   const isWorkFromHomeUser = ['work-from-home', 'work from home', 'wfh'].includes(employeeType);
-  const token = localStorage.getItem('token');
+  const token = accountStorage.getItem('token');
 
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [modalMode, setModalMode] = useState(null); // 'in' or 'out'

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import "./chat.css";
@@ -765,8 +766,8 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
       setChatSettings(mergeChatSettings(updatedUser.chatSettings || payload.chatSettings));
       onSettingsChange?.(mergeChatSettings(updatedUser.chatSettings || payload.chatSettings));
       try {
-        const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
-        localStorage.setItem("user", JSON.stringify({
+        const savedUser = JSON.parse(accountStorage.getItem("user") || "{}");
+        accountStorage.setItem("user", JSON.stringify({
           ...savedUser,
           ...updatedUser,
           ...(payload.name ? { name: payload.name } : {}),
@@ -1098,7 +1099,7 @@ const ChatSettingsPanel = ({ currentUser, users, onSettingsChange }) => {
 const ChatPage = () => {
   const location = useLocation();
   const openedNotification = useRef(null);
-  const currentUser = JSON.parse(localStorage.getItem("user")) || {};
+  const currentUser = JSON.parse(accountStorage.getItem("user")) || {};
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const selectedUserRef = useRef(selectedUser);

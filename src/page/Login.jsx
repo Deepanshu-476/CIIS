@@ -1,28 +1,14 @@
+import { accountStorage, clearTabSession, notifyAuthChanged } from '../utils/authSession';
 import React, { useState, useEffect } from 'react';
 import axios from '../utils/axiosConfig';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import { sanitizeUserForStorage, clearAuthStorageCaches } from '../context/AuthContext';
+import { sanitizeUserForStorage } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import './Login.css'; 
 import { getSidebarConfigParams, saveSidebarConfig } from '../utils/sidebarConfigStore';
 import ResetOtpResend, { ResetOtpSendNote, useResetOtpLimit } from '../components/ResetOtpResend';
 import PublicPromoPopup from '../promotions/PublicPromoPopup';
-
-const clearPreviousLoginStorage = () => {
-  clearAuthStorageCaches();
-  [
-    'token',
-    'user',
-    'superAdmin',
-    'company',
-    'companyDetails',
-    'companyIdentifier',
-    'companyCode',
-    'client',
-    'sidebarConfig',
-  ].forEach(key => localStorage.removeItem(key));
-};
 
 const getCompanyAuthPath = (companyIdentifier, action) => {
   const safeIdentifier = encodeURIComponent(companyIdentifier);
@@ -226,37 +212,37 @@ const Login = () => {
       }
 
 
-      clearPreviousLoginStorage();
+      clearTabSession();
       if (res.data.token) {
-        localStorage.setItem('token', res.data.token);
+        accountStorage.setItem('token', res.data.token);
         setToken?.(res.data.token);
       }
 
       if (res.data.user) {
         const userData = sanitizeUserForStorage(res.data.user);
-        localStorage.setItem('user', JSON.stringify(userData));
+        accountStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         setIsAuthenticated(true);
       }
 
       if (res.data.client) {
-        localStorage.setItem('client', JSON.stringify(res.data.client));
+        accountStorage.setItem('client', JSON.stringify(res.data.client));
         const clientId = String(res.data.client._id || res.data.client.id || res.data.client.clientId || '');
         if (clientId) {
-          localStorage.setItem('client_portal_selected_client_id', clientId);
+          accountStorage.setItem('client_portal_selected_client_id', clientId);
         }
       } else {
-        localStorage.removeItem('client');
-        localStorage.removeItem('client_portal_selected_client_id');
+        accountStorage.removeItem('client');
+        accountStorage.removeItem('client_portal_selected_client_id');
       }
 
       if (activeCompanyIdentifier) {
-        localStorage.setItem('companyIdentifier', activeCompanyIdentifier);
-        localStorage.setItem('companyCode', activeCompanyIdentifier);
+        accountStorage.setItem('companyIdentifier', activeCompanyIdentifier);
+        accountStorage.setItem('companyCode', activeCompanyIdentifier);
       }
 
       if (companyDetails) {
-        localStorage.setItem('companyDetails', JSON.stringify(companyDetails));
+        accountStorage.setItem('companyDetails', JSON.stringify(companyDetails));
       }
 
       toast.success("Login successful!");
@@ -299,6 +285,7 @@ const Login = () => {
         redirectPath = '/admin/dashboard';
       }
 
+      notifyAuthChanged();
       navigate(redirectPath);
 
     } catch (err) {
@@ -390,41 +377,41 @@ const Login = () => {
 
       if (response.data.success) {
 
-        clearPreviousLoginStorage();
+        clearTabSession();
         if (response.data.token) {
-          localStorage.setItem('token', response.data.token);
+          accountStorage.setItem('token', response.data.token);
           setToken?.(response.data.token);
         }
 
         if (response.data.user) {
           const userData = sanitizeUserForStorage(response.data.user);
-          localStorage.setItem('user', JSON.stringify(userData));
+          accountStorage.setItem('user', JSON.stringify(userData));
           setUser(userData);
           setIsAuthenticated(true);
         }
 
         if (response.data.client) {
-          localStorage.setItem('client', JSON.stringify(response.data.client));
+          accountStorage.setItem('client', JSON.stringify(response.data.client));
           const clientId = String(response.data.client._id || response.data.client.id || response.data.client.clientId || '');
           if (clientId) {
-            localStorage.setItem('client_portal_selected_client_id', clientId);
+            accountStorage.setItem('client_portal_selected_client_id', clientId);
           }
         } else {
-          localStorage.removeItem('client');
-          localStorage.removeItem('client_portal_selected_client_id');
+          accountStorage.removeItem('client');
+          accountStorage.removeItem('client_portal_selected_client_id');
         }
 
 
         const activeCompanyIdentifier = (companyIdentifier || form.companyCode).trim();
         if (activeCompanyIdentifier) {
-          localStorage.setItem('companyIdentifier', activeCompanyIdentifier);
-          localStorage.setItem('companyCode', activeCompanyIdentifier);
+          accountStorage.setItem('companyIdentifier', activeCompanyIdentifier);
+          accountStorage.setItem('companyCode', activeCompanyIdentifier);
         }
 
         if (response.data.companyDetails) {
-          localStorage.setItem('companyDetails', JSON.stringify(response.data.companyDetails));
+          accountStorage.setItem('companyDetails', JSON.stringify(response.data.companyDetails));
         } else if (companyDetails) {
-          localStorage.setItem('companyDetails', JSON.stringify(companyDetails));
+          accountStorage.setItem('companyDetails', JSON.stringify(companyDetails));
         }
 
 
@@ -470,6 +457,7 @@ const Login = () => {
           redirectPath = '/admin/dashboard';
         }
 
+        notifyAuthChanged();
         navigate(redirectPath);
       }
     } catch (error) {

@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
@@ -76,7 +77,7 @@ const CompanyUsersPage = () => {
   const [rowMenuOpenId, setRowMenuOpenId] = useState(null);
 
   const getAuthHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    Authorization: `Bearer ${accountStorage.getItem("token")}`,
   });
 
   // Department and job role names come resolved from the server.

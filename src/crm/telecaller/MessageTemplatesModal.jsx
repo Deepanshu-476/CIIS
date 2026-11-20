@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../../utils/axiosConfig";
 import { getStoredUser } from "../../utils/pageAccess";
@@ -12,7 +13,7 @@ const EMPTY_FORM = { id: "", title: "", body: "", channel: "both" };
 
 const getCompanyName = () => {
   try {
-    const company = JSON.parse(localStorage.getItem("companyDetails") || "{}");
+    const company = JSON.parse(accountStorage.getItem("companyDetails") || "{}");
     return company.companyName || company.name || "";
   } catch {
     return "";

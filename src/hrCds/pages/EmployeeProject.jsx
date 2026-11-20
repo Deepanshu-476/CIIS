@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -38,7 +39,7 @@ const getMinDateTimeLocal = () => {
 
 const parseStoredJson = (key) => {
   try {
-    const value = localStorage.getItem(key);
+    const value = accountStorage.getItem(key);
     return value ? JSON.parse(value) : null;
   } catch {
     return null;
@@ -51,10 +52,10 @@ const getCompanyContext = () => {
   const storedCompany = parseStoredJson("company") || {};
   const userCompany =
     typeof user.company === "object" && user.company ? user.company : {};
-  const rawCompany = localStorage.getItem("company") || "";
+  const rawCompany = accountStorage.getItem("company") || "";
 
   const companyCode = String(
-    localStorage.getItem("companyCode") ||
+    accountStorage.getItem("companyCode") ||
       user.companyCode ||
       userCompany.companyCode ||
       userCompany.code ||
@@ -74,7 +75,7 @@ const getCompanyContext = () => {
       companyDetails.id ||
       storedCompany._id ||
       storedCompany.id ||
-      localStorage.getItem("companyIdentifier") ||
+      accountStorage.getItem("companyIdentifier") ||
       ""
   ).trim();
 

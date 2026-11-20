@@ -2,6 +2,7 @@ import axios from "axios";
 import {guardSubscriptionRequest, showExpiredPlan} from './subscriptionRuntime';
 import API_URL, { FALLBACK_API_URL } from "../config";
 import { addActivityHeaders } from './activityTracker';
+import { accountStorage, AUTH_SYNC_EVENT, isDesktopApp } from './authSession';
 
 const resolvedApiUrl = import.meta.env.VITE_API_URL || API_URL;
 const productionApiUrl = FALLBACK_API_URL;
@@ -101,15 +102,15 @@ const reviveCachedResponse = (entry, config = {}) => ({
 const readPersistentGetCache = () => null;
 
 const writePersistentGetCache = () => {
-  // API responses are kept in memory only (never persisted to localStorage).
+  // API responses are kept in memory only (never persisted to accountStorage).
 };
 
 const clearPersistentGetCache = () => {
-  if (typeof localStorage === "undefined") return;
+  if (typeof accountStorage === "undefined") return;
   try {
-    Object.keys(localStorage).forEach(key => {
+    Object.keys(accountStorage).forEach(key => {
       if (key.startsWith(persistentCachePrefix) || key.startsWith("ciis-user-dashboard:")) {
-        localStorage.removeItem(key);
+        accountStorage.removeItem(key);
       }
     });
   } catch {
@@ -161,10 +162,10 @@ const getAuthIdentity = (config = {}) => {
     if (authHeader) {
       return String(authHeader).slice(-20);
     }
-    const token = (typeof localStorage !== "undefined" && localStorage.getItem("token")) || "";
+    const token = (typeof accountStorage !== "undefined" && accountStorage.getItem("token")) || "";
     let userId = "";
-    if (typeof localStorage !== "undefined") {
-      const rawUser = localStorage.getItem("user");
+    if (typeof accountStorage !== "undefined") {
+      const rawUser = accountStorage.getItem("user");
       if (rawUser) {
         const parsed = JSON.parse(rawUser);
         userId = parsed?._id || parsed?.id || "";
@@ -247,11 +248,11 @@ const getRequestCacheTtlMs = (url) => {
   return defaultRequestCacheTtlMs;
 };
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = isDesktopApp;
+if (!isDesktopApp) axios.defaults.headers.common["X-CIIS-Auth-Mode"] = "tab";
 
 const axiosInstance = axios.create({
   baseURL: resolvedApiUrl,
-  withCredentials: true,
 });
 
 const originalDefaultGet = axios.get.bind(axios);
@@ -293,11 +294,11 @@ export const invalidateGetCache = (match) => {
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (!e.key || ["token", "user", "authToken", "currentUser", "superAdmin"].includes(e.key)) {
+    if (e.storageArea === accountStorage && (!e.key || ["token", "user", "authToken", "currentUser", "superAdmin"].includes(e.key))) {
       clearAllCaches();
     }
   });
-  window.addEventListener("ciis-auth-changed", () => {
+  window.addEventListener(AUTH_SYNC_EVENT, () => {
     clearAllCaches();
   });
 }
@@ -395,7 +396,7 @@ axiosInstance.get = (url, config = {}) => cachedGet(originalInstanceGet, url, co
 
 axios.interceptors.request.use((config) => {
   guardSubscriptionRequest(config);
-  const token = localStorage.getItem("token");
+  const token = accountStorage.getItem("token");
   if (token && !config.headers?.Authorization) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -405,7 +406,7 @@ axios.interceptors.request.use((config) => {
 
 axiosInstance.interceptors.request.use((config) => {
   guardSubscriptionRequest(config);
-  const token = localStorage.getItem("token");
+  const token = accountStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return addActivityHeaders(config);
 });

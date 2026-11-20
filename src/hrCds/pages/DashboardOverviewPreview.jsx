@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
@@ -503,8 +504,8 @@ export default function DashboardOverviewPreview() {
 
   const loggedInCompanyId = useMemo(() => {
     try {
-      const user = JSON.parse(localStorage.getItem("user") || localStorage.getItem("currentUser") || "{}");
-      const comp = JSON.parse(localStorage.getItem("company") || localStorage.getItem("companyDetails") || "{}");
+      const user = JSON.parse(accountStorage.getItem("user") || accountStorage.getItem("currentUser") || "{}");
+      const comp = JSON.parse(accountStorage.getItem("company") || accountStorage.getItem("companyDetails") || "{}");
       return comp._id || comp.id || user.companyId || user.company?._id || user.company || "";
     } catch {
       return "";

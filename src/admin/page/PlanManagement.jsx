@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Chip, CircularProgress, Grid, LinearProgress, Stack } from "@mui/material";
 import {
@@ -130,7 +131,7 @@ const emptyForm = {
 
 const getStoredAdminId = () => {
   try {
-    const raw = localStorage.getItem("superAdmin") || localStorage.getItem("user");
+    const raw = accountStorage.getItem("superAdmin") || accountStorage.getItem("user");
     const parsed = raw ? JSON.parse(raw) : null;
     return parsed?._id || parsed?.id || null;
   } catch {

@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -54,7 +55,7 @@ import {
 
 const api = (path, params) => axios.get(`${API_URL}${path}`, {
   params,
-  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+  headers: { Authorization: `Bearer ${accountStorage.getItem("token")}` },
 });
 
 const fmtDate = (value, withTime = false) => {

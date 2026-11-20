@@ -1,3 +1,4 @@
+import { accountStorage, endTabSession } from '../../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import API_URL from '../../config';
@@ -35,7 +36,7 @@ import {
 
 ChartJS.register(ArcElement, Legend, Tooltip);
 
-const getAuthToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+const getAuthToken = () => accountStorage.getItem('token') || accountStorage.getItem('authToken');
 
 const isClientTaskOverdue = task => {
   if (!task?.dueDate || task.completed) return false;
@@ -134,11 +135,11 @@ const ServicesTasks = () => {
       if (response.data?.success) {
         return (response.data.data || []).map(task => ({ ...task, serviceName }));
       }
-      const savedTasks = localStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
+      const savedTasks = accountStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
       return savedTasks ? JSON.parse(savedTasks).map(task => ({ ...task, serviceName })) : [];
     } catch (err) {
       console.error(`Error fetching tasks for ${serviceName}:`, err);
-      const savedTasks = localStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
+      const savedTasks = accountStorage.getItem(`client_${clientId}_service_${serviceName}_tasks`);
       return savedTasks ? JSON.parse(savedTasks).map(task => ({ ...task, serviceName })) : [];
     }
   };
@@ -164,7 +165,7 @@ const ServicesTasks = () => {
       setLoading(true);
       setError('');
 
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         setError('User not found. Please login again.');
         return;
@@ -231,12 +232,7 @@ const ServicesTasks = () => {
   }, [companyInfo.companyCode, companyInfo.companyIdentifier]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('companyCode');
-    localStorage.removeItem('companyIdentifier');
-    localStorage.removeItem('company');
+    endTabSession();
     window.location.replace('/');
   };
 

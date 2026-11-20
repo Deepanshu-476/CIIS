@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FiGitBranch } from 'react-icons/fi';
 import axios from '../../utils/axiosConfig';
@@ -52,7 +53,7 @@ export const isCompanyOwner = (user = {}) => {
 
 const readCurrentUser = () => {
   try {
-    return JSON.parse(localStorage.getItem('user') || '{}');
+    return JSON.parse(accountStorage.getItem('user') || '{}');
   } catch {
     return {};
   }

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect } from 'react';
 import {
     AppBar,
@@ -87,10 +88,10 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
     const { user } = useAuth();
 
     
-    const getLocalStorageData = () => {
+    const getStoredAdminData = () => {
         try {
             
-            const superAdminStr = localStorage.getItem('superAdmin');
+            const superAdminStr = accountStorage.getItem('superAdmin');
             let name = '';
             let loginType = 'Company';
             
@@ -103,7 +104,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
             }
 
             
-            const companyStr = localStorage.getItem('company');
+            const companyStr = accountStorage.getItem('company');
             let companyName = 'CIIS';
             let companyLogo = logo;
             
@@ -122,7 +123,7 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
 
             return { name: name || companyName, companyName, loginType, logo: companyLogo };
         } catch (error) {
-            console.error('Error parsing localStorage data:', error);
+            console.error('Error parsing accountStorage data:', error);
             return {
                 name: 'CIIS',
                 companyName: 'CIIS',
@@ -135,14 +136,14 @@ const SuperAdminHeader = ({ toggleSidebar, isSidebarOpen }) => {
     
     useEffect(() => {
         const updateUserData = () => {
-            const data = getLocalStorageData();
+            const data = getStoredAdminData();
             setUserData(data);
         };
 
         updateUserData();
 
         const handleStorageChange = (e) => {
-            if (e.key === 'superAdmin' || e.key === 'company') {
+            if (e.storageArea === accountStorage && (e.key === 'superAdmin' || e.key === 'company')) {
                 updateUserData();
             }
         };

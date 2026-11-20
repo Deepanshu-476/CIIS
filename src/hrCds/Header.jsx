@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   AppBar,
@@ -77,7 +78,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   const readUnreadCountCache = () => {
     try {
-      const cached = JSON.parse(localStorage.getItem(getUnreadCountCacheKey()) || "null");
+      const cached = JSON.parse(accountStorage.getItem(getUnreadCountCacheKey()) || "null");
       if (!cached || Date.now() - cached.savedAt >= UNREAD_COUNT_CACHE_TTL) return null;
       return Number(cached.count) || 0;
     } catch {
@@ -87,8 +88,8 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   const writeUnreadCountCache = (count) => {
     try {
-      localStorage.setItem(getUnreadCountCacheKey(), JSON.stringify({ count, savedAt: Date.now() }));
-      localStorage.setItem("unreadCount", count);
+      accountStorage.setItem(getUnreadCountCacheKey(), JSON.stringify({ count, savedAt: Date.now() }));
+      accountStorage.setItem("unreadCount", count);
     } catch {
       // Local storage can be unavailable in restricted browser modes.
     }
@@ -96,7 +97,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   const readDismissedNotificationIds = () => {
     try {
-      const stored = localStorage.getItem(getDismissedNotificationKey());
+      const stored = accountStorage.getItem(getDismissedNotificationKey());
       return new Set(JSON.parse(stored || "[]").map(String));
     } catch (error) {
       console.error("Error reading dismissed notifications:", error);
@@ -111,7 +112,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
     const dismissedIds = readDismissedNotificationIds();
     normalizedIds.forEach(id => dismissedIds.add(id));
     const nextIds = Array.from(dismissedIds).slice(-300);
-    localStorage.setItem(getDismissedNotificationKey(), JSON.stringify(nextIds));
+    accountStorage.setItem(getDismissedNotificationKey(), JSON.stringify(nextIds));
   };
 
   const formatSystemNotification = (notification = {}) => ({
@@ -162,7 +163,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   
   const fetchUnreadCount = async (force = false) => {
-    const token = localStorage.getItem("token");
+    const token = accountStorage.getItem("token");
     if (!token) return;
 
     const now = Date.now();
@@ -193,7 +194,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
     } catch (err) {
       console.error("Error fetching unread count:", err);
       
-      const storedUnread = localStorage.getItem('unreadCount');
+      const storedUnread = accountStorage.getItem('unreadCount');
       if (storedUnread) {
         setLocalUnreadCount(parseInt(storedUnread, 10));
       }
@@ -203,7 +204,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   };
 
   useEffect(() => {
-    const stored = localStorage.getItem('unreadCount');
+    const stored = accountStorage.getItem('unreadCount');
     if (stored) {
       setLocalUnreadCount(parseInt(stored, 10));
     }
@@ -246,7 +247,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
           setLocalUnreadCount(prevCount => {
             const newCount = prevCount + 1;
-            localStorage.setItem('unreadCount', newCount);
+            accountStorage.setItem('unreadCount', newCount);
             return newCount;
           });
 
@@ -270,7 +271,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   
   useEffect(() => {
     if (isAlertsPage) {
-      const stored = localStorage.getItem('unreadCount');
+      const stored = accountStorage.getItem('unreadCount');
       if (stored) {
         setLocalUnreadCount(parseInt(stored, 10));
       }
@@ -287,7 +288,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
 
   
   const fetchNotifications = async (silent = false, force = false) => {
-    const token = localStorage.getItem("token");
+    const token = accountStorage.getItem("token");
     if (!token) return;
 
     const now = Date.now();
@@ -476,7 +477,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       setNotifications(filteredNotifications);
       if (typeof backendUnreadCount === 'number') {
         setLocalUnreadCount(backendUnreadCount);
-        localStorage.setItem('unreadCount', backendUnreadCount);
+        accountStorage.setItem('unreadCount', backendUnreadCount);
       }
       setHasFetched(true);
       
@@ -529,7 +530,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
         
         setLocalUnreadCount(prev => {
           const newCount = Math.max(0, prev - 1);
-          localStorage.setItem('unreadCount', newCount);
+          accountStorage.setItem('unreadCount', newCount);
           return newCount;
         });
       }
@@ -537,7 +538,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       
       if (notification._id) {
         await markAsRead(notification._id);
-        const token = localStorage.getItem("token");
+        const token = accountStorage.getItem("token");
         if (token) {
           await axios.patch(`${API_URL}/notifications/${notification._id}/read`, {}, {
             headers: { Authorization: `Bearer ${token}` }
@@ -571,7 +572,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       });
       
       await Promise.all(promises);
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
       if (token) {
         await axios.patch(`${API_URL}/notifications/read-all`, {}, {
           headers: { Authorization: `Bearer ${token}` }
@@ -581,7 +582,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
       
       setNotifications([]);
       setLocalUnreadCount(0);
-      localStorage.setItem('unreadCount', 0);
+      accountStorage.setItem('unreadCount', 0);
       
       showToast('All notifications marked as read', 'success', 3000);
     } catch (error) {
@@ -597,7 +598,7 @@ const Header = ({ toggleSidebar, isMobile, isDashboard = false }) => {
   
   const handleLogoClick = useCallback(() => {
     try {
-      const rawSidebar = localStorage.getItem('sidebarConfig');
+      const rawSidebar = accountStorage.getItem('sidebarConfig');
       if (rawSidebar) {
         const cfg = JSON.parse(rawSidebar);
         const menuItems = Array.isArray(cfg?.menuItems) ? cfg.menuItems : (Array.isArray(cfg?.items) ? cfg.items : []);

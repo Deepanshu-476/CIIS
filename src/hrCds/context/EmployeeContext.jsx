@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { createContext, useContext, useState, useEffect } from 'react';
 
 
@@ -18,17 +19,17 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+    const storedUser = accountStorage.getItem('user');
+    const token = accountStorage.getItem('token');
     if (storedUser && token) {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
         setIsAuthenticated(true);
       } catch (error) {
-        console.error('⚠️ Failed to parse user from localStorage:', error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        console.error('⚠️ Failed to parse user from accountStorage:', error);
+        accountStorage.removeItem('user');
+        accountStorage.removeItem('token');
       }
     }
   }, []);

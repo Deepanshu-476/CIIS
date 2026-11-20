@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import { CRM_PAGES } from '../../config/crmPages';
 import React, { useState, useEffect } from 'react';
 import axios from "../../utils/axiosConfig";
@@ -398,8 +399,7 @@ const SidebarManagement = () => {
 
   const getCompanyFromLocalStorage = () => {
     try {
-      const companyDetailsStr = localStorage.getItem('company') || localStorage.getItem('companyDetails');
-
+      const companyDetailsStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
       if (companyDetailsStr) {
         const companyData = JSON.parse(companyDetailsStr);
         void 0;
@@ -425,7 +425,7 @@ const SidebarManagement = () => {
 
       return null;
     } catch (error) {
-      console.error('Error getting company from localStorage:', error);
+      console.error('Error getting company from accountStorage:', error);
       return null;
     }
   };
@@ -517,7 +517,7 @@ const SidebarManagement = () => {
               ...latestCompany,
               allowedPages: Array.isArray(latestCompany.allowedPages) ? latestCompany.allowedPages : []
             };
-            localStorage.setItem('company', JSON.stringify(activeCompany));
+            accountStorage.setItem('company', JSON.stringify(activeCompany));
           }
         } catch (latestCompanyError) {
           console.warn('Could not refresh company access, using stored company data:', latestCompanyError.message);
@@ -551,7 +551,7 @@ const SidebarManagement = () => {
 
   const fetchBranches = async (companyId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       const response = await axiosInstance.get(`/branches/company/${companyId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -585,7 +585,7 @@ const SidebarManagement = () => {
   const fetchDepartments = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, departments: true }));
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       let url = `/departments?company=${companyId}`;
       if (branchId) {
         url += `&branch=${branchId}`;
@@ -637,8 +637,7 @@ const SidebarManagement = () => {
         return;
       }
 
-      const token = localStorage.getItem('token');
-
+      const token = accountStorage.getItem('token');
       try {
         const response = await axiosInstance.get(`/job-roles/department/${deptId}`, {
           headers: {
@@ -672,7 +671,7 @@ const SidebarManagement = () => {
 
   const fetchCompanyRoles = async (companyId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       const response = await axiosInstance.get(`/job-roles`, {
         params: { company: companyId },
         headers: {
@@ -705,8 +704,7 @@ const SidebarManagement = () => {
   const fetchExistingConfigs = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, fetching: true }));
-      const token = localStorage.getItem('token');
-
+      const token = accountStorage.getItem('token');
       void 0;
 
       const params = { companyId };
@@ -844,7 +842,7 @@ const SidebarManagement = () => {
 
   const loadExistingConfig = async (companyId, departmentId, roleId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       const params = {
         companyId,
         departmentId,
@@ -1089,7 +1087,7 @@ const SidebarManagement = () => {
 
     try {
       setLoading(prev => ({ ...prev, saving: true }));
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       const availablePageMap = new Map(filteredAvailablePages.map(page => [page.id, page]));
 
       const menuItemsMapped = selectedItems.reduce((items, id) => {
@@ -1248,7 +1246,7 @@ const SidebarManagement = () => {
     if (!modalState.data) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = accountStorage.getItem('token');
       const response = await axiosInstance.delete(`/sidebar/${modalState.data}`, {
         headers: {
           Authorization: `Bearer ${token}`,

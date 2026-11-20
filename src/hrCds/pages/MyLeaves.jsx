@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "../../utils/axiosConfig";
 import { useSocket } from "../../context/SocketContext";
@@ -127,13 +128,13 @@ const MyLeaves = () => {
   let companyDetails = null;
 
   try {
-    user = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")) : null;
-    token = localStorage.getItem("token");
-    companyDetails = localStorage.getItem("companyDetails")
-      ? JSON.parse(localStorage.getItem("companyDetails"))
+    user = accountStorage.getItem("user") ? JSON.parse(accountStorage.getItem("user")) : null;
+    token = accountStorage.getItem("token");
+    companyDetails = accountStorage.getItem("companyDetails")
+      ? JSON.parse(accountStorage.getItem("companyDetails"))
       : null;
   } catch (error) {
-    console.error("Error parsing localStorage data:", error);
+    console.error("Error parsing accountStorage data:", error);
   }
 
   // Close dropdowns on outside click

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -414,7 +415,7 @@ export default function CompanyRegister() {
           status: 'Converted',
           convertedCompany: createdCompany._id || createdCompany.id || null
         }, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+          headers: { Authorization: `Bearer ${accountStorage.getItem('token') || ''}` },
           _skipErrorNotify: true
         }).catch((requestErr) => {
           console.warn('Unable to mark registration request as converted:', requestErr);

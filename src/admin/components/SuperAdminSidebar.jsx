@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -245,7 +246,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
   
   useEffect(() => {
     try {
-      const userDataString = localStorage.getItem('superAdmin');
+      const userDataString = accountStorage.getItem('superAdmin');
       
       if (userDataString) {
         const parsedData = JSON.parse(userDataString);
@@ -258,7 +259,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       }
 
     } catch (error) {
-      console.error('Error parsing superAdmin data from localStorage:', error);
+      console.error('Error parsing superAdmin data from accountStorage:', error);
     }
   }, []);
 

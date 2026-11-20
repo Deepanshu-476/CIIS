@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axiosInstance, { clearAllCaches } from '../utils/axiosConfig';
+import axiosInstance from '../utils/axiosConfig';
+import { accountStorage, AUTH_SYNC_EVENT, endTabSession } from '../utils/authSession';
 
 
 export const AuthContext = createContext(null);
-const AUTH_SYNC_EVENT = 'ciis-auth-changed';
 const SENSITIVE_USER_PII_FIELDS = [
   'aadhaar',
   'aadhar',
@@ -45,53 +45,9 @@ export const sanitizeUserForStorage = (user) => {
   return compact(sanitized);
 };
 
-const AUTH_STORAGE_KEYS = [
-  'token',
-  'user',
-  'superAdmin',
-  'company',
-  'companyDetails',
-  'companyCode',
-  'companyIdentifier',
-  'client',
-  'clientPortalSelectedClientId',
-  'unreadCount',
-  'ciis-task-management-cache-v1',
-];
-const APP_CACHE_PREFIXES = [
-  'ciis-task-management-cache:',
-  'ciis-api-cache:',
-  'ciis-user-dashboard:',
-  'ciis-sidebar-badges-cache:',
-  'ciis-sidebar-badges-seen:',
-  'ciis_user_avatar:',
-  'ciis-call-history-',
-  'unread-count-cache:',
-];
-
-export const clearAuthStorageCaches = () => {
-  // Evict only disposable app caches; preserve other settings and stored work.
-  Object.keys(localStorage).forEach(key => {
-    if (key === 'ciis-task-management-cache-v1' || APP_CACHE_PREFIXES.some(prefix => key.startsWith(prefix))) {
-      localStorage.removeItem(key);
-    }
-  });
-};
-
-const clearStorageKeys = storage => {
-  if (!storage) return;
-
-  AUTH_STORAGE_KEYS.forEach(key => storage.removeItem(key));
-  Object.keys(storage).forEach(key => {
-    if (APP_CACHE_PREFIXES.some(prefix => key.startsWith(prefix))) {
-      storage.removeItem(key);
-    }
-  });
-};
-
 const readStoredAuth = () => {
-  const storedToken = localStorage.getItem('token');
-  const storedUser = localStorage.getItem('user');
+  const storedToken = accountStorage.getItem('token');
+  const storedUser = accountStorage.getItem('user');
 
   if (!storedToken || !storedUser) {
     return { user: null, token: null, isAuthenticated: false };
@@ -102,7 +58,7 @@ const readStoredAuth = () => {
     const sanitizedUser = sanitizeUserForStorage(parsedUser);
     const sanitizedSerialized = JSON.stringify(sanitizedUser);
     if (sanitizedSerialized !== storedUser) {
-      localStorage.setItem('user', sanitizedSerialized);
+      accountStorage.setItem('user', sanitizedSerialized);
     }
     return {
       user: sanitizedUser,
@@ -110,9 +66,9 @@ const readStoredAuth = () => {
       isAuthenticated: true,
     };
   } catch (error) {
-    console.error('⚠️ Failed to parse user from localStorage:', error);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    console.error('⚠️ Failed to parse user from accountStorage:', error);
+    accountStorage.removeItem('user');
+    accountStorage.removeItem('token');
     return { user: null, token: null, isAuthenticated: false };
   }
 };
@@ -145,33 +101,16 @@ export const AuthProvider = ({ children }) => {
     syncAuthState();
 
     const handleAuthChange = () => syncAuthState();
-    window.addEventListener('storage', handleAuthChange);
     window.addEventListener(AUTH_SYNC_EVENT, handleAuthChange);
 
     return () => {
-      window.removeEventListener('storage', handleAuthChange);
       window.removeEventListener(AUTH_SYNC_EVENT, handleAuthChange);
     };
   }, [syncAuthState]);
 
   const logout = useCallback(() => {
     axiosInstance.post('/auth/logout', {}, { _skipErrorNotify: true }).catch(() => {});
-    clearStorageKeys(localStorage);
-    clearStorageKeys(sessionStorage);
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch {
-      // Ignore storage errors in restricted browser environments.
-    }
-    setUser(null);
-    setToken(null);
-    setIsAuthenticated(false);
-    clearAllCaches();
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event(AUTH_SYNC_EVENT));
-    }
+    endTabSession();
   }, []);
 
   return (

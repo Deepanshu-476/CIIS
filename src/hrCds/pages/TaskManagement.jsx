@@ -1,3 +1,4 @@
+import { accountStorage, endTabSession } from '../../utils/authSession';
 import { hasOverdueStatus, OVERDUE_STATUS_MESSAGE } from '../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import jsPDF from 'jspdf';
@@ -670,7 +671,7 @@ const getIndiaDateTimeLocalValue = () => (
 
 const readStoredObject = (key) => {
   try {
-    return JSON.parse(localStorage.getItem(key) || 'null') || {};
+    return JSON.parse(accountStorage.getItem(key) || 'null') || {};
   } catch {
     return {};
   }
@@ -764,7 +765,7 @@ const getTaskManagementCompanyContext = (user = {}, storedClient = {}) => {
     storedCompany.code,
     storedClient.companyCode,
     clientCompany.companyCode,
-    localStorage.getItem('companyCode')
+    accountStorage.getItem('companyCode')
   ]);
 
   const companyIdentifier = firstNonEmptyString([
@@ -781,7 +782,7 @@ const getTaskManagementCompanyContext = (user = {}, storedClient = {}) => {
     storedClient.companyIdentifier,
     clientCompany._id,
     clientCompany.id,
-    localStorage.getItem('companyIdentifier')
+    accountStorage.getItem('companyIdentifier')
   ]);
 
   return { companyCode, companyIdentifier };
@@ -804,7 +805,7 @@ const renderActivityDescription = (description = '') => {
 
 const getStoredTaskUser = () => {
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = accountStorage.getItem('user');
     if (!rawUser) return null;
     const user = JSON.parse(rawUser);
     const id = user.id || user._id;
@@ -930,13 +931,11 @@ let taskManagementMemoryCache = null;
 const saveTaskStatus = createTaskStatusSaver(axios);
 
 const TASK_MANAGEMENT_SESSION_CACHE_KEY = 'ciis-task-management-cache-v1';
-const getTaskManagementLocalCacheKey = userId => `ciis-task-management-cache:${userId || 'anonymous'}`;
 
 const getTaskManagementSessionCache = () => {
   try {
     return JSON.parse(
       sessionStorage.getItem(TASK_MANAGEMENT_SESSION_CACHE_KEY) ||
-      localStorage.getItem(TASK_MANAGEMENT_SESSION_CACHE_KEY) ||
       'null'
     );
   } catch {
@@ -944,21 +943,9 @@ const getTaskManagementSessionCache = () => {
   }
 };
 
-const getTaskManagementPersistentCache = (userId) => {
-  try {
-    return JSON.parse(localStorage.getItem(getTaskManagementLocalCacheKey(userId)) || 'null');
-  } catch {
-    return null;
-  }
-};
-
-const persistTaskManagementCache = (cache, userId = cache?.userId) => {
+const persistTaskManagementCache = (cache) => {
   try {
     sessionStorage.setItem(TASK_MANAGEMENT_SESSION_CACHE_KEY, JSON.stringify(cache));
-    localStorage.setItem(TASK_MANAGEMENT_SESSION_CACHE_KEY, JSON.stringify(cache));
-    if (userId) {
-      localStorage.setItem(getTaskManagementLocalCacheKey(userId), JSON.stringify(cache));
-    }
   } catch {
     // Large task attachments can exceed browser storage; memory cache still works.
   }
@@ -1005,8 +992,7 @@ const UserCreateTask = () => {
   const cachedTaskData = useMemo(() => {
     const availableCache = [
       taskManagementMemoryCache,
-      getTaskManagementSessionCache(),
-      getTaskManagementPersistentCache(storedTaskUser?.id)
+      getTaskManagementSessionCache()
     ].find(cache => cache && cache.userId === storedTaskUser?.id &&
       cache.period === initialTaskPeriod);
     if (!availableCache) return null;
@@ -1872,7 +1858,7 @@ const UserCreateTask = () => {
 
   const fetchUserData = useCallback(() => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         setAuthError(true);
         showSnackbar('Please log in to access tasks', 'error');
@@ -5652,25 +5638,7 @@ const UserCreateTask = () => {
   
   const handleLogout = () => {
     taskManagementMemoryCache = null;
-    sessionStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
-    localStorage.removeItem(TASK_MANAGEMENT_SESSION_CACHE_KEY);
-    localStorage.removeItem(getTaskManagementLocalCacheKey(userId));
-    [
-      'user',
-      'token',
-      'superAdmin',
-      'company',
-      'companyDetails',
-      'companyCode',
-      'companyIdentifier',
-      'client',
-      'clientPortalSelectedClientId',
-      'unreadCount'
-    ].forEach(key => {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
-    });
-    window.dispatchEvent(new Event('ciis-auth-changed'));
+    endTabSession();
     navigate('/', { replace: true });
   };
 
@@ -5680,7 +5648,7 @@ const UserCreateTask = () => {
       void 0;
       
       try {
-        const userStr = localStorage.getItem('user');
+        const userStr = accountStorage.getItem('user');
         if (userStr) {
           const user = JSON.parse(userStr);
           const userIdFromStorage = user.id || user._id;
@@ -5697,11 +5665,11 @@ const UserCreateTask = () => {
             
             void 0;
           } else {
-            console.error('❌ Invalid user data in localStorage');
+            console.error('❌ Invalid user data in accountStorage');
             setAuthError(true);
           }
         } else {
-          console.error('❌ No user data in localStorage');
+          console.error('❌ No user data in accountStorage');
           setAuthError(true);
         }
       } catch (error) {
@@ -5853,7 +5821,7 @@ const UserCreateTask = () => {
     // allTaskStats changes after every reload and status change, so the graph follows them.
   }, [authError, userId, trendPeriod, taskViewMode, allTaskStats, taskFeatureAccess, extractTasksFromResponse]);
 
-  if (authError && !localStorage.getItem('token')) {
+  if (authError && !accountStorage.getItem('token')) {
     return (
       <div className="user-create-task-error-container">
         <div className="user-create-task-error-card">

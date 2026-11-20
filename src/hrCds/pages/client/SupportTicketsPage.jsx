@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useState } from "react";
 import {
   FiCalendar,
@@ -80,7 +81,7 @@ const SupportTicketsPage = () => {
       setMeetingsLoading(true);
       setMeetingsError('');
       try {
-        const companyCode = client.companyCode || localStorage.getItem('companyCode') || localStorage.getItem('company') || '';
+        const companyCode = client.companyCode || accountStorage.getItem('companyCode') || accountStorage.getItem('company') || '';
         const response = await axiosInstance.get('/cmeeting/history', {
           params: {
             clientId: client._id,

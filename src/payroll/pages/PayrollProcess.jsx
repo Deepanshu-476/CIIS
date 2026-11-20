@@ -1,3 +1,4 @@
+import { openPortalTab } from "../../utils/authSession";
 import React, { useCallback, useEffect, useState } from "react";
 import { FiCalendar, FiCheckCircle, FiClock, FiCreditCard, FiDollarSign, FiEdit2, FiEye, FiFileText, FiList, FiLock, FiUnlock, FiRefreshCw, FiSettings, FiUsers, FiX } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
@@ -161,7 +162,7 @@ export default function PayrollProcess() {
       params.set("employeeId", String(userId));
       params.set("user", String(userId));
     }
-    window.open(`${path}?${params.toString()}`, "_blank");
+    openPortalTab(`${path}?${params.toString()}`);
   };
 
   const reprocessSingleEmployee = async (employee) => {

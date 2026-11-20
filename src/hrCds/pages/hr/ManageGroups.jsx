@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../context/useAuth";
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from "../../../utils/pageAccess";
@@ -86,7 +87,7 @@ const ManageGroups = () => {
 
   const apiCall = async (method, url, data = null, config = {}) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = accountStorage.getItem("token");
 
       const response = await axiosInstance({
         method,

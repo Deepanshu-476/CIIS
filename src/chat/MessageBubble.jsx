@@ -606,14 +606,14 @@ const MessageBubble = ({
                 // Bypass the browser's HTTP cache for videos so a prior non-CORS <video>
                 // request does not cause a CORS failure on download.
                 const fetchOptions = (isVideoMedia || skipCache)
-                    ? { credentials: "include", cache: "no-store" }
-                    : { credentials: "include" };
+                    ? { credentials: "omit", cache: "no-store" }
+                    : { credentials: "omit" };
                 let response;
                 try {
                     response = await fetch(url, fetchOptions);
                 } catch (firstError) {
                     if (fetchOptions.cache === "no-store") throw firstError;
-                    response = await fetch(url, { credentials: "include", cache: "no-store" });
+                    response = await fetch(url, { credentials: "omit", cache: "no-store" });
                 }
                 validateResponse(response);
 

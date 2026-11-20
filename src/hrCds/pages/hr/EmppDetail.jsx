@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import axios from "../../../utils/axiosConfig";
@@ -196,11 +197,11 @@ const useForm = (initialState = {}) => {
 const useUser = () => {
   const getCurrentUser = useCallback(() => {
     try {
-      const userData = localStorage.getItem('user');
-      const companyData = localStorage.getItem('companyDetails');
+      const userData = accountStorage.getItem('user');
+      const companyData = accountStorage.getItem('companyDetails');
       
       if (!userData) {
-        console.warn("❌ No user data found in localStorage");
+        console.warn("❌ No user data found in accountStorage");
         return null;
       }
       
@@ -252,7 +253,7 @@ const useUser = () => {
   
   const getCurrentUserCompanyCode = useCallback(() => {
     const user = getCurrentUser();
-    return localStorage.getItem('companyCode') ||
+    return accountStorage.getItem('companyCode') ||
       user?.companyCode ||
       user?.company?.companyCode ||
       user?.companyDetails?.companyCode ||
@@ -296,7 +297,7 @@ const useUser = () => {
   }, []);
   
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem('token');
+    return accountStorage.getItem('token');
   }, []);
   
   return {
@@ -2770,11 +2771,11 @@ const EmployeeDirectory = () => {
         if (isSelfEdit) {
           const currentUserData = user.getCurrentUser();
           const updatedCurrentUser = { ...currentUserData, ...updateData, ...updatedUser };
-          localStorage.setItem('user', JSON.stringify(updatedCurrentUser));
+          accountStorage.setItem('user', JSON.stringify(updatedCurrentUser));
           
-          const companyDetails = localStorage.getItem('companyDetails');
+          const companyDetails = accountStorage.getItem('companyDetails');
           if (companyDetails && updatedUser.companyDetails) {
-            localStorage.setItem('companyDetails', JSON.stringify(updatedUser.companyDetails));
+            accountStorage.setItem('companyDetails', JSON.stringify(updatedUser.companyDetails));
           }
           
           showSnackbar('Your profile has been updated successfully');

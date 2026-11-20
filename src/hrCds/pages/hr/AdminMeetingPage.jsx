@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useState } from "react";
 import axios from "../../../utils/axiosConfig";
 import API_URL from "../../../config";
@@ -66,7 +67,7 @@ export default function AdminMeetingPage() {
   const [editingMeeting, setEditingMeeting] = useState(null);
   const [editingClientMeeting, setEditingClientMeeting] = useState(null);
 
-  const adminId = localStorage.getItem("userId");
+  const adminId = accountStorage.getItem("userId");
 
   
   useEffect(() => {
@@ -108,11 +109,11 @@ export default function AdminMeetingPage() {
   const getCompanyCodeFromUsers = (usersList) => {
     if (usersList && usersList.length > 0 && usersList[0].companyCode) {
       const code = usersList[0].companyCode;
-      localStorage.setItem("companyCode", code);
+      accountStorage.setItem("companyCode", code);
       setCompanyCode(code);
       return code;
     }
-    const storedCode = localStorage.getItem("companyCode") || "CAREER";
+    const storedCode = accountStorage.getItem("companyCode") || "CAREER";
     setCompanyCode(storedCode);
     return storedCode;
   };
@@ -127,7 +128,7 @@ export default function AdminMeetingPage() {
         
         if (fetchedUsers.length > 0 && fetchedUsers[0].companyCode) {
           const code = fetchedUsers[0].companyCode;
-          localStorage.setItem("companyCode", code);
+          accountStorage.setItem("companyCode", code);
           setCompanyCode(code);
           void 0;
         }
@@ -147,7 +148,7 @@ export default function AdminMeetingPage() {
     try {
       setRefreshing(true);
       
-      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      const currentCompanyCode = companyCode || accountStorage.getItem("companyCode") || "CAREER";
       
       void 0;
       
@@ -207,7 +208,7 @@ export default function AdminMeetingPage() {
 
   const fetchClients = async () => {
     try {
-      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      const currentCompanyCode = companyCode || accountStorage.getItem("companyCode") || "CAREER";
       const res = await axios.get(`${API_URL}/clientsservice/company/${currentCompanyCode}`, {
         params: { page: 1, limit: 100 }
       });
@@ -223,7 +224,7 @@ export default function AdminMeetingPage() {
   const fetchClientMeetings = async () => {
     try {
       setRefreshing(true);
-      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      const currentCompanyCode = companyCode || accountStorage.getItem("companyCode") || "CAREER";
       const res = await axios.get(`${API_URL}/cmeeting`, {
         params: { companyCode: currentCompanyCode, page: 1, limit: 100 }
       });
@@ -485,7 +486,7 @@ export default function AdminMeetingPage() {
 
     setLoading(true);
     try {
-      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      const currentCompanyCode = companyCode || accountStorage.getItem("companyCode") || "CAREER";
       
       const payload = { 
         title: form.title,
@@ -570,7 +571,7 @@ export default function AdminMeetingPage() {
 
     setLoading(true);
     try {
-      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      const currentCompanyCode = companyCode || accountStorage.getItem("companyCode") || "CAREER";
       const payload = {
         ...clientForm,
         meetingDate: finalDates[0],
@@ -615,7 +616,7 @@ export default function AdminMeetingPage() {
 
     setLoading(true);
     try {
-      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      const currentCompanyCode = companyCode || accountStorage.getItem("companyCode") || "CAREER";
       
       const payload = {
         title: editingMeeting.title,
@@ -688,7 +689,7 @@ export default function AdminMeetingPage() {
 
     setLoading(true);
     try {
-      const currentCompanyCode = companyCode || localStorage.getItem("companyCode") || "CAREER";
+      const currentCompanyCode = companyCode || accountStorage.getItem("companyCode") || "CAREER";
       const payload = {
         ...editingClientMeeting,
         companyCode: currentCompanyCode,

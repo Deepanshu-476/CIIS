@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -198,7 +199,7 @@ const normalizeAllowedPages = pages => {
 
 const getStoredAdminId = () => {
   try {
-    const raw = localStorage.getItem("superAdmin") || localStorage.getItem("user");
+    const raw = accountStorage.getItem("superAdmin") || accountStorage.getItem("user");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?._id || parsed?.id || parsed?.user?._id || parsed?.user?.id || null;
@@ -209,7 +210,7 @@ const getStoredAdminId = () => {
 
 const getStoredActiveCompanyId = () => {
   try {
-    const raw = localStorage.getItem("company") || localStorage.getItem("companyDetails");
+    const raw = accountStorage.getItem("company") || accountStorage.getItem("companyDetails");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?._id || parsed?.id || null;
@@ -661,8 +662,8 @@ export default function CompanyAccessManagement() {
       // Only update local storage if the company being edited is the currently logged-in active company
       const activeCompanyId = getStoredActiveCompanyId();
       if (activeCompanyId && activeCompanyId === updatedCompany._id) {
-        localStorage.setItem("company", JSON.stringify(updatedCompany));
-        localStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
+        accountStorage.setItem("company", JSON.stringify(updatedCompany));
+        accountStorage.setItem("companyDetails", JSON.stringify(updatedCompany));
       }
 
       showAccessNotice("success", response.data.message || "Save successful. Company access has been updated.");

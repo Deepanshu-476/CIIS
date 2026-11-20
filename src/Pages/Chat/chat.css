@@ -2968,8 +2968,34 @@
     width: 100%;
     height: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
     gap: 10px;
+}
+
+.call-remote-stage:not(.has-presenter) .call-video-grid {
+    /* Keep the gallery inside the stage even when participant rows overflow. */
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    grid-auto-rows: minmax(160px, 1fr);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #64748b #07111f;
+}
+
+.call-remote-stage.group-stage:not(.has-presenter) .call-video-grid {
+    padding: 10px;
+}
+
+.call-video-grid:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: -2px;
+}
+
+.call-remote-stage:not(.has-presenter) .call-local-tile {
+    pointer-events: none;
 }
 
 /* ---- Presentation layout: one shared screen on the stage, cameras in a strip ---- */
@@ -9657,8 +9683,7 @@ body.chat-sidebar-resizing * {
 }
 .call-overlay.video-call .call-remote-stage {
     flex: 1 1 auto;
-    min-height: 200px;
-    max-height: calc(100dvh - 300px);
+    min-height: 0;
 }
 .call-overlay .call-panel:fullscreen {
     box-sizing: border-box;
@@ -9677,6 +9702,9 @@ body.chat-sidebar-resizing * {
     max-height: none;
     aspect-ratio: auto;
 }
+.call-overlay.video-call .call-topbar,
+.call-overlay.video-call .call-actions,
+.call-overlay.video-call .call-info,
 .call-overlay .call-panel:fullscreen .call-actions,
 .call-overlay .call-panel:fullscreen .call-info {
     flex: 0 0 auto;

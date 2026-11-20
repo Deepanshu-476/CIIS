@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import axiosInstance from "../../utils/axiosConfig";
-import socket from "../../socket/socket";
+import { useSocket } from "../../context/SocketContext";
 import "./DepartmentSupportDesk.css";
 
 // Helper: Normalize status classes
@@ -273,6 +273,7 @@ const SupportBubbleGraphic = () => (
 );
 
 const DepartmentSupportDesk = () => {
+  const { socket } = useSocket();
   const [tickets, setTickets] = useState(INITIAL_DEMO_TICKETS);
   const [selectedTicketId, setSelectedTicketId] = useState("SUP-1038");
   const [query, setQuery] = useState("");
@@ -346,7 +347,7 @@ const DepartmentSupportDesk = () => {
         socket.off("ticket:updated", handleTicketUpdate);
       };
     }
-  }, []);
+  }, [socket]);
 
   // Close menus on outside click
   useEffect(() => {

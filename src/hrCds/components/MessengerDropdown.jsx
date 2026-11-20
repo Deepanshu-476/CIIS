@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 // This dropdown is on every portal page; the picker is only needed once someone opens it.
@@ -95,11 +96,7 @@ const getEntityId = (value) => {
 
 export const hasCompanyChatAccess = () => {
   try {
-    const storage = typeof window !== "undefined" && window?.localStorage
-      ? window.localStorage
-      : (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!storage) return true;
-    const raw = storage.getItem("companyDetails");
+    const raw = accountStorage?.getItem("companyDetails");
     if (!raw) return true;
     const company = JSON.parse(raw);
     const allowed = Array.isArray(company?.allowedPages) ? company.allowedPages : [];

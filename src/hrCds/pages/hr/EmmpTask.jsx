@@ -1,3 +1,4 @@
+import { accountStorage, endTabSession } from '../../../utils/authSession';
 import { hasOverdueStatus } from '../../../utils/taskStatusAccess';
 import React, { useEffect, useState } from 'react';
 import axios from '../../../utils/axiosConfig';
@@ -334,9 +335,9 @@ const EmmpTask = () => {
   
   const fetchUserRole = () => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
-        console.error('No user data found in localStorage');
+        console.error('No user data found in accountStorage');
         setAuthError(true);
         setSnackbar({ 
           open: true, 
@@ -529,9 +530,7 @@ const EmmpTask = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    window.dispatchEvent(new Event('ciis-auth-changed'));
+    endTabSession();
     navigate('/', { replace: true });
   };
 
@@ -647,7 +646,7 @@ const EmmpTask = () => {
   }, [authError, userId]);
 
   
-  if (authError && !localStorage.getItem('token')) {
+  if (authError && !accountStorage.getItem('token')) {
     return (
       <Box sx={{ 
         display: 'flex', 

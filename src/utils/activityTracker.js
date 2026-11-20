@@ -1,3 +1,4 @@
+import { accountStorage } from './authSession';
 import { API_URL } from '../config';
 
 // User Activity tracking (website side).
@@ -19,7 +20,7 @@ let timer = null;
 
 const isTrackedPath = pathname => /^\/ciisUser(\/|$)/i.test(String(pathname || ''));
 const token = () => {
-  try { return localStorage.getItem('token') || ''; } catch { return ''; }
+  try { return accountStorage.getItem('token') || ''; } catch { return ''; }
 };
 
 // True for requests to our own backend (relative URLs or the API origin).
@@ -48,6 +49,7 @@ export const flushPageViews = ({ useBeacon = false } = {}) => {
   const body = JSON.stringify({ views });
   try {
     fetch(VIEWS_URL, {
+      credentials: "omit",
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth}`, 'X-Client-App': 'web' },
       body,

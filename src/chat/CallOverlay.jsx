@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
     Maximize2,
@@ -154,7 +155,7 @@ const getKnownParticipantUser = (target, userId) => {
 
 const getStoredUser = () => {
     try {
-        return JSON.parse(localStorage.getItem("user") || localStorage.getItem("superAdmin")) || {};
+        return JSON.parse(accountStorage.getItem("user") || accountStorage.getItem("superAdmin")) || {};
     } catch {
         return {};
     }
@@ -299,10 +300,11 @@ const useAudioActivity = (stream, enabled = true) => {
     return isSpeaking;
 };
 
-const RemoteVideoTile = ({ participant, isPresenter = false }) => {
+const RemoteVideoTile = ({ participant, muted, isPresenter = false }) => {
     const videoRef = useRef(null);
     const audioRef = useRef(null);
-    const [isMuted, setIsMuted] = useState(false);
+    const [trackMuted, setTrackMuted] = useState(true);
+    const isMuted = muted ?? trackMuted;
     const isSpeaking = useAudioActivity(participant.stream, !isMuted);
 
     useEffect(() => {
@@ -317,12 +319,12 @@ const RemoteVideoTile = ({ participant, isPresenter = false }) => {
 
         const audioTrack = participant.stream?.getAudioTracks()?.[0];
         if (!audioTrack) {
-            setIsMuted(true);
+            setTrackMuted(true);
             return;
         }
 
         const updateMuteStatus = () => {
-            setIsMuted(!audioTrack.enabled || audioTrack.muted);
+            setTrackMuted(!audioTrack.enabled || audioTrack.muted || audioTrack.readyState === "ended");
         };
 
         updateMuteStatus();
@@ -372,21 +374,19 @@ const RemoteVideoTile = ({ participant, isPresenter = false }) => {
     );
 };
 
-const VoiceCallCard = ({ user, stream, isMuted: propMuted = false, isLocal = false }) => {
-    const [isMuted, setIsMuted] = useState(propMuted);
+const VoiceCallCard = ({ user, stream, muted, isLocal = false }) => {
+    const [trackMuted, setTrackMuted] = useState(true);
+    const isMuted = muted ?? trackMuted;
 
     useEffect(() => {
-        if (isLocal) {
-            setIsMuted(propMuted);
-            return;
-        }
+        if (isLocal) return;
         const audioTrack = stream?.getAudioTracks()?.[0];
         if (!audioTrack) {
-            setIsMuted(true);
+            setTrackMuted(true);
             return;
         }
         const updateMuteStatus = () => {
-            setIsMuted(!audioTrack.enabled || audioTrack.muted);
+            setTrackMuted(!audioTrack.enabled || audioTrack.muted || audioTrack.readyState === "ended");
         };
         updateMuteStatus();
         audioTrack.addEventListener("mute", updateMuteStatus);
@@ -397,7 +397,7 @@ const VoiceCallCard = ({ user, stream, isMuted: propMuted = false, isLocal = fal
             audioTrack.removeEventListener("unmute", updateMuteStatus);
             audioTrack.removeEventListener("ended", updateMuteStatus);
         };
-    }, [stream, propMuted, isLocal]);
+    }, [stream, isLocal]);
 
     const isSpeaking = useAudioActivity(stream, !isMuted);
     const avatarSrc = getAvatarSrc(user?.avatar || user?.profileImage || user?.image);
@@ -457,6 +457,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [call, setCall] = useState(null);
     const [error, setError] = useState("");
     const [isMuted, setIsMuted] = useState(false);
+    const isMutedRef = useRef(false);
     const [isCameraOff, setIsCameraOff] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -507,8 +508,9 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }
 
         try {
-            const token = localStorage.getItem("token");
+            const token = accountStorage.getItem("token");
             const response = await fetch(`${API_URL}/chat/turn-credentials`, {
+                credentials: "omit",
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
 
@@ -754,6 +756,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     };
 
     const attachLocalStream = (stream) => {
+        stream.getAudioTracks().forEach(track => { track.enabled = !isMutedRef.current; });
         localStreamRef.current = stream;
         setLocalStream(stream);
         if (localVideoRef.current) {
@@ -823,6 +826,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         activeCallRef.current = null;
         setCall(null);
         setError("");
+        isMutedRef.current = false;
         setIsMuted(false);
         setIsCameraOff(false);
         setIsScreenSharing(false);
@@ -1470,12 +1474,19 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         resetCall();
     };
 
+    const publishMuteState = () => {
+        const callId = activeCallRef.current?.callId;
+        if (callId && socket?.connected) socket.emit("call:mic-state", { callId, muted: isMutedRef.current });
+    };
+
     const toggleMute = () => {
-        const nextMuted = !isMuted;
+        const nextMuted = !isMutedRef.current;
+        isMutedRef.current = nextMuted;
         localStreamRef.current?.getAudioTracks().forEach(track => {
             track.enabled = !nextMuted;
         });
         setIsMuted(nextMuted);
+        publishMuteState();
     };
 
     const toggleCamera = () => {
@@ -1674,10 +1685,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             const connectedAt = data.answeredAt ? new Date(data.answeredAt).toISOString() : undefined;
             const activeNextCall = activateCall(activeCall, connectedAt ? { connectedAt } : {});
             applyScreenShareUserId(data.screenShareUserId);
-            socket.emit("call:get-roster", { callId: data.callId }, payload => {
-                if (payload?.participants && activeCallRef.current?.callId === data.callId) setCallRoster(payload.participants);
-                if (payload && activeCallRef.current?.callId === data.callId) applyScreenShareUserId(payload.screenShareUserId);
-            });
+            publishMuteState();
 
             (data.participants || []).forEach(participant => {
                 upsertRemoteParticipant(participant.userId, { user: participant.user });
@@ -1698,6 +1706,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 }, connectedAt ? { connectedAt } : {});
                 window.clearTimeout(callTimeoutRef.current);
                 callTimeoutRef.current = null;
+                publishMuteState();
                 upsertRemoteParticipant(data.fromUserId, { user: data.fromUser });
                 await createOfferForPeer(data.fromUserId, data.fromUser);
             } catch (error) {
@@ -1852,7 +1861,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 resetCall();
                 return;
             }
-            socket.emit("call:rebind", { callId: activeCall.callId });
+            socket.emit("call:rebind", { callId: activeCall.callId, muted: isMutedRef.current });
         };
 
         socket.on("connect", handleConnect);
@@ -2157,6 +2166,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         );
     }
 
+    const mutedByUserId = new Map(callRoster.map(person => [String(person.userId), person.muted]));
+
     return (
         <div className={showsVideoStage ? "call-overlay video-call" : "call-overlay voice-call"}>
             <div className="call-panel">
@@ -2263,11 +2274,12 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                     )}
                     {showsVideoStage ? (
                         remoteParticipants.length > 0 ? (
-                            <div className="call-video-grid">
+                            <div className="call-video-grid" tabIndex={0} role="region" aria-label="Call participants">
                                 {remoteParticipants.map(participant => (
                                     <RemoteVideoTile
                                         key={participant.userId}
                                         participant={participant}
+                                        muted={mutedByUserId.get(String(participant.userId))}
                                         isPresenter={isPresenterTile(participant, presenter)}
                                     />
                                 ))}
@@ -2284,7 +2296,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                         <VoiceCallCard
                                             user={participant.user || getKnownParticipantUser(call.peerUser, participant.userId) || { name: "Participant" }}
                                             stream={participant.stream}
-                                            isMuted={!participant.stream?.getAudioTracks()?.[0]?.enabled}
+                                            muted={mutedByUserId.get(String(participant.userId))}
                                             isLocal={false}
                                         />
                                     </React.Fragment>
@@ -2293,7 +2305,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                 <VoiceCallCard
                                     user={call.peerUser || { name: call.title || "User" }}
                                     stream={null}
-                                    isMuted={false}
+                                    muted={mutedByUserId.get(getUserId(call.peerUser))}
                                     isLocal={false}
                                 />
                             )}
@@ -2301,7 +2313,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                                 <VoiceCallCard
                                     user={localUserInfo}
                                     stream={localStream}
-                                    isMuted={isMuted}
+                                    muted={isMuted}
                                     isLocal={true}
                                 />
                             )}

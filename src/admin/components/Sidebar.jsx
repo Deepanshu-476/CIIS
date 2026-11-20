@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -161,7 +162,7 @@ const Sidebar = ({ isMobile = false }) => {
 
   
   useEffect(() => {
-    const user = localStorage.getItem("user");
+    const user = accountStorage.getItem("user");
     if (user) {
       try {
         setUserData(JSON.parse(user));

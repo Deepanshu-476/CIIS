@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, Suspense } from 'react';
 import { styled, useTheme } from '@mui/material/styles';
 import {
@@ -97,7 +98,7 @@ const SuperAdminLayout = () => {
 
   let isSuperAdmin = false;
   try {
-    const superAdminRaw = localStorage.getItem('superAdmin');
+    const superAdminRaw = accountStorage.getItem('superAdmin');
     if (superAdminRaw) {
       const parsed = JSON.parse(superAdminRaw);
       const account = parsed?.user || parsed;
@@ -107,7 +108,7 @@ const SuperAdminLayout = () => {
       }
     }
     if (!isSuperAdmin) {
-      const userRaw = localStorage.getItem('user');
+      const userRaw = accountStorage.getItem('user');
       if (userRaw) {
         const parsed = JSON.parse(userRaw);
         const account = parsed?.user || parsed;
@@ -122,11 +123,11 @@ const SuperAdminLayout = () => {
   }
 
   if (!isSuperAdmin) {
-    const isClient = Boolean(localStorage.getItem('client') || localStorage.getItem('authToken'));
+    const isClient = Boolean(accountStorage.getItem('client') || accountStorage.getItem('authToken'));
     if (isClient) {
       return <Navigate to="/client/dashboard" replace />;
     }
-    const companyCode = localStorage.getItem('companyCode') || localStorage.getItem('companyIdentifier');
+    const companyCode = accountStorage.getItem('companyCode') || accountStorage.getItem('companyIdentifier');
     if (companyCode) {
       return <Navigate to="/ciisUser/user-dashboard" replace />;
     }

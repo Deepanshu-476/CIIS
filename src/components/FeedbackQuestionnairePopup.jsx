@@ -1,3 +1,4 @@
+import { accountStorage } from '../utils/authSession';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from '../utils/axiosConfig';
 import { useAuth } from '../context/AuthContext';
@@ -16,14 +17,14 @@ const getId = value => {
 
 const loadDismissed = () => {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    return JSON.parse(accountStorage.getItem(STORAGE_KEY) || '{}');
   } catch {
     return {};
   }
 };
 
 const saveDismissed = value => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  accountStorage.setItem(STORAGE_KEY, JSON.stringify(value));
 };
 
 const FeedbackQuestionnairePopup = () => {

@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { attendanceReportFields, attendanceReportRows, attendanceReportImage, attendanceWorkedTime, attendanceCsvCell, attendanceRowsFromResponse, formatAttendanceWorksheet, attendanceExportSummary, resolveScheduledAttendanceStatus, fetchAttendanceDay } from "../../../utils/attendanceExport";
 import { AttendancePunch, AttendanceBreaks, AttendancePunchDetails } from "../../components/AttendanceEvidence";
@@ -1702,7 +1703,7 @@ const EmployeeAttendance = () => {
   
   const fetchCurrentUserAndCompany = async () => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       if (!userStr) {
         void 0;
         return;
@@ -1747,7 +1748,7 @@ const EmployeeAttendance = () => {
     try {
       void 0;
       const storedViewer = currentUser || (() => {
-        try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+        try { return JSON.parse(accountStorage.getItem('user') || 'null'); } catch { return null; }
       })();
       const viewerBranchIds = [...new Set([
         storedViewer?.branch,
@@ -1803,7 +1804,7 @@ const EmployeeAttendance = () => {
       
       try {
         const storedUser = (() => {
-          try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+          try { return JSON.parse(accountStorage.getItem('user') || '{}'); } catch { return {}; }
         })();
         const resolveCompanyId = (val) => {
           if (!val) return '';

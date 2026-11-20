@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import { hasOverdueStatus } from '../../../utils/taskStatusAccess';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -7,6 +8,7 @@ import { toast } from 'react-toastify';
 import API_URL from '../../../config';
 import './client-management.css';
 import { isSubscriptionEnded } from '../../utils/clientPortalData';
+import { getReceiptPath, useReceiptPreview } from '../../utils/useReceiptPreview';
 
 
 import {
@@ -51,8 +53,31 @@ import usePageActionAccess from '../../../hooks/usePageActionAccess';
 
 
 
+const ReceiptPreview = ({ receipt }) => {
+  const preview = useReceiptPreview(getReceiptPath(receipt));
+  if (preview?.error) return <span>Receipt unavailable</span>;
+  if (!preview) return <span>Loading receipt…</span>;
+
+  return (
+    <div className="ClientManagement-receipt-image-wrapper">
+      {preview.isImage && (
+        <a href={preview.url} target="_blank" rel="noopener noreferrer">
+          <img
+            src={preview.url}
+            alt={`Receipt ${receipt.transactionId}`}
+            className="ClientManagement-receipt-image"
+          />
+        </a>
+      )}
+      <a href={preview.url} target="_blank" rel="noopener noreferrer" className="ClientManagement-view-receipt-btn">
+        <FiEye /> View Full Receipt
+      </a>
+    </div>
+  );
+};
+
 const getAuthToken = () => {
-  return localStorage.getItem('token') || localStorage.getItem('authToken');
+  return accountStorage.getItem('token') || accountStorage.getItem('authToken');
 };
 
 const parseStoredJson = value => {
@@ -1094,24 +1119,7 @@ const PaymentReceiptsModal = ({ open, onClose, client, onRenewSubscription, user
                     {receipt.receiptImage && (
                       <div className="ClientManagement-payment-receipt-image-container">
                         <div className="ClientManagement-payment-detail-label">🖼️ Receipt:</div>
-                        <div className="ClientManagement-receipt-image-wrapper">
-                          <img 
-                            src={`${API_URL}/clientsservice/receipt-image/${receipt.receiptImage.split('/').pop()}`}
-                            alt={`Receipt ${receipt.transactionId}`}
-                            className="ClientManagement-receipt-image"
-                            onClick={() => window.open(`${API_URL}/clientsservice/receipt-image/${receipt.receiptImage.split('/').pop()}`, '_blank')}
-                            style={{ cursor: 'pointer', maxWidth: '100%', maxHeight: '200px', borderRadius: '8px' }}
-                            onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/400x200?text=Receipt+Not+Found';
-                            }}
-                          />
-                          <button 
-                            className="ClientManagement-view-receipt-btn"
-                            onClick={() => window.open(`${API_URL}/clientsservice/receipt-image/${receipt.receiptImage.split('/').pop()}`, '_blank')}
-                          >
-                            <FiEye /> View Full Receipt
-                          </button>
-                        </div>
+                        <ReceiptPreview receipt={receipt} />
                       </div>
                     )}
                     
@@ -1505,7 +1513,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
             } : task
           );
           setTasks(updatedTasks);
-          localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
+          accountStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
           setEditTask(null);
           setTaskEditorMessage({
             type: 'success',
@@ -1558,7 +1566,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
       if (task._id) {
         await api.patch(`/${task._id}/toggle`, { clientId });
       } else {
-        localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
+        accountStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
       }
 
       if (onTaskUpdate) {
@@ -1581,7 +1589,7 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
       if (task._id) {
         await api.delete(`/${task._id}`);
       } else {
-        localStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
+        accountStorage.setItem(`client_${clientId}_service_${service}_tasks`, JSON.stringify(updatedTasks));
       }
       
       if (onTaskUpdate) {
@@ -3424,8 +3432,8 @@ const ClientManagement = () => {
 
   const canManageClientPlans = React.useMemo(() => {
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const superAdmin = localStorage.getItem('superAdmin');
+      const user = JSON.parse(accountStorage.getItem('user') || '{}');
+      const superAdmin = accountStorage.getItem('superAdmin');
       if (superAdmin) return true;
       const roles = [user.companyRole, user.jobRole, user.role, user.userRole]
         .map(r => String(r || '').trim().toLowerCase().replace(/[\s-]+/g, '_'));
@@ -3688,7 +3696,7 @@ const ClientManagement = () => {
   useEffect(() => {
     const getUserRole = () => {
       try {
-        const userStr = localStorage.getItem('user');
+        const userStr = accountStorage.getItem('user');
         if (userStr) {
           const user = JSON.parse(userStr);
           setUserRole(user.role || user.userRole || 'client');
@@ -3706,24 +3714,24 @@ const ClientManagement = () => {
   useEffect(() => {
     const fetchCompanyInfo = () => {
       try {
-        const user = parseStoredJson(localStorage.getItem('user'));
-        const localStorageCompany = localStorage.getItem('company') || '';
-        const localStorageCompanyDetails = localStorage.getItem('companyDetails') || '';
+        const user = parseStoredJson(accountStorage.getItem('user'));
+        const localStorageCompany = accountStorage.getItem('company') || '';
+        const localStorageCompanyDetails = accountStorage.getItem('companyDetails') || '';
 
         const companyCodeFromStorage = pickCompanyCode(
-          localStorage.getItem('companyCode'),
+          accountStorage.getItem('companyCode'),
           user,
           localStorageCompany,
           localStorageCompanyDetails,
         );
         const companyNameFromStorage = pickCompanyName(
-          localStorage.getItem('companyName'),
+          accountStorage.getItem('companyName'),
           user,
           localStorageCompanyDetails,
           localStorageCompany,
         );
         const companyIdentifierFromStorage = pickCompanyIdentifier(
-          localStorage.getItem('companyIdentifier'),
+          accountStorage.getItem('companyIdentifier'),
           user,
           localStorageCompanyDetails,
           localStorageCompany,
@@ -3759,7 +3767,7 @@ const ClientManagement = () => {
   const fetchProjectManagers = async () => {
     try {
       const token = getAuthToken();
-      const userStr = localStorage.getItem('user');
+      const userStr = accountStorage.getItem('user');
       let currentUser = {};
 
       if (userStr) {

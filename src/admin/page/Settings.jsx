@@ -1,3 +1,4 @@
+import { accountStorage } from '../../utils/authSession';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
@@ -51,7 +52,7 @@ const getDefaultDashboardConfig = () => DEFAULT_DASHBOARD_CONFIG.map(item => ({
 
 const getStoredJson = key => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = accountStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -191,8 +192,8 @@ function Settings() {
         const response = await axios.get(`/company/${storedCompany._id}`);
         if (response.data?.company?._id) {
           activeCompany = response.data.company;
-          localStorage.setItem('company', JSON.stringify(activeCompany));
-          localStorage.setItem('companyDetails', JSON.stringify(activeCompany));
+          accountStorage.setItem('company', JSON.stringify(activeCompany));
+          accountStorage.setItem('companyDetails', JSON.stringify(activeCompany));
         }
       } catch (err) {
         console.warn("Could not refresh company details, using saved company data:", err.message);

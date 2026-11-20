@@ -1,3 +1,4 @@
+import { accountStorage } from '../../../utils/authSession';
 import React, { useState, useEffect } from 'react';
 import {
   FiBell,
@@ -133,24 +134,24 @@ const AccountSettingsPage = () => {
         }
       }
 
-      // 3. Update localStorage sessions
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      // 3. Update accountStorage sessions
+      const storedUser = JSON.parse(accountStorage.getItem('user') || '{}');
       const updatedUser = {
         ...storedUser,
         name: profileForm.name.trim(),
         phone: profileForm.phone.trim(),
       };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      accountStorage.setItem('user', JSON.stringify(updatedUser));
 
       if (client) {
-        const storedClient = JSON.parse(localStorage.getItem('client') || '{}');
+        const storedClient = JSON.parse(accountStorage.getItem('client') || '{}');
         const updatedClient = {
           ...storedClient,
           client: profileForm.name.trim(),
           phone: profileForm.phone.trim(),
           company: profileForm.company.trim(),
         };
-        localStorage.setItem('client', JSON.stringify(updatedClient));
+        accountStorage.setItem('client', JSON.stringify(updatedClient));
       }
 
       window.dispatchEvent(new CustomEvent('ciis-profile-updated', { detail: updatedUser }));

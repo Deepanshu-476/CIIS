@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance, { clearAllCaches } from '../utils/axiosConfig';
 import { getSidebarConfigParams } from '../utils/sidebarConfigStore';
+import { accountStorage } from '../utils/authSession';
 import useSpeech from './useSpeech';
 import { markTaskIdAsCreated, broadcastTaskCreated, broadcastTaskUpdated, invalidateTaskManagementCache } from './useTaskRealtime';
 import { AI_ENDPOINTS } from '../constants/aiEndpoints';
@@ -48,7 +49,13 @@ const axios = axiosInstance;
 
 const getUser = () => {
     try {
-        return JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+        const raw = (accountStorage && accountStorage.getItem('user')) ||
+            (accountStorage && accountStorage.getItem('currentUser')) ||
+            (accountStorage && accountStorage.getItem('superAdmin')) ||
+            (typeof localStorage !== 'undefined' ? (localStorage.getItem('user') || localStorage.getItem('currentUser') || localStorage.getItem('superAdmin')) : null) ||
+            '{}';
+        const parsed = JSON.parse(raw);
+        return parsed?.user || parsed || {};
     } catch {
         return {};
     }
@@ -56,7 +63,10 @@ const getUser = () => {
 
 const getSidebarConfig = () => {
     try {
-        return JSON.parse(localStorage.getItem('sidebarConfig') || '{}');
+        const raw = (accountStorage && accountStorage.getItem('sidebarConfig')) ||
+            (typeof localStorage !== 'undefined' ? localStorage.getItem('sidebarConfig') : null) ||
+            '{}';
+        return JSON.parse(raw);
     } catch {
         return {};
     }
@@ -64,7 +74,11 @@ const getSidebarConfig = () => {
 
 const getCompanyDetails = () => {
     try {
-        return JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}');
+        const raw = (accountStorage && accountStorage.getItem('companyDetails')) ||
+            (accountStorage && accountStorage.getItem('company')) ||
+            (typeof localStorage !== 'undefined' ? (localStorage.getItem('companyDetails') || localStorage.getItem('company')) : null) ||
+            '{}';
+        return JSON.parse(raw);
     } catch {
         return {};
     }
@@ -73,7 +87,7 @@ const getCompanyDetails = () => {
 const getStoredPagePermissions = () => {
     try {
         const perms = [];
-        const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+        const user = getUser();
         const userData = user?.user || user;
         const currentUserId = String(userData?._id || userData?.id || '');
 
@@ -1261,10 +1275,13 @@ export default function useTaskAgentSession({
                         draft: null,
                     });
                     try {
-                        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+                        const stored = getUser();
                         if (stored && typeof stored === 'object') {
                             stored.aiConfig = { ...(stored.aiConfig || {}), enabled: false };
-                            localStorage.setItem('user', JSON.stringify(stored));
+                            if (accountStorage) {
+                                try { accountStorage.setItem('user', JSON.stringify(stored)); } catch { }
+                            }
+                            try { localStorage.setItem('user', JSON.stringify(stored)); } catch { }
                         }
                     } catch { }
                 }
@@ -2492,6 +2509,9 @@ export default function useTaskAgentSession({
                 const latest = res.data?.user || res.data?.data || res.data;
                 if (latest?.aiConfig) {
                     const updatedUser = { ...user, aiConfig: latest.aiConfig };
+                    if (accountStorage) {
+                        try { accountStorage.setItem('user', JSON.stringify(updatedUser)); } catch { }
+                    }
                     try { localStorage.setItem('user', JSON.stringify(updatedUser)); } catch { }
                     if (latest.aiConfig.enabled === false) {
                         const disabledMsg = "You don't have access to use CIIS AI. Please contact your company administrator.";
@@ -2531,13 +2551,16 @@ export default function useTaskAgentSession({
 
             // Dynamically ensure fresh sidebar permissions if local storage copy was missing or incomplete
             if (!Array.isArray(sidebarConfig?.menuItems) || sidebarConfig.menuItems.length === 0) {
-                const comp = JSON.parse(localStorage.getItem('companyDetails') || localStorage.getItem('company') || '{}');
+                const comp = getCompanyDetails();
                 const sidebarParams = getSidebarConfigParams(user, comp);
                 if (sidebarParams) {
                     axiosInstance.get('/sidebar/config', {
                         params: sidebarParams
                     }).then(res => {
                         if (res?.data?.data?.menuItems) {
+                            if (accountStorage) {
+                                try { accountStorage.setItem('sidebarConfig', JSON.stringify(res.data.data)); } catch { }
+                            }
                             try {
                                 localStorage.setItem('sidebarConfig', JSON.stringify(res.data.data));
                             } catch { }

@@ -400,7 +400,6 @@ const SidebarManagement = () => {
   const getCompanyFromLocalStorage = () => {
     try {
       const companyDetailsStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails') || localStorage.getItem('company') || localStorage.getItem('companyDetails');
-      
       if (companyDetailsStr) {
         const companyData = JSON.parse(companyDetailsStr);
         void 0;
@@ -639,7 +638,6 @@ const SidebarManagement = () => {
       }
 
       const token = accountStorage.getItem('token') || localStorage.getItem('token');
-      
       try {
         const response = await axiosInstance.get(`/job-roles/department/${deptId}`, {
           headers: {
@@ -707,7 +705,6 @@ const SidebarManagement = () => {
     try {
       setLoading(prev => ({ ...prev, fetching: true }));
       const token = accountStorage.getItem('token') || localStorage.getItem('token');
-      
       void 0;
 
       const params = { companyId };
@@ -846,10 +843,10 @@ const SidebarManagement = () => {
   const loadExistingConfig = async (companyId, departmentId, roleId) => {
     try {
       const token = accountStorage.getItem('token') || localStorage.getItem('token');
-      const params = { 
-        companyId, 
-        departmentId, 
-        role: roleId 
+      const params = {
+        companyId,
+        departmentId,
+        role: roleId
       };
       if (selectedBranch) {
         params.branchId = selectedBranch;

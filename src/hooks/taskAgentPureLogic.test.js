@@ -20,6 +20,7 @@ import {
     getRoleAwareGreeting,
     getRoleAwareGreetingHindi,
     filterWelcomeButtonsByPermissions,
+    isPrivilegedRoleUser,
     getTimeBasedSalutation,
     getUserFirstName,
     detectMessageLanguage,
@@ -3265,6 +3266,33 @@ describe('Task Agent Pure Decision Logic & Route Contract', () => {
         // 4. Test error handling when list is empty
         const res4 = removeTaskFromBulk([], 'row 1 delete kardo');
         assert.equal(res4.success, false);
+    });
+
+    test('65. Nested Auth Session User Resolution & Strict Non-Privileged Isolation', () => {
+        // Nested structure from accountStorage: { user: { name: 'Ashutosh Rai', companyRole: 'Owner' } }
+        const nestedOwner = { user: { name: 'Ashutosh Rai', companyRole: 'Owner', companyCode: 'CAREER' } };
+        assert.equal(getUserFirstName(nestedOwner), 'Ashutosh');
+        assert.equal(isPrivilegedRoleUser(nestedOwner), true);
+        const ownerChips = filterWelcomeButtonsByPermissions(nestedOwner);
+        assert.equal(ownerChips.length, 7);
+
+        // Empty user object or unauthenticated fallback
+        assert.equal(getUserFirstName({}), '');
+        assert.equal(isPrivilegedRoleUser({}), false);
+        const emptyUserChips = filterWelcomeButtonsByPermissions({});
+        assert.equal(emptyUserChips.length, 1);
+        assert.equal(emptyUserChips[0].action.intent, 'self_task');
+
+        // Restricted employee with empty sidebar / perms must never get client or project chips
+        const restrictedEmployee = { user: { name: 'Rohan', companyRole: 'employee', role: 'employee' } };
+        assert.equal(getUserFirstName(restrictedEmployee), 'Rohan');
+        assert.equal(isPrivilegedRoleUser(restrictedEmployee), false);
+        const restrictedChips = filterWelcomeButtonsByPermissions(restrictedEmployee, {
+            sidebarConfig: { menuItems: [] },
+            pagePermissions: []
+        });
+        assert.equal(restrictedChips.length, 1);
+        assert.equal(restrictedChips[0].action.intent, 'self_task');
     });
 
 });

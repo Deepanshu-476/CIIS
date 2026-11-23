@@ -1017,16 +1017,54 @@ const Attendance = () => {
       return;
     }
     try {
-      const records = filteredRecords.map(record => {
-        const status = getNormalizedStatus(record.status, record.date, record);
-        return attendanceReportFields({ ...record, status }, axios.defaults.baseURL);
+      const { attendanceReportTime, attendanceWorkedTime, attendanceExportValues } = await import('../../utils/attendanceExport');
+      const empName = user?.name || user?.user?.name || 'Employee';
+      const empId = user?.employeeId || user?.user?.employeeId || '';
+      const headers = [
+        'Date',
+        'Day',
+        'Shift',
+        'Check In',
+        'Check Out',
+        'Work Hours',
+        'Break',
+        'Late By',
+        'Overtime',
+        'Status'
+      ];
+
+      const rows = filteredRecords.map(record => {
+        const normStatus = getNormalizedStatus(record.status, record.date, record);
+        const { status: exportStatus, overtime } = attendanceExportValues({ ...record, status: normStatus });
+        const { net } = attendanceWorkedTime(record);
+        const d = new Date(record.date);
+        const dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : (record.date || '-');
+        const dayName = !isNaN(d.getTime()) ? d.toLocaleDateString('en-US', { weekday: 'short' }) : '-';
+        const inTime = record.inTime ? (attendanceReportTime(record.inTime) || '-') : '-';
+        const outTime = record.outTime ? (attendanceReportTime(record.outTime) || '-') : '-';
+        const workHours = (record.inTime && record.outTime) ? (net || record.totalTime || '-') : (record.totalTime || '-');
+        const breakStr = record.breakMinutes ? `${record.breakMinutes}m` : '-';
+        const lateStr = record.lateMinutes ? `${record.lateMinutes}m` : (record.lateBy && record.lateBy !== '00:00:00' ? record.lateBy : '-');
+        const otStr = overtime && overtime !== '00:00:00' ? overtime : '-';
+
+        return [
+          dateStr,
+          dayName,
+          record.shiftName || 'General',
+          inTime,
+          outTime,
+          workHours,
+          breakStr,
+          lateStr,
+          otStr,
+          exportStatus || 'ABSENT'
+        ];
       });
-      const headers = Object.keys(records[0] || {});
-      const rows = records.map(r => headers.map(h => r[h] ?? '-'));
+
       const { exportToPdf } = await import('../../utils/exportUtils');
       await exportToPdf({
         title: 'MY ATTENDANCE REPORT',
-        subtitle: `Month: ${MONTH_NAMES[currentMonth]} ${currentYear}`,
+        subtitle: `Employee: ${empName} ${empId ? `(${empId})` : ''} | Month: ${MONTH_NAMES[currentMonth]} ${currentYear} | Total Days: ${filteredRecords.length}`,
         headers,
         rows,
         filename: `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}`,

@@ -36,6 +36,7 @@ import {
 } from "react-icons/fi";
 import axios from "../../utils/axiosConfig";
 import { FALLBACK_API_URL } from "../../config";
+import { downloadBackendReport } from "../../utils/exportUtils";
 import "../Css/AdminProject.css";
 import CIISLoader from "../../Loader/CIISLoader"; 
 import PageBranchDropdown, { usePageBranchScope } from "../components/PageBranchDropdown";
@@ -302,6 +303,7 @@ export const AdminProject = () => {
   const [pageLoading, setPageLoading] = useState(true); 
   const [errors, setErrors] = useState({});
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [openPdfDialog, setOpenPdfDialog] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedPdfName, setSelectedPdfName] = useState("");
@@ -1355,6 +1357,124 @@ export const AdminProject = () => {
               <p className="ap-header-subtitle">Create, edit, delete, and assign company projects</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <div style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  className="ap-btn ap-btn-outline"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: "#ffffff",
+                    borderColor: "#cbd5e1",
+                    color: "#334155",
+                    fontWeight: 600,
+                  }}
+                  onClick={() => setExportMenuOpen((prev) => !prev)}
+                  disabled={loading}
+                  title="Export all projects overview report"
+                >
+                  <FiDownload size={16} /> Export Projects
+                </button>
+                {exportMenuOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 6px)",
+                      right: 0,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                      zIndex: 50,
+                      minWidth: "195px",
+                      padding: "6px 0",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        width: "100%",
+                        padding: "8px 16px",
+                        textAlign: "left",
+                        border: "none",
+                        background: "none",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        color: "#334155",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f1f5f9")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        downloadBackendReport(
+                          "/export-reports/projects-master?format=xlsx",
+                          `Projects_Master_Report_${new Date().toISOString().slice(0, 10)}.xlsx`
+                        );
+                      }}
+                    >
+                      <FiFileText size={15} color="#16a34a" /> Export as Excel (XLSX)
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        width: "100%",
+                        padding: "8px 16px",
+                        textAlign: "left",
+                        border: "none",
+                        background: "none",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        color: "#334155",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f1f5f9")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        downloadBackendReport(
+                          "/export-reports/projects-master?format=csv",
+                          `Projects_Master_Report_${new Date().toISOString().slice(0, 10)}.csv`
+                        );
+                      }}
+                    >
+                      <FiFileText size={15} color="#2563eb" /> Export as CSV
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        width: "100%",
+                        padding: "8px 16px",
+                        textAlign: "left",
+                        border: "none",
+                        background: "none",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        color: "#334155",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f1f5f9")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        downloadBackendReport(
+                          "/export-reports/projects-master?format=pdf",
+                          `Projects_Master_Report_${new Date().toISOString().slice(0, 10)}.pdf`
+                        );
+                      }}
+                    >
+                      <FiFileText size={15} color="#dc2626" /> Export as PDF
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 className="ap-btn ap-btn-outline ap-header-import-btn"

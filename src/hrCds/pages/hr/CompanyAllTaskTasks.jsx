@@ -2174,27 +2174,33 @@ const CompanyAllTaskTasks = () => {
     fetchAttendance(today);
   };
 
-  // Monthly Attendance Metrics
+  // Monthly Attendance Metrics (Derived dynamically from calendar days so no past unpunched day is missed)
   const monthStats = useMemo(() => {
     let present = 0;
     let late = 0;
     let halfday = 0;
     let absent = 0;
     let leave = 0;
+    let holiday = 0;
+    let weekend = 0;
 
-    attendanceRecords.forEach((r) => {
-      const s = String(r.status || "").toUpperCase();
+    const validDays = calendarDays.filter((c) => c.day !== null);
+
+    validDays.forEach((c) => {
+      const s = String(c.status || "").toUpperCase();
       if (s === "PRESENT") present++;
       else if (s === "LATE") late++;
       else if (s === "HALF DAY" || s === "HALFDAY") halfday++;
       else if (s === "ABSENT") absent++;
-      else if (s === "LEAVE" || s === "HOLIDAY") leave++;
+      else if (s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE")) leave++;
+      else if (s === "HOLIDAY") holiday++;
+      else if (s === "WEEKEND") weekend++;
     });
 
     const workingDays = present + late + halfday + absent;
     const rate = workingDays > 0
       ? Math.round(((present + late + (halfday * 0.5)) / workingDays) * 100)
-      : (attendanceRecords.length > 0 ? 100 : 0);
+      : (validDays.some((c) => c.dateKey && c.dateKey <= todayStr && c.status !== "WEEKEND" && c.status !== "HOLIDAY") ? 0 : 100);
 
     return {
       present,
@@ -2202,21 +2208,51 @@ const CompanyAllTaskTasks = () => {
       halfday,
       absent,
       leave,
+      holiday,
+      weekend,
       totalWorking: workingDays,
-      attendanceRate: rate,
+      attendanceRate: Math.min(100, Math.max(0, rate)),
     };
-  }, [attendanceRecords]);
+  }, [calendarDays, todayStr]);
+
+  // Comprehensive Month Attendance Logs for Table View
+  const allMonthAttendanceLogs = useMemo(() => {
+    return calendarDays
+      .filter((c) => c.day !== null && c.status !== "UPCOMING" && c.status !== "NO RECORD")
+      .map((c) => {
+        if (c.record) {
+          return {
+            ...c.record,
+            status: c.status || c.record.status,
+            date: c.record.date || c.dateKey,
+          };
+        }
+        return {
+          _id: c.dateKey,
+          date: c.dateKey,
+          status: c.status,
+          isGenerated: true,
+          shiftName: employee?.shiftName || "General Shift",
+          notes: c.status === "ABSENT" ? "Absent (No punch recorded)" : c.status === "WEEKEND" ? "Weekly Off" : c.status === "HOLIDAY" ? "Official Holiday" : "--",
+        };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [calendarDays, employee?.shiftName]);
 
   // Filtered History Log for Table View
   const filteredAttendanceLogs = useMemo(() => {
-    if (attFilter === "all") return attendanceRecords;
-    if (attFilter === "present") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "PRESENT");
-    if (attFilter === "late") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "LATE");
-    if (attFilter === "halfday") return attendanceRecords.filter((r) => ["HALF DAY", "HALFDAY"].includes(String(r.status || "").toUpperCase()));
-    if (attFilter === "absent") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "ABSENT");
-    if (attFilter === "leave") return attendanceRecords.filter((r) => ["LEAVE", "HOLIDAY"].includes(String(r.status || "").toUpperCase()));
-    return attendanceRecords;
-  }, [attendanceRecords, attFilter]);
+    if (attFilter === "all") return allMonthAttendanceLogs;
+    if (attFilter === "present") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "PRESENT");
+    if (attFilter === "late") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "LATE");
+    if (attFilter === "halfday") return allMonthAttendanceLogs.filter((r) => ["HALF DAY", "HALFDAY"].includes(String(r.status || "").toUpperCase()));
+    if (attFilter === "absent") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "ABSENT");
+    if (attFilter === "leave") return allMonthAttendanceLogs.filter((r) => {
+      const s = String(r.status || "").toUpperCase();
+      return s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE");
+    });
+    if (attFilter === "holiday") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "HOLIDAY");
+    return allMonthAttendanceLogs;
+  }, [allMonthAttendanceLogs, attFilter]);
 
   const employeeName = resolveDisplayString(employee?.name, "—");
   const employeeRoleCandidates = [
@@ -3408,8 +3444,20 @@ const CompanyAllTaskTasks = () => {
                   <span className="att-kpi-badge violet">Approved</span>
                 </div>
                 <div className="att-kpi-value">{monthStats.leave}</div>
-                <div className="att-kpi-title">Leaves & Holidays</div>
-                <span className="att-kpi-hint">Official approved off days</span>
+                <div className="att-kpi-title">Approved Leaves</div>
+                <span className="att-kpi-hint">Leave applications sanctioned</span>
+              </div>
+
+              <div className="att-kpi-card att-kpi-holiday">
+                <div className="att-kpi-top">
+                  <div className="att-kpi-icon-wrap blue">
+                    <FiAward size={20} />
+                  </div>
+                  <span className="att-kpi-badge blue">Company Off</span>
+                </div>
+                <div className="att-kpi-value">{monthStats.holiday}</div>
+                <div className="att-kpi-title">Holidays</div>
+                <span className="att-kpi-hint">Official company holidays</span>
               </div>
             </div>
 
@@ -3498,7 +3546,8 @@ const CompanyAllTaskTasks = () => {
                     <div className="legend-chip late"><span className="dot" /> Late</div>
                     <div className="legend-chip halfday"><span className="dot" /> Half-Day</div>
                     <div className="legend-chip absent"><span className="dot" /> Absent</div>
-                    <div className="legend-chip leave"><span className="dot" /> Leave / Holiday</div>
+                    <div className="legend-chip leave"><span className="dot" /> Leave</div>
+                    <div className="legend-chip holiday"><span className="dot" /> Holiday</div>
                     <div className="legend-chip weekend"><span className="dot" /> Weekend</div>
                   </div>
 
@@ -3522,7 +3571,8 @@ const CompanyAllTaskTasks = () => {
                       const isLate = s === "LATE";
                       const isHalf = s === "HALF DAY" || s === "HALFDAY";
                       const isAbs = s === "ABSENT";
-                      const isLev = s === "LEAVE" || s === "HOLIDAY";
+                      const isLev = s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE");
+                      const isHol = s === "HOLIDAY";
                       const isWknd = s === "WEEKEND";
                       const isUpc = s === "UPCOMING";
                       const isSelected = selectedDayRecord && getDateInputValue(new Date(selectedDayRecord.date)) === cell.dateKey;
@@ -3532,8 +3582,9 @@ const CompanyAllTaskTasks = () => {
                           isHalf ? "status-halfday" :
                             isAbs ? "status-absent" :
                               isLev ? "status-leave" :
-                                isWknd ? "status-weekend" :
-                                  isUpc ? "status-upcoming" : "status-none";
+                                isHol ? "status-holiday" :
+                                  isWknd ? "status-weekend" :
+                                    isUpc ? "status-upcoming" : "status-none";
 
                       return (
                         <div
@@ -3564,8 +3615,9 @@ const CompanyAllTaskTasks = () => {
                                   isHalf ? "Half Day" :
                                     isAbs ? "Absent" :
                                       isLev ? "Leave" :
-                                        isWknd ? "Weekend" :
-                                          isUpc ? "Upcoming" : "No Log"}
+                                        isHol ? "Holiday" :
+                                          isWknd ? "Weekend" :
+                                            isUpc ? "Upcoming" : "No Log"}
                             </span>
                           </div>
 
@@ -3594,11 +3646,13 @@ const CompanyAllTaskTasks = () => {
                     </div>
 
                     {selectedDayRecord && (
-                      <span className={`inspector-status-badge ${String(selectedDayRecord.status).toUpperCase() === "PRESENT" ? "present" :
+                      <span className={`inspector-status-badge ${
+                          String(selectedDayRecord.status).toUpperCase() === "PRESENT" ? "present" :
                           String(selectedDayRecord.status).toUpperCase() === "LATE" ? "late" :
-                            ["HALF DAY", "HALFDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "halfday" :
-                              ["LEAVE", "HOLIDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "leave" :
-                                String(selectedDayRecord.status).toUpperCase() === "WEEKEND" ? "weekend" : "absent"
+                          ["HALF DAY", "HALFDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "halfday" :
+                          String(selectedDayRecord.status).toUpperCase() === "HOLIDAY" ? "holiday" :
+                          (String(selectedDayRecord.status).toUpperCase() === "LEAVE" || String(selectedDayRecord.status).toUpperCase().includes("LEAVE")) ? "leave" :
+                          String(selectedDayRecord.status).toUpperCase() === "WEEKEND" ? "weekend" : "absent"
                         }`}>
                         <span className="pulsing-circle" />
                         {String(selectedDayRecord.status || "ABSENT").toUpperCase()}
@@ -3743,6 +3797,13 @@ const CompanyAllTaskTasks = () => {
                     >
                       Leaves ({monthStats.leave})
                     </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "holiday" ? "active" : ""}`}
+                      onClick={() => setAttFilter("holiday")}
+                    >
+                      Holidays ({monthStats.holiday})
+                    </button>
                   </div>
                   <span className="log-count-text">Showing {filteredAttendanceLogs.length} entries</span>
                 </div>
@@ -3773,14 +3834,16 @@ const CompanyAllTaskTasks = () => {
                           const isPres = s === "PRESENT";
                           const isLate = s === "LATE";
                           const isHalf = s === "HALF DAY" || s === "HALFDAY";
-                          const isLeave = s === "LEAVE" || s === "HOLIDAY";
+                          const isLeave = s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE");
+                          const isHoliday = s === "HOLIDAY";
                           const isWknd = s === "WEEKEND";
 
                           const statusClass = isPres ? "present" :
                             isLate ? "late" :
                               isHalf ? "halfday" :
                                 isLeave ? "leave" :
-                                  isWknd ? "weekend" : "absent";
+                                  isHoliday ? "holiday" :
+                                    isWknd ? "weekend" : "absent";
 
                           return (
                             <tr key={rec._id || rec.date}>

@@ -2157,11 +2157,11 @@
   gap: 18px;
 }
 
-/* 5-Column Monthly KPI Strip */
+/* 6-Column Monthly KPI Strip */
 .att-kpi-summary-strip {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
 }
 
 .att-kpi-card {
@@ -2213,6 +2213,10 @@
   background: #7c3aed;
 }
 
+.att-kpi-holiday::before {
+  background: #2563eb;
+}
+
 .att-kpi-card.att-kpi-present {
   background: linear-gradient(180deg, #ffffff 65%, #f0fdf4 100%);
 }
@@ -2231,6 +2235,10 @@
 
 .att-kpi-card.att-kpi-leave {
   background: linear-gradient(180deg, #ffffff 65%, #faf5ff 100%);
+}
+
+.att-kpi-card.att-kpi-holiday {
+  background: linear-gradient(180deg, #ffffff 65%, #eff6ff 100%);
 }
 
 .att-kpi-top {
@@ -2274,6 +2282,11 @@
   color: #7c3aed;
 }
 
+.att-kpi-icon-wrap.blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
 .att-kpi-badge {
   font-size: 11px;
   font-weight: 700;
@@ -2305,6 +2318,11 @@
 .att-kpi-badge.violet {
   background: #ede9fe;
   color: #5b21b6;
+}
+
+.att-kpi-badge.blue {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .att-kpi-value {
@@ -2521,6 +2539,10 @@
   background: #7c3aed;
 }
 
+.legend-chip.holiday .dot {
+  background: #2563eb;
+}
+
 .legend-chip.weekend .dot {
   background: #94a3b8;
 }
@@ -2701,6 +2723,20 @@
   background: #7c3aed;
 }
 
+.att-day-cell.status-holiday {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.att-cell-status-pill.status-holiday {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.att-cell-status-pill.status-holiday .att-status-dot {
+  background: #2563eb;
+}
+
 .att-day-cell.status-weekend {
   background: #f8fafc;
   border-color: #e2e8f0;
@@ -2814,6 +2850,11 @@
 .inspector-status-badge.leave {
   background: #f3e8ff;
   color: #6b21a8;
+}
+
+.inspector-status-badge.holiday {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .inspector-status-badge.weekend {
@@ -3064,6 +3105,52 @@
 
 .att-table .punch-text.out {
   color: #2563eb;
+}
+
+.status-badge-att {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  letter-spacing: 0.3px;
+}
+
+.status-badge-att.present {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-badge-att.late {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.status-badge-att.halfday {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.status-badge-att.absent {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-badge-att.leave {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.status-badge-att.holiday {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge-att.weekend {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .exception-badge {

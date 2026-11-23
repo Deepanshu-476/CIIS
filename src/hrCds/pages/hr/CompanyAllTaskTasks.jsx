@@ -1987,78 +1987,6 @@ const CompanyAllTaskTasks = () => {
     return points.length ? Math.round(points.reduce((sum, value) => sum + value, 0) / points.length) : null;
   }, [attendanceRecords]);
 
-  const detailedPerformance = useMemo(() => {
-    // 1. Task Completion Rate (0-100)
-    const taskCompRate = stats.total ? Math.min(100, Math.round((stats.completed / stats.total) * 100)) : 0;
-    const taskCompPts = Number((taskCompRate * 0.40).toFixed(1));
-
-    // 2. On-Time Delivery Rate (0-100)
-    const onTimeVal = Number.isFinite(onTimeRate)
-      ? onTimeRate
-      : (stats.total ? Math.max(0, 100 - Math.round((stats.overdue / stats.total) * 100)) : 100);
-    const onTimePts = Number((onTimeVal * 0.25).toFixed(1));
-
-    // 3. Attendance & Discipline Reliability (0-100)
-    const attReliability = Number.isFinite(attendanceReliability)
-      ? attendanceReliability
-      : (monthStats.attendanceRate || 0);
-    const attPts = Number((attReliability * 0.20).toFixed(1));
-
-    // 4. Time Tracking / Utilization Rate (0-100)
-    let timeUtilRate = 75; // standard benchmark if no logs
-    if (workSummary?.productivity) {
-      const p = parseInt(String(workSummary.productivity).replace('%', ''), 10);
-      if (!isNaN(p)) timeUtilRate = Math.min(100, Math.max(0, p));
-    } else if (workSummary?.trackedTaskSeconds && workSummary?.totalClockedSeconds) {
-      timeUtilRate = Math.min(100, Math.round((workSummary.trackedTaskSeconds / workSummary.totalClockedSeconds) * 100));
-    } else if (taskCompRate > 0) {
-      timeUtilRate = taskCompRate;
-    }
-    const timeUtilPts = Number((timeUtilRate * 0.15).toFixed(1));
-
-    // 5. Overdue Penalty (Deduction for overdue tasks)
-    const overdueRatio = stats.total ? (stats.overdue / stats.total) : 0;
-    const overduePenalty = overdueRatio > 0 ? Math.min(10, Math.round(overdueRatio * 20)) : 0;
-
-    // Final Aggregate Score (0 to 100)
-    const rawTotal = taskCompPts + onTimePts + attPts + timeUtilPts - overduePenalty;
-    const finalScore = Math.min(100, Math.max(0, Math.round(rawTotal)));
-
-    // Rating tier and grade
-    let tier = "Needs Improvement";
-    let grade = "C";
-    let tierColor = "red";
-    if (finalScore >= 90) {
-      tier = "Top Performer";
-      grade = "A+";
-      tierColor = "purple";
-    } else if (finalScore >= 75) {
-      tier = "Strong Performer";
-      grade = "A";
-      tierColor = "emerald";
-    } else if (finalScore >= 60) {
-      tier = "Satisfactory";
-      grade = "B";
-      tierColor = "amber";
-    }
-
-    return {
-      finalScore,
-      tier,
-      grade,
-      tierColor,
-      pillars: {
-        taskCompletion: { rate: taskCompRate, weight: 40, points: taskCompPts, maxPoints: 40 },
-        onTimeDelivery: { rate: onTimeVal, weight: 25, points: onTimePts, maxPoints: 25 },
-        attendance: { rate: attReliability, weight: 20, points: attPts, maxPoints: 20 },
-        timeUtilization: { rate: timeUtilRate, weight: 15, points: timeUtilPts, maxPoints: 15 },
-        overduePenalty: { points: overduePenalty }
-      }
-    };
-  }, [stats.total, stats.completed, stats.overdue, onTimeRate, attendanceReliability, monthStats.attendanceRate, workSummary]);
-
-  const productivityScore = detailedPerformance.finalScore;
-
   const personalTasksCount = useMemo(() => {
     if (typeof stats.personal === "number" && stats.personal >= 0) return stats.personal;
     return tasks.filter((t) => {
@@ -2305,6 +2233,79 @@ const CompanyAllTaskTasks = () => {
       attendanceRate: Math.min(100, Math.max(0, rate)),
     };
   }, [calendarDays, todayStr]);
+
+  // Comprehensive 4-Pillar Performance Evaluation
+  const detailedPerformance = useMemo(() => {
+    // 1. Task Completion Rate (0-100)
+    const taskCompRate = stats.total ? Math.min(100, Math.round((stats.completed / stats.total) * 100)) : 0;
+    const taskCompPts = Number((taskCompRate * 0.40).toFixed(1));
+
+    // 2. On-Time Delivery Rate (0-100)
+    const onTimeVal = Number.isFinite(onTimeRate)
+      ? onTimeRate
+      : (stats.total ? Math.max(0, 100 - Math.round((stats.overdue / stats.total) * 100)) : 100);
+    const onTimePts = Number((onTimeVal * 0.25).toFixed(1));
+
+    // 3. Attendance & Discipline Reliability (0-100)
+    const attReliability = Number.isFinite(attendanceReliability)
+      ? attendanceReliability
+      : (monthStats.attendanceRate || 0);
+    const attPts = Number((attReliability * 0.20).toFixed(1));
+
+    // 4. Time Tracking / Utilization Rate (0-100)
+    let timeUtilRate = 75; // standard benchmark if no logs
+    if (workSummary?.productivity) {
+      const p = parseInt(String(workSummary.productivity).replace('%', ''), 10);
+      if (!isNaN(p)) timeUtilRate = Math.min(100, Math.max(0, p));
+    } else if (workSummary?.trackedTaskSeconds && workSummary?.totalClockedSeconds) {
+      timeUtilRate = Math.min(100, Math.round((workSummary.trackedTaskSeconds / workSummary.totalClockedSeconds) * 100));
+    } else if (taskCompRate > 0) {
+      timeUtilRate = taskCompRate;
+    }
+    const timeUtilPts = Number((timeUtilRate * 0.15).toFixed(1));
+
+    // 5. Overdue Penalty (Deduction for overdue tasks)
+    const overdueRatio = stats.total ? (stats.overdue / stats.total) : 0;
+    const overduePenalty = overdueRatio > 0 ? Math.min(10, Math.round(overdueRatio * 20)) : 0;
+
+    // Final Aggregate Score (0 to 100)
+    const rawTotal = taskCompPts + onTimePts + attPts + timeUtilPts - overduePenalty;
+    const finalScore = Math.min(100, Math.max(0, Math.round(rawTotal)));
+
+    // Rating tier and grade
+    let tier = "Needs Improvement";
+    let grade = "C";
+    let tierColor = "red";
+    if (finalScore >= 90) {
+      tier = "Top Performer";
+      grade = "A+";
+      tierColor = "purple";
+    } else if (finalScore >= 75) {
+      tier = "Strong Performer";
+      grade = "A";
+      tierColor = "emerald";
+    } else if (finalScore >= 60) {
+      tier = "Satisfactory";
+      grade = "B";
+      tierColor = "amber";
+    }
+
+    return {
+      finalScore,
+      tier,
+      grade,
+      tierColor,
+      pillars: {
+        taskCompletion: { rate: taskCompRate, weight: 40, points: taskCompPts, maxPoints: 40 },
+        onTimeDelivery: { rate: onTimeVal, weight: 25, points: onTimePts, maxPoints: 25 },
+        attendance: { rate: attReliability, weight: 20, points: attPts, maxPoints: 20 },
+        timeUtilization: { rate: timeUtilRate, weight: 15, points: timeUtilPts, maxPoints: 15 },
+        overduePenalty: { points: overduePenalty }
+      }
+    };
+  }, [stats.total, stats.completed, stats.overdue, onTimeRate, attendanceReliability, monthStats.attendanceRate, workSummary]);
+
+  const productivityScore = detailedPerformance.finalScore;
 
   // Comprehensive Month Attendance Logs for Table View
   const allMonthAttendanceLogs = useMemo(() => {

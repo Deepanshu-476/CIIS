@@ -3427,6 +3427,12 @@ const CompanyAllTaskTasks = () => {
                 <div className="att-kpi-value">{monthStats.present}</div>
                 <div className="att-kpi-title">Present Days</div>
                 <span className="att-kpi-hint">Full working days attended</span>
+                <div className="att-kpi-progress-bar" title={`Attendance rate: ${monthStats.attendanceRate}%`}>
+                  <div
+                    className="att-kpi-progress-fill emerald"
+                    style={{ width: `${Math.min(100, Math.max(0, monthStats.attendanceRate))}%` }}
+                  />
+                </div>
               </div>
 
               <div className="att-kpi-card att-kpi-late">
@@ -3696,6 +3702,49 @@ const CompanyAllTaskTasks = () => {
                         <FiClock size={15} />
                         <span>Schedule: <strong>{selectedDayRecord.shiftName || employee?.shiftName || "General Shift (09:30 AM - 06:30 PM)"}</strong></span>
                       </div>
+
+                      {/* Visual Punch Timeline Stepper */}
+                      <div className="inspector-flow-timeline">
+                        <div className={`flow-step ${selectedDayRecord.inTime ? "completed" : "pending"}`}>
+                          <div className="flow-step-circle">
+                            <FiCheckCircle size={13} />
+                          </div>
+                          <div className="flow-step-info">
+                            <span className="flow-step-title">In Punch</span>
+                            <span className="flow-step-time">{selectedDayRecord.inTime ? formatTimeOnly(selectedDayRecord.inTime) : "No punch"}</span>
+                          </div>
+                        </div>
+
+                        <div className="flow-step-divider">
+                          <div className={`flow-divider-line ${selectedDayRecord.outTime ? "completed" : selectedDayRecord.inTime ? "active" : ""}`} />
+                          <span className="flow-duration-pill">{selectedDayRecord.totalHours || selectedDayRecord.totalTime || (selectedDayRecord.inTime ? "In progress" : "--")}</span>
+                        </div>
+
+                        <div className={`flow-step ${selectedDayRecord.outTime ? "completed" : selectedDayRecord.inTime ? "active" : "pending"}`}>
+                          <div className="flow-step-circle">
+                            <FiClock size={13} />
+                          </div>
+                          <div className="flow-step-info">
+                            <span className="flow-step-title">Out Punch</span>
+                            <span className="flow-step-time">{selectedDayRecord.outTime ? formatTimeOnly(selectedDayRecord.outTime) : (selectedDayRecord.inTime ? "Active Shift" : "--")}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Exceptions / Warnings Alert */}
+                      {(selectedDayRecord.lateBy || selectedDayRecord.earlyLeave) && (
+                        <div className="inspector-exceptions-alert">
+                          <FiAlertTriangle size={15} className="text-amber" />
+                          <div className="exceptions-alert-content">
+                            {selectedDayRecord.lateBy && (
+                              <span className="exception-item">Late Arrival: <strong>{selectedDayRecord.lateBy}</strong></span>
+                            )}
+                            {selectedDayRecord.earlyLeave && (
+                              <span className="exception-item">Early Departure: <strong>{selectedDayRecord.earlyLeave}</strong></span>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* 2x2 Punch Timing Metrics */}
                       <div className="inspector-metrics-grid">

@@ -63,7 +63,7 @@ export const exportToPdf = async ({
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    // Brand Title
+    // Branding & Title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
     doc.setTextColor(30, 58, 138); // Deep Navy
@@ -201,7 +201,8 @@ export const exportToPdf = async ({
  */
 export const downloadBackendReport = async (endpoint, filename) => {
   try {
-    const response = await axiosInstance.get(endpoint, {
+    const cleanEndpoint = String(endpoint || '').replace(/^\/?api\/?/, '/');
+    const response = await axiosInstance.get(cleanEndpoint, {
       responseType: 'blob'
     });
     const blob = new Blob([response.data]);
@@ -214,7 +215,17 @@ export const downloadBackendReport = async (endpoint, filename) => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (err) {
+    let errorMsg = 'Failed to download report. Please try again.';
+    try {
+      if (err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        const json = JSON.parse(text);
+        if (json.message) errorMsg = json.message;
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+    } catch {}
     console.error('[exportUtils] downloadBackendReport error:', err);
-    alert('Failed to download report. Please try again.');
+    alert(errorMsg);
   }
 };

@@ -4486,7 +4486,7 @@ const ClientManagement = () => {
               <button
                 className="ClientManagement-btn ClientManagement-btn--outlined"
                 onClick={() => {
-                  downloadBackendReport('/api/export-reports/clients-master?format=xlsx', `Clients_Master_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                  downloadBackendReport('/export-reports/clients-master?format=xlsx', `Clients_Master_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
                 }}
                 title="Export Clients Master Sheet with Subscriptions, Expiry Dates, Tasks & Services"
                 style={{ borderColor: '#10B981', color: '#059669', fontWeight: 600 }}

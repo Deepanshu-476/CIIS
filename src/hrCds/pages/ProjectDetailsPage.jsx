@@ -2268,11 +2268,11 @@ const ProjectDetailsPage = () => {
               }}
               onClick={() => {
                 downloadBackendReport(
-                  `/api/export-reports/project/${projectId}/tasks?format=xlsx`,
+                  `/export-reports/project/${projectId}/tasks?format=xlsx`,
                   `Project_${(projectDetails.projectName || 'Tasks').replace(/\s+/g, '_')}_Tasks.xlsx`
                 );
               }}
-              disabled={loading.tasks || tasks.length === 0}
+              disabled={loading.tasks}
               title="Export all project tasks to Excel"
             >
               <Icons.Download />
@@ -2292,13 +2292,15 @@ const ProjectDetailsPage = () => {
               }}
               onClick={() => {
                 const headers = ['Task Title', 'Description', 'Due Date', 'Priority', 'Status'];
-                const rows = tasks.map(t => [
+                const rows = tasks.length > 0 ? tasks.map(t => [
                   t.title || 'Untitled',
                   t.description || '-',
                   t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '-',
                   (t.priority || 'medium').toUpperCase(),
                   (t.status || 'pending').toUpperCase()
-                ]);
+                ]) : [
+                  ['No tasks created yet for this project', '-', '-', '-', '-']
+                ];
                 exportToPdf({
                   title: `PROJECT REPORT - ${(projectDetails.projectName || 'Project').toUpperCase()}`,
                   subtitle: `Total Tasks: ${tasks.length} | Status: ${(projectDetails.status || 'Active').toUpperCase()} | Generated: ${new Date().toLocaleDateString()}`,
@@ -2307,7 +2309,7 @@ const ProjectDetailsPage = () => {
                   filename: `Project_${(projectDetails.projectName || 'Tasks').replace(/\s+/g, '_')}_Report`
                 });
               }}
-              disabled={loading.tasks || tasks.length === 0}
+              disabled={loading.tasks}
               title="Export all project tasks as PDF"
             >
               <Icons.Download />

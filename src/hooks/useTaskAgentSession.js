@@ -47,15 +47,25 @@ import {
 
 const axios = axiosInstance;
 
+let currentSessionUser = null;
+
 const getUser = () => {
+    if (currentSessionUser && (currentSessionUser._id || currentSessionUser.id || currentSessionUser.name)) {
+        return currentSessionUser?.user || currentSessionUser;
+    }
     try {
-        const raw = (accountStorage && accountStorage.getItem('user')) ||
-            (accountStorage && accountStorage.getItem('currentUser')) ||
-            (accountStorage && accountStorage.getItem('superAdmin')) ||
-            (typeof localStorage !== 'undefined' ? (localStorage.getItem('user') || localStorage.getItem('currentUser') || localStorage.getItem('superAdmin')) : null) ||
-            '{}';
-        const parsed = JSON.parse(raw);
-        return parsed?.user || parsed || {};
+        const sessionRaw = accountStorage ? (accountStorage.getItem('user') || accountStorage.getItem('currentUser') || accountStorage.getItem('superAdmin')) : null;
+        if (sessionRaw) {
+            const parsed = JSON.parse(sessionRaw);
+            const resolved = parsed?.user || parsed;
+            if (resolved && (resolved._id || resolved.id || resolved.name)) return resolved;
+        }
+        const localRaw = typeof localStorage !== 'undefined' ? (localStorage.getItem('user') || localStorage.getItem('currentUser') || localStorage.getItem('superAdmin')) : null;
+        if (localRaw) {
+            const parsed = JSON.parse(localRaw);
+            return parsed?.user || parsed || {};
+        }
+        return {};
     } catch {
         return {};
     }
@@ -153,7 +163,17 @@ export default function useTaskAgentSession({
     onClose,
     startWithMic = false,
     variant = 'side', // 'side' | 'voice'
+    user: propUser = null,
 } = {}) {
+    if (propUser && (propUser._id || propUser.id || propUser.name)) {
+        currentSessionUser = propUser;
+    }
+    useEffect(() => {
+        if (propUser && (propUser._id || propUser.id || propUser.name)) {
+            currentSessionUser = propUser;
+        }
+    }, [propUser]);
+
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -2237,7 +2257,8 @@ export default function useTaskAgentSession({
             const filename = chip.action.filename || 'report.xlsx';
             (async () => {
                 try {
-                    const response = await axiosInstance.get(relUrl, {
+                    const cleanUrl = String(relUrl || '').replace(/^\/?api\/?/, '/');
+                    const response = await axiosInstance.get(cleanUrl, {
                         responseType: 'blob'
                     });
                     const blob = new Blob([response.data]);

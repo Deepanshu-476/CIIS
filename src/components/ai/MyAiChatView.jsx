@@ -24,6 +24,7 @@ import {
   Trash2,
   MessageSquare,
 } from 'lucide-react';
+import { useAuth } from '../../context/useAuth';
 import { useMyAi } from '../../context/MyAiContext';
 import useTaskAgentSession from '../../hooks/useTaskAgentSession';
 import { formatCandidateDate, shouldShowDebugOverlay } from '../../hooks/taskAgentPureLogic';
@@ -373,6 +374,7 @@ function BulkTaskPreviewCard({ bulkPreview, busy, onConfirm, onEdit, onCancel, i
 }
 
 export default function MyAiChatView({ onBack, onClose }) {
+  const { user: authUser } = useAuth();
   const { isExpanded, toggleExpanded, closeMyAi } = useMyAi();
   const cancelSpeechRef = useRef(null);
 
@@ -394,7 +396,8 @@ export default function MyAiChatView({ onBack, onClose }) {
     open: true,
     onClose: handleClose,
     variant: 'voice',
-    startWithMic: false,
+    startWithMic: true,
+    user: authUser,
   });
 
   const {

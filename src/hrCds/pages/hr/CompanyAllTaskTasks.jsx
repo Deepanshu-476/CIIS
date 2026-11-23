@@ -2310,7 +2310,14 @@ const CompanyAllTaskTasks = () => {
               type="button"
               className="hero-btn-outline"
               onClick={() => {
-                downloadBackendReport('/api/export-reports/tasks?type=all&format=xlsx', `Company_All_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                const endpoint = effectiveUserId
+                  ? `/export-reports/tasks?userId=${effectiveUserId}&format=xlsx`
+                  : '/export-reports/tasks?type=all&format=xlsx';
+                const empName = employee?.name || 'Employee';
+                const filename = effectiveUserId
+                  ? `${empName.replace(/\s+/g, '_')}_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`
+                  : `Company_All_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                downloadBackendReport(endpoint, filename);
               }}
               title="Export tasks as Excel (.xlsx)"
               style={{ color: '#059669', borderColor: '#10B981' }}

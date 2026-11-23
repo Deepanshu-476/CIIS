@@ -678,6 +678,13 @@ const CompanyAllTaskTasks = () => {
   const [attViewMode, setAttViewMode] = useState("calendar"); // "calendar" | "table"
   const [attFilter, setAttFilter] = useState("all");
   const [perfTimeframe, setPerfTimeframe] = useState("month"); // "today" | "week" | "month" | "sixMonths" | "overall"
+  const [perfLoading, setPerfLoading] = useState(false);
+  const [perfData, setPerfData] = useState({
+    tasks: [],
+    stats: null,
+    workSummary: null,
+    performanceMetrics: null,
+  });
 
   // Retained only for safe cleanup of old document-preview state. The Documents
   // tab is intentionally not exposed on the Company All Task page.
@@ -989,6 +996,72 @@ const CompanyAllTaskTasks = () => {
     }
   }, [effectiveUserId, calDate]);
 
+  // Fetch Performance Dataset for Selected Timeframe (Today, Week, Month, 6 Months, Overall)
+  const fetchPerfDataset = useCallback(async (tf) => {
+    if (!effectiveUserId) return;
+    setPerfLoading(true);
+    try {
+      const now = new Date();
+      const todayDateStr = getDateInputValue();
+      let sDate = undefined;
+      let eDate = undefined;
+
+      if (tf === "today") {
+        sDate = todayDateStr;
+        eDate = todayDateStr;
+      } else if (tf === "week") {
+        const day = now.getDay();
+        const diff = day === 0 ? 6 : day - 1;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - diff);
+        sDate = monday.toISOString().split("T")[0];
+        eDate = todayDateStr;
+      } else if (tf === "month") {
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        sDate = firstDay.toISOString().split("T")[0];
+        eDate = todayDateStr;
+      } else if (tf === "sixMonths") {
+        const sixM = new Date(now);
+        sixM.setMonth(now.getMonth() - 6);
+        sDate = sixM.toISOString().split("T")[0];
+        eDate = todayDateStr;
+      }
+
+      const params = {
+        all: "true",
+        export: "true",
+        limit: 2500,
+        period: tf === "today" ? "today" : (sDate || eDate ? "custom" : "all"),
+        startDate: sDate,
+        endDate: eDate,
+        fromDate: sDate,
+        toDate: eDate,
+      };
+
+      const res = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, { params });
+      const data = res.data || {};
+      const apiTasks = Array.isArray(data.tasks) ? data.tasks : [];
+      const apiStats = data.stats || data.statusCounts;
+
+      setPerfData({
+        tasks: apiTasks,
+        stats: apiStats ? {
+          total: Number(apiStats.total?.count ?? apiStats.total) || apiTasks.length,
+          completed: Number(apiStats.completed?.count ?? apiStats.completed) || 0,
+          inProgress: Number(apiStats.inProgress?.count ?? apiStats.inProgress ?? apiStats['in-progress']?.count ?? apiStats['in-progress']) || 0,
+          pending: Number(apiStats.pending?.count ?? apiStats.pending) || 0,
+          overdue: Number(apiStats.overdue?.count ?? apiStats.overdue) || 0,
+        } : countStats(apiTasks),
+        workSummary: data.workSummary || null,
+        performanceMetrics: data.performance || null,
+      });
+    } catch (err) {
+      console.error("Failed to fetch performance dataset for timeframe:", tf, err);
+    } finally {
+      setPerfLoading(false);
+    }
+  }, [effectiveUserId]);
+
   // Fetch User's Uploaded Documents (Read-only view)
   const fetchDocuments = useCallback(async () => {
     if (!effectiveUserId) return;
@@ -1188,6 +1261,12 @@ const CompanyAllTaskTasks = () => {
       fetchAttendance();
     }
   }, [attendanceRecords.length, fetchAttendance]);
+
+  useEffect(() => {
+    if (activeTab === "performance") {
+      fetchPerfDataset(perfTimeframe);
+    }
+  }, [activeTab, perfTimeframe, fetchPerfDataset]);
 
   const fetchTaskDetails = useCallback(async (task, activityOnly = false) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
@@ -2246,49 +2325,16 @@ const CompanyAllTaskTasks = () => {
   const detailedPerformance = useMemo(() => {
     const now = new Date();
 
-    // Timeframe window bounds
-    const currentDayOfWeek = now.getDay();
-    const diffToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-    const mondayThisWeek = new Date(now);
-    mondayThisWeek.setDate(now.getDate() - diffToMonday);
-    mondayThisWeek.setHours(0, 0, 0, 0);
+    const hasPerfData = perfData.tasks && perfData.tasks.length > 0;
+    const activeTaskList = hasPerfData ? perfData.tasks : tasks;
+    const activeStats = perfData.stats || stats;
+    const activeMetrics = perfData.performanceMetrics || performanceMetrics;
+    const activeWorkSummary = perfData.workSummary || workSummary;
 
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    firstDayOfMonth.setHours(0, 0, 0, 0);
-
-    const sixMonthsAgo = new Date(now);
-    sixMonthsAgo.setMonth(now.getMonth() - 6);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
-
-    // Filter tasks according to selected timeframe
-    const filteredTasks = tasks.filter((t) => {
-      if (perfTimeframe === "overall") return true;
-      const dateVal = t.dueDate || t.dueDateTime || t.completionDate || t.updatedAt || t.createdAt;
-      if (!dateVal) return true;
-      const d = new Date(dateVal);
-      if (isNaN(d.getTime())) return true;
-
-      if (perfTimeframe === "today") {
-        const taskDayStr = d.toISOString().split("T")[0];
-        return taskDayStr === todayStr || (t.status === "in progress" || t.status === "pending");
-      }
-      if (perfTimeframe === "week") {
-        return d >= mondayThisWeek;
-      }
-      if (perfTimeframe === "month") {
-        return d >= firstDayOfMonth;
-      }
-      if (perfTimeframe === "sixMonths") {
-        return d >= sixMonthsAgo;
-      }
-      return true;
-    });
-
-    const activeTaskList = filteredTasks.length > 0 ? filteredTasks : tasks;
-    const totalTasks = activeTaskList.length;
-    const completedTasks = activeTaskList.filter((t) => String(t.status || "").toLowerCase() === "completed").length;
-    const inProgressTasks = activeTaskList.filter((t) => String(t.status || "").toLowerCase().includes("progress")).length;
-    const overdueTasks = activeTaskList.filter((t) => {
+    const totalTasks = activeStats?.total !== undefined ? activeStats.total : activeTaskList.length;
+    const completedTasks = activeStats?.completed !== undefined ? activeStats.completed : activeTaskList.filter((t) => String(t.status || "").toLowerCase() === "completed").length;
+    const inProgressTasks = activeStats?.inProgress !== undefined ? activeStats.inProgress : activeTaskList.filter((t) => String(t.status || "").toLowerCase().includes("progress")).length;
+    const overdueTasks = activeStats?.overdue !== undefined ? activeStats.overdue : activeTaskList.filter((t) => {
       const s = String(t.status || "").toLowerCase();
       if (s === "overdue") return true;
       if (s !== "completed" && (t.dueDate || t.dueDateTime)) {
@@ -2297,22 +2343,27 @@ const CompanyAllTaskTasks = () => {
       }
       return false;
     }).length;
-    const pendingTasks = Math.max(0, totalTasks - completedTasks - inProgressTasks - overdueTasks);
+    const pendingTasks = activeStats?.pending !== undefined ? activeStats.pending : Math.max(0, totalTasks - completedTasks - inProgressTasks - overdueTasks);
 
     // 1. Task Completion Rate (0-100)
     const taskCompRate = totalTasks > 0 ? Math.min(100, Math.round((completedTasks / totalTasks) * 100)) : 0;
     const taskCompPts = Number((taskCompRate * 0.40).toFixed(1));
 
     // 2. On-Time Delivery Rate (0-100)
-    const completedWithDueDate = activeTaskList.filter((t) => String(t.status || "").toLowerCase() === "completed" && (t.dueDate || t.dueDateTime));
-    const completedOnTime = completedWithDueDate.filter((t) => {
-      const due = new Date(t.dueDate || t.dueDateTime);
-      const comp = new Date(t.completionDate || t.updatedAt || t.createdAt);
-      return !isNaN(due.getTime()) && !isNaN(comp.getTime()) && comp <= due;
-    });
-    const onTimeVal = completedWithDueDate.length > 0
-      ? Math.round((completedOnTime.length / completedWithDueDate.length) * 100)
-      : (totalTasks > 0 ? Math.max(0, 100 - Math.round((overdueTasks / totalTasks) * 100)) : 100);
+    let onTimeVal = 100;
+    if (Number.isFinite(activeMetrics?.onTimeRate)) {
+      onTimeVal = activeMetrics.onTimeRate;
+    } else {
+      const completedWithDueDate = activeTaskList.filter((t) => String(t.status || "").toLowerCase() === "completed" && (t.dueDate || t.dueDateTime));
+      const completedOnTime = completedWithDueDate.filter((t) => {
+        const due = new Date(t.dueDate || t.dueDateTime);
+        const comp = new Date(t.completionDate || t.updatedAt || t.createdAt);
+        return !isNaN(due.getTime()) && !isNaN(comp.getTime()) && comp <= due;
+      });
+      onTimeVal = completedWithDueDate.length > 0
+        ? Math.round((completedOnTime.length / completedWithDueDate.length) * 100)
+        : (totalTasks > 0 ? Math.max(0, 100 - Math.round((overdueTasks / totalTasks) * 100)) : 100);
+    }
     const onTimePts = Number((onTimeVal * 0.25).toFixed(1));
 
     // 3. Attendance Slicing based on timeframe
@@ -2321,6 +2372,12 @@ const CompanyAllTaskTasks = () => {
     let absentCount = 0;
     let halfdayCount = 0;
     let totalWorkingDays = 0;
+
+    const currentDayOfWeek = now.getDay();
+    const diffToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+    const mondayThisWeek = new Date(now);
+    mondayThisWeek.setDate(now.getDate() - diffToMonday);
+    mondayThisWeek.setHours(0, 0, 0, 0);
 
     if (perfTimeframe === "today") {
       const todayCell = calendarDays.find((c) => c.dateKey === todayStr) ||
@@ -2332,8 +2389,14 @@ const CompanyAllTaskTasks = () => {
       else if (s === "HALF DAY" || s === "HALFDAY") halfdayCount = 1;
       else if (s === "ABSENT") absentCount = 1;
       else {
-        if (now.getHours() >= 12) absentCount = 1;
-        else presentCount = 1;
+        if (todayCell?.inTime) {
+          presentCount = 1;
+          if (todayCell.lateBy) lateCount = 1;
+        } else if (now.getHours() >= 12) {
+          absentCount = 1;
+        } else {
+          presentCount = 1;
+        }
       }
     } else if (perfTimeframe === "week") {
       const weekCells = calendarDays.filter((c) => {
@@ -2377,15 +2440,11 @@ const CompanyAllTaskTasks = () => {
 
     // 4. Time Tracking / Utilization Rate (0-100)
     let timeUtilRate = 75;
-    if (perfTimeframe === "today") {
-      timeUtilRate = workSummary?.totalClockedSeconds > 0
-        ? Math.min(100, Math.round((workSummary.totalClockedSeconds / (8 * 3600)) * 100))
-        : (taskCompRate > 0 ? taskCompRate : 75);
-    } else if (workSummary?.productivity) {
-      const p = parseInt(String(workSummary.productivity).replace('%', ''), 10);
+    if (activeWorkSummary?.productivity) {
+      const p = parseInt(String(activeWorkSummary.productivity).replace('%', ''), 10);
       if (!isNaN(p)) timeUtilRate = Math.min(100, Math.max(0, p));
-    } else if (workSummary?.trackedTaskSeconds && workSummary?.totalClockedSeconds) {
-      timeUtilRate = Math.min(100, Math.round((workSummary.trackedTaskSeconds / workSummary.totalClockedSeconds) * 100));
+    } else if (activeWorkSummary?.trackedTaskSeconds && activeWorkSummary?.totalClockedSeconds) {
+      timeUtilRate = Math.min(100, Math.round((activeWorkSummary.trackedTaskSeconds / activeWorkSummary.totalClockedSeconds) * 100));
     } else if (taskCompRate > 0) {
       timeUtilRate = taskCompRate;
     }
@@ -2443,10 +2502,10 @@ const CompanyAllTaskTasks = () => {
       improvements.push({ title: "Resolve Overdue Tasks", desc: `${overdueTasks} overdue task(s) past deadline causing -${overduePenalty} pts deduction. Priority resolution required.`, isWarning: true });
     }
     if (lateCount > 0) {
-      improvements.push({ title: "Punctuality Improvement", desc: `${lateCount} late arrival(s) incurred -30% penalty per incident. Timely punch-in advised.`, isWarning: true });
+      improvements.push({ title: "Punctuality Improvement", desc: `${lateCount} late arrival(s) incurred -30% penalty per incident. Timely Clock In advised.`, isWarning: true });
     }
     if (absentCount > 0) {
-      improvements.push({ title: "Unexcused Absence Alert", desc: `${absentCount} day(s) without punch logged. Reduces discipline reliability score to ${disciplineRate}%.`, isWarning: true });
+      improvements.push({ title: "Unexcused Absence Alert", desc: `${absentCount} day(s) without Clock In logged. Reduces discipline reliability score to ${disciplineRate}%.`, isWarning: true });
     }
     if (inProgressTasks > 3) {
       improvements.push({ title: "Active WIP Overload", desc: `${inProgressTasks} tasks simultaneously in-progress. Focus on finishing active tasks first.`, isWarning: false });
@@ -2482,7 +2541,7 @@ const CompanyAllTaskTasks = () => {
         disciplineRate,
       },
       timeUtilRate,
-      trackedHoursLabel: workSummary?.trackedTaskLabel || "0m",
+      trackedHoursLabel: activeWorkSummary?.trackedTaskLabel || "0m",
       finalScore,
       tier,
       grade,
@@ -2508,7 +2567,7 @@ const CompanyAllTaskTasks = () => {
         overduePenalty: { points: overduePenalty },
       },
     };
-  }, [perfTimeframe, tasks, calendarDays, attendanceRecords, monthStats, workSummary, todayStr]);
+  }, [perfTimeframe, perfData, tasks, stats, performanceMetrics, workSummary, onTimeRate, calendarDays, attendanceRecords, monthStats, todayStr]);
 
   // Download Performance PDF Report (Tailored to Selected Timeframe)
   const handleDownloadPerformanceReport = () => {
@@ -2650,7 +2709,7 @@ const CompanyAllTaskTasks = () => {
           `Total Working Days: ${detailedPerformance.attendance.totalWorking}`,
           `Present: ${detailedPerformance.attendance.present}`,
           `Late Arrivals: ${detailedPerformance.attendance.late} (-30% each)`,
-          `Unpunched Absents: ${detailedPerformance.attendance.absent} (0 credit)`,
+          `Unclocked Absents: ${detailedPerformance.attendance.absent} (0 credit)`,
           `Discipline Score: ${detailedPerformance.attendance.disciplineRate}%`,
         ]
       ];
@@ -2750,7 +2809,7 @@ const CompanyAllTaskTasks = () => {
           status: c.status,
           isGenerated: true,
           shiftName: employee?.shiftName || "General Shift",
-          notes: c.status === "ABSENT" ? "Absent (No punch recorded)" : c.status === "WEEKEND" ? "Weekly Off" : c.status === "HOLIDAY" ? "Official Holiday" : "--",
+          notes: c.status === "ABSENT" ? "Absent (No Clock In recorded)" : c.status === "WEEKEND" ? "Weekly Off" : c.status === "HOLIDAY" ? "Official Holiday" : "--",
         };
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -3932,7 +3991,7 @@ const CompanyAllTaskTasks = () => {
                 </div>
                 <div className="att-kpi-value">{monthStats.late}</div>
                 <div className="att-kpi-title">Late Arrivals</div>
-                <span className="att-kpi-hint">Punched after shift start</span>
+                <span className="att-kpi-hint">Clocked in after shift start</span>
               </div>
 
               <div className="att-kpi-card att-kpi-halfday">
@@ -3956,7 +4015,7 @@ const CompanyAllTaskTasks = () => {
                 </div>
                 <div className="att-kpi-value">{monthStats.absent}</div>
                 <div className="att-kpi-title">Absent Days</div>
-                <span className="att-kpi-hint">No punch or leave applied</span>
+                <span className="att-kpi-hint">No Clock In or leave applied</span>
               </div>
 
               <div className="att-kpi-card att-kpi-leave">
@@ -4191,15 +4250,15 @@ const CompanyAllTaskTasks = () => {
                         <span>Schedule: <strong>{selectedDayRecord.shiftName || employee?.shiftName || "General Shift (09:30 AM - 06:30 PM)"}</strong></span>
                       </div>
 
-                      {/* Visual Punch Timeline Stepper */}
+                      {/* Visual Clock In/Out Timeline Stepper */}
                       <div className="inspector-flow-timeline">
                         <div className={`flow-step ${selectedDayRecord.inTime ? "completed" : "pending"}`}>
                           <div className="flow-step-circle">
                             <FiCheckCircle size={13} />
                           </div>
                           <div className="flow-step-info">
-                            <span className="flow-step-title">In Punch</span>
-                            <span className="flow-step-time">{selectedDayRecord.inTime ? formatTimeOnly(selectedDayRecord.inTime) : "No punch"}</span>
+                            <span className="flow-step-title">Clock In</span>
+                            <span className="flow-step-time">{selectedDayRecord.inTime ? formatTimeOnly(selectedDayRecord.inTime) : "No Clock In"}</span>
                           </div>
                         </div>
 
@@ -4213,7 +4272,7 @@ const CompanyAllTaskTasks = () => {
                             <FiClock size={13} />
                           </div>
                           <div className="flow-step-info">
-                            <span className="flow-step-title">Out Punch</span>
+                            <span className="flow-step-title">Clock Out</span>
                             <span className="flow-step-time">{selectedDayRecord.outTime ? formatTimeOnly(selectedDayRecord.outTime) : (selectedDayRecord.inTime ? "Active Shift" : "--")}</span>
                           </div>
                         </div>
@@ -4234,7 +4293,7 @@ const CompanyAllTaskTasks = () => {
                         </div>
                       )}
 
-                      {/* 2x2 Punch Timing Metrics */}
+                      {/* 2x2 Clock Timing Metrics */}
                       <div className="inspector-metrics-grid">
                         <div className="inspector-metric-card in">
                           <div className="m-card-top">
@@ -4247,7 +4306,7 @@ const CompanyAllTaskTasks = () => {
                           <span className="m-sub-text">
                             {selectedDayRecord.inTime
                               ? (selectedDayRecord.lateBy ? `Late by ${selectedDayRecord.lateBy}` : "On-Time Arrival")
-                              : "No punch recorded"}
+                              : "No Clock In recorded"}
                           </span>
                         </div>
 
@@ -4262,7 +4321,7 @@ const CompanyAllTaskTasks = () => {
                           <span className="m-sub-text">
                             {selectedDayRecord.outTime
                               ? (selectedDayRecord.earlyLeave ? `Early: ${selectedDayRecord.earlyLeave}` : "Standard Out")
-                              : (selectedDayRecord.inTime ? "Currently Clocked In" : "No punch recorded")}
+                              : (selectedDayRecord.inTime ? "Currently Clocked In" : "No Clock Out recorded")}
                           </span>
                         </div>
 
@@ -4380,8 +4439,8 @@ const CompanyAllTaskTasks = () => {
                       <tr>
                         <th>Date & Day</th>
                         <th>Status</th>
-                        <th>Punch In</th>
-                        <th>Punch Out</th>
+                        <th>Clock In</th>
+                        <th>Clock Out</th>
                         <th>Total Duration</th>
                         <th>Shift & Exceptions</th>
                         <th>Notes / Remarks</th>
@@ -4470,6 +4529,7 @@ const CompanyAllTaskTasks = () => {
                   type="button"
                   className={`perf-tf-btn ${perfTimeframe === "today" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("today")}
+                  disabled={perfLoading}
                 >
                   Today
                 </button>
@@ -4477,6 +4537,7 @@ const CompanyAllTaskTasks = () => {
                   type="button"
                   className={`perf-tf-btn ${perfTimeframe === "week" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("week")}
+                  disabled={perfLoading}
                 >
                   This Week
                 </button>
@@ -4484,6 +4545,7 @@ const CompanyAllTaskTasks = () => {
                   type="button"
                   className={`perf-tf-btn ${perfTimeframe === "month" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("month")}
+                  disabled={perfLoading}
                 >
                   This Month
                 </button>
@@ -4491,6 +4553,7 @@ const CompanyAllTaskTasks = () => {
                   type="button"
                   className={`perf-tf-btn ${perfTimeframe === "sixMonths" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("sixMonths")}
+                  disabled={perfLoading}
                 >
                   Last 6 Months
                 </button>
@@ -4498,22 +4561,31 @@ const CompanyAllTaskTasks = () => {
                   type="button"
                   className={`perf-tf-btn ${perfTimeframe === "overall" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("overall")}
+                  disabled={perfLoading}
                 >
                   Overall
                 </button>
               </div>
 
-              <button
-                type="button"
-                className="btn-download-perf-report"
-                onClick={handleDownloadPerformanceReport}
-                title="Download Executive Performance PDF Report"
-              >
-                <FiDownload size={14} />
-                <span>
-                  Download Report ({perfTimeframe === "today" ? "Today" : perfTimeframe === "week" ? "Weekly" : perfTimeframe === "month" ? "Monthly" : perfTimeframe === "sixMonths" ? "6-Month" : "Overall"})
-                </span>
-              </button>
+              <div className="perf-toolbar-actions">
+                {perfLoading && (
+                  <span className="perf-loading-chip">
+                    <FiRefreshCw size={12} className="spin-icon" /> Updating...
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="btn-download-perf-report"
+                  onClick={handleDownloadPerformanceReport}
+                  title="Download Executive Performance PDF Report"
+                  disabled={perfLoading}
+                >
+                  <FiDownload size={14} />
+                  <span>
+                    Download Report ({perfTimeframe === "today" ? "Today" : perfTimeframe === "week" ? "Weekly" : perfTimeframe === "month" ? "Monthly" : perfTimeframe === "sixMonths" ? "6-Month" : "Overall"})
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Executive Hero Performance Scorecard */}
@@ -4590,7 +4662,7 @@ const CompanyAllTaskTasks = () => {
                     <span className="phm-label">Attendance & Discipline</span>
                     <strong className="phm-val text-purple">{detailedPerformance.attendance.disciplineRate}%</strong>
                     <div className="phm-sub-tags">
-                      <span className="phm-badge green">{detailedPerformance.attendance.present} P</span>
+                      <span className="phm-badge green">{detailedPerformance.attendance.present} Clock In</span>
                       <span className="phm-badge amber">{detailedPerformance.attendance.late} Late</span>
                       <span className="phm-badge red">{detailedPerformance.attendance.absent} Absent</span>
                     </div>
@@ -4730,7 +4802,7 @@ const CompanyAllTaskTasks = () => {
                     <span className="att-mini-chip late" title="Late arrival incurs 30% punctuality deduction">
                       <strong>{detailedPerformance.attendance.late}</strong> Late
                     </span>
-                    <span className="att-mini-chip absent" title="Unpunched working days give 0 credit">
+                    <span className="att-mini-chip absent" title="Unclocked working days give 0 credit">
                       <strong>{detailedPerformance.attendance.absent}</strong> Absent
                     </span>
                     {detailedPerformance.attendance.halfday > 0 && (
@@ -4741,7 +4813,7 @@ const CompanyAllTaskTasks = () => {
                   </div>
                   <span className="pillar-desc">
                     {detailedPerformance.attendance.late > 0 ? `${detailedPerformance.attendance.late} late arrival(s) penalized (-30% each). ` : ""}
-                    {detailedPerformance.attendance.absent > 0 ? `${detailedPerformance.attendance.absent} unexcused absence(s) counted. ` : ""}
+                    {detailedPerformance.attendance.absent > 0 ? `${detailedPerformance.attendance.absent} unclocked absence(s) counted. ` : ""}
                     {detailedPerformance.attendance.late === 0 && detailedPerformance.attendance.absent === 0 ? "Flawless on-time attendance recorded." : ""}
                   </span>
                 </div>
@@ -4850,7 +4922,7 @@ const CompanyAllTaskTasks = () => {
                   <div className="eff-item">
                     <span className="eff-label">Punctuality Log</span>
                     <strong className="eff-val">
-                      <span className="text-green">{detailedPerformance.attendance.present}P</span> ·{" "}
+                      <span className="text-green">{detailedPerformance.attendance.present} Clock In</span> ·{" "}
                       <span className="text-amber">{detailedPerformance.attendance.late} Late</span> ·{" "}
                       <span className="text-red">{detailedPerformance.attendance.absent} Absent</span>
                     </strong>

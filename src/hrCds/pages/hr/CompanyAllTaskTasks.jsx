@@ -2217,8 +2217,14 @@ const CompanyAllTaskTasks = () => {
     });
 
     const workingDays = present + late + halfday + absent;
-    const rate = workingDays > 0
+    const rawRate = workingDays > 0
       ? Math.round(((present + late + (halfday * 0.5)) / workingDays) * 100)
+      : (validDays.some((c) => c.dateKey && c.dateKey <= todayStr && c.status !== "WEEKEND" && c.status !== "HOLIDAY") ? 0 : 100);
+
+    // Discipline & Punctuality Score:
+    // Present = 100%, Late = 70% (30% penalty for late check-in), HalfDay = 50%, Absent = 0%
+    const disciplineScore = workingDays > 0
+      ? Math.round(((present * 1.0 + late * 0.70 + (halfday * 0.5)) / workingDays) * 100)
       : (validDays.some((c) => c.dateKey && c.dateKey <= todayStr && c.status !== "WEEKEND" && c.status !== "HOLIDAY") ? 0 : 100);
 
     return {
@@ -2230,7 +2236,8 @@ const CompanyAllTaskTasks = () => {
       holiday,
       weekend,
       totalWorking: workingDays,
-      attendanceRate: Math.min(100, Math.max(0, rate)),
+      attendanceRate: Math.min(100, Math.max(0, rawRate)),
+      disciplineScore: Math.min(100, Math.max(0, disciplineScore)),
     };
   }, [calendarDays, todayStr]);
 
@@ -2247,8 +2254,9 @@ const CompanyAllTaskTasks = () => {
     const onTimePts = Number((onTimeVal * 0.25).toFixed(1));
 
     // 3. Attendance & Discipline Reliability (0-100)
-    const attReliability = Number.isFinite(attendanceReliability)
-      ? attendanceReliability
+    // Directly factors in Absent (0 credit) and Late (penalized 30%) from month stats
+    const attReliability = monthStats.disciplineScore !== undefined
+      ? monthStats.disciplineScore
       : (monthStats.attendanceRate || 0);
     const attPts = Number((attReliability * 0.20).toFixed(1));
 
@@ -2298,12 +2306,22 @@ const CompanyAllTaskTasks = () => {
       pillars: {
         taskCompletion: { rate: taskCompRate, weight: 40, points: taskCompPts, maxPoints: 40 },
         onTimeDelivery: { rate: onTimeVal, weight: 25, points: onTimePts, maxPoints: 25 },
-        attendance: { rate: attReliability, weight: 20, points: attPts, maxPoints: 20 },
+        attendance: {
+          rate: attReliability,
+          weight: 20,
+          points: attPts,
+          maxPoints: 20,
+          present: monthStats.present,
+          late: monthStats.late,
+          absent: monthStats.absent,
+          halfday: monthStats.halfday,
+          workingDays: monthStats.totalWorking,
+        },
         timeUtilization: { rate: timeUtilRate, weight: 15, points: timeUtilPts, maxPoints: 15 },
         overduePenalty: { points: overduePenalty }
       }
     };
-  }, [stats.total, stats.completed, stats.overdue, onTimeRate, attendanceReliability, monthStats.attendanceRate, workSummary]);
+  }, [stats.total, stats.completed, stats.overdue, onTimeRate, monthStats.disciplineScore, monthStats.attendanceRate, monthStats.present, monthStats.late, monthStats.absent, monthStats.halfday, monthStats.totalWorking, workSummary]);
 
   const productivityScore = detailedPerformance.finalScore;
 
@@ -4104,9 +4122,13 @@ const CompanyAllTaskTasks = () => {
                     <span className="phm-sub">Deadline discipline</span>
                   </div>
                   <div className="perf-hero-metric-item">
-                    <span className="phm-label">Attendance Score</span>
+                    <span className="phm-label">Attendance & Discipline</span>
                     <strong className="phm-val text-purple">{detailedPerformance.pillars.attendance.rate}%</strong>
-                    <span className="phm-sub">{monthStats.present} Present / {monthStats.late} Late</span>
+                    <div className="phm-sub-tags">
+                      <span className="phm-badge green">{monthStats.present} P</span>
+                      <span className="phm-badge amber">{monthStats.late} Late</span>
+                      <span className="phm-badge red">{monthStats.absent} Absent</span>
+                    </div>
                   </div>
                   <div className="perf-hero-metric-item">
                     <span className="phm-label">Tracked Time</span>
@@ -4130,6 +4152,18 @@ const CompanyAllTaskTasks = () => {
                   </div>
                 </div>
                 <ul className="perf-insight-list">
+                  {monthStats.absent === 0 && monthStats.late === 0 && monthStats.present > 0 && (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>Flawless Punctuality:</strong> 100% on-time attendance with 0 absents and 0 late clock-ins across all {monthStats.totalWorking} working days.</span>
+                    </li>
+                  )}
+                  {monthStats.absent === 0 && monthStats.late > 0 && (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>Zero Absents:</strong> Full attendance recorded across all {monthStats.totalWorking} scheduled working days.</span>
+                    </li>
+                  )}
                   {detailedPerformance.pillars.onTimeDelivery.rate >= 80 && (
                     <li>
                       <FiCheck size={14} className="text-emerald" />
@@ -4142,15 +4176,9 @@ const CompanyAllTaskTasks = () => {
                       <span><strong>Strong Output Volume:</strong> {stats.completed} tasks successfully resolved and verified.</span>
                     </li>
                   )}
-                  {detailedPerformance.pillars.attendance.rate >= 90 && (
-                    <li>
-                      <FiCheck size={14} className="text-emerald" />
-                      <span><strong>Consistent Attendance:</strong> High punctuality with {monthStats.present} present days recorded.</span>
-                    </li>
-                  )}
                   {detailedPerformance.pillars.onTimeDelivery.rate < 80 &&
                    detailedPerformance.pillars.taskCompletion.rate < 75 &&
-                   detailedPerformance.pillars.attendance.rate < 90 && (
+                   (monthStats.absent > 0 || monthStats.late > 0) && (
                     <li>
                       <FiCheck size={14} className="text-emerald" />
                       <span><strong>Active Execution:</strong> Consistent task interaction with active updates logged in time tracking.</span>
@@ -4170,6 +4198,18 @@ const CompanyAllTaskTasks = () => {
                   </div>
                 </div>
                 <ul className="perf-insight-list">
+                  {monthStats.absent > 0 && (
+                    <li className="warning-item">
+                      <FiAlertTriangle size={14} className="text-red" />
+                      <span><strong>{monthStats.absent} Absent Day(s):</strong> Working days with no punch record drop attendance score to {detailedPerformance.pillars.attendance.rate}%. Regularize punches with HR if applicable.</span>
+                    </li>
+                  )}
+                  {monthStats.late > 0 && (
+                    <li className="warning-item">
+                      <FiClock size={14} className="text-amber" />
+                      <span><strong>{monthStats.late} Late Arrival(s):</strong> Arriving late directly penalizes punctuality points (-30% per late check-in). Target timely punch-ins.</span>
+                    </li>
+                  )}
                   {stats.overdue > 0 ? (
                     <li className="warning-item">
                       <FiAlertTriangle size={14} className="text-red" />
@@ -4187,13 +4227,7 @@ const CompanyAllTaskTasks = () => {
                       <span><strong>WIP Management:</strong> {stats.inProgress} active tasks in progress. Consider completing prior tasks before taking on new ones.</span>
                     </li>
                   )}
-                  {monthStats.late > 2 && (
-                    <li>
-                      <FiClock size={14} className="text-amber" />
-                      <span><strong>Punctuality Check:</strong> {monthStats.late} late check-in(s) logged this period. Strive for on-time clock-ins.</span>
-                    </li>
-                  )}
-                  {stats.overdue === 0 && stats.inProgress <= 3 && monthStats.late <= 2 && (
+                  {stats.overdue === 0 && stats.inProgress <= 3 && monthStats.late === 0 && monthStats.absent === 0 && (
                     <li>
                       <FiCheck size={14} className="text-emerald" />
                       <span><strong>Optimal Workflow:</strong> Operations running within expected SLA thresholds. Continue current standards.</span>
@@ -4275,7 +4309,27 @@ const CompanyAllTaskTasks = () => {
                   <div className="progress-track sm">
                     <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.attendance.rate}%`, backgroundColor: '#8b5cf6' }} />
                   </div>
-                  <span className="pillar-desc">{monthStats.present} present, {monthStats.late} late, {monthStats.absent} absents</span>
+                  <div className="pillar-att-chips">
+                    <span className="att-mini-chip present">
+                      <strong>{monthStats.present}</strong> Present
+                    </span>
+                    <span className="att-mini-chip late" title="Late arrival incurs 30% punctuality deduction">
+                      <strong>{monthStats.late}</strong> Late
+                    </span>
+                    <span className="att-mini-chip absent" title="Unpunched working days give 0 credit">
+                      <strong>{monthStats.absent}</strong> Absent
+                    </span>
+                    {monthStats.halfday > 0 && (
+                      <span className="att-mini-chip halfday">
+                        <strong>{monthStats.halfday}</strong> Half Day
+                      </span>
+                    )}
+                  </div>
+                  <span className="pillar-desc">
+                    {monthStats.late > 0 ? `${monthStats.late} late arrival(s) penalized (-30% each). ` : ""}
+                    {monthStats.absent > 0 ? `${monthStats.absent} unexcused absence(s) counted. ` : ""}
+                    {monthStats.late === 0 && monthStats.absent === 0 ? "Flawless on-time attendance recorded." : ""}
+                  </span>
                 </div>
 
                 {/* Pillar 4: Time Tracking / Utilization */}
@@ -4378,9 +4432,17 @@ const CompanyAllTaskTasks = () => {
                     <strong className="eff-val text-orange">{workSummary?.untrackedLabel || "0m"}</strong>
                   </div>
                   <div className="eff-item">
-                    <span className="eff-label">Attendance Reliability</span>
+                    <span className="eff-label">Attendance Discipline</span>
                     <strong className="eff-val text-purple">
-                      {Number.isFinite(attendanceReliability) ? `${attendanceReliability}%` : "—"}
+                      {detailedPerformance.pillars.attendance.rate}%
+                    </strong>
+                  </div>
+                  <div className="eff-item">
+                    <span className="eff-label">Punctuality Log</span>
+                    <strong className="eff-val">
+                      <span className="text-green">{monthStats.present}P</span> ·{" "}
+                      <span className="text-amber">{monthStats.late} Late</span> ·{" "}
+                      <span className="text-red">{monthStats.absent} Absent</span>
                     </strong>
                   </div>
                 </div>

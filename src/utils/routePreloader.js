@@ -82,6 +82,7 @@ const routeLoaders = {
   "/Ciis-network/support-operations": () => import("../admin/page/SupportOperations.jsx"),
   "/Ciis-network/settings": () => import("../admin/page/Settings.jsx"),
   "/Ciis-network/email-settings": () => import("../admin/page/EmailSettings.jsx"),
+  "/Ciis-network/marketing-ads-settings": () => import("../admin/page/MarketingAdsSettings.jsx"),
   "/Ciis-network/page-management": () => import("../admin/page/PageManagement.jsx"),
   "/Ciis-network/leave-policy": () => import("../admin/page/LeavePolicy.jsx"),
   "/Ciis-network/leave-policy-master": () => import("../admin/page/LeavePolicy.jsx"),

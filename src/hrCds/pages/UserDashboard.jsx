@@ -2,6 +2,7 @@ import { accountStorage } from '../../utils/authSession';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
+import { getPlaceNameFromCoords } from '../../utils/geocoding';
 import { getSidebarConfigParams, saveSidebarConfig } from '../../utils/sidebarConfigStore';
 import { ToastContainer, toast } from 'react-toastify';
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
@@ -1903,6 +1904,15 @@ const UserDashboard = () => {
       }
       payload.latitude = coords.latitude;
       payload.longitude = coords.longitude;
+      if (coords.accuracy) payload.accuracy = coords.accuracy;
+
+      try {
+        const placeName = await getPlaceNameFromCoords(coords.latitude, coords.longitude);
+        if (placeName) {
+          payload.placeName = placeName;
+          payload.address = placeName;
+        }
+      } catch (e) {}
     }
 
     return payload;

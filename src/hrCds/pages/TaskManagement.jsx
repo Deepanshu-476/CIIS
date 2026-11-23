@@ -647,6 +647,7 @@ const formatActivityTimestamp = (value) => {
 };
 
 const formatActivityAction = (value) => {
+  if (value === 'task_break') return 'Break';
   if (!value) return 'Update';
   return String(value)
     .replace(/_/g, ' ')
@@ -4541,7 +4542,7 @@ const UserCreateTask = () => {
   };
 
   
-  const fetchActivityLogs = async (taskOrId, taskSource = taskViewMode) => {
+  const fetchActivityLogs = async (taskOrId, taskSource = taskViewMode, refresh = false) => {
     const requestId = ++activityRequestRef.current;
     try {
       const { task, taskId, projectId } = getProjectTaskContext(taskOrId);
@@ -4560,9 +4561,11 @@ const UserCreateTask = () => {
 
       const cacheKey = `${source}:${projectId || ''}:${taskId}`;
       const cachedLogs = activityCacheRef.current.get(cacheKey);
-      setActivityLogs(cachedLogs || []);
-      setActivityDialog({ open: true, taskId });
-      setIsLoadingActivity(!cachedLogs);
+      if (!refresh) {
+        setActivityLogs(cachedLogs || []);
+        setActivityDialog({ open: true, taskId, taskOrId, source });
+        setIsLoadingActivity(!cachedLogs);
+      }
 
       const extractLogs = (data) => {
         if (data?.success && data.data) {
@@ -4580,7 +4583,7 @@ const UserCreateTask = () => {
       let lastError = null;
       for (const endpoint of endpoints) {
         try {
-          const res = await axios.get(endpoint);
+          const res = await axios.get(endpoint, { noCache: true, _skipErrorNotify: refresh });
           logs = extractLogs(res.data);
           if (logs.length) break;
         } catch (requestError) {
@@ -4588,7 +4591,7 @@ const UserCreateTask = () => {
         }
       }
 
-      if (!logs?.length) {
+      if (!logs?.length && !refresh) {
         const embeddedLogs = [
           ...(Array.isArray(task?.activityLogs) ? task.activityLogs : []),
           ...(Array.isArray(task?.statusHistory) ? task.statusHistory.map(entry => ({
@@ -4624,11 +4627,23 @@ const UserCreateTask = () => {
       
     } catch (error) {
       console.error('Error fetching activity logs:', error);
-      showSnackbar('Failed to load activity logs', 'error');
+      if (!refresh) showSnackbar('Failed to load activity logs', 'error');
     } finally {
       if (requestId === activityRequestRef.current) setIsLoadingActivity(false);
     }
   };
+
+  useEffect(() => {
+    if (!activityDialog.open) return undefined;
+    const refresh = () => fetchActivityLogs(activityDialog.taskOrId, activityDialog.source, true);
+    const socket = socketContext?.socket;
+    socket?.on('presence:break', refresh);
+    const timer = setInterval(refresh, 15000);
+    return () => {
+      clearInterval(timer);
+      socket?.off('presence:break', refresh);
+    };
+  }, [activityDialog, socketContext?.socket]);
 
   
   const applyDateFilter = useCallback((tasks) => {
@@ -9104,7 +9119,10 @@ const UserCreateTask = () => {
             <div className="user-create-task-dialog-actions">
               <button
                 className="user-create-task-button user-create-task-button-outlined"
-                onClick={() => setActivityDialog({ open: false, taskId: null })}
+                onClick={() => {
+                  activityRequestRef.current += 1;
+                  setActivityDialog({ open: false, taskId: null });
+                }}
                 style={{ padding: isMobile ? '8px 12px' : '10px 16px' }}
               >
                 Close

@@ -119,6 +119,7 @@ const SUPER_ADMIN_ROUTES = [
   { id: "page-management", path: "page-management", name: "Page Management", category: "management" },
   { id: "plans", path: "plans", name: "Plans", category: "owner" },
   { id: "email-settings", path: "email-settings", name: "Email Settings", category: "owner" },
+  { id: "marketing-ads-settings", path: "marketing-ads-settings", name: "Marketing Ads Settings", category: "owner" },
   { id: "app-version-control", path: "app-version-control", name: "App Version", category: "owner" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "management" },
   { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "management" },

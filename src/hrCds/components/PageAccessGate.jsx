@@ -448,7 +448,8 @@ const PageAccessGate = ({ children }) => {
     const roleValues = [currentUser?.companyRole, currentUser?.jobRole, currentUser?.role];
     const isPrivileged = roleValues.some(role => PRIVILEGED_ROLES.has(normalizeRole(role?.name || role)));
     const telecallerPage = TELECALLER_PAGES.find(page => page.path.toLowerCase() === pagePath.toLowerCase());
-    const requiresExplicitAccess = requiresPageAccess(pagePath);
+    const isRegisterRequest = pagePath.toLowerCase() === '/ciisuser/register-request';
+    const requiresExplicitAccess = isRegisterRequest || requiresPageAccess(pagePath);
 
     const checkAccess = async () => {
       if (telecallerPage) {
@@ -484,6 +485,15 @@ const PageAccessGate = ({ children }) => {
       }
       if (!hasCompanyPlanAccess(pagePath)) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "plan" });
+        return;
+      }
+      if (isRegisterRequest) {
+        try {
+          await api.get('/users/register-requests/access', { noCache: true, _skipRequestCache: true, _skipErrorNotify: true });
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true, reason: null });
+        } catch {
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "permission" });
+        }
         return;
       }
       if (isPrivileged && !isCrmPage(pagePath)) {

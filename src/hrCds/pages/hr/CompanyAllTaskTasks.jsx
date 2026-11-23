@@ -5,6 +5,7 @@ import TaskReminderControl, { buildReminderPayload, createDefaultReminderSetting
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import TaskDetailsModal from "../../components/TaskDetailsModal";
+import { useSocket } from '../../../context/SocketContext';
 import {
   FiArrowLeft,
   FiSearch,
@@ -147,6 +148,9 @@ const cleanActivityDescription = (desc, action) => {
 
 const getActivityMeta = (log) => {
   const action = String(log.action || log.type || "").toLowerCase();
+  if (action === 'task_break') {
+    return { label: 'Break', badgeClass: 'badge-onhold', icon: <FiPause size={13} />, color: '#9333ea', bg: '#f3e8ff', border: '#d8b4fe' };
+  }
   const desc = String(log.description || log.text || log.message || log.details || "").toLowerCase();
   const newS = String(log.newValues?.status || "").toLowerCase();
 
@@ -600,6 +604,7 @@ const MONTH_NAMES = [
 ];
 
 const CompanyAllTaskTasks = () => {
+  const socket = useSocket()?.socket;
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -1182,7 +1187,7 @@ const CompanyAllTaskTasks = () => {
     }
   }, [attendanceRecords.length, fetchAttendance]);
 
-  const fetchTaskDetails = useCallback(async (task) => {
+  const fetchTaskDetails = useCallback(async (task, activityOnly = false) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
     const source = getTaskSource(task);
     const endpoints = [];
@@ -1215,15 +1220,15 @@ const CompanyAllTaskTasks = () => {
 
     const details = {
       remarks: Array.isArray(task.remarks) ? [...task.remarks] : [],
-      activityLogs: [...fallbackLogs],
+      activityLogs: activityOnly ? null : [...fallbackLogs],
     };
 
     await Promise.all(
-      endpoints.map(async ({ key, url }) => {
+      endpoints.filter(({ key }) => !activityOnly || key === 'activityLogs').map(async ({ key, url }) => {
         try {
-          const res = await axios.get(url);
+          const res = await axios.get(url, { noCache: key === 'activityLogs', _skipErrorNotify: activityOnly });
           const data = res.data?.logs || res.data?.activityLogs || res.data?.remarks || res.data?.data || res.data;
-          if (Array.isArray(data) && data.length > 0) {
+          if (Array.isArray(data) && (key === 'activityLogs' || data.length > 0)) {
             details[key] = data;
           }
         } catch (err) {
@@ -1242,6 +1247,30 @@ const CompanyAllTaskTasks = () => {
     );
     return details;
   }, []);
+
+  const openLogTask = taskDetailsModal.open ? taskDetailsModal.task : activityModal.open ? activityModal.task : null;
+  useEffect(() => {
+    if (!openLogTask?._id) return undefined;
+    let cancelled = false;
+    const taskId = String(openLogTask._id);
+    const refreshActivity = async () => {
+      const { activityLogs } = await fetchTaskDetails(openLogTask, true);
+      if (cancelled || !activityLogs) return;
+      setTaskDetailsModal(current => current.open && String(current.task?._id) === taskId
+        ? { ...current, task: { ...current.task, activityLogs } }
+        : current);
+      setActivityModal(current => current.open && String(current.task?._id) === taskId
+        ? { ...current, logs: activityLogs }
+        : current);
+    };
+    socket?.on('presence:break', refreshActivity);
+    const timer = setInterval(refreshActivity, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      socket?.off('presence:break', refreshActivity);
+    };
+  }, [openLogTask?._id, fetchTaskDetails, socket]);
 
   const openAssignModal = () => {
     setAssignModal({
@@ -2907,8 +2936,8 @@ const CompanyAllTaskTasks = () => {
                         const isCPExpanded = Boolean(expandedCheckpoints[task._id]);
 
                         // Dynamic calculation of time spent (from task.workTime, task.timeSpent, task.timeTracking, or activityLogs/completionDate)
-                        let rawSeconds = Number(task.workTime?.seconds || task.timeSpent || task.timeTracking?.totalSeconds || 0);
-                        if (rawSeconds === 0 && (dispStatus === 'completed' || task.status === 'completed' || task.completionDate)) {
+                        let rawSeconds = Number(task.workTime?.seconds ?? (task.timeSpent || task.timeTracking?.totalSeconds || 0));
+                        if (task.workTime?.seconds == null && rawSeconds === 0 && (dispStatus === 'completed' || task.status === 'completed' || task.completionDate)) {
                           const compDate = task.completionDate ? new Date(task.completionDate) : (task.completedAt ? new Date(task.completedAt) : null);
                           if (compDate && !isNaN(compDate.getTime())) {
                             const logs = Array.isArray(task.activityLogs) ? task.activityLogs : [];

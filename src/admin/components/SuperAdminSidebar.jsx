@@ -29,6 +29,7 @@ import {
   ToggleRight as PageManagementIcon,
   Crown as PlansIcon,
   MailCheck as EmailIcon,
+  SlidersHorizontal as AdsConfigIcon,
   ArrowUpCircle as AppUpdateIcon,
   Wrench as SupportAgentIcon,
   MessageSquareQuote as FeedbackIcon,
@@ -347,6 +348,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <EmailIcon size={20} strokeWidth={1.9} />, 
       name: 'Email Settings',
       route: '/Ciis-network/email-settings',
+      showForOwnerSuperAdmin: true
+    },
+    {
+      icon: <AdsConfigIcon size={20} strokeWidth={1.9} />, 
+      name: 'Marketing Ads Settings',
+      route: '/Ciis-network/marketing-ads-settings',
       showForOwnerSuperAdmin: true
     },
     {

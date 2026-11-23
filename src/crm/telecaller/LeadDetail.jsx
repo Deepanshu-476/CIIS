@@ -1,3 +1,4 @@
+import MarketingLeadDetails from '../components/MarketingLeadDetails';
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import CallRecording from '../components/CallRecording';
 import {
@@ -368,8 +369,10 @@ function LeadDetailContent({
   const totalNotes = calls.filter((c) => c.notes).length;
   const nextFollowUp = lead.followUp;
 
-  const cleanPhone = (lead.phone || "").replace(/\D/g, "").replace(/^91/, "");
-  const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(
+  const phoneDisplay = lead.phone && (lead.marketing || lead.phone.startsWith("+") ? lead.phone : `+91 ${lead.phone}`);
+  const cleanPhone = (lead.phone || "").replace(/\D/g, "");
+  const whatsappNumber = lead.phone?.startsWith("+") || cleanPhone.length !== 10 ? cleanPhone : `91${cleanPhone}`;
+  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
     `Hello ${lead.name}, this is from CIIS Network regarding your inquiry for ${lead.type || "course"}.`
   )}`;
 
@@ -476,6 +479,7 @@ function LeadDetailContent({
                   <Sparkles size={12} /> {lead.type || "—"}
                 </span>
               </div>
+              <MarketingLeadDetails {...lead} />
             </div>
           </div>
 
@@ -493,6 +497,7 @@ function LeadDetailContent({
             <button
               type="button"
               className="ld-btn ld-btn-whatsapp"
+              disabled={!lead.phone}
               onClick={() => setTemplatesOpen(true)}
             >
               <MessageSquare size={14} /> Message
@@ -500,7 +505,7 @@ function LeadDetailContent({
             <MessageTemplatesModal open={templatesOpen} lead={lead} onClose={() => setTemplatesOpen(false)} />
 
             <a
-              href={`mailto:${lead.email}`}
+              href={lead.email ? `mailto:${lead.email}` : undefined}
               className="ld-btn ld-btn-outline"
             >
               <Mail size={14} /> Email
@@ -513,14 +518,15 @@ function LeadDetailContent({
           <div className="ld-contact-chip">
             <Phone size={13} className="ld-contact-chip-icon" />
             <a
-              href={`tel:${lead.phone}`}
+              href={lead.phone ? `tel:${lead.phone}` : undefined}
               style={{ color: "inherit", textDecoration: "none" }}
             >
-              +91 {lead.phone}
+              {phoneDisplay}
             </a>
             <button
               type="button"
               className="ld-copy-btn"
+              disabled={!lead.phone}
               onClick={() => copyToClipboard(lead.phone, "Phone number")}
               title="Copy phone"
             >
@@ -531,7 +537,7 @@ function LeadDetailContent({
           <div className="ld-contact-chip">
             <Mail size={13} className="ld-contact-chip-icon" />
             <a
-              href={`mailto:${lead.email}`}
+              href={lead.email ? `mailto:${lead.email}` : undefined}
               style={{ color: "inherit", textDecoration: "none" }}
             >
               {lead.email}
@@ -710,19 +716,19 @@ function LeadDetailContent({
                     <Phone size={15} className="ld-contact-item-icon" />
                     <div className="ld-contact-item-text">
                       <span className="ld-contact-item-label">Mobile Phone</span>
-                      <span className="ld-contact-item-val">+91 {lead.phone}</span>
+                      <span className="ld-contact-item-val">{phoneDisplay}</span>
                     </div>
                   </div>
                   <div className="ld-contact-item-actions">
                     <a
-                      href={`tel:${lead.phone}`}
+                      href={lead.phone ? `tel:${lead.phone}` : undefined}
                       className="ld-icon-btn"
                       title="Direct call"
                     >
                       <PhoneCall size={13} />
                     </a>
                     <a
-                      href={whatsappUrl}
+                      href={lead.phone ? whatsappUrl : undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="ld-icon-btn"
@@ -743,7 +749,7 @@ function LeadDetailContent({
                   </div>
                   <div className="ld-contact-item-actions">
                     <a
-                      href={`mailto:${lead.email}`}
+                      href={lead.email ? `mailto:${lead.email}` : undefined}
                       className="ld-icon-btn"
                       title="Send Email"
                     >

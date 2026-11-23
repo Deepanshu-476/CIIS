@@ -51,12 +51,12 @@ export function resolveScheduledAttendanceStatus(record, userId, response = {}) 
   return response.weeklyOffUserIds.includes(String(userId)) ? 'weekend' : status === 'weekend' ? 'absent' : status;
 }
 
-export async function fetchAttendanceDay(client, date) {
-  const first = await client.get('/attendance/all', {params: {date, page: 1, limit: 1000}, cache: false});
+export async function fetchAttendanceDay(client, date, scopeParams = {}) {
+  const first = await client.get('/attendance/all', {params: {...scopeParams, date, page: 1, limit: 1000}, cache: false});
   const result = {...first.data, data: [...attendanceRowsFromResponse(first)]};
   const pages = Number(first.data?.pagination?.totalPages || first.data?.pagination?.pages || 1);
   for (let page = 2; page <= pages; page++) {
-    const next = await client.get('/attendance/all', {params: {date, page, limit: 1000}, cache: false});
+    const next = await client.get('/attendance/all', {params: {...scopeParams, date, page, limit: 1000}, cache: false});
     result.data.push(...attendanceRowsFromResponse(next));
   }
   return result;
@@ -81,10 +81,26 @@ export function attendanceLocation(location) {
   const longitude = Number(location.longitude);
   if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
   const coordinates = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-  const details = [coordinates];
+  const placeName = location?.placeName || location?.address || '';
+  const branchName = location?.branchName || '';
+  const details = [placeName ? `${placeName} (${coordinates})` : coordinates];
   if (hasNumber(location.accuracy)) details.push(`Accuracy ${Math.round(location.accuracy)} m`);
-  if (hasNumber(location.distanceFromOfficeMeters)) details.push(`Office distance ${Math.round(location.distanceFromOfficeMeters)} m`);
-  return {text: details.join(' · '), url: `https://www.google.com/maps?q=${latitude},${longitude}`};
+  if (hasNumber(location.distanceFromOfficeMeters)) {
+    const dist = Math.round(location.distanceFromOfficeMeters);
+    details.push(branchName ? `${branchName} distance ${dist} m` : `Office distance ${dist} m`);
+  }
+  return {
+    latitude,
+    longitude,
+    coordinates,
+    placeName,
+    address: location?.address || '',
+    branchName,
+    distanceFromOfficeMeters: hasNumber(location.distanceFromOfficeMeters) ? Number(location.distanceFromOfficeMeters) : null,
+    accuracy: hasNumber(location.accuracy) ? Number(location.accuracy) : null,
+    text: details.join(' · '),
+    url: `https://www.google.com/maps?q=${latitude},${longitude}`,
+  };
 }
 
 export function attendancePhotoUrl(value, apiBase) {

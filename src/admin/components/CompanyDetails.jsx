@@ -85,7 +85,10 @@ const CompanyDetails = () => {
     companyAddress: "",
     companyDomain: "",
     ownerName: "",
-    logo: ""
+    logo: "",
+    indiamartCrmKey: "",
+    indiamartMobile: "",
+    justdialApiKey: ""
   });
   const [companyEditLoading, setCompanyEditLoading] = useState(false);
   const [companyEditSuccess, setCompanyEditSuccess] = useState(false);
@@ -1403,7 +1406,10 @@ const CompanyDetails = () => {
         companyAddress: company.companyAddress !== "Not provided" ? company.companyAddress : "",
         companyDomain: company.companyDomain || "",
         ownerName: company.ownerName || "",
-        logo: company.logo || DEFAULT_COMPANY_LOGO
+        logo: company.logo || DEFAULT_COMPANY_LOGO,
+        indiamartCrmKey: company.leadIntegrations?.indiamart?.crmKey || "",
+        indiamartMobile: company.leadIntegrations?.indiamart?.mobileNumber || "",
+        justdialApiKey: company.leadIntegrations?.justdial?.apiKey || ""
       });
       setCompanyEditSuccess(false);
       setCompanyEditModalOpen(true);
@@ -1456,6 +1462,20 @@ const CompanyDetails = () => {
       if (companyEditFormData.logo !== company.logo) {
         updateData.logo = companyEditFormData.logo;
       }
+
+      updateData.leadIntegrations = {
+        indiamart: {
+          crmKey: (companyEditFormData.indiamartCrmKey || '').trim(),
+          mobileNumber: (companyEditFormData.indiamartMobile || '').trim(),
+          isEnabled: Boolean(companyEditFormData.indiamartCrmKey || companyEditFormData.indiamartMobile),
+          lastLeadReceivedAt: company.leadIntegrations?.indiamart?.lastLeadReceivedAt || null
+        },
+        justdial: {
+          apiKey: (companyEditFormData.justdialApiKey || '').trim(),
+          isEnabled: Boolean(companyEditFormData.justdialApiKey),
+          lastLeadReceivedAt: company.leadIntegrations?.justdial?.lastLeadReceivedAt || null
+        }
+      };
       
       if (Object.keys(updateData).length === 0) {
         toast.info("No changes to save");
@@ -2636,6 +2656,62 @@ const CompanyDetails = () => {
                   </div>
                 </div>
 
+                <div className="CompanyDetails-info-card" style={{ marginTop: '1.25rem' }}>
+                  <div className="CompanyDetails-card-header">
+                    <div className="CompanyDetails-header-icon" style={{ background: '#f59e0b', color: '#fff' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+                      </svg>
+                    </div>
+                    <h3 className="CompanyDetails-card-title">Directory Lead Integrations (IndiaMART & Justdial)</h3>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', padding: '0.75rem 0' }}>
+                    {/* IndiaMART Card */}
+                    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <strong style={{ color: '#1e40af', fontSize: '0.95rem' }}>🇮🇳 IndiaMART Integration</strong>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: company.leadIntegrations?.indiamart?.crmKey || company.leadIntegrations?.indiamart?.mobileNumber ? '#dcfce7' : '#f3f4f6', color: company.leadIntegrations?.indiamart?.crmKey ? '#15803d' : '#6b7280' }}>
+                          {company.leadIntegrations?.indiamart?.crmKey ? 'Configured' : 'Webhook Active'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.5rem' }}>
+                        <div style={{ marginBottom: '0.25rem' }}><strong>IndiaMART Webhook URL:</strong></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input readOnly style={{ width: '100%', fontSize: '0.78rem', padding: '6px 8px', background: '#fff', border: '1px solid #d1d5db', borderRadius: 4, color: '#1f2937' }} value={`https://backendcds.ciisnetwork.in/api/integrations/indiamart/webhook/${company.companyCode || company._id}`} />
+                          <button type="button" onClick={() => { navigator.clipboard.writeText(`https://backendcds.ciisnetwork.in/api/integrations/indiamart/webhook/${company.companyCode || company._id}`); toast.success('IndiaMART Webhook URL copied!'); }} style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', borderRadius: 4, background: '#2563eb', color: '#fff', border: 'none', flexShrink: 0 }}>Copy</button>
+                        </div>
+                      </div>
+                      {company.leadIntegrations?.indiamart?.crmKey && (
+                        <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '0.35rem' }}>CRM Key: {company.leadIntegrations.indiamart.crmKey.slice(0, 4)}••••••••</div>
+                      )}
+                      {company.leadIntegrations?.indiamart?.lastLeadReceivedAt && (
+                        <div style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '0.25rem' }}>Last lead: {new Date(company.leadIntegrations.indiamart.lastLeadReceivedAt).toLocaleString()}</div>
+                      )}
+                    </div>
+
+                    {/* Justdial Card */}
+                    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <strong style={{ color: '#ea580c', fontSize: '0.95rem' }}>📞 Justdial Integration</strong>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: '#dcfce7', color: '#15803d' }}>
+                          Webhook Active
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.5rem' }}>
+                        <div style={{ marginBottom: '0.25rem' }}><strong>Justdial Webhook URL:</strong></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input readOnly style={{ width: '100%', fontSize: '0.78rem', padding: '6px 8px', background: '#fff', border: '1px solid #d1d5db', borderRadius: 4, color: '#1f2937' }} value={`https://backendcds.ciisnetwork.in/api/integrations/justdial/webhook/${company.companyCode || company._id}`} />
+                          <button type="button" onClick={() => { navigator.clipboard.writeText(`https://backendcds.ciisnetwork.in/api/integrations/justdial/webhook/${company.companyCode || company._id}`); toast.success('Justdial Webhook URL copied!'); }} style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', borderRadius: 4, background: '#ea580c', color: '#fff', border: 'none', flexShrink: 0 }}>Copy</button>
+                        </div>
+                      </div>
+                      {company.leadIntegrations?.justdial?.lastLeadReceivedAt && (
+                        <div style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '0.25rem' }}>Last lead: {new Date(company.leadIntegrations.justdial.lastLeadReceivedAt).toLocaleString()}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 
                 <div className={`CompanyDetails-subscription-card CompanyDetails-status-${subscriptionStatus.color}`}>
                   <div className="CompanyDetails-subscription-bg"></div>
@@ -3154,6 +3230,57 @@ const CompanyDetails = () => {
                           className="CompanyDetails-form-input"
                           placeholder="Enter company address"
                           rows={isMobile ? 2 : 3}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="CompanyDetails-form-group CompanyDetails-full-width" style={{ marginTop: '0.75rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
+                      <label className="CompanyDetails-form-label" style={{ color: '#1e40af', fontWeight: 700 }}>
+                        🇮🇳 IndiaMART & Justdial Lead Integrations
+                      </label>
+                      <span className="CompanyDetails-input-hint">
+                        Enter your IndiaMART / Justdial seller credentials to automate lead sync into your CRM.
+                      </span>
+                    </div>
+
+                    <div className="CompanyDetails-form-group">
+                      <label className="CompanyDetails-form-label">IndiaMART CRM Key (GLUSR_CRM_KEY)</label>
+                      <div className="CompanyDetails-input-wrapper">
+                        <input
+                          type="text"
+                          name="indiamartCrmKey"
+                          value={companyEditFormData.indiamartCrmKey || ''}
+                          onChange={handleCompanyInputChange}
+                          className="CompanyDetails-form-input"
+                          placeholder="e.g. mapi_crm_key..."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="CompanyDetails-form-group">
+                      <label className="CompanyDetails-form-label">IndiaMART Registered Mobile</label>
+                      <div className="CompanyDetails-input-wrapper">
+                        <input
+                          type="tel"
+                          name="indiamartMobile"
+                          value={companyEditFormData.indiamartMobile || ''}
+                          onChange={handleCompanyInputChange}
+                          className="CompanyDetails-form-input"
+                          placeholder="e.g. 9876543210"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="CompanyDetails-form-group CompanyDetails-full-width">
+                      <label className="CompanyDetails-form-label">Justdial API Key / Secret (Optional)</label>
+                      <div className="CompanyDetails-input-wrapper">
+                        <input
+                          type="text"
+                          name="justdialApiKey"
+                          value={companyEditFormData.justdialApiKey || ''}
+                          onChange={handleCompanyInputChange}
+                          className="CompanyDetails-form-input"
+                          placeholder="e.g. JD secret key if required"
                         />
                       </div>
                     </div>

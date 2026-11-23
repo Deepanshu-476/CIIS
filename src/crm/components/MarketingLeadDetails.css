@@ -1,0 +1,5 @@
+.marketing-lead-details { margin: 1rem 0; }
+.marketing-lead-details h3, .marketing-lead-details h4 { margin: 0 0 .75rem; font-size: .95rem; }
+.marketing-lead-details dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; margin: 0 0 1rem; }
+.marketing-lead-details dt { font-size: .8rem; color: #475569; }
+.marketing-lead-details dd { margin: .2rem 0 0; font-size: .875rem; min-height: 1.2em; overflow-wrap: anywhere; }

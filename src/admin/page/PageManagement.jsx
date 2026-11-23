@@ -46,6 +46,7 @@ const PAYROLL_PERMISSION_ACTIONS = {
 const FALLBACK_PAGES = [
   { pageKey: "emp-details", name: "Emp - Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
   { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
+  { pageKey: "register-request", name: "Register Request", path: "/ciisUser/register-request", permissionPattern: "approveReject", permissionActions: { view: "View / Accept", approve: "Manage Requests", delete: "Not used" } },
   { pageKey: "leave-policy", name: "Leave - Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
   { pageKey: "emp-assets", name: "Emp - Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
   { pageKey: "company-assets", name: "Asset Management", path: "/ciisUser/company-assets", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Create / Edit", delete: "Delete" } },

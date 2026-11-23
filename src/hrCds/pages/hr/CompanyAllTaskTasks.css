@@ -3414,6 +3414,27 @@
   color: #60a5fa;
 }
 
+.btn-view-appraisal {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-view-appraisal:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+}
+
 .perf-toolbar-actions {
   display: flex;
   align-items: center;
@@ -4247,6 +4268,680 @@
 .eff-val {
   font-weight: 700;
   color: #0f172a;
+}
+
+/* ----------------------------------------------------
+   ENHANCED VISUAL PERFORMANCE CHARTS & WORKLOAD METRICS
+   ---------------------------------------------------- */
+.phm-badge.orange {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.perf-overview-grid-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 992px) {
+  .perf-overview-grid-top {
+    grid-template-columns: 1fr;
+  }
+}
+
+.perf-card-visual {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-header-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  display: block;
+}
+
+.perf-volume-chip {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+/* Proportional Segmented Stream Ribbon */
+.perf-stream-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.perf-stream-bar {
+  display: flex;
+  height: 12px;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+  gap: 2px;
+}
+
+.stream-segment {
+  height: 100%;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 4px;
+}
+
+.stream-segment.completed {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.stream-segment.in-progress {
+  background: linear-gradient(90deg, #38bdf8, #0284c7);
+}
+
+.stream-segment.pending {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.stream-segment.overdue {
+  background: linear-gradient(90deg, #ef4444, #b91c1c);
+}
+
+.perf-stream-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legend-dot.green { background: #10b981; }
+.legend-dot.blue { background: #0ea5e9; }
+.legend-dot.amber { background: #f59e0b; }
+.legend-dot.red { background: #ef4444; }
+
+/* Visual Column Bar Chart */
+.perf-barchart-container {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 14px 12px;
+}
+
+.perf-barchart-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  height: 140px;
+  align-items: flex-end;
+}
+
+.perf-barchart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.perf-barchart-tooltip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.bct-count {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.bct-pct {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.perf-barchart-track {
+  width: 100%;
+  max-width: 44px;
+  height: 80px;
+  background: #f1f5f9;
+  border-radius: 8px 8px 4px 4px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.perf-barchart-fill {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.perf-barchart-fill.green {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+
+.perf-barchart-fill.blue {
+  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.25);
+}
+
+.perf-barchart-fill.amber {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+
+.perf-barchart-fill.red {
+  background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.25);
+}
+
+.perf-barchart-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.status-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.status-indicator-dot.green { background: #10b981; }
+.status-indicator-dot.blue { background: #0ea5e9; }
+.status-indicator-dot.amber { background: #f59e0b; }
+.status-indicator-dot.red { background: #ef4444; }
+
+/* Workload 3-Tile Grid */
+.perf-efficiency-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.perf-eff-tile {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.eff-tile-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.eff-tile-val {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.eff-tile-sub {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+/* Attendance Discipline Visual Progress Meter */
+.perf-eff-attendance-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eff-att-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eff-att-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.eff-att-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #7c3aed;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.att-discipline-track {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.att-discipline-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+/* 4 Punctuality Chips with Half Day */
+.eff-punctuality-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.eff-p-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.eff-p-chip .chip-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.eff-p-chip.clockin {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+.eff-p-chip.clockin .chip-indicator { background: #10b981; }
+
+.eff-p-chip.halfday {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+.eff-p-chip.halfday .chip-indicator { background: #f97316; }
+
+.eff-p-chip.late {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+.eff-p-chip.late .chip-indicator { background: #f59e0b; }
+
+.eff-p-chip.absent {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+.eff-p-chip.absent .chip-indicator { background: #ef4444; }
+
+.chip-count {
+  font-weight: 800;
+  font-size: 12.5px;
+}
+
+.eff-att-footnote {
+  font-size: 10px;
+  color: #94a3b8;
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.perf-trajectory-box {
+  background: #f8fafc;
+  border-left: 3px solid #6366f1;
+  border-radius: 0 10px 10px 0;
+  padding: 12px 14px;
+}
+
+.ptb-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6366f1;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ptb-text {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ----------------------------------------------------
+   EXECUTIVE APPRAISAL DOSSIER MODAL STYLES
+   ---------------------------------------------------- */
+.perf-appraisal-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 900px;
+  max-width: calc(100vw - 32px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  animation: appraisalModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes appraisalModalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.appraisal-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: #f8fafc;
+}
+
+.amh-eyebrow {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #2563eb;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.appraisal-modal-header h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.amh-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.appraisal-modal-body {
+  padding: 22px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.appraisal-hero-banner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 14px;
+  padding: 20px 24px;
+  color: #ffffff;
+}
+
+.ahb-score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 14px 20px;
+  min-width: 130px;
+}
+
+.ahb-score-val {
+  font-size: 36px;
+  font-weight: 900;
+  color: #38bdf8;
+  line-height: 1;
+}
+
+.ahb-score-max {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.ahb-grade {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+
+.ahb-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ahb-trajectory-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  width: fit-content;
+}
+
+.ahb-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+}
+
+.ahb-summary {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.appraisal-narrative-sections {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.narrative-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.narrative-card h4 {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.narrative-card p {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.appraisal-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.appraisal-pillar-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.api-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.api-val {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.api-sub {
+  font-size: 9.5px;
+  color: #94a3b8;
+}
+
+.appraisal-insights-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.appraisal-insight-col {
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.appraisal-insight-col.strengths {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.appraisal-insight-col.improvements {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.appraisal-insight-col h4 {
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+}
+
+.appraisal-insight-col.strengths h4 { color: #065f46; }
+.appraisal-insight-col.improvements h4 { color: #92400e; }
+
+.appraisal-insight-col ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.appraisal-insight-col li {
+  font-size: 11.5px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.appraisal-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+}
+
+.amf-notice {
+  font-size: 11px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.amf-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-primary-appraisal {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid #1e293b;
+  border-radius: 9px;
+  padding: 9px 18px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary-appraisal:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
 }
 
 /* ========================================================

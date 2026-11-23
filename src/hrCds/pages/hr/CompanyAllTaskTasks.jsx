@@ -679,6 +679,7 @@ const CompanyAllTaskTasks = () => {
   const [attFilter, setAttFilter] = useState("all");
   const [perfTimeframe, setPerfTimeframe] = useState("month"); // "today" | "week" | "month" | "sixMonths" | "overall"
   const [perfLoading, setPerfLoading] = useState(false);
+  const [appraisalModalOpen, setAppraisalModalOpen] = useState(false);
   const [perfData, setPerfData] = useState({
     tasks: [],
     stats: null,
@@ -2507,12 +2508,51 @@ const CompanyAllTaskTasks = () => {
     if (absentCount > 0) {
       improvements.push({ title: "Unexcused Absence Alert", desc: `${absentCount} day(s) without Clock In logged. Reduces discipline reliability score to ${disciplineRate}%.`, isWarning: true });
     }
+    if (halfdayCount > 0) {
+      improvements.push({ title: "Half-Day Shifts Tracked", desc: `${halfdayCount} half-day session(s) logged (50% discipline credit). Ensure full shift coverage when possible.`, isWarning: false });
+    }
     if (inProgressTasks > 3) {
       improvements.push({ title: "Active WIP Overload", desc: `${inProgressTasks} tasks simultaneously in-progress. Focus on finishing active tasks first.`, isWarning: false });
     }
     if (improvements.length === 0) {
       improvements.push({ title: "Optimal Execution Standards", desc: `All key performance indicators within benchmark SLA thresholds.`, isWarning: false });
     }
+
+    // Dynamic Performance Narrative Synthesis
+    const empDisplay = employeeName || "The employee";
+    let velocityText = "";
+    if (taskCompRate >= 85) {
+      velocityText = `${empDisplay} demonstrated outstanding execution velocity with a ${taskCompRate}% completion rate (${completedTasks} out of ${totalTasks} tasks resolved). Work streams are delivered promptly with minimal backlog.`;
+    } else if (taskCompRate >= 60) {
+      velocityText = `${empDisplay} maintains a steady productivity output at ${taskCompRate}% completion (${completedTasks} of ${totalTasks} tasks completed), with ${pendingTasks + inProgressTasks} active deliverables progressing in the pipeline.`;
+    } else {
+      velocityText = `${empDisplay}'s task completion is at ${taskCompRate}% (${completedTasks} of ${totalTasks} tasks), indicating that workflow support or task prioritization may be beneficial.`;
+    }
+
+    let qualityText = "";
+    if (onTimeVal >= 85) {
+      qualityText = `Deliverable timeliness is exemplary at ${onTimeVal}%, showing robust deadline discipline and dependable delivery.`;
+    } else if (onTimeVal >= 70) {
+      qualityText = `Adherence to milestone deadlines is acceptable at ${onTimeVal}%, with room for tighter delivery scheduling.`;
+    } else {
+      qualityText = `On-time delivery rate is ${onTimeVal}%, highlighting deadline slippage that requires closer calendar monitoring.`;
+    }
+
+    let attText = "";
+    const halfdayNote = halfdayCount > 0 ? `, ${halfdayCount} half-day session(s)` : "";
+    if (disciplineRate >= 90) {
+      attText = `Attendance discipline is stellar at ${disciplineRate}% (${presentCount} Clock In shifts${halfdayNote}, ${lateCount} late arrivals, ${absentCount} absences), demonstrating high dependability.`;
+    } else if (disciplineRate >= 75) {
+      attText = `Attendance discipline is healthy at ${disciplineRate}% (${presentCount} Clock In shifts${halfdayNote}, ${lateCount} late arrivals, ${absentCount} absences). Consistency during morning shift starts is recommended.`;
+    } else {
+      attText = `Attendance discipline is flagged at ${disciplineRate}% (${absentCount} unclocked absences, ${lateCount} late arrivals${halfdayNote}), which impacts team operational continuity.`;
+    }
+
+    const overdueNote = overdueTasks > 0
+      ? ` Immediate management action is recommended to resolve ${overdueTasks} overdue deliverable(s) past SLA deadline.`
+      : ` Zero overdue deliverables recorded, maintaining pristine SLA compliance.`;
+
+    const executiveSummary = `${empDisplay} is evaluated at a composite performance score of ${finalScore}/100, ranking in the "${tier}" tier with a "${trajectory}". ${velocityText} ${qualityText} ${attText}${overdueNote}`;
 
     const timeframeLabels = {
       today: "Today (Daily Report)",
@@ -2549,6 +2589,13 @@ const CompanyAllTaskTasks = () => {
       trajectory,
       strengths,
       improvements,
+      narrative: {
+        executiveSummary,
+        velocityText,
+        qualityText,
+        attText,
+        overdueNote,
+      },
       pillars: {
         taskCompletion: { rate: taskCompRate, weight: 40, points: taskCompPts, maxPoints: 40 },
         onTimeDelivery: { rate: onTimeVal, weight: 25, points: onTimePts, maxPoints: 25 },
@@ -2623,7 +2670,29 @@ const CompanyAllTaskTasks = () => {
       doc.setFontSize(8.5);
       doc.text(`Grade ${detailedPerformance.grade} · ${detailedPerformance.tier}`, pageWidth - 108, 126, { align: "center" });
 
-      // 3. 4-Pillars Performance Breakdown Table
+      // 3. Executive Performance Narrative & Diagnostic Brief
+      let currentY = 158;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("Executive Performance Appraisal & Narrative Analysis", 30, currentY);
+
+      currentY += 8;
+      const narrativeText = detailedPerformance.narrative?.executiveSummary || "Performance evaluation calculated across standard delivery benchmarks.";
+      const narrativeLines = doc.splitTextToSize(narrativeText, pageWidth - 80);
+      const narrativeBoxHeight = narrativeLines.length * 11 + 16;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(30, currentY, pageWidth - 60, narrativeBoxHeight, 6, 6, "F");
+      doc.roundedRect(30, currentY, pageWidth - 60, narrativeBoxHeight, 6, 6, "S");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(51, 65, 85);
+      doc.text(narrativeLines, 42, currentY + 14);
+      currentY += narrativeBoxHeight + 14;
+
+      // 4. 4-Pillars Performance Breakdown Table
       const pillarRows = [
         [
           "1. Task Completion",
@@ -2642,7 +2711,7 @@ const CompanyAllTaskTasks = () => {
         [
           "3. Attendance & Discipline",
           "20%",
-          `${detailedPerformance.attendance.disciplineRate}% (${detailedPerformance.attendance.present}P, ${detailedPerformance.attendance.late}L, ${detailedPerformance.attendance.absent}A)`,
+          `${detailedPerformance.attendance.disciplineRate}% (${detailedPerformance.attendance.present} Clock In, ${detailedPerformance.attendance.halfday} Half Day, ${detailedPerformance.attendance.late} Late, ${detailedPerformance.attendance.absent} Absent)`,
           `+${detailedPerformance.pillars.attendance.points} / 20 pts`,
           detailedPerformance.attendance.disciplineRate >= 85 ? "EXCELLENT" : (detailedPerformance.attendance.disciplineRate >= 70 ? "ACCEPTABLE" : "NEEDS IMPROVEMENT"),
         ],
@@ -2666,7 +2735,7 @@ const CompanyAllTaskTasks = () => {
       }
 
       autoTable(doc, {
-        startY: 158,
+        startY: currentY,
         head: [["Performance Pillar", "Weight", "Calculated Metric", "Score Points", "Benchmark Status"]],
         body: pillarRows,
         theme: "striped",
@@ -2695,21 +2764,22 @@ const CompanyAllTaskTasks = () => {
         margin: { left: 30, right: 30 },
       });
 
-      let currentY = doc.lastAutoTable.finalY + 16;
+      currentY = doc.lastAutoTable.finalY + 14;
 
-      // 4. Attendance & Discipline Audit Box
+      // 5. Attendance & Discipline Audit Box (With Half-Day Accounting)
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
+      doc.setFontSize(10.5);
       doc.setTextColor(15, 23, 42);
-      doc.text("Attendance & Discipline Audit", 30, currentY);
+      doc.text("Attendance & Shift Discipline Audit", 30, currentY);
 
       currentY += 8;
       const attRows = [
         [
           `Total Working Days: ${detailedPerformance.attendance.totalWorking}`,
-          `Present: ${detailedPerformance.attendance.present}`,
-          `Late Arrivals: ${detailedPerformance.attendance.late} (-30% each)`,
-          `Unclocked Absents: ${detailedPerformance.attendance.absent} (0 credit)`,
+          `Clock In: ${detailedPerformance.attendance.present}`,
+          `Half Days: ${detailedPerformance.attendance.halfday} (50% credit)`,
+          `Late: ${detailedPerformance.attendance.late} (-30%)`,
+          `Absent: ${detailedPerformance.attendance.absent} (0 credit)`,
           `Discipline Score: ${detailedPerformance.attendance.disciplineRate}%`,
         ]
       ];
@@ -2719,10 +2789,10 @@ const CompanyAllTaskTasks = () => {
         body: attRows,
         theme: "plain",
         bodyStyles: {
-          fontSize: 8.5,
+          fontSize: 8,
           textColor: [51, 65, 85],
           fillColor: [241, 245, 249],
-          cellPadding: 6,
+          cellPadding: 5,
           fontStyle: "bold",
         },
         margin: { left: 30, right: 30 },
@@ -2730,9 +2800,15 @@ const CompanyAllTaskTasks = () => {
 
       currentY = doc.lastAutoTable.finalY + 16;
 
-      // 5. Strengths & Improvement Areas Diagnostics
+      // Check page height before Strengths & Growth Areas
+      if (currentY + 130 > pageHeight - 60) {
+        doc.addPage();
+        currentY = 40;
+      }
+
+      // 6. Strengths & Improvement Areas Diagnostics
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
+      doc.setFontSize(10.5);
       doc.setTextColor(15, 23, 42);
       doc.text("360° Employee Diagnostic Findings & Managerial Action Plan", 30, currentY);
 
@@ -2740,7 +2816,7 @@ const CompanyAllTaskTasks = () => {
 
       // Key Strengths
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
+      doc.setFontSize(9);
       doc.setTextColor(5, 150, 105);
       doc.text("DEMONSTRATED STRENGTHS:", 30, currentY);
       currentY += 12;
@@ -2757,7 +2833,7 @@ const CompanyAllTaskTasks = () => {
 
       // Focus & Improvement Areas
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
+      doc.setFontSize(9);
       doc.setTextColor(217, 119, 6);
       doc.text("CRITICAL FOCUS & GROWTH AREAS:", 30, currentY);
       currentY += 12;
@@ -2770,15 +2846,19 @@ const CompanyAllTaskTasks = () => {
         currentY += 12;
       });
 
-      // 6. Sign-off / Confidentiality Notice
-      doc.setDrawColor(226, 232, 240);
-      doc.line(30, pageHeight - 50, pageWidth - 30, pageHeight - 50);
+      // 7. Footer Stamp on all pages
+      const totalPages = doc.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setDrawColor(226, 232, 240);
+        doc.line(30, pageHeight - 40, pageWidth - 30, pageHeight - 40);
 
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7.5);
-      doc.setTextColor(148, 163, 184);
-      doc.text("Confidential HR Document · Generated by CIIS Network Platform · Authorized HR Personnel Only", 30, pageHeight - 36);
-      doc.text("Page 1 of 1", pageWidth - 30, pageHeight - 36, { align: "right" });
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text("Confidential HR Appraisal Dossier · Generated by CIIS Network Platform · Authorized Personnel Only", 30, pageHeight - 28);
+        doc.text(`Page ${p} of ${totalPages}`, pageWidth - 30, pageHeight - 28, { align: "right" });
+      }
 
       const sanitizedName = String(employeeName || "Employee").replace(/[^a-zA-Z0-9]/g, "_");
       doc.save(`Performance_Report_${sanitizedName}_${perfTimeframe}_${todayStr}.pdf`);
@@ -4575,6 +4655,15 @@ const CompanyAllTaskTasks = () => {
                 )}
                 <button
                   type="button"
+                  className="btn-view-appraisal"
+                  onClick={() => setAppraisalModalOpen(true)}
+                  title="View In-Depth Performance Narrative & Dossier"
+                >
+                  <FiEye size={14} />
+                  <span>Appraisal Analysis</span>
+                </button>
+                <button
+                  type="button"
                   className="btn-download-perf-report"
                   onClick={handleDownloadPerformanceReport}
                   title="Download Executive Performance PDF Report"
@@ -4663,6 +4752,7 @@ const CompanyAllTaskTasks = () => {
                     <strong className="phm-val text-purple">{detailedPerformance.attendance.disciplineRate}%</strong>
                     <div className="phm-sub-tags">
                       <span className="phm-badge green">{detailedPerformance.attendance.present} Clock In</span>
+                      <span className="phm-badge orange">{detailedPerformance.attendance.halfday} Half Day</span>
                       <span className="phm-badge amber">{detailedPerformance.attendance.late} Late</span>
                       <span className="phm-badge red">{detailedPerformance.attendance.absent} Absent</span>
                     </div>
@@ -4846,16 +4936,97 @@ const CompanyAllTaskTasks = () => {
               )}
             </div>
 
-            <div className="overview-grid-top">
-              {/* Task Breakdown Progress Bars */}
-              <div className="overview-card">
+            <div className="overview-grid-top perf-overview-grid-top">
+              {/* Task Breakdown Progress Bars & Visual Column Chart */}
+              <div className="overview-card perf-card-visual">
                 <div className="card-header-line">
-                  <h3><FiBarChart2 size={16} /> Task Status Distribution ({perfTimeframe === "today" ? "Today" : perfTimeframe === "week" ? "This Week" : perfTimeframe === "month" ? "This Month" : perfTimeframe === "sixMonths" ? "Last 6M" : "Overall"})</h3>
+                  <div className="card-header-left">
+                    <h3><FiBarChart2 size={16} /> Task Status Distribution</h3>
+                    <span className="card-header-sub">{detailedPerformance.timeframeLabel}</span>
+                  </div>
+                  <span className="perf-volume-chip">{detailedPerformance.total} Total Tasks</span>
                 </div>
+
+                {/* 1. Proportional Segmented Stream Ribbon */}
+                <div className="perf-stream-bar-container">
+                  <div className="perf-stream-bar">
+                    {detailedPerformance.completed > 0 && (
+                      <div
+                        className="stream-segment completed"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.completed / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`Completed: ${detailedPerformance.completed} (${detailedPerformance.completionRate}%)`}
+                      />
+                    )}
+                    {detailedPerformance.inProgress > 0 && (
+                      <div
+                        className="stream-segment in-progress"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.inProgress / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`In Progress: ${detailedPerformance.inProgress}`}
+                      />
+                    )}
+                    {detailedPerformance.pending > 0 && (
+                      <div
+                        className="stream-segment pending"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.pending / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`Pending: ${detailedPerformance.pending}`}
+                      />
+                    )}
+                    {detailedPerformance.overdue > 0 && (
+                      <div
+                        className="stream-segment overdue"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.overdue / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`Overdue: ${detailedPerformance.overdue}`}
+                      />
+                    )}
+                  </div>
+                  <div className="perf-stream-legend">
+                    <span className="legend-item"><span className="legend-dot green" /> Completed ({detailedPerformance.completionRate}%)</span>
+                    <span className="legend-item"><span className="legend-dot blue" /> In Progress ({detailedPerformance.total ? Math.round((detailedPerformance.inProgress / detailedPerformance.total) * 100) : 0}%)</span>
+                    <span className="legend-item"><span className="legend-dot amber" /> Pending ({detailedPerformance.total ? Math.round((detailedPerformance.pending / detailedPerformance.total) * 100) : 0}%)</span>
+                    <span className="legend-item"><span className="legend-dot red" /> Overdue ({detailedPerformance.total ? Math.round((detailedPerformance.overdue / detailedPerformance.total) * 100) : 0}%)</span>
+                  </div>
+                </div>
+
+                {/* 2. Visual Column Bar Chart */}
+                {(() => {
+                  const maxBarVal = Math.max(1, detailedPerformance.completed, detailedPerformance.inProgress, detailedPerformance.pending, detailedPerformance.overdue);
+                  const bars = [
+                    { label: "Completed", count: detailedPerformance.completed, pct: detailedPerformance.completionRate, color: "green" },
+                    { label: "In Progress", count: detailedPerformance.inProgress, pct: detailedPerformance.total ? Math.round((detailedPerformance.inProgress / detailedPerformance.total) * 100) : 0, color: "blue" },
+                    { label: "Pending", count: detailedPerformance.pending, pct: detailedPerformance.total ? Math.round((detailedPerformance.pending / detailedPerformance.total) * 100) : 0, color: "amber" },
+                    { label: "Overdue", count: detailedPerformance.overdue, pct: detailedPerformance.total ? Math.round((detailedPerformance.overdue / detailedPerformance.total) * 100) : 0, color: "red" },
+                  ];
+                  return (
+                    <div className="perf-barchart-container">
+                      <div className="perf-barchart-bars">
+                        {bars.map((b) => {
+                          const heightPct = b.count > 0 ? Math.max(12, Math.round((b.count / maxBarVal) * 88)) : 4;
+                          return (
+                            <div key={b.label} className="perf-barchart-col">
+                              <div className="perf-barchart-tooltip">
+                                <span className="bct-count">{b.count}</span>
+                                <span className="bct-pct">{b.pct}%</span>
+                              </div>
+                              <div className="perf-barchart-track">
+                                <div
+                                  className={`perf-barchart-fill ${b.color}`}
+                                  style={{ height: `${heightPct}%` }}
+                                />
+                              </div>
+                              <span className="perf-barchart-label">{b.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Detailed Progress Rows */}
                 <div className="perf-distribution-list">
                   <div className="perf-bar-group">
                     <div className="bar-label-row">
-                      <span>Completed</span>
+                      <span className="bar-title"><span className="status-indicator-dot green" /> Completed</span>
                       <strong>{detailedPerformance.completed} ({detailedPerformance.completionRate}%)</strong>
                     </div>
                     <div className="progress-track">
@@ -4865,7 +5036,7 @@ const CompanyAllTaskTasks = () => {
 
                   <div className="perf-bar-group">
                     <div className="bar-label-row">
-                      <span>In Progress</span>
+                      <span className="bar-title"><span className="status-indicator-dot blue" /> In Progress</span>
                       <strong>{detailedPerformance.inProgress} ({detailedPerformance.total ? Math.round((detailedPerformance.inProgress / detailedPerformance.total) * 100) : 0}%)</strong>
                     </div>
                     <div className="progress-track">
@@ -4875,7 +5046,7 @@ const CompanyAllTaskTasks = () => {
 
                   <div className="perf-bar-group">
                     <div className="bar-label-row">
-                      <span>Pending</span>
+                      <span className="bar-title"><span className="status-indicator-dot amber" /> Pending</span>
                       <strong>{detailedPerformance.pending} ({detailedPerformance.total ? Math.round((detailedPerformance.pending / detailedPerformance.total) * 100) : 0}%)</strong>
                     </div>
                     <div className="progress-track">
@@ -4885,7 +5056,7 @@ const CompanyAllTaskTasks = () => {
 
                   <div className="perf-bar-group">
                     <div className="bar-label-row">
-                      <span>Overdue</span>
+                      <span className="bar-title"><span className="status-indicator-dot red" /> Overdue</span>
                       <strong>{detailedPerformance.overdue} ({detailedPerformance.total ? Math.round((detailedPerformance.overdue / detailedPerformance.total) * 100) : 0}%)</strong>
                     </div>
                     <div className="progress-track">
@@ -4896,36 +5067,85 @@ const CompanyAllTaskTasks = () => {
               </div>
 
               {/* Work Efficiency Summary */}
-              <div className="overview-card">
+              <div className="overview-card perf-card-visual">
                 <div className="card-header-line">
-                  <h3><FiTrendingUp size={16} /> Workload & Efficiency</h3>
+                  <div className="card-header-left">
+                    <h3><FiTrendingUp size={16} /> Workload & Efficiency</h3>
+                    <span className="card-header-sub">Operational output & shift discipline</span>
+                  </div>
+                  <span className="perf-trajectory-chip">
+                    {detailedPerformance.trajectory}
+                  </span>
                 </div>
-                <div className="efficiency-details-list">
-                  <div className="eff-item">
-                    <span className="eff-label">Total Evaluated Tasks</span>
-                    <strong className="eff-val">{detailedPerformance.total}</strong>
+
+                {/* 3 Metric Summary Tiles */}
+                <div className="perf-efficiency-tiles">
+                  <div className="perf-eff-tile">
+                    <span className="eff-tile-label">Evaluated Tasks</span>
+                    <strong className="eff-tile-val text-dark">{detailedPerformance.total}</strong>
+                    <span className="eff-tile-sub">Total deliverables evaluated</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Tracked Task Hours</span>
-                    <strong className="eff-val text-blue">{detailedPerformance.trackedHoursLabel}</strong>
+                  <div className="perf-eff-tile">
+                    <span className="eff-tile-label">Tracked Hours</span>
+                    <strong className="eff-tile-val text-blue">{detailedPerformance.trackedHoursLabel}</strong>
+                    <span className="eff-tile-sub">Total logged execution time</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Evaluation Trajectory</span>
-                    <strong className="eff-val text-purple">{detailedPerformance.trajectory}</strong>
+                  <div className="perf-eff-tile">
+                    <span className="eff-tile-label">Discipline Index</span>
+                    <strong className="eff-tile-val text-purple">{detailedPerformance.attendance.disciplineRate}%</strong>
+                    <span className="eff-tile-sub">Composite punctuality & shift SLA</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Attendance Discipline</span>
-                    <strong className="eff-val text-purple">
-                      {detailedPerformance.attendance.disciplineRate}%
-                    </strong>
+                </div>
+
+                {/* Attendance Discipline Visual Progress Meter */}
+                <div className="perf-eff-attendance-section">
+                  <div className="eff-att-header-row">
+                    <span className="eff-att-title">Shift Attendance & Punctuality Breakdown</span>
+                    <span className="eff-att-badge">{detailedPerformance.attendance.disciplineRate}% Discipline</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Punctuality Log</span>
-                    <strong className="eff-val">
-                      <span className="text-green">{detailedPerformance.attendance.present} Clock In</span> ·{" "}
-                      <span className="text-amber">{detailedPerformance.attendance.late} Late</span> ·{" "}
-                      <span className="text-red">{detailedPerformance.attendance.absent} Absent</span>
-                    </strong>
+                  <div className="progress-track att-discipline-track">
+                    <div
+                      className="progress-fill att-discipline-fill"
+                      style={{
+                        width: `${detailedPerformance.attendance.disciplineRate}%`,
+                        backgroundColor: detailedPerformance.attendance.disciplineRate >= 85 ? "#10b981" : detailedPerformance.attendance.disciplineRate >= 70 ? "#3b82f6" : "#f59e0b"
+                      }}
+                    />
+                  </div>
+
+                  {/* 4 Punctuality Chips with Half Day */}
+                  <div className="eff-punctuality-chips">
+                    <div className="eff-p-chip clockin">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.present}</span>
+                      <span className="chip-label">Clock In</span>
+                    </div>
+                    <div className="eff-p-chip halfday">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.halfday}</span>
+                      <span className="chip-label">Half Day</span>
+                    </div>
+                    <div className="eff-p-chip late">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.late}</span>
+                      <span className="chip-label">Late</span>
+                    </div>
+                    <div className="eff-p-chip absent">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.absent}</span>
+                      <span className="chip-label">Absent</span>
+                    </div>
+                  </div>
+                  <p className="eff-att-footnote">
+                    *Attendance Score balances: 100% full Clock In, 50% Half Day, 30% late deduction, and 0% for unclocked absence across scheduled working days.
+                  </p>
+                </div>
+
+                {/* Evaluation Trajectory Card */}
+                <div className="perf-trajectory-box">
+                  <div className="ptb-left">
+                    <span className="ptb-label">Performance Assessment Verdict</span>
+                    <p className="ptb-text">{detailedPerformance.narrative?.executiveSummary}</p>
                   </div>
                 </div>
               </div>
@@ -5565,6 +5785,130 @@ const CompanyAllTaskTasks = () => {
             onCheckpointToggle={handleCheckpointToggle}
             canEdit={canEditCompanyTasks}
           />
+        )}
+
+        {/* Comprehensive Performance Appraisal Dossier Modal */}
+        {appraisalModalOpen && (
+          <div className="company-task-modal-backdrop" onClick={() => setAppraisalModalOpen(false)}>
+            <div className="perf-appraisal-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="appraisal-modal-header">
+                <div>
+                  <span className="amh-eyebrow">CIIS NETWORK · OFFICIAL PERFORMANCE APPRAISAL</span>
+                  <h2>{employeeName || "Employee"} · Executive Performance Dossier</h2>
+                  <span className="amh-sub">
+                    {employeeRole} · {employeeDept} | Window: <strong>{detailedPerformance.timeframeLabel}</strong>
+                  </span>
+                </div>
+                <button type="button" className="btn-close-modal" onClick={() => setAppraisalModalOpen(false)}>
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              <div className="appraisal-modal-body">
+                {/* Score & Verdict Banner */}
+                <div className="appraisal-hero-banner">
+                  <div className="ahb-score-box">
+                    <span className="ahb-score-val">{detailedPerformance.finalScore}</span>
+                    <span className="ahb-score-max">/ 100</span>
+                    <span className="ahb-grade">Grade {detailedPerformance.grade} · {detailedPerformance.tier}</span>
+                  </div>
+                  <div className="ahb-details">
+                    <div className="ahb-trajectory-pill">{detailedPerformance.trajectory}</div>
+                    <h3 className="ahb-title">Comprehensive Analytical Evaluation</h3>
+                    <p className="ahb-summary">{detailedPerformance.narrative?.executiveSummary}</p>
+                  </div>
+                </div>
+
+                {/* Narrative Breakdown Grid */}
+                <div className="appraisal-narrative-sections">
+                  <div className="narrative-card">
+                    <h4>🚀 Task Execution Velocity</h4>
+                    <p>{detailedPerformance.narrative?.velocityText}</p>
+                  </div>
+                  <div className="narrative-card">
+                    <h4>🎯 Quality & SLA Adherence</h4>
+                    <p>{detailedPerformance.narrative?.qualityText}</p>
+                  </div>
+                  <div className="narrative-card">
+                    <h4>⏱️ Shift Discipline & Half-Day Audit</h4>
+                    <p>{detailedPerformance.narrative?.attText}</p>
+                  </div>
+                  <div className="narrative-card">
+                    <h4>⚠️ Backlog & Risk Hygiene</h4>
+                    <p>{detailedPerformance.narrative?.overdueNote}</p>
+                  </div>
+                </div>
+
+                {/* Detailed Pillar Metrics Grid */}
+                <div className="appraisal-pillars-grid">
+                  <div className="appraisal-pillar-item">
+                    <span className="api-label">Task Completion Rate</span>
+                    <strong className="api-val text-green">{detailedPerformance.completionRate}%</strong>
+                    <span className="api-sub">{detailedPerformance.completed} of {detailedPerformance.total} completed</span>
+                  </div>
+                  <div className="appraisal-pillar-item">
+                    <span className="api-label">On-Time Delivery</span>
+                    <strong className="api-val text-blue">{detailedPerformance.onTimeRate}%</strong>
+                    <span className="api-sub">Adherence to deadlines</span>
+                  </div>
+                  <div className="appraisal-pillar-item">
+                    <span className="api-label">Attendance Discipline</span>
+                    <strong className="api-val text-purple">{detailedPerformance.attendance.disciplineRate}%</strong>
+                    <span className="api-sub">
+                      {detailedPerformance.attendance.present} Clocked · {detailedPerformance.attendance.halfday} Half Days · {detailedPerformance.attendance.late} Late
+                    </span>
+                  </div>
+                  <div className="appraisal-pillar-item">
+                    <span className="api-label">Time Utilization</span>
+                    <strong className="api-val text-amber">{detailedPerformance.timeUtilRate}%</strong>
+                    <span className="api-sub">{detailedPerformance.trackedHoursLabel} logged</span>
+                  </div>
+                </div>
+
+                {/* Strengths & Growth Areas */}
+                <div className="appraisal-insights-row">
+                  <div className="appraisal-insight-col strengths">
+                    <h4>✅ Key Strengths Observed</h4>
+                    <ul>
+                      {detailedPerformance.strengths.map((s, idx) => (
+                        <li key={`as-${idx}`}>
+                          <strong>{s.title}:</strong> {s.desc}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="appraisal-insight-col improvements">
+                    <h4>📈 Critical Focus & Action Items</h4>
+                    <ul>
+                      {detailedPerformance.improvements.map((imp, idx) => (
+                        <li key={`ai-${idx}`}>
+                          <strong>{imp.title}:</strong> {imp.desc}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="appraisal-modal-footer">
+                <span className="amf-notice">Confidential Internal Appraisal Document · CIIS Network HR</span>
+                <div className="amf-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setAppraisalModalOpen(false)}>
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary-appraisal"
+                    onClick={() => {
+                      handleDownloadPerformanceReport();
+                    }}
+                  >
+                    <FiDownload size={14} /> Download Official PDF Report
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Floating Toast Notification */}

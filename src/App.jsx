@@ -87,6 +87,7 @@ const ClientAccountSettingsPage = lazy(() => import("./hrCds/pages/client/Accoun
 const Settings = lazy(() => import("./admin/page/Settings.jsx"));
 const AiManagement = lazy(() => import("./admin/page/AiManagement.jsx"));
 const EmailSettings = lazy(() => import("./admin/page/EmailSettings.jsx"));
+const MarketingAdsSettings = lazy(() => import("./admin/page/MarketingAdsSettings.jsx"));
 const DemoRequests = lazy(() => import("./admin/page/DemoRequests.jsx"));
 const PlatformPromotionsPage = lazy(() => import("./promotions/PlatformPromotionsPage.jsx"));
 const CompanyPromotionsPage = lazy(() => import("./promotions/CompanyPromotionsPage.jsx"));
@@ -118,6 +119,7 @@ const TelecallerLeadDetail = lazy(() => import("./crm/telecaller/LeadDetail.jsx"
 const CallLogs = lazy(() => import("./admin/page/CallLogs.jsx"));
 const AdminCrmDashboard = lazy(() => import("./crm/admin/AdminCrmDashboard.jsx"));
 const AddLead = lazy(() => import("./crm/admin/AddLead.jsx"));
+const MarketingAds = lazy(() => import("./crm/admin/MarketingAds.jsx"));
 const LeadSources = lazy(() => import("./crm/admin/LeadSources.jsx"));
 const LeadTypes = lazy(() => import("./crm/admin/LeadTypes.jsx"));
 const ImportExportLeads = lazy(() => import("./crm/admin/ImportExportLeads.jsx"));
@@ -288,6 +290,14 @@ function App() {
               <Route path="feedback-questionnaire" element={<FeedbackQuestionnaireManagement />} />
               <Route path="settings" element={<Settings />} />
               <Route path="email-settings" element={<EmailSettings />} />
+              <Route
+                path="marketing-ads-settings"
+                element={
+                  <ProtectedSuperAdminRoute>
+                    <MarketingAdsSettings />
+                  </ProtectedSuperAdminRoute>
+                }
+              />
               <Route
                 path="app-version-control"
                 element={
@@ -470,6 +480,7 @@ function App() {
               <Route path="crm/lead-overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
               <Route path="crm/leads/overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
               <Route path="crm/admin/add-lead" element={<AddLead />} />
+              <Route path="crm/admin/marketing-ads" element={<MarketingAds />} />
               <Route path="crm/admin/lead-sources" element={<LeadSources />} />
               <Route path="crm/admin/lead-types" element={<LeadTypes />} />
               <Route path="crm/admin/import-export-leads" element={<ImportExportLeads />} />

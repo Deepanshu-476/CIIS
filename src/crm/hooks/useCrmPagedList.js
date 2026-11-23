@@ -8,7 +8,7 @@ const cleanParams = (params = {}) => Object.fromEntries(
   Object.entries(params).filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
 );
 
-export default function useCrmPagedList(endpoint, { page = 1, limit = 10, filters = {}, search = '' } = {}) {
+export default function useCrmPagedList(endpoint, { page = 1, limit = 10, filters = {}, search = '', refreshInterval = 0 } = {}) {
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState({
@@ -23,17 +23,21 @@ export default function useCrmPagedList(endpoint, { page = 1, limit = 10, filter
   const filtersKey = JSON.stringify(cleanParams(filters));
 
   useEffect(() => {
-    let active = true;
-    setState(current => ({ ...current, loading: true, error: '' }));
+    const controller = new AbortController();
+    let pending = false;
     const params = {
       page,
       limit,
       ...JSON.parse(filtersKey),
       ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {})
     };
-    axiosInstance.get(endpoint, { params, cache: false, _skipErrorNotify: true })
-      .then(({ data }) => {
-        if (!active) return;
+    const load = async (background = false) => {
+      if (pending || (background && document.visibilityState === 'hidden')) return;
+      pending = true;
+      if (!background) setState(current => ({ ...current, loading: true, error: '' }));
+      try {
+        const { data } = await axiosInstance.get(endpoint, { params, cache: false, _skipErrorNotify: true, signal: controller.signal });
+        if (controller.signal.aborted) return;
         setState({
           items: Array.isArray(data?.items) ? data.items : [],
           total: Number(data?.total) || 0,
@@ -43,9 +47,8 @@ export default function useCrmPagedList(endpoint, { page = 1, limit = 10, filter
           loading: false,
           error: ''
         });
-      })
-      .catch(err => {
-        if (!active) return;
+      } catch (err) {
+        if (controller.signal.aborted || background) return;
         setState(current => ({
           ...current,
           items: [],
@@ -54,9 +57,21 @@ export default function useCrmPagedList(endpoint, { page = 1, limit = 10, filter
           loading: false,
           error: err.response?.data?.message || 'Could not load data. Please retry.'
         }));
-      });
-    return () => { active = false; };
-  }, [endpoint, page, limit, filtersKey, debouncedSearch, reloadKey]);
+      } finally {
+        pending = false;
+      }
+    };
+    void load();
+    const refresh = () => { void load(true); };
+    if (!refreshInterval) return () => controller.abort();
+    const timer = setInterval(refresh, refreshInterval);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [endpoint, page, limit, filtersKey, debouncedSearch, reloadKey, refreshInterval]);
 
   return { ...state, reload: () => setReloadKey(key => key + 1) };
 }

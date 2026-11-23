@@ -22,6 +22,7 @@ import {
   FiUserMinus
 } from 'react-icons/fi';
 import './AllLeads.css';
+import MarketingLeadDetails from '../components/MarketingLeadDetails';
 import api from '../../utils/axiosConfig';
 import useCrmPagedList, { optionNames } from '../hooks/useCrmPagedList';
 
@@ -245,6 +246,7 @@ export default function AllLeads() {
     page: currentPage,
     limit: entriesPerPage,
     search: searchTerm,
+    refreshInterval: 30000,
     filters: {
       assignedTo: filterAssignedTo === 'All Users' ? '' : (filterAssignedTo === 'Unassigned' ? 'unassigned' : filterAssignedTo),
       source: filterSource,
@@ -460,6 +462,7 @@ export default function AllLeads() {
                     >
                       {item.source}
                     </span>
+                    {item.marketing?.platform === 'meta' && item.marketing.channel && <span className="al-badge al-badge-source-purple">{item.marketing.channel}</span>}
                   </td>
                   <td>
                     <span className="al-badge al-badge-type-green">
@@ -572,7 +575,7 @@ export default function AllLeads() {
                   <div className="al-modal-badges">
                     <span className="al-badge al-badge-status-mint">{selectedLead.status}</span>
                     <span className="al-badge al-badge-type-green">{selectedLead.type}</span>
-                    <span className="al-badge al-badge-source-purple">{selectedLead.source ? (selectedLead.source.charAt(0).toUpperCase() + selectedLead.source.slice(1).toLowerCase()) : '-'}</span>
+                    <span className="al-badge al-badge-source-purple">{selectedLead.source || '-'}</span>
                   </div>
                 </div>
               </div>
@@ -652,6 +655,7 @@ export default function AllLeads() {
               )}
 
               {/* Custom Fields (Render only non-empty fields) */}
+              <MarketingLeadDetails {...selectedLead} />
               {[1, 2, 3, 4, 5].some(n => selectedLead[`customField${n}`]) && (
                 <>
                   <div className="al-modal-section-title mt-2">

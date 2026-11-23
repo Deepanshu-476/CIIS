@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiEdit2, FiPlusCircle, FiX } from 'react-icons/fi';
 import './LeadSources.css';
 import './LeadTypes.css';
+import { Link } from 'react-router-dom';
 import api from '../../utils/axiosConfig';
 
 export default function LeadSources(){
@@ -37,6 +38,7 @@ export default function LeadSources(){
   return <main className="ls-root">
     <header className="ls-page-header"><h1 className="ls-page-title">Lead Source</h1><div className="ls-breadcrumb"><span>Dashboard</span><span className="separator">›</span><span className="active">Lead Source</span></div></header>
     {error && !modal && <p role="alert" className="ls-empty-row">{error}</p>}
+    <p><Link to="/ciisUser/crm/admin/marketing-ads">Marketing Ads Integrations</Link></p>
     <section className="ls-card"><header className="ls-card-header flex-between"><h2 className="ls-card-title">Lead Source</h2><button type="button" className="ls-btn-add" disabled={loading || busy} onClick={()=>{setError('');setModal({})}}><FiPlusCircle size={15}/> Add Lead Source</button></header>
       <div className="ls-table-controls"><div className="ls-entries-selector"><select value={limit} onChange={e=>{setLimit(Number(e.target.value));setPage(1)}}><option>10</option><option>25</option><option>50</option><option>100</option></select><span>entries per page</span></div><div className="ls-search-box"><label>Search:</label><input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/></div></div>
       <div className="ls-table-responsive"><table className="ls-table"><thead><tr><th style={{width:80}}>SL NO.</th><th>LEAD SOURCE</th><th style={{width:120}}>STATUS</th><th style={{width:100}}>ACTION</th></tr></thead><tbody>{visible.map((item,index)=><tr key={item.id}><td className="ls-sl-col">{String(start+index+1).padStart(3,'0')}</td><td>{item.name}</td><td><span className={`lt-status-pill ${item.status === 'Active' ? 'is-active' : 'is-inactive'}`}><span aria-hidden="true" />{item.status}</span></td><td><div className="ls-action-btns"><button type="button" className="ls-btn-edit" aria-label={`Edit ${item.name}`} title="Edit" disabled={busy} onClick={()=>{setError('');setModal({item})}}><FiEdit2 size={12}/></button></div></td></tr>)}{!visible.length&&<tr><td colSpan="4" className="ls-empty-row">{loading ? 'Loading lead sources...' : 'No lead sources found.'}</td></tr>}</tbody></table></div>

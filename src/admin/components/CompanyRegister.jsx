@@ -34,7 +34,10 @@ const initialForm = {
   ownerPassword: '',
   confirmPassword: '',
   planId: '',
-  logoFile: null
+  logoFile: null,
+  indiamartCrmKey: '',
+  indiamartMobile: '',
+  justdialApiKey: ''
 };
 
 const compressImage = (file, callback) => {
@@ -392,7 +395,18 @@ export default function CompanyRegister() {
         ownerEmail: form.ownerEmail.trim().toLowerCase(),
         ownerPassword: form.ownerPassword,
         planId: form.planId,
-        logo: logoUrl || ''
+        logo: logoUrl || '',
+        leadIntegrations: {
+          indiamart: {
+            crmKey: (form.indiamartCrmKey || '').trim(),
+            mobileNumber: (form.indiamartMobile || '').trim(),
+            isEnabled: Boolean(form.indiamartCrmKey || form.indiamartMobile)
+          },
+          justdial: {
+            apiKey: (form.justdialApiKey || '').trim(),
+            isEnabled: Boolean(form.justdialApiKey)
+          }
+        }
       };
 
       const res = await axios.post(`${API_URL}/company`, payload);
@@ -571,6 +585,55 @@ export default function CompanyRegister() {
             {fieldErrors.companyAddress && (
               <span className="company-field-error">{fieldErrors.companyAddress}</span>
             )}
+          </div>
+
+          <div className="company-form-group full-width" style={{ marginTop: '0.75rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
+            <h4 style={{ margin: '0 0 0.35rem 0', fontSize: '0.95rem', fontWeight: 700, color: '#1e40af' }}>
+              🇮🇳 Lead Integrations (IndiaMART & Justdial) — Optional
+            </h4>
+            <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.82rem', color: '#6b7280' }}>
+              You can connect IndiaMART & Justdial to automatically sync buyer enquiries directly into this company's CRM.
+            </p>
+          </div>
+
+          <div className="company-form-row">
+            <div className="company-form-group">
+              <label className="company-form-label">IndiaMART CRM Key (GLUSR_CRM_KEY)</label>
+              <input
+                type="text"
+                name="indiamartCrmKey"
+                value={form.indiamartCrmKey || ''}
+                onChange={updateField}
+                className="company-form-input"
+                placeholder="e.g. mapi_crm_key..."
+              />
+            </div>
+
+            <div className="company-form-group">
+              <label className="company-form-label">IndiaMART Registered Mobile</label>
+              <input
+                type="tel"
+                name="indiamartMobile"
+                value={form.indiamartMobile || ''}
+                onChange={updateField}
+                className="company-form-input"
+                placeholder="e.g. 9876543210"
+              />
+            </div>
+          </div>
+
+          <div className="company-form-row">
+            <div className="company-form-group full-width">
+              <label className="company-form-label">Justdial API Key / Secret (Optional)</label>
+              <input
+                type="text"
+                name="justdialApiKey"
+                value={form.justdialApiKey || ''}
+                onChange={updateField}
+                className="company-form-input"
+                placeholder="Optional JD API Key"
+              />
+            </div>
           </div>
         </div>
       )
@@ -1039,6 +1102,48 @@ export default function CompanyRegister() {
                     >
                       {copiedUrl ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
                       {copiedUrl ? 'Copied' : 'Copy Link'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="company-success-item">
+                  <label>IndiaMART Webhook URL (Paste in IndiaMART Seller Panel)</label>
+                  <div className="company-success-box">
+                    <span className="company-success-url">
+                      {`https://backendcds.ciisnetwork.in/api/integrations/indiamart/webhook/${registeredCompany?.companyCode || ''}`}
+                    </span>
+                    <button
+                      type="button"
+                      className="company-copy-btn"
+                      onClick={() =>
+                        copyToClipboard(
+                          `https://backendcds.ciisnetwork.in/api/integrations/indiamart/webhook/${registeredCompany?.companyCode || ''}`,
+                          'imUrl'
+                        )
+                      }
+                    >
+                      <Copy size={14} /> Copy URL
+                    </button>
+                  </div>
+                </div>
+
+                <div className="company-success-item">
+                  <label>Justdial Webhook URL (Provide to Justdial Merchant Support)</label>
+                  <div className="company-success-box">
+                    <span className="company-success-url">
+                      {`https://backendcds.ciisnetwork.in/api/integrations/justdial/webhook/${registeredCompany?.companyCode || ''}`}
+                    </span>
+                    <button
+                      type="button"
+                      className="company-copy-btn"
+                      onClick={() =>
+                        copyToClipboard(
+                          `https://backendcds.ciisnetwork.in/api/integrations/justdial/webhook/${registeredCompany?.companyCode || ''}`,
+                          'jdUrl'
+                        )
+                      }
+                    >
+                      <Copy size={14} /> Copy URL
                     </button>
                   </div>
                 </div>

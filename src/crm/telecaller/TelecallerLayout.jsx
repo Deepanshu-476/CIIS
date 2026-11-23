@@ -1,5 +1,5 @@
 import { accountStorage } from '../../utils/authSession';
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { TELECALLER_BASE as BASE, TELECALLER_PAGES, hasTelecallerCompanyAccess } from "./telecallerPages";
 import { normalizeLead, todayKey, isTerminal } from "./liveData";
@@ -37,25 +37,52 @@ function TelecallerSession({ slug }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [version, setVersion] = useState(0);
+  const leadRevision = useRef(0);
+  const refreshQueue = slug === 'assigned-calls';
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError('');
-    api.get('/crm/telecaller', { noCache: true })
-      .then(({ data }) => {
+    const controller = new AbortController();
+    let pending = false;
+
+    async function load(background = false) {
+      if (pending || (background && document.visibilityState === 'hidden')) return;
+      pending = true;
+      const revision = leadRevision.current;
+      if (!background) {
+        setLoading(true);
+        setError('');
+      }
+      try {
+        const { data } = await api.get('/crm/telecaller', {
+          noCache: true, signal: controller.signal, ...(background && { _skipErrorNotify: true })
+        });
         if (!Array.isArray(data?.items)) throw new Error('Unable to load assigned leads: invalid server response.');
-        if (active) setAssigned(data.items.map(normalizeLead));
-      })
-      .catch(error => {
-        if (active) {
+        if (!controller.signal.aborted && revision === leadRevision.current) {
+          setAssigned(data.items.map(normalizeLead));
+          setError('');
+        }
+      } catch (error) {
+        if (!controller.signal.aborted && !background && revision === leadRevision.current) {
           setAssigned([]);
           setError(error.response?.data?.message || error.message || 'Unable to load assigned leads. Please retry.');
         }
-      })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [version]);
+      } finally {
+        pending = false;
+        if (!controller.signal.aborted && !background) setLoading(false);
+      }
+    }
+
+    void load();
+    if (!refreshQueue) return () => controller.abort();
+    const refresh = () => { void load(true); };
+    const timer = setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [version, refreshQueue]);
 
   const [access, setAccess] = useState([]);
   const [editAllowed, setEditAllowed] = useState(false);
@@ -112,11 +139,13 @@ function TelecallerSession({ slug }) {
       followUp: call.followUp ? new Date(call.followUp).toISOString() : null,
       duration: call.duration,
       callLogId: call.callLogId,
+      endTime: call.endTime,
     });
     if (!data?.item?._id || String(data.item._id) !== String(call.leadId)) {
       throw new Error('Save could not be confirmed. Please retry.');
     }
     const savedLead = normalizeLead(data.item);
+    leadRevision.current += 1;
     setAssigned(current => current.some(lead => lead.id === savedLead.id)
       ? current.map(lead => lead.id === savedLead.id ? savedLead : lead)
       : [...current, savedLead]);

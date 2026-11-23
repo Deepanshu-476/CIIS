@@ -6,7 +6,6 @@ import WeekOffAdminPanel from "../../components/WeekOffAdminPanel";
 import BreakAdminPanel from "../../components/BreakAdminPanel";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
-import CIISLoader from '../../../Loader/CIISLoader'; 
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
 
 const loadXlsx = () => import('xlsx').then(module => module.default || module);
@@ -1458,7 +1457,6 @@ const getStatusExplanation = (status) => {
 };
 
 const EmployeeAttendance = () => {
-  const [pageLoading, setPageLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -1476,8 +1474,12 @@ const EmployeeAttendance = () => {
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [usersReady, setUsersReady] = useState(false);
+  const [tablePage, setTablePage] = useState(1);
+  const initialAttendance = useRef(null);
+  const attendanceRequest = useRef(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -1593,23 +1595,8 @@ const EmployeeAttendance = () => {
   const exportMenuRef = useRef(null);
 
   useEffect(() => {
-    const initializeData = async () => {
-      setPageLoading(true);
-      setLoading(true);
-      try {
-        await fetchCurrentUserAndCompany();
-      } catch (error) {
-        console.error("Error initializing data:", error);
-      } finally {
-        setTimeout(() => {
-          setLoading(false);
-          setInitialLoadComplete(true);
-          setPageLoading(false);
-        }, 500);
-      }
-    };
-    
-    initializeData();
+    loadCurrentUserAndCompany();
+    return () => { attendanceRequest.current += 1; };
   }, []);
 
   useEffect(() => {
@@ -1675,24 +1662,29 @@ const EmployeeAttendance = () => {
   }, []);
 
   useEffect(() => {
-    if (currentUserCompanyId) {
-      fetchAllUsers();
+    if (!pageAccessReady || !canViewAllAttendance) return;
+    if (!currentUserCompanyId) {
+      setAttendanceLoading(false);
+      return;
     }
-  }, [currentUserCompanyId]);
+    const date = selectedDate;
+    const pending = fetchAttendanceDay(axios, date);
+    pending.catch(() => {});
+    initialAttendance.current = { date, pending };
+    fetchAllUsers();
+  }, [currentUserCompanyId, pageAccessReady, canViewAllAttendance]);
 
-  
+  const rangeStart = dateRangeMode ? selectedStartDate : null;
+  const rangeEnd = dateRangeMode ? selectedEndDate : null;
   useEffect(() => {
-    if (!pageAccessReady) return;
-    if (allUsers.length > 0 && currentUserCompanyId && initialLoadComplete && canViewAllAttendance) {
-      if (dateRangeMode) {
-        fetchAttendanceDataRange(selectedStartDate, selectedEndDate);
-      } else {
-        fetchAttendanceData(selectedDate);
-      }
+    if (!usersReady || !canViewAllAttendance) return;
+    if (dateRangeMode) {
+      if (rangeStart && rangeEnd && rangeStart <= rangeEnd) fetchAttendanceDataRange(rangeStart, rangeEnd);
+    } else {
+      fetchAttendanceData(selectedDate);
     }
-  }, [selectedDate, selectedStartDate, selectedEndDate, dateRangeMode, allUsers, currentUserCompanyId, initialLoadComplete, pageAccessReady, canViewAllAttendance]);
+  }, [selectedDate, rangeStart, rangeEnd, dateRangeMode, usersReady, canViewAllAttendance]);
 
-  
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
@@ -1709,7 +1701,7 @@ const EmployeeAttendance = () => {
   
   
   
-  const fetchCurrentUserAndCompany = async () => {
+  const loadCurrentUserAndCompany = () => {
     try {
       const userStr = accountStorage.getItem('user');
       if (!userStr) {
@@ -1742,8 +1734,6 @@ const EmployeeAttendance = () => {
       setCurrentUserRole(role);
       
       
-      setCanEditAttendance(true);
-      setCanViewAllAttendance(true);
       
     } catch (error) {
       console.error("Error parsing user data:", error);
@@ -1774,73 +1764,57 @@ const EmployeeAttendance = () => {
         'companyadmin', 'hr', 'hr_manager', 'super_admin', 'superadmin'
       ].includes(role));
       let companyBranchList = [];
-      
-      
       let deptMap = {};
       let departmentsList = [];
-      
-      try {
-        const deptRes = await axios.get('/departments');
-        
-        if (deptRes.data && deptRes.data.success) {
-          if (deptRes.data.data && Array.isArray(deptRes.data.data)) {
-            departmentsList = deptRes.data.data;
-          } else if (deptRes.data.departments && Array.isArray(deptRes.data.departments)) {
-            departmentsList = deptRes.data.departments;
-          } else if (Array.isArray(deptRes.data)) {
-            departmentsList = deptRes.data;
+      const storedUser = (() => {
+        try { return JSON.parse(accountStorage.getItem('user') || '{}'); } catch { return {}; }
+      })();
+      const resolveCompanyId = (val) => {
+        if (!val) return '';
+        if (typeof val === 'object' && val !== null) {
+          const extracted = val._id || val.id || val.companyId || val.company;
+          if (typeof extracted === 'object' && extracted !== null) {
+            return String(extracted._id || extracted.id || '').trim();
           }
+          return String(extracted || '').trim();
         }
-        
-        deptMap = departmentsList.reduce((acc, dept) => {
-          if (dept._id) {
-            acc[dept._id] = dept.name;
-          }
-          if (dept.id) {
-            acc[dept.id] = dept.name;
-          }
-          return acc;
-        }, {});
-        
+        const str = String(val).trim();
+        return str === '[object Object]' ? '' : str;
+      };
+      const companyId = resolveCompanyId(currentUserCompanyId) ||
+                        resolveCompanyId(storedViewer?.company || storedViewer?.companyId) ||
+                        resolveCompanyId(storedUser?.company || storedUser?.companyId) ||
+                        resolveCompanyId(currentUser?.company || currentUser?.companyId);
+      const [departmentResult, branchResult, userResult] = await Promise.allSettled([
+        axios.get('/departments'),
+        companyId ? axios.get(`/branches/company/${companyId}`) : null,
+        axios.get('/users/company-users')
+      ]);
+
+      if (departmentResult.status === 'fulfilled') {
+        const { data } = departmentResult.value;
+        const list = data?.data || data?.departments || data;
+        if (Array.isArray(list)) departmentsList = list;
+        deptMap = Object.fromEntries(departmentsList.flatMap(dept =>
+          [dept._id, dept.id].filter(Boolean).map(id => [id, dept.name])
+        ));
         setDepartments(departmentsList);
         setDepartmentsMap(deptMap);
-        void 0;
-      } catch (deptErr) {
-        console.error("❌ Failed to load departments", deptErr);
-      }
-      
-      
-      try {
-        const storedUser = (() => {
-          try { return JSON.parse(accountStorage.getItem('user') || '{}'); } catch { return {}; }
-        })();
-        const resolveCompanyId = (val) => {
-          if (!val) return '';
-          if (typeof val === 'object' && val !== null) {
-            const extracted = val._id || val.id || val.companyId || val.company;
-            if (typeof extracted === 'object' && extracted !== null) {
-              return String(extracted._id || extracted.id || '').trim();
-            }
-            return String(extracted || '').trim();
-          }
-          const str = String(val).trim();
-          return str === '[object Object]' ? '' : str;
-        };
-        const companyId = resolveCompanyId(currentUserCompanyId) || 
-                          resolveCompanyId(storedViewer?.company || storedViewer?.companyId) || 
-                          resolveCompanyId(storedUser?.company || storedUser?.companyId) || 
-                          resolveCompanyId(currentUser?.company || currentUser?.companyId);
-        if (companyId && companyId !== '[object Object]') {
-          const branchRes = await axios.get(`/branches/company/${companyId}`);
-          const branchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
-          companyBranchList = branchList;
-        }
-      } catch (branchErr) {
-        console.error("Failed to load branches", branchErr);
+      } else {
+        console.error('Failed to load departments', departmentResult.reason);
       }
 
-      const res = await axios.get('/users/company-users');
-      
+      if (branchResult.status === 'fulfilled') {
+        const data = branchResult.value?.data;
+        if (Array.isArray(data?.branches)) companyBranchList = data.branches;
+        else if (Array.isArray(data?.data)) companyBranchList = data.data;
+      } else {
+        console.error('Failed to load branches', branchResult.reason);
+      }
+
+      if (userResult.status === 'rejected') throw userResult.reason;
+      const res = userResult.value;
+
       let usersData = [];
       
       if (res.data && res.data.success) {
@@ -1864,7 +1838,7 @@ const EmployeeAttendance = () => {
       if (!companyBranchList.length && usersData.length > 0) {
         const comp = usersData.find(u => u.company)?.company;
         const compId = typeof comp === 'object' && comp !== null ? String(comp._id || comp.id || '') : String(comp || '');
-        if (compId && compId !== '[object Object]') {
+        if (compId && compId !== companyId && compId !== '[object Object]') {
           try {
             const branchRes = await axios.get(`/branches/company/${compId}`);
             companyBranchList = Array.isArray(branchRes.data?.branches) ? branchRes.data.branches : (Array.isArray(branchRes.data?.data) ? branchRes.data.data : []);
@@ -1993,6 +1967,14 @@ const EmployeeAttendance = () => {
         ? (matchingCompanyBranches.length ? matchingCompanyBranches : assignedBranchOptions)
         : (companyBranchList.length ? companyBranchList : assignedBranchOptions);
 
+      setAllUsers(restrictToAssignedBranches
+        ? usersWithDepartment.filter(employee => [
+          employee.branch,
+          ...(Array.isArray(employee.assignedBranches) ? employee.assignedBranches : [])
+        ].some(branch => resolvedViewerBranchIds.includes(String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim())))
+        : usersWithDepartment);
+      setUsersReady(true);
+
       // Resolve any remaining branch options that still have a raw Mongo ID or missing name
       visibleBranchOptions = await Promise.all(visibleBranchOptions.map(async branch => {
         const branchId = String(branch?._id || branch?.id || '').trim();
@@ -2019,27 +2001,26 @@ const EmployeeAttendance = () => {
       }));
       setBranches(visibleBranchOptions);
       
-      setAllUsers(restrictToAssignedBranches
-        ? usersWithDepartment.filter(employee => [
-          employee.branch,
-          ...(Array.isArray(employee.assignedBranches) ? employee.assignedBranches : [])
-        ].some(branch => resolvedViewerBranchIds.includes(String(typeof branch === 'object' ? (branch?._id || branch?.id || '') : (branch || '')).trim())))
-        : usersWithDepartment);
       void 0;
       
     } catch (err) {
       console.error("❌ Failed to load users", err);
+      setAttendanceLoading(false);
       showSnackbar("Error loading users data", "error");
     }
   };
 
   const fetchAttendanceData = async (date) => {
-    setLoading(true);
+    const request = ++attendanceRequest.current;
+    setAttendanceLoading(true);
     try {
       const formatted = date;
       void 0;
       
-      const res = {data: await fetchAttendanceDay(axios, formatted)};
+      const initial = initialAttendance.current;
+      initialAttendance.current = null;
+      const res = { data: await (initial?.date === formatted ? initial.pending : fetchAttendanceDay(axios, formatted)) };
+      if (request !== attendanceRequest.current) return;
       
       const attendanceMap = {};
       if (res.data && res.data.data && Array.isArray(res.data.data)) {
@@ -2126,6 +2107,7 @@ const EmployeeAttendance = () => {
       calculateStats(combinedRecords);
       
     } catch (err) {
+      if (request !== attendanceRequest.current) return;
       if (err.response?.status !== 403) {
         console.error("❌ Failed to load attendance", err);
         showSnackbar("Error loading attendance data", "error");
@@ -2133,7 +2115,7 @@ const EmployeeAttendance = () => {
       setRecords([]);
       calculateStats([]);
     } finally {
-      setLoading(false);
+      if (request === attendanceRequest.current) setAttendanceLoading(false);
     }
   };
 
@@ -2174,7 +2156,8 @@ const EmployeeAttendance = () => {
   
   
   const fetchAttendanceDataRange = async (startDate, endDate) => {
-    setLoading(true);
+    const request = ++attendanceRequest.current;
+    setAttendanceLoading(true);
     try {
       void 0;
       
@@ -2199,6 +2182,7 @@ const EmployeeAttendance = () => {
       });
       
       const results = await Promise.all(fetchPromises);
+      if (request !== attendanceRequest.current) return;
       
       results.forEach(({ date, data }) => {
         const attendanceMap = {};
@@ -2354,6 +2338,7 @@ const EmployeeAttendance = () => {
       calculateStats(allRecords);
       
     } catch (err) {
+      if (request !== attendanceRequest.current) return;
       if (err.response?.status !== 403) {
         console.error("❌ Failed to load attendance range", err);
         showSnackbar("Error loading attendance data", "error");
@@ -2361,7 +2346,7 @@ const EmployeeAttendance = () => {
       setRecords([]);
       calculateStats([]);
     } finally {
-      setLoading(false);
+      if (request === attendanceRequest.current) setAttendanceLoading(false);
     }
   };
 
@@ -2396,7 +2381,6 @@ const EmployeeAttendance = () => {
         return;
       }
       setDateRangeMode(true);
-      fetchAttendanceDataRange(selectedStartDate, selectedEndDate);
     }
   };
 
@@ -2406,7 +2390,6 @@ const EmployeeAttendance = () => {
     setSelectedDate(today);
     setSelectedStartDate(today);
     setSelectedEndDate(today);
-    fetchAttendanceData(today);
   };
 
   const clearFilters = () => {
@@ -2568,10 +2551,20 @@ const EmployeeAttendance = () => {
   
   
   
+  const recordsPerPage = 50;
+  const totalTablePages = Math.max(1, Math.ceil(filteredRecords.length / recordsPerPage));
+  const visibleTablePage = Math.min(tablePage, totalTablePages);
+  const rowOffset = (visibleTablePage - 1) * recordsPerPage;
+  const visibleRecords = useMemo(
+    () => filteredRecords.slice(rowOffset, rowOffset + recordsPerPage),
+    [filteredRecords, rowOffset]
+  );
+  useEffect(() => { setTablePage(1); }, [filteredRecords]);
+
   const groupedByDate = useMemo(() => {
     if (!dateRangeMode) return null;
     
-    return filteredRecords.reduce((acc, record) => {
+    return visibleRecords.reduce((acc, record) => {
       const dateKey = record.displayDate || (record.date ? getIndiaDateKey(record.date) : 'unknown');
       if (!acc[dateKey]) {
         acc[dateKey] = [];
@@ -2579,7 +2572,7 @@ const EmployeeAttendance = () => {
       acc[dateKey].push(record);
       return acc;
     }, {});
-  }, [filteredRecords, dateRangeMode]);
+  }, [visibleRecords, dateRangeMode]);
 
   const formatTime = (timeStr) => {
     if (!timeStr) return "-";
@@ -3162,9 +3155,6 @@ const EmployeeAttendance = () => {
   };
 
   
-  if (pageLoading) {
-    return <CIISLoader />;
-  }
 
   if (pageAccessReady && !canViewAllAttendance) {
     return (
@@ -3179,20 +3169,6 @@ const EmployeeAttendance = () => {
   }
 
   
-  if (loading && !initialLoadComplete) {
-    return (
-      <div className="EmppAttendence-loading-container">
-        <div className="EmppAttendence-loading-progress">
-          <div className="EmppAttendence-loading-progress-bar"></div>
-        </div>
-        <p>Loading attendance data...</p>
-        {currentUserRole && (
-          <span className="EmppAttendence-loading-role">Role: {normalizeRole(currentUserRole)}</span>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="EmppAttendence-employee-attendance">
       
@@ -3361,7 +3337,7 @@ const EmployeeAttendance = () => {
               className="EmppAttendence-date-chip"
               onClick={() => setExportMenuOpen(!exportMenuOpen)}
               title="Export Report"
-              disabled={loading}
+              disabled={loading || attendanceLoading}
               style={{
                 background: '#ffffff',
                 color: '#334155',
@@ -3493,9 +3469,9 @@ const EmployeeAttendance = () => {
                 ? fetchAttendanceDataRange(selectedStartDate, selectedEndDate)
                 : fetchAttendanceData(selectedDate)
               }
-              disabled={loading}
+              disabled={loading || attendanceLoading}
             >
-              {loading ? <FiRefreshCw className="EmppAttendence-spin" /> : 'Refresh'}
+              {attendanceLoading ? <FiRefreshCw className="EmppAttendence-spin" /> : 'Refresh'}
             </button>
           </div>
         </div>
@@ -3660,7 +3636,7 @@ const EmployeeAttendance = () => {
               {dateRangeMode ? 'Attendance Records by Date' : 'Attendance Records by Department'}
             </h3>
             <div className="EmppAttendence-table-count">
-              {filteredRecords.length} {filteredRecords.length === 1 ? 'record' : 'records'} found • 
+              {attendanceLoading ? 'Loading records •' : `${filteredRecords.length} ${filteredRecords.length === 1 ? 'record' : 'records'} found •`}
               <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>
                 {dateRangeMode 
                   ? `Period: ${new Date(selectedStartDate).toLocaleDateString()} - ${new Date(selectedEndDate).toLocaleDateString()}`
@@ -3686,7 +3662,7 @@ const EmployeeAttendance = () => {
         </div>
         
         <div style={{ overflowX: 'auto' }}>
-          <table className="EmppAttendence-attendance-table">
+          <table className="EmppAttendence-attendance-table" aria-busy={attendanceLoading}>
             <thead>
               <tr>
                 {bulkEditMode && <th style={{ width: '50px' }}></th>}
@@ -3708,7 +3684,13 @@ const EmployeeAttendance = () => {
             </thead>
 
             <tbody>
-              {filteredRecords.length ? (
+              {attendanceLoading ? (
+                <tr>
+                  <td colSpan={13}>
+                    <div role="status" className="EmppAttendence-empty-state">Loading attendance records…</div>
+                  </td>
+                </tr>
+              ) : visibleRecords.length ? (
                 dateRangeMode ? (
                   
                   Object.entries(groupedByDate || {}).sort(([dateA], [dateB]) => dateA.localeCompare(dateB)).map(([date, dateRecords]) => (
@@ -3920,7 +3902,7 @@ const EmployeeAttendance = () => {
                 ) : (
                   
                   Object.entries(
-                    filteredRecords.reduce((acc, rec) => {
+                    visibleRecords.reduce((acc, rec) => {
                       const dept = rec.user?.departmentName || (typeof rec.user?.department === 'object' ? rec.user?.department?.name : rec.user?.department) || (rec.user?.departmentId && departmentsMap[rec.user.departmentId]) || 'Unassigned';
                       if (!acc[dept]) acc[dept] = [];
                       acc[dept].push(rec);
@@ -4140,6 +4122,18 @@ const EmployeeAttendance = () => {
             </tbody>
           </table>
         </div>
+        {!attendanceLoading && totalTablePages > 1 && (
+          <nav aria-label="Attendance pages" className="EmppAttendence-table-header">
+            <span>Showing {rowOffset + 1}–{Math.min(rowOffset + recordsPerPage, filteredRecords.length)} of {filteredRecords.length}</span>
+            <div>
+              <button type="button" className="EmppAttendence-date-chip" disabled={visibleTablePage <= 1}
+                onClick={() => setTablePage(visibleTablePage - 1)}>Previous</button>
+              {' '}
+              <button type="button" className="EmppAttendence-date-chip" disabled={visibleTablePage >= totalTablePages}
+                onClick={() => setTablePage(visibleTablePage + 1)}>Next</button>
+            </div>
+          </nav>
+        )}
       </div>
 
       

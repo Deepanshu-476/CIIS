@@ -90,6 +90,7 @@ const SUPER_ADMIN_ROUTES = [
   { id: "plans", path: "plans", name: "Plans", category: "owner" },
   { id: "ai-management", path: "ai-management", name: "AI Management", category: "owner" },
   { id: "email-settings", path: "email-settings", name: "Email Settings", category: "owner" },
+  { id: "marketing-ads-settings", path: "marketing-ads-settings", name: "Marketing Ads Settings", category: "owner" },
   { id: "app-version-control", path: "app-version-control", name: "App Version", category: "owner" },
   { id: "support-operations", path: "support-operations", name: "Support Operations", category: "management" },
   { id: "feedback-questionnaire", path: "feedback-questionnaire", name: "Feedback / Questionnaire", category: "management" },

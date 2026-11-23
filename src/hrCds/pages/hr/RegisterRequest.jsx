@@ -67,6 +67,7 @@ export default function RegisterRequest() {
   const [documentPreview, setDocumentPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [canVerify, setCanVerify] = useState(false);
+  const [canAccept, setCanAccept] = useState(false);
 
   const [dateStart, dateEnd] = getRegistrationDateBounds(dateFilter, fromDate, toDate);
   const dateFilteredRequests = useMemo(() => dateStart === undefined ? requests : requests.filter(request => (
@@ -122,6 +123,7 @@ export default function RegisterRequest() {
   };
 
   const allSectionsVerified = verificationKeys.every(key => verifiedSections[key]);
+  const canAcceptProfile = canAccept && (canVerify || profile?.companyRole === 'employee');
   const toggleSectionVerification = title => setVerifiedSections(current => ({ ...current, [title]: !current[title] }));
   const updateVerificationField = (title, key, value) => {
     setEditForm(current => ({ ...current, [key]: value }));
@@ -168,6 +170,10 @@ export default function RegisterRequest() {
     };
     if (Object.prototype.hasOwnProperty.call(readOnlyValues, key)) {
       return <label className="RegisterRequest-edit-field readonly" key={key}><span>{label}</span><div>{readOnlyValues[key]}</div></label>;
+    }
+    if (!canVerify) {
+      const value = key === 'jobRole' ? getJobRoleName(profile) : type === 'date' ? formatDate(profile[key]) : getName(profile[key]);
+      return <label className="RegisterRequest-edit-field readonly" key={key}><span>{label}</span><div>{value || 'Not provided'}</div></label>;
     }
     const linkedOptions = key === 'branch' ? assignmentOptions.branches : key === 'department' ? assignmentOptions.departments : key === 'jobRole' ? assignmentOptions.jobRoles : null;
     const options = fixedOptions[key] || linkedOptions?.map(item => [String(item._id || item.id || ''), item.name || item.companyName || 'Unnamed']);
@@ -256,6 +262,7 @@ export default function RegisterRequest() {
   };
 
   const activateVerifiedUser = async () => {
+    if (!canAcceptProfile) return;
     const validationErrors = validateActivationForm();
     if (Object.keys(validationErrors).length) {
       setFieldErrors(validationErrors);
@@ -309,8 +316,10 @@ export default function RegisterRequest() {
       const response = await axios.get('/users/register-requests', {
         params: { status: 'all' }, cache: false, noCache: true, _skipRequestCache: true, _skipErrorNotify: true
       });
-      setRequests(response.data?.data?.requests || response.data?.requests || []);
-      setCanVerify(Boolean(response.data?.data?.canVerify ?? response.data?.canVerify));
+      const data = response.data?.data || response.data;
+      setRequests(data?.requests || []);
+      setCanVerify(Boolean(data?.canVerify));
+      setCanAccept(Boolean(data?.canAccept ?? data?.canVerify));
     } catch (error) {
       const message = getErrorMessage(error, 'Failed to load registration requests');
       toast.error(message);
@@ -415,10 +424,15 @@ export default function RegisterRequest() {
                     <td data-label="Applicant"><div className="RegisterRequest-applicant"><span>{(request.name || 'U').charAt(0).toUpperCase()}</span><div><strong>{request.name || 'Unnamed User'}</strong><small><Mail size={13} />{request.email}</small></div></div></td>
                     <td data-label="Company"><strong>{getName(request.company) || 'Company'}</strong><small>{request.companyCode || 'No company code'}</small></td>
                     <td data-label="Applied On">{formatDate(request.createdAt)}</td>
-                    <td data-label="Status"><span className={`RegisterRequest-status ${status}`}>{status === 'active' ? 'Activated' : 'Pending'}</span></td>
+                    <td data-label="Status">
+                      <span className={`RegisterRequest-status ${status}`}>{status === 'active' ? 'Activated' : 'Pending'}</span>
+                      {request.registrationVerification?.activatedByName && (
+                        <small>Accepted by {request.registrationVerification.activatedByName}{request.registrationVerification.activatedAt && <> · {new Date(request.registrationVerification.activatedAt).toLocaleString('en-IN')}</>}</small>
+                      )}
+                    </td>
                     <td data-label="Actions"><div className="RegisterRequest-row-actions">
                       {status === 'pending'
-                        ? <button className="approve" type="button" onClick={() => openVerification(request)} disabled={!canVerify || busy}><Power size={16} /> Activate</button>
+                        ? <button className="approve" type="button" onClick={() => openVerification(request)} disabled={!canAccept || busy}><Power size={16} /> Review</button>
                         : <button className="reject" type="button" onClick={() => changeUserStatus(request, false)} disabled={!canVerify || busy}><PowerOff size={16} /> Deactivate</button>}
                     </div></td>
                   </tr>
@@ -442,9 +456,9 @@ export default function RegisterRequest() {
             <div className="RegisterRequest-profile-meta"><span className={`RegisterRequest-status ${getStatus(profile)}`}>{getStatus(profile) === 'active' ? 'Activated' : 'Pending'}</span><span><Building2 size={16} />{getName(profile.company) || profile.companyCode}</span><span><CalendarDays size={16} />Registered {formatDate(profile.createdAt)}</span></div>
             {activationError && <div className="RegisterRequest-activation-error" role="alert"><strong>Unable to activate user</strong><span>{activationError}</span></div>}
             {profileGroups.map(([title, fields]) => <section className={verifiedSections[title] ? 'verified' : ''} key={title}><div className="RegisterRequest-section-heading"><h3>{title}</h3><label><input type="checkbox" checked={Boolean(verifiedSections[title])} onChange={() => toggleSectionVerification(title)} />{verifiedSections[title] ? <span className="verified"><CheckCircle2 size={14} /> Verified</span> : <span>Verify</span>}</label></div><div>{fields.map(([key, label, type]) => renderVerificationField(title, key, label, type))}</div></section>)}
-            <section className={`RegisterRequest-documents-section ${verifiedSections['Uploaded Documents'] ? 'verified' : ''}`}><div className="RegisterRequest-section-heading"><h3><FileText size={18} /> Uploaded Documents</h3><label><input type="checkbox" checked={Boolean(verifiedSections['Uploaded Documents'])} onChange={() => toggleSectionVerification('Uploaded Documents')} />{verifiedSections['Uploaded Documents'] ? <span className="verified"><CheckCircle2 size={14} /> Verified</span> : <span>Verify</span>}</label></div><div className="RegisterRequest-profile-docs">{(profile.documents || []).map(doc => <article key={doc._id}><span><FileText size={18} /></span><div><strong>{doc.name}</strong><small>{doc.type || 'Document'}</small></div><div className="RegisterRequest-document-actions"><button type="button" className="view" onClick={() => viewVerificationDocument(doc)}><Eye size={14} /> View</button><button type="button" className="delete" onClick={() => deleteVerificationDocument(doc)}><Trash2 size={14} aria-hidden="true" /><span className="sr-only">Delete {doc.name}</span></button></div></article>)}{!profile.documents?.length && <div className="RegisterRequest-no-documents"><Paperclip size={22} /><span>No documents uploaded yet</span></div>}</div><div className="RegisterRequest-document-upload"><div className="RegisterRequest-upload-title"><Upload size={18} /><span><strong>Add another document</strong><small>PDF, image or office file — maximum 25 MB</small></span></div><label><span>Document name</span><input type="text" value={documentUpload.name} onChange={event => setDocumentUpload(current => ({ ...current, name: event.target.value }))} placeholder="e.g. Address proof" /></label><label className="RegisterRequest-file-picker"><span>Choose file</span><input type="file" id="register-request-document" onChange={event => setDocumentUpload(current => ({ ...current, file: event.target.files?.[0] || null }))} /><div><Paperclip size={15} />{documentUpload.file?.name || 'Select a file'}</div></label><button type="button" onClick={uploadVerificationDocument} disabled={uploadingDocument}><Upload size={15} />{uploadingDocument ? 'Uploading...' : 'Upload Document'}</button></div></section>
+            <section className={`RegisterRequest-documents-section ${verifiedSections['Uploaded Documents'] ? 'verified' : ''}`}><div className="RegisterRequest-section-heading"><h3><FileText size={18} /> Uploaded Documents</h3><label><input type="checkbox" checked={Boolean(verifiedSections['Uploaded Documents'])} onChange={() => toggleSectionVerification('Uploaded Documents')} />{verifiedSections['Uploaded Documents'] ? <span className="verified"><CheckCircle2 size={14} /> Verified</span> : <span>Verify</span>}</label></div><div className="RegisterRequest-profile-docs">{(profile.documents || []).map(doc => <article key={doc._id}><span><FileText size={18} /></span><div><strong>{doc.name}</strong><small>{doc.type || 'Document'}</small></div><div className="RegisterRequest-document-actions"><button type="button" className="view" onClick={() => viewVerificationDocument(doc)}><Eye size={14} /> View</button><button type="button" className="delete" disabled={!canVerify} onClick={() => deleteVerificationDocument(doc)}><Trash2 size={14} aria-hidden="true" /><span className="sr-only">Delete {doc.name}</span></button></div></article>)}{!profile.documents?.length && <div className="RegisterRequest-no-documents"><Paperclip size={22} /><span>No documents uploaded yet</span></div>}</div>{canVerify && <div className="RegisterRequest-document-upload"><div className="RegisterRequest-upload-title"><Upload size={18} /><span><strong>Add another document</strong><small>PDF, image or office file — maximum 25 MB</small></span></div><label><span>Document name</span><input type="text" value={documentUpload.name} onChange={event => setDocumentUpload(current => ({ ...current, name: event.target.value }))} placeholder="e.g. Address proof" /></label><label className="RegisterRequest-file-picker"><span>Choose file</span><input type="file" id="register-request-document" onChange={event => setDocumentUpload(current => ({ ...current, file: event.target.files?.[0] || null }))} /><div><Paperclip size={15} />{documentUpload.file?.name || 'Select a file'}</div></label><button type="button" onClick={uploadVerificationDocument} disabled={uploadingDocument}><Upload size={15} />{uploadingDocument ? 'Uploading...' : 'Upload Document'}</button></div>}</section>
           </div>
-          <footer className="RegisterRequest-verification-footer">{getStatus(profile) === 'pending' ? <><span>{verificationKeys.filter(key => verifiedSections[key]).length} of {verificationKeys.length} sections verified</span><button className="approve" type="button" onClick={activateVerifiedUser} disabled={!canVerify || processingId || !allSectionsVerified}><Save size={17} /> {processingId ? 'Activating...' : 'Activate User'}</button></> : <button className="reject" type="button" onClick={() => changeUserStatus(profile, false)} disabled={!canVerify || processingId}><PowerOff size={17} /> Make Inactive</button>}</footer>
+          <footer className="RegisterRequest-verification-footer">{getStatus(profile) === 'pending' ? <><span>{canAcceptProfile ? `${verificationKeys.filter(key => verifiedSections[key]).length} of ${verificationKeys.length} sections verified` : 'An approver must review applications for non-employee roles.'}</span><button className="approve" type="button" onClick={activateVerifiedUser} disabled={!canAcceptProfile || processingId || !allSectionsVerified}><Save size={17} /> {processingId ? 'Activating...' : 'Accept & Activate'}</button></> : <button className="reject" type="button" onClick={() => changeUserStatus(profile, false)} disabled={!canVerify || processingId}><PowerOff size={17} /> Make Inactive</button>}</footer>
         </article>
       </div>}
       {documentPreview && <div className="RegisterRequest-preview-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && closeDocumentPreview()}>

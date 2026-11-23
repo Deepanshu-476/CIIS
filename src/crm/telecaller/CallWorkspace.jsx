@@ -454,6 +454,7 @@ function CallWorkspaceContent({
 
   const [isCalling, setIsCalling] = useState(false);
   const [activeCallLogId, setActiveCallLogId] = useState(null);
+  const [callEndedAt, setCallEndedAt] = useState(null);
   const [callDuration, setCallDuration] = useState(0);
   const [callStarting, setCallStarting] = useState(false);
   const [callStatus, setCallStatus] = useState("answered");
@@ -473,14 +474,13 @@ function CallWorkspaceContent({
   }, [isCalling]);
 
   const handleStartCall = async () => {
-    if (isCalling || callStarting) return;
+    if (isCalling || callStarting || !editAllowed || activeCallLogId || !lead.phone || isTerminal(lead)) return;
     setCallStarting(true);
     setMessage("");
     try {
       const res = await api.post("/calls/start", { leadId: lead.id });
-      if (res.data?._id) {
-        setActiveCallLogId(res.data._id);
-      }
+      if (!res.data?._id) throw new Error("Call log could not be confirmed.");
+      setActiveCallLogId(res.data._id);
       setCallDuration(0);
       setIsCalling(true);
       showToast(`📞 Call initiated with ${lead.name}`);
@@ -494,6 +494,7 @@ function CallWorkspaceContent({
   const handleEndCall = () => {
     if (!isCalling) return;
     setIsCalling(false);
+    setCallEndedAt(new Date().toISOString());
     showToast(`Call ended (${callDuration}s). Please confirm status and save.`);
     if (!outcome) {
       setOutcome("Connected");
@@ -545,6 +546,10 @@ function CallWorkspaceContent({
       setMessage("You do not have edit permission to save call details.");
       return;
     }
+    if (isCalling || callStarting) {
+      setMessage("End the active call before saving.");
+      return;
+    }
     if (!outcome) {
       setMessage("Please select a call outcome.");
       return;
@@ -576,6 +581,7 @@ function CallWorkspaceContent({
         followUp: ["Converted", "Call Closed"].includes(outcome) ? "" : followUp,
         duration: callDuration,
         callLogId: activeCallLogId,
+        endTime: callEndedAt,
       });
 
       setMessage("✅ Call details recorded and saved successfully!");
@@ -584,6 +590,7 @@ function CallWorkspaceContent({
       setNotes("");
       setFollowUp("");
       setActiveCallLogId(null);
+      setCallEndedAt(null);
       setCallDuration(0);
       callId.current = crypto.randomUUID();
     } catch (error) {
@@ -769,14 +776,14 @@ function CallWorkspaceContent({
                 <button
                   type="button"
                   onClick={handleStartCall}
-                  disabled={callStarting}
+                  disabled={callStarting || Boolean(activeCallLogId) || !editAllowed || !lead.phone || isTerminal(lead)}
                   className="cw-btn cw-btn-call"
                   title="Start call and timer"
                 >
                   <PhoneCall size={14} /> {callStarting ? "Starting..." : `Start Call`}
                 </button>
 
-                <a
+                {lead.phone && editAllowed && !activeCallLogId && !callStarting && !isTerminal(lead) && <a
                   href={`tel:${lead.phone}`}
                   onClick={() => { if (!isCalling) handleStartCall(); }}
                   className="cw-btn cw-btn-call"
@@ -784,12 +791,13 @@ function CallWorkspaceContent({
                   title="Click to dial phone"
                 >
                   <Smartphone size={14} /> Dial {lead.phone}
-                </a>
+                </a>}
 
                 <button
                   type="button"
                   className="cw-btn cw-btn-whatsapp"
                   title="Send a WhatsApp or SMS template"
+                  disabled={!lead.phone}
                   onClick={() => setTemplatesOpen(true)}
                 >
                   <MessageSquare size={14} /> Message
@@ -804,9 +812,10 @@ function CallWorkspaceContent({
         <div className="cw-contact-bar">
           <div className="cw-contact-chip">
             <Phone size={13} style={{ color: "var(--cw-primary)" }} />
-            <span>+91 {lead.phone}</span>
+            <span>{lead.phone && (lead.marketing || lead.phone.startsWith("+") ? lead.phone : `+91 ${lead.phone}`)}</span>
             <button
               type="button"
+              disabled={!lead.phone}
               onClick={() => copyToClipboard(lead.phone, "Phone number")}
               style={{ background: "none", border: "none", color: "var(--cw-text-subtle)", cursor: "pointer", padding: 0 }}
               title="Copy"
@@ -820,6 +829,7 @@ function CallWorkspaceContent({
             <span>{lead.email}</span>
             <button
               type="button"
+              disabled={!lead.email}
               onClick={() => copyToClipboard(lead.email, "Email address")}
               style={{ background: "none", border: "none", color: "var(--cw-text-subtle)", cursor: "pointer", padding: 0 }}
               title="Copy"
@@ -1154,12 +1164,12 @@ function CallWorkspaceContent({
             <button
               className="cw-btn-save"
               type="submit"
-              disabled={!editAllowed || saving}
+              disabled={!editAllowed || saving || isCalling || callStarting || isTerminal(lead)}
             >
               <Save size={16} /> {saving ? 'Saving...' : 'Save Call Details'}
             </button>
 
-            {!editAllowed && (
+            {(!editAllowed || isTerminal(lead)) && (
               <p className="cw-alert cw-alert-error">
                 <AlertCircle size={14} /> {isTerminal(lead) ? 'This lead is converted or closed.' : 'Edit access is required to save calls.'}
               </p>

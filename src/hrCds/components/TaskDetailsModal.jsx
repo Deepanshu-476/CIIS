@@ -239,6 +239,7 @@ const PRIORITY_CONFIG = {
 
 // Helper to accurately resolve log event status destination
 const resolveLogEventType = (log) => {
+  if (log?.action === 'task_break') return 'other';
   const newS = String(log?.newValue || log?.newValues?.status || log?.status || '').toLowerCase().trim();
   if (newS) {
     if (newS === 'in-progress' || newS === 'inprogress' || newS === 'in progress' || newS === 'in_progress') return 'in-progress';
@@ -271,6 +272,21 @@ const resolveLogEventType = (log) => {
   if (act === 'pending' || act.includes('create') || act === 'creation') return 'pending';
 
   return 'other';
+};
+
+const workSecondsBetween = (start, end, breaks) => {
+  const from = new Date(start).getTime();
+  const to = new Date(end).getTime();
+  let cursor = from;
+  let pausedMs = 0;
+  for (const entry of breaks) {
+    const pauseStart = Math.max(cursor, new Date(entry.breakStart).getTime());
+    const pauseEnd = entry.breakEnd ? Math.min(to, new Date(entry.breakEnd).getTime()) : to;
+    if (pauseEnd <= pauseStart) continue;
+    pausedMs += pauseEnd - pauseStart;
+    cursor = pauseEnd;
+  }
+  return Math.max(0, Math.floor((to - from - pausedMs) / 1000));
 };
 
 const TaskDetailsModal = ({
@@ -357,6 +373,13 @@ const TaskDetailsModal = ({
 
   // Dynamic Activity Logs, Remarks & Files
   const rawActivities = Array.isArray(safeTask.activityLogs) ? safeTask.activityLogs : (Array.isArray(safeTask.statusHistory) ? safeTask.statusHistory : (Array.isArray(safeTask.activities) ? safeTask.activities : []));
+  const worker = safeTask.trackingUserId || employeeInfo?._id || employeeInfo?.id || safeTask.assigneeId || safeTask.assignedTo;
+  const workerId = String(worker?._id || worker || '');
+  const taskBreaks = useMemo(() => rawActivities.filter(log => (
+    log.action === 'task_break' && log.breakStart &&
+    (!workerId || String(log.user?._id || log.user || '') === workerId)
+  )).sort((a, b) => new Date(a.breakStart) - new Date(b.breakStart)), [rawActivities, workerId]);
+  const pausedForBreak = currentStatus === 'in-progress' && taskBreaks.some(log => !log.breakEnd);
   const rawRemarks = Array.isArray(safeTask.remarks) ? safeTask.remarks : [];
 
   // All Attachments & Uploaded Images (collected from all task fields + remarks)
@@ -500,14 +523,12 @@ const TaskDetailsModal = ({
       return;
     }
     const updateSession = () => {
-      const now = new Date();
-      const diffSecs = Math.max(0, Math.floor((now.getTime() - resolvedInProgressStart.getTime()) / 1000));
-      setLiveSessionSeconds(diffSecs);
+      setLiveSessionSeconds(workSecondsBetween(resolvedInProgressStart, new Date(), taskBreaks));
     };
     updateSession();
     const interval = setInterval(updateSession, 1000);
     return () => clearInterval(interval);
-  }, [isCurrentlyRunning, resolvedInProgressStart]);
+  }, [isCurrentlyRunning, resolvedInProgressStart, taskBreaks]);
 
   // Base accumulated seconds from database
   const baseAccumulatedSeconds = useMemo(() => {
@@ -562,7 +583,7 @@ const TaskDetailsModal = ({
         lastHoldStartTime = logDate;
 
         if (activeSessionStartTime) {
-          const durSec = Math.max(0, Math.floor((logDate.getTime() - activeSessionStartTime.getTime()) / 1000));
+          const durSec = workSecondsBetween(activeSessionStartTime, logDate, taskBreaks);
           completedSessionsList.push({
             id: completedSessionsList.length + 1,
             startStr: formatTimeOnly(activeSessionStartTime),
@@ -602,7 +623,7 @@ const TaskDetailsModal = ({
         }
 
         if (sessionStart && logDate.getTime() > sessionStart.getTime()) {
-          const durSec = Math.max(0, Math.floor((logDate.getTime() - sessionStart.getTime()) / 1000));
+          const durSec = workSecondsBetween(sessionStart, logDate, taskBreaks);
           completedSessionsList.push({
             id: completedSessionsList.length + 1,
             startStr: formatTimeOnly(sessionStart),
@@ -633,7 +654,7 @@ const TaskDetailsModal = ({
       });
       const startDate = (startCandidate ? getLogTimestamp(startCandidate) : null) || (createdDate ? new Date(createdDate) : null);
       if (compDate && startDate && compDate.getTime() > startDate.getTime()) {
-        const durSec = Math.max(0, Math.floor((compDate.getTime() - startDate.getTime()) / 1000));
+        const durSec = workSecondsBetween(startDate, compDate, taskBreaks);
         completedSessionsList.push({
           id: 1,
           startStr: formatTimeOnly(startDate),
@@ -674,7 +695,7 @@ const TaskDetailsModal = ({
       resumeSessionStartTime,
       completedTimestamp
     };
-  }, [rawActivities, isCurrentlyRunning, resolvedInProgressStart, updatedDate, currentStatus, task, createdDate]);
+  }, [rawActivities, isCurrentlyRunning, resolvedInProgressStart, updatedDate, currentStatus, task, createdDate, taskBreaks]);
 
   // Dynamically compute static sessions from task.workSessions or logs
   const computedSessions = useMemo(() => {
@@ -955,7 +976,7 @@ const TaskDetailsModal = ({
         const user = ev.userName || ev.performedByName || ev.user?.name || ev.changedBy?.name || (typeof ev.performedBy === 'object' ? (ev.performedBy?.name || ev.performedBy?.fullName) : null) || getUserName(ev.performedBy) || getUserName(ev.user) || assigneeName;
         const oldVals = ev.oldValues || (ev.oldValue ? { status: ev.oldValue } : null);
         const newVals = ev.newValues || (ev.newValue ? { status: ev.newValue } : null);
-        const title = parseActionTitle(action, desc, oldVals, newVals);
+        const title = action === 'task_break' ? 'Break' : parseActionTitle(action, desc, oldVals, newVals);
         let status = resolveStatusFromEvent(title, action, desc, newVals, ev.status);
         if (title === 'Remark Added' || String(action).toLowerCase().includes('remark') || ev.type === 'remark') {
           status = 'remark';
@@ -1298,7 +1319,7 @@ const TaskDetailsModal = ({
                 <span className="metric-label">Current Session</span>
                 <div className="metric-value-row">
                   <strong className="metric-value">{formatDuration(isCurrentlyRunning ? liveSessionSeconds : (computedSessions[computedSessions.length - 1]?.durationSeconds || 0))}</strong>
-                  {isCurrentlyRunning && <span className="metric-live-chip">● Live</span>}
+                  {isCurrentlyRunning && <span className="metric-live-chip">{pausedForBreak ? 'Paused for break' : '● Live'}</span>}
                 </div>
               </div>
             </div>
@@ -1648,7 +1669,7 @@ const TaskDetailsModal = ({
                         <div className="session-left">
                           <span className="session-title">Session {computedSessions.length + 1}</span>
                           <span className="session-timeframe">
-                            {formatTimeOnly(lifecycleData.activeSessionStartTime)} &nbsp;–&nbsp; <span className="text-blue">Ongoing</span>
+                            {formatTimeOnly(lifecycleData.activeSessionStartTime)} &nbsp;–&nbsp; <span className="text-blue">{pausedForBreak ? 'Paused for break' : 'Ongoing'}</span>
                           </span>
                         </div>
                         <div className="session-right">

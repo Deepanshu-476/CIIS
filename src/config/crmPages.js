@@ -43,6 +43,7 @@ const CRM_PERMISSION_ALIASES = {
   "/ciisuser/crm/import-leads": "/ciisUser/crm/admin/import-export-leads",
   "/ciisuser/crm/leads/export": "/ciisUser/crm/admin/import-export-leads",
   "/ciisuser/crm/leads/sources": "/ciisUser/crm/admin/lead-sources",
+  "/ciisuser/crm/admin/marketing-ads": "/ciisUser/crm/admin/lead-sources",
   "/ciisuser/crm/lead-sources": "/ciisUser/crm/admin/lead-sources",
   "/ciisuser/crm/leads/add": "/ciisUser/crm/admin/add-lead",
   "/ciisuser/crm/add-lead": "/ciisUser/crm/admin/add-lead",

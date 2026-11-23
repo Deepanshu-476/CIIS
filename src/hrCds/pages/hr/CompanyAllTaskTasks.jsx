@@ -4038,45 +4038,168 @@ const CompanyAllTaskTasks = () => {
             ======================================================== */}
         {activeTab === "performance" && (
           <div className="tab-pane-performance">
-            <div className="performance-kpi-grid">
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiAward size={20} className="kpi-icon gold" />
-                  <span className="kpi-title">Productivity Score</span>
+            {/* Executive Hero Performance Scorecard */}
+            <div className="perf-hero-card">
+              <div className="perf-hero-left">
+                <div className="perf-gauge-wrap">
+                  <svg className="perf-gauge-svg" viewBox="0 0 120 120">
+                    <circle
+                      className="perf-gauge-bg"
+                      cx="60"
+                      cy="60"
+                      r="50"
+                    />
+                    <circle
+                      className={`perf-gauge-fill ${detailedPerformance.tierColor}`}
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      style={{
+                        strokeDasharray: 314.16,
+                        strokeDashoffset: 314.16 - (314.16 * Math.min(100, Math.max(0, detailedPerformance.finalScore))) / 100,
+                      }}
+                    />
+                  </svg>
+                  <div className="perf-gauge-center">
+                    <span className="perf-gauge-val">{detailedPerformance.finalScore}</span>
+                    <span className="perf-gauge-max">/ 100</span>
+                    <span className={`perf-gauge-badge ${detailedPerformance.tierColor}`}>
+                      Grade {detailedPerformance.grade}
+                    </span>
+                  </div>
                 </div>
-                <div className="kpi-value">{productivityScore}%</div>
-                <span className="kpi-note">
-                  Grade {detailedPerformance.grade} · {detailedPerformance.tier}
-                </span>
               </div>
 
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiCheckCircle size={20} className="kpi-icon green" />
-                  <span className="kpi-title">Completion Rate</span>
+              <div className="perf-hero-content">
+                <div className="perf-hero-top-row">
+                  <div>
+                    <span className="perf-hero-eyebrow">Overall Executive Index</span>
+                    <h2 className="perf-hero-title">Performance Rating: {detailedPerformance.tier}</h2>
+                  </div>
+                  <span className={`perf-hero-tier-chip ${detailedPerformance.tierColor}`}>
+                    <FiAward size={15} /> Grade {detailedPerformance.grade} · {detailedPerformance.tier}
+                  </span>
                 </div>
-                <div className="kpi-value">{completionRate}%</div>
-                <span className="kpi-note">{stats.completed} of {stats.total || tasks.length} tasks completed</span>
+
+                <p className="perf-hero-summary">
+                  {detailedPerformance.finalScore >= 85
+                    ? "Exceptional delivery cadence with strong punctuality and reliable throughput across assigned deliverables."
+                    : detailedPerformance.finalScore >= 70
+                    ? "Solid operational execution with consistent delivery. Minor scope for optimization in task turnaround and deadline adherence."
+                    : detailedPerformance.finalScore >= 50
+                    ? "Moderate delivery pace. Deadline slippage or attendance gaps require proactive tracking to meet benchmark standards."
+                    : "Immediate managerial alignment recommended to resolve overdue bottlenecks and improve work attendance consistency."}
+                </p>
+
+                {/* Quick Snapshot Metrics Strip */}
+                <div className="perf-hero-metrics-strip">
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">Task Completion</span>
+                    <strong className="phm-val text-emerald">{completionRate}%</strong>
+                    <span className="phm-sub">{stats.completed} of {stats.total || tasks.length} done</span>
+                  </div>
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">On-Time Rate</span>
+                    <strong className="phm-val text-blue">{Number.isFinite(onTimeRate) ? `${onTimeRate}%` : "—"}</strong>
+                    <span className="phm-sub">Deadline discipline</span>
+                  </div>
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">Attendance Score</span>
+                    <strong className="phm-val text-purple">{detailedPerformance.pillars.attendance.rate}%</strong>
+                    <span className="phm-sub">{monthStats.present} Present / {monthStats.late} Late</span>
+                  </div>
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">Tracked Time</span>
+                    <strong className="phm-val text-amber">{workSummary?.trackedTaskLabel || "0m"}</strong>
+                    <span className="phm-sub">Productive task hours</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Strengths & Growth Areas Insights */}
+            <div className="perf-insights-grid">
+              <div className="perf-insight-card strengths">
+                <div className="perf-insight-header">
+                  <span className="perf-insight-icon-bubble green">
+                    <FiCheckCircle size={16} />
+                  </span>
+                  <div>
+                    <h4>Key Strengths</h4>
+                    <span className="perf-insight-sub">Demonstrated competencies</span>
+                  </div>
+                </div>
+                <ul className="perf-insight-list">
+                  {detailedPerformance.pillars.onTimeDelivery.rate >= 80 && (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>High Deadline Reliability:</strong> {detailedPerformance.pillars.onTimeDelivery.rate}% on-time completion on assigned commitments.</span>
+                    </li>
+                  )}
+                  {detailedPerformance.pillars.taskCompletion.rate >= 75 && (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>Strong Output Volume:</strong> {stats.completed} tasks successfully resolved and verified.</span>
+                    </li>
+                  )}
+                  {detailedPerformance.pillars.attendance.rate >= 90 && (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>Consistent Attendance:</strong> High punctuality with {monthStats.present} present days recorded.</span>
+                    </li>
+                  )}
+                  {detailedPerformance.pillars.onTimeDelivery.rate < 80 &&
+                   detailedPerformance.pillars.taskCompletion.rate < 75 &&
+                   detailedPerformance.pillars.attendance.rate < 90 && (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>Active Execution:</strong> Consistent task interaction with active updates logged in time tracking.</span>
+                    </li>
+                  )}
+                </ul>
               </div>
 
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiClock size={20} className="kpi-icon blue" />
-                  <span className="kpi-title">On-Time Delivery</span>
+              <div className="perf-insight-card focus">
+                <div className="perf-insight-header">
+                  <span className="perf-insight-icon-bubble amber">
+                    <FiZap size={16} />
+                  </span>
+                  <div>
+                    <h4>Focus & Action Areas</h4>
+                    <span className="perf-insight-sub">Recommended improvements</span>
+                  </div>
                 </div>
-                <div className="kpi-value">{Number.isFinite(onTimeRate) ? `${onTimeRate}%` : "—"}</div>
-                <span className="kpi-note">{performanceMetrics?.completedWithDueDate || 0} completed tasks with a deadline</span>
-              </div>
-
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiAlertTriangle size={20} className="kpi-icon red" />
-                  <span className="kpi-title">Overdue Rate</span>
-                </div>
-                <div className="kpi-value">
-                  {stats.total ? Math.round((stats.overdue / stats.total) * 100) : 0}%
-                </div>
-                <span className="kpi-note">{stats.overdue} tasks past due</span>
+                <ul className="perf-insight-list">
+                  {stats.overdue > 0 ? (
+                    <li className="warning-item">
+                      <FiAlertTriangle size={14} className="text-red" />
+                      <span><strong>Clear Overdue Tasks:</strong> {stats.overdue} task(s) currently past deadline resulting in -{detailedPerformance.pillars.overduePenalty.points} pts deduction.</span>
+                    </li>
+                  ) : (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>Zero Overdue Tasks:</strong> No pending tasks past deadline. Excellent backlog control.</span>
+                    </li>
+                  )}
+                  {stats.inProgress > 3 && (
+                    <li>
+                      <FiClock size={14} className="text-blue" />
+                      <span><strong>WIP Management:</strong> {stats.inProgress} active tasks in progress. Consider completing prior tasks before taking on new ones.</span>
+                    </li>
+                  )}
+                  {monthStats.late > 2 && (
+                    <li>
+                      <FiClock size={14} className="text-amber" />
+                      <span><strong>Punctuality Check:</strong> {monthStats.late} late check-in(s) logged this period. Strive for on-time clock-ins.</span>
+                    </li>
+                  )}
+                  {stats.overdue === 0 && stats.inProgress <= 3 && monthStats.late <= 2 && (
+                    <li>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>Optimal Workflow:</strong> Operations running within expected SLA thresholds. Continue current standards.</span>
+                    </li>
+                  )}
+                </ul>
               </div>
             </div>
 

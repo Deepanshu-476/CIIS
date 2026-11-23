@@ -3340,6 +3340,363 @@
   gap: 16px;
 }
 
+/* Executive Hero Scorecard */
+.perf-hero-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.perf-hero-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #3b82f6, #10b981);
+}
+
+.perf-hero-left {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.perf-gauge-wrap {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.perf-gauge-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.perf-gauge-bg {
+  stroke: #e2e8f0;
+  stroke-width: 10;
+  fill: transparent;
+}
+
+.perf-gauge-fill {
+  stroke-width: 10;
+  stroke-linecap: round;
+  fill: transparent;
+  transition: stroke-dashoffset 1s ease-in-out;
+}
+
+.perf-gauge-fill.purple {
+  stroke: #8b5cf6;
+}
+
+.perf-gauge-fill.emerald {
+  stroke: #10b981;
+}
+
+.perf-gauge-fill.amber {
+  stroke: #f59e0b;
+}
+
+.perf-gauge-fill.red {
+  stroke: #ef4444;
+}
+
+.perf-gauge-center {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.perf-gauge-val {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.perf-gauge-max {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.perf-gauge-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  margin-top: 3px;
+}
+
+.perf-gauge-badge.purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.perf-gauge-badge.emerald {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.perf-gauge-badge.amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.perf-gauge-badge.red {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.perf-hero-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.perf-hero-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.perf-hero-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #64748b;
+}
+
+.perf-hero-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 2px 0 0 0;
+}
+
+.perf-hero-tier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+}
+
+.perf-hero-tier-chip.purple {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.perf-hero-tier-chip.emerald {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.perf-hero-tier-chip.amber {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.perf-hero-tier-chip.red {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.perf-hero-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475569;
+  margin: 0;
+}
+
+.perf-hero-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.perf-hero-metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phm-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.phm-val {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.phm-sub {
+  font-size: 10.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Strengths & Growth Areas Insights Grid */
+.perf-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.perf-insight-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.perf-insight-card.strengths {
+  border-top: 3px solid #10b981;
+}
+
+.perf-insight-card.focus {
+  border-top: 3px solid #f59e0b;
+}
+
+.perf-insight-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.perf-insight-icon-bubble {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.perf-insight-icon-bubble.green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.perf-insight-icon-bubble.amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.perf-insight-header h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.perf-insight-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.perf-insight-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.perf-insight-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.perf-insight-list li svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.perf-insight-list li.warning-item {
+  color: #991b1b;
+  background: #fef2f2;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #fee2e2;
+}
+
+@media (max-width: 900px) {
+  .perf-hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+  .perf-hero-left {
+    align-self: center;
+  }
+  .perf-hero-content {
+    width: 100%;
+  }
+  .perf-hero-metrics-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .perf-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .perf-hero-metrics-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
 .performance-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

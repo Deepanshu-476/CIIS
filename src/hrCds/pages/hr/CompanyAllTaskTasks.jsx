@@ -1987,15 +1987,77 @@ const CompanyAllTaskTasks = () => {
     return points.length ? Math.round(points.reduce((sum, value) => sum + value, 0) / points.length) : null;
   }, [attendanceRecords]);
 
-  const productivityScore = useMemo(() => {
-    const inputs = [
-      { value: completionRate, weight: 50 },
-      ...(Number.isFinite(onTimeRate) ? [{ value: onTimeRate, weight: 30 }] : []),
-      ...(Number.isFinite(attendanceReliability) ? [{ value: attendanceReliability, weight: 20 }] : []),
-    ];
-    const totalWeight = inputs.reduce((sum, input) => sum + input.weight, 0);
-    return totalWeight ? Math.round(inputs.reduce((sum, input) => sum + input.value * input.weight, 0) / totalWeight) : 0;
-  }, [attendanceReliability, completionRate, onTimeRate]);
+  const detailedPerformance = useMemo(() => {
+    // 1. Task Completion Rate (0-100)
+    const taskCompRate = stats.total ? Math.min(100, Math.round((stats.completed / stats.total) * 100)) : 0;
+    const taskCompPts = Number((taskCompRate * 0.40).toFixed(1));
+
+    // 2. On-Time Delivery Rate (0-100)
+    const onTimeVal = Number.isFinite(onTimeRate)
+      ? onTimeRate
+      : (stats.total ? Math.max(0, 100 - Math.round((stats.overdue / stats.total) * 100)) : 100);
+    const onTimePts = Number((onTimeVal * 0.25).toFixed(1));
+
+    // 3. Attendance & Discipline Reliability (0-100)
+    const attReliability = Number.isFinite(attendanceReliability)
+      ? attendanceReliability
+      : (monthStats.attendanceRate || 0);
+    const attPts = Number((attReliability * 0.20).toFixed(1));
+
+    // 4. Time Tracking / Utilization Rate (0-100)
+    let timeUtilRate = 75; // standard benchmark if no logs
+    if (workSummary?.productivity) {
+      const p = parseInt(String(workSummary.productivity).replace('%', ''), 10);
+      if (!isNaN(p)) timeUtilRate = Math.min(100, Math.max(0, p));
+    } else if (workSummary?.trackedTaskSeconds && workSummary?.totalClockedSeconds) {
+      timeUtilRate = Math.min(100, Math.round((workSummary.trackedTaskSeconds / workSummary.totalClockedSeconds) * 100));
+    } else if (taskCompRate > 0) {
+      timeUtilRate = taskCompRate;
+    }
+    const timeUtilPts = Number((timeUtilRate * 0.15).toFixed(1));
+
+    // 5. Overdue Penalty (Deduction for overdue tasks)
+    const overdueRatio = stats.total ? (stats.overdue / stats.total) : 0;
+    const overduePenalty = overdueRatio > 0 ? Math.min(10, Math.round(overdueRatio * 20)) : 0;
+
+    // Final Aggregate Score (0 to 100)
+    const rawTotal = taskCompPts + onTimePts + attPts + timeUtilPts - overduePenalty;
+    const finalScore = Math.min(100, Math.max(0, Math.round(rawTotal)));
+
+    // Rating tier and grade
+    let tier = "Needs Improvement";
+    let grade = "C";
+    let tierColor = "red";
+    if (finalScore >= 90) {
+      tier = "Top Performer";
+      grade = "A+";
+      tierColor = "purple";
+    } else if (finalScore >= 75) {
+      tier = "Strong Performer";
+      grade = "A";
+      tierColor = "emerald";
+    } else if (finalScore >= 60) {
+      tier = "Satisfactory";
+      grade = "B";
+      tierColor = "amber";
+    }
+
+    return {
+      finalScore,
+      tier,
+      grade,
+      tierColor,
+      pillars: {
+        taskCompletion: { rate: taskCompRate, weight: 40, points: taskCompPts, maxPoints: 40 },
+        onTimeDelivery: { rate: onTimeVal, weight: 25, points: onTimePts, maxPoints: 25 },
+        attendance: { rate: attReliability, weight: 20, points: attPts, maxPoints: 20 },
+        timeUtilization: { rate: timeUtilRate, weight: 15, points: timeUtilPts, maxPoints: 15 },
+        overduePenalty: { points: overduePenalty }
+      }
+    };
+  }, [stats.total, stats.completed, stats.overdue, onTimeRate, attendanceReliability, monthStats.attendanceRate, workSummary]);
+
+  const productivityScore = detailedPerformance.finalScore;
 
   const personalTasksCount = useMemo(() => {
     if (typeof stats.personal === "number" && stats.personal >= 0) return stats.personal;
@@ -3982,7 +4044,9 @@ const CompanyAllTaskTasks = () => {
                   <span className="kpi-title">Productivity Score</span>
                 </div>
                 <div className="kpi-value">{productivityScore}%</div>
-                <span className="kpi-note">{productivityScore >= 80 ? "Excellent Performer" : productivityScore >= 60 ? "Good Performance" : "Needs Improvement"}</span>
+                <span className="kpi-note">
+                  Grade {detailedPerformance.grade} · {detailedPerformance.tier}
+                </span>
               </div>
 
               <div className="kpi-card">
@@ -4013,6 +4077,109 @@ const CompanyAllTaskTasks = () => {
                 </div>
                 <span className="kpi-note">{stats.overdue} tasks past due</span>
               </div>
+            </div>
+
+            {/* Detailed Performance Evaluation & Formula Breakdown Card */}
+            <div className="overview-card perf-engine-card">
+              <div className="card-header-line">
+                <div>
+                  <div className="perf-header-eyebrow">Evaluation Engine · 4-Pillar Model</div>
+                  <h3><FiAward size={18} className="text-primary" /> Performance Calculation Breakdown</h3>
+                </div>
+                <div className="perf-grade-pill-group">
+                  <span className={`perf-grade-badge ${detailedPerformance.tierColor}`}>
+                    Grade {detailedPerformance.grade} · {detailedPerformance.tier}
+                  </span>
+                  <span className="perf-final-score-pill">
+                    {detailedPerformance.finalScore} / 100 Pts
+                  </span>
+                </div>
+              </div>
+
+              {/* Dynamic Formula Banner */}
+              <div className="perf-formula-banner">
+                <span className="formula-tag">Formula</span>
+                <span className="formula-text">
+                  Score = (Tasks × 40%) + (On-Time × 25%) + (Attendance × 20%) + (Hours × 15%){detailedPerformance.pillars.overduePenalty.points > 0 ? ` - (Overdue Penalty: -${detailedPerformance.pillars.overduePenalty.points} pts)` : ""}
+                </span>
+              </div>
+
+              {/* 4 Pillars Grid */}
+              <div className="perf-pillars-grid">
+                {/* Pillar 1: Task Completion */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">1. Task Completion</span>
+                    <span className="pillar-weight-badge">Weight 40%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-emerald">+{detailedPerformance.pillars.taskCompletion.points} <span className="pts-max">/ 40 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.pillars.taskCompletion.rate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.taskCompletion.rate}%`, backgroundColor: '#10b981' }} />
+                  </div>
+                  <span className="pillar-desc">{stats.completed} of {stats.total || tasks.length} assigned tasks completed</span>
+                </div>
+
+                {/* Pillar 2: On-Time Delivery */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">2. On-Time Delivery</span>
+                    <span className="pillar-weight-badge">Weight 25%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-blue">+{detailedPerformance.pillars.onTimeDelivery.points} <span className="pts-max">/ 25 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.pillars.onTimeDelivery.rate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.onTimeDelivery.rate}%`, backgroundColor: '#2563eb' }} />
+                  </div>
+                  <span className="pillar-desc">Completed on or before deadline</span>
+                </div>
+
+                {/* Pillar 3: Attendance & Punctuality */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">3. Attendance & Discipline</span>
+                    <span className="pillar-weight-badge">Weight 20%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-purple">+{detailedPerformance.pillars.attendance.points} <span className="pts-max">/ 20 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.pillars.attendance.rate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.attendance.rate}%`, backgroundColor: '#8b5cf6' }} />
+                  </div>
+                  <span className="pillar-desc">{monthStats.present} present, {monthStats.late} late, {monthStats.absent} absents</span>
+                </div>
+
+                {/* Pillar 4: Time Tracking / Utilization */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">4. Time Utilization</span>
+                    <span className="pillar-weight-badge">Weight 15%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-amber">+{detailedPerformance.pillars.timeUtilization.points} <span className="pts-max">/ 15 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.pillars.timeUtilization.rate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.timeUtilization.rate}%`, backgroundColor: '#f59e0b' }} />
+                  </div>
+                  <span className="pillar-desc">{workSummary?.trackedTaskLabel || "0m"} task hours logged</span>
+                </div>
+              </div>
+
+              {/* Overdue Penalty Notice */}
+              {detailedPerformance.pillars.overduePenalty.points > 0 && (
+                <div className="perf-penalty-notice">
+                  <FiAlertTriangle size={15} className="text-red" />
+                  <span>
+                    <strong>Overdue Tasks Penalty:</strong> -{detailedPerformance.pillars.overduePenalty.points} points deducted due to {stats.overdue} tasks past deadline.
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="overview-grid-top">

@@ -5,6 +5,7 @@ import axios from "../../../utils/axiosConfig";
 import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission, getUserPageRestrictedScope } from '../../../utils/pageAccess';
+import { getProfileCompletion } from "../../utils/profileCompletion";
 
 
 import {
@@ -341,6 +342,8 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   branches,
   canEditOtherEmployees
 }) => {
+  const completion = getProfileCompletion(emp);
+
   const getInitials = (name) => {
     if (!name) return 'U';
     return name
@@ -471,13 +474,41 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
       
       <div className="EmployeeDirectory-employee-card-content">
         <div className="EmployeeDirectory-employee-header">
-          <div className="EmployeeDirectory-employee-avatar">
-            <div className="EmployeeDirectory-avatar-initials">
-              {getInitials(emp.name)}
+          <div className="EmployeeDirectory-avatar-col">
+            <div 
+              className="EmployeeDirectory-employee-avatar"
+              title={`Profile Completion: ${completion}%`}
+            >
+              <svg 
+                className="EmployeeDirectory-avatar-ring-svg" 
+                viewBox="0 0 58 58"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="29"
+                  cy="29"
+                  r="26"
+                  className="EmployeeDirectory-avatar-ring-bg"
+                />
+                <circle
+                  cx="29"
+                  cy="29"
+                  r="26"
+                  className={`EmployeeDirectory-avatar-ring-progress ${completion === 100 ? 'is-complete' : completion < 50 ? 'is-low' : 'is-medium'}`}
+                  strokeDasharray="163.36"
+                  strokeDashoffset={163.36 * (1 - Math.min(100, Math.max(0, completion)) / 100)}
+                />
+              </svg>
+              <div className="EmployeeDirectory-avatar-initials">
+                {getInitials(emp.name)}
+              </div>
+              {emp.isActive && (
+                <div className="EmployeeDirectory-avatar-status active"></div>
+              )}
             </div>
-            {emp.isActive && (
-              <div className="EmployeeDirectory-avatar-status active"></div>
-            )}
+            <span className={`EmployeeDirectory-avatar-pct-pill ${completion === 100 ? 'is-complete' : completion < 50 ? 'is-low' : 'is-medium'}`}>
+              {completion}%
+            </span>
           </div>
           
           <div className="EmployeeDirectory-employee-info">
@@ -531,6 +562,9 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
                   {emp.companyRole}
                 </span>
               )}
+              <span className={`EmployeeDirectory-employee-tag EmployeeDirectory-completion-tag ${completion === 100 ? 'is-complete' : completion < 50 ? 'is-low' : 'is-medium'}`}>
+                {completion === 100 ? '✓ 100% Profile' : `${completion}% Profile`}
+              </span>
             </div>
           </div>
         </div>
@@ -3504,6 +3538,31 @@ const EmployeeDirectory = () => {
                 </button>
               </div>
             </div>
+
+            {/* Modal Profile Completion */}
+            {selectedUser && (
+              <div className="EmployeeDirectory-modal-completion">
+                {(() => {
+                  const mCompletion = getProfileCompletion(selectedUser);
+                  return (
+                    <>
+                      <div className="EmployeeDirectory-modal-completion-info">
+                        <span>Profile Completion</span>
+                        <strong className={mCompletion === 100 ? 'is-complete' : mCompletion < 50 ? 'is-low' : 'is-medium'}>
+                          {mCompletion}%
+                        </strong>
+                      </div>
+                      <div className="EmployeeDirectory-completion-track">
+                        <div 
+                          className={`EmployeeDirectory-completion-fill ${mCompletion === 100 ? 'is-complete' : mCompletion < 50 ? 'is-low' : 'is-medium'}`}
+                          style={{ width: `${Math.min(100, Math.max(0, mCompletion))}%` }}
+                        />
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="EmployeeDirectory-tabs">

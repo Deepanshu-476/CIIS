@@ -274,7 +274,7 @@ const Profile = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState(null);
-  const [documents, setDocuments] = useState([]);
+  const [documents, setDocuments] = useState(() => Array.isArray(storedUser?.documents) ? storedUser.documents : []);
   const [documentName, setDocumentName] = useState("");
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
   const documentInputRef = useRef(null);
@@ -298,6 +298,10 @@ const Profile = () => {
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState("");
   const [documentPreview, setDocumentPreview] = useState(null);
+  const activeBlobUrlRef = useRef(null);
+  const [openingDocId, setOpeningDocId] = useState(null);
+  const [previewItem, setPreviewItem] = useState(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [referenceNames, setReferenceNames] = useState({});
   const documentsSectionRef = useRef(null);
@@ -361,12 +365,18 @@ const Profile = () => {
 
       setProfile(mergedUser);
       setFormData(buildInitialForm(mergedUser));
+      if (Array.isArray(userData?.documents) && userData.documents.length > 0) {
+        setDocuments(userData.documents);
+      }
       accountStorage.setItem("user", JSON.stringify(mergedUser));
       window.dispatchEvent(new CustomEvent("ciis-profile-updated", { detail: mergedUser }));
     } catch (error) {
       console.error("Failed to load profile:", error);
       setProfile(storedUser);
       setFormData(buildInitialForm(storedUser));
+      if (Array.isArray(storedUser?.documents) && storedUser.documents.length > 0) {
+        setDocuments(storedUser.documents);
+      }
       setMessage({ type: "warning", text: "Latest profile could not be loaded. Showing saved login details." });
     } finally {
       setLoading(false);
@@ -386,13 +396,24 @@ const Profile = () => {
     setDocumentsLoading(true);
     try {
       const response = await axios.get(`/users/${userId}/documents`, { cache: false });
-      setDocuments(response.data?.documents || []);
+      if (Array.isArray(response.data?.documents)) {
+        setDocuments(response.data.documents);
+      } else if (Array.isArray(profile?.documents) && profile.documents.length > 0) {
+        setDocuments(profile.documents);
+      }
     } catch (error) {
-      setMessage({ type: "error", text: error.response?.data?.message || "Documents could not be loaded." });
+      console.warn("Could not load documents from /documents endpoint:", error);
+      if (Array.isArray(profile?.documents) && profile.documents.length > 0) {
+        setDocuments(profile.documents);
+      } else if (Array.isArray(storedUser?.documents) && storedUser.documents.length > 0) {
+        setDocuments(storedUser.documents);
+      } else {
+        setMessage({ type: "error", text: error.response?.data?.message || "Documents could not be loaded." });
+      }
     } finally {
       setDocumentsLoading(false);
     }
-  }, [userId]);
+  }, [userId, profile?.documents, storedUser?.documents]);
 
   useEffect(() => {
     loadDocuments();
@@ -679,8 +700,37 @@ const Profile = () => {
       return;
     }
     try {
-      const response = await axios.get(`/users/${userId}/documents/${item._id}/${download ? "download" : "view"}`, { responseType: "blob", cache: false });
-      const blobUrl = URL.createObjectURL(response.data);
+      setOpeningDocId(item._id);
+      const response = await axios.get(
+        `/users/${userId}/documents/${item._id}/${download ? "download" : "view"}`,
+        { responseType: "blob", cache: false }
+      );
+
+      let blob = response.data;
+      let type = blob.type || item.type || "";
+
+      // Check if blob content is actually SVG even if server returned image/jpeg or octet-stream
+      try {
+        const textSlice = await blob.slice(0, 150).text();
+        const trimmed = textSlice.trim();
+        if (trimmed.startsWith("<svg") || (trimmed.startsWith("<?xml") && trimmed.includes("<svg"))) {
+          type = "image/svg+xml";
+          blob = new Blob([blob], { type: "image/svg+xml" });
+        }
+      } catch (_e) {}
+
+      // Fallback MIME resolution based on file extension
+      const lowerName = (item.name || "").toLowerCase();
+      if (!type || type === "application/octet-stream") {
+        if (lowerName.endsWith(".pdf")) type = "application/pdf";
+        else if (lowerName.endsWith(".png")) type = "image/png";
+        else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".jfif")) type = "image/jpeg";
+        else if (lowerName.endsWith(".webp")) type = "image/webp";
+        else if (lowerName.endsWith(".svg")) type = "image/svg+xml";
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+
       if (download) {
         const link = window.document.createElement("a");
         link.href = blobUrl;
@@ -689,12 +739,18 @@ const Profile = () => {
         window.document.body.appendChild(link);
         link.click();
         link.remove();
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
       } else {
+        if (activeBlobUrlRef.current) {
+          URL.revokeObjectURL(activeBlobUrlRef.current);
+        }
+        activeBlobUrlRef.current = blobUrl;
+        setPreviewItem(item);
+        setImageLoadError(false);
         setDocumentPreview({
           url: blobUrl,
           name: item.name || "Document Preview",
-          type: response.data.type || "",
+          type: type || "image/jpeg",
         });
       }
     } catch (error) {
@@ -703,19 +759,30 @@ const Profile = () => {
         try { details = JSON.parse(await details.text()); } catch { details = null; }
       }
       setMessage({ type: "error", text: details?.message || "Document could not be opened." });
+    } finally {
+      setOpeningDocId(null);
     }
   };
 
   const closeDocumentPreview = () => {
-    setDocumentPreview((current) => {
-      if (current?.url) URL.revokeObjectURL(current.url);
-      return null;
-    });
+    if (activeBlobUrlRef.current) {
+      URL.revokeObjectURL(activeBlobUrlRef.current);
+      activeBlobUrlRef.current = null;
+    }
+    setDocumentPreview(null);
+    setPreviewItem(null);
+    setImageLoadError(false);
   };
 
-  useEffect(() => () => {
-    if (documentPreview?.url) URL.revokeObjectURL(documentPreview.url);
-  }, [documentPreview]);
+  // Revoke active blob URL only on component unmount
+  useEffect(() => {
+    return () => {
+      if (activeBlobUrlRef.current) {
+        URL.revokeObjectURL(activeBlobUrlRef.current);
+        activeBlobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   // Lock background scroll when any modal is open
   useEffect(() => {
@@ -1254,7 +1321,7 @@ const Profile = () => {
           </div>
         </section>
 
-        <section ref={documentsSectionRef} className="UserDetails-section-card UserDetails-section-third UserDetails-identity-card">
+        <section className="UserDetails-section-card UserDetails-section-third UserDetails-identity-card">
           <div className="UserDetails-section-heading">
             <h3><FiShield /> Identity & Compliance</h3>
             <div className="UserDetails-section-actions">
@@ -1280,7 +1347,7 @@ const Profile = () => {
               <div className="UserDetails-identity-document" key={item._id}>
                 <span><FiFileText /><strong>{item.name}</strong></span>
                 <div>
-                  <button type="button" title="View" onClick={() => openDocument(item)}><FiEye /></button>
+                  <button type="button" title="View" disabled={openingDocId === item._id} onClick={() => openDocument(item)}><FiEye /></button>
                   <button type="button" title="Download" onClick={() => openDocument(item, true)}><FiDownload /></button>
                   <button type="button" className="danger" title="Remove" onClick={() => deleteDocument(item._id)}><FiTrash2 /></button>
                 </div>
@@ -1313,10 +1380,10 @@ const Profile = () => {
           </div>
         </section>
 
-        {Boolean(documentPreview?.legacy) && <section className="UserDetails-section-card UserDetails-section-wide UserDetails-documents-card">
+        <section ref={documentsSectionRef} className="UserDetails-section-card UserDetails-section-wide UserDetails-documents-card">
           <div className="UserDetails-documents-heading">
             <div>
-              <h3><FiFileText /> Employee Documents</h3>
+              <h3><FiFileText /> Uploaded Documents</h3>
             </div>
             <button className="UserDetails-primary-btn" type="button" onClick={() => setDocumentUploadOpen((open) => !open)}>
               <FiUpload /> Upload Document
@@ -1354,26 +1421,31 @@ const Profile = () => {
               <p className="UserDetails-empty-note">Loading documents...</p>
             ) : documents.length === 0 ? (
               <div className="UserDetails-document-empty"><FiFileText /><p>No documents uploaded yet.</p></div>
-            ) : documents.map((item) => (
-              <div className="UserDetails-document-row" key={item._id}>
-                <div className="UserDetails-document-main">
-                  <div className="UserDetails-document-icon"><FiFileText /></div>
-                  <div className="UserDetails-document-info">
-                    <strong>{item.name}</strong>
+            ) : documents.map((item) => {
+              const categoryLabel = item.category || (item.type?.includes("pdf") ? "PDF" : item.type?.includes("image") ? "Image" : "Document");
+              return (
+                <div className="UserDetails-document-row" key={item._id}>
+                  <div className="UserDetails-document-main">
+                    <div className="UserDetails-document-icon"><FiFileText /></div>
+                    <div className="UserDetails-document-info">
+                      <strong>{item.name}</strong>
+                    </div>
+                  </div>
+                  <span className="UserDetails-document-meta">{categoryLabel}</span>
+                  <span className="UserDetails-document-status">{item.status || "Uploaded"}</span>
+                  <span className="UserDetails-document-date">{item.uploadedAt ? new Date(item.uploadedAt).toLocaleDateString("en-IN") : "—"}</span>
+                  <div className="UserDetails-document-actions">
+                    <button type="button" disabled={openingDocId === item._id} onClick={() => openDocument(item)}>
+                      <FiEye /> {openingDocId === item._id ? "Opening..." : "View"}
+                    </button>
+                    <button type="button" onClick={() => openDocument(item, true)}><FiDownload /> Download</button>
+                    <button type="button" className="danger" onClick={() => deleteDocument(item._id)}><FiTrash2 /></button>
                   </div>
                 </div>
-                <span className="UserDetails-document-date">{item.uploadedAt ? new Date(item.uploadedAt).toLocaleDateString("en-IN") : "—"}</span>
-                <span className="UserDetails-document-meta">{item.category || "—"}</span>
-                <span className="UserDetails-document-status">{item.status || "Uploaded"}</span>
-                <div className="UserDetails-document-actions">
-                  <button type="button" onClick={() => openDocument(item)}><FiEye /> View</button>
-                  <button type="button" onClick={() => openDocument(item, true)}><FiDownload /> Download</button>
-                  <button type="button" className="danger" onClick={() => deleteDocument(item._id)}><FiTrash2 /></button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </section>}
+        </section>
       </div>
 
       {editOpen && (
@@ -1797,13 +1869,48 @@ const Profile = () => {
                 <h2>{documentPreview.name}</h2>
                 <p>Document preview</p>
               </div>
-              <button type="button" className="UserDetails-icon-btn" onClick={closeDocumentPreview} aria-label="Close preview">
-                <FiX />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {previewItem && (
+                  <button
+                    type="button"
+                    className="UserDetails-document-download-pill"
+                    onClick={() => openDocument(previewItem, true)}
+                    title="Download document file"
+                  >
+                    <FiDownload />
+                    <span>Download</span>
+                  </button>
+                )}
+                <button type="button" className="UserDetails-icon-btn" onClick={closeDocumentPreview} aria-label="Close preview">
+                  <FiX />
+                </button>
+              </div>
             </div>
             <div className="UserDetails-document-preview-content">
               {documentPreview.type.startsWith("image/") ? (
-                <img src={documentPreview.url} alt={documentPreview.name} />
+                imageLoadError ? (
+                  <div className="UserDetails-document-preview-unsupported">
+                    <FiFileText style={{ fontSize: "44px", color: "#64748b" }} />
+                    <strong>Preview could not be displayed directly.</strong>
+                    <span>Click below to download and view the original file.</span>
+                    {previewItem && (
+                      <button
+                        type="button"
+                        className="UserDetails-primary-btn"
+                        style={{ marginTop: "12px", padding: "8px 18px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        onClick={() => openDocument(previewItem, true)}
+                      >
+                        <FiDownload /> Download File
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <img
+                    src={documentPreview.url}
+                    alt={documentPreview.name}
+                    onError={() => setImageLoadError(true)}
+                  />
+                )
               ) : documentPreview.type === "application/pdf" ? (
                 <iframe src={documentPreview.url} title={documentPreview.name} />
               ) : (
@@ -1811,6 +1918,16 @@ const Profile = () => {
                   <FiFileText />
                   <strong>Preview is not available for this file type.</strong>
                   <span>Please use the Download button to open this document.</span>
+                  {previewItem && (
+                    <button
+                      type="button"
+                      className="UserDetails-primary-btn"
+                      style={{ marginTop: "12px", padding: "8px 18px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      onClick={() => openDocument(previewItem, true)}
+                    >
+                      <FiDownload /> Download File
+                    </button>
+                  )}
                 </div>
               )}
             </div>

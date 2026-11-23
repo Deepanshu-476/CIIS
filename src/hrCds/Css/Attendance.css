@@ -363,29 +363,94 @@
   font-weight: 600;
 }
 
-/* Export CSV Button */
+/* Export Buttons Group & Styling */
+.att-export-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--att-gray-200);
+}
+
 .att-export-btn {
-  height: 34px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 12px;
   background: #ffffff;
   border: 1px solid var(--att-gray-200);
-  border-radius: 8px;
+  border-radius: 7px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--att-gray-800);
+  color: var(--att-gray-700);
   display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  box-shadow: var(--att-shadow-sm);
-  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
 }
 
-.att-export-btn:hover {
-  background: var(--att-primary);
-  border-color: var(--att-primary);
+.att-export-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.att-export-icon.excel {
+  color: #16a34a;
+}
+
+.att-export-icon.pdf {
+  color: #dc2626;
+}
+
+.att-export-icon.csv {
+  color: #2563eb;
+}
+
+.att-export-btn:hover:not(:disabled) .att-export-icon {
+  transform: scale(1.1);
+}
+
+.att-export-btn-excel:hover:not(:disabled) {
+  background: #16a34a;
+  border-color: #16a34a;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.28);
+}
+
+.att-export-btn-excel:hover:not(:disabled) .att-export-icon.excel {
+  color: #ffffff;
+}
+
+.att-export-btn-pdf:hover:not(:disabled) {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.28);
+}
+
+.att-export-btn-pdf:hover:not(:disabled) .att-export-icon.pdf {
+  color: #ffffff;
+}
+
+.att-export-btn-csv:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+}
+
+.att-export-btn-csv:hover:not(:disabled) .att-export-icon.csv {
+  color: #ffffff;
+}
+
+.att-export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* 3. 5 KPI Metric Cards Grid */

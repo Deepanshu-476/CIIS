@@ -180,7 +180,7 @@ export const formatPublicId = (prefix, recordOrId, fallbackIndex = 0) => {
 };
 
 export const getClientDisplayName = client => (
-  client?.client || client?.name || client?.clientName || client?.company || 'Client'
+  client?.company || client?.companyName || client?.businessName || client?.clientName || client?.client || client?.name || 'Company'
 );
 
 export const getUserDisplayName = user => (
@@ -314,7 +314,8 @@ export const isClientForLoggedInUser = (client, user) => {
   return (
     hasIntersection(clientValues.ids, userValues.ids) ||
     hasIntersection(clientValues.emails, userValues.emails) ||
-    hasIntersection(clientValues.phones, userValues.phones)
+    hasIntersection(clientValues.phones, userValues.phones) ||
+    hasIntersection(clientValues.names, userValues.names)
   );
 };
 

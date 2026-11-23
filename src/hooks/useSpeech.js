@@ -877,12 +877,12 @@ export default function useSpeech({
             if (speechDetectedRef.current) {
                 setNotice('Awaaz bahut chhoti thi, dobara bolein');
             }
-            return null;
+            return { ok: false, discarded: true };
         }
 
         // Drop immediately if session is not active or was invalidated
         if (sessionId && activeSessionIdRef.current !== sessionId) {
-            return null;
+            return { ok: false, canceled: true };
         }
 
         // STT upload cap check (12 uploads per conversation session)
@@ -891,7 +891,7 @@ export default function useSpeech({
             if (SR) {
                 setEngine('browser');
             }
-            return null;
+            return { ok: false, rateLimited: true, reason: 'session_cap' };
         }
 
         setIsTranscribing(true);
@@ -923,50 +923,69 @@ export default function useSpeech({
         try {
             data = await uploadAttempt();
             if (sessionId && activeSessionIdRef.current !== sessionId) {
-                return null;
+                return { ok: false, canceled: true };
             }
             sttFailureCountRef.current = 0; // Reset failures on success
             sttUploadCountRef.current += 1;
             setSttUploadCount(sttUploadCountRef.current);
+            return { ok: true, data, text: data?.text || '' };
         } catch (firstErr) {
             if (firstErr?.name === 'CanceledError' || firstErr?.name === 'AbortError' || firstErr?.code === 'ERR_CANCELED' || /cancel|abort/i.test(firstErr?.message || '')) {
-                return null;
+                return { ok: false, canceled: true };
             }
             if (sessionId && activeSessionIdRef.current !== sessionId) {
-                return null;
+                return { ok: false, canceled: true };
             }
             const status = firstErr?.response?.status;
             const code = firstErr?.response?.data?.code;
 
+            if (status === 429 || code === 'STT_RATE_LIMIT' || code === 'STT_BUDGET_EXCEEDED') {
+                const noticeText = SR
+                    ? 'Whisper rate limit reached. Switched to Live Browser voice.'
+                    : 'Voice limit khatam, text se continue karein';
+                setNotice(noticeText);
+                setError(firstErr?.response?.data?.message || noticeText);
+                if (SR) setEngine('browser');
+                return { ok: false, rateLimited: true, code, status: 429 };
+            }
+
             if (code === 'STT_NO_SPEECH') {
                 setNotice('Awaaz saaf nahi aayi, dobara bolein');
                 sttFailureCountRef.current += 1;
+                return { ok: false, code: 'STT_NO_SPEECH' };
             } else if (!firstErr?.response || status >= 500) {
                 try {
                     data = await uploadAttempt();
                     if (sessionId && activeSessionIdRef.current !== sessionId) {
-                        return null;
+                        return { ok: false, canceled: true };
                     }
                     sttFailureCountRef.current = 0;
+                    return { ok: true, data, text: data?.text || '' };
                 } catch (retryErr) {
                     if (retryErr?.name === 'CanceledError' || retryErr?.name === 'AbortError' || retryErr?.code === 'ERR_CANCELED' || /cancel|abort/i.test(retryErr?.message || '')) {
-                        return null;
+                        return { ok: false, canceled: true };
                     }
                     if (sessionId && activeSessionIdRef.current !== sessionId) {
-                        return null;
+                        return { ok: false, canceled: true };
                     }
                     sttFailureCountRef.current += 1;
                     const rCode = retryErr?.response?.data?.code;
+                    const rStatus = retryErr?.response?.status;
                     const rMsg = retryErr?.response?.data?.message || retryErr?.response?.data?.error;
+
+                    if (rStatus === 429 || rCode === 'STT_RATE_LIMIT' || rCode === 'STT_BUDGET_EXCEEDED') {
+                        const noticeText = SR
+                            ? 'Whisper rate limit reached. Switched to Live Browser voice.'
+                            : 'Voice limit khatam, text se continue karein';
+                        setNotice(noticeText);
+                        setError(rMsg || noticeText);
+                        if (SR) setEngine('browser');
+                        return { ok: false, rateLimited: true, code: rCode, status: 429 };
+                    }
 
                     let noticeText = 'Whisper service abhi busy hai. Dobara try karein.';
                     if (rCode === 'STT_NO_SPEECH') {
                         noticeText = 'Awaaz saaf nahi aayi, dobara bolein';
-                    } else if (rCode === 'STT_RATE_LIMIT' || rCode === 'STT_BUDGET_EXCEEDED' || retryErr?.response?.status === 429) {
-                        noticeText = SR
-                            ? 'Whisper rate limit reached. Switched to Live Browser voice.'
-                            : 'Voice limit khatam, text se continue karein';
-                        if (SR) setEngine('browser');
                     } else if (rCode === 'STT_BAD_AUDIO') {
                         noticeText = 'Awaaz record theek se nahi hui, dobara bolein';
                     } else if (rCode === 'STT_FORMAT_ERROR') {
@@ -976,24 +995,21 @@ export default function useSpeech({
                     }
                     setNotice(noticeText);
                     setError(rMsg || noticeText);
+                    return { ok: false, error: rMsg || noticeText };
                 }
             } else {
                 sttFailureCountRef.current += 1;
                 const errCode = firstErr?.response?.data?.code;
                 const errMsg = firstErr?.response?.data?.message || firstErr?.response?.data?.error;
                 let noticeText = 'Whisper service abhi busy hai. Dobara try karein.';
-                if (status === 429 || errCode === 'STT_RATE_LIMIT' || errCode === 'STT_BUDGET_EXCEEDED') {
-                    noticeText = SR
-                        ? 'Whisper rate limit reached. Switched to Live Browser voice.'
-                        : 'Voice limit khatam, text se continue karein';
-                    if (SR) setEngine('browser');
-                } else if (errCode === 'STT_NO_SPEECH') {
+                if (errCode === 'STT_NO_SPEECH') {
                     noticeText = 'Awaaz saaf nahi aayi, dobara bolein';
                 } else if (errMsg) {
                     noticeText = errMsg;
                 }
                 setNotice(noticeText);
                 setError(errMsg || noticeText);
+                return { ok: false, error: errMsg || noticeText };
             }
         } finally {
             if (abortControllerRef.current === controller) {
@@ -1008,7 +1024,7 @@ export default function useSpeech({
             setNotice('Whisper mic saaf nahi sun pa raha. Aap uper "Live (Browser)" switch kar sakte hain.');
         }
 
-        return data;
+        return { ok: false };
     }, [lang, SR, maxSttUploads]);
 
     // Start Groq Whisper recording
@@ -1164,11 +1180,16 @@ export default function useSpeech({
                 return;
             }
 
-            const data = await uploadAudioBlob(audioBlob, ext, durationMs, currentSessionId);
-            if (data?.text && activeSessionIdRef.current === currentSessionId) {
-                dispatchFinalText(data.text.trim(), currentSessionId);
-            } else if (!userMutedRef.current && activeSessionIdRef.current === currentSessionId) {
-                // If Whisper caught no speech or returned empty, re-arm mic for user in hands-free voice mode
+            const uploadRes = await uploadAudioBlob(audioBlob, ext, durationMs, currentSessionId);
+            if (uploadRes?.ok && uploadRes.text && activeSessionIdRef.current === currentSessionId) {
+                dispatchFinalText(uploadRes.text.trim(), currentSessionId);
+            } else if (uploadRes?.rateLimited) {
+                // Rate limited: stop hands-free auto-loop immediately to prevent 429 spamming
+                if (SR) {
+                    setEngine('browser');
+                }
+            } else if (uploadRes?.ok && !userMutedRef.current && activeSessionIdRef.current === currentSessionId) {
+                // Only re-arm mic if transcription was successful but returned empty text / silence
                 setTimeout(() => {
                     if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
                         start({ force: true });

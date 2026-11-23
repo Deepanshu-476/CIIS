@@ -44,6 +44,7 @@ import {
   FiSquare
 } from "react-icons/fi";
 import { MdCelebration } from "react-icons/md";
+import { FaFileExcel, FaFilePdf, FaFileCsv } from "react-icons/fa";
 
 // Month names helper
 const MONTH_NAMES = [
@@ -158,6 +159,7 @@ const Attendance = () => {
   const [loadingOtSession, setLoadingOtSession] = useState(false);
   const [actioningOt, setActioningOt] = useState(false);
   const [liveOtSeconds, setLiveOtSeconds] = useState(0);
+  const [exportingType, setExportingType] = useState(null);
 
   // Refs for dropdown outside click
   const statusDropdownRef = useRef(null);
@@ -959,37 +961,237 @@ const Attendance = () => {
   }, [holidays, currentYear, currentMonth]);
 
   // ----------------------------------------------------
-  // 12. Export Functionality (Excel, PDF, CSV)
+  // 12. Export Functionality (Excel, PDF, CSV) with Break & OT
   // ----------------------------------------------------
+  const getFormattedAttendanceExportRows = useCallback(() => {
+    let totalWorkedSeconds = 0;
+    let totalOtSeconds = 0;
+    let otDaysCount = 0;
+    let totalBreakMinutes = 0;
+
+    const formattedList = filteredRecords.map((item, idx) => {
+      const rowNumber = idx + 1;
+      const recDate = item.date ? new Date(item.date) : null;
+      const dayName = recDate && !isNaN(recDate.getTime())
+        ? recDate.toLocaleDateString("en-US", { weekday: "short" })
+        : "-";
+
+      let dateString = "-";
+      if (recDate && !isNaN(recDate.getTime())) {
+        const dd = String(recDate.getDate()).padStart(2, "0");
+        const mm = String(recDate.getMonth() + 1).padStart(2, "0");
+        const yyyy = recDate.getFullYear();
+        dateString = `${dd}-${mm}-${yyyy}`;
+      } else if (item.date) {
+        dateString = String(item.date);
+      }
+
+      const normStatus = getNormalizedStatus(item.status, item.date, item);
+      const isSpecialDay =
+        normStatus === "WEEKLY OFF" ||
+        normStatus === "HOLIDAY" ||
+        normStatus === "ON LEAVE";
+
+      // Shift text
+      let shiftText = "--";
+      if (isSpecialDay) {
+        shiftText = normStatus === "WEEKLY OFF"
+          ? "Weekly Off"
+          : normStatus === "HOLIDAY"
+          ? (item.holidayName || "Holiday")
+          : "On Leave";
+      } else {
+        const shiftName = item.shiftName || "General Shift";
+        const shiftTime = getRecordShiftDisplay(item);
+        shiftText = shiftTime && shiftTime !== "--" ? `${shiftName} (${shiftTime})` : shiftName;
+      }
+
+      // Login & Logout
+      const displayLogin = getRecordLoginDisplay(item);
+      const displayLogout = getRecordLogoutDisplay(item);
+      const loginText = displayLogin && displayLogin !== "-" && displayLogin !== "--" ? displayLogin : "--";
+      let logoutText = displayLogout && displayLogout !== "-" && displayLogout !== "--" ? displayLogout : "--";
+      if (item.autoClockout && logoutText !== "--") {
+        logoutText += " (Auto)";
+      }
+
+      // Total Working Time
+      const rawWorkingTime = item.totalTime || item.workingHours;
+      const isUnworked =
+        isSpecialDay ||
+        normStatus === "ABSENT" ||
+        loginText === "--" ||
+        !rawWorkingTime ||
+        rawWorkingTime === "00:00:00";
+      const totalWorkingTime = isUnworked ? "--" : rawWorkingTime;
+
+      // Accumulate worked time
+      if (!isUnworked && typeof rawWorkingTime === "string") {
+        const parts = rawWorkingTime.split(":").map(Number);
+        if (parts.length >= 2) {
+          totalWorkedSeconds += (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+        }
+      }
+
+      // Gross Hours
+      const grossTime = item.grossTime && item.grossTime !== "00:00:00" ? item.grossTime : "--";
+
+      // Break Time
+      const breakMinutes = item.breakMinutes != null
+        ? Number(item.breakMinutes)
+        : (Array.isArray(item.breaks)
+            ? item.breaks.reduce((acc, b) => acc + (Number(b.minutes) || 0), 0)
+            : 0);
+      const breakLabel = breakMinutes > 0 ? formatBreakLabel(breakMinutes) : "--";
+      if (breakMinutes > 0) totalBreakMinutes += breakMinutes;
+
+      // Overtime (OT)
+      const hasApprovedOt = isAttendanceFlagTrue(item.hasOvertimeApproved);
+      const hasOtDuration = Boolean(item.overTime && item.overTime !== "00:00:00");
+      const isFullDay = Boolean(item.isFullDayOt || item.overtimeCalculationType === "FULL_DAY_PRESENT");
+
+      let otDuration = "--";
+      if (isFullDay) {
+        otDuration = "Full Day";
+        otDaysCount++;
+      } else if (hasOtDuration) {
+        otDuration = item.overTime;
+        otDaysCount++;
+        const otParts = item.overTime.split(":").map(Number);
+        if (otParts.length >= 2) {
+          totalOtSeconds += (otParts[0] || 0) * 3600 + (otParts[1] || 0) * 60 + (otParts[2] || 0);
+        }
+      } else if (item.overTimeMinutes && Number(item.overTimeMinutes) > 0) {
+        const m = Number(item.overTimeMinutes);
+        otDuration = `${Math.floor(m / 60)}h ${m % 60}m`;
+        otDaysCount++;
+        totalOtSeconds += m * 60;
+      }
+
+      // OT Status / Approval
+      let otApprovalStatus = "--";
+      if (otDuration !== "--") {
+        otApprovalStatus = hasApprovedOt ? "Approved" : "Pending";
+      }
+
+      // Status label (with Overtime indicator if applicable)
+      const isPresentWithOt = (normStatus === "PRESENT" || normStatus === "LATE") && hasApprovedOt && otDuration !== "--";
+      const finalStatus = isPresentWithOt
+        ? `${normStatus} + OVERTIME`
+        : normStatus;
+
+      // Late By & Early Leave
+      const lateBy = item.lateBy && item.lateBy !== "-" && item.lateBy !== "00:00:00" ? item.lateBy : "--";
+      const earlyLeave = item.earlyLeave && item.earlyLeave !== "-" && item.earlyLeave !== "00:00:00" ? item.earlyLeave : "--";
+
+      return {
+        rowNumber,
+        date: dateString,
+        day: dayName,
+        shift: shiftText,
+        status: finalStatus,
+        login: loginText,
+        logout: logoutText,
+        totalTime: totalWorkingTime,
+        grossTime,
+        breakLabel,
+        breakMinutes: breakMinutes > 0 ? breakMinutes : 0,
+        otDuration,
+        otApprovalStatus,
+        lateBy,
+        earlyLeave,
+        notes: item.notes || ""
+      };
+    });
+
+    const formatSeconds = sec => {
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      return `${h}h ${m}m`;
+    };
+
+    return {
+      rows: formattedList,
+      summary: {
+        totalDays: formattedList.length,
+        otDaysCount,
+        totalOtFormatted: totalOtSeconds > 0 ? formatSeconds(totalOtSeconds) : "0h 0m",
+        totalWorkedFormatted: totalWorkedSeconds > 0 ? formatSeconds(totalWorkedSeconds) : "0h 0m",
+        totalBreakFormatted: totalBreakMinutes > 0 ? `${Math.floor(totalBreakMinutes / 60)}h ${totalBreakMinutes % 60}m` : "0m"
+      }
+    };
+  }, [filteredRecords, getNormalizedStatus, getRecordShiftDisplay, getRecordLoginDisplay, getRecordLogoutDisplay]);
+
   const handleExportCSV = () => {
     if (filteredRecords.length === 0) {
       toast.info("No attendance records to export");
       return;
     }
+    try {
+      setExportingType("csv");
+      const { rows: dataRows } = getFormattedAttendanceExportRows();
+      const csvHeaders = [
+        "S.No",
+        "Date",
+        "Day",
+        "Shift",
+        "Status",
+        "Check In (IST)",
+        "Check Out (IST)",
+        "Working Hours",
+        "Gross Hours",
+        "Break Time",
+        "Break (Minutes)",
+        "Overtime (OT)",
+        "OT Status",
+        "Late By",
+        "Early Leave",
+        "Notes"
+      ];
+      const csvRows = dataRows.map(r => [
+        r.rowNumber,
+        r.date,
+        r.day,
+        r.shift,
+        r.status,
+        r.login,
+        r.logout,
+        r.totalTime,
+        r.grossTime,
+        r.breakLabel,
+        r.breakMinutes,
+        r.otDuration,
+        r.otApprovalStatus,
+        r.lateBy,
+        r.earlyLeave,
+        r.notes
+      ]);
 
-    const records = filteredRecords.map(record => {
-      const status = getNormalizedStatus(record.status, record.date, record);
-      return attendanceReportFields({ ...record, status }, axios.defaults.baseURL);
-    });
-    const headers = Object.keys(records[0]);
-    const csvString = "\uFEFF" + [
-      headers.join(","),
-      ...records.map(fields => headers.map(header => attendanceCsvCell(fields[header])).join(",")),
-    ].join("\r\n");
+      const csvString = "\uFEFF" + [
+        csvHeaders.map(attendanceCsvCell).join(","),
+        ...csvRows.map(row => row.map(cell => attendanceCsvCell(cell)).join(",")),
+      ].join("\r\n");
 
-    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success("Attendance CSV exported successfully!");
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const employeeNamePart = user?.name ? `${user.name.trim().replace(/\s+/g, "_")}_` : "";
+      link.setAttribute(
+        "download",
+        `Attendance_${employeeNamePart}${MONTH_NAMES[currentMonth]}_${currentYear}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Attendance CSV exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export CSV");
+    } finally {
+      setExportingType(null);
+    }
   };
 
   const handleExportExcel = async () => {
@@ -998,16 +1200,39 @@ const Attendance = () => {
       return;
     }
     try {
-      const records = filteredRecords.map(record => {
-        const status = getNormalizedStatus(record.status, record.date, record);
-        return attendanceReportFields({ ...record, status }, axios.defaults.baseURL);
-      });
+      setExportingType("excel");
+      const { rows: dataRows } = getFormattedAttendanceExportRows();
+      const excelRecords = dataRows.map(r => ({
+        "S.No": r.rowNumber,
+        "Date": r.date,
+        "Day": r.day,
+        "Shift": r.shift,
+        "Status": r.status,
+        "Check In (IST)": r.login,
+        "Check Out (IST)": r.logout,
+        "Working Hours": r.totalTime,
+        "Gross Hours": r.grossTime,
+        "Break Duration": r.breakLabel,
+        "Break (Mins)": r.breakMinutes,
+        "Overtime (OT)": r.otDuration,
+        "OT Status": r.otApprovalStatus,
+        "Late By": r.lateBy,
+        "Early Leave": r.earlyLeave,
+        "Notes": r.notes
+      }));
       const { exportToExcel } = await import('../../utils/exportUtils');
-      await exportToExcel(records, `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}`, 'Attendance');
+      const employeeNamePart = user?.name ? `${user.name.trim().replace(/\s+/g, "_")}_` : "";
+      await exportToExcel(
+        excelRecords,
+        `Attendance_${employeeNamePart}${MONTH_NAMES[currentMonth]}_${currentYear}`,
+        'My Attendance'
+      );
       toast.success("Attendance Excel exported successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to export Excel");
+    } finally {
+      setExportingType(null);
     }
   };
 
@@ -1017,25 +1242,62 @@ const Attendance = () => {
       return;
     }
     try {
-      const records = filteredRecords.map(record => {
-        const status = getNormalizedStatus(record.status, record.date, record);
-        return attendanceReportFields({ ...record, status }, axios.defaults.baseURL);
-      });
-      const headers = Object.keys(records[0] || {});
-      const rows = records.map(r => headers.map(h => r[h] ?? '-'));
+      setExportingType("pdf");
+      const { rows: dataRows, summary: exportSummary } = getFormattedAttendanceExportRows();
+      const headers = [
+        "#",
+        "Date",
+        "Day",
+        "Shift",
+        "Status",
+        "Check In",
+        "Check Out",
+        "Working Hrs",
+        "Break",
+        "Overtime (OT)",
+        "OT Status",
+        "Late By"
+      ];
+      const rows = dataRows.map(r => [
+        r.rowNumber,
+        r.date,
+        r.day,
+        r.shift,
+        r.status,
+        r.login,
+        r.logout,
+        r.totalTime,
+        r.breakLabel,
+        r.otDuration,
+        r.otApprovalStatus,
+        r.lateBy
+      ]);
+
+      const employeeSubtitle = [
+        user?.name ? `Employee: ${user.name}` : null,
+        user?.department ? `Dept: ${typeof user.department === 'object' ? user.department.name : user.department}` : null,
+        `Period: ${MONTH_NAMES[currentMonth]} ${currentYear}`
+      ].filter(Boolean).join("  |  ");
+
+      const summaryLine = `Total Records: ${dataRows.length}  |  Present: ${stats.present}  |  Late: ${stats.late}  |  Absent: ${stats.absent}  |  OT Days: ${exportSummary.otDaysCount}  |  Total OT: ${exportSummary.totalOtFormatted}  |  Total Worked: ${exportSummary.totalWorkedFormatted}`;
+
       const { exportToPdf } = await import('../../utils/exportUtils');
+      const employeeNamePart = user?.name ? `${user.name.trim().replace(/\s+/g, "_")}_` : "";
       await exportToPdf({
         title: 'MY ATTENDANCE REPORT',
-        subtitle: `Month: ${MONTH_NAMES[currentMonth]} ${currentYear}`,
+        subtitle: employeeSubtitle,
+        summaryLine,
         headers,
         rows,
-        filename: `Attendance_${MONTH_NAMES[currentMonth]}_${currentYear}`,
+        filename: `Attendance_${employeeNamePart}${MONTH_NAMES[currentMonth]}_${currentYear}`,
         orientation: 'landscape'
       });
       toast.success("Attendance PDF exported successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to export PDF");
+    } finally {
+      setExportingType(null);
     }
   };
 
@@ -1325,34 +1587,37 @@ const Attendance = () => {
             )}
           </div>
 
-          {/* Export Buttons (Excel, PDF, CSV) */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Export Buttons (Excel, PDF, CSV) with Break & OT */}
+          <div className="att-export-btn-group">
             <button
               type="button"
-              className="att-export-btn"
+              className="att-export-btn att-export-btn-excel"
               onClick={handleExportExcel}
-              title="Export as Excel Sheet"
+              disabled={exportingType !== null}
+              title="Download Attendance as Excel Sheet (.xlsx) with Break and OT"
             >
-              <FiDownload />
-              <span>Export Excel</span>
+              <FaFileExcel className="att-export-icon excel" />
+              <span>{exportingType === "excel" ? "Exporting..." : "Excel"}</span>
             </button>
             <button
               type="button"
-              className="att-export-btn"
+              className="att-export-btn att-export-btn-pdf"
               onClick={handleExportPDF}
-              title="Export as PDF Document"
+              disabled={exportingType !== null}
+              title="Download Attendance as PDF Document (.pdf) with Break and OT"
             >
-              <FiDownload />
-              <span>Export PDF</span>
+              <FaFilePdf className="att-export-icon pdf" />
+              <span>{exportingType === "pdf" ? "Exporting..." : "PDF"}</span>
             </button>
             <button
               type="button"
-              className="att-export-btn"
+              className="att-export-btn att-export-btn-csv"
               onClick={handleExportCSV}
-              title="Export as CSV File"
+              disabled={exportingType !== null}
+              title="Download Attendance as CSV File (.csv) with Break and OT"
             >
-              <FiDownload />
-              <span>CSV</span>
+              <FaFileCsv className="att-export-icon csv" />
+              <span>{exportingType === "csv" ? "Exporting..." : "CSV"}</span>
             </button>
           </div>
         </div>

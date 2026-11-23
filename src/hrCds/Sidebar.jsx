@@ -17,7 +17,8 @@ import {
   CircularProgress,
   Alert,
   Collapse,
-  Button
+  Button,
+  InputBase
 } from '@mui/material';
 import {
   ExpandMore,
@@ -119,7 +120,10 @@ import {
   Settings,
   LogOut,
   UserCheck,
-  Headset
+  Headset,
+  Search,
+  X,
+  SearchX
 } from 'lucide-react';
 import Swal from "sweetalert2";
 import { handleAppLogout } from '../utils/logoutModal';
@@ -2283,6 +2287,88 @@ const categoryLabels = {
   'admin-telecaller': 'Admin Telecaller'
 };
 
+const SEARCH_SYNONYMS = {
+  'leave': ['leaves', 'attendance', 'holiday', 'absent', 'vacation', 'timeoff', 'balance'],
+  'leaves': ['leave', 'attendance', 'holiday', 'absent', 'vacation', 'timeoff', 'balance'],
+  'salary': ['payroll', 'payslip', 'payout', 'compensation', 'wages', 'earnings'],
+  'payroll': ['salary', 'payslip', 'payout', 'compensation', 'wages'],
+  'task': ['tasks', 'todo', 'work', 'project', 'assignment', 'checklist'],
+  'tasks': ['task', 'todo', 'work', 'project', 'assignment', 'checklist'],
+  'lead': ['leads', 'crm', 'customer', 'prospect', 'telecaller', 'call', 'client'],
+  'leads': ['lead', 'crm', 'customer', 'prospect', 'telecaller', 'call', 'client'],
+  'call': ['calls', 'telecaller', 'calling', 'history', 'phone', 'lead'],
+  'calls': ['call', 'telecaller', 'calling', 'history', 'phone', 'lead'],
+  'meet': ['meeting', 'meetings', 'video', 'call', 'calendar', 'schedule'],
+  'meeting': ['meet', 'meetings', 'video', 'call', 'calendar', 'schedule'],
+  'ticket': ['tickets', 'support', 'help', 'service', 'issue', 'query'],
+  'tickets': ['ticket', 'support', 'help', 'service', 'issue', 'query'],
+  'emp': ['employee', 'staff', 'member', 'profile', 'directory', 'users'],
+  'employee': ['emp', 'staff', 'member', 'profile', 'directory', 'users'],
+  'doc': ['docs', 'document', 'documents', 'file', 'files', 'letter'],
+  'docs': ['doc', 'document', 'documents', 'file', 'files', 'letter'],
+  'client': ['clients', 'customer', 'portal', 'company'],
+  'clients': ['client', 'customer', 'portal', 'company'],
+  'setting': ['settings', 'admin', 'profile', 'password', 'configuration'],
+  'settings': ['setting', 'admin', 'profile', 'password', 'configuration'],
+  'admin': ['administrator', 'settings', 'management'],
+};
+
+const doesItemMatchTokens = (item, tokens, categoryLabel = '') => {
+  if (!tokens || tokens.length === 0) return true;
+  const name = String(item.name || item.text || item.title || '').toLowerCase();
+  const path = String(item.path || '').toLowerCase();
+  const cat = String(categoryLabel || item.category || '').toLowerCase();
+
+  return tokens.every(token => {
+    if (name.includes(token) || path.includes(token) || cat.includes(token)) {
+      return true;
+    }
+    const synonyms = SEARCH_SYNONYMS[token];
+    if (synonyms && synonyms.some(syn => name.includes(syn) || path.includes(syn) || cat.includes(syn))) {
+      return true;
+    }
+    return false;
+  });
+};
+
+const highlightSearchMatch = (text, query) => {
+  if (!query || !query.trim() || !text) return text;
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return text;
+
+  const escapedTokens = tokens
+    .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .filter(Boolean);
+  if (!escapedTokens.length) return text;
+
+  const regex = new RegExp(`(${escapedTokens.join('|')})`, 'gi');
+  const parts = String(text).split(regex);
+  if (parts.length <= 1) return text;
+
+  return parts.map((part, i) =>
+    regex.test(part) ? (
+      <Box
+        component="mark"
+        key={i}
+        sx={{
+          backgroundColor: 'rgba(37, 99, 235, 0.16)',
+          color: '#1d4ed8',
+          fontWeight: 700,
+          px: '3px',
+          py: '1px',
+          borderRadius: '4px',
+          fontStyle: 'normal',
+          display: 'inline'
+        }}
+      >
+        {part}
+      </Box>
+    ) : (
+      part
+    )
+  );
+};
+
 const Sidebar = ({
   isMobile = false,
   closeSidebar,
@@ -2331,6 +2417,10 @@ const Sidebar = ({
   const [openAdminCrmGroups, setOpenAdminCrmGroups] = useState(() => new Set(
     location.pathname.includes('/crm/admin/add-lead') ? ['lead-management'] : ['call-management']
   ));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearchIndex, setActiveSearchIndex] = useState(0);
+  const searchInputRef = useRef(null);
+  const activeItemRef = useRef(null);
   const [menuBadgeCounts, setMenuBadgeCounts] = useState({});
   const [seenBadgeCounts, setSeenBadgeCounts] = useState({});
   const [profileCompletionOverride, setProfileCompletionOverride] = useState(() => {
@@ -2362,6 +2452,36 @@ const Sidebar = ({
   const drawerWidthOpen = propDrawerWidthOpen || 236;
   const drawerWidthClosed = propDrawerWidthClosed || 70;
   const isSidebarOpen = isMobile || (propIsOpen !== undefined ? propIsOpen : isHovered);
+  const isSearching = Boolean(isSidebarOpen && searchQuery.trim());
+
+  useEffect(() => {
+    setActiveSearchIndex(0);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (!isSidebarOpen) {
+          if (typeof propIsOpen === 'undefined') {
+            setIsHovered(true);
+          }
+        }
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 60);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isSidebarOpen, propIsOpen]);
+
+  useEffect(() => {
+    if (isSearching && activeItemRef.current) {
+      activeItemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [activeSearchIndex, isSearching]);
 
 
   const isClientUser = useMemo(() => {
@@ -2949,6 +3069,10 @@ const Sidebar = ({
   const handleMouseLeave = useCallback(() => {
     if (isMobile) return;
 
+    if (searchInputRef.current && document.activeElement === searchInputRef.current) {
+      return;
+    }
+
     if (hoverTimer.current) {
       clearTimeout(hoverTimer.current);
       hoverTimer.current = null;
@@ -2956,7 +3080,7 @@ const Sidebar = ({
 
     leaveTimer.current = setTimeout(() => {
       setIsHovered(false);
-    }, 100);
+    }, 120);
   }, [isMobile]);
 
   const markSidebarBadgeSeen = useCallback((badgeKey) => {
@@ -2983,6 +3107,8 @@ const Sidebar = ({
     if (badgeKey !== 'registerRequests') {
       markSidebarBadgeSeen(badgeKey);
     }
+    setSearchQuery('');
+    setActiveSearchIndex(0);
     const currentPath = location.pathname.replace(/\/+$/, '');
     const nextPath = String(path || '').replace(/\/+$/, '');
     if (nextPath && currentPath !== nextPath) {
@@ -3468,10 +3594,15 @@ const Sidebar = ({
       </Box>
     );
 
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const isDirectMatch = isSearching && doesItemMatchTokens(item, tokens);
+    const isKeyboardActive = isSearching && flattenedMatchedItems[activeSearchIndex]?.id === item.id;
+
     if (showFull) {
       return (
         <Tooltip title={item.name} placement="right" enterDelay={700}>
           <StyledListItemButton
+            ref={isKeyboardActive ? activeItemRef : undefined}
             selected={selected}
             isCollapsed={false}
             aria-label={item.name}
@@ -3487,19 +3618,33 @@ const Sidebar = ({
               px: 1,
               py: '2px',
               opacity: item.disabled ? 0.5 : 1,
-              cursor: item.disabled ? 'not-allowed' : 'pointer'
+              cursor: item.disabled ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+              ...(isDirectMatch && !selected && {
+                bgcolor: isKeyboardActive ? 'rgba(37, 99, 235, 0.14)' : 'rgba(37, 99, 235, 0.08)',
+                borderLeft: isKeyboardActive ? '3.5px solid #1d4ed8' : '3px solid #2563eb',
+                borderRadius: '0 7px 7px 0',
+                pl: '7px',
+              }),
+              ...(isKeyboardActive && (!isDirectMatch || selected) && {
+                bgcolor: 'rgba(37, 99, 235, 0.14)',
+                borderRadius: '7px',
+              }),
+              ...(isKeyboardActive && {
+                boxShadow: '0 0 0 1.5px #2563eb',
+              })
             }}
           >
             <StyledListItemIcon sx={{ mr: 1.25, minWidth: 28, width: 28, height: 24, justifyContent: 'center', alignItems: 'center' }}>
               {icon}
             </StyledListItemIcon>
             <ListItemText
-              primary={item.name}
+              primary={isSearching ? highlightSearchMatch(item.name, searchQuery) : item.name}
               sx={{ minWidth: 0, my: 0, overflow: 'visible' }}
               primaryTypographyProps={{
                 variant: 'body2',
                 sx: {
-                  fontWeight: selected ? 600 : 500,
+                  fontWeight: selected ? 600 : (isDirectMatch ? 600 : 500),
                   fontSize: '0.78rem',
                   lineHeight: 1.25,
                   whiteSpace: 'normal',
@@ -3594,6 +3739,8 @@ const Sidebar = ({
       }
     };
 
+    const isTelecallerOpen = isSearching || adminTelecallerDropdownOpen;
+
     const telecallerButton = (
       <StyledListItemButton
         selected={isTelecallerActive}
@@ -3611,7 +3758,7 @@ const Sidebar = ({
           borderRadius: isSidebarOpen ? '7px' : '8px',
           border: isSidebarOpen ? (isTelecallerActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
           backgroundColor: isSidebarOpen
-            ? (isTelecallerActive ? 'rgba(37, 99, 235, 0.08)' : (adminTelecallerDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
+            ? (isTelecallerActive ? 'rgba(37, 99, 235, 0.08)' : (isTelecallerOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
             : undefined,
           boxShadow: isSidebarOpen ? '0 1px 3px rgba(15, 23, 42, 0.04)' : undefined,
           transition: 'all 0.18s ease',
@@ -3655,8 +3802,8 @@ const Sidebar = ({
             }} />
             <ExpandMore sx={{
               fontSize: 18,
-              color: adminTelecallerDropdownOpen ? 'primary.main' : '#64748b',
-              transform: adminTelecallerDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              color: isTelecallerOpen ? 'primary.main' : '#64748b',
+              transform: isTelecallerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.22s ease'
             }} />
           </>
@@ -3672,7 +3819,7 @@ const Sidebar = ({
           )}
         </StyledListItem>
         <Collapse
-          in={isSidebarOpen && adminTelecallerDropdownOpen}
+          in={isSidebarOpen && isTelecallerOpen}
           timeout="auto"
           unmountOnExit
           onEntered={(node) => {
@@ -3783,6 +3930,8 @@ const Sidebar = ({
       });
     };
 
+    const isCrmDropdownOpen = isSearching || adminCrmDropdownOpen;
+
     const crmButton = (
       <StyledListItemButton
         selected={isCrmActive}
@@ -3800,7 +3949,7 @@ const Sidebar = ({
           borderRadius: isSidebarOpen ? '7px' : '8px',
           border: isSidebarOpen ? (isCrmActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
           backgroundColor: isSidebarOpen
-            ? (isCrmActive ? 'rgba(37, 99, 235, 0.08)' : (adminCrmDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
+            ? (isCrmActive ? 'rgba(37, 99, 235, 0.08)' : (isCrmDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
             : undefined,
           boxShadow: isSidebarOpen ? '0 1px 3px rgba(15, 23, 42, 0.04)' : undefined,
           transition: 'all 0.18s ease',
@@ -3844,8 +3993,8 @@ const Sidebar = ({
             }} />
             <ExpandMore sx={{
               fontSize: 18,
-              color: adminCrmDropdownOpen ? 'primary.main' : '#64748b',
-              transform: adminCrmDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              color: isCrmDropdownOpen ? 'primary.main' : '#64748b',
+              transform: isCrmDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.22s ease'
             }} />
           </>
@@ -3861,7 +4010,7 @@ const Sidebar = ({
           )}
         </StyledListItem>
         <Collapse
-          in={isSidebarOpen && adminCrmDropdownOpen}
+          in={isSidebarOpen && isCrmDropdownOpen}
           timeout="auto"
           unmountOnExit
           onEntered={(node) => {
@@ -3890,7 +4039,7 @@ const Sidebar = ({
                   {renderMenuItem(children[0], isSidebarOpen)}
                 </StyledListItem>
               );
-              const isOpen = openAdminCrmGroups.has(group.id);
+              const isOpen = isSearching || openAdminCrmGroups.has(group.id);
               const hasSelectedChild = children.some(item => location.pathname === item.path);
               const groupButton = (
                 <StyledListItemButton
@@ -3916,7 +4065,7 @@ const Sidebar = ({
                   {isSidebarOpen && (
                     <>
                       <ListItemText
-                        primary={group.name}
+                        primary={isSearching ? highlightSearchMatch(group.name, searchQuery) : group.name}
                         sx={{ minWidth: 0, my: 0, overflow: 'visible' }}
                         primaryTypographyProps={{
                           variant: 'body2',
@@ -3995,6 +4144,8 @@ const Sidebar = ({
       }
     };
 
+    const isPayrollOpen = isSearching || payrollDropdownOpen;
+
     const payrollButton = (
       <StyledListItemButton
         selected={isPayrollActive}
@@ -4012,7 +4163,7 @@ const Sidebar = ({
           borderRadius: isSidebarOpen ? '7px' : '8px',
           border: isSidebarOpen ? (isPayrollActive ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid rgba(226, 232, 240, 0.95)') : undefined,
           backgroundColor: isSidebarOpen
-            ? (isPayrollActive ? 'rgba(37, 99, 235, 0.08)' : (payrollDropdownOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
+            ? (isPayrollActive ? 'rgba(37, 99, 235, 0.08)' : (isPayrollOpen ? 'rgba(248, 250, 252, 0.95)' : '#ffffff'))
             : undefined,
           boxShadow: isSidebarOpen ? '0 1px 3px rgba(15, 23, 42, 0.04)' : undefined,
           transition: 'all 0.18s ease',
@@ -4056,8 +4207,8 @@ const Sidebar = ({
             }} />
             <ExpandMore sx={{
               fontSize: 18,
-              color: payrollDropdownOpen ? 'primary.main' : '#64748b',
-              transform: payrollDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              color: isPayrollOpen ? 'primary.main' : '#64748b',
+              transform: isPayrollOpen ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.22s ease'
             }} />
           </>
@@ -4073,7 +4224,7 @@ const Sidebar = ({
           )}
         </StyledListItem>
         <Collapse
-          in={isSidebarOpen && payrollDropdownOpen}
+          in={isSidebarOpen && isPayrollOpen}
           timeout="auto"
           unmountOnExit
           onEntered={(node) => {
@@ -4201,7 +4352,7 @@ const Sidebar = ({
     const label = categoryLabels[lowerCat] || categoryLabels[category] || (
       String(category || '').charAt(0).toUpperCase() + String(category || '').slice(1)
     );
-    const isOpen = openSections.has(category);
+    const isOpen = isSearching || openSections.has(category);
     const isActive = items.some(item => location.pathname === item.path || (item.path && location.pathname.startsWith(item.path)));
 
     const handleSectionClick = (e) => {
@@ -4257,7 +4408,7 @@ const Sidebar = ({
         {isSidebarOpen && (
           <>
             <ListItemText
-              primary={label}
+              primary={isSearching ? highlightSearchMatch(label, searchQuery) : label}
               primaryTypographyProps={{
                 variant: 'body2',
                 fontWeight: isActive ? 700 : 600,
@@ -4493,6 +4644,57 @@ const Sidebar = ({
       return available.indexOf(a) - available.indexOf(b);
     });
   }, [groupedItems, customSectionOrder]);
+
+  const filteredGroupedItems = useMemo(() => {
+    if (!isSearching) return groupedItems;
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return groupedItems;
+
+    const result = {};
+    Object.entries(groupedItems).forEach(([category, items]) => {
+      const lowerCat = String(category || '').trim().toLowerCase();
+      const label = String(categoryLabels[lowerCat] || categoryLabels[category] || category || '').toLowerCase();
+      const categoryMatched = tokens.every(token => label.includes(token));
+
+      const matchedItems = items.filter(item => {
+        if (categoryMatched) return true;
+        return doesItemMatchTokens(item, tokens, label);
+      });
+
+      if (matchedItems.length > 0) {
+        result[category] = matchedItems;
+      }
+    });
+
+    return result;
+  }, [groupedItems, isSearching, searchQuery]);
+
+  const displayedCategories = useMemo(() => {
+    if (!isSearching) return orderedCategories;
+    return orderedCategories.filter(cat => filteredGroupedItems[cat] && filteredGroupedItems[cat].length > 0);
+  }, [orderedCategories, filteredGroupedItems, isSearching]);
+
+  const flattenedMatchedItems = useMemo(() => {
+    if (!isSearching) return [];
+    const items = [];
+    displayedCategories.forEach(category => {
+      const catItems = filteredGroupedItems[category] || [];
+      catItems.forEach(item => {
+        items.push(item);
+      });
+    });
+    return items;
+  }, [isSearching, displayedCategories, filteredGroupedItems]);
+
+  const clientFilteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return menuItems;
+    return menuItems.filter(item => {
+      const name = String(item.name || item.text || item.title || '').toLowerCase();
+      const path = String(item.path || '').toLowerCase();
+      return name.includes(q) || path.includes(q);
+    });
+  }, [menuItems, searchQuery]);
 
   useEffect(() => {
     if (!draggedCategory) {
@@ -5108,6 +5310,218 @@ const Sidebar = ({
     );
   };
 
+  const renderSearchInput = () => {
+    if (!isSidebarOpen) {
+      return null;
+    }
+
+    return (
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          px: 1.5,
+          pt: 1.1,
+          pb: 0.9,
+          bgcolor: '#ffffff',
+          borderBottom: isSearching ? '1px solid rgba(226, 232, 240, 0.85)' : '1px solid transparent',
+          boxShadow: isSearching ? '0 2px 8px -2px rgba(15, 23, 42, 0.06)' : 'none',
+          transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            bgcolor: '#f8fafc',
+            border: '1px solid',
+            borderColor: searchQuery ? '#2563eb' : 'rgba(226, 232, 240, 0.95)',
+            borderRadius: '8px',
+            px: 1,
+            height: 35,
+            transition: 'all 0.18s ease',
+            boxShadow: searchQuery ? '0 0 0 2px rgba(37, 99, 235, 0.12)' : 'none',
+            '&:focus-within': {
+              borderColor: '#2563eb',
+              bgcolor: '#ffffff',
+              boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.14)',
+            },
+            '&:hover': {
+              borderColor: searchQuery ? '#2563eb' : 'rgba(203, 213, 225, 0.95)',
+              bgcolor: '#ffffff',
+            }
+          }}
+        >
+          <Search
+            size={15}
+            strokeWidth={2}
+            style={{
+              color: searchQuery ? '#2563eb' : '#94a3b8',
+              flexShrink: 0,
+              marginRight: 6
+            }}
+          />
+          <InputBase
+            inputRef={searchInputRef}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSearchQuery('');
+                setActiveSearchIndex(0);
+                e.currentTarget.blur();
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (flattenedMatchedItems.length > 0) {
+                  setActiveSearchIndex(prev => (prev + 1) % flattenedMatchedItems.length);
+                }
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (flattenedMatchedItems.length > 0) {
+                  setActiveSearchIndex(prev => (prev - 1 + flattenedMatchedItems.length) % flattenedMatchedItems.length);
+                }
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (flattenedMatchedItems.length > 0) {
+                  const target = flattenedMatchedItems[activeSearchIndex] || flattenedMatchedItems[0];
+                  if (target && target.path && !target.disabled) {
+                    handleNavigate(target.path);
+                  }
+                }
+              }
+            }}
+            placeholder="Search pages..."
+            inputProps={{
+              'aria-label': 'Search pages',
+              role: 'searchbox',
+              'aria-autocomplete': 'list'
+            }}
+            sx={{
+              flex: 1,
+              fontSize: '0.78rem',
+              fontWeight: 500,
+              color: '#1e293b',
+              '& input': {
+                p: 0,
+                '&::placeholder': {
+                  color: '#94a3b8',
+                  opacity: 1,
+                  fontSize: '0.78rem'
+                }
+              }
+            }}
+          />
+          {Boolean(searchQuery) ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box
+                sx={{
+                  fontSize: '0.64rem',
+                  fontWeight: 700,
+                  color: flattenedMatchedItems.length > 0 ? '#2563eb' : '#94a3b8',
+                  bgcolor: flattenedMatchedItems.length > 0 ? 'rgba(37, 99, 235, 0.08)' : 'rgba(148, 163, 184, 0.1)',
+                  px: 0.7,
+                  py: 0.1,
+                  borderRadius: '999px',
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1.4,
+                  userSelect: 'none'
+                }}
+              >
+                {flattenedMatchedItems.length}
+              </Box>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveSearchIndex(0);
+                  searchInputRef.current?.focus();
+                }}
+                sx={{
+                  p: '2px',
+                  color: '#94a3b8',
+                  '&:hover': { color: '#475569', bgcolor: 'rgba(0,0,0,0.04)' }
+                }}
+                aria-label="Clear search"
+              >
+                <X size={14} strokeWidth={2.2} />
+              </IconButton>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                fontSize: '0.63rem',
+                fontWeight: 600,
+                color: '#94a3b8',
+                border: '1px solid #e2e8f0',
+                bgcolor: '#f1f5f9',
+                px: 0.5,
+                py: 0.1,
+                borderRadius: '4px',
+                whiteSpace: 'nowrap',
+                userSelect: 'none',
+                letterSpacing: '0.02em',
+                lineHeight: 1.3
+              }}
+            >
+              Ctrl K
+            </Box>
+          )}
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderEmptySearchState = () => (
+    <Box sx={{
+      p: 3,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      gap: 1
+    }}>
+      <Box sx={{
+        width: 40,
+        height: 40,
+        borderRadius: '10px',
+        bgcolor: 'rgba(241, 245, 249, 0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#94a3b8'
+      }}>
+        <SearchX size={20} strokeWidth={1.8} />
+      </Box>
+      <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>
+        No pages found
+      </Typography>
+      <Typography sx={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.3, maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        No match for "{searchQuery}"
+      </Typography>
+      <Button
+        size="small"
+        onClick={() => {
+          setSearchQuery('');
+          setActiveSearchIndex(0);
+          searchInputRef.current?.focus();
+        }}
+        sx={{
+          mt: 0.5,
+          fontSize: '0.72rem',
+          fontWeight: 600,
+          textTransform: 'none',
+          color: 'primary.main',
+          p: '2px 8px'
+        }}
+      >
+        Clear search
+      </Button>
+    </Box>
+  );
+
   return (
     <Container
       ref={sidebarRef}
@@ -5224,55 +5638,60 @@ const Sidebar = ({
           </Box>
         </Collapse>
         {renderClientCompanySwitcher()}
-        <Box
-          onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-              setDragOverCategory(null);
-            }
-          }}
-        >
-          {orderedCategories.map(category => {
-            const isTarget = draggedCategory && draggedCategory !== category && dragOverCategory === category;
-            const showSlotBefore = isTarget && dropPosition === 'before';
-            const showSlotAfter = isTarget && dropPosition === 'after';
+        {renderSearchInput()}
+        {isSearching && displayedCategories.length === 0 ? (
+          renderEmptySearchState()
+        ) : (
+          <Box
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                setDragOverCategory(null);
+              }
+            }}
+          >
+            {displayedCategories.map(category => {
+              const isTarget = !searchQuery.trim() && draggedCategory && draggedCategory !== category && dragOverCategory === category;
+              const showSlotBefore = isTarget && dropPosition === 'before';
+              const showSlotAfter = isTarget && dropPosition === 'after';
 
-            return (
-              <React.Fragment key={category}>
-                {showSlotBefore && renderDropSlot(category)}
-                <Box
-                  draggable={isSidebarOpen}
-                  onDragStart={(e) => handleDragStart(e, category)}
-                  onDragOver={(e) => handleDragOver(e, category)}
-                  onDrop={(e) => handleDrop(e, category)}
-                  onDragEnd={handleDragEnd}
-                  sx={{
-                    position: 'relative',
-                    opacity: draggedCategory === category ? 0.35 : 1,
-                    transform: draggedCategory === category ? 'scale(0.98)' : 'none',
-                    transition: 'opacity 0.18s ease, transform 0.18s ease',
-                    cursor: isSidebarOpen ? 'grab' : 'default',
-                    '&:active': {
-                      cursor: isSidebarOpen ? 'grabbing' : 'default',
-                    },
-                  }}
-                >
-                  {renderCategoryHeading(category)}
+              return (
+                <React.Fragment key={category}>
+                  {showSlotBefore && renderDropSlot(category)}
+                  <Box
+                    draggable={isSidebarOpen && !searchQuery.trim()}
+                    onDragStart={(e) => handleDragStart(e, category)}
+                    onDragOver={(e) => handleDragOver(e, category)}
+                    onDrop={(e) => handleDrop(e, category)}
+                    onDragEnd={handleDragEnd}
+                    sx={{
+                      position: 'relative',
+                      opacity: draggedCategory === category ? 0.35 : 1,
+                      transform: draggedCategory === category ? 'scale(0.98)' : 'none',
+                      transition: 'opacity 0.18s ease, transform 0.18s ease',
+                      cursor: isSidebarOpen && !searchQuery.trim() ? 'grab' : 'default',
+                      '&:active': {
+                        cursor: isSidebarOpen && !searchQuery.trim() ? 'grabbing' : 'default',
+                      },
+                    }}
+                  >
+                    {renderCategoryHeading(category)}
 
-                  {category === 'crm' ? (
-                    renderAdminCrmMenu(groupedItems[category])
-                  ) : category === 'admin-telecaller' ? (
-                    renderTelecallerMenu(groupedItems[category])
-                  ) : category === 'payroll' ? (
-                    renderPayrollMenu(groupedItems[category])
-                  ) : (
-                    renderSectionDropdown(category, groupedItems[category])
-                  )}
-                </Box>
-                {showSlotAfter && renderDropSlot(category)}
-              </React.Fragment>
-            );
-          })}
-        </Box>
+                    {category === 'crm' ? (
+                      renderAdminCrmMenu(filteredGroupedItems[category])
+                    ) : category === 'admin-telecaller' ? (
+                      renderTelecallerMenu(filteredGroupedItems[category])
+                    ) : category === 'payroll' ? (
+                      renderPayrollMenu(filteredGroupedItems[category])
+                    ) : (
+                      renderSectionDropdown(category, filteredGroupedItems[category])
+                    )}
+                  </Box>
+                  {showSlotAfter && renderDropSlot(category)}
+                </React.Fragment>
+              );
+            })}
+          </Box>
+        )}
 
         {draggedCategory && (
           <Box

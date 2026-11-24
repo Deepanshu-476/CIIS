@@ -653,13 +653,13 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: 1.4 seconds (1.4s) of natural silence after speech -> send transcript!
-                            if (silenceMs >= 1400 && speechDurationMs >= 80) {
+                            // Utterance end: 3.0 seconds (3.0s) of natural silence after speech -> send transcript!
+                            if (silenceMs >= 3000 && speechDurationMs >= 80) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 1400 && speechDurationMs < 80) {
+                            } else if (silenceMs >= 3000 && speechDurationMs < 80) {
                                 // False onset (mic transient < 80ms): reset speech detection and keep listening
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
@@ -731,10 +731,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // 1.4 seconds silence pause for natural speech completion
+            // 3.0 seconds silence pause for natural speech completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 1400);
+            }, 3000);
         };
 
         const createAndStart = () => {
@@ -1055,6 +1055,9 @@ export default function useSpeech({
         try {
             stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
+                    channelCount: 1,
+                    sampleRate: 48000,
+                    sampleSize: 16,
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
@@ -1108,7 +1111,10 @@ export default function useSpeech({
             }
         }
 
-        const options = chosenMime ? { mimeType: chosenMime } : undefined;
+        const options = {
+            ...(chosenMime ? { mimeType: chosenMime } : {}),
+            audioBitsPerSecond: 128000,
+        };
         let mediaRecorder;
         try {
             mediaRecorder = new MediaRecorder(stream, options);

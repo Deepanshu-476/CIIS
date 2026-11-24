@@ -653,13 +653,13 @@ export default function useSpeech({
                             const silenceMs = now - silenceStartTimeRef.current;
                             const speechDurationMs = lastDiagRef.current.firstSpeechTime ? (now - lastDiagRef.current.firstSpeechTime) : 0;
 
-                            // Utterance end: 1.4 seconds (1.4s) of natural silence after speech -> send transcript!
-                            if (silenceMs >= 1400 && speechDurationMs >= 80) {
+                            // Utterance end: 4.5 seconds (4-5s) of natural silence after speech -> turn mic off!
+                            if (silenceMs >= 4500 && speechDurationMs >= 80) {
                                 if (onSilenceExceeded) {
                                     onSilenceExceeded('silence');
                                     return;
                                 }
-                            } else if (silenceMs >= 1400 && speechDurationMs < 80) {
+                            } else if (silenceMs >= 4500 && speechDurationMs < 80) {
                                 // False onset (mic transient < 80ms): reset speech detection and keep listening
                                 speechDetectedRef.current = false;
                                 silenceStartTimeRef.current = null;
@@ -668,12 +668,12 @@ export default function useSpeech({
                         }
                     }
                 } else if (onSilenceExceeded) {
-                    // Speech NOT yet detected: prompt at 8s, auto-close at 15s
+                    // Speech NOT yet detected: prompt at 3.5s, auto-close at 5.5s
                     const silenceDuration = now - (lastSpeechOrListenStartRef.current || now);
-                    if (silenceDuration >= 8000 && inactivityPhaseRef.current === 0) {
+                    if (silenceDuration >= 3500 && inactivityPhaseRef.current === 0) {
                         inactivityPhaseRef.current = 1;
                         if (inactivityPromptCbRef.current) inactivityPromptCbRef.current();
-                    } else if (silenceDuration >= 15000) {
+                    } else if (silenceDuration >= 5500) {
                         inactivityPhaseRef.current = 0;
                         lastSpeechOrListenStartRef.current = now;
                         if (inactivityPauseCbRef.current) inactivityPauseCbRef.current();
@@ -731,10 +731,10 @@ export default function useSpeech({
             if (browserSilenceTimerRef.current) {
                 clearTimeout(browserSilenceTimerRef.current);
             }
-            // 1.4 seconds silence pause for natural speech completion
+            // 4.5 seconds (4-5s) silence pause for natural speech completion
             browserSilenceTimerRef.current = setTimeout(() => {
                 stop('silence');
-            }, 1400);
+            }, 4500);
         };
 
         const createAndStart = () => {
@@ -803,24 +803,17 @@ export default function useSpeech({
             };
 
             rec.onend = () => {
-                const finalText = accumulatedTextRef.current.trim();
-                if (finalText && (userStoppedRef.current || !speechDetectedRef.current)) {
-                    setListeningTracked(false);
-                    cleanupAudioNodes();
-                    dispatchFinalText(finalText);
-                    return;
-                }
                 if (!userStoppedRef.current) {
                     try {
                         createAndStart();
                     } catch {
                         setListeningTracked(false);
                         cleanupAudioNodes();
-                        if (finalText) dispatchFinalText(finalText);
                     }
                 } else {
                     setListeningTracked(false);
                     cleanupAudioNodes();
+                    const finalText = accumulatedTextRef.current.trim();
                     if (finalText) {
                         dispatchFinalText(finalText);
                     }
@@ -877,12 +870,12 @@ export default function useSpeech({
             if (speechDetectedRef.current) {
                 setNotice('Awaaz bahut chhoti thi, dobara bolein');
             }
-            return { ok: false, discarded: true };
+            return null;
         }
 
         // Drop immediately if session is not active or was invalidated
         if (sessionId && activeSessionIdRef.current !== sessionId) {
-            return { ok: false, canceled: true };
+            return null;
         }
 
         // STT upload cap check (12 uploads per conversation session)
@@ -891,7 +884,7 @@ export default function useSpeech({
             if (SR) {
                 setEngine('browser');
             }
-            return { ok: false, rateLimited: true, reason: 'session_cap' };
+            return null;
         }
 
         setIsTranscribing(true);
@@ -923,69 +916,47 @@ export default function useSpeech({
         try {
             data = await uploadAttempt();
             if (sessionId && activeSessionIdRef.current !== sessionId) {
-                return { ok: false, canceled: true };
+                return null;
             }
             sttFailureCountRef.current = 0; // Reset failures on success
             sttUploadCountRef.current += 1;
             setSttUploadCount(sttUploadCountRef.current);
-            return { ok: true, data, text: data?.text || '' };
         } catch (firstErr) {
             if (firstErr?.name === 'CanceledError' || firstErr?.name === 'AbortError' || firstErr?.code === 'ERR_CANCELED' || /cancel|abort/i.test(firstErr?.message || '')) {
-                return { ok: false, canceled: true };
+                return null;
             }
             if (sessionId && activeSessionIdRef.current !== sessionId) {
-                return { ok: false, canceled: true };
+                return null;
             }
             const status = firstErr?.response?.status;
             const code = firstErr?.response?.data?.code;
 
-            if (status === 429 || code === 'STT_RATE_LIMIT' || code === 'STT_BUDGET_EXCEEDED') {
-                const noticeText = SR
-                    ? 'Whisper rate limit reached. Switched to Live Browser voice.'
-                    : 'Voice limit khatam, text se continue karein';
-                setNotice(noticeText);
-                setError(firstErr?.response?.data?.message || noticeText);
-                if (SR) setEngine('browser');
-                return { ok: false, rateLimited: true, code, status: 429 };
-            }
-
             if (code === 'STT_NO_SPEECH') {
                 setNotice('Awaaz saaf nahi aayi, dobara bolein');
                 sttFailureCountRef.current += 1;
-                return { ok: false, code: 'STT_NO_SPEECH' };
             } else if (!firstErr?.response || status >= 500) {
                 try {
                     data = await uploadAttempt();
                     if (sessionId && activeSessionIdRef.current !== sessionId) {
-                        return { ok: false, canceled: true };
+                        return null;
                     }
                     sttFailureCountRef.current = 0;
-                    return { ok: true, data, text: data?.text || '' };
                 } catch (retryErr) {
                     if (retryErr?.name === 'CanceledError' || retryErr?.name === 'AbortError' || retryErr?.code === 'ERR_CANCELED' || /cancel|abort/i.test(retryErr?.message || '')) {
-                        return { ok: false, canceled: true };
+                        return null;
                     }
                     if (sessionId && activeSessionIdRef.current !== sessionId) {
-                        return { ok: false, canceled: true };
+                        return null;
                     }
                     sttFailureCountRef.current += 1;
                     const rCode = retryErr?.response?.data?.code;
-                    const rStatus = retryErr?.response?.status;
                     const rMsg = retryErr?.response?.data?.message || retryErr?.response?.data?.error;
-
-                    if (rStatus === 429 || rCode === 'STT_RATE_LIMIT' || rCode === 'STT_BUDGET_EXCEEDED') {
-                        const noticeText = SR
-                            ? 'Whisper rate limit reached. Switched to Live Browser voice.'
-                            : 'Voice limit khatam, text se continue karein';
-                        setNotice(noticeText);
-                        setError(rMsg || noticeText);
-                        if (SR) setEngine('browser');
-                        return { ok: false, rateLimited: true, code: rCode, status: 429 };
-                    }
 
                     let noticeText = 'Whisper service abhi busy hai. Dobara try karein.';
                     if (rCode === 'STT_NO_SPEECH') {
                         noticeText = 'Awaaz saaf nahi aayi, dobara bolein';
+                    } else if (rCode === 'STT_RATE_LIMIT' || rCode === 'STT_BUDGET_EXCEEDED') {
+                        noticeText = 'Voice limit khatam, text se continue karein';
                     } else if (rCode === 'STT_BAD_AUDIO') {
                         noticeText = 'Awaaz record theek se nahi hui, dobara bolein';
                     } else if (rCode === 'STT_FORMAT_ERROR') {
@@ -995,7 +966,6 @@ export default function useSpeech({
                     }
                     setNotice(noticeText);
                     setError(rMsg || noticeText);
-                    return { ok: false, error: rMsg || noticeText };
                 }
             } else {
                 sttFailureCountRef.current += 1;
@@ -1009,7 +979,6 @@ export default function useSpeech({
                 }
                 setNotice(noticeText);
                 setError(errMsg || noticeText);
-                return { ok: false, error: errMsg || noticeText };
             }
         } finally {
             if (abortControllerRef.current === controller) {
@@ -1024,7 +993,7 @@ export default function useSpeech({
             setNotice('Whisper mic saaf nahi sun pa raha. Aap uper "Live (Browser)" switch kar sakte hain.');
         }
 
-        return { ok: false };
+        return data;
     }, [lang, SR, maxSttUploads]);
 
     // Start Groq Whisper recording
@@ -1180,16 +1149,11 @@ export default function useSpeech({
                 return;
             }
 
-            const uploadRes = await uploadAudioBlob(audioBlob, ext, durationMs, currentSessionId);
-            if (uploadRes?.ok && uploadRes.text && activeSessionIdRef.current === currentSessionId) {
-                dispatchFinalText(uploadRes.text.trim(), currentSessionId);
-            } else if (uploadRes?.rateLimited) {
-                // Rate limited: stop hands-free auto-loop immediately to prevent 429 spamming
-                if (SR) {
-                    setEngine('browser');
-                }
-            } else if (uploadRes?.ok && !userMutedRef.current && activeSessionIdRef.current === currentSessionId) {
-                // Only re-arm mic if transcription was successful but returned empty text / silence
+            const data = await uploadAudioBlob(audioBlob, ext, durationMs, currentSessionId);
+            if (data?.text && activeSessionIdRef.current === currentSessionId) {
+                dispatchFinalText(data.text.trim(), currentSessionId);
+            } else if (!userMutedRef.current && activeSessionIdRef.current === currentSessionId) {
+                // If Whisper caught no speech or returned empty, re-arm mic for user in hands-free voice mode
                 setTimeout(() => {
                     if (!userMutedRef.current && !isSpeakingRef.current && !isTranscribingRef.current) {
                         start({ force: true });
@@ -1462,34 +1426,9 @@ export default function useSpeech({
     );
 
     const cancelSpeech = useCallback(() => {
-        if (ttsSupported && typeof window !== 'undefined' && window.speechSynthesis) {
+        if (ttsSupported) {
             try {
-                // Strip onend and onerror handlers from all utterances in window.__ciisUtterances before canceling so no completion callbacks fire
-                if (Array.isArray(window.__ciisUtterances)) {
-                    window.__ciisUtterances.forEach((u) => {
-                        if (u) {
-                            u.onend = null;
-                            u.onerror = null;
-                            u.onstart = null;
-                            u.onpause = null;
-                            u.onresume = null;
-                        }
-                    });
-                }
-                if (activeUtteranceRef.current) {
-                    activeUtteranceRef.current.onend = null;
-                    activeUtteranceRef.current.onerror = null;
-                }
-                if (window.__ciisCurrentUtterance) {
-                    window.__ciisCurrentUtterance.onend = null;
-                    window.__ciisCurrentUtterance.onerror = null;
-                }
-                // In Chromium, if paused, calling cancel() can silently hang unless resume() is called first
-                if (window.speechSynthesis.paused) {
-                    window.speechSynthesis.resume();
-                }
                 window.speechSynthesis.cancel();
-                lastCancelTimeRef.current = Date.now();
             } catch {
                 /* ignore */
             }
@@ -1618,6 +1557,5 @@ export default function useSpeech({
         setLastTranscriptDiag,
         updateTranscriptDiag,
         voiceInfo,
-        speechDetectedRef,
     };
 }

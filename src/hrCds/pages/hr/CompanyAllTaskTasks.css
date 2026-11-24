@@ -3435,14 +3435,15 @@
   display: inline-flex;
   align-items: center;
   background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 4px;
+  padding: 3px;
   gap: 3px;
   flex-wrap: wrap;
 }
 
 .perf-tf-btn {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   padding: 6px 14px;
   border-radius: 7px;
@@ -3459,10 +3460,11 @@
 }
 
 .perf-tf-btn.active {
-  background: #ffffff;
-  color: #0f172a;
+  background: #2563eb;
+  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-color: #2563eb;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
 }
 
 .btn-download-perf-report {

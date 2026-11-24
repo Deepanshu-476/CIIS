@@ -70,6 +70,38 @@ const getRemarkImageUrls = remark => [remark?.image, ...(remark?.images || []).m
 
 const isRawObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || "").trim());
 
+const RECURRING_REPEAT_DAYS = [
+  { value: 'monday', label: 'Mon' },
+  { value: 'tuesday', label: 'Tue' },
+  { value: 'wednesday', label: 'Wed' },
+  { value: 'thursday', label: 'Thu' },
+  { value: 'friday', label: 'Fri' },
+  { value: 'saturday', label: 'Sat' },
+  { value: 'sunday', label: 'Sun' }
+];
+
+const formatDateInputValue = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const getEndOfLocalDayIso = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setHours(23, 59, 59, 999);
+  return date.toISOString();
+};
+
+const getMaxRepeatEndDate = (dueDate) => {
+  const max = new Date(dueDate);
+  max.setDate(max.getDate() + 365);
+  max.setHours(23, 59, 59, 999);
+  return max;
+};
+
 const resolveDisplayString = (value, fallback = "—") => {
   if (value === null || value === undefined) return fallback;
   if (typeof value === "string") {
@@ -707,9 +739,11 @@ const CompanyAllTaskTasks = () => {
   // A date range supplied by the Company All Task page opens Performance in
   // its matching custom window. Once a reviewer selects a timeframe button,
   // that explicit choice must win over the URL range.
-  const [perfTimeframe, setPerfTimeframe] = useState(() => (
-    initialStartDate || initialEndDate ? "custom" : "month"
-  )); // "custom" | "today" | "week" | "month" | "sixMonths" | "overall"
+  const [perfTimeframe, setPerfTimeframe] = useState(() => {
+    if (!initialStartDate && !initialEndDate) return "today";
+    if (initialStartDate === todayStr && initialEndDate === todayStr) return "today";
+    return "custom";
+  }); // "custom" | "today" | "week" | "month" | "sixMonths"
   const [perfLoading, setPerfLoading] = useState(false);
   const [perfData, setPerfData] = useState({
     tasks: [],
@@ -730,11 +764,23 @@ const CompanyAllTaskTasks = () => {
     setStartDate((current) => (current === nextStartDate ? current : nextStartDate));
     setEndDate((current) => (current === nextEndDate ? current : nextEndDate));
     setPerfTimeframe((current) => {
+      if (nextStartDate === todayStr && nextEndDate === todayStr) return "today";
+      if (!nextStartDate && !nextEndDate) return "today";
       if (nextStartDate || nextEndDate) return "custom";
-      return current === "custom" ? "month" : current;
+      return current === "custom" ? "today" : current;
     });
     setPage(1);
-  }, [dateRangeQueryKey, searchParams]);
+  }, [dateRangeQueryKey, searchParams, todayStr]);
+
+  const activeTimeframe = useMemo(() => {
+    if (perfTimeframe === "today") return "today";
+    if (perfTimeframe === "week") return "week";
+    if (perfTimeframe === "month") return "month";
+    if (perfTimeframe === "sixMonths") return "sixMonths";
+    if (startDate === todayStr && endDate === todayStr) return "today";
+    if (!startDate && !endDate) return "today";
+    return perfTimeframe || "today";
+  }, [perfTimeframe, startDate, endDate, todayStr]);
 
   // Retained only for safe cleanup of old document-preview state. The Documents
   // tab is intentionally not exposed on the Company All Task page.
@@ -773,6 +819,9 @@ const CompanyAllTaskTasks = () => {
     dueDateTime: getDefaultToday7PM(),
     checkpoints: [],
     newCheckpointText: "",
+    repeatPattern: "none",
+    repeatDays: [],
+    recurrenceEndDate: "",
     submitting: false,
     error: "",
     reminderSettings: createDefaultReminderSettings(),
@@ -1395,15 +1444,15 @@ const CompanyAllTaskTasks = () => {
       // The task list already honours these values, so using a separate monthly window here
       // produced conflicting totals and scores.
       fetchPerfDataset(
-        perfTimeframe,
+        activeTimeframe,
         { startDate, endDate }
       );
       fetchPerfAttendance(
-        perfTimeframe,
+        activeTimeframe,
         { startDate, endDate }
       );
     }
-  }, [activeTab, perfTimeframe, startDate, endDate, fetchPerfDataset, fetchPerfAttendance]);
+  }, [activeTab, activeTimeframe, startDate, endDate, fetchPerfDataset, fetchPerfAttendance]);
 
   const fetchTaskDetails = useCallback(async (task, activityOnly = false) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
@@ -1499,6 +1548,9 @@ const CompanyAllTaskTasks = () => {
       dueDateTime: getDefaultToday7PM(),
       checkpoints: [],
       newCheckpointText: "",
+      repeatPattern: "none",
+      repeatDays: [],
+      recurrenceEndDate: "",
       submitting: false,
       error: "",
       reminderSettings: createDefaultReminderSettings(),
@@ -1542,16 +1594,44 @@ const CompanyAllTaskTasks = () => {
       return;
     }
 
+    const parsedDue = assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : null;
+    if (!parsedDue || isNaN(parsedDue.getTime())) {
+      setAssignModal((prev) => ({ ...prev, error: "Invalid due date format" }));
+      return;
+    }
+
+    const isRepeat = assignModal.repeatPattern && assignModal.repeatPattern !== 'none';
+    const recurrenceEndDate = isRepeat ? getEndOfLocalDayIso(assignModal.recurrenceEndDate) : '';
+
+    if (isRepeat) {
+      if (!recurrenceEndDate) {
+        setAssignModal((prev) => ({ ...prev, error: "Please select repeat end date." }));
+        return;
+      }
+      if (new Date(recurrenceEndDate) < parsedDue) {
+        setAssignModal((prev) => ({ ...prev, error: "Repeat end date cannot be before due date." }));
+        return;
+      }
+      if (new Date(recurrenceEndDate) > getMaxRepeatEndDate(parsedDue)) {
+        setAssignModal((prev) => ({ ...prev, error: "Repeat end date can be at most 1 year after due date." }));
+        return;
+      }
+    }
+
     setAssignModal((prev) => ({ ...prev, submitting: true, error: "" }));
     try {
       const payload = {
         title: assignModal.title.trim(),
         description: assignModal.description.trim() || undefined,
         assignedTo: [effectiveUserId],
+        assignedUsers: [effectiveUserId],
         priority: assignModal.priority || "medium",
-        dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
+        dueDateTime: parsedDue.toISOString(),
         checkpoints: assignModal.checkpoints.map((c) => ({ title: c.title })),
         reminderSettings: buildReminderPayload(assignModal.reminderSettings),
+        repeatPattern: isRepeat ? assignModal.repeatPattern : 'none',
+        repeatDays: isRepeat ? (assignModal.repeatDays || []) : [],
+        recurrenceEndDate: isRepeat ? recurrenceEndDate : undefined,
       };
 
       await axios.post("/task/create-for-others", payload);
@@ -2015,7 +2095,10 @@ const CompanyAllTaskTasks = () => {
 
       showToast("Generating PDF report...", "info");
 
-      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      // Eight task columns cannot fit on an A4 portrait page. Landscape keeps
+      // every field inside the printable area and autoTable carries rows over
+      // to subsequent pages instead of clipping the right-side values.
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -2052,7 +2135,7 @@ const CompanyAllTaskTasks = () => {
         return [
           index + 1,
           cleanTitle,
-          cleanDesc.length > 80 ? `${cleanDesc.substring(0, 77)}...` : cleanDesc,
+          cleanDesc,
           (t.priority || "medium").toUpperCase(),
           dispStatus.toUpperCase(),
           tType,
@@ -2074,20 +2157,22 @@ const CompanyAllTaskTasks = () => {
           halign: "left",
         },
         bodyStyles: {
-          fontSize: 8,
+          fontSize: 7.2,
           textColor: [30, 41, 59],
           valign: "middle",
+          cellPadding: 4,
         },
         columnStyles: {
-          0: { cellWidth: 26, halign: "center" },
-          1: { cellWidth: 140 },
-          2: { cellWidth: 230 },
-          3: { cellWidth: 55, halign: "center" },
-          4: { cellWidth: 65, halign: "center" },
+          0: { cellWidth: 25, halign: "center" },
+          1: { cellWidth: 145 },
+          2: { cellWidth: 260 },
+          3: { cellWidth: 60, halign: "center" },
+          4: { cellWidth: 70, halign: "center" },
           5: { cellWidth: 55, halign: "center" },
-          6: { cellWidth: 70, halign: "center" },
-          7: { cellWidth: 55, halign: "center" },
+          6: { cellWidth: 75, halign: "center" },
+          7: { cellWidth: 65, halign: "center" },
         },
+        margin: { left: 30, right: 30, bottom: 30 },
         didDrawPage: () => {
           const pageStr = `Page ${doc.internal.getNumberOfPages()}`;
           doc.setFontSize(8);
@@ -2489,7 +2574,7 @@ const CompanyAllTaskTasks = () => {
   // Multi-Timeframe Comprehensive Performance Evaluation Engine
   const detailedPerformance = useMemo(() => {
     const now = new Date();
-    const effectivePerfTimeframe = perfTimeframe;
+    const effectivePerfTimeframe = activeTimeframe;
 
     // Use timeframe dataset if available (even when 0 tasks), otherwise fallback to general tasks
     const isPerfLoaded = perfData.stats !== null || (Array.isArray(perfData.tasks) && perfData.tasks.length > 0);
@@ -2749,7 +2834,7 @@ const CompanyAllTaskTasks = () => {
         overduePenalty: { points: overduePenalty },
       },
     };
-  }, [perfTimeframe, perfData, perfAttendance, tasks, stats, performanceMetrics, workSummary, onTimeRate, employeeName, startDate, endDate]);
+  }, [activeTimeframe, perfData, perfAttendance, tasks, stats, performanceMetrics, workSummary, onTimeRate, employeeName, startDate, endDate]);
 
   // Download Official Performance Evaluation Dossier (Executive Multi-Pillar Assessment)
   const handleDownloadPerformanceReport = () => {
@@ -5141,28 +5226,28 @@ const CompanyAllTaskTasks = () => {
               <div className="perf-timeframe-segmented">
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "today" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "today" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("today")}
                 >
                   Today
                 </button>
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "week" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "week" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("week")}
                 >
                   This Week
                 </button>
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "month" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "month" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("month")}
                 >
                   This Month
                 </button>
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "sixMonths" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "sixMonths" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("sixMonths")}
                 >
                   Last 6 Months
@@ -5179,7 +5264,7 @@ const CompanyAllTaskTasks = () => {
                 >
                   <FiDownload size={14} />
                   <span>
-                    Download Report ({perfTimeframe === "today" ? "Today" : perfTimeframe === "week" ? "Weekly" : perfTimeframe === "month" ? "Monthly" : perfTimeframe === "sixMonths" ? "6-Month" : "Overall"})
+                    Download Report ({activeTimeframe === "today" ? "Today" : activeTimeframe === "week" ? "Weekly" : activeTimeframe === "month" ? "Monthly" : activeTimeframe === "sixMonths" ? "6-Month" : "Custom"})
                   </span>
                 </button>
               </div>
@@ -5723,6 +5808,92 @@ const CompanyAllTaskTasks = () => {
                       onChange={(e) => setAssignModal((prev) => ({ ...prev, dueDateTime: e.target.value }))}
                     />
                   </div>
+                </div>
+
+                {/* Repeat Task Section */}
+                <div className="form-group" style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ margin: 0, fontWeight: 600, color: "#1e293b" }}>Repeat Task</label>
+                    <span style={{
+                      fontSize: "11px",
+                      padding: "2px 8px",
+                      borderRadius: "12px",
+                      fontWeight: 600,
+                      background: assignModal.repeatPattern !== 'none' ? "#dcfce7" : "#f1f5f9",
+                      color: assignModal.repeatPattern !== 'none' ? "#15803d" : "#64748b"
+                    }}>
+                      {assignModal.repeatPattern === 'daily' ? 'Repeat Task' : 'No Repeat'}
+                    </span>
+                  </div>
+
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label>Pattern</label>
+                      <select
+                        value={assignModal.repeatPattern}
+                        onChange={(e) => setAssignModal((prev) => ({
+                          ...prev,
+                          repeatPattern: e.target.value,
+                          repeatDays: e.target.value === 'daily' ? prev.repeatDays : [],
+                          recurrenceEndDate: e.target.value !== 'none' ? prev.recurrenceEndDate : '',
+                        }))}
+                      >
+                        <option value="none">No Repeat</option>
+                        <option value="daily">Repeat Task</option>
+                      </select>
+                    </div>
+
+                    {assignModal.repeatPattern !== 'none' && (
+                      <div className="form-group">
+                        <label>Repeat End Date <span style={{ color: "#ef4444" }}>*</span></label>
+                        <input
+                          type="date"
+                          value={formatDateInputValue(assignModal.recurrenceEndDate)}
+                          min={formatDateInputValue(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date())}
+                          max={formatDateInputValue(getMaxRepeatEndDate(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date()))}
+                          onChange={(e) => setAssignModal((prev) => ({ ...prev, recurrenceEndDate: e.target.value }))}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {assignModal.repeatPattern === 'daily' && (
+                    <div style={{ marginTop: "8px" }}>
+                      <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>Select Days (leave blank to run every day)</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {RECURRING_REPEAT_DAYS.map(day => {
+                          const isSelected = (assignModal.repeatDays || []).includes(day.value);
+                          return (
+                            <button
+                              key={day.value}
+                              type="button"
+                              onClick={() => setAssignModal((prev) => {
+                                const current = prev.repeatDays || [];
+                                return {
+                                  ...prev,
+                                  repeatDays: isSelected
+                                    ? current.filter(d => d !== day.value)
+                                    : [...current, day.value]
+                                };
+                              })}
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: "6px",
+                                border: isSelected ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                                background: isSelected ? "#2563eb" : "#ffffff",
+                                color: isSelected ? "#ffffff" : "#334155",
+                                fontSize: "12px",
+                                fontWeight: 500,
+                                cursor: "pointer"
+                              }}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Checkpoints builder */}

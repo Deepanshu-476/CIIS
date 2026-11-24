@@ -7503,7 +7503,7 @@ const UserCreateTask = () => {
                                       </a>
                                     )}
                                   </div>
-                                  <div style={{ minWidth: '90px' }}>
+                                  <div style={{ minWidth: '140px', flexShrink: 0 }}>
                                     <select
                                       value={displayedSelectValue}
                                       disabled={taskIsOverdue || hasOverdueStatus(task, status) || savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
@@ -7512,12 +7512,21 @@ const UserCreateTask = () => {
                                         const selectedStatus = e.target.value;
                                         handleTaskStatusSelection(task, selectedStatus, taskSource);
                                       }}
-                                      className="user-create-task-select"
+                                      className="user-create-task-select user-create-task-status-dropdown"
                                       style={{ 
-                                        minWidth: '90px',
-                                        borderColor: taskIsOverdue ? '#f44336' : undefined,
-                                        color: taskIsOverdue ? '#f44336' : undefined,
-                                        fontWeight: taskIsOverdue ? '600' : undefined,
+                                        width: '100%',
+                                        minWidth: '135px',
+                                        padding: '8px 28px 8px 12px',
+                                        backgroundPosition: 'right 10px center',
+                                        backgroundSize: '12px',
+                                        fontSize: '13px',
+                                        lineHeight: '1.35',
+                                        borderColor: taskIsOverdue ? '#f44336' : '#cbd5e1',
+                                        color: taskIsOverdue ? '#f44336' : '#1e293b',
+                                        fontWeight: taskIsOverdue ? '600' : '500',
+                                        borderRadius: '8px',
+                                        boxSizing: 'border-box',
+                                        whiteSpace: 'nowrap',
                                         cursor: 'pointer'
                                       }}
                                     >
@@ -7564,7 +7573,7 @@ const UserCreateTask = () => {
                           {(taskViewMode === 'client' || taskViewMode === 'project' || taskViewMode === 'all') && <th style={{ padding: isMobile ? '8px' : '12px' }}>Type</th>}
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Files</th>
                           <th style={{ padding: isMobile ? '8px' : '12px' }}>Actions</th>
-                          <th style={{ padding: isMobile ? '8px' : '12px' }}>Change Status</th>
+                          <th style={{ padding: isMobile ? '8px' : '12px 14px', width: '165px', minWidth: '165px' }}>Change Status</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -7852,21 +7861,30 @@ const UserCreateTask = () => {
                                   )}
                                 </div>
                               </td>
-                              <td style={{ padding: isMobile ? '8px' : '12px' }}>
+                              <td style={{ padding: isMobile ? '8px' : '10px 12px', width: '165px', minWidth: '165px' }}>
                                 <select
                                   value={displayedSelectValue}
-                                      disabled={taskIsOverdue || hasOverdueStatus(task, status) || savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
-                                      title={taskIsOverdue || hasOverdueStatus(task, status) ? OVERDUE_STATUS_MESSAGE : 'Change Status'}
+                                  disabled={taskIsOverdue || hasOverdueStatus(task, status) || savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
+                                  title={taskIsOverdue || hasOverdueStatus(task, status) ? OVERDUE_STATUS_MESSAGE : 'Change Status'}
                                   onChange={(e) => {
                                     const selectedStatus = e.target.value;
                                     handleTaskStatusSelection(task, selectedStatus, taskSource);
                                   }}
-                                  className="user-create-task-select"
+                                  className="user-create-task-select user-create-task-status-dropdown"
                                   style={{ 
-                                    minWidth: isMobile ? '90px' : '100px',
-                                    borderColor: taskIsOverdue ? '#f44336' : undefined,
-                                    color: taskIsOverdue ? '#f44336' : undefined,
-                                    fontWeight: taskIsOverdue ? '600' : undefined,
+                                    width: '100%',
+                                    minWidth: isMobile ? '120px' : '140px',
+                                    padding: '8px 28px 8px 12px',
+                                    backgroundPosition: 'right 10px center',
+                                    backgroundSize: '12px',
+                                    fontSize: '13px',
+                                    lineHeight: '1.35',
+                                    borderColor: taskIsOverdue ? '#f44336' : '#cbd5e1',
+                                    color: taskIsOverdue ? '#f44336' : '#1e293b',
+                                    fontWeight: taskIsOverdue ? '600' : '500',
+                                    borderRadius: '8px',
+                                    boxSizing: 'border-box',
+                                    whiteSpace: 'nowrap',
                                     cursor: 'pointer'
                                   }}
                                 >

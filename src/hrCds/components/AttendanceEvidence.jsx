@@ -41,58 +41,73 @@ function PunchLocationDisplay({ rawLocation, location, label, branchOfficeLoc, b
   }
 
   const branchName = rawLocation?.branchName || location.branchName || branchFallbackName || 'Branch';
-  const displayPlace = resolvedPlace || (loadingPlace ? 'Fetching place...' : location.coordinates);
+  const displayPlace = resolvedPlace || (loadingPlace ? 'Locating...' : location.coordinates || 'Location');
+
+  const tooltipParts = [
+    displayPlace,
+    location.coordinates ? `Coordinates: ${location.coordinates}` : null,
+    location.accuracy != null ? `Accuracy: ±${Math.round(location.accuracy)}m` : null,
+    distance != null && Number.isFinite(Number(distance)) ? `Distance: ${Number(distance) < 1000 ? `${Math.round(Number(distance))}m` : `${(Number(distance) / 1000).toFixed(2)}km`} from ${branchName}` : null
+  ].filter(Boolean).join('\n');
+
+  const isNear = distance != null && Number.isFinite(Number(distance)) && Number(distance) <= 100;
+  const distanceLabel = distance != null && Number.isFinite(Number(distance))
+    ? (Number(distance) < 1000 ? `${Math.round(Number(distance))}m` : `${(Number(distance) / 1000).toFixed(1)}km`)
+    : null;
 
   return (
-    <div style={{ display: "grid", gap: 3, marginTop: 3 }}>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 3, maxWidth: "100%", lineHeight: 1.2 }}>
       <a
         href={location.url}
         target="_blank"
         rel="noreferrer"
+        title={tooltipParts}
         style={{
-          display: "inline-flex",
-          alignItems: "flex-start",
-          gap: 3,
-          color: "#1d4ed8",
-          textDecoration: "none",
-          fontWeight: 600,
-          lineHeight: 1.3
-        }}
-        title={`Open in Google Maps (${location.coordinates})`}
-      >
-        <span style={{ fontSize: "0.85rem", lineHeight: 1 }}>📍</span>
-        <span style={{ textDecoration: "underline", wordBreak: "break-word" }}>{displayPlace}</span>
-      </a>
-
-      {distance != null && Number.isFinite(Number(distance)) ? (
-        <div style={{
           display: "inline-flex",
           alignItems: "center",
           gap: 3,
-          fontSize: "0.72rem",
-          fontWeight: 600,
-          color: Number(distance) <= 100 ? "#15803d" : "#b45309",
-          backgroundColor: Number(distance) <= 100 ? "#f0fdf4" : "#fffbeb",
-          padding: "1px 5px",
+          padding: "1px 6px",
+          background: "#eff6ff",
+          border: "1px solid #bfdbfe",
           borderRadius: 4,
-          border: `1px solid ${Number(distance) <= 100 ? "#bbf7d0" : "#fde68a"}`,
-          width: "fit-content"
+          color: "#1d4ed8",
+          textDecoration: "none",
+          fontSize: "0.72rem",
+          fontWeight: 500,
+          lineHeight: 1.2,
+          maxWidth: "100%",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          cursor: "pointer"
+        }}
+      >
+        <span style={{ fontSize: "0.74rem", flexShrink: 0 }}>📍</span>
+        <span style={{
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          maxWidth: 160
         }}>
-          <span>📏</span>
-          <span>
-            {Number(distance) < 1000 ? `${Math.round(Number(distance))} m` : `${(Number(distance) / 1000).toFixed(2)} km`} from {branchName}
+          {displayPlace}
+        </span>
+        {distanceLabel && (
+          <span
+            style={{
+              fontSize: "0.65rem",
+              fontWeight: 700,
+              color: isNear ? "#15803d" : "#b45309",
+              backgroundColor: isNear ? "#dcfce7" : "#fef3c7",
+              padding: "0 3px",
+              borderRadius: 3,
+              marginLeft: 2,
+              flexShrink: 0
+            }}
+          >
+            {distanceLabel}
           </span>
-        </div>
-      ) : (
-        <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
-          Branch distance: not configured
-        </div>
-      )}
-
-      <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
-        ({location.coordinates})
-        {location.accuracy != null && ` · ±${Math.round(location.accuracy)}m`}
-      </div>
+        )}
+      </a>
     </div>
   );
 }
@@ -102,17 +117,39 @@ export function AttendancePunch({ record, direction, showTime = false }) {
   const rawLocation = record?.[`${direction}Location`];
   const location = attendanceLocation(rawLocation);
   const photo = attendancePhotoUrl(record?.[`${direction}SelfieUrl`], record?.attendancePhotoBaseUrl || axios.defaults.baseURL);
-  const mode = attendanceModeLabel(record?.[`${direction}AttendanceMode`]);
+  const rawMode = record?.[`${direction}AttendanceMode`];
+  const mode = attendanceModeLabel(rawMode);
   const time = showTime && attendanceReportTime(record?.[`${direction}Time`]);
   if (!location && !photo && !mode && !time) return null;
 
   const branchOfficeLoc = record?.user?.branch?.officeLocation || record?.user?.company?.officeLocation;
   const branchFallbackName = record?.user?.branch?.name || record?.user?.branchName || record?.user?.company?.companyName;
 
+  // Don't show redundant "LOCATION" or "WEB" text pill when location badge is already shown
+  const isRedundantMode = location && (rawMode === 'location' || rawMode === 'web' || !rawMode);
+
   return (
-    <div style={{ display: "grid", justifyItems: "start", gap: 3, marginTop: 4, fontSize: "0.78rem", whiteSpace: "normal", overflowWrap: "anywhere" }}>
-      {time && <strong>{label} · {time} IST</strong>}
-      {mode && <span>{label} mode · {mode}</span>}
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 3, marginTop: 2, maxWidth: "100%", flexWrap: "nowrap" }}>
+      {time && <strong style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>{label} · {time}</strong>}
+      {mode && !isRedundantMode && (
+        <span
+          title={`${label} mode: ${mode}`}
+          style={{
+            fontSize: "0.60rem",
+            fontWeight: 600,
+            color: "#475569",
+            background: "#f1f5f9",
+            border: "1px solid #cbd5e1",
+            padding: "0 3px",
+            borderRadius: 3,
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+            flexShrink: 0
+          }}
+        >
+          {mode}
+        </span>
+      )}
       {location && (
         <PunchLocationDisplay
           rawLocation={rawLocation}
@@ -123,8 +160,8 @@ export function AttendancePunch({ record, direction, showTime = false }) {
         />
       )}
       {photo && (
-        <a href={photo} target="_blank" rel="noreferrer" style={{ marginTop: 2 }}>
-          <img src={photo} alt={`${label} photo`} width={52} height={52} loading="lazy" referrerPolicy="no-referrer" style={{ objectFit: "cover", borderRadius: 6 }} />
+        <a href={photo} target="_blank" rel="noreferrer" title="View punch selfie" style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
+          <img src={photo} alt={`${label} photo`} width={20} height={20} loading="lazy" referrerPolicy="no-referrer" style={{ objectFit: "cover", borderRadius: 3, border: "1px solid #cbd5e1" }} />
         </a>
       )}
     </div>
@@ -146,11 +183,11 @@ export function AttendanceBreaks({ record }) {
 export function AttendancePunchDetails({ record }) {
   const mode = attendanceModeLabel(record.attendanceMode);
   return (
-    <>
-      {mode && <div>Current attendance mode · {mode}</div>}
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "4px 0" }}>
+      {mode && <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Attendance mode · <strong>{mode}</strong></div>}
       <AttendancePunch record={record} direction="in" showTime />
       <AttendancePunch record={record} direction="out" showTime />
       <AttendanceBreaks record={record} />
-    </>
+    </div>
   );
 }

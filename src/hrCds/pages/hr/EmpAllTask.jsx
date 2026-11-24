@@ -5,6 +5,7 @@ import API_URL from "../../../config";
 import { useNavigate, useParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { downloadBackendReport } from '../../../utils/exportUtils';
 import "./EmpAllTask.css";
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../../components/TaskReminderControl';
 import { getCurrentUserId, getStoredUser, loadPagePermission, getUserPageScope } from "../../../utils/pageAccess";
@@ -2613,6 +2614,10 @@ const TaskDetails = () => {
   }, [filteredUsers, users, systemStats, overallStats, jobRoleMap, departmentMap, showSnackbar]);
 
   const handleExport = handleExportPDF;
+
+  const handleExportExcel = useCallback(() => {
+    downloadBackendReport('/export-reports/tasks?type=all&format=xlsx', `Company_All_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }, []);
 
   const renderDeptHeaderIcon = (name) => {
     const lower = String(name || '').toLowerCase();
@@ -5391,6 +5396,16 @@ const TaskDetails = () => {
             onClick={() => navigate('/ciisUser/admin-task-create')}
           >
             <FiPlus size={16} /> Create Task
+          </button>
+          <button
+            type="button"
+            className="btn-outline"
+            style={{ borderColor: '#10b981', color: '#059669', background: '#ffffff', fontWeight: 600 }}
+            onClick={handleExportExcel}
+            disabled={usersLoading}
+            title={usersLoading ? "Employee data is loading..." : "Export all tasks to Excel spreadsheet (.xlsx)"}
+          >
+            <FiDownload size={16} /> {usersLoading ? "Loading..." : "Export Excel"}
           </button>
           <button
             type="button"

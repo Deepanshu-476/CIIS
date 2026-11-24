@@ -2170,7 +2170,7 @@ const MyTaskManagement = () => {
             <button
               className="MyTaskManagement-manage-groups-btn"
               onClick={() => {
-                downloadBackendReport('/api/export-reports/tasks?type=self&format=xlsx', `My_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                downloadBackendReport('/export-reports/tasks?type=self&format=xlsx', `My_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
               }}
               title="Export My Tasks to Excel (.xlsx)"
               style={{ background: '#10B981', color: '#fff', border: 'none' }}

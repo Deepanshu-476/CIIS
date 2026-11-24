@@ -700,6 +700,7 @@ const CompanyAllTaskTasks = () => {
 
   // Additional Tabs State: Attendance
   const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [holidaysList, setHolidaysList] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
   const [performanceMetrics, setPerformanceMetrics] = useState(null);
@@ -709,6 +710,36 @@ const CompanyAllTaskTasks = () => {
   const [selectedDayRecord, setSelectedDayRecord] = useState(null);
   const [attViewMode, setAttViewMode] = useState("calendar"); // "calendar" | "table"
   const [attFilter, setAttFilter] = useState("all");
+  // A date range supplied by the Company All Task page opens Performance in
+  // its matching custom window. Once a reviewer selects a timeframe button,
+  // that explicit choice must win over the URL range.
+  const [perfTimeframe, setPerfTimeframe] = useState(() => (
+    initialStartDate || initialEndDate ? "custom" : "month"
+  )); // "custom" | "today" | "week" | "month" | "sixMonths" | "overall"
+  const [perfLoading, setPerfLoading] = useState(false);
+  const [perfData, setPerfData] = useState({
+    tasks: [],
+    stats: null,
+    workSummary: null,
+    performanceMetrics: null,
+  });
+
+  // This detail page stays mounted when the Company All Task list changes only
+  // its query string. Keep the local date range in sync with the URL so the
+  // task list and the Performance tab never keep showing the previous range.
+  const dateRangeQueryKey = `${searchParams.get("startDate") || ""}|${searchParams.get("endDate") || ""}`;
+  useEffect(() => {
+    const nextStartDate = searchParams.get("startDate") || "";
+    const nextEndDate = searchParams.get("endDate") || "";
+
+    setStartDate((current) => (current === nextStartDate ? current : nextStartDate));
+    setEndDate((current) => (current === nextEndDate ? current : nextEndDate));
+    setPerfTimeframe((current) => {
+      if (nextStartDate || nextEndDate) return "custom";
+      return current === "custom" ? "month" : current;
+    });
+    setPage(1);
+  }, [dateRangeQueryKey, searchParams]);
 
   // Retained only for safe cleanup of old document-preview state. The Documents
   // tab is intentionally not exposed on the Company All Task page.
@@ -794,6 +825,7 @@ const CompanyAllTaskTasks = () => {
   const tasksRef = useRef(tasks);
   const employeeRef = useRef(employee);
   const taskDetailsByIdRef = useRef(taskDetailsById);
+  const perfCacheRef = useRef({});
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -806,6 +838,40 @@ const CompanyAllTaskTasks = () => {
   useEffect(() => {
     taskDetailsByIdRef.current = taskDetailsById;
   }, [taskDetailsById]);
+
+  const employeeName = resolveDisplayString(employee?.name, "—");
+  const employeeRoleCandidates = [
+    employee?.jobRoleName,
+    employee?.jobRole,
+    employee?.role,
+    employee?.companyRole,
+  ];
+  let employeeRole = "—";
+  for (const candidate of employeeRoleCandidates) {
+    const resolved = resolveDisplayString(candidate, "");
+    if (resolved && resolved !== "—") {
+      employeeRole = resolved;
+      break;
+    }
+  }
+
+  const employeeDeptCandidates = [
+    employee?.departmentName,
+    employee?.department?.name,
+    employee?.department?.departmentName,
+    employee?.department,
+  ];
+  let employeeDept = "—";
+  for (const candidate of employeeDeptCandidates) {
+    const resolved = resolveDisplayString(candidate, "");
+    if (resolved && resolved !== "—") {
+      employeeDept = resolved;
+      break;
+    }
+  }
+  const employeeEmail = typeof employee?.email === "string" ? employee.email : "";
+  const employeePhone = typeof employee?.phone === "string" ? employee.phone : (typeof employee?.mobile === "string" ? employee.mobile : "");
+
 
   useEffect(() => {
     if (effectiveUserId) return;
@@ -999,13 +1065,21 @@ const CompanyAllTaskTasks = () => {
     setAttendanceError("");
     try {
       const d = targetDate instanceof Date ? targetDate : calDate;
-      const res = await axios.get(`/attendance/user/${effectiveUserId}`, {
-        params: {
-          month: d.getMonth(),
-          year: d.getFullYear(),
-        }
-      });
-      const records = res.data?.data || [];
+      const [res, holRes] = await Promise.allSettled([
+        axios.get(`/attendance/user/${effectiveUserId}`, {
+          params: {
+            month: d.getMonth(),
+            year: d.getFullYear(),
+          }
+        }),
+        axios.get("/holidays")
+      ]);
+
+      const records = res.status === "fulfilled" ? (res.value.data?.data || []) : [];
+      const fetchedHolidays = holRes.status === "fulfilled" ? (holRes.value.data?.holidays || []) : [];
+      if (fetchedHolidays.length > 0) {
+        setHolidaysList(fetchedHolidays);
+      }
       setAttendanceRecords(records);
 
       // Select today's record by default if available in this month
@@ -1022,6 +1096,88 @@ const CompanyAllTaskTasks = () => {
       setAttendanceLoading(false);
     }
   }, [effectiveUserId, calDate]);
+
+  // Fetch Performance Dataset for Selected Timeframe (Today, Week, Month, 6 Months, Overall)
+  const fetchPerfDataset = useCallback(async (tf, selectedRange = {}) => {
+    if (!effectiveUserId) return;
+    const rangeStart = selectedRange.startDate || "";
+    const rangeEnd = selectedRange.endDate || "";
+    // A performance cache must be scoped by the actual evaluation window.
+    // Otherwise a previously opened monthly view can be shown for a custom URL range.
+    const cacheKey = `${tf}:${rangeStart}:${rangeEnd}`;
+    // Instant switch from local cache if previously loaded
+    if (perfCacheRef.current[cacheKey]) {
+      setPerfData(perfCacheRef.current[cacheKey]);
+    }
+    setPerfLoading(true);
+    try {
+      const now = new Date();
+      const todayDateStr = getDateInputValue();
+      let sDate = undefined;
+      let eDate = undefined;
+
+      if (tf === "custom") {
+        sDate = rangeStart || undefined;
+        eDate = rangeEnd || undefined;
+      } else if (tf === "today") {
+        sDate = todayDateStr;
+        eDate = todayDateStr;
+      } else if (tf === "week") {
+        const day = now.getDay();
+        const diff = day === 0 ? 6 : day - 1;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - diff);
+        sDate = monday.toISOString().split("T")[0];
+        eDate = todayDateStr;
+      } else if (tf === "month") {
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        sDate = firstDay.toISOString().split("T")[0];
+        eDate = todayDateStr;
+      } else if (tf === "sixMonths") {
+        const sixM = new Date(now);
+        sixM.setMonth(now.getMonth() - 6);
+        sDate = sixM.toISOString().split("T")[0];
+        eDate = todayDateStr;
+      }
+
+      const params = {
+        all: "true",
+        export: "true",
+        limit: 2500,
+        period: tf === "today" ? "today" : (sDate || eDate ? "custom" : "all"),
+        startDate: sDate,
+        endDate: eDate,
+        fromDate: sDate,
+        toDate: eDate,
+      };
+
+      const res = await axios.get(`/task/user/${effectiveUserId}/all-tasks`, { params });
+      const data = res.data || {};
+      const apiTasks = Array.isArray(data.tasks) ? data.tasks : [];
+      const apiStats = data.stats || data.statusCounts;
+
+      const newDataset = {
+        tasks: apiTasks,
+        stats: apiStats ? {
+          total: Number(apiStats.total?.count ?? apiStats.total ?? apiTasks.length),
+          completed: Number(apiStats.completed?.count ?? apiStats.completed ?? 0),
+          inProgress: Number(apiStats.inProgress?.count ?? apiStats.inProgress ?? apiStats['in-progress']?.count ?? apiStats['in-progress'] ?? 0),
+          pending: Number(apiStats.pending?.count ?? apiStats.pending ?? 0),
+          overdue: Number(apiStats.overdue?.count ?? apiStats.overdue ?? 0),
+          onhold: Number(apiStats.onhold?.count ?? apiStats.onhold ?? apiStats.onHold?.count ?? apiStats.onHold ?? 0),
+        } : countStats(apiTasks),
+        workSummary: data.workSummary || null,
+        performanceMetrics: data.performance || null,
+      };
+
+      perfCacheRef.current[cacheKey] = newDataset;
+      setPerfData(newDataset);
+    } catch (err) {
+      console.error("Failed to fetch performance dataset for timeframe:", tf, err);
+    } finally {
+      setPerfLoading(false);
+    }
+  }, [effectiveUserId]);
 
   // Fetch User's Uploaded Documents (Read-only view)
   const fetchDocuments = useCallback(async () => {
@@ -1222,6 +1378,18 @@ const CompanyAllTaskTasks = () => {
       fetchAttendance();
     }
   }, [attendanceRecords.length, fetchAttendance]);
+
+  useEffect(() => {
+    if (activeTab === "performance") {
+      // Keep performance aligned with the date range that opened/filters this employee page.
+      // The task list already honours these values, so using a separate monthly window here
+      // produced conflicting totals and scores.
+      fetchPerfDataset(
+        perfTimeframe,
+        { startDate, endDate }
+      );
+    }
+  }, [activeTab, perfTimeframe, startDate, endDate, fetchPerfDataset]);
 
   const fetchTaskDetails = useCallback(async (task, activityOnly = false) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
@@ -2053,16 +2221,6 @@ const CompanyAllTaskTasks = () => {
     return points.length ? Math.round(points.reduce((sum, value) => sum + value, 0) / points.length) : null;
   }, [attendanceRecords]);
 
-  const productivityScore = useMemo(() => {
-    const inputs = [
-      { value: completionRate, weight: 50 },
-      ...(Number.isFinite(onTimeRate) ? [{ value: onTimeRate, weight: 30 }] : []),
-      ...(Number.isFinite(attendanceReliability) ? [{ value: attendanceReliability, weight: 20 }] : []),
-    ];
-    const totalWeight = inputs.reduce((sum, input) => sum + input.weight, 0);
-    return totalWeight ? Math.round(inputs.reduce((sum, input) => sum + input.value * input.weight, 0) / totalWeight) : 0;
-  }, [attendanceReliability, completionRate, onTimeRate]);
-
   const personalTasksCount = useMemo(() => {
     if (typeof stats.personal === "number" && stats.personal >= 0) return stats.personal;
     return tasks.filter((t) => {
@@ -2225,11 +2383,25 @@ const CompanyAllTaskTasks = () => {
       const dayOfWeek = new Date(year, month, d).getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
+      // Check if this date is a company holiday
+      const holidayFromList = holidaysList.find((h) => {
+        if (!h.date) return false;
+        const hKey = getDateInputValue(new Date(h.date));
+        return hKey === dateKey;
+      });
+
       const recordStatus = String(record?.status || "").toUpperCase();
       const hasAttendanceRecord = Boolean(record) && !["", "NO RECORD", "UPCOMING"].includes(recordStatus);
+      const isLateArrival = Boolean(record?.lateBy && !["00:00:00", "00:00", "0", "--", ""].includes(String(record.lateBy).trim()));
       let status = "NO RECORD";
       if (hasAttendanceRecord) {
-        status = recordStatus;
+        if (recordStatus === "PRESENT" && isLateArrival) {
+          status = "LATE";
+        } else {
+          status = recordStatus;
+        }
+      } else if (holidayFromList) {
+        status = "HOLIDAY";
       } else if (isWeekend) {
         status = "WEEKEND";
       } else if (dateKey < todayStr) {
@@ -2240,16 +2412,30 @@ const CompanyAllTaskTasks = () => {
         status = "UPCOMING";
       }
 
+      // If a holiday is registered on this date and user has no clock punch, ensure status is HOLIDAY
+      if (holidayFromList && !record?.inTime && !record?.outTime) {
+        status = "HOLIDAY";
+      }
+
+      const holidayName = record?.holidayName || holidayFromList?.title || (status === "HOLIDAY" ? (record?.notes || "Company Holiday") : null);
+
+      const resolvedRecord = record ? {
+        ...record,
+        status: (String(record.status).toUpperCase() === "PRESENT" && isLateArrival) ? "LATE" : record.status,
+        holidayName
+      } : (status === "HOLIDAY" ? { date: dateKey, status: "HOLIDAY", holidayName, isGenerated: true } : null);
+
       days.push({
         day: d,
         dateKey,
-        record,
+        record: resolvedRecord,
         status,
+        holidayName,
         isToday: dateKey === todayStr,
       });
     }
     return days;
-  }, [attendanceRecords, calDate, todayStr]);
+  }, [attendanceRecords, calDate, todayStr, holidaysList]);
 
   const handlePrevMonth = () => {
     const nextDate = new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1);
@@ -2269,27 +2455,39 @@ const CompanyAllTaskTasks = () => {
     fetchAttendance(today);
   };
 
-  // Monthly Attendance Metrics
+  // Monthly Attendance Metrics (Derived dynamically from calendar days so no past unpunched day is missed)
   const monthStats = useMemo(() => {
     let present = 0;
     let late = 0;
     let halfday = 0;
     let absent = 0;
     let leave = 0;
+    let holiday = 0;
+    let weekend = 0;
 
-    attendanceRecords.forEach((r) => {
-      const s = String(r.status || "").toUpperCase();
+    const validDays = calendarDays.filter((c) => c.day !== null);
+
+    validDays.forEach((c) => {
+      const s = String(c.status || "").toUpperCase();
       if (s === "PRESENT") present++;
       else if (s === "LATE") late++;
       else if (s === "HALF DAY" || s === "HALFDAY") halfday++;
       else if (s === "ABSENT") absent++;
-      else if (s === "LEAVE" || s === "HOLIDAY") leave++;
+      else if (s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE")) leave++;
+      else if (s === "HOLIDAY") holiday++;
+      else if (s === "WEEKEND") weekend++;
     });
 
     const workingDays = present + late + halfday + absent;
-    const rate = workingDays > 0
+    const rawRate = workingDays > 0
       ? Math.round(((present + late + (halfday * 0.5)) / workingDays) * 100)
-      : (attendanceRecords.length > 0 ? 100 : 0);
+      : (validDays.some((c) => c.dateKey && c.dateKey <= todayStr && c.status !== "WEEKEND" && c.status !== "HOLIDAY") ? 0 : 100);
+
+    // Discipline & Punctuality Score:
+    // Present = 100%, Late = 70% (30% penalty for late check-in), HalfDay = 50%, Absent = 0%
+    const disciplineScore = workingDays > 0
+      ? Math.round(((present * 1.0 + late * 0.70 + (halfday * 0.5)) / workingDays) * 100)
+      : (validDays.some((c) => c.dateKey && c.dateKey <= todayStr && c.status !== "WEEKEND" && c.status !== "HOLIDAY") ? 0 : 100);
 
     return {
       present,
@@ -2297,54 +2495,993 @@ const CompanyAllTaskTasks = () => {
       halfday,
       absent,
       leave,
+      holiday,
+      weekend,
       totalWorking: workingDays,
-      attendanceRate: rate,
+      attendanceRate: Math.min(100, Math.max(0, rawRate)),
+      disciplineScore: Math.min(100, Math.max(0, disciplineScore)),
     };
-  }, [attendanceRecords]);
+  }, [calendarDays, todayStr]);
+
+  // Multi-Timeframe Comprehensive Performance Evaluation Engine
+  const detailedPerformance = useMemo(() => {
+    const now = new Date();
+    const effectivePerfTimeframe = perfTimeframe;
+
+    // Use timeframe dataset if available (even when 0 tasks), otherwise fallback to general tasks
+    const isPerfLoaded = perfData.stats !== null || (Array.isArray(perfData.tasks) && perfData.tasks.length > 0);
+    const activeTaskList = isPerfLoaded ? (perfData.tasks || []) : tasks;
+    const activeStats = isPerfLoaded && perfData.stats ? perfData.stats : (isPerfLoaded ? countStats(perfData.tasks) : stats);
+    const activeMetrics = perfData.performanceMetrics || performanceMetrics;
+    // Do not mix a selected-period score with work hours from the general task view.
+    const activeWorkSummary = isPerfLoaded ? perfData.workSummary : workSummary;
+
+    const totalTasks = activeStats?.total !== undefined ? Number(activeStats.total) : activeTaskList.length;
+    const completedTasks = activeStats?.completed !== undefined ? Number(activeStats.completed) : activeTaskList.filter((t) => String(t.status || "").toLowerCase() === "completed").length;
+    const inProgressTasks = activeStats?.inProgress !== undefined ? Number(activeStats.inProgress) : activeTaskList.filter((t) => String(t.status || "").toLowerCase().includes("progress")).length;
+    const overdueTasks = activeStats?.overdue !== undefined ? Number(activeStats.overdue) : activeTaskList.filter((t) => String(t.status || "").toLowerCase() === "overdue").length;
+    const onHoldTasks = activeStats?.onhold !== undefined ? Number(activeStats.onhold) : activeTaskList.filter((t) => ["onhold", "on hold", "on-hold"].includes(String(t.status || "").toLowerCase())).length;
+    const pendingTasks = activeStats?.pending !== undefined ? Number(activeStats.pending) : Math.max(0, totalTasks - completedTasks - inProgressTasks - overdueTasks);
+
+    // 1. Task Completion Rate (0-100)
+    const taskCompRate = totalTasks > 0 ? Math.min(100, Math.round((completedTasks / totalTasks) * 100)) : 0;
+    const taskCompPts = Number((taskCompRate * 0.40).toFixed(1));
+
+    // 2. On-Time Delivery Rate (0-100)
+    let onTimeVal = 0;
+    if (totalTasks === 0) {
+      onTimeVal = 0;
+    } else if (Number.isFinite(activeMetrics?.onTimeRate)) {
+      onTimeVal = activeMetrics.onTimeRate;
+    } else if (overdueTasks > 0) {
+      onTimeVal = Math.max(0, 100 - Math.round((overdueTasks / totalTasks) * 100));
+    } else {
+      const completedWithDueDate = activeTaskList.filter((t) => String(t.status || "").toLowerCase() === "completed" && (t.dueDate || t.dueDateTime));
+      if (completedWithDueDate.length > 0) {
+        const completedOnTime = completedWithDueDate.filter((t) => {
+          const due = new Date(t.dueDate || t.dueDateTime);
+          const comp = new Date(t.completionDate || t.updatedAt || t.createdAt);
+          return !isNaN(due.getTime()) && !isNaN(comp.getTime()) && comp <= due;
+        });
+        onTimeVal = Math.round((completedOnTime.length / completedWithDueDate.length) * 100);
+      } else {
+        // There is no due-date evidence for this window, so do not award a perfect SLA score.
+        onTimeVal = 0;
+      }
+    }
+    const onTimePts = Number((onTimeVal * 0.25).toFixed(1));
+
+    // 3. Attendance Slicing based on timeframe
+    let presentCount = 0;
+    let lateCount = 0;
+    let absentCount = 0;
+    let halfdayCount = 0;
+    let totalWorkingDays = 0;
+
+    const currentDayOfWeek = now.getDay();
+    const diffToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+    const mondayThisWeek = new Date(now);
+    mondayThisWeek.setDate(now.getDate() - diffToMonday);
+    mondayThisWeek.setHours(0, 0, 0, 0);
+
+    if (effectivePerfTimeframe === "today") {
+      const todayCell = calendarDays.find((c) => c.dateKey === todayStr) ||
+        attendanceRecords.find((r) => r.date && r.date.split("T")[0] === todayStr);
+      const s = String(todayCell?.status || "").toUpperCase();
+      totalWorkingDays = 1;
+      if (s === "PRESENT") presentCount = 1;
+      else if (s === "LATE") lateCount = 1;
+      else if (s === "HALF DAY" || s === "HALFDAY") halfdayCount = 1;
+      else if (s === "ABSENT") absentCount = 1;
+      else {
+        if (todayCell?.inTime) {
+          presentCount = 1;
+          if (todayCell.lateBy) lateCount = 1;
+        }
+        // A missing record is unknown attendance, not an automatic full-day present.
+        if (!todayCell?.inTime) totalWorkingDays = 0;
+      }
+    } else if (effectivePerfTimeframe === "week" || effectivePerfTimeframe === "custom") {
+      const customRangeStart = startDate ? new Date(`${startDate}T00:00:00`) : null;
+      const customRangeEnd = endDate ? new Date(`${endDate}T23:59:59.999`) : null;
+      const weekCells = calendarDays.filter((c) => {
+        if (!c.dateKey) return false;
+        const d = new Date(c.dateKey);
+        if (effectivePerfTimeframe === "custom") {
+          return (!customRangeStart || d >= customRangeStart) && (!customRangeEnd || d <= customRangeEnd);
+        }
+        return d >= mondayThisWeek && d <= now;
+      });
+      weekCells.forEach((c) => {
+        const s = String(c.status || "").toUpperCase();
+        if (s === "PRESENT") presentCount++;
+        else if (s === "LATE") lateCount++;
+        else if (s === "HALF DAY" || s === "HALFDAY") halfdayCount++;
+        else if (s === "ABSENT") absentCount++;
+      });
+      totalWorkingDays = presentCount + lateCount + halfdayCount + absentCount;
+    } else if (effectivePerfTimeframe === "month") {
+      // Monthly evaluation can use the loaded monthly attendance records.
+      presentCount = monthStats.present || 0;
+      lateCount = monthStats.late || 0;
+      absentCount = monthStats.absent || 0;
+      halfdayCount = monthStats.halfday || 0;
+      totalWorkingDays = monthStats.totalWorking || (presentCount + lateCount + halfdayCount + absentCount);
+    } else {
+      // Do not blend a current-month attendance score into 6-month/overall task data.
+      // Those periods need period-scoped attendance from the API before they can earn points.
+      totalWorkingDays = 0;
+    }
+
+    const disciplineRate = totalWorkingDays > 0
+      ? Math.round(((presentCount * 1.0 + lateCount * 0.70 + halfdayCount * 0.50) / totalWorkingDays) * 100)
+      : 0;
+    const attPts = Number((disciplineRate * 0.20).toFixed(1));
+
+    // 4. Time Tracking / Utilization Rate (0-100)
+    let timeUtilRate = 0;
+    if (activeWorkSummary?.productivity) {
+      const p = parseInt(String(activeWorkSummary.productivity).replace('%', ''), 10);
+      if (!isNaN(p)) timeUtilRate = Math.min(100, Math.max(0, p));
+    } else if (activeWorkSummary?.trackedTaskSeconds && activeWorkSummary?.totalClockedSeconds && activeWorkSummary.totalClockedSeconds > 0) {
+      timeUtilRate = Math.min(100, Math.round((activeWorkSummary.trackedTaskSeconds / activeWorkSummary.totalClockedSeconds) * 100));
+    } else if (totalTasks > 0) {
+      timeUtilRate = taskCompRate;
+    } else {
+      timeUtilRate = 0;
+    }
+    const timeUtilPts = Number((timeUtilRate * 0.15).toFixed(1));
+
+    // 5. Overdue Penalty
+    const overdueRatio = totalTasks > 0 ? (overdueTasks / totalTasks) : 0;
+    const overduePenalty = overdueRatio > 0 ? Math.min(10, Math.round(overdueRatio * 20)) : 0;
+
+    // Final Aggregate Score (0 to 100)
+    const rawTotal = taskCompPts + onTimePts + attPts + timeUtilPts - overduePenalty;
+    const finalScore = Math.min(100, Math.max(0, Math.round(rawTotal)));
+
+    // Rating tier and grade
+    let tier = "Needs Improvement";
+    let grade = "C";
+    let tierColor = "red";
+    if (finalScore >= 90) {
+      tier = "Top Performer";
+      grade = "A+";
+      tierColor = "purple";
+    } else if (finalScore >= 75) {
+      tier = "Strong Performer";
+      grade = "A";
+      tierColor = "emerald";
+    } else if (finalScore >= 60) {
+      tier = "Satisfactory";
+      grade = "B";
+      tierColor = "amber";
+    }
+
+    // Trajectory Status
+    let trajectory = "Consistent Delivery";
+    if (finalScore >= 85) trajectory = "High & Upward Trajectory 🚀";
+    else if (finalScore >= 70) trajectory = "Consistent Output 📈";
+    else if (finalScore >= 50) trajectory = "Moderate / Attention Needed ⚠️";
+    else trajectory = "Immediate Support Required 🛑";
+
+    // Dynamic Strengths
+    const strengths = [];
+    if (onTimeVal >= 80) strengths.push({ title: "High Deadline Reliability", desc: `${onTimeVal}% on-time completion on assigned deliverables.` });
+    if (taskCompRate >= 70) strengths.push({ title: "Strong Task Throughput", desc: `${completedTasks} tasks resolved successfully in this window.` });
+    if (absentCount === 0 && lateCount === 0 && presentCount > 0) {
+      strengths.push({ title: "100% Punctuality & Zero Absents", desc: `Perfect attendance with 0 late arrivals and 0 unexcused absences.` });
+    } else if (absentCount === 0 && presentCount > 0) {
+      strengths.push({ title: "Full Attendance Consistency", desc: `100% attendance recorded across all scheduled working days.` });
+    }
+    if (strengths.length === 0) {
+      strengths.push({ title: "Steady Work Output", desc: `Active task progression and logged time updates recorded.` });
+    }
+
+    // Dynamic Improvements & Focus Areas
+    const improvements = [];
+    if (overdueTasks > 0) {
+      improvements.push({ title: "Resolve Overdue Tasks", desc: `${overdueTasks} overdue task(s) past deadline causing -${overduePenalty} pts deduction. Priority resolution required.`, isWarning: true });
+    }
+    if (lateCount > 0) {
+      improvements.push({ title: "Punctuality Improvement", desc: `${lateCount} late arrival(s) incurred -30% penalty per incident. Timely Clock In advised.`, isWarning: true });
+    }
+    if (absentCount > 0) {
+      improvements.push({ title: "Unexcused Absence Alert", desc: `${absentCount} day(s) without Clock In logged. Reduces discipline reliability score to ${disciplineRate}%.`, isWarning: true });
+    }
+    if (halfdayCount > 0) {
+      improvements.push({ title: "Half-Day Shifts Tracked", desc: `${halfdayCount} half-day session(s) logged (50% discipline credit). Ensure full shift coverage when possible.`, isWarning: false });
+    }
+    if (inProgressTasks > 3) {
+      improvements.push({ title: "Active WIP Overload", desc: `${inProgressTasks} tasks simultaneously in-progress. Focus on finishing active tasks first.`, isWarning: false });
+    }
+    if (improvements.length === 0) {
+      improvements.push({ title: "Optimal Execution Standards", desc: `All key performance indicators within benchmark SLA thresholds.`, isWarning: false });
+    }
+
+    // Dynamic Performance Narrative Synthesis
+    const empDisplay = employeeName || "The employee";
+    let velocityText = "";
+    if (taskCompRate >= 85) {
+      velocityText = `${empDisplay} demonstrated outstanding execution velocity with a ${taskCompRate}% completion rate (${completedTasks} out of ${totalTasks} tasks resolved). Work streams are delivered promptly with minimal backlog.`;
+    } else if (taskCompRate >= 60) {
+      velocityText = `${empDisplay} maintains a steady productivity output at ${taskCompRate}% completion (${completedTasks} of ${totalTasks} tasks completed), with ${pendingTasks + inProgressTasks} active deliverables progressing in the pipeline.`;
+    } else {
+      velocityText = `${empDisplay}'s task completion is at ${taskCompRate}% (${completedTasks} of ${totalTasks} tasks), indicating that workflow support or task prioritization may be beneficial.`;
+    }
+
+    let qualityText = "";
+    if (onTimeVal >= 85) {
+      qualityText = `Deliverable timeliness is exemplary at ${onTimeVal}%, showing robust deadline discipline and dependable delivery.`;
+    } else if (onTimeVal >= 70) {
+      qualityText = `Adherence to milestone deadlines is acceptable at ${onTimeVal}%, with room for tighter delivery scheduling.`;
+    } else {
+      qualityText = `On-time delivery rate is ${onTimeVal}%, highlighting deadline slippage that requires closer calendar monitoring.`;
+    }
+
+    let attText = "";
+    const halfdayNote = halfdayCount > 0 ? `, ${halfdayCount} half-day session(s)` : "";
+    if (disciplineRate >= 90) {
+      attText = `Attendance discipline is stellar at ${disciplineRate}% (${presentCount} Clock In shifts${halfdayNote}, ${lateCount} late arrivals, ${absentCount} absences), demonstrating high dependability.`;
+    } else if (disciplineRate >= 75) {
+      attText = `Attendance discipline is healthy at ${disciplineRate}% (${presentCount} Clock In shifts${halfdayNote}, ${lateCount} late arrivals, ${absentCount} absences). Consistency during morning shift starts is recommended.`;
+    } else {
+      attText = `Attendance discipline is flagged at ${disciplineRate}% (${absentCount} unclocked absences, ${lateCount} late arrivals${halfdayNote}), which impacts team operational continuity.`;
+    }
+
+    const overdueNote = overdueTasks > 0
+      ? ` Immediate management action is recommended to resolve ${overdueTasks} overdue deliverable(s) past SLA deadline.`
+      : ` Zero overdue deliverables recorded, maintaining pristine SLA compliance.`;
+
+    const executiveSummary = `${empDisplay} is evaluated at a composite performance score of ${finalScore}/100, ranking in the "${tier}" tier with a "${trajectory}". ${velocityText} ${qualityText} ${attText}${overdueNote}`;
+
+    const timeframeLabels = {
+      today: "Today (Daily Report)",
+      week: "This Week (Weekly Report)",
+      month: "This Month (Monthly Report)",
+      sixMonths: "Last 6 Months (Macro Trend)",
+      overall: "Overall (Tenure Career)",
+      custom: startDate || endDate
+        ? `Selected Range (${startDate || "Start"} to ${endDate || "Today"})`
+        : "Selected Date Range",
+    };
+
+    return {
+      timeframe: effectivePerfTimeframe,
+      timeframeLabel: timeframeLabels[effectivePerfTimeframe] || "Monthly Report",
+      total: totalTasks,
+      completed: completedTasks,
+      inProgress: inProgressTasks,
+      pending: pendingTasks,
+      overdue: overdueTasks,
+      onHold: onHoldTasks,
+      completionRate: taskCompRate,
+      onTimeRate: onTimeVal,
+      attendance: {
+        present: presentCount,
+        late: lateCount,
+        absent: absentCount,
+        halfday: halfdayCount,
+        totalWorking: totalWorkingDays,
+        disciplineRate,
+      },
+      timeUtilRate,
+      trackedHoursLabel: activeWorkSummary?.trackedTaskLabel || "0m",
+      finalScore,
+      tier,
+      grade,
+      tierColor,
+      trajectory,
+      strengths,
+      improvements,
+      narrative: {
+        executiveSummary,
+        velocityText,
+        qualityText,
+        attText,
+        overdueNote,
+      },
+      pillars: {
+        taskCompletion: { rate: taskCompRate, weight: 40, points: taskCompPts, maxPoints: 40 },
+        onTimeDelivery: { rate: onTimeVal, weight: 25, points: onTimePts, maxPoints: 25 },
+        attendance: {
+          rate: disciplineRate,
+          weight: 20,
+          points: attPts,
+          maxPoints: 20,
+          present: presentCount,
+          late: lateCount,
+          absent: absentCount,
+          halfday: halfdayCount,
+          workingDays: totalWorkingDays,
+        },
+        timeUtilization: { rate: timeUtilRate, weight: 15, points: timeUtilPts, maxPoints: 15 },
+        overduePenalty: { points: overduePenalty },
+      },
+    };
+  }, [perfTimeframe, perfData, tasks, stats, performanceMetrics, workSummary, onTimeRate, calendarDays, attendanceRecords, monthStats, todayStr, employeeName, startDate, endDate]);
+
+  // Download Official Performance Evaluation Dossier (Executive Multi-Pillar Assessment)
+  const handleDownloadPerformanceReport = () => {
+    try {
+      // One-page executive report. Keep this separate from the legacy export below so
+      // the download always produces a concise, printable employee assessment.
+      {
+        const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 34;
+        const contentWidth = pageWidth - (margin * 2);
+        const todayFormatted = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        const employeeDisplayName = employeeName || employee?.name || "Employee";
+        const employeeRole = employee?.designation || employee?.role || "Employee";
+        const employeeDept = employee?.department || "Not specified";
+        const score = detailedPerformance.finalScore;
+        const scoreColor = score >= 75 ? [5, 150, 105] : score >= 60 ? [217, 119, 6] : [220, 38, 38];
+        const softScoreColor = score >= 75 ? [236, 253, 245] : score >= 60 ? [255, 251, 235] : [254, 242, 242];
+        const safeText = (value, fallback = "Not available") => String(value || fallback)
+          .replace(/[\u2013\u2014]/g, "-")
+          .replace(/[^\x20-\x7E]/g, "");
+        const drawLabel = (text, x, y) => {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(text.toUpperCase(), x, y);
+        };
+        const drawMetric = (x, y, width, label, value, accent) => {
+          doc.setFillColor(248, 250, 252);
+          doc.roundedRect(x, y, width, 48, 6, 6, "F");
+          doc.setFillColor(accent[0], accent[1], accent[2]);
+          doc.roundedRect(x, y, 4, 48, 2, 2, "F");
+          drawLabel(label, x + 13, y + 17);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(16);
+          doc.setTextColor(15, 23, 42);
+          doc.text(safeText(value, "0"), x + 13, y + 36);
+        };
+        const drawPillar = (x, y, label, rate, points, maximum, color) => {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.setTextColor(30, 41, 59);
+          doc.text(label, x, y);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(100, 116, 139);
+          doc.text(`${rate}%`, x + 178, y, { align: "right" });
+          doc.setFillColor(226, 232, 240);
+          doc.roundedRect(x, y + 8, 178, 6, 3, 3, "F");
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.roundedRect(x, y + 8, Math.max(0, Math.min(178, (rate / 100) * 178)), 6, 3, 3, "F");
+          doc.setFontSize(7.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(`${points}/${maximum} points`, x, y + 27);
+        };
+
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 100, "F");
+        doc.setFillColor(37, 99, 235);
+        doc.rect(0, 96, pageWidth, 4, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(19);
+        doc.setTextColor(255, 255, 255);
+        doc.text("EMPLOYEE PERFORMANCE REPORT", margin, 43);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(191, 219, 254);
+        doc.text("CIIS Network - Operational Performance Intelligence", margin, 61);
+        doc.setTextColor(226, 232, 240);
+        doc.setFontSize(8);
+        doc.text(`REPORTING WINDOW: ${safeText(detailedPerformance.timeframeLabel)}`, pageWidth - margin, 39, { align: "right" });
+        doc.text(`GENERATED: ${todayFormatted}`, pageWidth - margin, 57, { align: "right" });
+
+        const profileY = 122;
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(margin, profileY, contentWidth, 91, 8, 8, "F");
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(margin, profileY, contentWidth, 91, 8, 8, "S");
+        doc.setFillColor(37, 99, 235);
+        doc.circle(margin + 30, profileY + 32, 20, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(15);
+        doc.setTextColor(255, 255, 255);
+        doc.text(employeeDisplayName.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase() || "E", margin + 30, profileY + 37, { align: "center" });
+        doc.setFontSize(15);
+        doc.setTextColor(15, 23, 42);
+        doc.text(safeText(employeeDisplayName), margin + 62, profileY + 29);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`${safeText(employeeRole)}  |  ${safeText(employeeDept)}`, margin + 62, profileY + 46);
+        doc.text(`Evaluation window: ${safeText(detailedPerformance.timeframeLabel)}`, margin + 62, profileY + 65);
+        doc.setFillColor(softScoreColor[0], softScoreColor[1], softScoreColor[2]);
+        doc.roundedRect(pageWidth - margin - 132, profileY + 13, 112, 64, 8, 8, "F");
+        doc.setDrawColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+        doc.roundedRect(pageWidth - margin - 132, profileY + 13, 112, 64, 8, 8, "S");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(23);
+        doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+        doc.text(`${score}/100`, pageWidth - margin - 76, profileY + 43, { align: "center" });
+        doc.setFontSize(8.5);
+        doc.text(`Grade ${detailedPerformance.grade} - ${safeText(detailedPerformance.tier)}`, pageWidth - margin - 76, profileY + 61, { align: "center" });
+
+        const metricY = 231;
+        const metricGap = 9;
+        const metricWidth = (contentWidth - (metricGap * 3)) / 4;
+        drawMetric(margin, metricY, metricWidth, "Tasks evaluated", detailedPerformance.total, [37, 99, 235]);
+        drawMetric(margin + metricWidth + metricGap, metricY, metricWidth, "Completion", `${detailedPerformance.completionRate}%`, [16, 185, 129]);
+        drawMetric(margin + (metricWidth + metricGap) * 2, metricY, metricWidth, "On-time SLA", `${detailedPerformance.onTimeRate}%`, [14, 165, 233]);
+        drawMetric(margin + (metricWidth + metricGap) * 3, metricY, metricWidth, "Tracked time", detailedPerformance.trackedHoursLabel, [139, 92, 246]);
+
+        const lowerY = 302;
+        const leftWidth = 238;
+        const rightX = margin + leftWidth + 16;
+        const rightWidth = contentWidth - leftWidth - 16;
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(margin, lowerY, leftWidth, 265, 8, 8, "FD");
+        doc.roundedRect(rightX, lowerY, rightWidth, 265, 8, 8, "FD");
+        drawLabel("Weighted performance pillars", margin + 16, lowerY + 23);
+        drawPillar(margin + 16, lowerY + 48, "Task completion", detailedPerformance.completionRate, detailedPerformance.pillars.taskCompletion.points, 40, [16, 185, 129]);
+        drawPillar(margin + 16, lowerY + 89, "On-time delivery", detailedPerformance.onTimeRate, detailedPerformance.pillars.onTimeDelivery.points, 25, [37, 99, 235]);
+        drawPillar(margin + 16, lowerY + 130, "Attendance discipline", detailedPerformance.attendance.disciplineRate, detailedPerformance.pillars.attendance.points, 20, [139, 92, 246]);
+        drawPillar(margin + 16, lowerY + 171, "Time utilization", detailedPerformance.timeUtilRate, detailedPerformance.pillars.timeUtilization.points, 15, [217, 119, 6]);
+        if (detailedPerformance.pillars.overduePenalty.points > 0) {
+          doc.setFillColor(254, 242, 242);
+          doc.roundedRect(margin + 16, lowerY + 213, leftWidth - 32, 31, 5, 5, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(185, 28, 28);
+          doc.text(`SLA deduction: -${detailedPerformance.pillars.overduePenalty.points} points for ${detailedPerformance.overdue} overdue task(s)`, margin + 25, lowerY + 233);
+        } else {
+          doc.setFillColor(240, 253, 244);
+          doc.roundedRect(margin + 16, lowerY + 213, leftWidth - 32, 31, 5, 5, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(21, 128, 61);
+          doc.text("SLA standing: no overdue task penalty in this window", margin + 25, lowerY + 233);
+        }
+
+        drawLabel("Executive assessment", rightX + 16, lowerY + 23);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.2);
+        doc.setTextColor(51, 65, 85);
+        const primaryFocus = detailedPerformance.overdue > 0
+          ? `${detailedPerformance.overdue} overdue task(s) require immediate resolution.`
+          : detailedPerformance.pending > 0
+            ? `${detailedPerformance.pending} pending task(s) should be prioritized to improve throughput.`
+            : "No overdue tasks are recorded in this evaluation window.";
+        const executiveAssessment = `${employeeDisplayName} is rated ${safeText(detailedPerformance.tier)} with a score of ${score}/100. `
+          + `The employee completed ${detailedPerformance.completed} of ${detailedPerformance.total} tasks (${detailedPerformance.completionRate}%) and achieved ${detailedPerformance.onTimeRate}% on-time delivery. `
+          + primaryFocus;
+        const narrative = doc.splitTextToSize(executiveAssessment, rightWidth - 32);
+        doc.text(narrative.slice(0, 5), rightX + 16, lowerY + 45, { lineHeightFactor: 1.3 });
+        const statusY = lowerY + 126;
+        drawLabel("Task status", rightX + 16, statusY);
+        const statusEntries = [
+          ["Completed", detailedPerformance.completed, [16, 185, 129]],
+          ["In progress", detailedPerformance.inProgress, [37, 99, 235]],
+          ["Pending", detailedPerformance.pending, [217, 119, 6]],
+          ["Overdue", detailedPerformance.overdue, [220, 38, 38]],
+          ["On hold", detailedPerformance.onHold, [100, 116, 139]],
+        ];
+        statusEntries.forEach(([label, value, color], index) => {
+          const y = statusY + 20 + (index * 16);
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.circle(rightX + 20, y - 3, 3, "F");
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8.4);
+          doc.setTextColor(71, 85, 105);
+          doc.text(label, rightX + 30, y);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(15, 23, 42);
+          doc.text(String(value), rightX + rightWidth - 16, y, { align: "right" });
+        });
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(rightX + 16, lowerY + 247, rightWidth - 32, 1, 0, 0, "F");
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text("This assessment reflects available task, delivery, attendance and time-tracking evidence.", rightX + 16, lowerY + 260);
+
+        doc.setDrawColor(226, 232, 240);
+        doc.line(margin, pageHeight - 38, pageWidth - margin, pageHeight - 38);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text("CONFIDENTIAL - CIIS Network employee performance assessment", margin, pageHeight - 23);
+        doc.text("One-page executive summary", pageWidth - margin, pageHeight - 23, { align: "right" });
+        const sanitizedName = String(employeeDisplayName).replace(/[^a-zA-Z0-9]/g, "_");
+        doc.save(`Performance_Report_${sanitizedName}_${todayStr}.pdf`);
+        showToast("One-page performance report downloaded.", "success");
+        return;
+      }
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const usableWidth = pageWidth - 64; // 32pt margins
+      const leftMargin = 32;
+      const todayFormatted = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      const currentYear = new Date().getFullYear();
+
+      // =========================================================================
+      // PAGE 1: EXECUTIVE PERFORMANCE DASHBOARD & WEIGHTED SCORECARD
+      // =========================================================================
+
+      // 1. Top Header Banner (Corporate Dark Slate #0f172a with Royal Accent #2563eb)
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 68, "F");
+
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, 68, pageWidth, 3.5, "F");
+
+      // Brand Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.text("CIIS NETWORK · EXECUTIVE PERFORMANCE DOSSIER", leftMargin, 30);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text("CONFIDENTIAL & OFFICIAL PERFORMANCE AUDIT · ENTERPRISE WORKFORCE INTELLIGENCE", leftMargin, 46);
+
+      // Header Metadata (Right)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(226, 232, 240);
+      doc.text(`Window: ${detailedPerformance.timeframeLabel}`, pageWidth - leftMargin, 28, { align: "right" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Generated: ${todayFormatted}`, pageWidth - leftMargin, 42, { align: "right" });
+      doc.text(`Ref: CIIS-PERF-${currentYear}`, pageWidth - leftMargin, 55, { align: "right" });
+
+      // 2. Employee Profile & Composite Score Panel
+      const cardY = 82;
+      const cardHeight = 72;
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(leftMargin, cardY, usableWidth, cardHeight, 6, 6, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(leftMargin, cardY, usableWidth, cardHeight, 6, 6, "S");
+
+      // Profile details on left (strictly constrained width to avoid score overlap)
+      const maxTextW = usableWidth - 165;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(employeeName || "Employee"), leftMargin + 14, cardY + 22, { maxWidth: maxTextW });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Role: ${employeeRole}   ·   Department: ${employeeDept}`, leftMargin + 14, cardY + 38, { maxWidth: maxTextW });
+      doc.text(`Email: ${employeeEmail || "—"}   ·   Code: ${employee?.companyCode || "CIIS"}`, leftMargin + 14, cardY + 52, { maxWidth: maxTextW });
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Evaluation Model: Weighted Multi-Pillar Quantitative Performance Index", leftMargin + 14, cardY + 64, { maxWidth: maxTextW });
+
+      // Right Score Badge
+      const isHigh = detailedPerformance.finalScore >= 75;
+      const isMid = detailedPerformance.finalScore >= 60;
+      const scoreBg = isHigh ? [236, 253, 245] : isMid ? [254, 249, 195] : [254, 242, 242];
+      const scoreColor = isHigh ? [5, 150, 105] : isMid ? [217, 119, 6] : [220, 38, 38];
+      const scoreBorder = isHigh ? [167, 243, 208] : isMid ? [253, 230, 138] : [254, 202, 202];
+
+      const scoreBoxW = 135;
+      const scoreBoxX = pageWidth - leftMargin - scoreBoxW - 8;
+      doc.setFillColor(scoreBg[0], scoreBg[1], scoreBg[2]);
+      doc.roundedRect(scoreBoxX, cardY + 7, scoreBoxW, cardHeight - 14, 6, 6, "F");
+      doc.setDrawColor(scoreBorder[0], scoreBorder[1], scoreBorder[2]);
+      doc.roundedRect(scoreBoxX, cardY + 7, scoreBoxW, cardHeight - 14, 6, 6, "S");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(19);
+      doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+      doc.text(`${detailedPerformance.finalScore}/100`, scoreBoxX + (scoreBoxW / 2), cardY + 32, { align: "center" });
+
+      doc.setFontSize(8);
+      doc.text(`Grade ${detailedPerformance.grade} · ${detailedPerformance.tier}`, scoreBoxX + (scoreBoxW / 2), cardY + 48, { align: "center", maxWidth: scoreBoxW - 10 });
+
+      // 3. Section 1: Executive Diagnostic Synthesis & Narrative Box
+      let currentY = 166;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("1. EXECUTIVE DIAGNOSTIC SYNTHESIS & OPERATIONAL NARRATIVE", leftMargin, currentY);
+
+      currentY += 8;
+      const narrativeText = detailedPerformance.narrative?.executiveSummary || "Performance evaluation calculated across benchmarked SLA metrics.";
+      const narrativeLines = doc.splitTextToSize(narrativeText, usableWidth - 28);
+      const lineHeight = 11;
+      const narrativeBoxHeight = Math.max(40, narrativeLines.length * lineHeight + 16);
+
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(leftMargin, currentY, usableWidth, narrativeBoxHeight, 6, 6, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(leftMargin, currentY, usableWidth, narrativeBoxHeight, 6, 6, "S");
+
+      // Left blue vertical accent strip
+      doc.setFillColor(37, 99, 235);
+      doc.rect(leftMargin, currentY + 3, 3.5, narrativeBoxHeight - 6, "F");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(51, 65, 85);
+      let textY = currentY + 13;
+      narrativeLines.forEach((line) => {
+        doc.text(line, leftMargin + 14, textY);
+        textY += lineHeight;
+      });
+
+      currentY += narrativeBoxHeight + 14;
+
+      // 4. Section 2: Weighted Core Pillars Evaluation Scorecard (Table)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("2. WEIGHTED 4-PILLAR CORE PERFORMANCE SCORECARD", leftMargin, currentY);
+
+      currentY += 6;
+
+      const pillarRows = [
+        [
+          "1. Task Completion Rate",
+          "40%",
+          `${detailedPerformance.completionRate}% (${detailedPerformance.completed} of ${detailedPerformance.total} tasks resolved)`,
+          `+${detailedPerformance.pillars.taskCompletion.points} / 40`,
+          detailedPerformance.completionRate >= 80 ? "EXCELLENT" : (detailedPerformance.completionRate >= 60 ? "ACCEPTABLE" : "NEEDS FOCUS"),
+        ],
+        [
+          "2. On-Time Delivery Discipline",
+          "25%",
+          `${detailedPerformance.onTimeRate}% deliverable timeliness SLA`,
+          `+${detailedPerformance.pillars.onTimeDelivery.points} / 25`,
+          detailedPerformance.onTimeRate >= 80 ? "EXCELLENT" : (detailedPerformance.onTimeRate >= 65 ? "ACCEPTABLE" : "NEEDS FOCUS"),
+        ],
+        [
+          "3. Shift Attendance & Punctuality",
+          "20%",
+          `${detailedPerformance.attendance.disciplineRate}% discipline index (${detailedPerformance.attendance.present} Present, ${detailedPerformance.attendance.halfday} Half, ${detailedPerformance.attendance.late} Late, ${detailedPerformance.attendance.absent} Absent)`,
+          `+${detailedPerformance.pillars.attendance.points} / 20`,
+          detailedPerformance.attendance.disciplineRate >= 85 ? "EXCELLENT" : (detailedPerformance.attendance.disciplineRate >= 70 ? "ACCEPTABLE" : "NEEDS FOCUS"),
+        ],
+        [
+          "4. Time Tracking / Utilization",
+          "15%",
+          `${detailedPerformance.timeUtilRate}% (${detailedPerformance.trackedHoursLabel} logged execution)`,
+          `+${detailedPerformance.pillars.timeUtilization.points} / 15`,
+          detailedPerformance.timeUtilRate >= 75 ? "EXCELLENT" : "ACCEPTABLE",
+        ],
+      ];
+
+      if (detailedPerformance.pillars.overduePenalty.points > 0) {
+        pillarRows.push([
+          "Overdue Deliverable Deductions",
+          "Penalty",
+          `${detailedPerformance.overdue} task(s) past SLA deadline`,
+          `-${detailedPerformance.pillars.overduePenalty.points} pts`,
+          "CRITICAL PENALTY",
+        ]);
+      }
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Performance Pillar & Scope", "Weight", "Measured Operational Metric", "Points Earned", "Benchmark Status"]],
+        body: pillarRows,
+        theme: "grid",
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 8,
+          halign: "left",
+        },
+        bodyStyles: {
+          fontSize: 7.5,
+          textColor: [30, 41, 59],
+          cellPadding: 5,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 135 },
+          1: { halign: "center", cellWidth: 45 },
+          2: { cellWidth: 185 },
+          3: { fontStyle: "bold", halign: "center", cellWidth: 70 },
+          4: { halign: "center", cellWidth: 96 },
+        },
+        margin: { left: leftMargin, right: leftMargin },
+      });
+
+      currentY = doc.lastAutoTable.finalY + 14;
+
+      // 5. Section 3: Operational Deliverables & Task Status Distribution (4 Metric Cards)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`3. OPERATIONAL DELIVERABLES DISTRIBUTION (${detailedPerformance.timeframeLabel.toUpperCase()})`, leftMargin, currentY);
+
+      currentY += 8;
+      const statusCardW = (usableWidth - 30) / 4;
+      const statusCardH = 46;
+      const statusItems = [
+        { label: "Completed", count: detailedPerformance.completed, pct: detailedPerformance.completionRate, bg: [240, 253, 244], border: [187, 247, 208], color: [21, 128, 61] },
+        { label: "In Progress", count: detailedPerformance.inProgress, pct: detailedPerformance.total ? Math.round((detailedPerformance.inProgress / detailedPerformance.total) * 100) : 0, bg: [240, 249, 255], border: [186, 230, 253], color: [3, 105, 161] },
+        { label: "Pending", count: detailedPerformance.pending, pct: detailedPerformance.total ? Math.round((detailedPerformance.pending / detailedPerformance.total) * 100) : 0, bg: [255, 251, 235], border: [253, 230, 138], color: [180, 83, 9] },
+        { label: "Overdue", count: detailedPerformance.overdue, pct: detailedPerformance.total ? Math.round((detailedPerformance.overdue / detailedPerformance.total) * 100) : 0, bg: [254, 242, 242], border: [254, 202, 202], color: [185, 28, 28] },
+      ];
+
+      statusItems.forEach((st, idx) => {
+        const x = leftMargin + (idx * (statusCardW + 10));
+        doc.setFillColor(st.bg[0], st.bg[1], st.bg[2]);
+        doc.roundedRect(x, currentY, statusCardW, statusCardH, 6, 6, "F");
+        doc.setDrawColor(st.border[0], st.border[1], st.border[2]);
+        doc.roundedRect(x, currentY, statusCardW, statusCardH, 6, 6, "S");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(st.color[0], st.color[1], st.color[2]);
+        doc.text(st.label, x + 8, currentY + 14);
+
+        doc.setFontSize(14);
+        doc.text(String(st.count), x + 8, currentY + 32);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`${st.pct}% share`, x + statusCardW - 8, currentY + 32, { align: "right" });
+      });
+
+      currentY += statusCardH + 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`*Evaluated Total: ${detailedPerformance.total} deliverables. Timeliness SLA compliance is currently at ${detailedPerformance.onTimeRate}%.`, leftMargin, currentY + 4);
+
+      // =========================================================================
+      // PAGE 2: ATTENDANCE AUDIT, 360 DIAGNOSTICS & FORMAL GOVERNANCE
+      // =========================================================================
+      doc.addPage();
+
+      // Running Header (Page 2)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("CIIS NETWORK · PERFORMANCE AUDIT & DIAGNOSTIC DOSSIER", leftMargin, 26);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Employee: ${employeeName || "Employee"}  ·  Ref: CIIS-PERF-${currentYear}`, pageWidth - leftMargin, 26, { align: "right" });
+
+      doc.setDrawColor(226, 232, 240);
+      doc.line(leftMargin, 32, pageWidth - leftMargin, 32);
+
+      currentY = 46;
+
+      // 6. Section 4: Shift Attendance & Operational Discipline Audit
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("4. SHIFT ATTENDANCE, PUNCTUALITY & DISCIPLINE AUDIT", leftMargin, currentY);
+
+      currentY += 6;
+      const attRows = [
+        [
+          `Total Working Shifts: ${detailedPerformance.attendance.totalWorking}`,
+          `Full Clock-In (Present): ${detailedPerformance.attendance.present}`,
+          `Half-Day Sessions: ${detailedPerformance.attendance.halfday} (50% credit)`,
+        ],
+        [
+          `Late Clock-Ins: ${detailedPerformance.attendance.late} (-30% SLA penalty)`,
+          `Unexcused Absences: ${detailedPerformance.attendance.absent} (0 credit)`,
+          `Discipline Reliability Score: ${detailedPerformance.attendance.disciplineRate}%`,
+        ],
+      ];
+
+      autoTable(doc, {
+        startY: currentY,
+        body: attRows,
+        theme: "grid",
+        bodyStyles: {
+          fontSize: 7.5,
+          textColor: [51, 65, 85],
+          fillColor: [248, 250, 252],
+          cellPadding: 5.5,
+          fontStyle: "bold",
+        },
+        columnStyles: {
+          0: { cellWidth: 177 },
+          1: { cellWidth: 177 },
+          2: { cellWidth: 177 },
+        },
+        margin: { left: leftMargin, right: leftMargin },
+      });
+
+      currentY = doc.lastAutoTable.finalY + 14;
+
+      // 7. Section 5: Key Demonstrated Strengths & Technical Competencies
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text("5. DEMONSTRATED STRENGTHS & CORE COMPETENCIES", leftMargin, currentY);
+
+      currentY += 8;
+      const strCardStartY = currentY;
+      const strLines = [];
+      detailedPerformance.strengths.forEach((s) => {
+        const itemText = `• ${s.title}: ${s.desc}`;
+        const lines = doc.splitTextToSize(itemText, usableWidth - 28);
+        strLines.push(...lines);
+      });
+
+      const strBoxHeight = Math.max(38, strLines.length * 11 + 14);
+      doc.setFillColor(240, 253, 244);
+      doc.roundedRect(leftMargin, currentY, usableWidth, strBoxHeight, 6, 6, "F");
+      doc.setDrawColor(187, 247, 208);
+      doc.roundedRect(leftMargin, currentY, usableWidth, strBoxHeight, 6, 6, "S");
+
+      // Left green vertical accent strip
+      doc.setFillColor(16, 185, 129);
+      doc.rect(leftMargin, currentY + 3, 3.5, strBoxHeight - 6, "F");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(21, 128, 61);
+      let strY = currentY + 12;
+      strLines.forEach((line) => {
+        doc.text(line, leftMargin + 14, strY);
+        strY += 10.5;
+      });
+
+      currentY += strBoxHeight + 14;
+
+      // 8. Section 6: Strategic Growth Focus & Actionable Development Areas
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(217, 119, 6);
+      doc.text("6. STRATEGIC GROWTH FOCUS & ACTIONABLE DEVELOPMENT AREAS", leftMargin, currentY);
+
+      currentY += 8;
+      const impLines = [];
+      detailedPerformance.improvements.forEach((imp) => {
+        const itemText = `• ${imp.title}: ${imp.desc}`;
+        const lines = doc.splitTextToSize(itemText, usableWidth - 28);
+        impLines.push(...lines);
+      });
+
+      const impBoxHeight = Math.max(38, impLines.length * 11 + 14);
+      doc.setFillColor(255, 251, 235);
+      doc.roundedRect(leftMargin, currentY, usableWidth, impBoxHeight, 6, 6, "F");
+      doc.setDrawColor(253, 230, 138);
+      doc.roundedRect(leftMargin, currentY, usableWidth, impBoxHeight, 6, 6, "S");
+
+      // Left amber vertical accent strip
+      doc.setFillColor(245, 158, 11);
+      doc.rect(leftMargin, currentY + 3, 3.5, impBoxHeight - 6, "F");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(180, 83, 9);
+      let impY = currentY + 12;
+      impLines.forEach((line) => {
+        doc.text(line, leftMargin + 14, impY);
+        impY += 10.5;
+      });
+
+      currentY += impBoxHeight + 18;
+
+      // 9. Section 7: Formal Governance, Acknowledgment & Sign-Off Authorization
+      doc.setDrawColor(226, 232, 240);
+      doc.line(leftMargin, currentY, pageWidth - leftMargin, currentY);
+      currentY += 14;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("7. FORMAL GOVERNANCE & SIGN-OFF AUTHORIZATION", leftMargin, currentY);
+
+      currentY += 10;
+      const sigBoxW = (usableWidth - 14) / 2;
+      const sigBoxH = 78;
+
+      // Employee signature card
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(leftMargin, currentY, sigBoxW, sigBoxH, 6, 6, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(leftMargin, currentY, sigBoxW, sigBoxH, 6, 6, "S");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text("EMPLOYEE ACKNOWLEDGMENT", leftMargin + 10, currentY + 14);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("I acknowledge receipt and review of this performance assessment.", leftMargin + 10, currentY + 25);
+      doc.text("Signature: _________________________________", leftMargin + 10, currentY + 48);
+      doc.text(`Employee Name: ${employeeName || "Employee"}   |   Date: ________`, leftMargin + 10, currentY + 64);
+
+      // Management signature card
+      const rightSigX = leftMargin + sigBoxW + 14;
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(rightSigX, currentY, sigBoxW, sigBoxH, 6, 6, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(rightSigX, currentY, sigBoxW, sigBoxH, 6, 6, "S");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text("AUTHORIZED HR & MANAGEMENT ATTESTATION", rightSigX + 10, currentY + 14);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Validated, calibrated, and recorded in CIIS Enterprise Talent Ledger.", rightSigX + 10, currentY + 25);
+      doc.text("Signature: _________________________________", rightSigX + 10, currentY + 48);
+      doc.text("Authorized Signatory   |   Designation: ____________   |   Date: ________", rightSigX + 10, currentY + 64);
+
+      // 10. Running Footers on Both Pages
+      const totalPages = doc.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setDrawColor(226, 232, 240);
+        doc.line(leftMargin, pageHeight - 32, pageWidth - leftMargin, pageHeight - 32);
+
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text("CIIS Network Enterprise CDS · Official & Confidential Performance Evaluation Dossier · For Authorized Internal Review Only", leftMargin, pageHeight - 20);
+        doc.text(`Page ${p} of ${totalPages}`, pageWidth - leftMargin, pageHeight - 20, { align: "right" });
+      }
+
+      const sanitizedName = String(employeeName || "Employee").replace(/[^a-zA-Z0-9]/g, "_");
+      doc.save(`Performance_Evaluation_${sanitizedName}_${perfTimeframe}_${todayStr}.pdf`);
+      showToast(`Performance evaluation dossier downloaded (${detailedPerformance.timeframeLabel})!`, "success");
+    } catch (err) {
+      console.error("Failed to generate PDF performance report:", err);
+      showToast("Failed to generate PDF report.", "error");
+    }
+  };
+
+  const productivityScore = detailedPerformance.finalScore;
+
+  // Comprehensive Month Attendance Logs for Table View
+  const allMonthAttendanceLogs = useMemo(() => {
+    return calendarDays
+      .filter((c) => c.day !== null && c.status !== "UPCOMING" && c.status !== "NO RECORD")
+      .map((c) => {
+        if (c.record) {
+          return {
+            ...c.record,
+            status: c.status || c.record.status,
+            date: c.record.date || c.dateKey,
+          };
+        }
+        return {
+          _id: c.dateKey,
+          date: c.dateKey,
+          status: c.status,
+          isGenerated: true,
+          shiftName: employee?.shiftName || "General Shift",
+          notes: c.status === "ABSENT" ? "Absent (No Clock In recorded)" : c.status === "WEEKEND" ? "Weekly Off" : c.status === "HOLIDAY" ? "Official Holiday" : "--",
+        };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [calendarDays, employee?.shiftName]);
 
   // Filtered History Log for Table View
   const filteredAttendanceLogs = useMemo(() => {
-    if (attFilter === "all") return attendanceRecords;
-    if (attFilter === "present") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "PRESENT");
-    if (attFilter === "late") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "LATE");
-    if (attFilter === "halfday") return attendanceRecords.filter((r) => ["HALF DAY", "HALFDAY"].includes(String(r.status || "").toUpperCase()));
-    if (attFilter === "absent") return attendanceRecords.filter((r) => String(r.status || "").toUpperCase() === "ABSENT");
-    if (attFilter === "leave") return attendanceRecords.filter((r) => ["LEAVE", "HOLIDAY"].includes(String(r.status || "").toUpperCase()));
-    return attendanceRecords;
-  }, [attendanceRecords, attFilter]);
-
-  const employeeName = resolveDisplayString(employee?.name, "—");
-  const employeeRoleCandidates = [
-    employee?.jobRoleName,
-    employee?.jobRole,
-    employee?.role,
-    employee?.companyRole,
-  ];
-  let employeeRole = "—";
-  for (const candidate of employeeRoleCandidates) {
-    const resolved = resolveDisplayString(candidate, "");
-    if (resolved && resolved !== "—") {
-      employeeRole = resolved;
-      break;
-    }
-  }
-
-  const employeeDeptCandidates = [
-    employee?.departmentName,
-    employee?.department?.name,
-    employee?.department?.departmentName,
-    employee?.department,
-  ];
-  let employeeDept = "—";
-  for (const candidate of employeeDeptCandidates) {
-    const resolved = resolveDisplayString(candidate, "");
-    if (resolved && resolved !== "—") {
-      employeeDept = resolved;
-      break;
-    }
-  }
-  const employeeEmail = typeof employee?.email === "string" ? employee.email : "";
-  const employeePhone = typeof employee?.phone === "string" ? employee.phone : (typeof employee?.mobile === "string" ? employee.mobile : "");
+    if (attFilter === "all") return allMonthAttendanceLogs;
+    if (attFilter === "present") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "PRESENT");
+    if (attFilter === "late") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "LATE");
+    if (attFilter === "halfday") return allMonthAttendanceLogs.filter((r) => ["HALF DAY", "HALFDAY"].includes(String(r.status || "").toUpperCase()));
+    if (attFilter === "absent") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "ABSENT");
+    if (attFilter === "leave") return allMonthAttendanceLogs.filter((r) => {
+      const s = String(r.status || "").toUpperCase();
+      return s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE");
+    });
+    if (attFilter === "holiday") return allMonthAttendanceLogs.filter((r) => String(r.status || "").toUpperCase() === "HOLIDAY");
+    return allMonthAttendanceLogs;
+  }, [allMonthAttendanceLogs, attFilter]);
 
   return (
     <div className="company-task-page">
@@ -2405,7 +3542,14 @@ const CompanyAllTaskTasks = () => {
               type="button"
               className="hero-btn-outline"
               onClick={() => {
-                downloadBackendReport('/api/export-reports/tasks?type=all&format=xlsx', `Company_All_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                const endpoint = effectiveUserId
+                  ? `/export-reports/tasks?userId=${effectiveUserId}&format=xlsx`
+                  : '/export-reports/tasks?type=all&format=xlsx';
+                const empName = employee?.name || 'Employee';
+                const filename = effectiveUserId
+                  ? `${empName.replace(/\s+/g, '_')}_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`
+                  : `Company_All_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                downloadBackendReport(endpoint, filename);
               }}
               title="Export tasks as Excel (.xlsx)"
               style={{ color: '#059669', borderColor: '#10B981' }}
@@ -3450,6 +4594,12 @@ const CompanyAllTaskTasks = () => {
                 <div className="att-kpi-value">{monthStats.present}</div>
                 <div className="att-kpi-title">Present Days</div>
                 <span className="att-kpi-hint">Full working days attended</span>
+                <div className="att-kpi-progress-bar" title={`Attendance rate: ${monthStats.attendanceRate}%`}>
+                  <div
+                    className="att-kpi-progress-fill emerald"
+                    style={{ width: `${Math.min(100, Math.max(0, monthStats.attendanceRate))}%` }}
+                  />
+                </div>
               </div>
 
               <div className="att-kpi-card att-kpi-late">
@@ -3460,8 +4610,8 @@ const CompanyAllTaskTasks = () => {
                   {monthStats.late > 0 && <span className="att-kpi-badge amber">{monthStats.late} Flags</span>}
                 </div>
                 <div className="att-kpi-value">{monthStats.late}</div>
-                <div className="att-kpi-title">Late Arrivals</div>
-                <span className="att-kpi-hint">Punched after shift start</span>
+                <div className="att-kpi-title">Late</div>
+                <span className="att-kpi-hint">Clocked in after shift start</span>
               </div>
 
               <div className="att-kpi-card att-kpi-halfday">
@@ -3485,7 +4635,7 @@ const CompanyAllTaskTasks = () => {
                 </div>
                 <div className="att-kpi-value">{monthStats.absent}</div>
                 <div className="att-kpi-title">Absent Days</div>
-                <span className="att-kpi-hint">No punch or leave applied</span>
+                <span className="att-kpi-hint">No Clock In or leave applied</span>
               </div>
 
               <div className="att-kpi-card att-kpi-leave">
@@ -3496,8 +4646,20 @@ const CompanyAllTaskTasks = () => {
                   <span className="att-kpi-badge violet">Approved</span>
                 </div>
                 <div className="att-kpi-value">{monthStats.leave}</div>
-                <div className="att-kpi-title">Leaves & Holidays</div>
-                <span className="att-kpi-hint">Official approved off days</span>
+                <div className="att-kpi-title">Approved Leaves</div>
+                <span className="att-kpi-hint">Leave applications sanctioned</span>
+              </div>
+
+              <div className="att-kpi-card att-kpi-holiday">
+                <div className="att-kpi-top">
+                  <div className="att-kpi-icon-wrap blue">
+                    <FiAward size={20} />
+                  </div>
+                  <span className="att-kpi-badge blue">Company Off</span>
+                </div>
+                <div className="att-kpi-value">{monthStats.holiday}</div>
+                <div className="att-kpi-title">Holidays</div>
+                <span className="att-kpi-hint">Official company holidays</span>
               </div>
             </div>
 
@@ -3586,7 +4748,8 @@ const CompanyAllTaskTasks = () => {
                     <div className="legend-chip late"><span className="dot" /> Late</div>
                     <div className="legend-chip halfday"><span className="dot" /> Half-Day</div>
                     <div className="legend-chip absent"><span className="dot" /> Absent</div>
-                    <div className="legend-chip leave"><span className="dot" /> Leave / Holiday</div>
+                    <div className="legend-chip leave"><span className="dot" /> Leave</div>
+                    <div className="legend-chip holiday"><span className="dot" /> Holiday</div>
                     <div className="legend-chip weekend"><span className="dot" /> Weekend</div>
                   </div>
 
@@ -3610,7 +4773,8 @@ const CompanyAllTaskTasks = () => {
                       const isLate = s === "LATE";
                       const isHalf = s === "HALF DAY" || s === "HALFDAY";
                       const isAbs = s === "ABSENT";
-                      const isLev = s === "LEAVE" || s === "HOLIDAY";
+                      const isLev = s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE");
+                      const isHol = s === "HOLIDAY";
                       const isWknd = s === "WEEKEND";
                       const isUpc = s === "UPCOMING";
                       const isSelected = selectedDayRecord && getDateInputValue(new Date(selectedDayRecord.date)) === cell.dateKey;
@@ -3620,8 +4784,9 @@ const CompanyAllTaskTasks = () => {
                           isHalf ? "status-halfday" :
                             isAbs ? "status-absent" :
                               isLev ? "status-leave" :
-                                isWknd ? "status-weekend" :
-                                  isUpc ? "status-upcoming" : "status-none";
+                                isHol ? "status-holiday" :
+                                  isWknd ? "status-weekend" :
+                                    isUpc ? "status-upcoming" : "status-none";
 
                       return (
                         <div
@@ -3634,6 +4799,7 @@ const CompanyAllTaskTasks = () => {
                               setSelectedDayRecord({
                                 date: cell.dateKey,
                                 status: cell.status,
+                                holidayName: cell.holidayName,
                                 isGenerated: true,
                               });
                             }
@@ -3652,18 +4818,25 @@ const CompanyAllTaskTasks = () => {
                                   isHalf ? "Half Day" :
                                     isAbs ? "Absent" :
                                       isLev ? "Leave" :
-                                        isWknd ? "Weekend" :
-                                          isUpc ? "Upcoming" : "No Log"}
+                                        isHol ? "Holiday" :
+                                          isWknd ? "Weekend" :
+                                            isUpc ? "Upcoming" : "No Log"}
                             </span>
                           </div>
 
-                          {(cell.record?.inTime || cell.record?.totalTime) && (
+                          {isHol ? (
+                            <div className="att-cell-holiday-title" title={`Official Holiday: ${cell.holidayName || "Company Holiday"}`}>
+                              🎉 {cell.holidayName || "Holiday"}
+                            </div>
+                          ) : (cell.record?.inTime || cell.record?.totalTime) ? (
                             <div className="att-cell-timing-preview">
                               {cell.record?.inTime ? formatTimeOnly(cell.record.inTime) : ""}
                               {cell.record?.outTime ? ` - ${formatTimeOnly(cell.record.outTime)}` : ""}
                               {!cell.record?.outTime && cell.record?.isClockedIn ? " · Clocked In" : ""}
                               {!cell.record?.outTime && cell.record?.totalTime ? ` (${cell.record.totalTime})` : ""}
                             </div>
+                          ) : (
+                            <div style={{ height: "18px" }} />
                           )}
                         </div>
                       );
@@ -3682,27 +4855,84 @@ const CompanyAllTaskTasks = () => {
                     </div>
 
                     {selectedDayRecord && (
-                      <span className={`inspector-status-badge ${String(selectedDayRecord.status).toUpperCase() === "PRESENT" ? "present" :
+                      <span className={`inspector-status-badge ${
+                          String(selectedDayRecord.status).toUpperCase() === "PRESENT" ? "present" :
                           String(selectedDayRecord.status).toUpperCase() === "LATE" ? "late" :
-                            ["HALF DAY", "HALFDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "halfday" :
-                              ["LEAVE", "HOLIDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "leave" :
-                                String(selectedDayRecord.status).toUpperCase() === "WEEKEND" ? "weekend" : "absent"
+                          ["HALF DAY", "HALFDAY"].includes(String(selectedDayRecord.status).toUpperCase()) ? "halfday" :
+                          String(selectedDayRecord.status).toUpperCase() === "HOLIDAY" ? "holiday" :
+                          (String(selectedDayRecord.status).toUpperCase() === "LEAVE" || String(selectedDayRecord.status).toUpperCase().includes("LEAVE")) ? "leave" :
+                          String(selectedDayRecord.status).toUpperCase() === "WEEKEND" ? "weekend" : "absent"
                         }`}>
                         <span className="pulsing-circle" />
-                        {String(selectedDayRecord.status || "ABSENT").toUpperCase()}
+                        {String(selectedDayRecord.status).toUpperCase() === "HOLIDAY" && selectedDayRecord.holidayName
+                          ? `🎉 ${String(selectedDayRecord.holidayName).toUpperCase()}`
+                          : String(selectedDayRecord.status || "ABSENT").toUpperCase()}
                       </span>
                     )}
                   </div>
 
                   {selectedDayRecord ? (
                     <div className="att-inspector-body">
+                      {String(selectedDayRecord.status).toUpperCase() === "HOLIDAY" && (
+                        <div className="inspector-holiday-card">
+                          <div className="holiday-card-icon">🎉</div>
+                          <div className="holiday-card-info">
+                            <h4>{selectedDayRecord.holidayName || "Official Company Holiday"}</h4>
+                            <p>Official company holiday on this date. Shift timings and check-in requirements are waived.</p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Shift & Policy Banner */}
                       <div className="inspector-shift-banner">
                         <FiClock size={15} />
                         <span>Schedule: <strong>{selectedDayRecord.shiftName || employee?.shiftName || "General Shift (09:30 AM - 06:30 PM)"}</strong></span>
                       </div>
 
-                      {/* 2x2 Punch Timing Metrics */}
+                      {/* Visual Clock In/Out Timeline Stepper */}
+                      <div className="inspector-flow-timeline">
+                        <div className={`flow-step ${selectedDayRecord.inTime ? "completed" : "pending"}`}>
+                          <div className="flow-step-circle">
+                            <FiCheckCircle size={13} />
+                          </div>
+                          <div className="flow-step-info">
+                            <span className="flow-step-title">Clock In</span>
+                            <span className="flow-step-time">{selectedDayRecord.inTime ? formatTimeOnly(selectedDayRecord.inTime) : "No Clock In"}</span>
+                          </div>
+                        </div>
+
+                        <div className="flow-step-divider">
+                          <div className={`flow-divider-line ${selectedDayRecord.outTime ? "completed" : selectedDayRecord.inTime ? "active" : ""}`} />
+                          <span className="flow-duration-pill">{selectedDayRecord.totalHours || selectedDayRecord.totalTime || (selectedDayRecord.inTime ? "In progress" : "--")}</span>
+                        </div>
+
+                        <div className={`flow-step ${selectedDayRecord.outTime ? "completed" : selectedDayRecord.inTime ? "active" : "pending"}`}>
+                          <div className="flow-step-circle">
+                            <FiClock size={13} />
+                          </div>
+                          <div className="flow-step-info">
+                            <span className="flow-step-title">Clock Out</span>
+                            <span className="flow-step-time">{selectedDayRecord.outTime ? formatTimeOnly(selectedDayRecord.outTime) : (selectedDayRecord.inTime ? "Active Shift" : "--")}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Exceptions / Warnings Alert */}
+                      {(selectedDayRecord.lateBy || selectedDayRecord.earlyLeave) && (
+                        <div className="inspector-exceptions-alert">
+                          <FiAlertTriangle size={15} className="text-amber" />
+                          <div className="exceptions-alert-content">
+                            {selectedDayRecord.lateBy && (
+                              <span className="exception-item">Late Arrival: <strong>{selectedDayRecord.lateBy}</strong></span>
+                            )}
+                            {selectedDayRecord.earlyLeave && (
+                              <span className="exception-item">Early Departure: <strong>{selectedDayRecord.earlyLeave}</strong></span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 2x2 Clock Timing Metrics */}
                       <div className="inspector-metrics-grid">
                         <div className="inspector-metric-card in">
                           <div className="m-card-top">
@@ -3715,7 +4945,7 @@ const CompanyAllTaskTasks = () => {
                           <span className="m-sub-text">
                             {selectedDayRecord.inTime
                               ? (selectedDayRecord.lateBy ? `Late by ${selectedDayRecord.lateBy}` : "On-Time Arrival")
-                              : "No punch recorded"}
+                              : "No Clock In recorded"}
                           </span>
                         </div>
 
@@ -3730,7 +4960,7 @@ const CompanyAllTaskTasks = () => {
                           <span className="m-sub-text">
                             {selectedDayRecord.outTime
                               ? (selectedDayRecord.earlyLeave ? `Early: ${selectedDayRecord.earlyLeave}` : "Standard Out")
-                              : (selectedDayRecord.inTime ? "Currently Clocked In" : "No punch recorded")}
+                              : (selectedDayRecord.inTime ? "Currently Clocked In" : "No Clock Out recorded")}
                           </span>
                         </div>
 
@@ -3831,6 +5061,13 @@ const CompanyAllTaskTasks = () => {
                     >
                       Leaves ({monthStats.leave})
                     </button>
+                    <button
+                      type="button"
+                      className={`filter-chip ${attFilter === "holiday" ? "active" : ""}`}
+                      onClick={() => setAttFilter("holiday")}
+                    >
+                      Holidays ({monthStats.holiday})
+                    </button>
                   </div>
                   <span className="log-count-text">Showing {filteredAttendanceLogs.length} entries</span>
                 </div>
@@ -3841,8 +5078,8 @@ const CompanyAllTaskTasks = () => {
                       <tr>
                         <th>Date & Day</th>
                         <th>Status</th>
-                        <th>Punch In</th>
-                        <th>Punch Out</th>
+                        <th>Clock In</th>
+                        <th>Clock Out</th>
                         <th>Total Duration</th>
                         <th>Shift & Exceptions</th>
                         <th>Notes / Remarks</th>
@@ -3861,14 +5098,16 @@ const CompanyAllTaskTasks = () => {
                           const isPres = s === "PRESENT";
                           const isLate = s === "LATE";
                           const isHalf = s === "HALF DAY" || s === "HALFDAY";
-                          const isLeave = s === "LEAVE" || s === "HOLIDAY";
+                          const isLeave = s === "LEAVE" || (s.includes("LEAVE") && s !== "EARLY LEAVE");
+                          const isHoliday = s === "HOLIDAY";
                           const isWknd = s === "WEEKEND";
 
                           const statusClass = isPres ? "present" :
                             isLate ? "late" :
                               isHalf ? "halfday" :
                                 isLeave ? "leave" :
-                                  isWknd ? "weekend" : "absent";
+                                  isHoliday ? "holiday" :
+                                    isWknd ? "weekend" : "absent";
 
                           return (
                             <tr key={rec._id || rec.date}>
@@ -3877,7 +5116,7 @@ const CompanyAllTaskTasks = () => {
                               </td>
                               <td>
                                 <span className={`status-badge-att ${statusClass}`}>
-                                  ● {s}
+                                  ● {isHoliday ? `HOLIDAY${rec.holidayName ? ` · ${rec.holidayName}` : ""}` : s}
                                 </span>
                               </td>
                               <td>
@@ -3894,7 +5133,29 @@ const CompanyAllTaskTasks = () => {
                                 <strong>{rec.totalHours || rec.totalTime || "--"}</strong>
                               </td>
                               <td>
-                                {rec.lateBy ? (
+                                {isHoliday ? (
+                                  <span
+                                    title={rec.holidayName || "Official Holiday"}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "3px",
+                                      color: "#1d4ed8",
+                                      background: "#eff6ff",
+                                      border: "1px solid #bfdbfe",
+                                      padding: "1px 6px",
+                                      borderRadius: "4px",
+                                      fontSize: "0.78rem",
+                                      fontWeight: 600,
+                                      maxWidth: "150px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap"
+                                    }}
+                                  >
+                                    🎉 {rec.holidayName || "Official Holiday"}
+                                  </span>
+                                ) : rec.lateBy ? (
                                   <span className="exception-badge late">Late by {rec.lateBy}</span>
                                 ) : rec.earlyLeave ? (
                                   <span className="exception-badge early">Early: {rec.earlyLeave}</span>
@@ -3922,122 +5183,537 @@ const CompanyAllTaskTasks = () => {
             ======================================================== */}
         {activeTab === "performance" && (
           <div className="tab-pane-performance">
-            <div className="performance-kpi-grid">
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiAward size={20} className="kpi-icon gold" />
-                  <span className="kpi-title">Productivity Score</span>
-                </div>
-                <div className="kpi-value">{productivityScore}%</div>
-                <span className="kpi-note">{productivityScore >= 80 ? "Excellent Performer" : productivityScore >= 60 ? "Good Performance" : "Needs Improvement"}</span>
+            {/* Smooth Top Hairline Progress Bar (No Layout Shift) */}
+            <div className={`perf-smooth-loader ${perfLoading ? "active" : ""}`} />
+
+            {/* Top Toolbar: Timeframe Filter Switcher & Download Report Button */}
+            <div className="perf-toolbar-bar">
+              <div className="perf-timeframe-segmented">
+                <button
+                  type="button"
+                  className={`perf-tf-btn ${perfTimeframe === "today" ? "active" : ""}`}
+                  onClick={() => setPerfTimeframe("today")}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className={`perf-tf-btn ${perfTimeframe === "week" ? "active" : ""}`}
+                  onClick={() => setPerfTimeframe("week")}
+                >
+                  This Week
+                </button>
+                <button
+                  type="button"
+                  className={`perf-tf-btn ${perfTimeframe === "month" ? "active" : ""}`}
+                  onClick={() => setPerfTimeframe("month")}
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  className={`perf-tf-btn ${perfTimeframe === "sixMonths" ? "active" : ""}`}
+                  onClick={() => setPerfTimeframe("sixMonths")}
+                >
+                  Last 6 Months
+                </button>
+                <button
+                  type="button"
+                  className={`perf-tf-btn ${perfTimeframe === "overall" ? "active" : ""}`}
+                  onClick={() => setPerfTimeframe("overall")}
+                >
+                  Overall
+                </button>
               </div>
 
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiCheckCircle size={20} className="kpi-icon green" />
-                  <span className="kpi-title">Completion Rate</span>
-                </div>
-                <div className="kpi-value">{completionRate}%</div>
-                <span className="kpi-note">{stats.completed} of {stats.total || tasks.length} tasks completed</span>
-              </div>
-
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiClock size={20} className="kpi-icon blue" />
-                  <span className="kpi-title">On-Time Delivery</span>
-                </div>
-                <div className="kpi-value">{Number.isFinite(onTimeRate) ? `${onTimeRate}%` : "—"}</div>
-                <span className="kpi-note">{performanceMetrics?.completedWithDueDate || 0} completed tasks with a deadline</span>
-              </div>
-
-              <div className="kpi-card">
-                <div className="kpi-top">
-                  <FiAlertTriangle size={20} className="kpi-icon red" />
-                  <span className="kpi-title">Overdue Rate</span>
-                </div>
-                <div className="kpi-value">
-                  {stats.total ? Math.round((stats.overdue / stats.total) * 100) : 0}%
-                </div>
-                <span className="kpi-note">{stats.overdue} tasks past due</span>
+              <div className="perf-toolbar-actions">
+                <button
+                  type="button"
+                  className="btn-download-perf-report"
+                  onClick={handleDownloadPerformanceReport}
+                  title="Download Executive Performance PDF Report"
+                  disabled={perfLoading}
+                >
+                  <FiDownload size={14} />
+                  <span>
+                    Download Report ({perfTimeframe === "today" ? "Today" : perfTimeframe === "week" ? "Weekly" : perfTimeframe === "month" ? "Monthly" : perfTimeframe === "sixMonths" ? "6-Month" : "Overall"})
+                  </span>
+                </button>
               </div>
             </div>
 
-            <div className="overview-grid-top">
-              {/* Task Breakdown Progress Bars */}
-              <div className="overview-card">
-                <div className="card-header-line">
-                  <h3><FiBarChart2 size={16} /> Task Status Distribution</h3>
+            {/* Executive Hero Performance Scorecard */}
+            <div className="perf-hero-card">
+              <div className="perf-hero-left">
+                <div className="perf-gauge-wrap">
+                  <svg className="perf-gauge-svg" viewBox="0 0 120 120">
+                    <circle
+                      className="perf-gauge-bg"
+                      cx="60"
+                      cy="60"
+                      r="50"
+                    />
+                    <circle
+                      className={`perf-gauge-fill ${detailedPerformance.tierColor}`}
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      style={{
+                        strokeDasharray: 314.16,
+                        strokeDashoffset: 314.16 - (314.16 * Math.min(100, Math.max(0, detailedPerformance.finalScore))) / 100,
+                      }}
+                    />
+                  </svg>
+                  <div className="perf-gauge-center">
+                    <span className="perf-gauge-val">{detailedPerformance.finalScore}</span>
+                    <span className="perf-gauge-max">/ 100</span>
+                    <span className={`perf-gauge-badge ${detailedPerformance.tierColor}`}>
+                      Grade {detailedPerformance.grade}
+                    </span>
+                  </div>
                 </div>
-                <div className="perf-distribution-list">
-                  <div className="perf-bar-group">
-                    <div className="bar-label-row">
-                      <span>Completed</span>
-                      <strong>{stats.completed} ({completionRate}%)</strong>
+              </div>
+
+              <div className="perf-hero-content">
+                <div className="perf-hero-top-row">
+                  <div>
+                    <span className="perf-hero-eyebrow">Executive Index · {detailedPerformance.timeframeLabel}</span>
+                    <h2 className="perf-hero-title">Performance Rating: {detailedPerformance.tier}</h2>
+                  </div>
+                  <div className="perf-hero-tier-group">
+                    <span className={`perf-hero-tier-chip ${detailedPerformance.tierColor}`}>
+                      <FiAward size={15} /> Grade {detailedPerformance.grade} · {detailedPerformance.tier}
+                    </span>
+                    <span className="perf-trajectory-chip">
+                      {detailedPerformance.trajectory}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="perf-hero-summary">
+                  {detailedPerformance.finalScore >= 85
+                    ? "Exceptional delivery cadence with strong punctuality and reliable throughput across assigned deliverables."
+                    : detailedPerformance.finalScore >= 70
+                    ? "Solid operational execution with consistent delivery. Minor scope for optimization in task turnaround and deadline adherence."
+                    : detailedPerformance.finalScore >= 50
+                    ? "Moderate delivery pace. Deadline slippage or attendance gaps require proactive tracking to meet benchmark standards."
+                    : "Immediate managerial alignment recommended to resolve overdue bottlenecks and improve work attendance consistency."}
+                </p>
+
+                {/* Quick Snapshot Metrics Strip */}
+                <div className="perf-hero-metrics-strip">
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">Task Completion</span>
+                    <strong className="phm-val text-emerald">{detailedPerformance.completionRate}%</strong>
+                    <span className="phm-sub">{detailedPerformance.completed} of {detailedPerformance.total} done</span>
+                  </div>
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">On-Time Rate</span>
+                    <strong className="phm-val text-blue">{Number.isFinite(detailedPerformance.onTimeRate) ? `${detailedPerformance.onTimeRate}%` : "—"}</strong>
+                    <span className="phm-sub">Deadline discipline</span>
+                  </div>
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">Attendance & Discipline</span>
+                    <strong className="phm-val text-purple">{detailedPerformance.attendance.disciplineRate}%</strong>
+                    <div className="phm-sub-tags">
+                      <span className="phm-badge green">{detailedPerformance.attendance.present} Clock In</span>
+                      <span className="phm-badge orange">{detailedPerformance.attendance.halfday} Half Day</span>
+                      <span className="phm-badge amber">{detailedPerformance.attendance.late} Late</span>
+                      <span className="phm-badge red">{detailedPerformance.attendance.absent} Absent</span>
                     </div>
-                    <div className="progress-track">
-                      <div className="progress-fill" style={{ width: `${completionRate}%`, backgroundColor: "#10b981" }} />
+                  </div>
+                  <div className="perf-hero-metric-item">
+                    <span className="phm-label">Time Utilization</span>
+                    <strong className="phm-val text-amber">{detailedPerformance.timeUtilRate}%</strong>
+                    <span className="phm-sub">{detailedPerformance.trackedHoursLabel} logged</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Strengths & Growth Areas Insights */}
+            <div className="perf-insights-grid">
+              <div className="perf-insight-card strengths">
+                <div className="perf-insight-header">
+                  <span className="perf-insight-icon-bubble green">
+                    <FiCheckCircle size={16} />
+                  </span>
+                  <div>
+                    <h4>Demonstrated Strengths</h4>
+                    <span className="perf-insight-sub">What is working well in this period</span>
+                  </div>
+                </div>
+                <ul className="perf-insight-list">
+                  {detailedPerformance.strengths.map((s, idx) => (
+                    <li key={`str-${idx}`}>
+                      <FiCheck size={14} className="text-emerald" />
+                      <span><strong>{s.title}:</strong> {s.desc}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="perf-insight-card focus">
+                <div className="perf-insight-header">
+                  <span className="perf-insight-icon-bubble amber">
+                    <FiZap size={16} />
+                  </span>
+                  <div>
+                    <h4>Critical Focus & Growth Areas</h4>
+                    <span className="perf-insight-sub">Targeted areas needing improvement</span>
+                  </div>
+                </div>
+                <ul className="perf-insight-list">
+                  {detailedPerformance.improvements.map((imp, idx) => (
+                    <li key={`imp-${idx}`} className={imp.isWarning ? "warning-item" : ""}>
+                      {imp.isWarning ? (
+                        <FiAlertTriangle size={14} className="text-red" />
+                      ) : (
+                        <FiClock size={14} className="text-blue" />
+                      )}
+                      <span><strong>{imp.title}:</strong> {imp.desc}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Detailed Performance Evaluation & Formula Breakdown Card */}
+            <div className="overview-card perf-engine-card">
+              <div className="card-header-line">
+                <div>
+                  <div className="perf-header-eyebrow">Evaluation Engine · 4-Pillar Model</div>
+                  <h3><FiAward size={18} className="text-primary" /> Performance Calculation Breakdown</h3>
+                </div>
+                <div className="perf-grade-pill-group">
+                  <span className={`perf-grade-badge ${detailedPerformance.tierColor}`}>
+                    Grade {detailedPerformance.grade} · {detailedPerformance.tier}
+                  </span>
+                  <span className="perf-final-score-pill">
+                    {detailedPerformance.finalScore} / 100 Pts
+                  </span>
+                </div>
+              </div>
+
+              {/* Dynamic Formula Banner */}
+              <div className="perf-formula-banner">
+                <span className="formula-tag">Formula</span>
+                <span className="formula-text">
+                  Score = (Tasks × 40%) + (On-Time × 25%) + (Attendance × 20%) + (Hours × 15%){detailedPerformance.pillars.overduePenalty.points > 0 ? ` - (Overdue Penalty: -${detailedPerformance.pillars.overduePenalty.points} pts)` : ""}
+                </span>
+              </div>
+
+              {/* 4 Pillars Grid */}
+              <div className="perf-pillars-grid">
+                {/* Pillar 1: Task Completion */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">1. Task Completion</span>
+                    <span className="pillar-weight-badge">Weight 40%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-emerald">+{detailedPerformance.pillars.taskCompletion.points} <span className="pts-max">/ 40 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.pillars.taskCompletion.rate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.taskCompletion.rate}%`, backgroundColor: '#10b981' }} />
+                  </div>
+                  <span className="pillar-desc">{detailedPerformance.completed} of {detailedPerformance.total} assigned tasks completed</span>
+                </div>
+
+                {/* Pillar 2: On-Time Delivery */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">2. On-Time Delivery</span>
+                    <span className="pillar-weight-badge">Weight 25%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-blue">+{detailedPerformance.pillars.onTimeDelivery.points} <span className="pts-max">/ 25 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.pillars.onTimeDelivery.rate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.onTimeDelivery.rate}%`, backgroundColor: '#2563eb' }} />
+                  </div>
+                  <span className="pillar-desc">Completed on or before deadline</span>
+                </div>
+
+                {/* Pillar 3: Attendance & Punctuality */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">3. Attendance & Discipline</span>
+                    <span className="pillar-weight-badge">Weight 20%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-purple">+{detailedPerformance.pillars.attendance.points} <span className="pts-max">/ 20 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.attendance.disciplineRate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.attendance.disciplineRate}%`, backgroundColor: '#8b5cf6' }} />
+                  </div>
+                  <div className="pillar-att-chips">
+                    <span className="att-mini-chip present">
+                      <strong>{detailedPerformance.attendance.present}</strong> Present
+                    </span>
+                    <span className="att-mini-chip late" title="Late arrival incurs 30% punctuality deduction">
+                      <strong>{detailedPerformance.attendance.late}</strong> Late
+                    </span>
+                    <span className="att-mini-chip absent" title="Unclocked working days give 0 credit">
+                      <strong>{detailedPerformance.attendance.absent}</strong> Absent
+                    </span>
+                    {detailedPerformance.attendance.halfday > 0 && (
+                      <span className="att-mini-chip halfday">
+                        <strong>{detailedPerformance.attendance.halfday}</strong> Half Day
+                      </span>
+                    )}
+                  </div>
+                  <span className="pillar-desc">
+                    {detailedPerformance.attendance.late > 0 ? `${detailedPerformance.attendance.late} late arrival(s) penalized (-30% each). ` : ""}
+                    {detailedPerformance.attendance.absent > 0 ? `${detailedPerformance.attendance.absent} unclocked absence(s) counted. ` : ""}
+                    {detailedPerformance.attendance.late === 0 && detailedPerformance.attendance.absent === 0 ? "Flawless on-time attendance recorded." : ""}
+                  </span>
+                </div>
+
+                {/* Pillar 4: Time Tracking / Utilization */}
+                <div className="perf-pillar-card">
+                  <div className="pillar-top">
+                    <span className="pillar-name">4. Time Utilization</span>
+                    <span className="pillar-weight-badge">Weight 15%</span>
+                  </div>
+                  <div className="pillar-score-row">
+                    <div className="pillar-points text-amber">+{detailedPerformance.pillars.timeUtilization.points} <span className="pts-max">/ 15 pts</span></div>
+                    <span className="pillar-rate">{detailedPerformance.pillars.timeUtilization.rate}%</span>
+                  </div>
+                  <div className="progress-track sm">
+                    <div className="progress-fill" style={{ width: `${detailedPerformance.pillars.timeUtilization.rate}%`, backgroundColor: '#f59e0b' }} />
+                  </div>
+                  <span className="pillar-desc">{detailedPerformance.trackedHoursLabel} task hours logged</span>
+                </div>
+              </div>
+
+              {/* Overdue Penalty Notice */}
+              {detailedPerformance.pillars.overduePenalty.points > 0 && (
+                <div className="perf-penalty-notice">
+                  <FiAlertTriangle size={15} className="text-red" />
+                  <span>
+                    <strong>Overdue Tasks Penalty:</strong> -{detailedPerformance.pillars.overduePenalty.points} points deducted due to {detailedPerformance.overdue} tasks past deadline.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="overview-grid-top perf-overview-grid-top">
+              {/* Task Status Distribution Card */}
+              <div className="overview-card perf-card-visual">
+                <div className="card-header-line">
+                  <div className="card-header-left">
+                    <h3><FiPieChart size={16} /> Task Status Distribution</h3>
+                    <span className="card-header-sub">{detailedPerformance.timeframeLabel}</span>
+                  </div>
+                  <span className="perf-volume-chip">{detailedPerformance.total} Total Tasks</span>
+                </div>
+
+                {/* Proportional Segmented Stream Ribbon */}
+                <div className="perf-stream-bar-container">
+                  <div className="perf-stream-bar">
+                    {detailedPerformance.completed > 0 && (
+                      <div
+                        className="stream-segment completed"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.completed / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`Completed: ${detailedPerformance.completed} (${detailedPerformance.completionRate}%)`}
+                      />
+                    )}
+                    {detailedPerformance.inProgress > 0 && (
+                      <div
+                        className="stream-segment in-progress"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.inProgress / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`In Progress: ${detailedPerformance.inProgress}`}
+                      />
+                    )}
+                    {detailedPerformance.pending > 0 && (
+                      <div
+                        className="stream-segment pending"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.pending / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`Pending: ${detailedPerformance.pending}`}
+                      />
+                    )}
+                    {detailedPerformance.overdue > 0 && (
+                      <div
+                        className="stream-segment overdue"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.overdue / detailedPerformance.total) * 100 : 0}%` }}
+                        title={`Overdue: ${detailedPerformance.overdue}`}
+                      />
+                    )}
+                    {detailedPerformance.onHold > 0 && (
+                      <div
+                        className="stream-segment"
+                        style={{ width: `${detailedPerformance.total ? (detailedPerformance.onHold / detailedPerformance.total) * 100 : 0}%`, backgroundColor: "#64748b" }}
+                        title={`On Hold: ${detailedPerformance.onHold}`}
+                      />
+                    )}
+                  </div>
+                  <div className="perf-stream-legend">
+                    <span className="legend-item"><span className="legend-dot green" /> Completed ({detailedPerformance.completionRate}%)</span>
+                    <span className="legend-item"><span className="legend-dot blue" /> In Progress ({detailedPerformance.total ? Math.round((detailedPerformance.inProgress / detailedPerformance.total) * 100) : 0}%)</span>
+                    <span className="legend-item"><span className="legend-dot amber" /> Pending ({detailedPerformance.total ? Math.round((detailedPerformance.pending / detailedPerformance.total) * 100) : 0}%)</span>
+                    <span className="legend-item"><span className="legend-dot red" /> Overdue ({detailedPerformance.total ? Math.round((detailedPerformance.overdue / detailedPerformance.total) * 100) : 0}%)</span>
+                    <span className="legend-item"><span className="legend-dot" style={{ backgroundColor: "#64748b" }} /> On Hold ({detailedPerformance.total ? Math.round((detailedPerformance.onHold / detailedPerformance.total) * 100) : 0}%)</span>
+                  </div>
+                </div>
+
+                {/* 4 Status KPI Tiles Grid */}
+                <div className="perf-status-cards-grid">
+                  <div className="perf-status-card completed">
+                    <div className="psc-top">
+                      <span className="psc-title"><span className="status-indicator-dot green" /> Completed</span>
+                      <span className="psc-pct-badge green">{detailedPerformance.completionRate}%</span>
+                    </div>
+                    <div className="psc-middle">
+                      <strong className="psc-count text-green">{detailedPerformance.completed}</strong>
+                      <span className="psc-sub">of {detailedPerformance.total} tasks</span>
+                    </div>
+                    <div className="progress-track psc-track">
+                      <div className="progress-fill" style={{ width: `${detailedPerformance.completionRate}%`, backgroundColor: "#10b981" }} />
                     </div>
                   </div>
 
-                  <div className="perf-bar-group">
-                    <div className="bar-label-row">
-                      <span>In Progress</span>
-                      <strong>{stats.inProgress} ({stats.total ? Math.round((stats.inProgress / stats.total) * 100) : 0}%)</strong>
+                  <div className="perf-status-card in-progress">
+                    <div className="psc-top">
+                      <span className="psc-title"><span className="status-indicator-dot blue" /> In Progress</span>
+                      <span className="psc-pct-badge blue">{detailedPerformance.total ? Math.round((detailedPerformance.inProgress / detailedPerformance.total) * 100) : 0}%</span>
                     </div>
-                    <div className="progress-track">
-                      <div className="progress-fill" style={{ width: `${stats.total ? Math.round((stats.inProgress / stats.total) * 100) : 0}%`, backgroundColor: "#0ea5e9" }} />
+                    <div className="psc-middle">
+                      <strong className="psc-count text-blue">{detailedPerformance.inProgress}</strong>
+                      <span className="psc-sub">actively moving</span>
                     </div>
-                  </div>
-
-                  <div className="perf-bar-group">
-                    <div className="bar-label-row">
-                      <span>Pending</span>
-                      <strong>{stats.pending} ({stats.total ? Math.round((stats.pending / stats.total) * 100) : 0}%)</strong>
-                    </div>
-                    <div className="progress-track">
-                      <div className="progress-fill" style={{ width: `${stats.total ? Math.round((stats.pending / stats.total) * 100) : 0}%`, backgroundColor: "#f59e0b" }} />
+                    <div className="progress-track psc-track">
+                      <div className="progress-fill" style={{ width: `${detailedPerformance.total ? Math.round((detailedPerformance.inProgress / detailedPerformance.total) * 100) : 0}%`, backgroundColor: "#0284c7" }} />
                     </div>
                   </div>
 
-                  <div className="perf-bar-group">
-                    <div className="bar-label-row">
-                      <span>Overdue</span>
-                      <strong>{stats.overdue} ({stats.total ? Math.round((stats.overdue / stats.total) * 100) : 0}%)</strong>
+                  <div className="perf-status-card pending">
+                    <div className="psc-top">
+                      <span className="psc-title"><span className="status-indicator-dot amber" /> Pending</span>
+                      <span className="psc-pct-badge amber">{detailedPerformance.total ? Math.round((detailedPerformance.pending / detailedPerformance.total) * 100) : 0}%</span>
                     </div>
-                    <div className="progress-track">
-                      <div className="progress-fill" style={{ width: `${stats.total ? Math.round((stats.overdue / stats.total) * 100) : 0}%`, backgroundColor: "#dc2626" }} />
+                    <div className="psc-middle">
+                      <strong className="psc-count text-amber">{detailedPerformance.pending}</strong>
+                      <span className="psc-sub">queued for work</span>
                     </div>
+                    <div className="progress-track psc-track">
+                      <div className="progress-fill" style={{ width: `${detailedPerformance.total ? Math.round((detailedPerformance.pending / detailedPerformance.total) * 100) : 0}%`, backgroundColor: "#d97706" }} />
+                    </div>
+                  </div>
+
+                  <div className="perf-status-card overdue">
+                    <div className="psc-top">
+                      <span className="psc-title"><span className="status-indicator-dot red" /> Overdue</span>
+                      <span className="psc-pct-badge red">{detailedPerformance.total ? Math.round((detailedPerformance.overdue / detailedPerformance.total) * 100) : 0}%</span>
+                    </div>
+                    <div className="psc-middle">
+                      <strong className="psc-count text-red">{detailedPerformance.overdue}</strong>
+                      <span className="psc-sub">{detailedPerformance.overdue > 0 ? "requires resolution" : "zero breach"}</span>
+                    </div>
+                    <div className="progress-track psc-track">
+                      <div className="progress-fill" style={{ width: `${detailedPerformance.total ? Math.round((detailedPerformance.overdue / detailedPerformance.total) * 100) : 0}%`, backgroundColor: "#dc2626" }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Operational SLA Strip */}
+                <div className="perf-status-bottom-strip">
+                  <div className="psbs-item">
+                    <span className="psbs-label">Timeliness Adherence:</span>
+                    <strong className="psbs-val text-green">{detailedPerformance.onTimeRate}% on-time delivery</strong>
+                  </div>
+                  <div className="psbs-item">
+                    <span className="psbs-label">SLA Deductions:</span>
+                    <strong className={`psbs-val ${detailedPerformance.pillars.overduePenalty.points > 0 ? "text-red" : "text-slate"}`}>
+                      {detailedPerformance.pillars.overduePenalty.points > 0 ? `-${detailedPerformance.pillars.overduePenalty.points} pts overdue penalty` : "0 penalty (clean SLA)"}
+                    </strong>
                   </div>
                 </div>
               </div>
 
               {/* Work Efficiency Summary */}
-              <div className="overview-card">
+              <div className="overview-card perf-card-visual">
                 <div className="card-header-line">
-                  <h3><FiTrendingUp size={16} /> Workload & Efficiency</h3>
+                  <div className="card-header-left">
+                    <h3><FiTrendingUp size={16} /> Workload & Efficiency</h3>
+                    <span className="card-header-sub">Operational output & shift discipline</span>
+                  </div>
+                  <span className="perf-trajectory-chip">
+                    {detailedPerformance.trajectory}
+                  </span>
                 </div>
-                <div className="efficiency-details-list">
-                  <div className="eff-item">
-                    <span className="eff-label">Total Assigned Tasks</span>
-                    <strong className="eff-val">{stats.total || tasks.length}</strong>
+
+                {/* 3 Metric Summary Tiles */}
+                <div className="perf-efficiency-tiles">
+                  <div className="perf-eff-tile">
+                    <span className="eff-tile-label">Evaluated Tasks</span>
+                    <strong className="eff-tile-val text-dark">{detailedPerformance.total}</strong>
+                    <span className="eff-tile-sub">Total deliverables evaluated</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Tracked Task Hours</span>
-                    <strong className="eff-val text-blue">{workSummary?.trackedTaskLabel || "0m"}</strong>
+                  <div className="perf-eff-tile">
+                    <span className="eff-tile-label">Tracked Hours</span>
+                    <strong className="eff-tile-val text-blue">{detailedPerformance.trackedHoursLabel}</strong>
+                    <span className="eff-tile-sub">Total logged execution time</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Total Clocked Time</span>
-                    <strong className="eff-val text-green">{workSummary?.totalClockedLabel || "0m"}</strong>
+                  <div className="perf-eff-tile">
+                    <span className="eff-tile-label">Discipline Index</span>
+                    <strong className="eff-tile-val text-purple">{detailedPerformance.attendance.disciplineRate}%</strong>
+                    <span className="eff-tile-sub">Composite punctuality & shift SLA</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Untracked Ratio</span>
-                    <strong className="eff-val text-orange">{workSummary?.untrackedLabel || "0m"}</strong>
+                </div>
+
+                {/* Attendance Discipline Visual Progress Meter */}
+                <div className="perf-eff-attendance-section">
+                  <div className="eff-att-header-row">
+                    <span className="eff-att-title">Shift Attendance & Punctuality Breakdown</span>
+                    <span className="eff-att-badge">{detailedPerformance.attendance.disciplineRate}% Discipline</span>
                   </div>
-                  <div className="eff-item">
-                    <span className="eff-label">Attendance Reliability</span>
-                    <strong className="eff-val text-purple">
-                      {Number.isFinite(attendanceReliability) ? `${attendanceReliability}%` : "—"}
-                    </strong>
+                  <div className="progress-track att-discipline-track">
+                    <div
+                      className="progress-fill att-discipline-fill"
+                      style={{
+                        width: `${detailedPerformance.attendance.disciplineRate}%`,
+                        backgroundColor: detailedPerformance.attendance.disciplineRate >= 85 ? "#10b981" : detailedPerformance.attendance.disciplineRate >= 70 ? "#3b82f6" : "#f59e0b"
+                      }}
+                    />
+                  </div>
+
+                  {/* 4 Punctuality Chips with Half Day */}
+                  <div className="eff-punctuality-chips">
+                    <div className="eff-p-chip clockin">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.present}</span>
+                      <span className="chip-label">Clock In</span>
+                    </div>
+                    <div className="eff-p-chip halfday">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.halfday}</span>
+                      <span className="chip-label">Half Day</span>
+                    </div>
+                    <div className="eff-p-chip late">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.late}</span>
+                      <span className="chip-label">Late</span>
+                    </div>
+                    <div className="eff-p-chip absent">
+                      <span className="chip-indicator" />
+                      <span className="chip-count">{detailedPerformance.attendance.absent}</span>
+                      <span className="chip-label">Absent</span>
+                    </div>
+                  </div>
+                  <p className="eff-att-footnote">
+                    *Attendance Score balances: 100% full Clock In, 50% Half Day, 30% late deduction, and 0% for unclocked absence across scheduled working days.
+                  </p>
+                </div>
+
+                {/* Evaluation Trajectory Card */}
+                <div className="perf-trajectory-box">
+                  <div className="ptb-left">
+                    <span className="ptb-label">Performance Assessment Verdict</span>
+                    <p className="ptb-text">{detailedPerformance.narrative?.executiveSummary}</p>
                   </div>
                 </div>
               </div>

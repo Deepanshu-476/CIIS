@@ -4,6 +4,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   FiBriefcase,
   FiChevronRight,
+  FiChevronDown,
   FiGrid,
   FiCheckSquare,
   FiPackage,
@@ -26,6 +27,7 @@ import './ClientLayout.css';
 const ClientLayout = () => {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
+  const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const hideHeaderTools = location.pathname === '/client/support-tickets';
@@ -95,6 +97,7 @@ const ClientLayout = () => {
     if (nextClient?._id && String(nextClient._id) !== String(client?._id || '')) {
       switchClient(nextClient);
     }
+    setCompanyMenuOpen(false);
   };
 
   const handleCompanyChange = event => {
@@ -144,38 +147,38 @@ const ClientLayout = () => {
         </div>
 
         {sidebarOpen && sidebarCompanies.length > 0 && (
-          <section className="ClientLayout-company-panel" aria-label="My Company">
-            <div className="ClientLayout-company-panel-head">
-              <span><FiBriefcase size={14} /> My Company</span>
-              {sidebarCompanies.length > 1 && <small>{sidebarCompanies.length}</small>}
-            </div>
-            <div className="ClientLayout-company-list">
-              {sidebarCompanies.map(item => {
-                const isActive = String(item._id || item.id || '') === String(client?._id || client?.id || '');
-                return (
-                  <button
-                    type="button"
-                    key={item._id || item.id || getCompanyName(item)}
-                    className={`ClientLayout-company-card ${isActive ? 'active' : ''}`}
-                    onClick={() => handleCompanySwitch(item)}
-                    aria-pressed={isActive}
-                  >
-                    <span className="ClientLayout-company-logo">
-                      {item.companyLogo || item.logo || item.logoUrl ? (
-                        <img src={item.companyLogo || item.logo || item.logoUrl} alt="" />
-                      ) : (
-                        getCompanyInitial(item)
-                      )}
-                    </span>
-                    <span className="ClientLayout-company-copy">
-                      <strong>{getCompanyName(item)}</strong>
-                      <small>{getCompanyServicesCount(item)} services</small>
-                    </span>
-                    {sidebarCompanies.length > 1 && <FiChevronRight size={16} />}
-                  </button>
-                );
-              })}
-            </div>
+          <section className="ClientLayout-company-panel" aria-label="Selected company">
+            <div className="ClientLayout-company-panel-head"><span><FiBriefcase size={14} /> Company workspace</span></div>
+            <button
+              type="button"
+              className={`ClientLayout-company-card active ClientLayout-company-trigger ${companyMenuOpen ? 'open' : ''}`}
+              onClick={() => sidebarCompanies.length > 1 && setCompanyMenuOpen(open => !open)}
+              aria-expanded={companyMenuOpen}
+              disabled={sidebarCompanies.length <= 1}
+            >
+              <span className="ClientLayout-company-logo">
+                {currentLogo ? <img src={currentLogo} alt="" /> : getCompanyInitial(client)}
+              </span>
+              <span className="ClientLayout-company-copy">
+                <strong>{getCompanyName(client)}</strong>
+                <small>{getCompanyServicesCount(client)} services - {String(client?.status || 'Active')}</small>
+              </span>
+              {sidebarCompanies.length > 1 && <FiChevronDown size={16} />}
+            </button>
+            {companyMenuOpen && sidebarCompanies.length > 1 && (
+              <div className="ClientLayout-company-menu" role="menu">
+                {sidebarCompanies.map(item => {
+                  const isActive = String(item._id || item.id || '') === String(client?._id || client?.id || '');
+                  return (
+                    <button type="button" role="menuitem" key={item._id || item.id || getCompanyName(item)} className={`ClientLayout-company-card ${isActive ? 'active' : ''}`} onClick={() => handleCompanySwitch(item)}>
+                      <span className="ClientLayout-company-logo">{item.companyLogo || item.logo || item.logoUrl ? <img src={item.companyLogo || item.logo || item.logoUrl} alt="" /> : getCompanyInitial(item)}</span>
+                      <span className="ClientLayout-company-copy"><strong>{getCompanyName(item)}</strong><small>{getCompanyServicesCount(item)} services - {String(item.status || 'Active')}</small></span>
+                      {isActive ? <small className="ClientLayout-company-current">Current</small> : <FiChevronRight size={16} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
 
@@ -235,18 +238,6 @@ const ClientLayout = () => {
           {!hideHeaderTools && (
             <div className="ClientLayout-header-right">
               <button className="ClientLayout-quick-action">Request Service</button>
-              {availableClients.length > 1 && (
-                <label className="ClientLayout-header-company-select">
-                  <span>Company</span>
-                  <select value={client?._id || ''} onChange={handleCompanyChange}>
-                    {availableClients.map(item => (
-                      <option key={item._id} value={item._id}>
-                        {item.company || item.client || 'Company'}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
               <button className="ClientLayout-icon-button">
                 <FiBell size={20} />
                 <span>4</span>

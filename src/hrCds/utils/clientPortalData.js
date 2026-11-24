@@ -38,12 +38,13 @@ export const getClientPortalCompanyContext = (user = null, client = null) => {
   const rawCompany = accountStorage.getItem('company') || '';
 
   const companyCode = pickFirstString([
+    storedClient.companyCode,
+    storedClient.company?.companyCode,
+    accountStorage.getItem('clientCompanyCode'),
     accountStorage.getItem('companyCode'),
     storedUser.companyCode,
     storedUser.company?.companyCode,
     storedUser.companyDetails?.companyCode,
-    storedClient.companyCode,
-    storedClient.company?.companyCode,
     companyDetails.companyCode,
     companyDetails.code,
     companyObject.companyCode,
@@ -52,12 +53,15 @@ export const getClientPortalCompanyContext = (user = null, client = null) => {
   ]);
 
   const companyIdentifier = pickFirstString([
+    storedClient.companyIdentifier,
+    storedClient.company?._id,
+    storedClient.companyId,
+    storedClient._id,
+    accountStorage.getItem('clientCompanyIdentifier'),
     accountStorage.getItem('companyIdentifier'),
     storedUser.companyIdentifier,
     storedUser.company?._id,
     storedUser.company,
-    storedClient.companyIdentifier,
-    storedClient.company?._id,
     companyDetails._id,
     companyDetails.id,
     companyObject._id,
@@ -376,6 +380,7 @@ export const applyClientSubscriptionDueDates = (tasks = [], client) => (
 
     return {
       ...task,
+      serviceName: task?.serviceName || task?.service || '',
       dueDate,
       status,
       dueDateSource: 'subscription'
@@ -596,17 +601,31 @@ export const useClientPortalData = () => {
     };
   }, []);
 
-  const persistSelectedClient = useCallback(nextClient => {
-    if (!nextClient?._id) return;
-    accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextClient._id));
-    accountStorage.setItem('client', JSON.stringify(nextClient));
-    window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, { detail: { clientId: nextClient._id } }));
+  const getSelectionStorageKey = useCallback((candidateUser = null) => {
+    const storedUser = candidateUser || readStoredJson('user') || {};
+    const userId = storedUser?._id || storedUser?.id || storedUser?.email || 'anonymous';
+    return `${CLIENT_PORTAL_SELECTED_CLIENT_KEY}:${String(userId)}`;
   }, []);
 
-  const fetchCompanyUsers = useCallback(async user => {
+  const persistSelectedClient = useCallback(nextClient => {
+    if (!nextClient?._id) return;
+    const storedUser = readStoredJson('user');
+    accountStorage.setItem(getSelectionStorageKey(storedUser), String(nextClient._id));
+    // Retain the legacy key for older client portal pages during migration.
+    accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextClient._id));
+    accountStorage.setItem('client', JSON.stringify(nextClient));
+    accountStorage.setItem('clientCompanyCode', String(nextClient.companyCode || ''));
+    accountStorage.setItem('clientCompanyIdentifier', String(nextClient.companyIdentifier || nextClient.companyId || nextClient._id || ''));
+    window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, { detail: { clientId: nextClient._id } }));
+  }, [getSelectionStorageKey]);
+
+  const fetchCompanyUsers = useCallback(async (user, companyContext = {}) => {
     try {
       const role = String(user?.companyRole || user?.role || user?.userRole || '').toLowerCase();
-      const response = await usersApi.get(role === 'employee' ? '/department-users' : '/company-users');
+      const response = await usersApi.get(
+        role === 'employee' ? '/department-users' : '/company-users',
+        { params: getCompanyScopedClientParams(companyContext) }
+      );
       return getUsersArrayFromResponse(response.data);
     } catch (err) {
       console.error('Error fetching company users:', err);
@@ -662,19 +681,14 @@ export const useClientPortalData = () => {
       })();
       setUser(user);
       const companyContext = getClientPortalCompanyContext(user, storedClient);
-      if (!companyContext.companyCode) {
-        setClient(null);
-        setAvailableClients([]);
-        setServices([]);
-        setTasks([]);
-        setProjectManagers([]);
-        setError('Company code missing. Please login again from your company portal.');
-        return;
-      }
-      const [clientsResponse, companyUsers] = await Promise.all([
-        clientsApi.get('/', { params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 } }),
-        fetchCompanyUsers(user)
-      ]);
+      const portalCompaniesResponse = await clientsApi.get('/portal-companies');
+
+      // The dedicated endpoint is authorised server-side and can span multiple
+      // company codes. Keep the legacy list request only as a compatibility fallback.
+      const portalCompanies = portalCompaniesResponse.data?.success ? (portalCompaniesResponse.data.data || []) : [];
+      const clientsResponse = portalCompanies.length
+        ? { data: { success: true, data: portalCompanies } }
+        : await clientsApi.get('/', { params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 } });
 
       if (!clientsResponse.data?.success) {
         setError('No client data found');
@@ -706,7 +720,7 @@ export const useClientPortalData = () => {
           return 0;
         });
       const effectiveClients = matchingClients.length > 0 ? matchingClients : allClients;
-      const selectedClientId = normalizeMatchValue(accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
+      const selectedClientId = normalizeMatchValue(accountStorage.getItem(getSelectionStorageKey(user)) || accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY));
       const storedClientId = selectedClientId || normalizeMatchValue(storedClient?._id || storedClient?.id || storedClient?.clientId);
       const currentClient = (
         storedClientId
@@ -724,14 +738,21 @@ export const useClientPortalData = () => {
       }
 
       const serviceList = getClientServices(currentClient);
-      const taskGroups = await Promise.all(serviceList.map(service => fetchServiceTasks(currentClient._id, service)));
+      const selectedCompanyContext = getClientPortalCompanyContext(user, currentClient);
+      const [taskGroups, companyUsers] = await Promise.all([
+        Promise.all(serviceList.map(service => fetchServiceTasks(currentClient._id, service))),
+        fetchCompanyUsers(user, selectedCompanyContext)
+      ]);
       const normalizedTasks = applyClientSubscriptionDueDates(taskGroups.flat(), currentClient);
 
       if (isMounted.current) {
         setClient(currentClient);
         setAvailableClients(effectiveClients);
+        accountStorage.setItem(getSelectionStorageKey(user), String(currentClient._id));
         accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(currentClient._id));
         accountStorage.setItem('client', JSON.stringify(currentClient));
+        accountStorage.setItem('clientCompanyCode', String(currentClient.companyCode || ''));
+        accountStorage.setItem('clientCompanyIdentifier', String(currentClient.companyIdentifier || currentClient.companyId || currentClient._id || ''));
         setServices(serviceList);
         setTasks(normalizedTasks);
         setProjectManagers(collectProjectMembers(currentClient, companyUsers));
@@ -742,7 +763,7 @@ export const useClientPortalData = () => {
     } finally {
       if (isMounted.current) setLoading(false);
     }
-  }, [clientsApi, fetchCompanyUsers, fetchServiceTasks, selectionVersion]);
+  }, [clientsApi, fetchCompanyUsers, fetchServiceTasks, getSelectionStorageKey, selectionVersion]);
 
   useEffect(() => {
     refetch();

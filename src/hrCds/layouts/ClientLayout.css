@@ -175,6 +175,36 @@
   border-color: rgba(96, 165, 250, 0.26);
 }
 
+.ClientLayout-company-trigger {
+  cursor: default;
+}
+
+.ClientLayout-company-trigger:not(:disabled) {
+  cursor: pointer;
+}
+
+.ClientLayout-company-trigger.open {
+  border-color: rgba(96, 165, 250, 0.62);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.ClientLayout-company-menu {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  max-height: 230px;
+  overflow-y: auto;
+}
+
+.ClientLayout-company-current {
+  color: #93c5fd;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .ClientLayout-company-logo {
   width: 38px;
   height: 38px;

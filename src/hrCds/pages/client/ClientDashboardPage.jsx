@@ -491,7 +491,8 @@ const Dashboard = () => {
     isMounted.current = true;
     const handleSelectionChange = () => {
       initialFetchDone.current = true;
-      fetchClientData(false);
+      isFetchingRef.current = false;
+      fetchClientData(true);
     };
     window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, handleSelectionChange);
     return () => {
@@ -751,8 +752,18 @@ const Dashboard = () => {
   const handleCompanySelect = nextClient => {
     if (!nextClient?._id) return;
     const nextClientId = String(nextClient._id);
+    const userStr = accountStorage.getItem('user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        const uid = u?._id || u?.id || u?.email || 'anonymous';
+        accountStorage.setItem(`${CLIENT_PORTAL_SELECTED_CLIENT_KEY}:${String(uid)}`, nextClientId);
+      } catch {}
+    }
     accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, nextClientId);
     accountStorage.setItem('client', JSON.stringify(nextClient));
+    accountStorage.setItem('clientCompanyCode', String(nextClient.companyCode || ''));
+    accountStorage.setItem('clientCompanyIdentifier', String(nextClient.companyIdentifier || nextClient.companyId || nextClient._id || ''));
     window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
       detail: { clientId: nextClientId }
     }));
@@ -787,7 +798,7 @@ const Dashboard = () => {
   };
 
   const dynamicServiceRows = services.map(serviceName => {
-    const tasks = serviceTasks.filter(task => task.serviceName === serviceName);
+    const tasks = serviceTasks.filter(task => (task.serviceName || task.service) === serviceName);
     const completed = tasks.filter(task => task.completed === true).length;
     const percent = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
     const latestSub = client?.subscription?.[client?.subscription?.length - 1];
@@ -804,7 +815,7 @@ const Dashboard = () => {
   const filteredServiceRows = dynamicServiceRows.filter(row => {
     if (dashboardFilter === 'active-services') return true;
     return serviceTasks
-      .filter(task => task.serviceName === row.name)
+      .filter(task => (task.serviceName || task.service) === row.name)
       .some(task => taskMatchesFilter(task, dashboardFilter));
   });
 

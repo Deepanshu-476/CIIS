@@ -232,7 +232,7 @@ export default function useTaskAgentSession({
     const isCreatingRef = useRef(false);
     const inputSourceRef = useRef('typed'); // 'voice' | 'typed'
     // Session-level mic mode state: 'voice' once spoken or tapped, 'typed' when keyboard text sent or muted
-    const micModeRef = useRef(startWithMic ? 'voice' : 'typed');
+    const micModeRef = useRef(variant === 'voice' || startWithMic ? 'voice' : 'typed');
     const spokenMessageIdsRef = useRef(new Set());
     const isTypingRef = useRef(false);
     const [micSkipReason, setMicSkipReason] = useState(null);
@@ -310,7 +310,6 @@ export default function useTaskAgentSession({
         allVoices,
         speakDiag,
         setSpeakDiag,
-        speechDetectedRef,
     } = useSpeech({
         defaultEngine: 'whisper',
         defaultLang: 'auto', // Defaults to auto language detection
@@ -331,11 +330,10 @@ export default function useTaskAgentSession({
 
     // Formats any spoken speech phonetically (e.g. "CIIS AI" -> "C I I S A I") so TTS never mispronounces it
     const speak = useCallback((speechText, fallbackText, onEnd) => {
-        if (!autoSpeak || isPaused || userMutedRef.current) return;
         const fmtSpeech = formatSpokenForTTS(speechText);
         const fmtFallback = formatSpokenForTTS(fallbackText);
         rawSpeak(fmtSpeech, fmtFallback, onEnd);
-    }, [rawSpeak, autoSpeak, isPaused, userMutedRef]);
+    }, [rawSpeak]);
 
     // Auto-dismiss mic error notices after 5 seconds
     useEffect(() => {
@@ -2603,7 +2601,7 @@ export default function useTaskAgentSession({
                 }
             }
 
-            if (startWithMic && autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
+            if (autoSpeak && ttsSupported && greetingId && !spokenMessageIdsRef.current.has(greetingId)) {
                 spokenMessageIdsRef.current.add(greetingId);
                 cancelSpeech();
                 const watchdog = createTtsWatchdog(() => {
@@ -2614,7 +2612,7 @@ export default function useTaskAgentSession({
                     watchdog.cancel();
                     (ensureListeningRef.current || ensureListening)();
                 });
-            } else if (startWithMic && sttSupported && !userMutedRef.current) {
+            } else if (sttSupported && !userMutedRef.current) {
                 (ensureListeningRef.current || ensureListening)();
             }
         }
@@ -2784,18 +2782,13 @@ export default function useTaskAgentSession({
         cancelReadyCountdown();
         setSpeechError?.(null);
         setNotice(null);
-        if (isSpeaking) {
-            cancelSpeech();
+        if (listening) {
+            stop('manual');
             setIsPaused(true);
-        } else if (listening) {
-            if (speechDetectedRef?.current) {
-                // User spoke and tapped orb to submit -> immediately transcribe and send!
-                stop('silence');
-            } else {
-                cancelSpeech();
-                stop('manual');
-                setIsPaused(true);
-            }
+        } else if (isSpeaking) {
+            cancelSpeech();
+            clearUserMute();
+            start({ force: true });
         } else {
             setIsPaused(false);
             setNotice(null);
@@ -2894,7 +2887,6 @@ export default function useTaskAgentSession({
         setNotice,
         start,
         stop,
-        clearUserMute,
         speak,
         cancelSpeech,
         recordingVoiceNote,

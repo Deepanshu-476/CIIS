@@ -471,9 +471,35 @@ const formatTimeOnly = (dateStr) => {
 
 const getDateInputValue = (date = new Date()) => {
   const d = new Date(date);
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${month}-${day}`;
+  if (Number.isNaN(d.getTime())) return "";
+  // Attendance is stored at the start of an India calendar day. Using the
+  // browser's local timezone here can place a record in the previous/next day
+  // and make the Performance discipline score incorrectly read 0%.
+  const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+  const month = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(istDate.getUTCDate()).padStart(2, "0");
+  return `${istDate.getUTCFullYear()}-${month}-${day}`;
+};
+
+const getPerformanceAttendanceRange = (timeframe, customStart = "", customEnd = "") => {
+  const now = new Date();
+  const today = getDateInputValue(now);
+  if (timeframe === "custom") return { startDate: customStart || "", endDate: customEnd || "" };
+  if (timeframe === "today") return { startDate: today, endDate: today };
+  if (timeframe === "week") {
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
+    return { startDate: getDateInputValue(monday), endDate: today };
+  }
+  if (timeframe === "month") {
+    return { startDate: getDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1)), endDate: today };
+  }
+  if (timeframe === "sixMonths") {
+    const sixMonthsAgo = new Date(now);
+    sixMonthsAgo.setMonth(now.getMonth() - 6);
+    return { startDate: getDateInputValue(sixMonthsAgo), endDate: today };
+  }
+  return { startDate: "", endDate: "" }; // Overall: entire employment record
 };
 
 const getDateTimeInputValue = (date = new Date()) => {
@@ -713,9 +739,11 @@ const CompanyAllTaskTasks = () => {
   // A date range supplied by the Company All Task page opens Performance in
   // its matching custom window. Once a reviewer selects a timeframe button,
   // that explicit choice must win over the URL range.
-  const [perfTimeframe, setPerfTimeframe] = useState(() => (
-    initialStartDate || initialEndDate ? "custom" : "month"
-  )); // "custom" | "today" | "week" | "month" | "sixMonths" | "overall"
+  const [perfTimeframe, setPerfTimeframe] = useState(() => {
+    if (!initialStartDate && !initialEndDate) return "today";
+    if (initialStartDate === todayStr && initialEndDate === todayStr) return "today";
+    return "custom";
+  }); // "custom" | "today" | "week" | "month" | "sixMonths"
   const [perfLoading, setPerfLoading] = useState(false);
   const [perfData, setPerfData] = useState({
     tasks: [],
@@ -723,6 +751,7 @@ const CompanyAllTaskTasks = () => {
     workSummary: null,
     performanceMetrics: null,
   });
+  const [perfAttendance, setPerfAttendance] = useState({ records: [], loaded: false });
 
   // This detail page stays mounted when the Company All Task list changes only
   // its query string. Keep the local date range in sync with the URL so the
@@ -735,11 +764,23 @@ const CompanyAllTaskTasks = () => {
     setStartDate((current) => (current === nextStartDate ? current : nextStartDate));
     setEndDate((current) => (current === nextEndDate ? current : nextEndDate));
     setPerfTimeframe((current) => {
+      if (nextStartDate === todayStr && nextEndDate === todayStr) return "today";
+      if (!nextStartDate && !nextEndDate) return "today";
       if (nextStartDate || nextEndDate) return "custom";
-      return current === "custom" ? "month" : current;
+      return current === "custom" ? "today" : current;
     });
     setPage(1);
-  }, [dateRangeQueryKey, searchParams]);
+  }, [dateRangeQueryKey, searchParams, todayStr]);
+
+  const activeTimeframe = useMemo(() => {
+    if (perfTimeframe === "today") return "today";
+    if (perfTimeframe === "week") return "week";
+    if (perfTimeframe === "month") return "month";
+    if (perfTimeframe === "sixMonths") return "sixMonths";
+    if (startDate === todayStr && endDate === todayStr) return "today";
+    if (!startDate && !endDate) return "today";
+    return perfTimeframe || "today";
+  }, [perfTimeframe, startDate, endDate, todayStr]);
 
   // Retained only for safe cleanup of old document-preview state. The Documents
   // tab is intentionally not exposed on the Company All Task page.
@@ -1179,6 +1220,24 @@ const CompanyAllTaskTasks = () => {
     }
   }, [effectiveUserId]);
 
+  const fetchPerfAttendance = useCallback(async (tf, selectedRange = {}) => {
+    if (!effectiveUserId) return;
+    const range = getPerformanceAttendanceRange(tf, selectedRange.startDate, selectedRange.endDate);
+    setPerfAttendance({ records: [], loaded: false });
+    try {
+      const response = await axios.get(`/attendance/user/${effectiveUserId}`, {
+        params: {
+          ...(range.startDate ? { startDate: range.startDate } : {}),
+          ...(range.endDate ? { endDate: range.endDate } : {}),
+        },
+      });
+      setPerfAttendance({ records: response.data?.data || [], loaded: true });
+    } catch (err) {
+      console.error("Failed to fetch performance attendance:", err);
+      setPerfAttendance({ records: [], loaded: true });
+    }
+  }, [effectiveUserId]);
+
   // Fetch User's Uploaded Documents (Read-only view)
   const fetchDocuments = useCallback(async () => {
     if (!effectiveUserId) return;
@@ -1385,11 +1444,15 @@ const CompanyAllTaskTasks = () => {
       // The task list already honours these values, so using a separate monthly window here
       // produced conflicting totals and scores.
       fetchPerfDataset(
-        perfTimeframe,
+        activeTimeframe,
+        { startDate, endDate }
+      );
+      fetchPerfAttendance(
+        activeTimeframe,
         { startDate, endDate }
       );
     }
-  }, [activeTab, perfTimeframe, startDate, endDate, fetchPerfDataset]);
+  }, [activeTab, activeTimeframe, startDate, endDate, fetchPerfDataset, fetchPerfAttendance]);
 
   const fetchTaskDetails = useCallback(async (task, activityOnly = false) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
@@ -2032,7 +2095,10 @@ const CompanyAllTaskTasks = () => {
 
       showToast("Generating PDF report...", "info");
 
-      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      // Eight task columns cannot fit on an A4 portrait page. Landscape keeps
+      // every field inside the printable area and autoTable carries rows over
+      // to subsequent pages instead of clipping the right-side values.
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -2069,7 +2135,7 @@ const CompanyAllTaskTasks = () => {
         return [
           index + 1,
           cleanTitle,
-          cleanDesc.length > 80 ? `${cleanDesc.substring(0, 77)}...` : cleanDesc,
+          cleanDesc,
           (t.priority || "medium").toUpperCase(),
           dispStatus.toUpperCase(),
           tType,
@@ -2091,20 +2157,22 @@ const CompanyAllTaskTasks = () => {
           halign: "left",
         },
         bodyStyles: {
-          fontSize: 8,
+          fontSize: 7.2,
           textColor: [30, 41, 59],
           valign: "middle",
+          cellPadding: 4,
         },
         columnStyles: {
-          0: { cellWidth: 26, halign: "center" },
-          1: { cellWidth: 140 },
-          2: { cellWidth: 230 },
-          3: { cellWidth: 55, halign: "center" },
-          4: { cellWidth: 65, halign: "center" },
+          0: { cellWidth: 25, halign: "center" },
+          1: { cellWidth: 145 },
+          2: { cellWidth: 260 },
+          3: { cellWidth: 60, halign: "center" },
+          4: { cellWidth: 70, halign: "center" },
           5: { cellWidth: 55, halign: "center" },
-          6: { cellWidth: 70, halign: "center" },
-          7: { cellWidth: 55, halign: "center" },
+          6: { cellWidth: 75, halign: "center" },
+          7: { cellWidth: 65, halign: "center" },
         },
+        margin: { left: 30, right: 30, bottom: 30 },
         didDrawPage: () => {
           const pageStr = `Page ${doc.internal.getNumberOfPages()}`;
           doc.setFontSize(8);
@@ -2506,7 +2574,7 @@ const CompanyAllTaskTasks = () => {
   // Multi-Timeframe Comprehensive Performance Evaluation Engine
   const detailedPerformance = useMemo(() => {
     const now = new Date();
-    const effectivePerfTimeframe = perfTimeframe;
+    const effectivePerfTimeframe = activeTimeframe;
 
     // Use timeframe dataset if available (even when 0 tasks), otherwise fallback to general tasks
     const isPerfLoaded = perfData.stats !== null || (Array.isArray(perfData.tasks) && perfData.tasks.length > 0);
@@ -2558,60 +2626,27 @@ const CompanyAllTaskTasks = () => {
     let halfdayCount = 0;
     let totalWorkingDays = 0;
 
-    const currentDayOfWeek = now.getDay();
-    const diffToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-    const mondayThisWeek = new Date(now);
-    mondayThisWeek.setDate(now.getDate() - diffToMonday);
-    mondayThisWeek.setHours(0, 0, 0, 0);
+    // Attendance is fetched independently for the selected Performance range.
+    // This prevents 6-month/overall reports from accidentally using the calendar's
+    // current-month records (or showing a hard-coded 0%).
+    const periodAttendance = perfAttendance.loaded ? perfAttendance.records : [];
+    periodAttendance.forEach((record) => {
+      const status = String(record?.status || "").trim().toUpperCase();
+      const lateBy = String(record?.lateBy || "").trim();
+      const hasLatePunch = lateBy && lateBy !== "00:00:00" && lateBy !== "0:00:00";
 
-    if (effectivePerfTimeframe === "today") {
-      const todayCell = calendarDays.find((c) => c.dateKey === todayStr) ||
-        attendanceRecords.find((r) => r.date && r.date.split("T")[0] === todayStr);
-      const s = String(todayCell?.status || "").toUpperCase();
-      totalWorkingDays = 1;
-      if (s === "PRESENT") presentCount = 1;
-      else if (s === "LATE") lateCount = 1;
-      else if (s === "HALF DAY" || s === "HALFDAY") halfdayCount = 1;
-      else if (s === "ABSENT") absentCount = 1;
-      else {
-        if (todayCell?.inTime) {
-          presentCount = 1;
-          if (todayCell.lateBy) lateCount = 1;
-        }
-        // A missing record is unknown attendance, not an automatic full-day present.
-        if (!todayCell?.inTime) totalWorkingDays = 0;
+      if (status === "PRESENT") {
+        if (hasLatePunch) lateCount++;
+        else presentCount++;
+      } else if (status === "LATE" || status === "SHORT LEAVE") {
+        lateCount++;
+      } else if (status === "HALF DAY" || status === "HALFDAY") {
+        halfdayCount++;
+      } else if (status === "ABSENT" || status === "UNINFORMED LEAVE" || status === "UNINFORMEDLEAVE") {
+        absentCount++;
       }
-    } else if (effectivePerfTimeframe === "week" || effectivePerfTimeframe === "custom") {
-      const customRangeStart = startDate ? new Date(`${startDate}T00:00:00`) : null;
-      const customRangeEnd = endDate ? new Date(`${endDate}T23:59:59.999`) : null;
-      const weekCells = calendarDays.filter((c) => {
-        if (!c.dateKey) return false;
-        const d = new Date(c.dateKey);
-        if (effectivePerfTimeframe === "custom") {
-          return (!customRangeStart || d >= customRangeStart) && (!customRangeEnd || d <= customRangeEnd);
-        }
-        return d >= mondayThisWeek && d <= now;
-      });
-      weekCells.forEach((c) => {
-        const s = String(c.status || "").toUpperCase();
-        if (s === "PRESENT") presentCount++;
-        else if (s === "LATE") lateCount++;
-        else if (s === "HALF DAY" || s === "HALFDAY") halfdayCount++;
-        else if (s === "ABSENT") absentCount++;
-      });
-      totalWorkingDays = presentCount + lateCount + halfdayCount + absentCount;
-    } else if (effectivePerfTimeframe === "month") {
-      // Monthly evaluation can use the loaded monthly attendance records.
-      presentCount = monthStats.present || 0;
-      lateCount = monthStats.late || 0;
-      absentCount = monthStats.absent || 0;
-      halfdayCount = monthStats.halfday || 0;
-      totalWorkingDays = monthStats.totalWorking || (presentCount + lateCount + halfdayCount + absentCount);
-    } else {
-      // Do not blend a current-month attendance score into 6-month/overall task data.
-      // Those periods need period-scoped attendance from the API before they can earn points.
-      totalWorkingDays = 0;
-    }
+    });
+    totalWorkingDays = presentCount + lateCount + halfdayCount + absentCount;
 
     const disciplineRate = totalWorkingDays > 0
       ? Math.round(((presentCount * 1.0 + lateCount * 0.70 + halfdayCount * 0.50) / totalWorkingDays) * 100)
@@ -2799,7 +2834,7 @@ const CompanyAllTaskTasks = () => {
         overduePenalty: { points: overduePenalty },
       },
     };
-  }, [perfTimeframe, perfData, tasks, stats, performanceMetrics, workSummary, onTimeRate, calendarDays, attendanceRecords, monthStats, todayStr, employeeName, startDate, endDate]);
+  }, [activeTimeframe, perfData, perfAttendance, tasks, stats, performanceMetrics, workSummary, onTimeRate, employeeName, startDate, endDate]);
 
   // Download Official Performance Evaluation Dossier (Executive Multi-Pillar Assessment)
   const handleDownloadPerformanceReport = () => {
@@ -5191,38 +5226,31 @@ const CompanyAllTaskTasks = () => {
               <div className="perf-timeframe-segmented">
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "today" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "today" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("today")}
                 >
                   Today
                 </button>
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "week" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "week" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("week")}
                 >
                   This Week
                 </button>
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "month" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "month" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("month")}
                 >
                   This Month
                 </button>
                 <button
                   type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "sixMonths" ? "active" : ""}`}
+                  className={`perf-tf-btn ${activeTimeframe === "sixMonths" ? "active" : ""}`}
                   onClick={() => setPerfTimeframe("sixMonths")}
                 >
                   Last 6 Months
-                </button>
-                <button
-                  type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "overall" ? "active" : ""}`}
-                  onClick={() => setPerfTimeframe("overall")}
-                >
-                  Overall
                 </button>
               </div>
 
@@ -5236,7 +5264,7 @@ const CompanyAllTaskTasks = () => {
                 >
                   <FiDownload size={14} />
                   <span>
-                    Download Report ({perfTimeframe === "today" ? "Today" : perfTimeframe === "week" ? "Weekly" : perfTimeframe === "month" ? "Monthly" : perfTimeframe === "sixMonths" ? "6-Month" : "Overall"})
+                    Download Report ({activeTimeframe === "today" ? "Today" : activeTimeframe === "week" ? "Weekly" : activeTimeframe === "month" ? "Monthly" : activeTimeframe === "sixMonths" ? "6-Month" : "Custom"})
                   </span>
                 </button>
               </div>

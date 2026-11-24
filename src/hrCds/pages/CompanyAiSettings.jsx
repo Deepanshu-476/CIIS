@@ -77,16 +77,27 @@ export default function CompanyAiSettings() {
   // Retrieve current company ID
   const companyId = useMemo(() => {
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const storedCompany = JSON.parse(localStorage.getItem('companyDetails') || '{}');
-      return (
-        user?.company?._id ||
-        user?.company ||
-        storedCompany?._id ||
-        storedCompany?.id ||
-        user?.companyId ||
-        ''
-      );
+      const getStored = (key) => {
+        try {
+          const sVal = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(key) : null;
+          if (sVal) return JSON.parse(sVal);
+          const lVal = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+          if (lVal) return JSON.parse(lVal);
+          return null;
+        } catch {
+          return null;
+        }
+      };
+      const user = getStored('user') || getStored('currentUser');
+      const rawUserComp = user?.company?._id || user?.company || user?.companyId;
+      if (rawUserComp && typeof rawUserComp === 'string') return rawUserComp;
+      if (rawUserComp && typeof rawUserComp === 'object') return rawUserComp._id || rawUserComp.id || '';
+
+      const storedCompany = getStored('companyDetails') || getStored('company');
+      const scId = storedCompany?._id || storedCompany?.id;
+      if (scId) return String(scId);
+
+      return '';
     } catch {
       return '';
     }

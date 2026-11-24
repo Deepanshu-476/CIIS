@@ -12,6 +12,7 @@ import {
   Minimize2,
   X,
   Mic,
+  MicOff,
   Send,
   Paperclip,
   Volume2,
@@ -28,6 +29,7 @@ import { useMyAi } from '../../context/MyAiContext';
 import useTaskAgentSession from '../../hooks/useTaskAgentSession';
 import { formatCandidateDate, shouldShowDebugOverlay } from '../../hooks/taskAgentPureLogic';
 import TaskPreviewCard from './TaskPreviewCard';
+import ChatGptVoiceOrb from './ChatGptVoiceOrb';
 import './MyAiChatView.css';
 
 // Lazy-load Three.js AuraFluidRing for code-splitting
@@ -577,7 +579,7 @@ export default function MyAiChatView({ onBack, onClose }) {
   // Auto-scroll to bottom of conversation thread
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading, result, readyCountdown, interim]);
+  }, [messages, loading, result, readyCountdown, interim, autoSpeak]);
 
   // Collapse textarea height back to single line whenever input is cleared (WhatsApp style)
   useEffect(() => {
@@ -665,16 +667,24 @@ export default function MyAiChatView({ onBack, onClose }) {
             </>
           )}
 
-          {/* TTS voice reply toggle */}
+          {/* TTS voice reply & Voice Assistant enable/disable toggle */}
           <button
             type="button"
-            className="my-ai-icon-btn"
+            className={`my-ai-icon-btn ${autoSpeak ? 'active' : ''}`}
             onClick={() => {
-              setAutoSpeak((v) => !v);
-              cancelSpeech();
+              if (autoSpeak) {
+                setAutoSpeak(false);
+                cancelSpeech();
+                stop('speaker-toggle');
+              } else {
+                setAutoSpeak(true);
+                if (!listening && !isSpeaking) {
+                  handleOrbClick();
+                }
+              }
             }}
-            title={autoSpeak ? 'Mute AI voice reply' : 'Enable AI voice reply'}
-            aria-label="Toggle AI speech replies"
+            title={autoSpeak ? 'Voice assistant band karein (Disable)' : 'Voice assistant chalu karein (Enable)'}
+            aria-label={autoSpeak ? 'Disable Voice Assistant' : 'Enable Voice Assistant'}
           >
             {autoSpeak ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
@@ -1073,6 +1083,23 @@ export default function MyAiChatView({ onBack, onClose }) {
           Always pinned at bottom, flex-shrink 0, clean container
           ===================================================================== */}
       <footer className="my-ai-composer-dock">
+        {/* Animated circular voice orb centered horizontally ABOVE the existing composer input bar */}
+        {autoSpeak && (
+          <div className="my-ai-chatgpt-floating-orb-container">
+            <ChatGptVoiceOrb
+              state={orbState === 'speaking' ? 'speaking' : listening ? 'listening' : loading ? 'thinking' : 'idle'}
+              size={isExpanded ? 130 : 96}
+              onClick={() => {
+                if (isSpeaking) {
+                  cancelSpeech();
+                } else {
+                  handleOrbClick();
+                }
+              }}
+            />
+          </div>
+        )}
+
         <form className="my-ai-composer-form" onSubmit={onSubmit}>
           <input
             ref={fileInputRef}
@@ -1110,6 +1137,9 @@ export default function MyAiChatView({ onBack, onClose }) {
                 if (isAiDisabled) return;
                 if (isSpeaking) {
                   cancelSpeech();
+                }
+                if (!autoSpeak) {
+                  setAutoSpeak(true);
                 }
                 handleOrbClick();
               }}
@@ -1193,6 +1223,7 @@ export default function MyAiChatView({ onBack, onClose }) {
               </button>
             )}
           </div>
+
           {autoSpeak && userMuted && !listening && !isSpeaking && (
             <div className="my-ai-mic-indicator-hint paused">
               <span>Mic paused - sending your next message resumes it</span>

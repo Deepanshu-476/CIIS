@@ -52,6 +52,9 @@ import { describeCallMessage, isCallMessage } from "../../chat/callMessage";
 import { API_URL_IMG } from "../../config";
 import { useSocket } from "../../context/SocketContext";
 import { useAuth } from "../../context/useAuth";
+import { useMyAi } from "../../context/MyAiContext";
+import MyAiPinnedRow from "../../components/ai/MyAiPinnedRow";
+import MyAiChatView from "../../components/ai/MyAiChatView";
 import { useCall } from "../../context/CallContext";
 import "./MessengerDropdown.css";
 
@@ -180,6 +183,15 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
 
   const currentUserId = (currentUser?._id || currentUser?.id || "").toString();
 
+  // Connect to global My AI Context (with safe fallback)
+  let myAi = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    myAi = useMyAi();
+  } catch {
+    /* Mounted outside MyAiProvider */
+  }
+
   const isClientUser = useMemo(() => {
     const rawRole = currentUser?.companyRole || currentUser?.role || currentUser?.jobRoleName || currentUser?.jobRole || currentUser?.designation || '';
     const roleName = typeof rawRole === 'object' ? (rawRole.roleName || rawRole.name || rawRole.title || '') : String(rawRole);
@@ -190,11 +202,11 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     );
   }, [currentUser]);
 
-  // Controlled or internal open state
+  // Controlled or internal open state (synced with MyAi)
   const [isOpenInternal, setIsOpenInternal] = useState(false);
-  const isWidgetOpen = isOpen !== undefined ? isOpen : isOpenInternal;
+  const isWidgetOpen = isOpen !== undefined ? isOpen : (isOpenInternal || Boolean(myAi?.isOpen));
 
-  // Navigation / View State: "list" | "chat"
+  // Navigation / View State: "list" | "chat" | "my-ai"
   const [activeView, setActiveView] = useState("list");
   const [selectedChat, setSelectedChat] = useState(null); // Active conversation or user
   const [activeConversationId, setActiveConversationId] = useState(null);
@@ -285,6 +297,9 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     setOpenMessageMenuId("");
     if (onClose) onClose();
     setIsOpenInternal(false);
+    if (myAi?.isOpen) {
+      myAi.closeMyAi();
+    }
   };
 
   const getSelectedChatTarget = () => {
@@ -334,6 +349,24 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     window.addEventListener("close-messenger-widget", handleCloseFromSupport);
     return () => window.removeEventListener("close-messenger-widget", handleCloseFromSupport);
   }, [onClose]);
+
+  // Sync open state and active view when My AI is opened globally
+  useEffect(() => {
+    if (myAi?.isOpen && myAi?.hasAiAccess) {
+      setActiveView("my-ai");
+      setIsOpenInternal(true);
+    }
+  }, [myAi?.isOpen, myAi?.hasAiAccess]);
+
+  useEffect(() => {
+    const handleOpenMyAiEvent = () => {
+      if (!myAi?.hasAiAccess) return;
+      setIsOpenInternal(true);
+      setActiveView("my-ai");
+    };
+    window.addEventListener("open-messenger-widget-my-ai", handleOpenMyAiEvent);
+    return () => window.removeEventListener("open-messenger-widget-my-ai", handleOpenMyAiEvent);
+  }, [myAi?.hasAiAccess]);
 
   // Close when clicking outside widget/menus or on Escape
   useEffect(() => {
@@ -1104,10 +1137,12 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
     <>
       <div
         ref={dropdownRef}
-        className="fb-messenger-dropdown"
+        className={`fb-messenger-dropdown ${myAi?.isExpanded && activeView === "my-ai" ? "is-expanded" : ""}`}
         aria-label="Messenger Chats Popup"
       >
-        {activeView === "list" ? (
+        {activeView === "my-ai" && myAi?.hasAiAccess ? (
+          <MyAiChatView onBack={() => setActiveView("list")} onClose={handleCloseWidget} />
+        ) : (activeView === "list" || activeView === "my-ai") ? (
           <>
             {/* Header */}
             <div className="fb-messenger-header">
@@ -1244,6 +1279,18 @@ const MessengerDropdown = ({ isOpen, onClose, onUnreadChange }) => {
               </div>
             )}
             <div className="fb-messenger-list">
+              {/* Pinned My AI Task Assistant Row (Shown when user has AI access, hidden for clients or disabled employees) */}
+              {myAi?.hasAiAccess && (
+                <MyAiPinnedRow
+                  searchQuery={searchQuery}
+                  activeTab={activeTab}
+                  onSelect={() => {
+                    setActiveView("my-ai");
+                    myAi?.openMyAi({ expanded: false });
+                  }}
+                />
+              )}
+
               {loadingConversations && conversationItems.length === 0 ? (
                 <div className="fb-messenger-skeleton-list">
                   {[1, 2, 3, 4, 5].map((idx) => (

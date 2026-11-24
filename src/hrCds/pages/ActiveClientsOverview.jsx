@@ -28,6 +28,8 @@ import {
   getClientServices,
   getTaskStatus,
   getTaskTitle,
+  CLIENT_PORTAL_SELECTED_CLIENT_KEY,
+  CLIENT_PORTAL_SELECTION_EVENT,
 } from '../utils/clientPortalData';
 import './ActiveClientsOverview.css';
 
@@ -858,9 +860,13 @@ const ActiveClientsOverview = () => {
       setClients(loadedClients);
       setClientStatsMap(bulkStatsMap);
       setApiInfo({ totalItems: active.length, companyCode });
-      setSelectedClientId(current => (
-        active.some(client => client._id === current) ? current : active[0]?._id || ''
-      ));
+      const storedClientId = accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY);
+      setSelectedClientId(current => {
+        if (storedClientId && active.some(client => client._id === storedClientId)) {
+          return storedClientId;
+        }
+        return active.some(client => client._id === current) ? current : active[0]?._id || '';
+      });
     } catch (err) {
       console.error('Failed to load active clients overview', err);
       setError(err.response?.data?.message || 'Failed to load active clients');
@@ -871,6 +877,22 @@ const ActiveClientsOverview = () => {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Listen to global client selection events (e.g. from Sidebar switcher)
+  useEffect(() => {
+    const handlePortalSelection = (e) => {
+      const nextId = e?.detail?.clientId;
+      if (nextId) {
+        setSelectedClientId(nextId);
+        setTaskFilter('all');
+        setActiveTab('tasks');
+      }
+    };
+    window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, handlePortalSelection);
+    return () => {
+      window.removeEventListener(CLIENT_PORTAL_SELECTION_EVENT, handlePortalSelection);
+    };
   }, []);
 
   useEffect(() => {
@@ -949,6 +971,11 @@ const ActiveClientsOverview = () => {
                     className={`ActiveClientsOverview-clientRow ${selectedClient?.client._id === client._id ? 'is-selected' : ''}`}
                     onClick={() => {
                       setSelectedClientId(client._id);
+                      accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(client._id));
+                      accountStorage.setItem("client", JSON.stringify(client));
+                      window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
+                        detail: { clientId: client._id, client }
+                      }));
                       setTaskFilter('all');
                       setActiveTab('tasks');
                     }}

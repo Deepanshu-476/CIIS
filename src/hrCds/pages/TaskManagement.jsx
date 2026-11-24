@@ -20,6 +20,7 @@ import TaskDetailsModal from '../components/TaskDetailsModal';
 import API_URL, { UPLOAD_FALLBACK_ORIGINS } from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
 import { useSocket } from '../../context/SocketContext';
+import useTaskRealtime, { invalidateTaskManagementCache } from '../../hooks/useTaskRealtime';
 
 
 const getImageUrl = (imagePath) => {
@@ -249,6 +250,9 @@ const playReminderChime = () => {
 
 const triggerBrowserNotification = async (title, body) => {
   try {
+    if (typeof window !== 'undefined' && window.__ciisSpeakNotification) {
+      window.__ciisSpeakNotification({ title, message: body, type: 'task_due_reminder' });
+    }
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
       new Notification(title, { body, icon: '/favicon.ico' });
@@ -993,6 +997,10 @@ const UserCreateTask = () => {
     ].find(cache => cache && cache.userId === storedTaskUser?.id &&
       cache.period === initialTaskPeriod);
     if (!availableCache) return null;
+    // Expire cache after 45 seconds to ensure fresh tasks are loaded
+    if (availableCache.cachedAt && (Date.now() - availableCache.cachedAt > 45 * 1000)) {
+      return null;
+    }
     taskManagementMemoryCache = availableCache;
     return availableCache;
   }, [storedTaskUser?.id]);
@@ -5020,6 +5028,79 @@ const UserCreateTask = () => {
     });
     return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
   }, [socketContext, refreshCurrentTaskView]);
+
+  const handleExternalTaskCreated = useCallback((eventOrTask) => {
+    taskManagementMemoryCache = null;
+    invalidateTaskManagementCache(userId);
+
+    const taskObj = eventOrTask?.detail?.task || eventOrTask?.task || eventOrTask;
+    if (taskObj && (taskObj._id || taskObj.id)) {
+      const taskSource = eventOrTask?.detail?.source || getTaskSource(taskObj) || (taskObj.taskFor === 'self' ? 'self' : 'assigned');
+      const createdTask = tagTasksWithSource([{
+        ...taskObj,
+        status: normalizeStatus(taskObj.status || taskObj.overallStatus || 'pending'),
+        overallStatus: normalizeStatus(taskObj.overallStatus || taskObj.status || 'pending'),
+        createdAt: taskObj.createdAt || new Date().toISOString()
+      }], taskSource)[0];
+
+      const createdId = String(createdTask._id || createdTask.id || '');
+      const insertCreatedTask = grouped => {
+        const existing = Object.values(grouped || {}).flat();
+        const withoutDuplicate = createdId
+          ? existing.filter(task => String(task._id || task.id || '') !== createdId)
+          : existing;
+        return groupTasksByDate([createdTask, ...withoutDuplicate]);
+      };
+
+      if (taskSource === 'self') {
+        setMyTasksGrouped(prev => {
+          const next = insertCreatedTask(prev);
+          calculateStatsFromTasks(next);
+          return next;
+        });
+      } else if (taskSource === 'assigned') {
+        setAssignedToMeTasksGrouped(prev => {
+          const next = insertCreatedTask(prev);
+          calculateAssignedStatsFromTasks(next);
+          return next;
+        });
+      }
+
+      setAllTasksGrouped(prev => {
+        const next = insertCreatedTask(prev);
+        setAllTaskStats(calculateUnifiedStatsFromTasks(next));
+        return next;
+      });
+      setAllTasksStatsGrouped(prev => insertCreatedTask(prev));
+      setTaskViewsLoaded(prev => ({ ...prev, [taskSource]: true, all: true }));
+    }
+
+    void refreshCurrentTaskView();
+  }, [userId, tagTasksWithSource, getTaskSource, groupTasksByDate, calculateStatsFromTasks, calculateAssignedStatsFromTasks, calculateUnifiedStatsFromTasks, refreshCurrentTaskView]);
+
+  useTaskRealtime({
+    onNewTask: (newTask) => {
+      handleExternalTaskCreated(newTask);
+    }
+  });
+
+  useEffect(() => {
+    const onCustomCreated = (e) => handleExternalTaskCreated(e);
+    const onCustomUpdated = () => {
+      invalidateTaskManagementCache(userId);
+      void refreshCurrentTaskView(taskViewMode);
+    };
+    window.addEventListener('ciis:task-created', onCustomCreated);
+    window.addEventListener('task:created', onCustomCreated);
+    window.addEventListener('ciis:task-updated', onCustomUpdated);
+    window.addEventListener('task:updated', onCustomUpdated);
+    return () => {
+      window.removeEventListener('ciis:task-created', onCustomCreated);
+      window.removeEventListener('task:created', onCustomCreated);
+      window.removeEventListener('ciis:task-updated', onCustomUpdated);
+      window.removeEventListener('task:updated', onCustomUpdated);
+    };
+  }, [handleExternalTaskCreated, refreshCurrentTaskView, taskViewMode, userId]);
 
   useEffect(() => {
     if (!userId || authError) return undefined;

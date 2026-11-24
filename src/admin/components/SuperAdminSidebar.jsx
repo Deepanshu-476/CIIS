@@ -28,6 +28,7 @@ import {
   PanelLeft as SidebarManagementIcon,
   ToggleRight as PageManagementIcon,
   Crown as PlansIcon,
+  Bot as AiManagementIcon,
   MailCheck as EmailIcon,
   SlidersHorizontal as AdsConfigIcon,
   ArrowUpCircle as AppUpdateIcon,
@@ -342,6 +343,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
       icon: <PlansIcon size={20} strokeWidth={1.9} />, 
       name: 'Plans',
       route: '/Ciis-network/plans',
+      showForOwnerSuperAdmin: true
+    },
+    {
+      icon: <AiManagementIcon size={20} strokeWidth={1.9} />, 
+      name: 'AI Management',
+      route: '/Ciis-network/ai-management',
       showForOwnerSuperAdmin: true
     },
     {

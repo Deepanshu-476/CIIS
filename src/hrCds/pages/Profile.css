@@ -1126,6 +1126,28 @@
 .UserDetails-document-preview-header h2 { font-size: 18px; }
 .UserDetails-document-preview-header p { margin-top: 3px; color: #64748b; font-size: 12px; }
 
+.UserDetails-document-download-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.UserDetails-document-download-pill:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
 .UserDetails-document-preview-content {
   min-height: 300px;
   height: min(72vh, 720px);

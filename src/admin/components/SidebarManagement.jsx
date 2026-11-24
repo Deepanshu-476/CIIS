@@ -24,11 +24,12 @@ const APP_ROUTES = [
   { path: 'create-user', name: 'Create User', icon: 'UserPlus', category: 'administration' },
   { path: 'register-request', name: 'Register Request', icon: 'FileCheck', category: 'administration' },
   { path: 'SidebarManagement', name: 'Sidebar Management', icon: 'PanelLeft', category: 'administration' },
+  { path: 'company-ai-settings', name: 'Company AI & Tokens', icon: 'Bot', category: 'administration' },
   { path: 'user-activity', name: 'Employee Activity', icon: 'Activity', category: 'administration' },
   { path: 'admin-meeting', name: 'Create Employee Meeting', icon: 'CalendarPlus', category: 'meetings' },
   { path: 'adminproject', name: 'Manage Projects', icon: 'Briefcase', category: 'projects' },
   { path: 'company-all-task', name: 'Company All Tasks', icon: 'ListChecks', category: 'tasks' },
-  
+
   { path: 'emp-client', name: 'Client Management', icon: 'Handshake', category: 'clients' },
   { path: 'client-plans', name: 'Client Plans', icon: 'Crown', category: 'clients' },
   { path: 'active-clients', name: 'Active Clients', icon: 'Building2', category: 'clients' },
@@ -60,7 +61,7 @@ const APP_ROUTES = [
   { path: 'employee-meeting', name: 'Employee Meeting', icon: 'Video', category: 'meetings' },
   { path: 'client-meeting', name: 'Client Meeting', icon: 'Presentation', category: 'meetings' },
   { path: 'change-password', name: 'Change Password', icon: 'KeyRound', category: 'main' },
-  { path: 'create-alert' , name: 'Create Alert', icon: 'Bell', category: 'communication' },
+  { path: 'create-alert', name: 'Create Alert', icon: 'Bell', category: 'communication' },
   { path: 'chat', name: 'Chat', icon: 'MessageSquare', category: 'communication' },
   { path: 'support-desk', name: 'Support Desk', icon: 'LifeBuoy', category: 'communication' },
   { path: 'bulk-email', name: 'Bulk Email', icon: 'Mails', category: 'communication' },
@@ -295,7 +296,7 @@ const getNormalizedUserRoles = (user = {}) => {
 
 
 const SidebarManagement = () => {
-  
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
   const [isTablet, setIsTablet] = useState(window.innerWidth < 960);
   const [pageLoading, setPageLoading] = useState(true);
@@ -330,14 +331,14 @@ const SidebarManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState({});
   const [activeTab, setActiveTab] = useState(0);
-  
-  
+
+
   const [modalState, setModalState] = useState({
     isOpen: false,
-    type: null, 
+    type: null,
     data: null
   });
-  
+
   const [customRoles, setCustomRoles] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
@@ -345,7 +346,7 @@ const SidebarManagement = () => {
   const [departmentSearch, setDepartmentSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
 
-  
+
   useEffect(() => {
     let timer;
     if (snackbar.open) {
@@ -358,7 +359,7 @@ const SidebarManagement = () => {
     };
   }, [snackbar.open]);
 
-  
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 600);
@@ -368,7 +369,7 @@ const SidebarManagement = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  
+
   useEffect(() => {
     const handleEscapeKey = (e) => {
       if (e.key === 'Escape' && modalState.isOpen) {
@@ -382,28 +383,27 @@ const SidebarManagement = () => {
     };
   }, [modalState.isOpen]);
 
-  
+
   useEffect(() => {
     if (modalState.isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
   }, [modalState.isOpen]);
 
-  
+
   const getCompanyFromLocalStorage = () => {
     try {
-      const companyDetailsStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails');
-      
+      const companyDetailsStr = accountStorage.getItem('company') || accountStorage.getItem('companyDetails') || localStorage.getItem('company') || localStorage.getItem('companyDetails');
       if (companyDetailsStr) {
         const companyData = JSON.parse(companyDetailsStr);
         void 0;
-        
+
         return {
           _id: companyData._id,
           companyName: companyData.companyName,
@@ -422,7 +422,7 @@ const SidebarManagement = () => {
           allowedPages: Array.isArray(companyData.allowedPages) ? companyData.allowedPages : []
         };
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error getting company from accountStorage:', error);
@@ -430,7 +430,7 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   useEffect(() => {
     initializePages();
     initializeCompanyFromLocalStorage();
@@ -497,12 +497,12 @@ const SidebarManagement = () => {
     setAvailablePages(pages);
   };
 
-  
+
   const initializeCompanyFromLocalStorage = async () => {
     try {
       setPageLoading(true);
       const companyFromStorage = getCompanyFromLocalStorage();
-      
+
       if (companyFromStorage && companyFromStorage._id) {
         void 0;
         let activeCompany = companyFromStorage;
@@ -525,17 +525,17 @@ const SidebarManagement = () => {
 
         setCompany(activeCompany);
         initializePages(activeCompany);
-        
+
         await fetchBranches(activeCompany._id);
         await fetchCompanyRoles(activeCompany._id);
         await fetchExistingConfigs(activeCompany._id);
-        
+
         setSnackbar({
           open: true,
           message: `Loaded company: ${activeCompany.companyName}`,
           severity: 'success'
         });
-        
+
         setTimeout(() => {
           setPageLoading(false);
         }, 500);
@@ -581,7 +581,7 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const fetchDepartments = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, departments: true }));
@@ -591,12 +591,12 @@ const SidebarManagement = () => {
         url += `&branch=${branchId}`;
       }
       const response = await axiosInstance.get(url, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.data && response.data.success && response.data.departments) {
         const formattedDepartments = response.data.departments.map(dept => ({
           _id: dept._id || dept.id,
@@ -615,7 +615,7 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   useEffect(() => {
     if (selectedDepartment) {
       fetchJobRoles(selectedDepartment);
@@ -628,25 +628,24 @@ const SidebarManagement = () => {
   const fetchJobRoles = async (departmentId) => {
     try {
       setLoading(prev => ({ ...prev, roles: true }));
-      
+
       const deptId = typeof departmentId === 'object' ? departmentId._id || departmentId.id : departmentId;
-      
+
       if (!deptId) {
         console.error('Invalid department ID:', departmentId);
         setJobRoles([]);
         return;
       }
 
-      const token = accountStorage.getItem('token');
-      
+      const token = accountStorage.getItem('token') || localStorage.getItem('token');
       try {
         const response = await axiosInstance.get(`/job-roles/department/${deptId}`, {
-          headers: { 
+          headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-        
+
         if (response.data && response.data.success && response.data.jobRoles) {
           const formattedRoles = response.data.jobRoles.map(role => ({
             _id: role._id,
@@ -659,9 +658,9 @@ const SidebarManagement = () => {
       } catch (apiError) {
         void 0;
       }
-      
+
       setJobRoles([]);
-      
+
     } catch (error) {
       console.error('Error fetching job roles:', error);
       setJobRoles([]);
@@ -701,39 +700,38 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const fetchExistingConfigs = async (companyId, branchId = null) => {
     try {
       setLoading(prev => ({ ...prev, fetching: true }));
-      const token = accountStorage.getItem('token');
-      
+      const token = accountStorage.getItem('token') || localStorage.getItem('token');
       void 0;
-      
+
       const params = { companyId };
       const activeBranchId = branchId || selectedBranch;
       if (activeBranchId) {
         params.branchId = activeBranchId;
       }
-      
+
       const response = await axiosInstance.get(`/sidebar`, {
         params,
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       void 0;
-      
+
       if (response.data && response.data.success) {
         let configs = [];
-        
+
         if (response.data.data && Array.isArray(response.data.data)) {
           configs = response.data.data;
         } else if (Array.isArray(response.data)) {
           configs = response.data;
         }
-        
+
         void 0;
         setExistingConfigs(configs);
       } else {
@@ -747,44 +745,44 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const getDepartmentName = (departmentId) => {
     if (!departmentId) return 'No Department';
-    
+
     if (typeof departmentId === 'object' && departmentId !== null) {
       return departmentId.name || departmentId.departmentName || 'Department';
     }
-    
+
     const department = departments.find(d => d._id === departmentId);
     if (department) return department.name;
-    
+
     return 'Department';
   };
 
-  
+
   const getRoleNameById = (roleId) => {
     if (!roleId) return 'No Role';
-    
+
     if (typeof roleId === 'object' && roleId !== null) {
       if (roleId.name) return roleId.name;
       if (roleId.roleName) return roleId.roleName;
       if (roleId.role) return roleId.role;
     }
-    
+
     const jobRole = [...jobRoles, ...companyRoles].find(r => r._id === roleId);
     if (jobRole) return jobRole.name;
-    
+
     const customRole = customRoles.find(r => r._id === roleId);
     if (customRole) return customRole.name;
-    
+
     const config = existingConfigs.find(c => c.role === roleId);
     if (config) {
       if (config.roleName) return config.roleName;
-      
+
       if (config.role && typeof config.role === 'object' && config.role.name) {
         return config.role.name;
       }
-      
+
       if (typeof roleId === 'string') {
         if (roleId.startsWith('custom_')) {
           return roleId.replace('custom_', 'Custom ');
@@ -792,15 +790,15 @@ const SidebarManagement = () => {
         return roleId;
       }
     }
-    
+
     if (typeof roleId === 'string') {
       return roleId;
     }
-    
+
     return 'Role';
   };
 
-  
+
   const handleDepartmentChange = (departmentId) => {
     setSelectedDepartment(departmentId);
     setSelectedRole('');
@@ -809,14 +807,14 @@ const SidebarManagement = () => {
     setJobRoles([]);
     setActiveStep(1);
     setShowDepartmentDropdown(false);
-    
+
     const dept = departments.find(d => d._id === departmentId);
     if (dept) {
       setDepartmentSearch(dept.name);
     }
   };
 
-  
+
   const handleRoleChange = (roleId) => {
     if (roleId === 'custom') {
       handleAddRole();
@@ -825,13 +823,13 @@ const SidebarManagement = () => {
     setSelectedRole(roleId);
     setActiveStep(2);
     setShowRoleDropdown(false);
-    
+
     const allRoles = getAllAvailableRoles();
     const role = allRoles.find(r => r._id === roleId);
     if (role) {
       setRoleSearch(role.name);
     }
-    
+
     if (company && company._id && selectedDepartment && roleId) {
       loadExistingConfig(company._id, selectedDepartment, roleId);
     } else {
@@ -841,26 +839,26 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const loadExistingConfig = async (companyId, departmentId, roleId) => {
     try {
-      const token = accountStorage.getItem('token');
-      const params = { 
-        companyId, 
-        departmentId, 
-        role: roleId 
+      const token = accountStorage.getItem('token') || localStorage.getItem('token');
+      const params = {
+        companyId,
+        departmentId,
+        role: roleId
       };
       if (selectedBranch) {
         params.branchId = selectedBranch;
       }
       const response = await axiosInstance.get(`/sidebar/config`, {
         params,
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.data && response.data.success && response.data.data) {
         const menuItems = response.data.data.menuItems || [];
         const savedRanges = response.data.data.ranges || [];
@@ -883,17 +881,17 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const handleEdit = async (config) => {
     if (!canEditSidebar) return;
     try {
-      const departmentId = typeof config.departmentId === 'object' 
-        ? config.departmentId._id 
+      const departmentId = typeof config.departmentId === 'object'
+        ? config.departmentId._id
         : config.departmentId;
-      
+
       const roleId = config.role;
       const branchId = typeof config.branchId === 'object' ? config.branchId?._id : (config.branchId || '');
-      
+
       setSelectedBranch(branchId || '');
       setSelectedDepartment(departmentId);
       setSelectedRole(roleId);
@@ -910,19 +908,19 @@ const SidebarManagement = () => {
       setRanges(savedRanges);
       setActiveTab(0);
       setActiveStep(2);
-      
+
       setSnackbar({
         open: true,
         message: 'Loaded configuration for role',
         severity: 'success'
       });
-      
+
       setTimeout(() => {
         if (departmentId) {
           fetchJobRoles(departmentId);
         }
       }, 100);
-      
+
     } catch (error) {
       console.error('Error in handleEdit:', error);
       setSnackbar({
@@ -933,7 +931,7 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const handleMenuItemToggle = (pageId) => {
     setSelectedItems(prev => {
       const isSelected = prev.includes(pageId);
@@ -957,11 +955,11 @@ const SidebarManagement = () => {
     });
   };
 
-  
+
   const handleSelectAllCategory = (category) => {
     const categoryPages = filteredAvailablePages.filter(page => page.category === category);
     const categoryIds = categoryPages.map(page => page.id);
-    
+
     setSelectedItems(prev => {
       const allSelected = categoryIds.every(id => prev.includes(id));
       if (allSelected) {
@@ -988,7 +986,7 @@ const SidebarManagement = () => {
     });
   };
 
-  
+
   const toggleCategory = (category) => {
     setExpandedCategories(prev => ({
       ...prev,
@@ -1091,7 +1089,7 @@ const SidebarManagement = () => {
       setLoading(prev => ({ ...prev, saving: true }));
       const token = accountStorage.getItem('token');
       const availablePageMap = new Map(filteredAvailablePages.map(page => [page.id, page]));
-      
+
       const menuItemsMapped = selectedItems.reduce((items, id) => {
         const page = availablePageMap.get(id);
         if (!page) return items;
@@ -1132,10 +1130,10 @@ const SidebarManagement = () => {
 
       void 0;
 
-      const checkParams = { 
-        companyId: company._id, 
-        departmentId: selectedDepartment, 
-        role: selectedRole 
+      const checkParams = {
+        companyId: company._id,
+        departmentId: selectedDepartment,
+        role: selectedRole
       };
       if (selectedBranch) {
         checkParams.branchId = selectedBranch;
@@ -1143,7 +1141,7 @@ const SidebarManagement = () => {
 
       const checkResponse = await axiosInstance.get(`/sidebar/config`, {
         params: checkParams,
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -1170,7 +1168,7 @@ const SidebarManagement = () => {
 
       if (existingConfig?._id) {
         response = await axiosInstance.put(`/sidebar/${existingConfig._id}`, configData, {
-          headers: { 
+          headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
@@ -1201,13 +1199,13 @@ const SidebarManagement = () => {
 
       if (response.data.success) {
         await fetchExistingConfigs(company._id);
-        
+
         setSnackbar({
           open: true,
           message: response.data.message || 'Configuration saved successfully!',
           severity: 'success'
         });
-        
+
         await loadExistingConfig(company._id, selectedDepartment, selectedRole);
         window.dispatchEvent(new Event('ciis-sidebar-config-updated'));
       } else {
@@ -1215,14 +1213,14 @@ const SidebarManagement = () => {
       }
     } catch (error) {
       console.error('Error saving config:', error);
-      
+
       let errorMessage = 'Failed to save configuration';
       if (error.response) {
         if (error.response.data && error.response.data.message) {
           errorMessage = error.response.data.message;
         }
       }
-      
+
       setSnackbar({
         open: true,
         message: errorMessage,
@@ -1233,7 +1231,7 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const handleDelete = (configId) => {
     if (!canEditSidebar) return;
     setModalState({
@@ -1243,14 +1241,14 @@ const SidebarManagement = () => {
     });
   };
 
-  
+
   const confirmDelete = async () => {
     if (!modalState.data) return;
-    
+
     try {
       const token = accountStorage.getItem('token');
       const response = await axiosInstance.delete(`/sidebar/${modalState.data}`, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -1258,13 +1256,13 @@ const SidebarManagement = () => {
 
       if (response.data.success) {
         await fetchExistingConfigs(company._id);
-        
+
         setSnackbar({
           open: true,
           message: 'Configuration deleted successfully',
           severity: 'success'
         });
-        
+
         closeModal();
       } else {
         throw new Error(response.data.message);
@@ -1280,7 +1278,7 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const handleRefreshRoles = async () => {
     if (selectedDepartment) {
       await fetchJobRoles(selectedDepartment);
@@ -1292,7 +1290,7 @@ const SidebarManagement = () => {
     }
   };
 
-  
+
   const handlePreview = (config) => {
     setModalState({
       isOpen: true,
@@ -1301,7 +1299,7 @@ const SidebarManagement = () => {
     });
   };
 
-  
+
   const handleAddRole = () => {
     setModalState({
       isOpen: true,
@@ -1310,15 +1308,15 @@ const SidebarManagement = () => {
     });
   };
 
-  
+
   const confirmAddRole = (roleName) => {
     if (!roleName) return;
-    
+
     const allRoles = getAllAvailableRoles();
-    const roleExists = allRoles.some(role => 
+    const roleExists = allRoles.some(role =>
       role.name.toLowerCase() === roleName.toLowerCase()
     );
-    
+
     if (roleExists) {
       setSnackbar({
         open: true,
@@ -1327,7 +1325,7 @@ const SidebarManagement = () => {
       });
       return;
     }
-    
+
     const newRoleName = roleName.toUpperCase();
     const newRole = {
       _id: `custom_${Date.now()}`,
@@ -1335,22 +1333,22 @@ const SidebarManagement = () => {
       description: `${newRoleName} (Custom)`,
       isCustom: true
     };
-    
+
     setCustomRoles(prev => [...prev, newRole]);
-    
+
     setSelectedRole(newRole._id);
     setActiveStep(2);
-    
+
     setSnackbar({
       open: true,
       message: `Custom role "${newRoleName}" added successfully`,
       severity: 'success'
     });
-    
+
     closeModal();
   };
 
-  
+
   const closeModal = () => {
     setModalState({
       isOpen: false,
@@ -1359,19 +1357,19 @@ const SidebarManagement = () => {
     });
   };
 
-  
+
   const getAllAvailableRoles = () => {
     const allRolesList = [...jobRoles, ...customRoles];
     return allRolesList.sort((a, b) => a.name.localeCompare(b.name));
   };
 
-  
+
   // These controls are read-only dropdown triggers. The selected display label
   // must not filter the menu when it is opened again.
   const filteredDepartments = departments;
   const filteredRoles = getAllAvailableRoles();
 
-  
+
   const getCategoryDisplayName = (category) => {
     const categoryNames = {
       'main': 'Main Menu',
@@ -1389,7 +1387,7 @@ const SidebarManagement = () => {
     return categoryNames[category] || category;
   };
 
-  
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -1400,7 +1398,7 @@ const SidebarManagement = () => {
     });
   };
 
-  
+
   const getProgressPercentage = () => {
     let steps = 0;
     if (company) steps++;
@@ -1410,18 +1408,18 @@ const SidebarManagement = () => {
     return (steps / 4) * 100;
   };
 
-  
+
   if (pageLoading) {
     return <CIISLoader />;
   }
 
   return (
     <div className={`SidebarManagement-container ${isMobile ? 'SidebarManagement-mobile' : ''}`}>
-      
+
       <div className="SidebarManagement-header-paper">
         <div className="SidebarManagement-header-bg-effect SidebarManagement-header-bg-effect-1"></div>
         <div className="SidebarManagement-header-bg-effect SidebarManagement-header-bg-effect-2"></div>
-        
+
         <div className="SidebarManagement-header-content">
           <div className="SidebarManagement-header-avatar">
             <span className="SidebarManagement-header-avatar-icon">📚</span>
@@ -1437,7 +1435,7 @@ const SidebarManagement = () => {
         </div>
       </div>
 
-      
+
       {company ? (
         <div className="SidebarManagement-company-paper">
           <div className="SidebarManagement-company-grid">
@@ -1450,7 +1448,7 @@ const SidebarManagement = () => {
                 <span className="SidebarManagement-company-value">{company.companyName}</span>
               </div>
             </div>
-            
+
             <div className="SidebarManagement-company-item">
               <div className="SidebarManagement-company-icon-bg SidebarManagement-company-icon-bg-secondary">
                 <span className="SidebarManagement-company-icon">{getIconHtml('Code')}</span>
@@ -1460,7 +1458,7 @@ const SidebarManagement = () => {
                 <span className="SidebarManagement-company-value">{company.companyCode}</span>
               </div>
             </div>
-            
+
             <div className="SidebarManagement-company-item">
               <div className="SidebarManagement-company-icon-bg SidebarManagement-company-icon-bg-success">
                 <span className="SidebarManagement-company-icon">✓</span>
@@ -1472,9 +1470,9 @@ const SidebarManagement = () => {
                 </span>
               </div>
             </div>
-            
+
             <div className="SidebarManagement-company-item SidebarManagement-company-item-button">
-              <button 
+              <button
                 className="SidebarManagement-refresh-button"
                 onClick={() => fetchExistingConfigs(company._id)}
                 disabled={loading.fetching}
@@ -1494,7 +1492,7 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      
+
       {company && (
         <div className="SidebarManagement-progress-container">
           <div className="SidebarManagement-progress-header">
@@ -1502,7 +1500,7 @@ const SidebarManagement = () => {
             <span className="SidebarManagement-progress-percentage">{Math.round(getProgressPercentage())}%</span>
           </div>
           <div className="SidebarManagement-progress-bar">
-            <div 
+            <div
               className="SidebarManagement-progress-fill"
               style={{ width: `${getProgressPercentage()}%` }}
             ></div>
@@ -1510,18 +1508,18 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      
+
       {company ? (
         <>
           <div className="SidebarManagement-tabs-container">
-            <button 
+            <button
               className={`SidebarManagement-tab ${activeTab === 0 ? 'SidebarManagement-tab-active' : ''}`}
               onClick={() => setActiveTab(0)}
             >
               <span className="SidebarManagement-tab-icon">⚙️</span>
               <span>Configure Menu</span>
             </button>
-            <button 
+            <button
               className={`SidebarManagement-tab ${activeTab === 1 ? 'SidebarManagement-tab-active' : ''}`}
               onClick={() => setActiveTab(1)}
             >
@@ -1530,10 +1528,10 @@ const SidebarManagement = () => {
             </button>
           </div>
 
-          
+
           {activeTab === 0 && (
             <>
-              
+
               <div className="SidebarManagement-stepper-paper">
                 <div className={`SidebarManagement-stepper ${isMobile ? 'SidebarManagement-stepper-vertical' : ''}`}>
                   <div className={`SidebarManagement-step ${activeStep >= 0 ? 'SidebarManagement-step-active' : ''}`}>
@@ -1543,15 +1541,15 @@ const SidebarManagement = () => {
                     <div className="SidebarManagement-step-label">Branch & Dept</div>
                   </div>
                   <div className={`SidebarManagement-step-connector ${activeStep >= 1 ? 'SidebarManagement-step-connector-active' : ''}`}></div>
-                  
+
                   <div className={`SidebarManagement-step ${activeStep >= 1 ? 'SidebarManagement-step-active' : ''}`}>
                     <div className="SidebarManagement-step-indicator">
                       {activeStep > 1 ? '✓' : '2'}
                     </div>
                     <div className="SidebarManagement-step-label">Select Role</div>
-                  </div>        
+                  </div>
                   <div className={`SidebarManagement-step-connector ${activeStep >= 2 ? 'SidebarManagement-step-connector-active' : ''}`}></div>
-                  
+
                   <div className={`SidebarManagement-step ${activeStep >= 2 ? 'SidebarManagement-step-active' : ''}`}>
                     <div className="SidebarManagement-step-indicator">3</div>
                     <div className="SidebarManagement-step-label">Select Menu Items</div>
@@ -1559,9 +1557,9 @@ const SidebarManagement = () => {
                 </div>
               </div>
 
-              
+
               <div className="SidebarManagement-cards-grid">
-                
+
                 <div className={`SidebarManagement-card ${selectedBranch ? 'SidebarManagement-card-selected' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
@@ -1570,7 +1568,7 @@ const SidebarManagement = () => {
                       </div>
                       <h3 className="SidebarManagement-card-title">Branch</h3>
                     </div>
-                    
+
                     <div className="SidebarManagement-dropdown-container">
                       <div className="SidebarManagement-input-wrapper">
                         <span className="SidebarManagement-input-icon">🏢</span>
@@ -1594,7 +1592,7 @@ const SidebarManagement = () => {
                   </div>
                 </div>
 
-                
+
                 <div className={`SidebarManagement-card ${selectedDepartment ? 'SidebarManagement-card-selected' : ''} ${showDepartmentDropdown ? 'SidebarManagement-card-dropdown-open' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
@@ -1603,7 +1601,7 @@ const SidebarManagement = () => {
                       </div>
                       <h3 className="SidebarManagement-card-title">Department</h3>
                     </div>
-                    
+
                     <div className="SidebarManagement-dropdown-container">
                       <div className="SidebarManagement-input-wrapper">
                         <span className="SidebarManagement-input-icon">🏛️</span>
@@ -1629,7 +1627,7 @@ const SidebarManagement = () => {
                         />
                         <span className="SidebarManagement-dropdown-arrow">▼</span>
                       </div>
-                      
+
                       {showDepartmentDropdown && (
                         <div className="SidebarManagement-dropdown-menu">
                           {loading.departments ? (
@@ -1663,7 +1661,7 @@ const SidebarManagement = () => {
                         </div>
                       )}
                     </div>
-                    
+
                     {departments.length > 0 && (
                       <div className="SidebarManagement-card-footer">
                         <span className="SidebarManagement-chip SidebarManagement-chip-outlined">
@@ -1680,7 +1678,7 @@ const SidebarManagement = () => {
                   </div>
                 </div>
 
-                
+
                 <div className={`SidebarManagement-card ${selectedRole ? 'SidebarManagement-card-selected' : ''} ${showRoleDropdown ? 'SidebarManagement-card-dropdown-open' : ''}`}>
                   <div className="SidebarManagement-card-content">
                     <div className="SidebarManagement-card-header">
@@ -1689,7 +1687,7 @@ const SidebarManagement = () => {
                       </div>
                       <h3 className="SidebarManagement-card-title">Role</h3>
                     </div>
-                    
+
                     <div className="SidebarManagement-dropdown-container">
                       <div className="SidebarManagement-input-wrapper">
                         <span className="SidebarManagement-input-icon">🔒</span>
@@ -1717,7 +1715,7 @@ const SidebarManagement = () => {
                           <span className="SidebarManagement-dropdown-arrow">▼</span>
                         )}
                       </div>
-                      
+
                       {showRoleDropdown && selectedDepartment && (
                         <div className="SidebarManagement-dropdown-menu SidebarManagement-dropdown-menu-inline">
                           {loading.roles ? (
@@ -1766,13 +1764,13 @@ const SidebarManagement = () => {
                         </div>
                       )}
                     </div>
-                    
+
                     {selectedDepartment && (
                       <div className="SidebarManagement-card-footer">
                         <span className="SidebarManagement-chip SidebarManagement-chip-outlined">
                           {getAllAvailableRoles().length} roles available
                         </span>
-                        <button 
+                        <button
                           className="SidebarManagement-icon-button"
                           onClick={handleRefreshRoles}
                           disabled={loading.roles}
@@ -1791,7 +1789,7 @@ const SidebarManagement = () => {
                 </div>
               </div>
 
-              
+
               {company && selectedDepartment && selectedRole && (
                 <div className="SidebarManagement-menu-card">
                   <div className="SidebarManagement-menu-header">
@@ -1801,14 +1799,14 @@ const SidebarManagement = () => {
                         Select the menu items you want to display for this role
                       </p>
                     </div>
-                    
+
                     <div className="SidebarManagement-menu-badge">
                       <span className="SidebarManagement-badge">{selectedItems.length}</span>
                       <span className="SidebarManagement-badge-label">Selected Items</span>
                     </div>
                   </div>
 
-                  
+
                   <div className="SidebarManagement-search-wrapper">
                     <span className="SidebarManagement-search-icon">🔍</span>
                     <input
@@ -1819,7 +1817,7 @@ const SidebarManagement = () => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     {searchTerm && (
-                      <button 
+                      <button
                         className="SidebarManagement-search-clear"
                         onClick={() => setSearchTerm('')}
                       >
@@ -1828,27 +1826,27 @@ const SidebarManagement = () => {
                     )}
                   </div>
 
-                  
+
                   {Object.entries(groupedPages).map(([category, pages]) => {
-                    const filteredCategoryPages = searchTerm 
+                    const filteredCategoryPages = searchTerm
                       ? pages.filter(page =>
-                          page.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          page.path.toLowerCase().includes(searchTerm.toLowerCase())
-                        )
+                        page.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        page.path.toLowerCase().includes(searchTerm.toLowerCase())
+                      )
                       : pages;
 
                     if (filteredCategoryPages.length === 0) return null;
 
                     const isExpanded = expandedCategories[category] !== false;
-                    const categorySelectedCount = filteredCategoryPages.filter(page => 
+                    const categorySelectedCount = filteredCategoryPages.filter(page =>
                       selectedItems.includes(page.id)
                     ).length;
                     const isAllSelected = categorySelectedCount === filteredCategoryPages.length;
 
                     return (
                       <div key={category} className="SidebarManagement-category-section">
-                        
-                        <div 
+
+                        <div
                           className="SidebarManagement-category-header"
                           onClick={() => toggleCategory(category)}
                         >
@@ -1863,7 +1861,7 @@ const SidebarManagement = () => {
                               {categorySelectedCount}/{filteredCategoryPages.length}
                             </span>
                           </div>
-                          <button 
+                          <button
                             className="SidebarManagement-category-select-btn"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1874,7 +1872,7 @@ const SidebarManagement = () => {
                           </button>
                         </div>
 
-                        
+
                         {isExpanded && (
                           <div className="SidebarManagement-category-items-grid">
                             {filteredCategoryPages.map((page) => {
@@ -1890,10 +1888,10 @@ const SidebarManagement = () => {
                                   )}
                                   <div className="SidebarManagement-menu-item-content">
                                     <div className="SidebarManagement-menu-item-checkbox">
-                                      <input 
+                                      <input
                                         type="checkbox"
                                         checked={isSelected}
-                                        onChange={() => {}}
+                                        onChange={() => { }}
                                         className="SidebarManagement-menu-item-checkbox-input"
                                       />
                                     </div>
@@ -1905,8 +1903,8 @@ const SidebarManagement = () => {
                                       <span className="SidebarManagement-menu-item-path">{page.path}</span>
                                     </div>
                                     {isSelected && (
-                                      <div 
-                                        className="SidebarManagement-menu-item-order-wrap" 
+                                      <div
+                                        className="SidebarManagement-menu-item-order-wrap"
                                         onClick={(e) => e.stopPropagation()}
                                         style={{
                                           display: 'flex',
@@ -2108,8 +2106,8 @@ const SidebarManagement = () => {
                       </div>
                     )}
                   </div>
-                  
-                  
+
+
                   <div className="SidebarManagement-save-footer">
                     <button
                       type="button"
@@ -2136,7 +2134,7 @@ const SidebarManagement = () => {
             </>
           )}
 
-          
+
           {activeTab === 1 && (
             <div className="SidebarManagement-configs-card">
               <div className="SidebarManagement-configs-header">
@@ -2146,7 +2144,7 @@ const SidebarManagement = () => {
                     Manage and edit existing sidebar configurations
                   </p>
                 </div>
-                <button 
+                <button
                   className="SidebarManagement-refresh-btn"
                   onClick={() => company && company._id && fetchExistingConfigs(company._id)}
                   disabled={loading.fetching}
@@ -2188,23 +2186,23 @@ const SidebarManagement = () => {
                           </span>
                         </div>
                         <div className="SidebarManagement-config-item-actions">
-                          <button 
-                            className="SidebarManagement-config-item-btn" 
+                          <button
+                            className="SidebarManagement-config-item-btn"
                             onClick={() => handlePreview(config)}
                             title="Preview"
                           >
                             👁️
                           </button>
-                          <button 
-                            className="SidebarManagement-config-item-btn" 
+                          <button
+                            className="SidebarManagement-config-item-btn"
                             onClick={() => handleEdit(config)}
                             title="Edit"
                             disabled={!canEditSidebar}
                           >
                             ✏️
                           </button>
-                          <button 
-                            className="SidebarManagement-config-item-btn SidebarManagement-config-item-btn-delete" 
+                          <button
+                            className="SidebarManagement-config-item-btn SidebarManagement-config-item-btn-delete"
                             onClick={() => handleDelete(config._id)}
                             title="Delete"
                             disabled={!canEditSidebar}
@@ -2213,7 +2211,7 @@ const SidebarManagement = () => {
                           </button>
                         </div>
                       </div>
-                      
+
                       <div className="SidebarManagement-config-item-menu-list">
                         {config.menuItems.slice(0, 5).map((item) => (
                           <span key={item.id} className="SidebarManagement-config-item-chip">
@@ -2241,12 +2239,12 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      
+
       {modalState.isOpen && (
         <div className="SidebarManagement-modal-overlay" onClick={closeModal}>
           <div className="SidebarManagement-modal" onClick={e => e.stopPropagation()}>
-            
-            
+
+
             {modalState.type === 'preview' && modalState.data && (
               <>
                 <div className="SidebarManagement-modal-header">
@@ -2255,8 +2253,8 @@ const SidebarManagement = () => {
                     <h3 className="SidebarManagement-modal-header-title">Menu Preview</h3>
                   </div>
                   <span className="SidebarManagement-modal-subtitle">
-                    {company?.companyName} ({company?.companyCode}) - 
-                    {getDepartmentName(modalState.data.departmentId)} - 
+                    {company?.companyName} ({company?.companyCode}) -
+                    {getDepartmentName(modalState.data.departmentId)} -
                     {modalState.data.roleName || getRoleNameById(modalState.data.role)}
                   </span>
                   <button className="SidebarManagement-modal-close" onClick={closeModal}>✗</button>
@@ -2295,7 +2293,7 @@ const SidebarManagement = () => {
               </>
             )}
 
-            
+
             {modalState.type === 'delete' && (
               <>
                 <div className="SidebarManagement-modal-header SidebarManagement-modal-header-warning">
@@ -2321,9 +2319,9 @@ const SidebarManagement = () => {
               </>
             )}
 
-            
+
             {modalState.type === 'addRole' && (
-              <AddRoleModal 
+              <AddRoleModal
                 onClose={closeModal}
                 onConfirm={confirmAddRole}
               />
@@ -2332,13 +2330,13 @@ const SidebarManagement = () => {
         </div>
       )}
 
-      
+
       {snackbar.open && (
         <div className={`SidebarManagement-snackbar SidebarManagement-snackbar-${snackbar.severity}`}>
           <span className="SidebarManagement-snackbar-icon">
-            {snackbar.severity === 'success' ? '✓' : 
-             snackbar.severity === 'error' ? '✗' : 
-             snackbar.severity === 'warning' ? '⚠️' : 'ℹ️'}
+            {snackbar.severity === 'success' ? '✓' :
+              snackbar.severity === 'error' ? '✗' :
+                snackbar.severity === 'warning' ? '⚠️' : 'ℹ️'}
           </span>
           <span className="SidebarManagement-snackbar-message">{snackbar.message}</span>
           <button className="SidebarManagement-snackbar-close" onClick={() => setSnackbar({ ...snackbar, open: false })}>✗</button>

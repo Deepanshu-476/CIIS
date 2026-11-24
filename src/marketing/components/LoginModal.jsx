@@ -271,8 +271,8 @@ const LoginModal = ({ isOpen: controlledIsOpen, onClose: controlledOnClose }) =>
             }
             break;
         }
-      } else if (err.code === 'ERR_NETWORK') {
-        errorMsg = 'Network error. Please check your internet connection.';
+      } else if (!err.response || err.code === 'ERR_NETWORK') {
+        errorMsg = 'Cannot connect to server. Please check your network or server status.';
       }
 
       setErrors({ general: errorMsg });

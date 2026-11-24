@@ -38,8 +38,10 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiCreditCard,
-  FiUpload
+  FiUpload,
+  FiDownload
 } from 'react-icons/fi';
+import { downloadBackendReport } from '../../../utils/exportUtils';
 
 
 import { FaTasks, FaProjectDiagram, FaCity, FaRupeeSign } from 'react-icons/fa';
@@ -1355,6 +1357,16 @@ export const ServiceProgressCard = ({ service, clientId, clientProjectManagers =
     }
     fetchTasks();
   }, [clientId, service, startDate, endDate, subscriptionId, subscriptionNo, initialTasks]);
+
+  useEffect(() => {
+    const handleTaskCreated = (e) => {
+      if (String(e?.detail?.clientId) === String(clientId) && (!e?.detail?.service || e?.detail?.service === service)) {
+        fetchTasks();
+      }
+    };
+    window.addEventListener('clientTask:created', handleTaskCreated);
+    return () => window.removeEventListener('clientTask:created', handleTaskCreated);
+  }, [clientId, service]);
 
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
@@ -4471,6 +4483,16 @@ const ClientManagement = () => {
                   <FiBriefcase /> Client Plans ({clientPlans.length})
                 </button>
               )}
+              <button
+                className="ClientManagement-btn ClientManagement-btn--outlined"
+                onClick={() => {
+                  downloadBackendReport('/api/export-reports/clients-master?format=xlsx', `Clients_Master_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                }}
+                title="Export Clients Master Sheet with Subscriptions, Expiry Dates, Tasks & Services"
+                style={{ borderColor: '#10B981', color: '#059669', fontWeight: 600 }}
+              >
+                <FiDownload /> Export Master (.xlsx)
+              </button>
               <button
                 className="ClientManagement-btn ClientManagement-btn--primary"
                 onClick={() => {

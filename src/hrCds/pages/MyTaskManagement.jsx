@@ -5,6 +5,7 @@ import axios from '../../utils/axiosConfig';
 import { API_URL_IMG } from '../../config';
 import '../Css/MyTaskManagement.css';
 import TaskReminderControl, { buildReminderPayload, createDefaultReminderSettings } from '../components/TaskReminderControl';
+import { downloadBackendReport, exportToPdf } from '../../utils/exportUtils';
 
 const createEmptyCheckpoint = () => ({ title: '', completed: false });
 
@@ -2165,6 +2166,47 @@ const MyTaskManagement = () => {
           </div>
 
           <div className="MyTaskManagement-header-actions">
+            {/* Export Dropdown / Buttons */}
+            <button
+              className="MyTaskManagement-manage-groups-btn"
+              onClick={() => {
+                downloadBackendReport('/api/export-reports/tasks?type=self&format=xlsx', `My_Tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+              }}
+              title="Export My Tasks to Excel (.xlsx)"
+              style={{ background: '#10B981', color: '#fff', border: 'none' }}
+            >
+              📥 Export Excel
+            </button>
+            <button
+              className="MyTaskManagement-manage-groups-btn"
+              onClick={() => {
+                const allTasks = Object.values(myTasksGrouped || {}).flat();
+                if (!allTasks.length) {
+                  alert("No tasks available to export.");
+                  return;
+                }
+                const headers = ['Title', 'Description', 'Due Date', 'Priority', 'Status'];
+                const rows = allTasks.map(t => [
+                  t.title || 'Untitled',
+                  t.description || '-',
+                  t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '-',
+                  (t.priority || 'medium').toUpperCase(),
+                  (t.status || 'pending').toUpperCase()
+                ]);
+                exportToPdf({
+                  title: 'MY TASKS REPORT',
+                  subtitle: `Generated on: ${new Date().toLocaleDateString()}`,
+                  headers,
+                  rows,
+                  filename: 'My_Tasks'
+                });
+              }}
+              title="Export My Tasks to PDF"
+              style={{ background: '#2563EB', color: '#fff', border: 'none' }}
+            >
+              📄 Export PDF
+            </button>
+
             <button 
               className="MyTaskManagement-notifications-btn"
               onClick={() => setNotificationsOpen(true)}

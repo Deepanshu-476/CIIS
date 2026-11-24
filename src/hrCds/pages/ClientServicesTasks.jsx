@@ -7,6 +7,7 @@ import {
   getClientPortalCompanyContext,
   getCompanyScopedClientParams
 } from '../utils/clientPortalData';
+import { exportToPdf, exportToExcel } from '../../utils/exportUtils';
 
 import {
   FiAlertCircle,
@@ -412,6 +413,34 @@ const ServicesTasks = () => {
               <select defaultValue="all"><option value="all">All Services</option></select>
               <select defaultValue="any"><option value="any">Anytime</option></select>
               <button type="button" className="ClientServicesTasks-filter"><FiFilter /> Filters</button>
+              <button
+                type="button"
+                className="ClientServicesTasks-filter"
+                onClick={() => {
+                  if (!allTasks || allTasks.length === 0) {
+                    alert("No tasks available to export.");
+                    return;
+                  }
+                  const headers = ['Task Name', 'Service', 'Priority', 'Status', 'Due Date'];
+                  const rows = allTasks.map(t => [
+                    getTaskTitle(t),
+                    t.serviceName || t.service || '-',
+                    (t.priority || 'medium').toUpperCase(),
+                    (t.status || 'pending').toUpperCase(),
+                    formatDate(t.dueDate)
+                  ]);
+                  exportToPdf({
+                    title: `CLIENT TASKS - ${(client?.client || 'Client').toUpperCase()}`,
+                    subtitle: `Total Tasks: ${allTasks.length} | Generated: ${new Date().toLocaleDateString()}`,
+                    headers,
+                    rows,
+                    filename: `Client_${(client?.client || 'Tasks').replace(/\s+/g, '_')}_Report`
+                  });
+                }}
+                style={{ background: '#2563EB', color: '#fff', borderColor: '#2563EB' }}
+              >
+                <FiDownload /> Export Tasks
+              </button>
               <button type="button" className="ClientServicesTasks-add"><FiPlus /> Add Task</button>
             </div>
 

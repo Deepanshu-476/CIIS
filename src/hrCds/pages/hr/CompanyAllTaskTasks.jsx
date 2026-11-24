@@ -678,7 +678,12 @@ const CompanyAllTaskTasks = () => {
   const [selectedDayRecord, setSelectedDayRecord] = useState(null);
   const [attViewMode, setAttViewMode] = useState("calendar"); // "calendar" | "table"
   const [attFilter, setAttFilter] = useState("all");
-  const [perfTimeframe, setPerfTimeframe] = useState("month"); // "today" | "week" | "month" | "sixMonths" | "overall"
+  // A date range supplied by the Company All Task page opens Performance in
+  // its matching custom window. Once a reviewer selects a timeframe button,
+  // that explicit choice must win over the URL range.
+  const [perfTimeframe, setPerfTimeframe] = useState(() => (
+    initialStartDate || initialEndDate ? "custom" : "month"
+  )); // "custom" | "today" | "week" | "month" | "sixMonths" | "overall"
   const [perfLoading, setPerfLoading] = useState(false);
   const [perfData, setPerfData] = useState({
     tasks: [],
@@ -686,6 +691,23 @@ const CompanyAllTaskTasks = () => {
     workSummary: null,
     performanceMetrics: null,
   });
+
+  // This detail page stays mounted when the Company All Task list changes only
+  // its query string. Keep the local date range in sync with the URL so the
+  // task list and the Performance tab never keep showing the previous range.
+  const dateRangeQueryKey = `${searchParams.get("startDate") || ""}|${searchParams.get("endDate") || ""}`;
+  useEffect(() => {
+    const nextStartDate = searchParams.get("startDate") || "";
+    const nextEndDate = searchParams.get("endDate") || "";
+
+    setStartDate((current) => (current === nextStartDate ? current : nextStartDate));
+    setEndDate((current) => (current === nextEndDate ? current : nextEndDate));
+    setPerfTimeframe((current) => {
+      if (nextStartDate || nextEndDate) return "custom";
+      return current === "custom" ? "month" : current;
+    });
+    setPage(1);
+  }, [dateRangeQueryKey, searchParams]);
 
   // Retained only for safe cleanup of old document-preview state. The Documents
   // tab is intentionally not exposed on the Company All Task page.
@@ -1327,9 +1349,8 @@ const CompanyAllTaskTasks = () => {
       // Keep performance aligned with the date range that opened/filters this employee page.
       // The task list already honours these values, so using a separate monthly window here
       // produced conflicting totals and scores.
-      const hasTaskDateRange = Boolean(startDate || endDate);
       fetchPerfDataset(
-        hasTaskDateRange ? "custom" : perfTimeframe,
+        perfTimeframe,
         { startDate, endDate }
       );
     }
@@ -2419,7 +2440,7 @@ const CompanyAllTaskTasks = () => {
   // Multi-Timeframe Comprehensive Performance Evaluation Engine
   const detailedPerformance = useMemo(() => {
     const now = new Date();
-    const effectivePerfTimeframe = (startDate || endDate) ? "custom" : perfTimeframe;
+    const effectivePerfTimeframe = perfTimeframe;
 
     // Use timeframe dataset if available (even when 0 tasks), otherwise fallback to general tasks
     const isPerfLoaded = perfData.stats !== null || (Array.isArray(perfData.tasks) && perfData.tasks.length > 0);

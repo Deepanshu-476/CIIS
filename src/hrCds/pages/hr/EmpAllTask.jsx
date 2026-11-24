@@ -16,6 +16,38 @@ const getRecordId = (value) => {
   }
   return String(value).trim();
 };
+
+const RECURRING_REPEAT_DAYS = [
+  { value: 'monday', label: 'Mon' },
+  { value: 'tuesday', label: 'Tue' },
+  { value: 'wednesday', label: 'Wed' },
+  { value: 'thursday', label: 'Thu' },
+  { value: 'friday', label: 'Fri' },
+  { value: 'saturday', label: 'Sat' },
+  { value: 'sunday', label: 'Sun' }
+];
+
+const formatDateInputValue = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const getEndOfLocalDayIso = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setHours(23, 59, 59, 999);
+  return date.toISOString();
+};
+
+const getMaxRepeatEndDate = (dueDate) => {
+  const max = new Date(dueDate);
+  max.setDate(max.getDate() + 365);
+  max.setHours(23, 59, 59, 999);
+  return max;
+};
 import {
   FiUsers, FiUser, FiCalendar, FiCheckCircle, FiClock,
   FiAlertCircle, FiXCircle, FiTrendingUp, FiList,
@@ -1192,6 +1224,9 @@ const TaskDetails = () => {
     dueDateTime: '',
     checkpoints: [],
     newCheckpointText: '',
+    repeatPattern: 'none',
+    repeatDays: [],
+    recurrenceEndDate: '',
     submitting: false,
     error: '',
     reminderSettings: createDefaultReminderSettings(),
@@ -1213,6 +1248,9 @@ const TaskDetails = () => {
       dueDateTime: localISOTime,
       checkpoints: [],
       newCheckpointText: '',
+      repeatPattern: 'none',
+      repeatDays: [],
+      recurrenceEndDate: '',
       submitting: false,
       error: '',
       reminderSettings: createDefaultReminderSettings(),
@@ -1258,17 +1296,49 @@ const TaskDetails = () => {
       return;
     }
 
+    const parsedDue = assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : null;
+    if (!parsedDue || isNaN(parsedDue.getTime())) {
+      setAssignModal(prev => ({ ...prev, error: 'Invalid due date format' }));
+      return;
+    }
+
+    const isRepeat = assignModal.repeatPattern && assignModal.repeatPattern !== 'none';
+    const recurrenceEndDate = isRepeat ? getEndOfLocalDayIso(assignModal.recurrenceEndDate) : '';
+
+    if (isRepeat) {
+      if (!recurrenceEndDate) {
+        setAssignModal(prev => ({ ...prev, error: 'Please select repeat end date.' }));
+        return;
+      }
+      if (new Date(recurrenceEndDate) < parsedDue) {
+        setAssignModal(prev => ({ ...prev, error: 'Repeat end date cannot be before due date.' }));
+        return;
+      }
+      if (new Date(recurrenceEndDate) > getMaxRepeatEndDate(parsedDue)) {
+        setAssignModal(prev => ({ ...prev, error: 'Repeat end date can be at most 1 year after due date.' }));
+        return;
+      }
+    }
+
     setAssignModal(prev => ({ ...prev, submitting: true, error: '' }));
 
     try {
       const formData = new FormData();
       formData.append('title', assignModal.title.trim());
       formData.append('description', assignModal.description.trim());
-      formData.append('dueDateTime', new Date(assignModal.dueDateTime).toISOString());
+      formData.append('dueDateTime', parsedDue.toISOString());
       formData.append('priority', assignModal.priority || 'medium');
       formData.append('priorityDays', '1');
       formData.append('assignedUsers', JSON.stringify([targetUserId]));
       formData.append('assignedGroups', JSON.stringify([]));
+
+      if (isRepeat) {
+        formData.append('repeatPattern', assignModal.repeatPattern);
+        formData.append('repeatDays', JSON.stringify(assignModal.repeatDays || []));
+        formData.append('recurrenceEndDate', recurrenceEndDate);
+      } else {
+        formData.append('repeatPattern', 'none');
+      }
 
       const cleanCheckpoints = assignModal.checkpoints
         .map(cp => ({ title: String(cp.title || '').trim(), completed: false }))
@@ -1429,6 +1499,91 @@ const TaskDetails = () => {
                   required
                 />
               </div>
+            </div>
+
+            <div className="modal-form-group" style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ margin: 0, fontWeight: 600, color: '#1e293b' }}>Repeat Task</label>
+                <span style={{
+                  fontSize: '11px',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontWeight: 600,
+                  background: assignModal.repeatPattern !== 'none' ? '#dcfce7' : '#f1f5f9',
+                  color: assignModal.repeatPattern !== 'none' ? '#15803d' : '#64748b'
+                }}>
+                  {assignModal.repeatPattern === 'daily' ? 'Repeat Task' : 'No Repeat'}
+                </span>
+              </div>
+
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label>Pattern</label>
+                  <select
+                    value={assignModal.repeatPattern}
+                    onChange={(e) => setAssignModal(prev => ({
+                      ...prev,
+                      repeatPattern: e.target.value,
+                      repeatDays: e.target.value === 'daily' ? prev.repeatDays : [],
+                      recurrenceEndDate: e.target.value !== 'none' ? prev.recurrenceEndDate : '',
+                    }))}
+                  >
+                    <option value="none">No Repeat</option>
+                    <option value="daily">Repeat Task</option>
+                  </select>
+                </div>
+
+                {assignModal.repeatPattern !== 'none' && (
+                  <div className="modal-form-group">
+                    <label>Repeat End Date <span className="req">*</span></label>
+                    <input
+                      type="date"
+                      value={formatDateInputValue(assignModal.recurrenceEndDate)}
+                      min={formatDateInputValue(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date())}
+                      max={formatDateInputValue(getMaxRepeatEndDate(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date()))}
+                      onChange={(e) => setAssignModal(prev => ({ ...prev, recurrenceEndDate: e.target.value }))}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {assignModal.repeatPattern === 'daily' && (
+                <div style={{ marginTop: '8px' }}>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>Select Days (leave blank to run every day)</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {RECURRING_REPEAT_DAYS.map(day => {
+                      const isSelected = (assignModal.repeatDays || []).includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() => setAssignModal(prev => {
+                            const current = prev.repeatDays || [];
+                            return {
+                              ...prev,
+                              repeatDays: isSelected
+                                ? current.filter(d => d !== day.value)
+                                : [...current, day.value]
+                            };
+                          })}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: isSelected ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                            background: isSelected ? '#2563eb' : '#ffffff',
+                            color: isSelected ? '#ffffff' : '#334155',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="modal-form-group checkpoints-section">

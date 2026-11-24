@@ -16,6 +16,28 @@ const getCleanCheckpoints = (checkpoints = []) => (
     : []
 );
 
+const formatDateInputValue = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const getEndOfLocalDayIso = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setHours(23, 59, 59, 999);
+  return date.toISOString();
+};
+
+const getMaxRepeatEndDate = (dueDate) => {
+  const max = new Date(dueDate);
+  max.setDate(max.getDate() + 365);
+  max.setHours(23, 59, 59, 999);
+  return max;
+};
+
 const MyTaskManagement = () => {
   const [tab, setTab] = useState(0);
   const [myTasksGrouped, setMyTasksGrouped] = useState({});
@@ -54,6 +76,7 @@ const MyTaskManagement = () => {
     voiceNote: null,
     repeatPattern: 'none',
     repeatDays: [],
+    recurrenceEndDate: '',
     checkpoints: [],
     reminderSettings: createDefaultReminderSettings(),
   });
@@ -106,23 +129,20 @@ const MyTaskManagement = () => {
 
   const repeatPatternLabels = {
     none: 'No repeat',
-    daily: 'Every day',
-    weekly: 'Weekly',
-    monthly: 'Monthly'
+    daily: 'Repeat Task',
   };
 
   const repeatPatternDetails = {
     none: 'Create one task only.',
-    daily: 'Auto-create a new task every day after completion window.',
-    weekly: 'Pick the weekdays this task should repeat on.',
-    monthly: 'Re-create on the same date next month; if missing, use the last valid date.'
+    daily: 'Auto-create future task copies based on chosen schedule and end date.',
   };
 
   const handleRepeatPatternChange = (value) => {
     setNewTask(prev => ({
       ...prev,
       repeatPattern: value,
-      repeatDays: value === 'weekly' ? prev.repeatDays : []
+      repeatDays: value === 'daily' ? prev.repeatDays : [],
+      recurrenceEndDate: value !== 'none' ? prev.recurrenceEndDate : '',
     }));
   };
 
@@ -633,15 +653,40 @@ const MyTaskManagement = () => {
       const formData = new FormData();
       const finalAssignedUsers = newTask.assignedUsers.length > 0 ? newTask.assignedUsers : [userId];
 
+      const isRepeat = newTask.repeatPattern && newTask.repeatPattern !== 'none';
+      const parsedDue = new Date(newTask.dueDateTime);
+      const recurrenceEndDate = isRepeat ? getEndOfLocalDayIso(newTask.recurrenceEndDate) : '';
+
+      if (isRepeat) {
+        if (!recurrenceEndDate) {
+          setSnackbar({ open: true, message: 'Please select repeat end date.', severity: 'error' });
+          setIsCreatingTask(false);
+          return;
+        }
+        if (new Date(recurrenceEndDate) < parsedDue) {
+          setSnackbar({ open: true, message: 'Repeat end date cannot be before due date.', severity: 'error' });
+          setIsCreatingTask(false);
+          return;
+        }
+        if (new Date(recurrenceEndDate) > getMaxRepeatEndDate(parsedDue)) {
+          setSnackbar({ open: true, message: 'Repeat end date can be at most 1 year after due date.', severity: 'error' });
+          setIsCreatingTask(false);
+          return;
+        }
+      }
+
       formData.append('title', newTask.title);
       formData.append('description', newTask.description);
-      formData.append('dueDateTime', new Date(newTask.dueDateTime).toISOString());
+      formData.append('dueDateTime', parsedDue.toISOString());
       formData.append('priorityDays', newTask.priorityDays || '1');
       formData.append('priority', newTask.priority);
       formData.append('assignedUsers', JSON.stringify(finalAssignedUsers));
       formData.append('assignedGroups', JSON.stringify(newTask.assignedGroups || []));
-      formData.append('repeatPattern', newTask.repeatPattern);
-      formData.append('repeatDays', JSON.stringify(newTask.repeatDays || []));
+      formData.append('repeatPattern', isRepeat ? newTask.repeatPattern : 'none');
+      formData.append('repeatDays', JSON.stringify(isRepeat ? (newTask.repeatDays || []) : []));
+      if (isRepeat) {
+        formData.append('recurrenceEndDate', recurrenceEndDate);
+      }
       formData.append('checkpoints', JSON.stringify(getCleanCheckpoints(newTask.checkpoints)));
 
       if (newTask.files) {
@@ -690,6 +735,7 @@ const MyTaskManagement = () => {
         voiceNote: null,
         repeatPattern: 'none',
         repeatDays: [],
+        recurrenceEndDate: '',
         checkpoints: [],
         reminderSettings: createDefaultReminderSettings(),
       });
@@ -1696,7 +1742,7 @@ const MyTaskManagement = () => {
             <div className="MyTaskManagement-recurring-header">
               <div>
                 <h3>Repeat Task</h3>
-                <p>Set a recurring pattern for personal tasks. The next task will be auto-created for you.</p>
+                <p>Set a recurring pattern for this task. Future copies will be auto-created for you.</p>
               </div>
               <span className={`MyTaskManagement-recurring-badge MyTaskManagement-recurring-${newTask.repeatPattern}`}>
                 {repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}
@@ -1713,9 +1759,7 @@ const MyTaskManagement = () => {
                     onChange={(e) => handleRepeatPatternChange(e.target.value)}
                   >
                     <option value="none">No Repeat</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
+                    <option value="daily">Repeat Task</option>
                   </select>
                 </div>
                 <div className="MyTaskManagement-repeat-help">
@@ -1723,22 +1767,36 @@ const MyTaskManagement = () => {
                 </div>
               </div>
 
+              {newTask.repeatPattern !== 'none' && (
+                <div className="MyTaskManagement-form-group">
+                  <label>Repeat End Date *</label>
+                  <input
+                    type="date"
+                    className="MyTaskManagement-form-input"
+                    value={formatDateInputValue(newTask.recurrenceEndDate)}
+                    min={formatDateInputValue(newTask.dueDateTime ? new Date(newTask.dueDateTime) : new Date())}
+                    max={formatDateInputValue(getMaxRepeatEndDate(newTask.dueDateTime ? new Date(newTask.dueDateTime) : new Date()))}
+                    onChange={(e) => setNewTask(prev => ({ ...prev, recurrenceEndDate: e.target.value }))}
+                  />
+                </div>
+              )}
+
               <div className="MyTaskManagement-repeat-summary">
                 <div className="MyTaskManagement-repeat-summary-title">Current Setup</div>
                 <div className="MyTaskManagement-repeat-summary-text">
-                  {newTask.repeatPattern === 'weekly'
-                    ? `Weekly on ${newTask.repeatDays?.length ? newTask.repeatDays.map(day => day.slice(0, 3).toUpperCase()).join(', ') : 'select days'}`
-                    : repeatPatternLabels[newTask.repeatPattern] || 'No repeat'}
+                  {newTask.repeatPattern === 'daily'
+                    ? `Repeat Task${newTask.repeatDays?.length ? ` on ${newTask.repeatDays.map(day => day.slice(0, 3).toUpperCase()).join(', ')}` : ' every day'}`
+                    : (repeatPatternLabels[newTask.repeatPattern] || 'No repeat')}
                 </div>
                 <div className="MyTaskManagement-repeat-summary-subtext">
-                  Recurring tasks keep the same due date time for future copies.
+                  Recurring tasks keep the same due time for future copies.
                 </div>
               </div>
             </div>
 
-            {newTask.repeatPattern === 'weekly' && (
+            {newTask.repeatPattern === 'daily' && (
               <div className="MyTaskManagement-week-days">
-                <label>Select Week Days</label>
+                <label>Select Week Days (leave blank to run every day)</label>
                 <div className="MyTaskManagement-days-grid">
                   {weeklyRepeatDays.map((day) => (
                     <button
@@ -1750,9 +1808,6 @@ const MyTaskManagement = () => {
                       {day.label}
                     </button>
                   ))}
-                </div>
-                <div className="MyTaskManagement-repeat-help">
-                  Pick one or more weekdays. The system will skip duplicates for the same period.
                 </div>
               </div>
             )}

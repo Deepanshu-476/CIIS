@@ -5544,7 +5544,9 @@ const UserCreateTask = () => {
     }
 
     try {
-      const response = await axios.patch(`/tasks/self/${taskId}/stop-recurring`);
+      const isSelf = (task.__taskSource || task.taskSource) === 'self' || task.taskFor === 'self';
+      const endpoint = isSelf ? `/tasks/self/${taskId}/stop-recurring` : `/task/${taskId}/stop-recurring`;
+      const response = await axios.patch(endpoint);
       const stoppedTask = response.data?.task || {};
       const timestamp = stoppedTask.updatedAt || new Date().toISOString();
       const updateTask = current => ({
@@ -5563,9 +5565,9 @@ const UserCreateTask = () => {
       setAllTasksStatsGrouped(prev => patchGroupedTasksById(prev, taskId, updateTask));
       setSelectedTaskDetails(prev => prev && String(prev._id || prev.id) === String(taskId) ? updateTask(prev) : prev);
       showSnackbar('Repeat task stopped successfully', 'success');
-      window.setTimeout(() => void refreshCurrentTaskView('self'), 1000);
+      window.setTimeout(() => void refreshCurrentTaskView(isSelf ? 'self' : 'assigned'), 1000);
     } catch (error) {
-      showSnackbar(error?.response?.data?.error || 'Failed to stop repeat task', 'error');
+      showSnackbar(error?.response?.data?.error || error?.response?.data?.message || 'Failed to stop repeat task', 'error');
     }
   };
 
@@ -7545,21 +7547,23 @@ const UserCreateTask = () => {
                                     {task.checkpoints.filter(item => item.completed).length}/{task.checkpoints.length} checkpoints
                                   </div>
                                 )}
-                                {taskSource === 'self' && (task.isRecurring || (task.repeatPattern && task.repeatPattern !== 'none')) && (
+                                {Boolean(task.isRecurring || (task.repeatPattern && task.repeatPattern !== 'none')) && (
                                   <div className="task-checkpoint-progress" style={{ color: '#15803d' }}>
                                     Repeat until {formatDateInputValue(task.recurrenceEndDate) || 'not set'}
-                                    <button
-                                      type="button"
-                                      className="user-create-task-action-button"
-                                      title="Stop repeat"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        handleStopRecurringTask(task);
-                                      }}
-                                      style={{ marginLeft: '8px', color: '#b91c1c' }}
-                                    >
-                                      <FiSlash size={12} />
-                                    </button>
+                                    {(taskSource === 'self' || task.taskFor === 'self' || String(task.createdBy?._id || task.createdBy) === String(userId)) && (
+                                      <button
+                                        type="button"
+                                        className="user-create-task-action-button"
+                                        title="Stop repeat"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          handleStopRecurringTask(task);
+                                        }}
+                                        style={{ marginLeft: '8px', color: '#b91c1c' }}
+                                      >
+                                        <FiSlash size={12} />
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </td>
@@ -8452,17 +8456,19 @@ const UserCreateTask = () => {
                   <div><FiPaperclip /><span>Files</span><strong>{detailFiles.length}</strong></div>
                 </div>
 
-                {detailSource === 'self' && (selectedTaskDetails.isRecurring || (selectedTaskDetails.repeatPattern && selectedTaskDetails.repeatPattern !== 'none')) && (
+                {Boolean(selectedTaskDetails.isRecurring || (selectedTaskDetails.repeatPattern && selectedTaskDetails.repeatPattern !== 'none')) && (
                   <div className="task-details-info-row">
                     <span>Repeat Ends</span>
                     <strong>{formatDateInputValue(selectedTaskDetails.recurrenceEndDate) || 'Not set'}</strong>
-                    <button
-                      type="button"
-                      className="user-create-task-button user-create-task-button-outlined"
-                      onClick={() => handleStopRecurringTask(selectedTaskDetails)}
-                    >
-                      <FiSlash /> Stop Repeat
-                    </button>
+                    {(detailSource === 'self' || selectedTaskDetails.taskFor === 'self' || String(selectedTaskDetails.createdBy?._id || selectedTaskDetails.createdBy) === String(userId)) && (
+                      <button
+                        type="button"
+                        className="user-create-task-button user-create-task-button-outlined"
+                        onClick={() => handleStopRecurringTask(selectedTaskDetails)}
+                      >
+                        <FiSlash /> Stop Repeat
+                      </button>
+                    )}
                   </div>
                 )}
 

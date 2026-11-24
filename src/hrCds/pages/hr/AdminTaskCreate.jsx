@@ -1476,6 +1476,9 @@ const AdminTaskManagement = () => {
       fetchSupportingData();
     } catch (error) {
       console.error('Error creating task:', error);
+      const msg = error?.response?.data?.message || error?.response?.data?.error || 'Error creating task';
+      setCreateTaskModalError(msg);
+      showSnackbar(msg, 'error');
     } finally {
       setIsCreatingTask(false);
     }
@@ -1570,6 +1573,9 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error updating task:', error);
+      const msg = error?.response?.data?.message || error?.response?.data?.error || 'Error updating task';
+      setEditTaskModalError(msg);
+      showSnackbar(msg, 'error');
     } finally {
       setIsUpdatingTask(false);
     }
@@ -1584,6 +1590,8 @@ const AdminTaskManagement = () => {
       fetchAllData(page, rowsPerPage);
     } catch (error) {
       console.error('Error stopping repeat task:', error);
+      const msg = error?.response?.data?.message || error?.response?.data?.error || 'Failed to stop repeat task';
+      showSnackbar(msg, 'error');
     }
   };
 

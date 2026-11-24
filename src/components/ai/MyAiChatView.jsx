@@ -394,7 +394,9 @@ export default function MyAiChatView({ onBack, onClose }) {
     open: true,
     onClose: handleClose,
     variant: 'voice',
-    startWithMic: true,
+    // Do not capture microphone on popup open. The header Voice toggle is the
+    // explicit opt-in that starts voice mode.
+    startWithMic: false,
     user: authUser,
   });
 
@@ -590,7 +592,9 @@ export default function MyAiChatView({ onBack, onClose }) {
 
   // Derive human-friendly status text for the header: Listening -> Transcribing -> Thinking
   let statusText = 'Tap to talk';
-  if (creating) {
+  if (!autoSpeak) {
+    statusText = 'Voice Off';
+  } else if (creating) {
     statusText = 'Creating...';
   } else if (isSpeaking || (typeof window !== 'undefined' && window.__ciisVoiceSpeaking)) {
     statusText = 'Speaking...';
@@ -600,12 +604,12 @@ export default function MyAiChatView({ onBack, onClose }) {
     statusText = 'Transcribing...';
   } else if (listening) {
     statusText = 'Listening...';
-  } else if (autoSpeak && userMuted) {
-    statusText = 'Mic paused - sending your next message resumes it';
-  } else if (autoSpeak) {
-    statusText = 'Mic: auto';
+  } else if (userMuted) {
+    statusText = 'Mic paused';
   } else if (orbState === 'paused') {
     statusText = 'Tap to talk';
+  } else {
+    statusText = 'Mic: auto';
   }
 
   return (
@@ -631,8 +635,8 @@ export default function MyAiChatView({ onBack, onClose }) {
           <div className="my-ai-header-title-wrap">
             <h2 className="my-ai-title">CIIS AI</h2>
             {isExpanded && <span className="my-ai-subtitle-badge">Assistant</span>}
-            <div className={`my-ai-status-indicator ${orbState}`}>
-              <span className={`my-ai-status-dot ${orbState}`} />
+            <div className={`my-ai-status-indicator ${!autoSpeak ? 'muted' : orbState}`}>
+              <span className={`my-ai-status-dot ${!autoSpeak ? 'muted' : orbState}`} />
               <span className="my-ai-status-label">{statusText}</span>
             </div>
           </div>
@@ -1137,9 +1141,6 @@ export default function MyAiChatView({ onBack, onClose }) {
                 if (isAiDisabled) return;
                 if (isSpeaking) {
                   cancelSpeech();
-                }
-                if (!autoSpeak) {
-                  setAutoSpeak(true);
                 }
                 handleOrbClick();
               }}

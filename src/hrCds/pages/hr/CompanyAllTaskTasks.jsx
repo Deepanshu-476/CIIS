@@ -939,7 +939,16 @@ const CompanyAllTaskTasks = () => {
           ...getPageAccessUserIds(page, 'delete')
         ];
 
-        const isSuperRole = currentUser?.role === 'superadmin' || currentUser?.role === 'admin' || currentUser?.isSuperAdmin;
+        const roleTokens = [
+          currentUser?.companyRole,
+          currentUser?.role,
+          currentUser?.jobRole,
+          currentUser?.userType,
+        ]
+          .filter(Boolean)
+          .map((role) => String(role).toLowerCase().replace(/[\s_-]+/g, ''));
+        const isSuperRole = Boolean(currentUser?.isSuperAdmin || currentUser?.superAdmin || currentUser?.isCompanyOwner) ||
+          roleTokens.some((role) => ['owner', 'companyowner', 'admin', 'companyadmin', 'superadmin'].includes(role));
         const isSelf = String(effectiveUserId || '') === String(currentUserIdValue || '');
         const hasDirectAccess = configuredIds.includes(currentUserIdValue);
         const hasAccess = isSuperRole || isSelf || hasDirectAccess;
@@ -2017,11 +2026,14 @@ const CompanyAllTaskTasks = () => {
       },
     }));
 
-    // 2. CLOSE MODAL IMMEDIATELY
-    closeEditModal();
     setError("");
+    // The edit is already reflected optimistically, so keep the modal responsive
+    // and close it as soon as Save is clicked.
+    closeEditModal();
+    setSavingTaskId(task._id);
 
-    // 3. BACKGROUND PERSISTENCE: Single fast request
+    // Persist in the background. Any failure is surfaced on the page and the
+    // task list is refreshed from the server to restore the saved state.
     try {
       if (source === "client") {
         await axios.put(`/tasks/all/company/client/${task._id}`, {
@@ -2037,7 +2049,8 @@ const CompanyAllTaskTasks = () => {
         await axios.put(`/tasks/all/company/project/${task.projectId}/tasks/${task._id}`, {
           title: updatedTitle,
           description: updatedDesc,
-          dueDateTime: dueDateIso,
+          // Project tasks store this field as dueDate, unlike assigned/self tasks.
+          dueDate: dueDateIso,
           priority: updatedPriority,
           status: updatedStatus,
           checkpoints: cleanCheckpoints,
@@ -2066,6 +2079,8 @@ const CompanyAllTaskTasks = () => {
       console.error("Failed to save task update to server:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || "Failed to update task.");
       fetchTasks();
+    } finally {
+      setSavingTaskId(null);
     }
   };
 
@@ -4345,14 +4360,16 @@ const CompanyAllTaskTasks = () => {
 
                                   {/* Right action buttons */}
                                   <div className="task-right-actions">
-                                    <button
-                                      type="button"
-                                      className="btn-edit-task-action"
-                                      onClick={() => openEditModal(task)}
-                                      title="Edit Task"
-                                    >
-                                      <FiEdit2 size={13} /> Edit
-                                    </button>
+                                    {isTaskEditable && (
+                                      <button
+                                        type="button"
+                                        className="btn-edit-task-action"
+                                        onClick={() => openEditModal(task)}
+                                        title="Edit Task"
+                                      >
+                                        <FiEdit2 size={13} /> Edit
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </div>

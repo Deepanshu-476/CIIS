@@ -134,6 +134,12 @@
   border-color: #f5d0fe;
 }
 
+.my-ai-status-indicator.muted {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
 .my-ai-status-dot {
   width: 6px;
   height: 6px;

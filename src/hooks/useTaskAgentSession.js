@@ -180,7 +180,9 @@ export default function useTaskAgentSession({
     const [creating, setCreating] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(null);
     const [result, setResult] = useState(null);
-    const [autoSpeak, setAutoSpeak] = useState(true);
+    // Voice mode must be explicitly enabled from the assistant header. Keeping
+    // this false by default prevents background microphone capture on open.
+    const [autoSpeak, setAutoSpeak] = useState(false);
     const autoSpeakRef = useRef(autoSpeak);
     useEffect(() => {
         autoSpeakRef.current = autoSpeak;
@@ -2612,8 +2614,6 @@ export default function useTaskAgentSession({
                     watchdog.cancel();
                     (ensureListeningRef.current || ensureListening)();
                 });
-            } else if (sttSupported && !userMutedRef.current) {
-                (ensureListeningRef.current || ensureListening)();
             }
         }
     }, [open, messages.length, pushMsg, variant, startWithMic, sttSupported, listening, start, autoSpeak, ttsSupported, userMuted, speak, cancelSpeech]);

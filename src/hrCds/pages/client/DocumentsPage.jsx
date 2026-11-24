@@ -7,6 +7,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiDownload,
+  FiEye,
   FiFile,
   FiFileText,
   FiFilter,
@@ -17,6 +18,7 @@ import {
   FiShare2,
   FiTrash2,
   FiUploadCloud,
+  FiX,
 } from "react-icons/fi";
 import CIISLoader from "../../../Loader/CIISLoader";
 import API_URL from "../../../config";
@@ -123,6 +125,37 @@ const blobToBase64 = blob => new Promise((resolve, reject) => {
   reader.readAsDataURL(blob);
 });
 
+const isPdfDoc = doc => {
+  const mime = String(doc?.type || doc?.mimeType || "").toLowerCase();
+  const name = String(doc?.name || doc?.originalName || "").toLowerCase();
+  return mime.includes("pdf") || name.endsWith(".pdf");
+};
+
+const isImageDoc = doc => {
+  const mime = String(doc?.type || doc?.mimeType || "").toLowerCase();
+  const name = String(doc?.name || doc?.originalName || "").toLowerCase();
+  return (
+    mime.startsWith("image/") ||
+    name.endsWith(".jpg") ||
+    name.endsWith(".jpeg") ||
+    name.endsWith(".png") ||
+    name.endsWith(".webp") ||
+    name.endsWith(".gif") ||
+    name.endsWith(".svg")
+  );
+};
+
+const isTextDoc = doc => {
+  const mime = String(doc?.type || doc?.mimeType || "").toLowerCase();
+  const name = String(doc?.name || doc?.originalName || "").toLowerCase();
+  return (
+    mime.includes("text/") ||
+    name.endsWith(".txt") ||
+    name.endsWith(".csv") ||
+    name.endsWith(".json")
+  );
+};
+
 const DocumentsPage = () => {
   const { client, loading, error, refetch } = useClientPortalData();
   const [downloadCount, setDownloadCount] = useState(0);
@@ -137,6 +170,10 @@ const DocumentsPage = () => {
   const [selectedDocIds, setSelectedDocIds] = useState([]);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
   const documents = useMemo(() => uploadedDocuments.map(formatUploadedDocument), [uploadedDocuments]);
   const trashDocuments = useMemo(() => trashedDocuments.map(formatUploadedDocument), [trashedDocuments]);
   const currentTabDocuments = useMemo(() => {
@@ -325,6 +362,62 @@ const DocumentsPage = () => {
     } catch (err) {
       console.error("Document download failed", err);
       setDocumentError(err.response?.data?.message || "Document download failed");
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = e => {
+      if (e.key === "Escape" && previewDoc) {
+        handleClosePreview();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewDoc, previewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        window.URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const handleClosePreview = () => {
+    if (previewUrl) {
+      window.URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewDoc(null);
+    setPreviewUrl(null);
+    setPreviewLoading(false);
+    setPreviewError("");
+  };
+
+  const handleViewDocument = async doc => {
+    if (!doc?._id) return;
+
+    if (previewUrl) {
+      window.URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+
+    setPreviewDoc(doc);
+    setPreviewLoading(true);
+    setPreviewError("");
+
+    try {
+      const response = await clientDocumentsApi.get(`/${doc._id}/view`, {
+        responseType: "blob",
+      });
+      const contentType = response.headers?.["content-type"] || doc.type || "application/octet-stream";
+      const blob = new Blob([response.data], { type: contentType });
+      const url = window.URL.createObjectURL(blob);
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error("Document preview failed", err);
+      setPreviewError(err.response?.data?.message || "Document preview failed");
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -567,6 +660,9 @@ const DocumentsPage = () => {
                     <div className="DocumentsPage-rowActions">
                       {doc.isUploaded && activeTab !== "trash" ? (
                         <>
+                          <button type="button" className="DocumentsPage-more" aria-label={`View ${doc.name}`} title="View document" onClick={() => handleViewDocument(doc)}>
+                            <FiEye />
+                          </button>
                           <button type="button" className="DocumentsPage-more" aria-label={`Download ${doc.name}`} onClick={() => handleDownloadDocument(doc)}>
                             <FiDownload />
                           </button>
@@ -643,6 +739,104 @@ const DocumentsPage = () => {
         </section> */}
       </aside>
     </div>
+
+    {previewDoc && (
+      <div className="DocumentsPage-modalOverlay" onClick={handleClosePreview}>
+        <div
+          className="DocumentsPage-modalContent"
+          onClick={e => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Preview ${previewDoc.name}`}
+        >
+          <div className="DocumentsPage-modalHeader">
+            <div className="DocumentsPage-modalHeaderTitle">
+              <FiFileText className="DocumentsPage-modalHeaderIcon" />
+              <div>
+                <h3>{previewDoc.name}</h3>
+                <span>{previewDoc.type || "Document"} • {previewDoc.size}</span>
+              </div>
+            </div>
+            <div className="DocumentsPage-modalHeaderActions">
+              <button
+                type="button"
+                className="DocumentsPage-modalBtn"
+                onClick={() => handleDownloadDocument(previewDoc)}
+                title="Download document"
+              >
+                <FiDownload /> Download
+              </button>
+              <button
+                type="button"
+                className="DocumentsPage-modalCloseBtn"
+                onClick={handleClosePreview}
+                aria-label="Close preview"
+              >
+                <FiX />
+              </button>
+            </div>
+          </div>
+
+          <div className="DocumentsPage-modalBody">
+            {previewLoading && (
+              <div className="DocumentsPage-modalLoading">
+                <CIISLoader message="Loading document preview…" />
+              </div>
+            )}
+
+            {previewError && !previewLoading && (
+              <div className="DocumentsPage-modalError">
+                <p>{previewError}</p>
+                <button
+                  type="button"
+                  className="DocumentsPage-modalBtn"
+                  onClick={() => handleDownloadDocument(previewDoc)}
+                >
+                  <FiDownload /> Download Instead
+                </button>
+              </div>
+            )}
+
+            {!previewLoading && !previewError && previewUrl && (
+              isPdfDoc(previewDoc) ? (
+                <iframe
+                  src={previewUrl}
+                  title={previewDoc.name}
+                  className="DocumentsPage-modalIframe"
+                />
+              ) : isImageDoc(previewDoc) ? (
+                <div className="DocumentsPage-modalImgWrapper">
+                  <img
+                    src={previewUrl}
+                    alt={previewDoc.name}
+                    className="DocumentsPage-modalImg"
+                  />
+                </div>
+              ) : isTextDoc(previewDoc) ? (
+                <iframe
+                  src={previewUrl}
+                  title={previewDoc.name}
+                  className="DocumentsPage-modalIframe"
+                />
+              ) : (
+                <div className="DocumentsPage-modalUnsupported">
+                  <FiFile className="DocumentsPage-modalBigIcon" />
+                  <h4>{previewDoc.name}</h4>
+                  <p>Direct preview is not available for this file type ({previewDoc.type || "file"}).</p>
+                  <button
+                    type="button"
+                    className="DocumentsPage-modalBtn DocumentsPage-modalBtnPrimary"
+                    onClick={() => handleDownloadDocument(previewDoc)}
+                  >
+                    <FiDownload /> Download to View
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    )}
   </section>
   );
 };

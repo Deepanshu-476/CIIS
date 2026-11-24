@@ -439,9 +439,35 @@ const formatTimeOnly = (dateStr) => {
 
 const getDateInputValue = (date = new Date()) => {
   const d = new Date(date);
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${month}-${day}`;
+  if (Number.isNaN(d.getTime())) return "";
+  // Attendance is stored at the start of an India calendar day. Using the
+  // browser's local timezone here can place a record in the previous/next day
+  // and make the Performance discipline score incorrectly read 0%.
+  const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+  const month = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(istDate.getUTCDate()).padStart(2, "0");
+  return `${istDate.getUTCFullYear()}-${month}-${day}`;
+};
+
+const getPerformanceAttendanceRange = (timeframe, customStart = "", customEnd = "") => {
+  const now = new Date();
+  const today = getDateInputValue(now);
+  if (timeframe === "custom") return { startDate: customStart || "", endDate: customEnd || "" };
+  if (timeframe === "today") return { startDate: today, endDate: today };
+  if (timeframe === "week") {
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
+    return { startDate: getDateInputValue(monday), endDate: today };
+  }
+  if (timeframe === "month") {
+    return { startDate: getDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1)), endDate: today };
+  }
+  if (timeframe === "sixMonths") {
+    const sixMonthsAgo = new Date(now);
+    sixMonthsAgo.setMonth(now.getMonth() - 6);
+    return { startDate: getDateInputValue(sixMonthsAgo), endDate: today };
+  }
+  return { startDate: "", endDate: "" }; // Overall: entire employment record
 };
 
 const getDateTimeInputValue = (date = new Date()) => {
@@ -691,6 +717,7 @@ const CompanyAllTaskTasks = () => {
     workSummary: null,
     performanceMetrics: null,
   });
+  const [perfAttendance, setPerfAttendance] = useState({ records: [], loaded: false });
 
   // This detail page stays mounted when the Company All Task list changes only
   // its query string. Keep the local date range in sync with the URL so the
@@ -1144,6 +1171,24 @@ const CompanyAllTaskTasks = () => {
     }
   }, [effectiveUserId]);
 
+  const fetchPerfAttendance = useCallback(async (tf, selectedRange = {}) => {
+    if (!effectiveUserId) return;
+    const range = getPerformanceAttendanceRange(tf, selectedRange.startDate, selectedRange.endDate);
+    setPerfAttendance({ records: [], loaded: false });
+    try {
+      const response = await axios.get(`/attendance/user/${effectiveUserId}`, {
+        params: {
+          ...(range.startDate ? { startDate: range.startDate } : {}),
+          ...(range.endDate ? { endDate: range.endDate } : {}),
+        },
+      });
+      setPerfAttendance({ records: response.data?.data || [], loaded: true });
+    } catch (err) {
+      console.error("Failed to fetch performance attendance:", err);
+      setPerfAttendance({ records: [], loaded: true });
+    }
+  }, [effectiveUserId]);
+
   // Fetch User's Uploaded Documents (Read-only view)
   const fetchDocuments = useCallback(async () => {
     if (!effectiveUserId) return;
@@ -1353,8 +1398,12 @@ const CompanyAllTaskTasks = () => {
         perfTimeframe,
         { startDate, endDate }
       );
+      fetchPerfAttendance(
+        perfTimeframe,
+        { startDate, endDate }
+      );
     }
-  }, [activeTab, perfTimeframe, startDate, endDate, fetchPerfDataset]);
+  }, [activeTab, perfTimeframe, startDate, endDate, fetchPerfDataset, fetchPerfAttendance]);
 
   const fetchTaskDetails = useCallback(async (task, activityOnly = false) => {
     if (!task?._id) return { remarks: [], activityLogs: [] };
@@ -2492,60 +2541,27 @@ const CompanyAllTaskTasks = () => {
     let halfdayCount = 0;
     let totalWorkingDays = 0;
 
-    const currentDayOfWeek = now.getDay();
-    const diffToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-    const mondayThisWeek = new Date(now);
-    mondayThisWeek.setDate(now.getDate() - diffToMonday);
-    mondayThisWeek.setHours(0, 0, 0, 0);
+    // Attendance is fetched independently for the selected Performance range.
+    // This prevents 6-month/overall reports from accidentally using the calendar's
+    // current-month records (or showing a hard-coded 0%).
+    const periodAttendance = perfAttendance.loaded ? perfAttendance.records : [];
+    periodAttendance.forEach((record) => {
+      const status = String(record?.status || "").trim().toUpperCase();
+      const lateBy = String(record?.lateBy || "").trim();
+      const hasLatePunch = lateBy && lateBy !== "00:00:00" && lateBy !== "0:00:00";
 
-    if (effectivePerfTimeframe === "today") {
-      const todayCell = calendarDays.find((c) => c.dateKey === todayStr) ||
-        attendanceRecords.find((r) => r.date && r.date.split("T")[0] === todayStr);
-      const s = String(todayCell?.status || "").toUpperCase();
-      totalWorkingDays = 1;
-      if (s === "PRESENT") presentCount = 1;
-      else if (s === "LATE") lateCount = 1;
-      else if (s === "HALF DAY" || s === "HALFDAY") halfdayCount = 1;
-      else if (s === "ABSENT") absentCount = 1;
-      else {
-        if (todayCell?.inTime) {
-          presentCount = 1;
-          if (todayCell.lateBy) lateCount = 1;
-        }
-        // A missing record is unknown attendance, not an automatic full-day present.
-        if (!todayCell?.inTime) totalWorkingDays = 0;
+      if (status === "PRESENT") {
+        if (hasLatePunch) lateCount++;
+        else presentCount++;
+      } else if (status === "LATE" || status === "SHORT LEAVE") {
+        lateCount++;
+      } else if (status === "HALF DAY" || status === "HALFDAY") {
+        halfdayCount++;
+      } else if (status === "ABSENT" || status === "UNINFORMED LEAVE" || status === "UNINFORMEDLEAVE") {
+        absentCount++;
       }
-    } else if (effectivePerfTimeframe === "week" || effectivePerfTimeframe === "custom") {
-      const customRangeStart = startDate ? new Date(`${startDate}T00:00:00`) : null;
-      const customRangeEnd = endDate ? new Date(`${endDate}T23:59:59.999`) : null;
-      const weekCells = calendarDays.filter((c) => {
-        if (!c.dateKey) return false;
-        const d = new Date(c.dateKey);
-        if (effectivePerfTimeframe === "custom") {
-          return (!customRangeStart || d >= customRangeStart) && (!customRangeEnd || d <= customRangeEnd);
-        }
-        return d >= mondayThisWeek && d <= now;
-      });
-      weekCells.forEach((c) => {
-        const s = String(c.status || "").toUpperCase();
-        if (s === "PRESENT") presentCount++;
-        else if (s === "LATE") lateCount++;
-        else if (s === "HALF DAY" || s === "HALFDAY") halfdayCount++;
-        else if (s === "ABSENT") absentCount++;
-      });
-      totalWorkingDays = presentCount + lateCount + halfdayCount + absentCount;
-    } else if (effectivePerfTimeframe === "month") {
-      // Monthly evaluation can use the loaded monthly attendance records.
-      presentCount = monthStats.present || 0;
-      lateCount = monthStats.late || 0;
-      absentCount = monthStats.absent || 0;
-      halfdayCount = monthStats.halfday || 0;
-      totalWorkingDays = monthStats.totalWorking || (presentCount + lateCount + halfdayCount + absentCount);
-    } else {
-      // Do not blend a current-month attendance score into 6-month/overall task data.
-      // Those periods need period-scoped attendance from the API before they can earn points.
-      totalWorkingDays = 0;
-    }
+    });
+    totalWorkingDays = presentCount + lateCount + halfdayCount + absentCount;
 
     const disciplineRate = totalWorkingDays > 0
       ? Math.round(((presentCount * 1.0 + lateCount * 0.70 + halfdayCount * 0.50) / totalWorkingDays) * 100)
@@ -2733,7 +2749,7 @@ const CompanyAllTaskTasks = () => {
         overduePenalty: { points: overduePenalty },
       },
     };
-  }, [perfTimeframe, perfData, tasks, stats, performanceMetrics, workSummary, onTimeRate, calendarDays, attendanceRecords, monthStats, todayStr, employeeName, startDate, endDate]);
+  }, [perfTimeframe, perfData, perfAttendance, tasks, stats, performanceMetrics, workSummary, onTimeRate, employeeName, startDate, endDate]);
 
   // Download Official Performance Evaluation Dossier (Executive Multi-Pillar Assessment)
   const handleDownloadPerformanceReport = () => {
@@ -5150,13 +5166,6 @@ const CompanyAllTaskTasks = () => {
                   onClick={() => setPerfTimeframe("sixMonths")}
                 >
                   Last 6 Months
-                </button>
-                <button
-                  type="button"
-                  className={`perf-tf-btn ${perfTimeframe === "overall" ? "active" : ""}`}
-                  onClick={() => setPerfTimeframe("overall")}
-                >
-                  Overall
                 </button>
               </div>
 

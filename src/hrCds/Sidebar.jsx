@@ -2369,6 +2369,14 @@ const highlightSearchMatch = (text, query) => {
   );
 };
 
+const readStoredClient = () => {
+  try {
+    return JSON.parse(accountStorage.getItem("client") || "null");
+  } catch {
+    return null;
+  }
+};
+
 const Sidebar = ({
   isMobile = false,
   closeSidebar,
@@ -2401,8 +2409,27 @@ const Sidebar = ({
   ));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [clientCompanies, setClientCompanies] = useState([]);
-  const [selectedClientCompanyId, setSelectedClientCompanyId] = useState("");
+  const [clientCompanies, setClientCompanies] = useState(() => {
+    try {
+      const cached = accountStorage.getItem('client_available_clients');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    const stored = readStoredClient();
+    return stored ? [stored] : [];
+  });
+  const [selectedClientCompanyId, setSelectedClientCompanyId] = useState(() => {
+    try {
+      const stored = readStoredClient();
+      return accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY) || stored?._id || stored?.id || "";
+    } catch {
+      return "";
+    }
+  });
   const [clientCompanyDropdownOpen, setClientCompanyDropdownOpen] = useState(true);
   const [telecallerWorkspaceOpen, setTelecallerWorkspaceOpen] = useState(true);
   useEffect(() => {
@@ -2485,8 +2512,37 @@ const Sidebar = ({
 
 
   const isClientUser = useMemo(() => {
-    return userData?.companyRole === "client" || location.pathname.startsWith('/client');
+    const rawRole = userData?.companyRole || userData?.role || userData?.jobRoleName || userData?.jobRole || userData?.designation || '';
+    const roleName = typeof rawRole === 'object' ? (rawRole.roleName || rawRole.name || rawRole.title || '') : String(rawRole);
+    return (
+      roleName.trim().toLowerCase() === 'client' ||
+      String(userData?.companyRole || '').trim().toLowerCase() === 'client' ||
+      location.pathname.startsWith('/client') ||
+      location.pathname.includes('/client-')
+    );
   }, [userData, location.pathname]);
+
+  useEffect(() => {
+    const handlePortalCompanyChange = (e) => {
+      const nextId = e.detail?.clientId;
+      if (nextId) {
+        setSelectedClientCompanyId(String(nextId));
+      }
+      try {
+        const cached = accountStorage.getItem('client_available_clients');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setClientCompanies(parsed);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener(CLIENT_PORTAL_SELECTION_EVENT, handlePortalCompanyChange);
+    return () => window.removeEventListener(CLIENT_PORTAL_SELECTION_EVENT, handlePortalCompanyChange);
+  }, []);
 
   useEffect(() => {
     if (!isClientUser || !userData) {
@@ -2497,59 +2553,86 @@ const Sidebar = ({
 
     let cancelled = false;
 
-    const readStoredClient = () => {
-      try {
-        return JSON.parse(accountStorage.getItem("client") || "null");
-      } catch {
-        return null;
-      }
-    };
-
     const loadClientCompanies = async () => {
       const storedClient = readStoredClient();
       try {
         const companyContext = getClientPortalCompanyContext(userData, storedClient);
-        if (!companyContext.companyCode) {
-          const fallbackCompanies = storedClient ? [storedClient] : [];
-          if (!cancelled) {
-            setClientCompanies(fallbackCompanies);
-            setSelectedClientCompanyId(String(storedClient?._id || storedClient?.id || ""));
+
+        let portalCompanies = [];
+        try {
+          const portalRes = await axiosInstance.get("/clientsservice/portal-companies");
+          if (portalRes.data?.success && Array.isArray(portalRes.data.data)) {
+            portalCompanies = portalRes.data.data;
           }
-          return;
+        } catch {
+          portalCompanies = [];
         }
 
-        const response = await axiosInstance.get("/clientsservice", {
-          params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 }
-        });
-        const allClients = response.data?.data || response.data?.clients || [];
+        let allClients = portalCompanies;
+        if (allClients.length === 0 && companyContext.companyCode) {
+          try {
+            const response = await axiosInstance.get("/clientsservice", {
+              params: { ...getCompanyScopedClientParams(companyContext), limit: 1000 }
+            });
+            allClients = response.data?.data || response.data?.clients || [];
+          } catch {
+            allClients = [];
+          }
+        }
+
         const parsedDetails = typeof userData?.additionalDetails === 'object' && userData?.additionalDetails
           ? userData.additionalDetails
           : (() => { try { return JSON.parse(userData?.additionalDetails || '{}'); } catch { return {}; } })();
         const userAssignedClientId = String(parsedDetails?.clientId || userData?.clientId || '').trim().toLowerCase();
         const userEmail = String(userData?.email || '').trim().toLowerCase();
 
-        const matchingClients = Array.isArray(allClients)
-          ? allClients
-            .filter(item => isClientForLoggedInUser(item, userData))
-            .sort((a, b) => {
-              const aId = String(a?._id || a?.id || a?.clientId || '').trim().toLowerCase();
-              const bId = String(b?._id || b?.id || b?.clientId || '').trim().toLowerCase();
-              const aEmail = String(a?.email || a?.clientEmail || '').trim().toLowerCase();
-              const bEmail = String(b?.email || b?.clientEmail || '').trim().toLowerCase();
+        let cachedCompanies = [];
+        try {
+          const cached = accountStorage.getItem('client_available_clients');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) cachedCompanies = parsed;
+          }
+        } catch {
+          cachedCompanies = [];
+        }
 
-              if (userAssignedClientId) {
-                if (aId === userAssignedClientId && bId !== userAssignedClientId) return -1;
-                if (bId === userAssignedClientId && aId !== userAssignedClientId) return 1;
-              }
-              if (userEmail) {
-                if (aEmail === userEmail && bEmail !== userEmail) return -1;
-                if (bEmail === userEmail && aEmail !== userEmail) return 1;
-              }
-              return 0;
-            })
-          : [];
-        const companies = matchingClients.length ? matchingClients : (storedClient ? [storedClient] : []);
+        const companyMap = new Map();
+        cachedCompanies.forEach(c => {
+          const cid = String(c?._id || c?.id || '');
+          if (cid) companyMap.set(cid, c);
+        });
+        portalCompanies.forEach(c => {
+          const cid = String(c?._id || c?.id || '');
+          if (cid) companyMap.set(cid, c);
+        });
+        if (companyMap.size === 0 && Array.isArray(allClients) && allClients.length > 0) {
+          const matchingClients = allClients.filter(item => isClientForLoggedInUser(item, userData));
+          (matchingClients.length ? matchingClients : allClients).forEach(c => {
+            const cid = String(c?._id || c?.id || '');
+            if (cid) companyMap.set(cid, c);
+          });
+        }
+        if (companyMap.size === 0 && storedClient) {
+          const cid = String(storedClient?._id || storedClient?.id || '');
+          if (cid) companyMap.set(cid, storedClient);
+        }
+        const companies = Array.from(companyMap.values());
+
+        if (companies.length > 0) {
+          try {
+            accountStorage.setItem('client_available_clients', JSON.stringify(companies));
+          } catch {
+            // ignore
+          }
+        }
+
+        const storedUser = userData;
+        const userId = storedUser?._id || storedUser?.id || storedUser?.email || 'anonymous';
+        const userKey = `${CLIENT_PORTAL_SELECTED_CLIENT_KEY}:${String(userId)}`;
+
         const selectedId =
+          accountStorage.getItem(userKey) ||
           accountStorage.getItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY) ||
           storedClient?._id ||
           storedClient?.id ||
@@ -2560,7 +2643,6 @@ const Sidebar = ({
         if (!cancelled) {
           setClientCompanies(companies);
           setSelectedClientCompanyId(String(selectedId));
-          setClientCompanyDropdownOpen(companies.length > 0);
         }
       } catch (clientCompanyError) {
         console.warn("Could not load client companies for sidebar:", clientCompanyError.message);
@@ -3125,24 +3207,27 @@ const Sidebar = ({
     const nextId = clientCompany?._id || clientCompany?.id;
     if (!nextId) return;
 
+    const storedUser = (() => {
+      try { return JSON.parse(accountStorage.getItem("user") || "null"); } catch { return null; }
+    })();
+    const userId = storedUser?._id || storedUser?.id || storedUser?.email || 'anonymous';
+    accountStorage.setItem(`${CLIENT_PORTAL_SELECTED_CLIENT_KEY}:${String(userId)}`, String(nextId));
     accountStorage.setItem(CLIENT_PORTAL_SELECTED_CLIENT_KEY, String(nextId));
     accountStorage.setItem("client", JSON.stringify(clientCompany));
+    accountStorage.setItem("clientCompanyCode", String(clientCompany.companyCode || ""));
+    accountStorage.setItem("clientCompanyIdentifier", String(clientCompany.companyIdentifier || clientCompany.companyId || clientCompany._id || ""));
     accountStorage.removeItem("sidebarConfig");
     setSelectedClientCompanyId(String(nextId));
+    setClientCompanyDropdownOpen(false);
+
     window.dispatchEvent(new CustomEvent(CLIENT_PORTAL_SELECTION_EVENT, {
       detail: { clientId: nextId }
     }));
 
-    if (!location.pathname.startsWith("/client")) {
-      navigate("/client/dashboard");
-    }
-
     if (isMobile) {
       closeSidebar?.();
-    } else {
-      setIsHovered(false);
     }
-  }, [isMobile, location.pathname, navigate, closeSidebar]);
+  }, [isMobile, closeSidebar]);
 
   const handleRetry = () => {
     setError(null);
@@ -4950,6 +5035,287 @@ const Sidebar = ({
     );
   }
 
+  const renderClientCompanySwitcher = () => {
+    if (!isClientUser || clientCompanies.length === 0) return null;
+
+    const selectedCompany = clientCompanies.find(item => (
+      String(item?._id || item?.id || "") === String(selectedClientCompanyId || "")
+    )) || clientCompanies[0];
+
+    const currentName = getClientDisplayName(selectedCompany);
+    const initial = currentName.trim().charAt(0).toUpperCase() || 'C';
+    const logo = selectedCompany?.companyLogo || selectedCompany?.logo || selectedCompany?.logoUrl;
+    const servicesCount = getClientServices(selectedCompany).length;
+
+    if (!isSidebarOpen) {
+      return (
+        <Tooltip title={`Active Company: ${currentName}`} placement="right">
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              py: 1,
+              borderBottom: '1px solid rgba(0, 0, 0, 0.06)'
+            }}
+          >
+            <Box
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: '9px',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                boxShadow: '0 2px 5px rgba(37, 99, 235, 0.25)'
+              }}
+            >
+              {initial}
+            </Box>
+          </Box>
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Box sx={{ p: '8px 10px', borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5, px: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: '0.67rem',
+              fontWeight: 700,
+              color: '#64748b',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}
+          >
+            Connected Company
+          </Typography>
+          {clientCompanies.length > 1 && (
+            <Box
+              component="span"
+              sx={{
+                bgcolor: '#eff6ff',
+                color: '#2563eb',
+                px: 0.75,
+                py: 0.1,
+                borderRadius: '999px',
+                fontSize: '0.64rem',
+                fontWeight: 800,
+                border: '1px solid #bfdbfe'
+              }}
+            >
+              {clientCompanies.length} Connected
+            </Box>
+          )}
+        </Box>
+
+        <Box
+          onClick={() => clientCompanies.length > 1 && setClientCompanyDropdownOpen(open => !open)}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            p: '7px 9px',
+            borderRadius: '9px',
+            bgcolor: clientCompanyDropdownOpen ? '#eff6ff' : '#ffffff',
+            border: '1.5px solid',
+            borderColor: clientCompanyDropdownOpen ? '#93c5fd' : '#e2e8f0',
+            cursor: clientCompanies.length > 1 ? 'pointer' : 'default',
+            transition: 'all 0.18s ease',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
+            '&:hover': clientCompanies.length > 1 ? {
+              bgcolor: '#f8fafc',
+              borderColor: '#cbd5e1',
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)'
+            } : {}
+          }}
+        >
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              flexShrink: 0,
+              overflow: 'hidden'
+            }}
+          >
+            {logo ? (
+              <img
+                src={logo}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            ) : initial}
+          </Box>
+
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                color: '#0f172a',
+                lineHeight: 1.25,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {currentName}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.69rem',
+                color: '#64748b',
+                display: 'block',
+                lineHeight: 1.2,
+                mt: 0.2
+              }}
+            >
+              {servicesCount} services · Active
+            </Typography>
+          </Box>
+
+          {clientCompanies.length > 1 && (
+            <Box
+              sx={{
+                color: '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                transform: clientCompanyDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease'
+              }}
+            >
+              <ExpandMore sx={{ fontSize: 18 }} />
+            </Box>
+          )}
+        </Box>
+
+        <Collapse in={clientCompanyDropdownOpen && clientCompanies.length > 1} timeout={200} unmountOnExit>
+          <Box
+            sx={{
+              mt: 0.75,
+              borderRadius: '9px',
+              border: '1px solid #e2e8f0',
+              bgcolor: '#ffffff',
+              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+              overflow: 'hidden',
+              maxHeight: 220,
+              overflowY: 'auto'
+            }}
+          >
+            {clientCompanies.map((item, idx) => {
+              const id = String(item?._id || item?.id || idx);
+              const isSelected = String(item?._id || item?.id || "") === String(selectedClientCompanyId || "");
+              const name = getClientDisplayName(item);
+              const itemInitial = name.trim().charAt(0).toUpperCase() || 'C';
+              const itemLogo = item?.companyLogo || item?.logo || item?.logoUrl;
+              const itemServices = getClientServices(item).length;
+
+              return (
+                <Box
+                  key={id}
+                  onClick={() => handleClientCompanySwitch(item)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    p: '8px 10px',
+                    cursor: 'pointer',
+                    bgcolor: isSelected ? '#f0fdf4' : 'transparent',
+                    borderLeft: isSelected ? '3px solid #16a34a' : '3px solid transparent',
+                    borderBottom: idx < clientCompanies.length - 1 ? '1px solid #f1f5f9' : 'none',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: isSelected ? '#f0fdf4' : '#f8fafc'
+                    }
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: '6px',
+                      background: isSelected
+                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        : 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      flexShrink: 0
+                    }}
+                  >
+                    {itemLogo ? (
+                      <img
+                        src={itemLogo}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : itemInitial}
+                  </Box>
+
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: isSelected ? 700 : 500,
+                        fontSize: '0.8rem',
+                        color: isSelected ? '#15803d' : '#1e293b',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#64748b' }}>
+                      {itemServices} services
+                    </Typography>
+                  </Box>
+
+                  {isSelected && (
+                    <Box
+                      component="span"
+                      sx={{
+                        fontSize: '0.62rem',
+                        fontWeight: 700,
+                        color: '#16a34a',
+                        bgcolor: '#dcfce7',
+                        px: 0.75,
+                        py: 0.15,
+                        borderRadius: '4px'
+                      }}
+                    >
+                      Active
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        </Collapse>
+      </Box>
+    );
+  };
 
   if (isClientUser) {
     void 0;
@@ -5041,6 +5407,7 @@ const Sidebar = ({
               </Box>
             </Box>
           </Collapse>
+          {renderClientCompanySwitcher()}
           <List sx={{ py: 0 }}>
             {menuItems.map((item) => (
               <StyledListItem key={item.id} disablePadding>
@@ -5206,109 +5573,6 @@ const Sidebar = ({
       <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#2563eb', opacity: 0.8 }} />
     </Box>
   );
-
-  const renderClientCompanySwitcher = () => {
-    if (!isClientUser || clientCompanies.length === 0) return null;
-
-    const selectedCompany = clientCompanies.find(item => (
-      String(item?._id || item?.id || "") === String(selectedClientCompanyId || "")
-    )) || clientCompanies[0];
-
-    if (!isSidebarOpen) {
-      return (
-        <Tooltip title="Your Company" placement="right">
-          <CollapsedHeading>
-            <Building2 size={20} strokeWidth={1.9} />
-          </CollapsedHeading>
-        </Tooltip>
-      );
-    }
-
-    return (
-      <Box>
-        <StyledListItem disablePadding>
-          <StyledListItemButton
-            onClick={() => setClientCompanyDropdownOpen(open => !open)}
-            sx={{ minHeight: 44 }}
-          >
-            <StyledListItemIcon>
-              <Building2 size={20} strokeWidth={1.9} />
-            </StyledListItemIcon>
-            <ListItemText
-              primary="Your Company"
-              secondary={getClientDisplayName(selectedCompany)}
-              primaryTypographyProps={{
-                variant: 'body2',
-                fontWeight: 700,
-                fontSize: '0.9rem'
-              }}
-              secondaryTypographyProps={{
-                variant: 'caption',
-                noWrap: true
-              }}
-            />
-            {clientCompanies.length > 1 && (
-              <Box sx={{
-                mr: 0.75,
-                px: 0.8,
-                py: 0.25,
-                borderRadius: 999,
-                bgcolor: 'action.hover',
-                color: 'primary.main',
-                fontSize: '0.68rem',
-                fontWeight: 800
-              }}>
-                {clientCompanies.length}
-              </Box>
-            )}
-            {clientCompanyDropdownOpen ? <ExpandLess /> : <ExpandMore />}
-          </StyledListItemButton>
-        </StyledListItem>
-
-        <Collapse in={clientCompanyDropdownOpen} timeout="auto" unmountOnExit>
-          <List sx={{ py: 0.25 }}>
-            {clientCompanies.map(item => {
-              const id = String(item?._id || item?.id || getClientDisplayName(item));
-              const isSelected = String(item?._id || item?.id || "") === String(selectedClientCompanyId || "");
-              return (
-                <StyledListItem key={id} disablePadding>
-                  <StyledListItemButton
-                    selected={isSelected}
-                    onClick={() => handleClientCompanySwitch(item)}
-                    sx={{
-                      minHeight: 38,
-                      pl: 4.75,
-                      pr: 1.5,
-                      py: 0.75
-                    }}
-                  >
-                    <StyledListItemIcon sx={{ marginRight: 1.5, fontSize: '1rem' }}>
-                      <Building2 size={16} strokeWidth={1.9} />
-                    </StyledListItemIcon>
-                    <ListItemText
-                      primary={getClientDisplayName(item)}
-                      secondary={`${getClientServices(item).length} services`}
-                      primaryTypographyProps={{
-                        variant: 'body2',
-                        fontWeight: isSelected ? 700 : 500,
-                        fontSize: '0.86rem',
-                        noWrap: true
-                      }}
-                      secondaryTypographyProps={{
-                        variant: 'caption',
-                        noWrap: true,
-                        sx: { fontSize: '0.7rem' }
-                      }}
-                    />
-                  </StyledListItemButton>
-                </StyledListItem>
-              );
-            })}
-          </List>
-        </Collapse>
-      </Box>
-    );
-  };
 
   const renderSearchInput = () => {
     if (!isSidebarOpen) {

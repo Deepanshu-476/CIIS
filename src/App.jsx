@@ -283,7 +283,7 @@ function App() {
               <Route path="SidebarManagement" element={<SidebarManagement />} />
               <Route path="page-management" element={<PageManagement />} />
               <Route path="plans" element={<PlanManagement />} />
-              <Route path="ai-management" element={<AiManagement />} />
+              <Route path="ai-management" element={<ProtectedSuperAdminRoute><AiManagement /></ProtectedSuperAdminRoute>} />
               <Route path="holiday" element={<Holiday />} />
               <Route path="branch" element={<BranchManagement />} />
               <Route path="support-operations" element={<SupportOperations />} />
@@ -480,6 +480,7 @@ function App() {
               <Route path="crm/lead-overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
               <Route path="crm/leads/overview" element={<Navigate to="/ciisUser/crm/admin/lead-overview" replace />} />
               <Route path="crm/admin/add-lead" element={<AddLead />} />
+              {/* Marketing Ads Integrations inherits Lead Sources page access. */}
               <Route path="crm/admin/marketing-ads" element={<MarketingAds />} />
               <Route path="crm/admin/lead-sources" element={<LeadSources />} />
               <Route path="crm/admin/lead-types" element={<LeadTypes />} />

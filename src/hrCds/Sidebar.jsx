@@ -3510,10 +3510,9 @@ const Sidebar = ({
     ));
 
     const hasAiEntitlement = Boolean(
-      companyData?.aiApiKeySource === 'client' ||
-      Number(companyData?.aiDailyTokenLimit || 0) > 0 ||
-      Number(companyData?.aiExtraTokens || 0) > 0 ||
-      (companyData?.allowedPages || []).includes('company-ai-settings')
+      (companyData?.allowedPages || []).some(value =>
+        ['company-ai-settings', 'company-ai'].includes(String(value).trim().toLowerCase()
+          .replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/\/+$/, '')))
     );
 
     if (!canManageCompanyAi || !hasAiEntitlement) {

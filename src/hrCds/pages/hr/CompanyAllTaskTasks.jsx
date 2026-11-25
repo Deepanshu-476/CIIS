@@ -1769,6 +1769,15 @@ const CompanyAllTaskTasks = () => {
     }));
   };
 
+  const toggleEditCheckpoint = (index) => {
+    setEditForm((previous) => ({
+      ...previous,
+      checkpoints: previous.checkpoints.map((checkpoint, itemIndex) =>
+        itemIndex === index ? { ...checkpoint, completed: !checkpoint.completed } : checkpoint
+      ),
+    }));
+  };
+
   const addEditCheckpoint = () => {
     setEditForm((previous) => ({
       ...previous,
@@ -6166,12 +6175,20 @@ const CompanyAllTaskTasks = () => {
                   <div className="modern-cp-list">
                     {editForm.checkpoints.map((cp, idx) => (
                       <div className="modern-cp-item" key={idx}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(cp.completed)}
+                          onChange={() => toggleEditCheckpoint(idx)}
+                          title={cp.completed ? "Mark incomplete" : "Mark completed"}
+                          style={{ width: 16, height: 16, accentColor: "#2563eb", cursor: "pointer", flexShrink: 0 }}
+                        />
                         <span className="modern-cp-num">{idx + 1}</span>
                         <input
                           type="text"
                           className="modern-cp-input"
                           value={cp.title}
                           placeholder="e.g. Design review with client"
+                          style={cp.completed ? { textDecoration: "line-through", color: "#64748b" } : undefined}
                           onChange={(e) => updateEditCheckpoint(idx, e.target.value)}
                         />
                         <button

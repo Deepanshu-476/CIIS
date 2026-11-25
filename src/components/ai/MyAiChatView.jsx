@@ -1168,7 +1168,7 @@ export default function MyAiChatView({ onBack, onClose }) {
           <div className="my-ai-chatgpt-floating-orb-container">
             <ChatGptVoiceOrb
               state={orbState === 'speaking' ? 'speaking' : listening ? 'listening' : loading ? 'thinking' : 'idle'}
-              size={isExpanded ? 130 : 96}
+              size={96}
               onClick={() => {
                 if (isSpeaking) {
                   cancelSpeech();

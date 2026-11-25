@@ -458,10 +458,14 @@ const BranchFilter = ({ selected, onChange, branches = [] }) => {
 const StatusFilter = ({ selected, onChange }) => {
   const options = [
     { value: 'all', label: 'All Status' },
-    { value: 'present', label: 'Present' },
+    { value: 'present', label: 'Present (All)' },
+    { value: 'ontime', label: 'On Time' },
     { value: 'late', label: 'Late' },
     { value: 'halfday', label: 'Half Day' },
+    { value: 'shortleave', label: 'Short Leave' },
     { value: 'absent', label: 'Absent' },
+    { value: 'leave', label: 'On Leave' },
+    { value: 'weekend', label: 'Weekly Off' },
     { value: 'uninformedleave', label: 'Uninformed Leave' },
     { value: 'holiday', label: 'Holiday' },
   ];
@@ -1432,6 +1436,7 @@ const getStatusFilterLabel = (statusFilter) => {
     halfday: "HALF DAY",
     absent: "ABSENT",
     uninformedleave: "UNINFORMED LEAVE",
+    shortleave: "SHORT LEAVE",
     holiday: "HOLIDAY",
     weekend: "WEEKLY OFF",
     leave: "ON LEAVE",
@@ -1494,6 +1499,8 @@ const EmployeeAttendance = () => {
     halfDay: 0,
     late: 0,
     onTime: 0,
+    leave: 0,
+    weekend: 0,
   });
   
   
@@ -2269,7 +2276,9 @@ const EmployeeAttendance = () => {
         
         allRecords.push(...dateCombinedRecords);
         
-        const present = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "present").length;
+        const present = dateCombinedRecords.filter(r =>
+          ["present", "late", "halfday", "shortleave"].includes(normalizeAttendanceStatus(r.status))
+        ).length;
         const absent = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "absent").length;
         const uninformedLeave = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "uninformedleave").length;
         const holiday = dateCombinedRecords.filter(r => normalizeAttendanceStatus(r.status) === "holiday").length;
@@ -2351,13 +2360,17 @@ const EmployeeAttendance = () => {
   };
 
   const calculateStats = (attendanceData) => {
-    const present = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "present").length;
+    const present = attendanceData.filter((r) =>
+      ["present", "late", "halfday", "shortleave"].includes(normalizeAttendanceStatus(r.status))
+    ).length;
     const absent = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "absent").length;
     const uninformedLeave = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "uninformedleave").length;
     const holiday = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "holiday").length;
     const halfDay = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "halfday").length;
     const late = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "late").length;
     const onTime = attendanceData.filter((r) => r.calculatedStatus === "present").length;
+    const leave = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "leave").length;
+    const weekend = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "weekend").length;
     
     setStats({
       total: attendanceData.length,
@@ -2368,6 +2381,8 @@ const EmployeeAttendance = () => {
       halfDay,
       late,
       onTime,
+      leave,
+      weekend,
     });
   };
 
@@ -2460,6 +2475,9 @@ const EmployeeAttendance = () => {
       filtered = filtered.filter((rec) => {
         if (statusFilter === "ontime") {
           return rec.calculatedStatus === "present";
+        }
+        if (statusFilter === "present") {
+          return ["present", "late", "halfday", "shortleave"].includes(normalizeAttendanceStatus(rec.status));
         }
         return normalizeAttendanceStatus(rec.status) === statusFilter;
       });
@@ -3499,7 +3517,9 @@ const EmployeeAttendance = () => {
             filterValue: "present",
             count: stats.present, 
             icon: <FiCheckCircle />,
-            description: dateRangeMode ? `Avg: ${dateRangeStats.averagePresent}%` : "Based on assigned shift",
+            description: dateRangeMode
+              ? `Avg: ${dateRangeStats.averagePresent}%`
+              : `${stats.onTime} On Time · ${stats.late} Late${stats.halfDay > 0 ? ` · ${stats.halfDay} Half` : ""}`,
             statClass: "EmppAttendence-stat-card-success",
             iconClass: "EmppAttendence-stat-icon-success"
           },
@@ -3557,10 +3577,28 @@ const EmployeeAttendance = () => {
             statClass: "EmppAttendence-stat-card-secondary",
             iconClass: "EmppAttendence-stat-icon-secondary"
           },
+          { 
+            label: "On Leave", 
+            filterValue: "leave",
+            count: stats.leave, 
+            icon: <FiCalendar />,
+            description: "Approved leave",
+            statClass: "EmppAttendence-stat-card-info",
+            iconClass: "EmppAttendence-stat-icon-info"
+          },
+          { 
+            label: "Weekly Off", 
+            filterValue: "weekend",
+            count: stats.weekend, 
+            icon: <FiCalendar />,
+            description: "Scheduled weekly off",
+            statClass: "EmppAttendence-stat-card-secondary",
+            iconClass: "EmppAttendence-stat-icon-secondary"
+          },
         ]
           .filter(stat =>
             stat.count > 0 ||
-            ["all", "present", "late", "halfday", "absent", "ontime"].includes(stat.filterValue) ||
+            ["all", "present", "late", "halfday", "absent", "ontime", "weekend"].includes(stat.filterValue) ||
             statusFilter === stat.filterValue
           )
           .map((stat) => (

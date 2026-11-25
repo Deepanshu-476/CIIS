@@ -585,15 +585,15 @@
 /* ===== STATS CARDS ===== */
 .EmppAttendence-stats-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 10px;
   margin-bottom: 24px;
 }
 
 .EmppAttendence-stat-card {
   background: white;
   border-radius: var(--radius-xl);
-  padding: 20px;
+  padding: 14px 10px;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--gray-200);
   transition: var(--transition);
@@ -648,17 +648,18 @@
 .EmppAttendence-stat-content {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .EmppAttendence-stat-icon {
-  width: 56px;
-  height: 56px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 18px;
   transition: var(--transition);
 }
 
@@ -694,10 +695,11 @@
 
 .EmppAttendence-stat-info {
   flex: 1;
+  min-width: 0;
 }
 
 .EmppAttendence-stat-value {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--gray-900);
   line-height: 1;
@@ -705,17 +707,18 @@
 }
 
 .EmppAttendence-stat-label {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--gray-600);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.25px;
   margin-bottom: 2px;
 }
 
 .EmppAttendence-stat-description {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--gray-500);
+  line-height: 1.25;
 }
 
 /* ===== DATE RANGE SUMMARY ===== */
@@ -2871,16 +2874,16 @@ textarea.EmppAttendence-form-input {
 @media (min-width:1025px){
   .EmppAttendence-attendance-table-container{padding:16px;overflow-x:hidden}
   .EmppAttendence-attendance-table{min-width:0;width:100%;table-layout:fixed}
-  .EmppAttendence-attendance-table thead th{padding:11px 7px;font-size:10px;letter-spacing:.25px}
-  .EmppAttendence-attendance-table td{padding:11px 7px;font-size:11px;overflow:hidden}
-  .EmppAttendence-col-employee{width:14%}.EmppAttendence-col-department{width:8%}.EmppAttendence-col-type{width:6%}.EmppAttendence-col-shift{width:11%}.EmppAttendence-col-date{width:7%}.EmppAttendence-col-checkin,.EmppAttendence-col-checkout{width:11%}.EmppAttendence-col-hours{width:7%}.EmppAttendence-col-login{width:7%}.EmppAttendence-col-status{width:8%}.EmppAttendence-col-late{width:6%}.EmppAttendence-col-actions{width:14%}
+  .EmppAttendence-attendance-table thead th{padding:11px 6px;font-size:10px;letter-spacing:.25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .EmppAttendence-attendance-table td{padding:11px 6px;font-size:11px;overflow:hidden}
+  .EmppAttendence-col-employee{width:13%}.EmppAttendence-col-department{width:7%}.EmppAttendence-col-type{width:5%}.EmppAttendence-col-shift{width:9%}.EmppAttendence-col-date{width:6%}.EmppAttendence-col-checkin,.EmppAttendence-col-checkout{width:9%}.EmppAttendence-col-hours{width:6%}.EmppAttendence-col-break{width:6%}.EmppAttendence-col-login{width:7%}.EmppAttendence-col-status{width:7%}.EmppAttendence-col-late{width:5%}.EmppAttendence-col-actions{width:11%}
   .EmppAttendence-employee-avatar{width:32px;height:32px;min-width:32px;font-size:11px}.EmppAttendence-employee-info{gap:7px;min-width:0}.EmppAttendence-employee-details{min-width:0}.EmppAttendence-employee-name,.EmppAttendence-employee-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.EmppAttendence-employee-name{font-size:11px}.EmppAttendence-employee-email{font-size:9px}
   .EmppAttendence-department-chip,.EmppAttendence-type-chip,.EmppAttendence-time-chip,.EmppAttendence-status-chip,.EmppAttendence-late-chip{max-width:100%;padding:5px 6px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .EmppAttendence-status-explanation{display:none}.EmppAttendence-action-buttons{gap:5px;flex-wrap:nowrap}.EmppAttendence-view-month-btn{min-height:31px;padding:6px 8px;font-size:9px}.EmppAttendence-btn-icon{width:31px;height:31px;min-width:31px}
 }
 @media (min-width:1025px) and (max-width:1500px){
   .EmppAttendence-attendance-table th.EmppAttendence-col-type,.EmppAttendence-attendance-table td.EmppAttendence-col-type,.EmppAttendence-attendance-table th.EmppAttendence-col-login,.EmppAttendence-attendance-table td.EmppAttendence-col-login{display:none}
-  .EmppAttendence-col-employee{width:16%}.EmppAttendence-col-department{width:9%}.EmppAttendence-col-shift{width:12%}.EmppAttendence-col-date{width:8%}.EmppAttendence-col-checkin,.EmppAttendence-col-checkout{width:13%}.EmppAttendence-col-hours{width:7%}.EmppAttendence-col-status{width:9%}.EmppAttendence-col-late{width:7%}.EmppAttendence-col-actions{width:16%}
+  .EmppAttendence-col-employee{width:14%}.EmppAttendence-col-department{width:8%}.EmppAttendence-col-shift{width:10%}.EmppAttendence-col-date{width:7%}.EmppAttendence-col-checkin,.EmppAttendence-col-checkout{width:11%}.EmppAttendence-col-hours{width:6%}.EmppAttendence-col-break{width:6%}.EmppAttendence-col-status{width:8%}.EmppAttendence-col-late{width:6%}.EmppAttendence-col-actions{width:13%}
 }
 
 .EmppAttendence-status-chip.EmppAttendence-status-present-ot {

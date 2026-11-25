@@ -198,6 +198,7 @@ export default function useTaskAgentSession({
     const [liveTranscriptText, setLiveTranscriptText] = useState('');
     const [enHindiHint, setEnHindiHint] = useState(null);
     const [isAiDisabled, setIsAiDisabled] = useState(false);
+    const [aiBlockCode, setAiBlockCode] = useState(null);
 
     const draftRef = useRef(null);
     const resultRef = useRef(null);
@@ -1278,21 +1279,28 @@ export default function useTaskAgentSession({
             } catch (err) {
                 // Every single failure path produces a visible error message bubble
                 const msg = mapTaskAgentError(err);
-                const isAccessDisabled = err?.response?.data?.code === 'AI_ACCESS_DISABLED_BY_ADMIN' ||
+                const errCode = err?.response?.data?.code;
+                const isPlanBlocked = errCode === 'AI_SUBSCRIPTION_REQUIRED';
+                const isAccessDisabled = isPlanBlocked ||
+                    errCode === 'AI_ACCESS_DISABLED_BY_ADMIN' ||
                     (err?.response?.status === 403 && (/don't have access to use CIIS AI/i.test(msg) || /admin ne aapka AI Assistant access disable/i.test(msg)));
 
                 if (isAccessDisabled) {
                     setIsAiDisabled(true);
+                    setAiBlockCode(isPlanBlocked ? 'AI_SUBSCRIPTION_REQUIRED' : 'AI_ACCESS_DISABLED_BY_ADMIN');
                     userMutedRef.current = true;
                     setUserMuted(true);
                     cancelSpeech();
                     stop('cancelled');
+                    if (isPlanBlocked) {
+                        setMessages([]);
+                    }
                     setResult({
                         status: 'blocked',
                         field: 'blocked',
-                        reply: msg,
-                        speech: msg,
-                        speakText: msg,
+                        reply: isPlanBlocked ? '' : msg,
+                        speech: isPlanBlocked ? '' : msg,
+                        speakText: isPlanBlocked ? '' : msg,
                         chips: [],
                         draft: null,
                     });
@@ -2525,6 +2533,48 @@ export default function useTaskAgentSession({
             return;
         }
 
+        // Check AI plan entitlement & access immediately on open
+        let cancelled = false;
+        axiosInstance.get(AI_ENDPOINTS.TASK_AGENT_ENTITLEMENT).then(res => {
+            if (cancelled) return;
+            if (res?.data && res.data.hasAiAccess === false) {
+                const code = res.data.code || 'AI_SUBSCRIPTION_REQUIRED';
+                setIsAiDisabled(true);
+                setAiBlockCode(code);
+                userMutedRef.current = true;
+                setUserMuted(true);
+                cancelSpeech();
+                stop('cancelled');
+                if (code === 'AI_SUBSCRIPTION_REQUIRED') {
+                    setMessages([]);
+                    setResult({
+                        status: 'blocked',
+                        field: 'blocked',
+                        reply: '',
+                        speech: '',
+                        speakText: '',
+                        chips: [],
+                        draft: null,
+                    });
+                } else {
+                    const disabledMsg = res.data.message || "You don't have access to use CIIS AI. Please contact your company administrator.";
+                    setMessages([{ role: 'assistant', text: disabledMsg, id: 'msg_' + Date.now(), isError: true }]);
+                    setResult({
+                        status: 'blocked',
+                        field: 'blocked',
+                        reply: disabledMsg,
+                        speech: disabledMsg,
+                        speakText: disabledMsg,
+                        chips: [],
+                        draft: null,
+                    });
+                }
+                return;
+            }
+            setIsAiDisabled(false);
+            setAiBlockCode(null);
+        }).catch(() => { });
+
         // Fresh profile verification in background on drawer open
         const userId = user?._id || user?.id;
         if (userId && !isPrivileged && user?.companyRole !== 'client') {
@@ -2556,7 +2606,7 @@ export default function useTaskAgentSession({
             }).catch(() => { });
         }
 
-        if (messages.length === 0) {
+        if (messages.length === 0 && !isAiDisabled) {
             const sidebarConfig = getSidebarConfig();
             const allowed = filterWelcomeButtonsByPermissions(user, { sidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails(), language: 'en' });
             const greetingText = getRoleAwareGreeting(user, new Date(), 'en');
@@ -2612,7 +2662,8 @@ export default function useTaskAgentSession({
                 });
             }
         }
-    }, [open, messages.length, pushMsg, variant, startWithMic, sttSupported, listening, start, autoSpeak, ttsSupported, userMuted, speak, cancelSpeech]);
+        return () => { cancelled = true; };
+    }, [open, messages.length, isAiDisabled, pushMsg, variant, startWithMic, sttSupported, listening, start, autoSpeak, ttsSupported, userMuted, speak, cancelSpeech]);
 
     // When re-opening drawer that was previously closed: resume listening if in voice mode and not muted
     const prevOpenRef = useRef(open);
@@ -2921,6 +2972,7 @@ export default function useTaskAgentSession({
         formatDueChip,
         voiceInfo,
         isAiDisabled,
+        aiBlockCode,
         // Chat History & Sessions
         chatSessions,
         loadChatSession,

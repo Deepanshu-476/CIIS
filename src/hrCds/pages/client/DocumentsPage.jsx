@@ -406,16 +406,39 @@ const DocumentsPage = () => {
     setPreviewError("");
 
     try {
-      const response = await clientDocumentsApi.get(`/${doc._id}/view`, {
-        responseType: "blob",
-      });
-      const contentType = response.headers?.["content-type"] || doc.type || "application/octet-stream";
+      let response;
+      try {
+        response = await clientDocumentsApi.get(`/${doc._id}/view`, {
+          responseType: "blob",
+        });
+      } catch {
+        response = await clientDocumentsApi.get(`/${doc._id}/download`, {
+          responseType: "blob",
+        });
+      }
+      const rawType = response.headers?.["content-type"];
+      const contentType =
+        rawType && rawType !== "application/octet-stream"
+          ? rawType
+          : doc.type || (isPdfDoc(doc) ? "application/pdf" : "application/octet-stream");
       const blob = new Blob([response.data], { type: contentType });
       const url = window.URL.createObjectURL(blob);
       setPreviewUrl(url);
     } catch (err) {
       console.error("Document preview failed", err);
-      setPreviewError(err.response?.data?.message || "Document preview failed");
+      let message = "Document preview failed";
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.message) message = parsed.message;
+        } catch {
+          // ignore non-JSON blob error
+        }
+      } else if (err.response?.data?.message) {
+        message = err.response.data.message;
+      }
+      setPreviewError(message);
     } finally {
       setPreviewLoading(false);
     }

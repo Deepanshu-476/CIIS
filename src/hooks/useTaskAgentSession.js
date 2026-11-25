@@ -1147,10 +1147,6 @@ export default function useTaskAgentSession({
                 const currentSidebarConfig = getSidebarConfig();
                 const allowedButtons = filterWelcomeButtonsByPermissions(currentUser, { sidebarConfig: currentSidebarConfig, pagePermissions: getStoredPagePermissions(), companyDetails: getCompanyDetails() });
                 const allowedIntents = allowedButtons.map(b => b.action?.intent).filter(Boolean);
-                const isExternalClient = String(currentUser?.companyRole || currentUser?.role || '').toLowerCase() === 'client';
-                if (!isExternalClient && !allowedIntents.includes('task_assigned_user')) {
-                    allowedIntents.push('task_assigned_user');
-                }
 
                 const currentLanguage = sessionLangRef.current || 'en';
                 const detectedLanguage = text ? detectMessageLanguage(text, currentLanguage) : currentLanguage;

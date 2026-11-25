@@ -541,11 +541,12 @@ const UserDashboard = () => {
   const [weather, setWeather] = useState({ loading: false, temperature: null, feelsLike: null, label: 'Weather' });
   const [focusStats, setFocusStats] = useState(() => {
     const cached = initialDashboardSnapshot.focusStats;
-    if (cached && typeof cached === 'object' && Number(cached.dueToday) < 100) {
+    if (cached?.date === getIndiaDateKey(new Date())) {
       return { ...cached, loading: false };
     }
-    return { loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 };
+    return { loading: true, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 };
   });
+  const focusStatsRequestId = useRef(0);
   const [dashboardTaskStats, setDashboardTaskStats] = useState({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0, onHold: 0 });
   const [hoveredProductivityDay, setHoveredProductivityDay] = useState(null);
   const [productivityPeriod, setProductivityPeriod] = useState('weekly');
@@ -1167,20 +1168,49 @@ const UserDashboard = () => {
   }, [token, isUserInCurrentCompany, user]);
 
   const fetchFocusStats = useCallback(async () => {
+    const requestId = ++focusStatsRequestId.current;
+    if (!getCurrentUserId(user) || !isUserInCurrentCompany) return;
+
+    try {
+      const date = getIndiaDateKey(new Date());
+      const { data } = await axios.get('/tasks/counts', {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000,
+        noCache: true,
+        params: { period: 'today', taskType: 'all', dateField: 'reportDate' }
+      });
+      if (focusStatsRequestId.current !== requestId) return;
+      if (!data?.success || !data.stats) throw new Error('Task counts unavailable');
+
+      const dueToday = Number(data.stats.total) || 0;
+      const completedToday = Number(data.stats.completed?.count) || 0;
+      const nextFocusStats = {
+        date,
+        loading: false,
+        dueToday,
+        inProgress: Number(data.stats.inProgress?.count) || 0,
+        completedToday,
+        dailyProgress: dueToday ? Math.floor((completedToday / dueToday) * 100) : 0
+      };
+      setFocusStats(nextFocusStats);
+      writeDashboardCache({ focusStats: nextFocusStats });
+    } catch (error) {
+      if (focusStatsRequestId.current !== requestId) return;
+      console.error('Failed to load dashboard focus stats:', error);
+      setFocusStats(current => ({ ...current, loading: false }));
+    }
+  }, [isUserInCurrentCompany, token, user]);
+
+  const fetchDashboardTaskStats = useCallback(async () => {
     const userId = getCurrentUserId(user);
     if (!userId || !isUserInCurrentCompany) {
-      setFocusStats({ loading: false, dueToday: 0, inProgress: 0, completedToday: 0, dailyProgress: 0 });
       setDashboardTaskStats({ loading: false, total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0, onHold: 0 });
       return;
     }
 
     try {
       const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 15000, cache: false, noCache: true };
-      const [todayResponse, allResponse] = await Promise.all([
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned', dateField: 'dueDate', _t: Date.now() } }),
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned', _t: Date.now() } })
-      ]);
-      const today = todayResponse.data?.statusCounts || {};
+      const allResponse = await axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned', _t: Date.now() } });
       const all = allResponse.data?.statusCounts || {};
       const apiTotal = Number(all.total) || 0;
       const completed = Number(all.completed?.count) || 0;
@@ -1197,26 +1227,12 @@ const UserDashboard = () => {
         overdue,
         onHold
       };
-      const dueToday = Number(today.total) || 0;
-      const completedToday = Number(today.completed?.count) || 0;
-      const inProgressToday = Number(today.inProgress?.count) || 0;
       setDashboardTaskStats({
         loading: false,
         ...resolvedCounts
       });
-      const nextFocusStats = {
-        loading: false,
-        dueToday,
-        inProgress: inProgressToday,
-        completedToday,
-        // Only finished tasks count, rounded down: 100% means every one of today's tasks is done.
-        dailyProgress: dueToday ? Math.min(100, Math.floor((completedToday / dueToday) * 100)) : 0
-      };
-      setFocusStats(nextFocusStats);
-      writeDashboardCache({ focusStats: nextFocusStats });
     } catch (error) {
-      console.error('Failed to load dashboard focus stats:', error);
-      setFocusStats(current => ({ ...current, loading: false }));
+      console.error('Failed to load dashboard task stats:', error);
       setDashboardTaskStats(current => ({ ...current, loading: false }));
     }
   }, [isUserInCurrentCompany, token, user]);
@@ -1398,12 +1414,6 @@ const UserDashboard = () => {
         setDashboardUser(summary.currentUser);
       }
 
-      if (summary.focusStats) {
-        const nextFocusStats = { loading: false, ...summary.focusStats };
-        setFocusStats(nextFocusStats);
-        writeDashboardCache({ focusStats: nextFocusStats });
-      }
-
       if (summary.taskStats) {
         setDashboardTaskStats({ loading: false, ...summary.taskStats });
       }
@@ -1500,7 +1510,7 @@ const UserDashboard = () => {
         const summaryLoaded = await fetchDashboardSummary();
         if (!summaryLoaded) {
           fetchCurrentStatus();
-          fetchFocusStats();
+          fetchDashboardTaskStats();
           await Promise.allSettled([
             fetchDashboardConfig(),
             fetchJobRoles(),
@@ -1523,7 +1533,12 @@ const UserDashboard = () => {
     loadData();
 
     return () => cancelPendingRequests();
-  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchFocusStats, fetchProductivity, fetchDashboardProjects, productivityDates, cancelPendingRequests, isUserInCurrentCompany]);
+  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchDashboardTaskStats, fetchProductivity, fetchDashboardProjects, productivityDates, cancelPendingRequests, isUserInCurrentCompany]);
+
+  useEffect(() => {
+    fetchFocusStats();
+    return () => { focusStatsRequestId.current += 1; };
+  }, [fetchFocusStats]);
 
   useEffect(() => {
     if (!initialLoadDone || !isUserInCurrentCompany) return undefined;
@@ -1570,9 +1585,11 @@ const UserDashboard = () => {
 
     window.addEventListener('ciis:task-created', handleTaskCreated);
     window.addEventListener('task:created', handleTaskCreated);
+    window.addEventListener('ciis:task-updated', fetchFocusStats);
     return () => {
       window.removeEventListener('ciis:task-created', handleTaskCreated);
       window.removeEventListener('task:created', handleTaskCreated);
+      window.removeEventListener('ciis:task-updated', fetchFocusStats);
     };
   }, [fetchRecentTaskActivity, fetchFocusStats, fetchDashboardSummary]);
 
@@ -2081,7 +2098,8 @@ const UserDashboard = () => {
     fetchAttendanceData(true);
     fetchRecentTaskActivity();
     fetchFocusStats();
-  }, [loading.attendance, fetchAttendanceData, fetchRecentTaskActivity, fetchFocusStats]);
+    fetchDashboardTaskStats();
+  }, [loading.attendance, fetchAttendanceData, fetchRecentTaskActivity, fetchFocusStats, fetchDashboardTaskStats]);
 
   const getStatusColor = useCallback((status) => {
     switch (status) {
@@ -2601,6 +2619,7 @@ const UserDashboard = () => {
       if (activeQuickAction.label === 'New Task') {
         fetchRecentTaskActivity();
         fetchFocusStats();
+        fetchDashboardTaskStats();
       }
       if (activeQuickAction.label === 'Apply Leave') fetchLeaveData();
       setActiveQuickAction(null); setQuickForm({});
@@ -3022,7 +3041,7 @@ const UserDashboard = () => {
           <section className="MobileDashV2-focus">
             <header><div><FiZap /><span>Today’s focus</span></div><b>{focusStats.dueToday + focusStats.inProgress}</b></header>
             <div>
-              <article><i className="violet"><FiCheckCircle /></i><span><strong>{focusStats.dueToday}</strong><small>Due today</small></span></article>
+              <article><i className="violet"><FiCheckCircle /></i><span><strong>{focusStats.dueToday}</strong><small>Tasks today</small></span></article>
               <article><i className="blue"><FiActivity /></i><span><strong>{focusStats.inProgress}</strong><small>In progress</small></span></article>
               <article><i className="green"><FiClock /></i><span><strong>{loading.attendance ? 'Loading…' : isClockedOutToday ? 'Done' : isWorkingToday ? 'In Progress' : isWeekendOrHolidayToday ? 'Weekly Off' : 'Clock In Pending'}</strong><small>Attendance</small></span></article>
             </div>
@@ -3180,7 +3199,7 @@ const UserDashboard = () => {
 
               <div className="dashboard-focus-card">
                 <strong>Today's Focus</strong>
-                <span><FiCheckCircle /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.dueToday} Tasks Due Today`}</span>
+                <span><FiCheckCircle /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.dueToday} Tasks Today`}</span>
                 <span><FiCheckCircle /> {loading.attendance ? 'Attendance Loading…' : isClockedOutToday ? 'Attendance Completed' : isWorkingToday ? 'In Progress' : isWeekendOrHolidayToday ? 'Weekly Off / Holiday' : 'Clock In Pending'}</span>
                 <span><FiCalendar /> {focusStats.loading ? 'Loading tasks…' : `${focusStats.inProgress} Tasks In Progress`}</span>
               </div>

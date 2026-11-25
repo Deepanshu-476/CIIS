@@ -453,7 +453,8 @@ const PageAccessGate = ({ children }) => {
     const isPrivileged = roleValues.some(role => PRIVILEGED_ROLES.has(normalizeRole(role?.name || role)));
     const telecallerPage = TELECALLER_PAGES.find(page => page.path.toLowerCase() === pagePath.toLowerCase());
     const isRegisterRequest = pagePath.toLowerCase() === '/ciisuser/register-request';
-    const requiresExplicitAccess = isRegisterRequest || requiresPageAccess(pagePath);
+    const isCompanyAiSettings = pagePath.toLowerCase() === '/ciisuser/company-ai-settings';
+    const requiresExplicitAccess = isRegisterRequest || isCompanyAiSettings || requiresPageAccess(pagePath);
 
     const checkAccess = async () => {
       if (telecallerPage) {
@@ -489,6 +490,18 @@ const PageAccessGate = ({ children }) => {
       }
       if (!hasCompanyPlanAccess(pagePath)) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "plan" });
+        return;
+      }
+      if (isCompanyAiSettings) {
+        const companyRef = currentUser?.company || currentUser?.companyId;
+        const companyId = companyRef?._id || companyRef?.id || companyRef;
+        try {
+          if (!companyId) throw new Error('Company required');
+          await api.get(`/company/${encodeURIComponent(companyId)}/ai-settings/access`, { noCache: true, _skipErrorNotify: true });
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true, reason: null });
+        } catch {
+          if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: 'permission' });
+        }
         return;
       }
       if (isRegisterRequest) {

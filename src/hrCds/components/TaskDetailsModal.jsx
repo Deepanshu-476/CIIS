@@ -28,6 +28,7 @@ import {
 } from 'react-icons/fi';
 import axios from '../../utils/axiosConfig';
 import API_URL, { API_URL_IMG } from '../../config';
+import { getStoredUploadUrl } from '../utils/storedUploadUrl';
 import './TaskDetailsModal.css';
 
 // Helper to format seconds into "Xh Ym" or "Ym Zs" or "Xs"
@@ -125,24 +126,18 @@ const getImageUrl = (rawPath) => {
     return rawPath;
   }
 
+  const storedUploadUrl = getStoredUploadUrl(String(rawPath), API_URL);
+  if (storedUploadUrl) return storedUploadUrl;
+
   const baseUrl = API_URL;
   const baseUrlWithoutApi = baseUrl.replace(/\/api\/?$/, '');
   let cleanPath = String(rawPath).replace(/\\/g, '/').replace(/^\/+/, '');
 
-  if (cleanPath.startsWith('uploads/client-remarks/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
-  }
   if (cleanPath.startsWith('client-remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
-  if (cleanPath.startsWith('uploads/remarks/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
-  }
   if (cleanPath.startsWith('remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
-  }
-  if (cleanPath.startsWith('uploads/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   if (cleanPath.includes('client-remarks')) {
     return `${baseUrlWithoutApi}/${cleanPath}`;

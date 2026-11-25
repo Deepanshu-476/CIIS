@@ -19,6 +19,7 @@ import "../Css/TaskManagement.css";
 import TaskDetailsModal from '../components/TaskDetailsModal';
 import API_URL, { UPLOAD_FALLBACK_ORIGINS } from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
+import { getStoredUploadUrl } from '../utils/storedUploadUrl';
 import { useSocket } from '../../context/SocketContext';
 import useTaskRealtime, { invalidateTaskManagementCache } from '../../hooks/useTaskRealtime';
 
@@ -32,29 +33,20 @@ const getImageUrl = (imagePath) => {
     return rawPath;
   }
 
+  const storedUploadUrl = getStoredUploadUrl(rawPath, API_URL);
+  if (storedUploadUrl) return storedUploadUrl;
+
   const baseUrl = API_URL;
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
   let cleanPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   
-  if (cleanPath.startsWith('uploads/client-remarks/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
-  }
-  
   if (cleanPath.startsWith('client-remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
   
-  if (cleanPath.startsWith('uploads/remarks/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
-  }
-  
   if (cleanPath.startsWith('remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
-  }
-  
-  if (cleanPath.startsWith('uploads/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
   if (cleanPath.includes('client-remarks')) {

@@ -23,6 +23,7 @@ import {
   Plus,
   Trash2,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
 import { useMyAi } from '../../context/MyAiContext';

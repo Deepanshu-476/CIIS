@@ -2872,6 +2872,15 @@ const CompanyAllTaskTasks = () => {
         const safeText = (value, fallback = "Not available") => String(value || fallback)
           .replace(/[\u2013\u2014]/g, "-")
           .replace(/[^\x20-\x7E]/g, "");
+        const fitSingleLine = (value, maxWidth, fallback = "Not available") => {
+          const raw = safeText(value, fallback);
+          if (!maxWidth || doc.getTextWidth(raw) <= maxWidth) return raw;
+          let trimmed = raw;
+          while (trimmed.length > 1 && doc.getTextWidth(`${trimmed}...`) > maxWidth) {
+            trimmed = trimmed.slice(0, -1);
+          }
+          return `${trimmed}...`;
+        };
         const drawLabel = (text, x, y) => {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(7.5);
@@ -2885,23 +2894,23 @@ const CompanyAllTaskTasks = () => {
           doc.roundedRect(x, y, 4, 48, 2, 2, "F");
           drawLabel(label, x + 13, y + 17);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(16);
+          doc.setFontSize(15.5);
           doc.setTextColor(15, 23, 42);
-          doc.text(safeText(value, "0"), x + 13, y + 36);
+          doc.text(fitSingleLine(value, width - 22, "0"), x + 13, y + 36);
         };
-        const drawPillar = (x, y, label, rate, points, maximum, color) => {
+        const drawPillar = (x, y, label, rate, points, maximum, color, barWidth) => {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8.5);
           doc.setTextColor(30, 41, 59);
-          doc.text(label, x, y);
+          doc.text(fitSingleLine(label, barWidth - 40, label), x, y);
           doc.setFont("helvetica", "normal");
           doc.setFontSize(8);
           doc.setTextColor(100, 116, 139);
-          doc.text(`${rate}%`, x + 178, y, { align: "right" });
+          doc.text(`${rate}%`, x + barWidth, y, { align: "right" });
           doc.setFillColor(226, 232, 240);
-          doc.roundedRect(x, y + 8, 178, 6, 3, 3, "F");
+          doc.roundedRect(x, y + 8, barWidth, 6, 3, 3, "F");
           doc.setFillColor(color[0], color[1], color[2]);
-          doc.roundedRect(x, y + 8, Math.max(0, Math.min(178, (rate / 100) * 178)), 6, 3, 3, "F");
+          doc.roundedRect(x, y + 8, Math.max(0, Math.min(barWidth, (rate / 100) * barWidth)), 6, 3, 3, "F");
           doc.setFontSize(7.5);
           doc.setTextColor(100, 116, 139);
           doc.text(`${points}/${maximum} points`, x, y + 27);
@@ -2912,7 +2921,7 @@ const CompanyAllTaskTasks = () => {
         doc.setFillColor(37, 99, 235);
         doc.rect(0, 96, pageWidth, 4, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(19);
+        doc.setFontSize(17);
         doc.setTextColor(255, 255, 255);
         doc.text("EMPLOYEE PERFORMANCE REPORT", margin, 43);
         doc.setFont("helvetica", "normal");
@@ -2921,10 +2930,14 @@ const CompanyAllTaskTasks = () => {
         doc.text("CIIS Network - Operational Performance Intelligence", margin, 61);
         doc.setTextColor(226, 232, 240);
         doc.setFontSize(8);
-        doc.text(`REPORTING WINDOW: ${safeText(detailedPerformance.timeframeLabel)}`, pageWidth - margin, 39, { align: "right" });
+        doc.text(fitSingleLine(`REPORTING WINDOW: ${safeText(detailedPerformance.timeframeLabel)}`, 210), pageWidth - margin, 39, { align: "right" });
         doc.text(`GENERATED: ${todayFormatted}`, pageWidth - margin, 57, { align: "right" });
 
         const profileY = 122;
+        const scoreBoxW = 124;
+        const scoreBoxX = pageWidth - margin - 16 - scoreBoxW;
+        const profileTextX = margin + 62;
+        const profileTextMaxW = scoreBoxX - profileTextX - 14;
         doc.setFillColor(248, 250, 252);
         doc.roundedRect(margin, profileY, contentWidth, 91, 8, 8, "F");
         doc.setDrawColor(226, 232, 240);
@@ -2937,22 +2950,22 @@ const CompanyAllTaskTasks = () => {
         doc.text(employeeDisplayName.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase() || "E", margin + 30, profileY + 37, { align: "center" });
         doc.setFontSize(15);
         doc.setTextColor(15, 23, 42);
-        doc.text(safeText(employeeDisplayName), margin + 62, profileY + 29);
+        doc.text(fitSingleLine(employeeDisplayName, profileTextMaxW), profileTextX, profileY + 29);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(71, 85, 105);
-        doc.text(`${safeText(employeeRole)}  |  ${safeText(employeeDept)}`, margin + 62, profileY + 46);
-        doc.text(`Evaluation window: ${safeText(detailedPerformance.timeframeLabel)}`, margin + 62, profileY + 65);
+        doc.text(fitSingleLine(`${safeText(employeeRole)}  |  ${safeText(employeeDept)}`, profileTextMaxW), profileTextX, profileY + 46);
+        doc.text(fitSingleLine(`Evaluation window: ${safeText(detailedPerformance.timeframeLabel)}`, profileTextMaxW), profileTextX, profileY + 65);
         doc.setFillColor(softScoreColor[0], softScoreColor[1], softScoreColor[2]);
-        doc.roundedRect(pageWidth - margin - 132, profileY + 13, 112, 64, 8, 8, "F");
+        doc.roundedRect(scoreBoxX, profileY + 13, scoreBoxW, 64, 8, 8, "F");
         doc.setDrawColor(scoreColor[0], scoreColor[1], scoreColor[2]);
-        doc.roundedRect(pageWidth - margin - 132, profileY + 13, 112, 64, 8, 8, "S");
+        doc.roundedRect(scoreBoxX, profileY + 13, scoreBoxW, 64, 8, 8, "S");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(23);
+        doc.setFontSize(22);
         doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
-        doc.text(`${score}/100`, pageWidth - margin - 76, profileY + 43, { align: "center" });
-        doc.setFontSize(8.5);
-        doc.text(`Grade ${detailedPerformance.grade} - ${safeText(detailedPerformance.tier)}`, pageWidth - margin - 76, profileY + 61, { align: "center" });
+        doc.text(`${score}/100`, scoreBoxX + (scoreBoxW / 2), profileY + 41, { align: "center" });
+        doc.setFontSize(7.8);
+        doc.text(`Grade ${detailedPerformance.grade} - ${safeText(detailedPerformance.tier)}`, scoreBoxX + (scoreBoxW / 2), profileY + 58, { align: "center", maxWidth: scoreBoxW - 12 });
 
         const metricY = 231;
         const metricGap = 9;
@@ -2964,37 +2977,11 @@ const CompanyAllTaskTasks = () => {
 
         const lowerY = 302;
         const leftWidth = 238;
+        const pillarBarWidth = leftWidth - 32;
         const rightX = margin + leftWidth + 16;
         const rightWidth = contentWidth - leftWidth - 16;
-        doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(margin, lowerY, leftWidth, 265, 8, 8, "FD");
-        doc.roundedRect(rightX, lowerY, rightWidth, 265, 8, 8, "FD");
-        drawLabel("Weighted performance pillars", margin + 16, lowerY + 23);
-        drawPillar(margin + 16, lowerY + 48, "Task completion", detailedPerformance.completionRate, detailedPerformance.pillars.taskCompletion.points, 40, [16, 185, 129]);
-        drawPillar(margin + 16, lowerY + 89, "On-time delivery", detailedPerformance.onTimeRate, detailedPerformance.pillars.onTimeDelivery.points, 25, [37, 99, 235]);
-        drawPillar(margin + 16, lowerY + 130, "Attendance discipline", detailedPerformance.attendance.disciplineRate, detailedPerformance.pillars.attendance.points, 20, [139, 92, 246]);
-        drawPillar(margin + 16, lowerY + 171, "Time utilization", detailedPerformance.timeUtilRate, detailedPerformance.pillars.timeUtilization.points, 15, [217, 119, 6]);
-        if (detailedPerformance.pillars.overduePenalty.points > 0) {
-          doc.setFillColor(254, 242, 242);
-          doc.roundedRect(margin + 16, lowerY + 213, leftWidth - 32, 31, 5, 5, "F");
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(8);
-          doc.setTextColor(185, 28, 28);
-          doc.text(`SLA deduction: -${detailedPerformance.pillars.overduePenalty.points} points for ${detailedPerformance.overdue} overdue task(s)`, margin + 25, lowerY + 233);
-        } else {
-          doc.setFillColor(240, 253, 244);
-          doc.roundedRect(margin + 16, lowerY + 213, leftWidth - 32, 31, 5, 5, "F");
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(8);
-          doc.setTextColor(21, 128, 61);
-          doc.text("SLA standing: no overdue task penalty in this window", margin + 25, lowerY + 233);
-        }
+        const rightInnerWidth = rightWidth - 32;
 
-        drawLabel("Executive assessment", rightX + 16, lowerY + 23);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9.2);
-        doc.setTextColor(51, 65, 85);
         const primaryFocus = detailedPerformance.overdue > 0
           ? `${detailedPerformance.overdue} overdue task(s) require immediate resolution.`
           : detailedPerformance.pending > 0
@@ -3003,9 +2990,52 @@ const CompanyAllTaskTasks = () => {
         const executiveAssessment = `${employeeDisplayName} is rated ${safeText(detailedPerformance.tier)} with a score of ${score}/100. `
           + `The employee completed ${detailedPerformance.completed} of ${detailedPerformance.total} tasks (${detailedPerformance.completionRate}%) and achieved ${detailedPerformance.onTimeRate}% on-time delivery. `
           + primaryFocus;
-        const narrative = doc.splitTextToSize(executiveAssessment, rightWidth - 32);
-        doc.text(narrative.slice(0, 5), rightX + 16, lowerY + 45, { lineHeightFactor: 1.3 });
-        const statusY = lowerY + 126;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.2);
+        const narrativeLines = doc.splitTextToSize(executiveAssessment, rightInnerWidth).slice(0, 5);
+        const statusY = lowerY + 45 + (Math.max(4, narrativeLines.length) * 12.5) + 14;
+        const statusBottomY = statusY + 20 + (4 * 16);
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7.5);
+        const disclaimerLines = doc.splitTextToSize(
+          "This assessment reflects available task, delivery, attendance and time-tracking evidence.",
+          rightInnerWidth
+        );
+        const lowerCardHeight = Math.max(275, (statusBottomY - lowerY) + 46);
+
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(margin, lowerY, leftWidth, lowerCardHeight, 8, 8, "FD");
+        doc.roundedRect(rightX, lowerY, rightWidth, lowerCardHeight, 8, 8, "FD");
+        drawLabel("Weighted performance pillars", margin + 16, lowerY + 23);
+        drawPillar(margin + 16, lowerY + 48, "Task completion", detailedPerformance.completionRate, detailedPerformance.pillars.taskCompletion.points, 40, [16, 185, 129], pillarBarWidth);
+        drawPillar(margin + 16, lowerY + 89, "On-time delivery", detailedPerformance.onTimeRate, detailedPerformance.pillars.onTimeDelivery.points, 25, [37, 99, 235], pillarBarWidth);
+        drawPillar(margin + 16, lowerY + 130, "Attendance discipline", detailedPerformance.attendance.disciplineRate, detailedPerformance.pillars.attendance.points, 20, [139, 92, 246], pillarBarWidth);
+        drawPillar(margin + 16, lowerY + 171, "Time utilization", detailedPerformance.timeUtilRate, detailedPerformance.pillars.timeUtilization.points, 15, [217, 119, 6], pillarBarWidth);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.8);
+        if (detailedPerformance.pillars.overduePenalty.points > 0) {
+          const slaLines = doc.splitTextToSize(
+            `SLA deduction: -${detailedPerformance.pillars.overduePenalty.points} pts for ${detailedPerformance.overdue} overdue task(s)`,
+            pillarBarWidth - 18
+          );
+          doc.setFillColor(254, 242, 242);
+          doc.roundedRect(margin + 16, lowerY + 213, pillarBarWidth, 36, 5, 5, "F");
+          doc.setTextColor(185, 28, 28);
+          doc.text(slaLines, margin + 25, slaLines.length > 1 ? lowerY + 227 : lowerY + 234, { lineHeightFactor: 1.25 });
+        } else {
+          const slaLines = doc.splitTextToSize("SLA standing: no overdue task penalty in this window", pillarBarWidth - 18);
+          doc.setFillColor(240, 253, 244);
+          doc.roundedRect(margin + 16, lowerY + 213, pillarBarWidth, 36, 5, 5, "F");
+          doc.setTextColor(21, 128, 61);
+          doc.text(slaLines, margin + 25, slaLines.length > 1 ? lowerY + 227 : lowerY + 234, { lineHeightFactor: 1.25 });
+        }
+
+        drawLabel("Executive assessment", rightX + 16, lowerY + 23);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.2);
+        doc.setTextColor(51, 65, 85);
+        doc.text(narrativeLines, rightX + 16, lowerY + 45, { lineHeightFactor: 1.3 });
         drawLabel("Task status", rightX + 16, statusY);
         const statusEntries = [
           ["Completed", detailedPerformance.completed, [16, 185, 129]],
@@ -3026,12 +3056,13 @@ const CompanyAllTaskTasks = () => {
           doc.setTextColor(15, 23, 42);
           doc.text(String(value), rightX + rightWidth - 16, y, { align: "right" });
         });
+        const disclaimerY = lowerY + lowerCardHeight - 26;
         doc.setFillColor(248, 250, 252);
-        doc.roundedRect(rightX + 16, lowerY + 247, rightWidth - 32, 1, 0, 0, "F");
+        doc.roundedRect(rightX + 16, disclaimerY - 10, rightInnerWidth, 1, 0, 0, "F");
         doc.setFont("helvetica", "italic");
         doc.setFontSize(7.5);
         doc.setTextColor(100, 116, 139);
-        doc.text("This assessment reflects available task, delivery, attendance and time-tracking evidence.", rightX + 16, lowerY + 260);
+        doc.text(disclaimerLines, rightX + 16, disclaimerY, { lineHeightFactor: 1.25 });
 
         doc.setDrawColor(226, 232, 240);
         doc.line(margin, pageHeight - 38, pageWidth - margin, pageHeight - 38);

@@ -1164,16 +1164,25 @@ body.my-ai-expanded-active [class*="support-chat-launcher"] {
    Appears only when voice mode is activated in the existing chat interface
    ========================================================================== */
 .my-ai-chatgpt-floating-orb-container {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   margin: 0 auto;
-  padding: 8px 0 12px 0;
+  padding: 8px 0;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   animation: my-ai-orb-float-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.my-ai-chatgpt-floating-orb-container > * {
   pointer-events: auto;
 }
 

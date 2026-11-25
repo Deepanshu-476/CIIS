@@ -1177,7 +1177,7 @@ const UserDashboard = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 15000, cache: false, noCache: true };
       const [todayResponse, allResponse] = await Promise.all([
-        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned', _t: Date.now() } }),
+        axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'today', scope: 'assigned', dateField: 'dueDate', _t: Date.now() } }),
         axios.get(`/task/user/${userId}/stats`, { ...config, params: { period: 'all', scope: 'assigned', _t: Date.now() } })
       ]);
       const today = todayResponse.data?.statusCounts || {};

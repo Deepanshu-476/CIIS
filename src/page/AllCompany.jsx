@@ -516,7 +516,7 @@ const AllCompany = () => {
         openPortalTab(`/Ciis-network/all-company/${company._id}/admins`);
         break;
       case "data":
-        openPortalTab(`/Ciis-network/all-company/${company._id}/view`);
+        navigate(`/Ciis-network/all-company/${company._id}/view`);
         break;
       case "subscription":
         openSubscriptionModal(company);
@@ -805,16 +805,15 @@ const AllCompany = () => {
                               <span className="material-icons">admin_panel_settings</span>
                             </a>
                             {canViewCompanyData && (
-                              <a
+                              <button
+                                type="button"
                                 className="AllCompany-icon-button AllCompany-admin-link"
-                                href={`/Ciis-network/all-company/${companyId}/view`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="View company data (read only, new tab)"
-                                aria-label={`View data of ${company.companyName || "company"} in a new tab`}
+                                onClick={() => navigate(`/Ciis-network/all-company/${companyId}/view`)}
+                                title="View company data (read only)"
+                                aria-label={`View data of ${company.companyName || "company"}`}
                               >
                                 <span className="material-icons">visibility</span>
-                              </a>
+                              </button>
                             )}
                             <button
                               type="button"

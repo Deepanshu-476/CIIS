@@ -1418,7 +1418,7 @@ const normalizeAttendanceStatus = (status) => {
     .replace(/[\s_-]+/g, "");
 
   if (normalized === "halfday") return "halfday";
-  if (normalized === "present") return "present";
+  if (normalized === "present" || normalized === "shortleave") return "present";
   if (normalized === "late") return "late";
   if (normalized === "absent") return "absent";
   if (normalized === "uninformedleave") return "uninformedleave";
@@ -2368,7 +2368,7 @@ const EmployeeAttendance = () => {
     const holiday = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "holiday").length;
     const halfDay = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "halfday").length;
     const late = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "late").length;
-    const onTime = attendanceData.filter((r) => r.calculatedStatus === "present").length;
+    const onTime = attendanceData.filter((r) => normalizeAttendanceStatus(r.calculatedStatus) === "present").length;
     const leave = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "leave").length;
     const weekend = attendanceData.filter((r) => normalizeAttendanceStatus(r.status) === "weekend").length;
     
@@ -2474,7 +2474,7 @@ const EmployeeAttendance = () => {
     if (statusFilter !== "all") {
       filtered = filtered.filter((rec) => {
         if (statusFilter === "ontime") {
-          return rec.calculatedStatus === "present";
+          return normalizeAttendanceStatus(rec.calculatedStatus) === "present";
         }
         if (statusFilter === "present") {
           return ["present", "late", "halfday", "shortleave"].includes(normalizeAttendanceStatus(rec.status));

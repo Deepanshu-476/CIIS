@@ -23,6 +23,7 @@ import {
   Plus,
   Trash2,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
 import { useMyAi } from '../../context/MyAiContext';
@@ -467,7 +468,10 @@ export default function MyAiChatView({ onBack, onClose }) {
     deleteChatSession,
     startNewChat,
     isAiDisabled,
+    aiBlockCode,
   } = session;
+
+  const isPlanUpgradeRequired = Boolean(isAiDisabled && aiBlockCode === 'AI_SUBSCRIPTION_REQUIRED');
 
   const [showHistory, setShowHistory] = useState(false);
   const [hasWebGL, setHasWebGL] = useState(true);
@@ -812,6 +816,76 @@ export default function MyAiChatView({ onBack, onClose }) {
           REGION 2: SCROLLABLE MESSAGE STREAM (flex: 1, overflow-y: auto)
           ===================================================================== */}
       <main className="my-ai-thread-scroll">
+        {isPlanUpgradeRequired ? (
+          <div style={{
+            margin: 'auto',
+            maxWidth: '420px',
+            padding: '28px 24px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)',
+            border: '1px solid #bfdbfe',
+            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.08)',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              borderRadius: '999px',
+              background: '#dbeafe',
+              color: '#1d4ed8',
+              fontSize: '12px',
+              fontWeight: 700,
+              marginBottom: '14px',
+            }}>
+              <Sparkles size={14} />
+              <span>CIIS AI Assistant</span>
+            </div>
+            <h3 style={{
+              margin: '0 0 10px',
+              fontSize: '18px',
+              fontWeight: 700,
+              color: '#0f172a',
+              lineHeight: 1.35,
+            }}>
+              Automate Your Portal with CIIS AI Assistant
+            </h3>
+            <p style={{
+              margin: '0 0 16px',
+              fontSize: '13.5px',
+              color: '#475569',
+              lineHeight: 1.55,
+            }}>
+              To automate your portal, create tasks, assign team work, and manage projects &amp; clients using AI Voice &amp; Chat, please upgrade your company plan.
+            </p>
+            <div style={{
+              textAlign: 'left',
+              background: '#ffffff',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              border: '1px solid #e2e8f0',
+              fontSize: '12.5px',
+              color: '#334155',
+              lineHeight: 1.7,
+              marginBottom: '16px',
+            }}>
+              <div>• Voice &amp; Chat Task Automation</div>
+              <div>• Smart Project, Client &amp; Plan Workflows</div>
+              <div>• Instant Team &amp; Attendance Insights</div>
+            </div>
+            <div style={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: '#2563eb',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: 600,
+            }}>
+              Upgrade Your Plan — Contact Super Admin to Activate
+            </div>
+          </div>
+        ) : (
         <div className="my-ai-messages-list">
           {(() => {
             const lastPreviewIdx = messages.reduce((last, m, idx) => m.preview ? idx : last, -1);
@@ -1080,12 +1154,14 @@ export default function MyAiChatView({ onBack, onClose }) {
 
           <div ref={threadEndRef} />
         </div>
+        )}
       </main>
 
       {/* =====================================================================
           REGION 4: PINNED COMPOSER DOCK
           Always pinned at bottom, flex-shrink 0, clean container
           ===================================================================== */}
+      {!isPlanUpgradeRequired && (
       <footer className="my-ai-composer-dock">
         {/* Animated circular voice orb centered horizontally ABOVE the existing composer input bar */}
         {autoSpeak && (
@@ -1300,6 +1376,7 @@ export default function MyAiChatView({ onBack, onClose }) {
           </div>
         )}
       </footer>
+      )}
     </div>
   );
 }

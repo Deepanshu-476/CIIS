@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Edit3,
   Menu,
-  MoreVertical,
   Search,
   ShieldCheck,
   UserCheck,
@@ -505,7 +504,6 @@ const SupportOperations = () => {
                             {assigned ? <Edit3 size={15} /> : <UserPlus size={15} />}
                             {assigned ? "Change Head" : "Assign Head"}
                           </button>
-                          <button type="button" aria-label="More actions"><MoreVertical size={17} /></button>
                         </div>
                       </td>
                     </tr>

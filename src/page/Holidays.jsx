@@ -1,6 +1,7 @@
 import { accountStorage } from '../utils/authSession';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { FileSpreadsheet, Upload, Plus, Pencil, Trash2 } from 'lucide-react';
 import './Holidays.css';
 import API_URL, { API_URL_IMG } from "../config"; 
 import usePageActionAccess from '../hooks/usePageActionAccess';
@@ -9,9 +10,10 @@ import usePageActionAccess from '../hooks/usePageActionAccess';
 // page in Page Management decides who may add / edit (same rule as the backend).
 const HOLIDAY_PAGE_PATH = '/ciisUser/holiday';
 const isAdminPanel = () => typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/ciis-network');
+const loadXlsx = () => import('xlsx').then(module => module.default || module);
 
 const Holidays = () => {
-    const { canEdit } = usePageActionAccess(HOLIDAY_PAGE_PATH, { fullAccess: isAdminPanel() });
+    const { canEdit, canDelete } = usePageActionAccess(HOLIDAY_PAGE_PATH, { fullAccess: isAdminPanel() });
     
     const [holidays, setHolidays] = useState([]);
     const [filteredHolidays, setFilteredHolidays] = useState([]);
@@ -77,6 +79,12 @@ const Holidays = () => {
         const text = String(value).trim();
         if (!text) return null;
 
+        const isoDate = text.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+        if (isoDate) {
+            const date = new Date(Number(isoDate[1]), Number(isoDate[2]) - 1, Number(isoDate[3]));
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
         const slashDate = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
         if (slashDate) {
             const day = Number(slashDate[1]);
@@ -106,6 +114,25 @@ const Holidays = () => {
         return '';
     };
 
+    const handleDownloadTemplate = async () => {
+        try {
+            const XLSX = await loadXlsx();
+            const templateRows = [
+                { Title: 'Republic Day', Date: '26-01-2026', Description: 'National Holiday' },
+                { Title: 'Holi', Date: '04-03-2026', Description: 'Festival Holiday' },
+                { Title: 'Independence Day', Date: '15-08-2026', Description: 'National Holiday' },
+            ];
+            const worksheet = XLSX.utils.json_to_sheet(templateRows);
+            worksheet['!cols'] = [{ wch: 26 }, { wch: 16 }, { wch: 32 }];
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Holidays Template');
+            XLSX.writeFile(workbook, 'Holiday_Template.xlsx');
+        } catch (err) {
+            console.error('Error downloading holiday template:', err);
+            setError('Failed to download holiday template. Please try again.');
+        }
+    };
+
     const handleExcelUpload = async (event) => {
         const file = event.target.files?.[0];
         event.target.value = '';
@@ -132,7 +159,7 @@ const Holidays = () => {
 
             const parsedHolidays = rows
                 .map((row) => {
-                    const title = String(getCellValue(row, ['title', 'holiday', 'holiday title', 'name', 'occasion'])).trim();
+                    const title = String(getCellValue(row, ['title', 'holiday name', 'holiday', 'holiday title', 'name', 'occasion'])).trim();
                     const rawDate = getCellValue(row, ['date', 'holiday date', 'day']);
                     const description = String(getCellValue(row, ['description', 'details', 'remark', 'remarks'])).trim();
                     const date = parseExcelDate(rawDate, XLSX);
@@ -348,6 +375,31 @@ const Holidays = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const handleDelete = async (holiday) => {
+        if (!holiday?._id) return;
+        const confirmed = window.confirm(`Delete "${holiday.title}" holiday?`);
+        if (!confirmed) return;
+
+        try {
+            setError('');
+            setSuccess('');
+            const token = accountStorage.getItem('token');
+            const response = await axios.delete(`${API_URL}/holidays/${holiday._id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data?.success !== false) {
+                setHolidays(prev => prev.filter(item => item._id !== holiday._id));
+                setSuccess('Holiday deleted successfully!');
+                setTimeout(() => setSuccess(''), 3000);
+            } else {
+                setError(response.data?.message || 'Failed to delete holiday');
+            }
+        } catch (err) {
+            console.error('Error deleting holiday:', err);
+            setError(err.response?.data?.message || 'Failed to delete holiday');
+        }
+    };
+
 
     
     const formatDate = (dateString) => {
@@ -397,6 +449,7 @@ const Holidays = () => {
                         onChange={handleExcelUpload}
                         disabled={uploadingExcel}
                     />
+                    <Upload size={16} />
                     {uploadingExcel ? 'Uploading...' : 'Upload Excel'}
                 </label>
                 <button 
@@ -406,7 +459,7 @@ const Holidays = () => {
                         setShowForm(!showForm);
                     }}
                 >
-                    {showForm ? '✖ Cancel' : '➕ Add Holiday'}
+                    {showForm ? 'Cancel' : <><Plus size={16} /> Add Holiday</>}
                 </button>
                 </>)}
             </div>
@@ -553,6 +606,14 @@ const Holidays = () => {
                             <option value="Optional Holiday">Optional Holiday</option>
                         </select>
                         {canEdit && (<>
+                        <button
+                            type="button"
+                            className="holiday-template-btn"
+                            onClick={handleDownloadTemplate}
+                        >
+                            <FileSpreadsheet size={16} />
+                            Download Template
+                        </button>
                         <label className={`holiday-table-upload ${uploadingExcel ? 'disabled' : ''}`}>
                             <input
                                 type="file"
@@ -560,6 +621,7 @@ const Holidays = () => {
                                 onChange={handleExcelUpload}
                                 disabled={uploadingExcel}
                             />
+                            <Upload size={15} />
                             {uploadingExcel ? 'Uploading...' : 'Upload Excel'}
                         </label>
                         <button
@@ -569,7 +631,8 @@ const Holidays = () => {
                                 setShowForm(!showForm);
                             }}
                         >
-                            + Add Holiday
+                            <Plus size={15} />
+                            Add Holiday
                         </button>
                         </>)}
                     </div>
@@ -631,7 +694,19 @@ const Holidays = () => {
                                                 <td>All Departments</td>
                                                 <td>
                                                     <div className="holiday-action-buttons">
-                                                        {canEdit ? <button className="holiday-icon-action edit" onClick={() => handleEdit(holiday)}>Edit</button> : '—'}
+                                                        {canEdit && (
+                                                            <button type="button" className="holiday-icon-action edit" onClick={() => handleEdit(holiday)} title="Edit holiday">
+                                                                <Pencil size={14} />
+                                                                Edit
+                                                            </button>
+                                                        )}
+                                                        {canDelete && (
+                                                            <button type="button" className="holiday-icon-action delete" onClick={() => handleDelete(holiday)} title="Delete holiday">
+                                                                <Trash2 size={14} />
+                                                                Delete
+                                                            </button>
+                                                        )}
+                                                        {!canEdit && !canDelete && '—'}
                                                     </div>
                                                 </td>
                                             </tr>

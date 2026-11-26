@@ -2363,17 +2363,35 @@ const EmployeeDirectory = () => {
       
       let employeesData = [];
       
-      if (canSeeAllCompanyUsers) {
-        employeesData = await fetchAllEmployeesFromEndpoint('/users/company-users', {
-          companyId: currentUserCompanyId,
-          includeInactive: true
-        }, config);
-      } else {
-        employeesData = await fetchAllEmployeesFromEndpoint('/users/department-users', {
-          department: currentUserDepartmentId,
-          includeInactive: true
-        }, config);
-      }
+      const [fetchedEmployees, deptRes] = await Promise.all([
+        canSeeAllCompanyUsers
+          ? fetchAllEmployeesFromEndpoint('/users/company-users', {
+              companyId: currentUserCompanyId,
+              includeInactive: true
+            }, config)
+          : fetchAllEmployeesFromEndpoint('/users/department-users', {
+              department: currentUserDepartmentId,
+              includeInactive: true
+            }, config),
+        axios.get("/departments", config)
+      ]);
+      employeesData = fetchedEmployees;
+
+      const allDepartments = (deptRes.data && deptRes.data.success && Array.isArray(deptRes.data.departments))
+        ? deptRes.data.departments
+        : [];
+      const allowedDepartmentTokens = allowedDepartmentIds
+        ? new Set(
+            allDepartments
+              .filter(dept => allowedDepartmentIds.includes(getValueId(dept)))
+              .flatMap(dept => [
+                getValueId(dept),
+                String(dept?.name || '').trim().toLowerCase()
+              ])
+              .concat(allowedDepartmentIds)
+              .filter(Boolean)
+          )
+        : null;
 
       const branchScopedEmployees = allowedBranchIds
         ? employeesData.filter(employee => {
@@ -2386,18 +2404,20 @@ const EmployeeDirectory = () => {
           return employeeBranchIds.some(branchId => allowedBranchIds.includes(branchId));
         })
         : employeesData;
-      const visibleEmployees = allowedDepartmentIds
+      const visibleEmployees = allowedDepartmentTokens
         ? branchScopedEmployees.filter(employee => {
-          const employeeDepartmentIds = getIdList([employee?.department, employee?.departmentId]);
-          return employeeDepartmentIds.some(departmentId => allowedDepartmentIds.includes(departmentId));
+          const employeeDepartmentTokens = [
+            ...getIdList([employee?.department, employee?.departmentId]),
+            String(typeof employee?.department === 'string' ? employee.department : '').trim().toLowerCase(),
+            String(employee?.departmentName || '').trim().toLowerCase()
+          ].filter(Boolean);
+          return employeeDepartmentTokens.some(token => allowedDepartmentTokens.has(token));
         })
         : branchScopedEmployees;
       setEmployees(visibleEmployees);
       
-      const deptRes = await axios.get("/departments", config);
-      
-      if (deptRes.data && deptRes.data.success && Array.isArray(deptRes.data.departments)) {
-        const filteredDepartments = deptRes.data.departments.filter(dept => {
+      if (allDepartments.length > 0) {
+        const filteredDepartments = allDepartments.filter(dept => {
           const deptCompanyId = getValueId(dept.company || dept.companyId);
           const deptCompanyCode = dept.companyCode || dept.company?.companyCode || dept.company?.code;
           const belongsToCompany = !currentUserCompanyId ||

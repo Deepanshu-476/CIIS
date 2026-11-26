@@ -703,11 +703,16 @@ const Profile = () => {
       setOpeningDocId(item._id);
       const response = await axios.get(
         `/users/${userId}/documents/${item._id}/${download ? "download" : "view"}`,
-        { responseType: "blob", cache: false }
+        { responseType: "blob", cache: false, params: { _t: Date.now() } }
       );
 
-      let blob = response.data;
-      let type = blob.type || item.type || "";
+      let blob = response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data], { type: response.headers?.["content-type"] || item.type || "application/octet-stream" });
+      let type = String(blob.type || response.headers?.["content-type"] || item.type || "")
+        .split(";")[0]
+        .trim()
+        .toLowerCase();
 
       // Check if blob content is actually SVG even if server returned image/jpeg or octet-stream
       try {
@@ -727,6 +732,10 @@ const Profile = () => {
         else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".jfif")) type = "image/jpeg";
         else if (lowerName.endsWith(".webp")) type = "image/webp";
         else if (lowerName.endsWith(".svg")) type = "image/svg+xml";
+      }
+
+      if (type && blob.type !== type) {
+        blob = new Blob([blob], { type });
       }
 
       const blobUrl = URL.createObjectURL(blob);

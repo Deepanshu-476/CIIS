@@ -1093,7 +1093,7 @@
 .UserDetails-document-preview-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1600;
+  z-index: 99999;
   display: grid;
   place-items: center;
   padding: 24px;

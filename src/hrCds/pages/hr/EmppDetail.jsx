@@ -6,6 +6,7 @@ import './employee-directory.css';
 import CIISLoader from '../../../Loader/CIISLoader';
 import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission, getUserPageRestrictedScope } from '../../../utils/pageAccess';
 import { getProfileCompletion } from "../../utils/profileCompletion";
+import { getDirectoryRoleAccess, readEmployeeDirectoryResponse } from "../../utils/employeeDirectory";
 
 
 import {
@@ -86,22 +87,6 @@ const getIdList = (value) => {
   const input = Array.isArray(value) ? value : value ? [value] : [];
   return [...new Set(input.map(getValueId).filter(Boolean))];
 };
-
-const getArrayFromApiResponse = (data, keys = []) => {
-  if (Array.isArray(data)) return data;
-  for (const key of keys) {
-    const value = key.split('.').reduce((acc, part) => acc?.[part], data);
-    if (Array.isArray(value)) return value;
-  }
-  return [];
-};
-
-const getPaginationFromApiResponse = (data) => (
-  data?.message?.pagination ||
-  data?.pagination ||
-  data?.data?.pagination ||
-  null
-);
 
 const getNormalizedMimeType = value => String(value || '').split(';')[0].trim().toLowerCase();
 
@@ -278,9 +263,8 @@ const useUser = () => {
   
   
   const isSuperAdmin = useMemo(() => {
-    const jobRole = getCurrentUserJobRole();
-    return jobRole === 'super_admin';
-  }, [getCurrentUserJobRole]);
+    return getDirectoryRoleAccess(getCurrentUser()).isSuperAdmin;
+  }, [getCurrentUser]);
   
   
   const canEditOtherEmployees = useMemo(() => {
@@ -1998,11 +1982,11 @@ const EmployeeDirectory = () => {
   const hasCompanyWideBranchAccess = useMemo(() => {
     const roles = [currentUserRole, currentUserCompanyRole]
       .map(role => String(role || '').trim().toLowerCase().replace(/[\s_-]+/g, '_'));
-    return isSuperAdmin || roles.some(role => [
+    return getDirectoryRoleAccess(user.getCurrentUser()).isMasterRole || roles.some(role => [
       'owner', 'company_owner', 'companyowner', 'admin', 'company_admin',
       'companyadmin', 'hr', 'hr_manager', 'super_admin', 'superadmin'
     ].includes(role));
-  }, [currentUserRole, currentUserCompanyRole, isSuperAdmin]);
+  }, [currentUserRole, currentUserCompanyRole, user.getCurrentUser]);
   const restrictToAssignedBranches = !hasCompanyWideBranchAccess && currentUserBranchIds.length > 0;
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
@@ -2057,18 +2041,15 @@ const EmployeeDirectory = () => {
           ...getPageAccessUserIds(page, 'delete')
         ];
         const hasConfig = configuredIds.length > 0;
-        const fallbackRole = String(currentUser?.jobRole || currentUser?.companyRole || currentUser?.role || '').toLowerCase();
-        const fallbackAllowed = ['owner', 'admin', 'hr', 'manager', 'super_admin', 'superadmin'].includes(fallbackRole);
+        const { fallbackAllowed, isMasterRole } = getDirectoryRoleAccess(currentUser);
 
         const canEdit = editUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
-        const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+        const canView = isMasterRole || canEdit || viewUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
 
         setPageCanEditEmployees(canEdit);
         setPageCanViewEmployees(canView);
 
         // Owners / super admins always keep the whole company in view.
-        const isMasterRole = ['owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin'].includes(fallbackRole)
-          || Boolean(currentUser?.isSuperAdmin || currentUser?.superAdmin);
         const scope = isMasterRole ? null : getUserPageRestrictedScope(page, currentUserIdValue);
 
         setPageScopeBranchIds(scope?.branchIds || null);
@@ -2182,39 +2163,28 @@ const EmployeeDirectory = () => {
       ...config,
       params: { ...params, page: 1, limit: 100 }
     });
-    const firstData = firstResponse.data || {};
-    const firstUsers = getArrayFromApiResponse(firstData, [
-      'message.users',
-      'users',
-      'message',
-      'data'
-    ]);
-    const pagination = getPaginationFromApiResponse(firstData);
+    const { users: firstUsers, pagination } = readEmployeeDirectoryResponse(firstResponse.data);
     const totalPages = Number(pagination?.pages || pagination?.totalPages || 1);
 
     if (!pagination || totalPages <= 1) {
       return firstUsers;
     }
 
-    const remainingResponses = await Promise.all(
-      Array.from({ length: totalPages - 1 }, (_, index) => axios.get(url, {
-        ...config,
-        params: { ...params, page: index + 2, limit: 100 }
-      }).catch(error => ({ error })))
+    const remainingPages = await Promise.allSettled(
+      Array.from({ length: totalPages - 1 }, async (_, index) => {
+        const response = await axios.get(url, {
+          ...config,
+          params: { ...params, page: index + 2, limit: 100 }
+        });
+        return readEmployeeDirectoryResponse(response.data).users;
+      })
     );
 
-    return remainingResponses.reduce((allUsers, response) => {
-      if (response.error) {
-        console.error('Failed to load employee page:', response.error);
-        return allUsers;
-      }
-      return allUsers.concat(getArrayFromApiResponse(response.data || {}, [
-        'message.users',
-        'users',
-        'message',
-        'data'
-      ]));
-    }, [...firstUsers]);
+    return firstUsers.concat(remainingPages.flatMap(page => {
+      if (page.status === 'fulfilled') return page.value;
+      console.error('Failed to load employee page:', page.reason);
+      return [];
+    }));
   }, []);
   
   // Helper function to get job role name by ID
@@ -2449,7 +2419,7 @@ const EmployeeDirectory = () => {
       
     } catch (err) {
       console.error("❌ Failed to fetch data:", err);
-      setError(err.response?.data?.message || 'Failed to load data');
+      setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to load data');
       showSnackbar('Failed to load data', 'error');
     } finally {
       setLoading(false);
@@ -2487,7 +2457,7 @@ const EmployeeDirectory = () => {
         params: { companyId: currentUserCompanyId, includeInactive: true, includeSensitive: true, userId: targetId },
         _skipErrorNotify: true,
       });
-      const [fullRecord] = getArrayFromApiResponse(response.data || {}, ['message.users', 'users', 'message', 'data']);
+      const [fullRecord] = readEmployeeDirectoryResponse(response.data).users;
       return fullRecord && sameId(fullRecord._id || fullRecord.id, targetId) ? { ...userData, ...fullRecord } : userData;
     } catch (requestError) {
       console.error('Failed to load employee details:', requestError);

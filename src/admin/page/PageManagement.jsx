@@ -43,40 +43,6 @@ const PAYROLL_PERMISSION_ACTIONS = {
   "company-all-task-tasks": { view: "View", edit: "Edit Tasks", delete: "Delete" },
 };
 
-const FALLBACK_PAGES = [
-  { pageKey: "emp-details", name: "Emp - Details", path: "/ciisUser/emp-details", permissionPattern: "viewEdit" },
-  { pageKey: "emp-leaves", name: "Emp - Leaves", path: "/ciisUser/emp-leaves", permissionPattern: "approveReject" },
-  { pageKey: "register-request", name: "Register Request", path: "/ciisUser/register-request", permissionPattern: "approveReject", permissionActions: { view: "View / Accept", approve: "Manage Requests", delete: "Not used" } },
-  { pageKey: "leave-policy", name: "Leave - Policy", path: "/ciisUser/leave-policy", permissionPattern: "viewEdit" },
-  { pageKey: "emp-assets", name: "Emp - Assets", path: "/ciisUser/emp-assets", permissionPattern: "approveReject" },
-  { pageKey: "company-assets", name: "Asset Management", path: "/ciisUser/company-assets", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Create / Edit", delete: "Delete" } },
-  { pageKey: "emp-attendance", name: "Emp - Attendance", path: "/ciisUser/emp-attendance", permissionPattern: "viewEdit" },
-  { pageKey: "department", name: "Department Management", path: "/ciisUser/department", permissionPattern: "viewEdit" },
-  { pageKey: "JobRoleManagement", name: "Job Role Management", path: "/ciisUser/JobRoleManagement", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Create / Edit", delete: "Delete" } },
-  { pageKey: "manage-groups", name: "Manage Group", path: "/ciisUser/manage-groups", permissionPattern: "viewEdit" },
-  { pageKey: "company-all-task", name: "Company All Task", path: "/ciisUser/company-all-task", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Edit Tasks", delete: "Delete" } },
-  { pageKey: "company-all-task-tasks", name: "Company Tasks", path: "/ciisUser/company-all-task/tasks", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Edit Tasks", delete: "Delete" } },
-  { pageKey: "SidebarManagement", name: "Sidebar Management", path: "/ciisUser/SidebarManagement", permissionPattern: "viewEdit" },
-  { pageKey: "company-ai-settings", name: "Company AI & Tokens", path: "/ciisUser/company-ai-settings", permissionPattern: "viewEdit" },
-  { pageKey: "emp-client", name: "Client Management", path: "/ciisUser/emp-client", permissionPattern: "viewEdit" },
-  { pageKey: "client-plans", name: "Client Plans", path: "/ciisUser/client-plans", permissionPattern: "viewEdit" },
-  { pageKey: "active-clients", name: "Active Clients", path: "/ciisUser/active-clients", permissionPattern: "viewEdit" },
-  { pageKey: "client-services", name: "Client Services", path: "/ciisUser/client-services", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Add / Edit", delete: "Delete" } },
-  { pageKey: "holiday", name: "Holiday", path: "/ciisUser/holiday", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "Add / Edit", delete: "Delete" } },
-  { pageKey: "user-activity", name: "Employee Activity", path: "/ciisUser/user-activity", permissionPattern: "viewEdit", permissionActions: { view: "View", edit: "View (same as View)", delete: "Not used" } },
-  { pageKey: "salary-component", name: "Salary Component", path: "/ciisUser/salary-component", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-component"] },
-  { pageKey: "salary-structure", name: "Salary Structure", path: "/ciisUser/salary-structure", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-structure"] },
-  { pageKey: "salary-assignment", name: "Employee Salary", path: "/ciisUser/salary-assignment", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["salary-assignment"] },
-  { pageKey: "assign-salary", name: "Assign Salary", path: "/ciisUser/assign-salary", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["assign-salary"] },
-  { pageKey: "payroll-process", name: "Payroll Process", path: "/ciisUser/payroll-process", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-process"] },
-  { pageKey: "payslip", name: "Payslip", path: "/ciisUser/payslip", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS.payslip },
-  { pageKey: "payroll-reports", name: "Payroll Reports", path: "/ciisUser/payroll-reports", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["payroll-reports"] },
-  { pageKey: "task-management", name: "Create Task", path: "/ciisUser/task-management", permissionPattern: "viewEdit" },
-  { pageKey: "admin-task-create", name: "Admin Create Task", path: "/ciisUser/admin-task-create", permissionPattern: "viewEdit" },
-  { pageKey: "admin-task-create", name: "Admin Create Task", path: "/ciisUser/admin-task-create", permissionPattern: "viewEdit", permissionActions: PAYROLL_PERMISSION_ACTIONS["admin-task-create"] },
-];
-
-const ALLOWED_PAGE_KEYS = FALLBACK_PAGES.map((p) => p.pageKey);
 
 const ICON_MAP = {
   "emp-details": PersonOutline,
@@ -488,7 +454,7 @@ const normalizePage = (page) => ({
   accessRoles: Array.isArray(page?.accessRoles) ? page.accessRoles : [],
   userAccessScopes: Array.isArray(page?.userAccessScopes) ? page.userAccessScopes : [],
   approvers: normalizeUserIds(page?.approvers || []),
-  viewUsers: normalizeUserIds(page?.viewUsers || []),
+  viewUsers: normalizeUserIds(page?.explicitViewUsers ?? page?.viewUsers ?? []),
   editUsers: normalizeUserIds(page?.editUsers || []),
   deleteUsers: normalizeUserIds(page?.deleteUsers || []),
   generateUsers: normalizeUserIds(page?.generateUsers || []),
@@ -496,19 +462,13 @@ const normalizePage = (page) => ({
   unlockUsers: normalizeUserIds(page?.unlockUsers || []),
 });
 
-const mergePagesWithFallback = (pages = []) => {
-  const merged = new Map();
-  FALLBACK_PAGES.map(normalizePage).forEach((page) => merged.set(page.pageKey, page));
-  pages.map(normalizePage).forEach((page) => {
-    const fallbackPage = merged.get(page.pageKey) || {};
-    merged.set(page.pageKey, {
-      ...fallbackPage,
-      ...page,
-      permissionActions: page.permissionActions || fallbackPage.permissionActions || PAYROLL_PERMISSION_ACTIONS[page.pageKey] || null,
-    });
-  });
-  return Array.from(merged.values());
-};
+const normalizeCatalogPages = (pages = []) => pages.map(entry => {
+  const page = normalizePage(entry);
+  return {
+    ...page,
+    permissionActions: page.permissionActions || PAYROLL_PERMISSION_ACTIONS[page.pageKey] || null,
+  };
+});
 
 const readStoredJson = (key) => {
   try {
@@ -583,10 +543,10 @@ const PageManagement = () => {
     setLoading(true);
     setMessage(null);
     try {
-      const pagesRes = await axios.get("/page-permissions/pages");
+      const pagesRes = await axios.get("/page-permissions/pages", {noCache: true});
 
       const loadedPages = pagesRes.data?.pages || [];
-      const normalizedPages = mergePagesWithFallback(loadedPages);
+      const normalizedPages = normalizeCatalogPages(loadedPages);
 
       setPages(normalizedPages);
 
@@ -594,7 +554,7 @@ const PageManagement = () => {
       setSelectedPageKey(currentPage?.pageKey || normalizedPages[0]?.pageKey || "emp-details");
     } catch (error) {
       console.error("Failed to load page management data:", error);
-      setPages(mergePagesWithFallback([]));
+      setPages([]);
       setMessage({ type: "error", text: error.response?.data?.error || "Failed to load page permissions." });
     } finally {
       setLoading(false);
@@ -685,6 +645,10 @@ const PageManagement = () => {
     setDetailLoadingKey(page.pageKey);
     try {
       const res = await axios.get("/page-permissions/by-path", { params: { path: page.path } });
+      if (res.data?.page?.entitled === false) {
+        setPages(previous => previous.filter(item => item.pageKey !== page.pageKey));
+        return null;
+      }
       const detailedPage = normalizePage({ ...page, ...(res.data?.page || {}), _detailsLoaded: true });
       setPages((prev) => prev.map((item) => (item.pageKey === detailedPage.pageKey ? { ...item, ...detailedPage } : item)));
       return detailedPage;
@@ -888,16 +852,13 @@ const PageManagement = () => {
     const base = basePermissions || draftPermissions;
     if (!page) return base;
     if (tab === "generate") {
-      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
-      return { ...base, generateIds: normalized, viewIds: mergedViewIds };
+      return { ...base, generateIds: normalized };
     }
     if (tab === "lock") {
-      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
-      return { ...base, lockIds: normalized, viewIds: mergedViewIds };
+      return { ...base, lockIds: normalized };
     }
     if (tab === "unlock") {
-      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
-      return { ...base, unlockIds: normalized, viewIds: mergedViewIds };
+      return { ...base, unlockIds: normalized };
     }
     if (page.permissionPattern === "approveReject") {
       if (tab === "approve") return { ...base, approverIds: normalized };
@@ -906,12 +867,10 @@ const PageManagement = () => {
     }
 
     if (tab === "edit") {
-      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
-      return { ...base, editIds: normalized, viewIds: mergedViewIds };
+      return { ...base, editIds: normalized };
     }
     if (tab === "delete") {
-      const mergedViewIds = normalizeUserIds([...base.viewIds, ...normalized]);
-      return { ...base, deleteIds: normalized, viewIds: mergedViewIds };
+      return { ...base, deleteIds: normalized };
     }
     return { ...base, viewIds: normalized };
   };
@@ -1123,6 +1082,7 @@ const PageManagement = () => {
       const res = await axios.put(`/page-permissions/${workingPage.pageKey}`, payload);
       invalidateGetCache("/page-permissions");
       invalidatePagePermissionCache(workingPage.path);
+      window.dispatchEvent(new Event("ciis:page-permissions-refresh"));
       const updatedPage = normalizePage({ ...(res.data?.page || workingPage), _detailsLoaded: true });
 
       setPages((prev) =>

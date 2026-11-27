@@ -87,6 +87,8 @@ export default function BreakCard() {
       if (res.data?.success) {
         setState(res.data);
         loadedAtRef.current = Date.now();
+        // Keep other open employee screens (especially Dashboard) in sync immediately.
+        window.dispatchEvent(new Event("ciis-break-updated"));
         if (action === "stop") setReason("");
         if (res.data.warning) toast.warn(res.data.warning);
         else toast.success(res.data.message || "Done");

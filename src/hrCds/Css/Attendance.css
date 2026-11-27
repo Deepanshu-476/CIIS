@@ -1774,12 +1774,9 @@
 }
 
 .att-view-log-btn:hover {
-  background: var(--att-primary-light);
-  border-color: var(--att-primary);
-}
-
-.att-view-log-btn:hover {
   background: var(--att-primary-hover);
+  border-color: var(--att-primary-hover);
+  color: #ffffff;
   box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
 }
 

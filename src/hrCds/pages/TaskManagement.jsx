@@ -19,6 +19,7 @@ import "../Css/TaskManagement.css";
 import TaskDetailsModal from '../components/TaskDetailsModal';
 import API_URL, { UPLOAD_FALLBACK_ORIGINS } from '../../config';
 import { getCompanyScopedClientParams } from '../utils/clientPortalData';
+import { getStoredUploadUrl } from '../utils/storedUploadUrl';
 import { useSocket } from '../../context/SocketContext';
 import useTaskRealtime, { invalidateTaskManagementCache } from '../../hooks/useTaskRealtime';
 
@@ -32,29 +33,20 @@ const getImageUrl = (imagePath) => {
     return rawPath;
   }
 
+  const storedUploadUrl = getStoredUploadUrl(rawPath, API_URL);
+  if (storedUploadUrl) return storedUploadUrl;
+
   const baseUrl = API_URL;
   const baseUrlWithoutApi = baseUrl.replace(/\/api$/, '');
 
   let cleanPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   
-  if (cleanPath.startsWith('uploads/client-remarks/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
-  }
-  
   if (cleanPath.startsWith('client-remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
   }
   
-  if (cleanPath.startsWith('uploads/remarks/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
-  }
-  
   if (cleanPath.startsWith('remarks/')) {
     return `${baseUrlWithoutApi}/uploads/${cleanPath}`;
-  }
-  
-  if (cleanPath.startsWith('uploads/')) {
-    return `${baseUrlWithoutApi}/${cleanPath}`;
   }
   
   if (cleanPath.includes('client-remarks')) {
@@ -64,8 +56,9 @@ const getImageUrl = (imagePath) => {
   const filename = cleanPath.split('/').pop();
   
   const possiblePaths = [
-    `${baseUrl}/uploads/${filename}`,
     `${baseUrlWithoutApi}/uploads/${filename}`,
+    `${baseUrl}/uploads/${filename}`,
+    `${baseUrlWithoutApi}/uploads/tasks/${filename}`,
     `${baseUrlWithoutApi}/uploads/client-remarks/${filename}`,
     `${baseUrlWithoutApi}/uploads/remarks/client-remarks/${filename}`,
     `${baseUrlWithoutApi}/client-remarks/${filename}`
@@ -89,6 +82,7 @@ const getImageUrlCandidates = (primaryUrl) => {
   UPLOAD_FALLBACK_ORIGINS.filter(Boolean).forEach(origin => {
     const base = origin.replace(/\/+$/, '');
     urls.push(
+      `${base}/uploads/tasks/${filename}`,
       `${base}/uploads/remarks/${filename}`,
       `${base}/uploads/client-remarks/${filename}`,
       `${base}/uploads/remarks/client-remarks/${filename}`,
@@ -102,6 +96,41 @@ const getAttachmentPath = (file) => {
   if (!file) return '';
   if (typeof file === 'string') return file;
   return file.path || file.url || file.filename || '';
+};
+
+const downloadTaskAttachment = async (attachment) => {
+  const primaryUrl = getImageUrl(getAttachmentPath(attachment));
+  if (!primaryUrl) return;
+  const fileName = getAttachmentName(attachment);
+  const candidates = getImageUrlCandidates(primaryUrl);
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      return;
+    } catch {
+      // Try next fallback origin/path
+    }
+  }
+
+  const fallbackLink = document.createElement('a');
+  fallbackLink.href = primaryUrl;
+  fallbackLink.download = fileName;
+  fallbackLink.target = '_blank';
+  fallbackLink.rel = 'noopener noreferrer';
+  document.body.appendChild(fallbackLink);
+  fallbackLink.click();
+  fallbackLink.remove();
 };
 
 const formatFileSize = (bytes = 0) => {
@@ -7492,18 +7521,21 @@ const UserCreateTask = () => {
                                     </button>
 
                                     {attachment && !attachmentIsImage && (
-                                      <a
+                                      <button
+                                        type="button"
                                         className="user-create-task-action-button"
-                                        href={attachmentUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void downloadTaskAttachment(attachment);
+                                        }}
                                         title="Download Files"
+                                        aria-label="Download Files"
                                       >
                                         <FiDownload size={14} />
-                                      </a>
+                                      </button>
                                     )}
                                   </div>
-                                  <div style={{ minWidth: '140px', flexShrink: 0 }}>
+                                  <div style={{ minWidth: '120px', flex: '1 1 130px', maxWidth: '100%' }}>
                                     <select
                                       value={displayedSelectValue}
                                       disabled={taskIsOverdue || hasOverdueStatus(task, status) || savingTaskIds.has(`${taskSource}:${task._id || task.id}`)}
@@ -7515,7 +7547,7 @@ const UserCreateTask = () => {
                                       className="user-create-task-select user-create-task-status-dropdown"
                                       style={{ 
                                         width: '100%',
-                                        minWidth: '135px',
+                                        minWidth: '120px',
                                         padding: '8px 28px 8px 12px',
                                         backgroundPosition: 'right 10px center',
                                         backgroundSize: '12px',
@@ -7849,15 +7881,18 @@ const UserCreateTask = () => {
                                   </button>
 
                                   {attachment && !attachmentIsImage && (
-                                    <a
+                                    <button
+                                      type="button"
                                       className="user-create-task-action-button"
-                                      href={attachmentUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void downloadTaskAttachment(attachment);
+                                      }}
                                       title="Download Files"
+                                      aria-label="Download Files"
                                     >
                                       <FiDownload size={isMobile ? 14 : 16} />
-                                    </a>
+                                    </button>
                                   )}
                                 </div>
                               </td>

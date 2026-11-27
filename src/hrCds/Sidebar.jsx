@@ -129,7 +129,7 @@ import Swal from "sweetalert2";
 import { handleAppLogout } from '../utils/logoutModal';
 import axiosInstance from '../utils/axiosConfig';
 import { sanitizeUserForStorage } from '../context/AuthContext';
-import { isCrmPage, requiresPageAccess, hasPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission } from '../utils/pageAccess';
+import { isCrmPage, requiresPageAccess, hasPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission, getCatalogAccessPages, getManagedPermissionPath, isCompanyPageOwner } from '../utils/pageAccess';
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
 import { CRM_PAGES } from '../config/crmPages';
 import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
@@ -176,6 +176,7 @@ const readCachedSidebarConfig = user => {
 
 const permissionPagesFromCatalog = catalog => {
   if (!catalog || typeof catalog !== 'object') return null;
+  if (Array.isArray(catalog.managedPages)) return getCatalogAccessPages(catalog);
   const pages = Array.isArray(catalog.pages) ? catalog.pages : [];
   const accessPages = Array.isArray(catalog.accessPages) ? catalog.accessPages : [];
   const pagesByPath = new Map(pages.map(page => [
@@ -2212,15 +2213,22 @@ const companyAccessFallbackItems = [
   ...crmSidebarItems
 ];
 
-const filterItemsByCompanyAccess = (items, companyData) => {
+const filterItemsByCompanyAccess = (items, companyData, permissionPages) => {
+  const managed = new Map((permissionPages || []).filter(page => typeof page.entitled === 'boolean')
+    .map(page => [getManagedPermissionPath(page.path), page.entitled || page.canManageRegistrationRequests === true]));
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
-  if (allowedPages.length === 0) return items.filter(item => item.category !== 'admin-telecaller');
+  if (allowedPages.length === 0) return items.filter(item => {
+    const entitled = managed.get(getManagedPermissionPath(item.path));
+    return entitled ?? item.category !== 'admin-telecaller';
+  });
 
   const normalizeKey = value => String(value || '').trim().replace(/^\/+/, '').toLowerCase();
   const allowedSet = new Set(allowedPages.map(item => normalizeKey(item)).filter(Boolean));
   const hasCrmAccess = allowedSet.has('crm') || allowedSet.has('admin-crm');
 
   return items.filter(item => {
+    const entitled = managed.get(getManagedPermissionPath(item.path));
+    if (entitled !== undefined) return entitled;
     // Dashboard is the authenticated landing route, not an optional feature.
     // Keeping it prevents stale allowedPages data from hiding the Main link.
     if (['dashboard', 'user-dashboard'].includes(String(item?.id || '').toLowerCase()) ||
@@ -3036,46 +3044,61 @@ const Sidebar = ({
     }
 
     let cancelled = false;
-    // Do not render permissions remembered by an older session while the
-    // authoritative catalog is being refreshed.
-    setPagePermissions(null);
-    loadPagePermissionCatalog({ force: true })
-      .then(async catalog => {
-        const pages = Array.isArray(catalog?.pages) ? catalog.pages : [];
-        // Older servers can omit CRM entries from their page catalog even
-        // though by-path permissions already exist for those pages.
-        const pagesByPath = new Map(pages.map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page]));
-        [...CRM_PAGES.map(page => ({ ...page, path: `/ciisUser/${page.path}` })), ...TELECALLER_PAGES].forEach(page => {
-          const key = page.path.toLowerCase();
-          if (!pagesByPath.has(key)) pagesByPath.set(key, { ...page, pageKey: page.id });
-        });
-        const completePages = [...pagesByPath.values()];
-        const strictPages = completePages.filter(page => requiresPageAccess(page?.path));
-        const detailedPages = [...(catalog.accessPages || [])];
-        // Older servers do not support the batch. Bound their request concurrency.
-        if (!Array.isArray(catalog.accessPages)) {
-          for (let offset = 0; offset < strictPages.length && !cancelled; offset += 4) {
-            detailedPages.push(...await Promise.all(strictPages.slice(offset, offset + 4).map(async page => {
-              try { return await loadPagePermission(page.path); }
-              catch { return page; }
-            })));
+    let permissionRequest = 0;
+    setPagePermissions(permissionPagesFromCatalog(getCachedPagePermissionCatalog()));
+    const refreshPermissions = (options = {}) => {
+      const request = ++permissionRequest;
+      const isCurrent = () => !cancelled && request === permissionRequest;
+      return loadPagePermissionCatalog(options)
+        .then(async catalog => {
+          if (!isCurrent()) return;
+          if (Array.isArray(catalog.managedPages)) {
+            setPagePermissions(getCatalogAccessPages(catalog));
+            return;
           }
-        }
-        const detailsByPath = new Map(detailedPages.map(page => [
-          String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
-          page
-        ]));
-        const permissionPages = completePages.map(page => (
-          detailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
-        ));
+          const pages = Array.isArray(catalog?.pages) ? catalog.pages : [];
+          // Older servers can omit CRM entries from their page catalog even
+          // though by-path permissions already exist for those pages.
+          const pagesByPath = new Map(pages.map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page]));
+          [...CRM_PAGES.map(page => ({ ...page, path: `/ciisUser/${page.path}` })), ...TELECALLER_PAGES].forEach(page => {
+            const key = page.path.toLowerCase();
+            if (!pagesByPath.has(key)) pagesByPath.set(key, { ...page, pageKey: page.id });
+          });
+          const completePages = [...pagesByPath.values()];
+          const strictPages = completePages.filter(page => requiresPageAccess(page?.path));
+          const detailedPages = [...(catalog.accessPages || [])];
+          // Older servers do not support the batch. Bound their request concurrency.
+          if (!Array.isArray(catalog.accessPages)) {
+            for (let offset = 0; offset < strictPages.length && isCurrent(); offset += 4) {
+              detailedPages.push(...await Promise.all(strictPages.slice(offset, offset + 4).map(async page => {
+                try { return await loadPagePermission(page.path); }
+                catch { return page; }
+              })));
+            }
+          }
+          const detailsByPath = new Map(detailedPages.map(page => [
+            String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
+            page
+          ]));
+          const permissionPages = completePages.map(page => (
+            detailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
+          ));
 
-        if (!cancelled) setPagePermissions(permissionPages);
-      })
-      // Keep the last verified permissions visible during a temporary API
-      // failure. Route-level access checks still protect page navigation.
-      .catch(() => undefined);
+          if (isCurrent()) setPagePermissions(permissionPages);
+        })
+        // Keep the last verified permissions visible during a temporary API
+        // failure. Route-level access checks still protect page navigation.
+        .catch(() => undefined);
+    };
 
+    refreshPermissions();
+    const refreshOnFocus = () => refreshPermissions({ force: true });
+    const refreshAfterChange = () => refreshPermissions();
+    window.addEventListener('ciis:page-permissions-refresh', refreshAfterChange);
+    window.addEventListener('focus', refreshOnFocus);
     return () => {
+      window.removeEventListener('ciis:page-permissions-refresh', refreshAfterChange);
+      window.removeEventListener('focus', refreshOnFocus);
       cancelled = true;
     };
   }, [userId, sidebarCompanyId, isClientUser]);
@@ -3295,26 +3318,31 @@ const Sidebar = ({
         .map(item => String(getCanonicalSidebarItem(item)?.path || item?.path || '').toLowerCase().replace(/\/+$/, ''))
         .filter(Boolean)
     );
+    const managedPageFor = path => allPermissionPages.get(getManagedPermissionPath(path));
     const filterItemsByPageAccess = items => {
       items = items.filter(item => {
         if (item.category !== 'admin-telecaller') return true;
-        if (!hasTelecallerCompanyAccess(item, companyData)) return false;
-        const itemPath = String(item.path || '').toLowerCase().replace(/\/+$/, '');
-        if (roleConfiguredPaths.has(itemPath)) return true;
-        const permission = allPermissionPages.get(String(item.path).toLowerCase());
-        return Boolean(permission && hasPageAccess(permission, userId, 'view'));
+        const permission = managedPageFor(item.path);
+        return Boolean(permission && permission.entitled !== false &&
+          (permission.entitled === true || hasTelecallerCompanyAccess(item, companyData)) &&
+          hasPageAccess(permission, userId, 'view'));
       });
       if (!pagePermissions) {
         // CRM stays hidden until its current, user-specific permissions have
         // been loaded. This prevents stale report links flashing or persisting.
         return items.filter(item => {
           const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
-          return !isCrmPage(itemPath) && (roleConfiguredPaths.has(itemPath)
-            || isPageAccessAdmin || !requiresPageAccess(itemPath));
+          return !requiresPageAccess(itemPath);
         });
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
+        const managedPage = managedPageFor(itemPath);
+        if (itemPath === '/ciisuser/register-request' && managedPage?.canManageRegistrationRequests === true) return true;
+        if (typeof managedPage?.entitled === 'boolean') {
+          return managedPage.entitled && (hasPageAccess(managedPage, userId, 'view') ||
+            (!isCrmPage(itemPath) && item.category !== 'admin-telecaller' && isCompanyPageOwner(userData)));
+        }
         // A saved role menu controls placement, not individual CRM access.
         if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
         // Client Plans is a sensitive client-management page.  Its presence
@@ -3339,7 +3367,7 @@ const Sidebar = ({
     }
 
     if (isSuperAdminWithManagement) {
-      return filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData)));
+      return filterItemsByPageAccess(removeHiddenSidebarItems(filterItemsByCompanyAccess(allPagesItems, companyData, pagePermissions)));
     }
 
     let items = [];
@@ -3422,7 +3450,8 @@ const Sidebar = ({
       hasCustomSidebarConfig
         ? items
         : addCompanyAccessFallbackItems(items, companyData, isPageAccessAdmin),
-      companyData
+      companyData,
+      pagePermissions
     );
 
     // Keep the register approval page available to the same privileged roles
@@ -3437,7 +3466,7 @@ const Sidebar = ({
         'owner', 'admin', 'hr', 'super_admin', 'superadmin',
         'company_owner', 'companyowner'
       ]);
-      const canManageRegisterRequests = [
+      const canManageRegisterRequests = managedPageFor('/ciisuser/register-request')?.canManageRegistrationRequests === true || [
         userData?.companyRole,
         userData?.jobRole,
         userData?.role
@@ -3510,10 +3539,9 @@ const Sidebar = ({
     ));
 
     const hasAiEntitlement = Boolean(
-      companyData?.aiApiKeySource === 'client' ||
-      Number(companyData?.aiDailyTokenLimit || 0) > 0 ||
-      Number(companyData?.aiExtraTokens || 0) > 0 ||
-      (companyData?.allowedPages || []).includes('company-ai-settings')
+      (companyData?.allowedPages || []).some(value =>
+        ['company-ai-settings', 'company-ai'].includes(String(value).trim().toLowerCase()
+          .replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/\/+$/, '')))
     );
 
     if (!canManageCompanyAi || !hasAiEntitlement) {

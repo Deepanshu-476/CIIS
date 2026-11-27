@@ -256,7 +256,7 @@
 .holiday-toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -274,10 +274,11 @@
 }
 
 .holiday-control {
-    min-width: 140px;
-    padding: 0 14px;
+    min-width: 120px;
+    padding: 0 12px;
 }
 
+.holiday-template-btn,
 .holiday-table-upload,
 .holiday-add-table-btn {
     height: 42px;
@@ -287,13 +288,49 @@
     gap: 8px;
     border: 0;
     border-radius: 8px;
-    padding: 0 18px;
+    padding: 0 16px;
     color: #ffffff;
     background: #155dfc;
     box-shadow: 0 10px 18px rgba(21, 93, 252, 0.2);
     font-size: 0.88rem;
     font-weight: 900;
+    white-space: nowrap;
     cursor: pointer;
+}
+
+.holiday-template-btn {
+    background: linear-gradient(135deg, #0d9488, #0f766e);
+    color: #ffffff;
+    border: 0;
+    box-shadow: 0 8px 16px rgba(13, 148, 136, 0.22);
+    transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.holiday-template-btn:hover {
+    background: linear-gradient(135deg, #0f766e, #115e59);
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgba(13, 148, 136, 0.28);
+    transform: translateY(-1px);
+}
+
+.holiday-table-upload {
+    background: #0f9f5f;
+    box-shadow: 0 8px 16px rgba(15, 159, 95, 0.18);
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.holiday-table-upload:hover {
+    background: #0d8a52;
+    transform: translateY(-1px);
+}
+
+.holiday-add-table-btn {
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.holiday-add-table-btn:hover {
+    background: #124fd8;
+    transform: translateY(-1px);
 }
 
 .holiday-table-upload {
@@ -389,23 +426,49 @@
     gap: 8px;
 }
 
+.holiday-action-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .holiday-icon-action {
     min-width: 34px;
     height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
     border: 1px solid #d7e2f0;
     border-radius: 8px;
     background: #ffffff;
-    font-size: 0.86rem;
-    padding: 0 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0 11px;
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .holiday-icon-action.edit {
     color: #155dfc;
+    border-color: #dbeafe;
+    background: #eff6ff;
+}
+
+.holiday-icon-action.edit:hover {
+    background: #dbeafe;
+    border-color: #bfdbfe;
 }
 
 .holiday-icon-action.delete {
-    color: #ef4444;
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.holiday-icon-action.delete:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
 }
 
 .holiday-table-footer {
@@ -516,6 +579,7 @@
     }
 
     .holiday-control,
+    .holiday-template-btn,
     .holiday-table-upload,
     .holiday-add-table-btn {
         width: 100%;

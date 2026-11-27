@@ -687,14 +687,9 @@ const EmployeeLeaves = () => {
     deletePermissionUserIds.includes(String(currentUserId))
   ), [viewPermissionUserIds, approverPermissionUserIds, deletePermissionUserIds, currentUserId]);
 
-  const canDeleteLeave = useCallback(() => {
-    if (deletePermissionUserIds.length > 0) {
-      return deletePermissionUserIds.includes(String(currentUserId));
-    }
-
-    const user = JSON.parse(accountStorage.getItem("user") || "{}");
-    return isOwner || isAdmin || isHR || isManager || user.jobRole === "superadmin";
-  }, [deletePermissionUserIds, currentUserId, isOwner, isAdmin, isHR, isManager]);
+  const canDeleteLeave = useCallback(() =>
+    isOwner || deletePermissionUserIds.includes(String(currentUserId)),
+  [deletePermissionUserIds, currentUserId, isOwner]);
 
   const canApproveLeave = useCallback((leave = null) => {
     if (leave && getLeaveUserId(leave) === String(currentUserId)) {
@@ -702,6 +697,7 @@ const EmployeeLeaves = () => {
     }
 
     const isExplicitApprover = approverPermissionUserIds.includes(String(currentUserId));
+    if (!isExplicitApprover && !isOwner) return false;
 
     if (leave && hasApprovalWorkflow(leave)) {
       // If current user is already in the leave's workflow steps
@@ -723,8 +719,8 @@ const EmployeeLeaves = () => {
       return isExplicitApprover;
     }
 
-    return isOwner || isAdmin || isHR || isManager;
-  }, [approverPermissionUserIds, isOwner, isAdmin, isHR, isManager, currentUserId]);
+    return isOwner || isExplicitApprover;
+  }, [approverPermissionUserIds, isOwner, currentUserId]);
 
   
   

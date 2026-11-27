@@ -1769,6 +1769,15 @@ const CompanyAllTaskTasks = () => {
     }));
   };
 
+  const toggleEditCheckpoint = (index) => {
+    setEditForm((previous) => ({
+      ...previous,
+      checkpoints: previous.checkpoints.map((checkpoint, itemIndex) =>
+        itemIndex === index ? { ...checkpoint, completed: !checkpoint.completed } : checkpoint
+      ),
+    }));
+  };
+
   const addEditCheckpoint = () => {
     setEditForm((previous) => ({
       ...previous,
@@ -3786,7 +3795,7 @@ const CompanyAllTaskTasks = () => {
                 <div className="work-hours-strip">
                   <div className="hours-item">
                     <span>Worked Today</span>
-                    <strong>{workSummary?.totalClockedLabel || "0m"}</strong>
+                    <strong>{workSummary?.workedLabel || workSummary?.trackedTaskLabel || "0m"}</strong>
                   </div>
                   <div className="hours-item">
                     <span>Task Tracked</span>
@@ -3947,7 +3956,7 @@ const CompanyAllTaskTasks = () => {
                     <div className="summary-icon green"><FiClock size={18} /></div>
                     <div className="summary-info">
                       <span>Worked Today</span>
-                      <strong>{workSummary?.totalClockedLabel || "0m"}</strong>
+                      <strong>{workSummary?.workedLabel || workSummary?.trackedTaskLabel || "0m"}</strong>
                     </div>
                   </div>
 
@@ -4561,7 +4570,7 @@ const CompanyAllTaskTasks = () => {
                 <FiClock size={20} />
                 <div>
                   <span className="lbl">Total Worked Today</span>
-                  <h3>{workSummary?.totalClockedLabel || "0m"}</h3>
+                  <h3>{workSummary?.workedLabel || workSummary?.trackedTaskLabel || "0m"}</h3>
                 </div>
               </div>
               <div className="time-stat-box blue">
@@ -5801,7 +5810,7 @@ const CompanyAllTaskTasks = () => {
         {assignModal.open && (
           <div className="company-task-modal-backdrop" onClick={closeAssignModal}>
             <div className="company-task-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
+              <div className="company-task-modal-header">
                 <h3>Assign Task to {employeeName}</h3>
                 <button type="button" className="btn-close-modal" onClick={closeAssignModal}>
                   <FiX size={18} />
@@ -5809,191 +5818,193 @@ const CompanyAllTaskTasks = () => {
               </div>
 
               <form onSubmit={handleAssignSubmit} className="company-task-modal-form">
-                {assignModal.error && (
-                  <div className="company-task-error">{assignModal.error}</div>
-                )}
-
-                <div className="form-group">
-                  <label>Task Title <span className="required">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter task title"
-                    value={assignModal.title}
-                    onChange={(e) => setAssignModal((prev) => ({ ...prev, title: e.target.value }))}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Add details, instructions or expectations..."
-                    value={assignModal.description}
-                    onChange={(e) => setAssignModal((prev) => ({ ...prev, description: e.target.value }))}
-                  />
-                </div>
-
-                <div className="form-row-2">
-                  <div className="form-group">
-                    <label>Priority</label>
-                    <select
-                      value={assignModal.priority}
-                      onChange={(e) => setAssignModal((prev) => ({ ...prev, priority: e.target.value }))}
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </div>
+                <div className="company-task-modal-body">
+                  {assignModal.error && (
+                    <div className="company-task-error">{assignModal.error}</div>
+                  )}
 
                   <div className="form-group">
-                    <label>Due Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
+                    <label>Task Title <span className="required">*</span></label>
                     <input
-                      type="datetime-local"
-                      value={assignModal.dueDateTime}
+                      type="text"
                       required
-                      onChange={(e) => setAssignModal((prev) => ({ ...prev, dueDateTime: e.target.value }))}
+                      placeholder="Enter task title"
+                      value={assignModal.title}
+                      onChange={(e) => setAssignModal((prev) => ({ ...prev, title: e.target.value }))}
                     />
                   </div>
-                </div>
 
-                {/* Repeat Task Section */}
-                <div className="form-group" style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <label style={{ margin: 0, fontWeight: 600, color: "#1e293b" }}>Repeat Task</label>
-                    <span style={{
-                      fontSize: "11px",
-                      padding: "2px 8px",
-                      borderRadius: "12px",
-                      fontWeight: 600,
-                      background: assignModal.repeatPattern !== 'none' ? "#dcfce7" : "#f1f5f9",
-                      color: assignModal.repeatPattern !== 'none' ? "#15803d" : "#64748b"
-                    }}>
-                      {assignModal.repeatPattern === 'daily' ? 'Repeat Task' : 'No Repeat'}
-                    </span>
+                  <div className="form-group">
+                    <label>Description</label>
+                    <textarea
+                      rows={3}
+                      placeholder="Add details, instructions or expectations..."
+                      value={assignModal.description}
+                      onChange={(e) => setAssignModal((prev) => ({ ...prev, description: e.target.value }))}
+                    />
                   </div>
 
                   <div className="form-row-2">
                     <div className="form-group">
-                      <label>Pattern</label>
+                      <label>Priority</label>
                       <select
-                        value={assignModal.repeatPattern}
-                        onChange={(e) => setAssignModal((prev) => ({
-                          ...prev,
-                          repeatPattern: e.target.value,
-                          repeatDays: e.target.value === 'daily' ? prev.repeatDays : [],
-                          recurrenceEndDate: e.target.value !== 'none' ? prev.recurrenceEndDate : '',
-                        }))}
+                        value={assignModal.priority}
+                        onChange={(e) => setAssignModal((prev) => ({ ...prev, priority: e.target.value }))}
                       >
-                        <option value="none">No Repeat</option>
-                        <option value="daily">Repeat Task</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
                       </select>
                     </div>
 
-                    {assignModal.repeatPattern !== 'none' && (
+                    <div className="form-group">
+                      <label>Due Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
+                      <input
+                        type="datetime-local"
+                        value={assignModal.dueDateTime}
+                        required
+                        onChange={(e) => setAssignModal((prev) => ({ ...prev, dueDateTime: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Repeat Task Section */}
+                  <div className="form-group" style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <label style={{ margin: 0, fontWeight: 600, color: "#1e293b" }}>Repeat Task</label>
+                      <span style={{
+                        fontSize: "11px",
+                        padding: "2px 8px",
+                        borderRadius: "12px",
+                        fontWeight: 600,
+                        background: assignModal.repeatPattern !== 'none' ? "#dcfce7" : "#f1f5f9",
+                        color: assignModal.repeatPattern !== 'none' ? "#15803d" : "#64748b"
+                      }}>
+                        {assignModal.repeatPattern === 'daily' ? 'Repeat Task' : 'No Repeat'}
+                      </span>
+                    </div>
+
+                    <div className="form-row-2">
                       <div className="form-group">
-                        <label>Repeat End Date <span style={{ color: "#ef4444" }}>*</span></label>
-                        <input
-                          type="date"
-                          value={formatDateInputValue(assignModal.recurrenceEndDate)}
-                          min={formatDateInputValue(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date())}
-                          max={formatDateInputValue(getMaxRepeatEndDate(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date()))}
-                          onChange={(e) => setAssignModal((prev) => ({ ...prev, recurrenceEndDate: e.target.value }))}
-                        />
+                        <label>Pattern</label>
+                        <select
+                          value={assignModal.repeatPattern}
+                          onChange={(e) => setAssignModal((prev) => ({
+                            ...prev,
+                            repeatPattern: e.target.value,
+                            repeatDays: e.target.value === 'daily' ? prev.repeatDays : [],
+                            recurrenceEndDate: e.target.value !== 'none' ? prev.recurrenceEndDate : '',
+                          }))}
+                        >
+                          <option value="none">No Repeat</option>
+                          <option value="daily">Repeat Task</option>
+                        </select>
+                      </div>
+
+                      {assignModal.repeatPattern !== 'none' && (
+                        <div className="form-group">
+                          <label>Repeat End Date <span style={{ color: "#ef4444" }}>*</span></label>
+                          <input
+                            type="date"
+                            value={formatDateInputValue(assignModal.recurrenceEndDate)}
+                            min={formatDateInputValue(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date())}
+                            max={formatDateInputValue(getMaxRepeatEndDate(assignModal.dueDateTime ? new Date(assignModal.dueDateTime) : new Date()))}
+                            onChange={(e) => setAssignModal((prev) => ({ ...prev, recurrenceEndDate: e.target.value }))}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {assignModal.repeatPattern === 'daily' && (
+                      <div style={{ marginTop: "8px" }}>
+                        <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>Select Days (leave blank to run every day)</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                          {RECURRING_REPEAT_DAYS.map(day => {
+                            const isSelected = (assignModal.repeatDays || []).includes(day.value);
+                            return (
+                              <button
+                                key={day.value}
+                                type="button"
+                                onClick={() => setAssignModal((prev) => {
+                                  const current = prev.repeatDays || [];
+                                  return {
+                                    ...prev,
+                                    repeatDays: isSelected
+                                      ? current.filter(d => d !== day.value)
+                                      : [...current, day.value]
+                                  };
+                                })}
+                                style={{
+                                  padding: "4px 10px",
+                                  borderRadius: "6px",
+                                  border: isSelected ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                                  background: isSelected ? "#2563eb" : "#ffffff",
+                                  color: isSelected ? "#ffffff" : "#334155",
+                                  fontSize: "12px",
+                                  fontWeight: 500,
+                                  cursor: "pointer"
+                                }}
+                              >
+                                {day.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {assignModal.repeatPattern === 'daily' && (
-                    <div style={{ marginTop: "8px" }}>
-                      <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>Select Days (leave blank to run every day)</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {RECURRING_REPEAT_DAYS.map(day => {
-                          const isSelected = (assignModal.repeatDays || []).includes(day.value);
-                          return (
-                            <button
-                              key={day.value}
-                              type="button"
-                              onClick={() => setAssignModal((prev) => {
-                                const current = prev.repeatDays || [];
-                                return {
-                                  ...prev,
-                                  repeatDays: isSelected
-                                    ? current.filter(d => d !== day.value)
-                                    : [...current, day.value]
-                                };
-                              })}
-                              style={{
-                                padding: "4px 10px",
-                                borderRadius: "6px",
-                                border: isSelected ? "1px solid #2563eb" : "1px solid #cbd5e1",
-                                background: isSelected ? "#2563eb" : "#ffffff",
-                                color: isSelected ? "#ffffff" : "#334155",
-                                fontSize: "12px",
-                                fontWeight: 500,
-                                cursor: "pointer"
-                              }}
-                            >
-                              {day.label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                  {/* Checkpoints builder */}
+                  <div className="form-checkpoints-section">
+                    <div className="section-title-row">
+                      <label>Subtasks / Checkpoints</label>
                     </div>
-                  )}
-                </div>
-
-                {/* Checkpoints builder */}
-                <div className="form-checkpoints-section">
-                  <div className="section-title-row">
-                    <label>Subtasks / Checkpoints</label>
-                  </div>
-                  <div className="cp-inputs-list">
-                    {assignModal.checkpoints.map((cp, idx) => (
-                      <div className="cp-input-row" key={idx}>
-                        <input type="text" readOnly value={cp.title} />
+                    <div className="cp-inputs-list">
+                      {assignModal.checkpoints.map((cp, idx) => (
+                        <div className="cp-input-row" key={idx}>
+                          <input type="text" readOnly value={cp.title} />
+                          <button
+                            type="button"
+                            className="btn-remove-cp"
+                            onClick={() => handleRemoveCheckpointFromAssign(idx)}
+                          >
+                            <FiX size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="cp-input-row">
+                        <input
+                          type="text"
+                          placeholder="Add a deliverable or checkpoint..."
+                          value={assignModal.newCheckpointText}
+                          onChange={(e) => setAssignModal((prev) => ({ ...prev, newCheckpointText: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddCheckpointToAssign();
+                            }
+                          }}
+                        />
                         <button
                           type="button"
-                          className="btn-remove-cp"
-                          onClick={() => handleRemoveCheckpointFromAssign(idx)}
+                          className="btn-add-cp"
+                          onClick={handleAddCheckpointToAssign}
                         >
-                          <FiX size={14} />
+                          <FiPlus size={14} /> Add
                         </button>
                       </div>
-                    ))}
-                    <div className="cp-input-row">
-                      <input
-                        type="text"
-                        placeholder="Add a deliverable or checkpoint..."
-                        value={assignModal.newCheckpointText}
-                        onChange={(e) => setAssignModal((prev) => ({ ...prev, newCheckpointText: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddCheckpointToAssign();
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="btn-add-cp"
-                        onClick={handleAddCheckpointToAssign}
-                      >
-                        <FiPlus size={14} /> Add
-                      </button>
                     </div>
                   </div>
+
+                  <TaskReminderControl
+                    settings={assignModal.reminderSettings}
+                    dueDateTime={assignModal.dueDateTime}
+                    onChange={(nextSettings) => setAssignModal((prev) => ({ ...prev, reminderSettings: nextSettings }))}
+                    taskTitle={assignModal.title || 'Task'}
+                  />
                 </div>
 
-                <TaskReminderControl
-                  settings={assignModal.reminderSettings}
-                  dueDateTime={assignModal.dueDateTime}
-                  onChange={(nextSettings) => setAssignModal((prev) => ({ ...prev, reminderSettings: nextSettings }))}
-                  taskTitle={assignModal.title || 'Task'}
-                />
-
-                <div className="modal-footer">
+                <div className="company-task-modal-footer">
                   <button
                     type="button"
                     className="btn-modal-cancel"
@@ -6166,12 +6177,20 @@ const CompanyAllTaskTasks = () => {
                   <div className="modern-cp-list">
                     {editForm.checkpoints.map((cp, idx) => (
                       <div className="modern-cp-item" key={idx}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(cp.completed)}
+                          onChange={() => toggleEditCheckpoint(idx)}
+                          title={cp.completed ? "Mark incomplete" : "Mark completed"}
+                          style={{ width: 16, height: 16, accentColor: "#2563eb", cursor: "pointer", flexShrink: 0 }}
+                        />
                         <span className="modern-cp-num">{idx + 1}</span>
                         <input
                           type="text"
                           className="modern-cp-input"
                           value={cp.title}
                           placeholder="e.g. Design review with client"
+                          style={cp.completed ? { textDecoration: "line-through", color: "#64748b" } : undefined}
                           onChange={(e) => updateEditCheckpoint(idx, e.target.value)}
                         />
                         <button

@@ -648,6 +648,64 @@ export default function MyAiChatView({ onBack, onClose }) {
         </div>
 
         <div className="my-ai-header-right">
+          {/* Compact Circular AI Token Usage Ring */}
+          {!isPlanUpgradeRequired && !isAiDisabled && tokenUsage && (
+            <div
+              className="my-ai-token-ring-wrap"
+              title={
+                tokenUsage.isUnlimited
+                  ? `${Number(tokenUsage.tokensUsed || 0).toLocaleString()} tokens used today (Unlimited)`
+                  : `${Number(tokenUsage.tokensUsed || 0).toLocaleString()} / ${Number(tokenUsage.tokenLimit || 0).toLocaleString()} tokens used (${Number(tokenUsage.remainingTokens || 0).toLocaleString()} left)`
+              }
+            >
+              {(() => {
+                const pct = tokenUsage.isUnlimited ? 0 : Math.min(100, Math.max(0, Number(tokenUsage.percentUsed || 0)));
+                const radius = 13;
+                const circumference = 2 * Math.PI * radius;
+                const offset = circumference - (pct / 100) * circumference;
+                const ringColor = pct >= 90 ? '#dc2626' : pct >= 70 ? '#d97706' : '#2563eb';
+                return (
+                  <svg width="32" height="32" viewBox="0 0 32 32" className="my-ai-token-ring-svg">
+                    <circle
+                      cx="16"
+                      cy="16"
+                      r={radius}
+                      fill="none"
+                      stroke="#e2e8f0"
+                      strokeWidth="3"
+                    />
+                    {!tokenUsage.isUnlimited && (
+                      <circle
+                        cx="16"
+                        cy="16"
+                        r={radius}
+                        fill="none"
+                        stroke={ringColor}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        transform="rotate(-90 16 16)"
+                        style={{ transition: 'stroke-dashoffset 0.35s ease, stroke 0.25s ease' }}
+                      />
+                    )}
+                    <text
+                      x="16"
+                      y="16.5"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={pct === 100 ? '7.5' : '8.5'}
+                      fontWeight="700"
+                      fill="#0f172a"
+                    >
+                      {tokenUsage.isUnlimited ? '∞' : `${pct}%`}
+                    </text>
+                  </svg>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Engine toggle & Language cycle: clean display in expanded view */}
           {isExpanded && (
             <>
@@ -732,43 +790,6 @@ export default function MyAiChatView({ onBack, onClose }) {
           </button>
         </div>
       </header>
-
-      {/* Live Per-Employee AI Token Quota Progress Bar */}
-      {!isPlanUpgradeRequired && !isAiDisabled && tokenUsage && (
-        <div className="my-ai-token-bar-wrap" title="Your personal daily AI token quota">
-          <div className="my-ai-token-bar-top">
-            <span className="my-ai-token-bar-label">⚡ Daily AI Tokens</span>
-            <span className="my-ai-token-bar-stats">
-              {tokenUsage.isUnlimited ? (
-                <>
-                  <strong>{Number(tokenUsage.tokensUsed || 0).toLocaleString()}</strong> used • Unlimited
-                </>
-              ) : (
-                <>
-                  <strong>{Number(tokenUsage.tokensUsed || 0).toLocaleString()}</strong> / {Number(tokenUsage.tokenLimit || 0).toLocaleString()}
-                  <span className="my-ai-token-bar-left">
-                    ({Number(tokenUsage.remainingTokens || 0).toLocaleString()} left)
-                  </span>
-                </>
-              )}
-            </span>
-          </div>
-          {!tokenUsage.isUnlimited && (
-            <div className="my-ai-token-progress-track">
-              <div
-                className={`my-ai-token-progress-fill ${
-                  (tokenUsage.percentUsed || 0) >= 90
-                    ? 'is-danger'
-                    : (tokenUsage.percentUsed || 0) >= 70
-                      ? 'is-warn'
-                      : 'is-ok'
-                }`}
-                style={{ width: `${Math.min(100, Math.max(0, tokenUsage.percentUsed || 0))}%` }}
-              />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* =====================================================================
           REGION 1B: CHAT HISTORY DRAWER (ChatGPT style, 0 Groq API tokens)

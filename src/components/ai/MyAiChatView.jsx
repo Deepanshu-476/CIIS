@@ -469,6 +469,7 @@ export default function MyAiChatView({ onBack, onClose }) {
     startNewChat,
     isAiDisabled,
     aiBlockCode,
+    tokenUsage,
   } = session;
 
   const isPlanUpgradeRequired = Boolean(isAiDisabled && aiBlockCode === 'AI_SUBSCRIPTION_REQUIRED');
@@ -731,6 +732,43 @@ export default function MyAiChatView({ onBack, onClose }) {
           </button>
         </div>
       </header>
+
+      {/* Live Per-Employee AI Token Quota Progress Bar */}
+      {!isPlanUpgradeRequired && !isAiDisabled && tokenUsage && (
+        <div className="my-ai-token-bar-wrap" title="Your personal daily AI token quota">
+          <div className="my-ai-token-bar-top">
+            <span className="my-ai-token-bar-label">⚡ Daily AI Tokens</span>
+            <span className="my-ai-token-bar-stats">
+              {tokenUsage.isUnlimited ? (
+                <>
+                  <strong>{Number(tokenUsage.tokensUsed || 0).toLocaleString()}</strong> used • Unlimited
+                </>
+              ) : (
+                <>
+                  <strong>{Number(tokenUsage.tokensUsed || 0).toLocaleString()}</strong> / {Number(tokenUsage.tokenLimit || 0).toLocaleString()}
+                  <span className="my-ai-token-bar-left">
+                    ({Number(tokenUsage.remainingTokens || 0).toLocaleString()} left)
+                  </span>
+                </>
+              )}
+            </span>
+          </div>
+          {!tokenUsage.isUnlimited && (
+            <div className="my-ai-token-progress-track">
+              <div
+                className={`my-ai-token-progress-fill ${
+                  (tokenUsage.percentUsed || 0) >= 90
+                    ? 'is-danger'
+                    : (tokenUsage.percentUsed || 0) >= 70
+                      ? 'is-warn'
+                      : 'is-ok'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, tokenUsage.percentUsed || 0))}%` }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* =====================================================================
           REGION 1B: CHAT HISTORY DRAWER (ChatGPT style, 0 Groq API tokens)

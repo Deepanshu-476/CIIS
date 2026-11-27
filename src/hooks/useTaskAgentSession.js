@@ -199,6 +199,7 @@ export default function useTaskAgentSession({
     const [enHindiHint, setEnHindiHint] = useState(null);
     const [isAiDisabled, setIsAiDisabled] = useState(false);
     const [aiBlockCode, setAiBlockCode] = useState(null);
+    const [tokenUsage, setTokenUsage] = useState(null);
 
     const draftRef = useRef(null);
     const resultRef = useRef(null);
@@ -1201,6 +1202,9 @@ export default function useTaskAgentSession({
                 draftRef.current = data.draft || draft || null;
                 resultRef.current = data;
                 setResult(data);
+                if (data?.tokenUsage) {
+                    setTokenUsage(data.tokenUsage);
+                }
 
                 if (data.taskUpdated) {
                     broadcastTaskUpdated(data.updatedTask || { _id: data.updatedTaskId });
@@ -2573,6 +2577,9 @@ export default function useTaskAgentSession({
             }
             setIsAiDisabled(false);
             setAiBlockCode(null);
+            if (res?.data?.tokenUsage) {
+                setTokenUsage(res.data.tokenUsage);
+            }
         }).catch(() => { });
 
         // Fresh profile verification in background on drawer open
@@ -2973,6 +2980,7 @@ export default function useTaskAgentSession({
         voiceInfo,
         isAiDisabled,
         aiBlockCode,
+        tokenUsage,
         // Chat History & Sessions
         chatSessions,
         loadChatSession,

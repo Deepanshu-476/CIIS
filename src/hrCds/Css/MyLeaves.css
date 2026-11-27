@@ -965,49 +965,228 @@
 /* ===== RESPONSIVENESS ===== */
 @media (max-width: 1024px) {
   .MyLeaves-kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .MyLeaves-container {
-    padding: 16px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    padding: 10px 12px 84px;
   }
   .MyLeaves-hero-banner {
-    padding: 20px;
-    border-radius: 18px;
+    padding: 14px;
+    border-radius: 16px;
+    margin-bottom: 16px;
   }
   .MyLeaves-hero-header {
-    flex-direction: column;
-    gap: 16px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .MyLeaves-hero-title-area {
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+  .MyLeaves-hero-title {
+    font-size: 20px;
+    margin-bottom: 2px;
+  }
+  .MyLeaves-hero-subtitle {
+    font-size: 12px;
+  }
+  .MyLeaves-hero-apply-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 10px;
+    flex-shrink: 0;
   }
   .MyLeaves-kpi-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .MyLeaves-kpi-card {
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 10px;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+  }
+  .MyLeaves-kpi-icon-box {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+  .MyLeaves-kpi-label {
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+  .MyLeaves-kpi-value {
+    font-size: 18px;
+  }
+  .MyLeaves-kpi-subtext {
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: normal;
   }
   .MyLeaves-controls-row {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+    margin-bottom: 14px;
   }
   .MyLeaves-status-pills {
+    flex-wrap: nowrap;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
     padding-bottom: 4px;
+    max-width: 100%;
+  }
+  .MyLeaves-pill-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    flex-shrink: 0;
   }
   .MyLeaves-controls-right {
-    flex-direction: column;
+    flex-wrap: wrap;
     align-items: stretch;
+    gap: 8px;
+    width: 100%;
   }
   .MyLeaves-search-wrapper {
+    min-width: 0;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .MyLeaves-dropdown-container {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+  .MyLeaves-filter-dropdown-btn {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .MyLeaves-dropdown-menu {
+    left: 0;
+    right: auto;
     min-width: 100%;
+    max-width: calc(100vw - 24px);
+  }
+  .MyLeaves-table-card {
+    border-radius: 14px;
+    margin-bottom: 16px;
+    max-width: 100%;
+  }
+  .MyLeaves-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .MyLeaves-pagination-bar {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .MyLeaves-pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   .MyLeaves-cta-banner {
     flex-direction: column;
     align-items: flex-start;
+    padding: 14px 16px;
+    border-radius: 14px;
+    gap: 12px;
+    margin-top: 16px;
   }
   .MyLeaves-cta-btn {
     width: 100%;
     justify-content: center;
   }
-}/* ===== LEAVE REQUESTS TAB ===== */
+  .MyLeaves-apply-modal-overlay,
+  .MyLeaves-detail-overlay,
+  .MyLeaves-history-overlay,
+  .MyLeaves-cancel-dialog-overlay {
+    padding: 10px !important;
+    box-sizing: border-box;
+  }
+  .MyLeaves-apply-modal,
+  .MyLeaves-detail-modal,
+  .MyLeaves-history-modal,
+  .MyLeaves-cancel-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+  .MyLeaves-form-row.MyLeaves-date-range-group {
+    grid-template-columns: 1fr;
+  }
+  .MyLeaves-apply-modal .MyLeaves-form-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+  .MyLeaves-apply-modal .MyLeaves-form-submit,
+  .MyLeaves-apply-modal .MyLeaves-form-cancel {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .MyLeaves-hero-banner {
+    padding: 12px;
+  }
+  .MyLeaves-hero-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .MyLeaves-hero-apply-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .MyLeaves-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .MyLeaves-kpi-card {
+    padding: 9px 10px;
+    gap: 8px;
+  }
+  .MyLeaves-kpi-icon-box {
+    width: 30px;
+    height: 30px;
+  }
+  .MyLeaves-kpi-value {
+    font-size: 16px;
+  }
+  .MyLeaves-kpi-label {
+    font-size: 11px;
+  }
+  .MyLeaves-kpi-subtext {
+    font-size: 9.5px;
+  }
+  .MyLeaves-dropdown-container {
+    flex: 1 1 100%;
+  }
+  .MyLeaves-notification {
+    left: 12px;
+    right: 12px;
+    max-width: calc(100vw - 24px);
+  }
+}
+
+/* ===== LEAVE REQUESTS TAB ===== */
 .MyLeaves-requests-tab {
   padding: 32px;
 }
@@ -4059,4 +4238,139 @@
   bottom: 0;
   width: 56px;
   background: #fff;
+}
+
+/* Final Mobile Responsive Overrides for /ciisUser/my-leaves */
+@media (max-width: 767px) {
+  .MyLeaves-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    padding: 10px 12px 84px !important;
+  }
+
+  .MyLeaves-hero-banner {
+    padding: 14px !important;
+    border-radius: 14px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .MyLeaves-hero-header {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .MyLeaves-hero-title-area {
+    min-width: 0 !important;
+    flex: 1 1 170px !important;
+  }
+
+  .MyLeaves-hero-title {
+    font-size: 20px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .MyLeaves-hero-subtitle {
+    font-size: 12px !important;
+  }
+
+  .MyLeaves-hero-apply-btn {
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .MyLeaves-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .MyLeaves-kpi-card {
+    padding: 9px 10px !important;
+    border-radius: 12px !important;
+    gap: 8px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    min-width: 0 !important;
+  }
+
+  .MyLeaves-kpi-icon-box {
+    width: 34px !important;
+    height: 34px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .MyLeaves-kpi-label {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+  }
+
+  .MyLeaves-kpi-value {
+    font-size: 18px !important;
+  }
+
+  .MyLeaves-kpi-subtext {
+    display: none !important;
+  }
+
+  .MyLeaves-controls-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .MyLeaves-status-pills {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 6px !important;
+  }
+
+  .MyLeaves-status-pills::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .MyLeaves-table-scroll {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .MyLeaves-pagination-bar {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+
+  .MyLeaves-apply-modal,
+  .MyLeaves-detail-modal,
+  .MyLeaves-history-modal,
+  .MyLeaves-cancel-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .MyLeaves-hero-apply-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .MyLeaves-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
 }

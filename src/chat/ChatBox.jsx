@@ -7,8 +7,7 @@ import React, {
 } from "react";
 import "../Pages/Chat/chat.css";
 import EmojiPicker, { Categories, EmojiStyle, SkinTonePickerLocation, Theme } from "emoji-picker-react";
-import { ArrowLeft, Bell, Camera, CheckSquare, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, PhoneCall, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
-import axios from "../utils/axiosConfig";
+import { ArrowLeft, Bell, Camera, ChevronRight, Clock, Download, ExternalLink, FileText, Reply, Headphones, Images, Info, Link2, Mic, MessageCircle, MoreVertical, Paperclip, Pause, Phone, PhoneCall, RotateCcw, Play, Search, SendHorizontal, Smile, Square, TimerReset, Trash2, Video, Wallpaper, X } from "lucide-react";
 
 import { createConversation, createGroupConversation, deleteMessageForEveryone, deleteMessageForMe, forwardMessage, getMessages, markMessageSeen, sendMessage, updateConversationMute, updateDisappearingMessages, updateMessageReaction } from "../services/chatService";
 
@@ -18,8 +17,7 @@ import { enqueueUpload, getUploads, onUploadSent, subscribeUploads } from "./upl
 import ChatMentionInput from "./ChatMentionInput";
 import { taskEventText } from "./taskEventText";
 import { mentionMembers, reconcileMentions } from "./mentionUtils";
-import TaskDetailsModal from "../hrCds/components/TaskDetailsModal";
-import { openClientConversation, getClientChatTask, addClientChatRemark, openProjectConversation, getProjectChatTask, addProjectChatRemark } from "../services/chatService";
+import { openClientConversation, openProjectConversation } from "../services/chatService";
 import { API_URL_IMG } from "../config";  
 import { attachmentLabel, attachmentSource, resolveAvatarUrl } from "./messageUtils";
 import { describeCallMessage, isCallMessage } from "./callMessage";
@@ -222,7 +220,8 @@ const normalizeMessageForChat = (message, currentUserId = "") => {
 
 const VoiceRecordingWaveform = ({ stream, isPaused }) => {
     const [amplitudes, setAmplitudes] = useState(() => [
-        4, 6, 12, 18, 14, 8, 16, 22, 10, 5, 9, 17, 24, 15, 7, 5, 11, 19, 21, 12, 6, 13, 18, 15, 8, 5, 8, 12, 6, 4
+        4, 6, 12, 18, 14, 8, 16, 22, 10, 5, 9, 17, 24, 15, 7, 5, 11, 19, 21, 12, 6, 13, 18, 15, 8, 5, 8, 12, 6, 4,
+        7, 14, 20, 16, 9, 6, 12, 18, 13, 8, 5, 10, 7, 4
     ]);
     const audioContextRef = useRef(null);
     const analyserRef = useRef(null);
@@ -335,16 +334,6 @@ const ChatBox = ({
 
     const [messages, setMessages] =
         useState([]);
-    const [assignModal, setAssignModal] = useState({
-        open: false,
-        title: "",
-        description: "",
-        priority: "medium",
-        dueDateTime: "",
-        targetUserId: "",
-        submitting: false,
-        error: "",
-    });
     // Which conversation's first page has arrived, so "no messages yet" never flashes while loading.
     const [loadedConversationId, setLoadedConversationId] = useState(null);
     const [messagePagination, setMessagePagination] = useState({
@@ -361,16 +350,7 @@ const ChatBox = ({
         setRawText(nextText);
     };
     const [replyingTo, setReplyingTo] = useState(null);
-    const [projectTask, setProjectTask] = useState(null);
-    const remarkRequests = useRef(new Map());
-    useEffect(() => { setProjectTask(null); setMessageMentions([]); }, [selectedUser?._id, selectedUser?.id]);
-    const openProjectTask = async (event) => {
-        if (event.type === "task_deleted") return showToast?.("This task has been deleted.", "info");
-        try {
-            const result = event.client ? await getClientChatTask(event.client, event.task) : await getProjectChatTask(event.project, event.task);
-            setProjectTask(result.data.task);
-        } catch { showToast?.("Task is unavailable or access was removed.", "error"); }
-    };
+    useEffect(() => { setMessageMentions([]); }, [selectedUser?._id, selectedUser?.id]);
 
     const [files, setFiles] =
         useState([]);
@@ -1487,105 +1467,6 @@ useEffect(() => {
         }
     };
 
-    const openAssignModal = () => {
-        const defaultDue = new Date();
-        defaultDue.setHours(19, 0, 0, 0);
-        const tzOffset = defaultDue.getTimezoneOffset() * 60000;
-        const localISOTime = new Date(defaultDue.getTime() - tzOffset).toISOString().slice(0, 16);
-
-        const groupList = selectedUser?.isGroup
-            ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
-            : [];
-        const myId = (currentUser?._id || currentUser?.id || "").toString();
-        const initialTargetId = selectedUser?.isGroup
-            ? (groupList.find(m => (m?._id || m?.id || "").toString() !== myId)?._id || groupList[0]?._id || groupList[0]?.id || "")
-            : (selectedUser?._id || selectedUser?.id || selectedUser?.userId || "");
-
-        setAssignModal({
-            open: true,
-            title: "",
-            description: "",
-            priority: "medium",
-            dueDateTime: localISOTime,
-            targetUserId: initialTargetId ? String(initialTargetId) : "",
-            submitting: false,
-            error: "",
-        });
-    };
-
-    const closeAssignModal = () => {
-        setAssignModal(prev => ({ ...prev, open: false, submitting: false, error: "" }));
-    };
-
-    const handleAssignSubmit = async (e) => {
-        e?.preventDefault();
-        if (assignModal.submitting) return;
-
-        const title = assignModal.title.trim();
-        if (!title) {
-            setAssignModal(prev => ({ ...prev, error: "Task title is required." }));
-            return;
-        }
-
-        const targetUserId = assignModal.targetUserId || (!selectedUser?.isGroup ? (selectedUser?._id || selectedUser?.id || selectedUser?.userId) : "");
-        if (!targetUserId) {
-            setAssignModal(prev => ({ ...prev, error: "Please select an assignee." }));
-            return;
-        }
-
-        setAssignModal(prev => ({ ...prev, submitting: true, error: "" }));
-
-        try {
-            const payload = {
-                title,
-                description: assignModal.description.trim() || undefined,
-                assignedTo: [targetUserId],
-                assignedUsers: [targetUserId],
-                priority: assignModal.priority || "medium",
-                dueDateTime: assignModal.dueDateTime ? new Date(assignModal.dueDateTime).toISOString() : undefined,
-            };
-
-            await axios.post("/task/create-for-others", payload);
-
-            const groupList = selectedUser?.isGroup
-                ? (selectedUser?.members || selectedUser?.groupMembers || conversation?.members || [])
-                : [];
-            const targetMember = selectedUser?.isGroup
-                ? groupList.find(m => String(m?._id || m?.id) === String(targetUserId))
-                : selectedUser;
-            const targetName = targetMember?.name || selectedUser?.name || "Employee";
-
-            closeAssignModal();
-            showToast?.(`Task assigned to ${targetName} successfully!`, "success");
-
-            if (conversation?._id) {
-                try {
-                    const dueFormatted = assignModal.dueDateTime
-                        ? new Date(assignModal.dueDateTime).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
-                        : "";
-                    const chatText = `📋 *Task Assigned: ${title}*\nAssigned to: ${targetName}\nPriority: ${(assignModal.priority || "medium").toUpperCase()}${dueFormatted ? `\nDue: ${dueFormatted}` : ""}${assignModal.description?.trim() ? `\nDetails: ${assignModal.description.trim()}` : ""}`;
-                    const formData = new FormData();
-                    formData.append("conversationId", conversation._id);
-                    formData.append("text", chatText);
-                    formData.append("compressionMode", "normal");
-                    const res = await sendMessage(formData);
-                    if (res?.data?.message) {
-                        emitSentMessage(res.data.message);
-                        appendSentMessages([res.data.message]);
-                        onConversationChange?.();
-                    }
-                } catch (chatErr) {
-                    console.error("Chat message for task assignment failed:", chatErr);
-                }
-            }
-        } catch (err) {
-            setAssignModal(prev => ({
-                ...prev,
-                submitting: false,
-                error: err?.response?.data?.message || err?.response?.data?.error || "Failed to assign task.",
-            }));
-        }
-    };
 
     const handleDeleteForMe = async (message) => {
         try {
@@ -2868,12 +2749,7 @@ useEffect(() => {
                                     const taskMeta = getTaskEventMeta(message);
                                     return (
                                         <div className="chat-task-update" data-message-id={message._id}>
-                                            <button
-                                                type="button"
-                                                className={`chat-task-card event-${taskMeta.eventCategory}`}
-                                                onClick={() => message.systemEvent?.task && openProjectTask(message.systemEvent)}
-                                                title={message.systemEvent?.task ? "Click to view task details" : undefined}
-                                            >
+                                            <div className={`chat-task-card event-${taskMeta.eventCategory}`}>
                                                 <div className="chat-task-card-header">
                                                     <div className="chat-task-card-header-left">
                                                         <Clock size={12} className="chat-task-card-clock" />
@@ -2888,9 +2764,8 @@ useEffect(() => {
                                                 <div className="chat-task-card-body">
                                                     <FileText size={15} className="chat-task-card-icon" />
                                                     <span className="chat-task-card-text">{taskEventText(message)}</span>
-                                                    {message.systemEvent?.task && <ChevronRight size={14} className="chat-task-card-chevron" />}
                                                 </div>
-                                            </button>
+                                            </div>
                                             <button
                                                 type="button"
                                                 className="chat-task-reply"
@@ -2967,19 +2842,6 @@ useEffect(() => {
 
             </div>
 
-            {projectTask && <TaskDetailsModal open task={projectTask} canEdit={false}
-                employeeInfo={currentUser} onClose={() => setProjectTask(null)}
-                mentionUsers={availableMentionMembers}
-                onRemarkAdded={async (task, text, _files, mentions) => {
-                    const key = JSON.stringify([task.clientId || task.projectId, task._id, text, mentions]);
-                    const requestId = remarkRequests.current.get(key) || crypto.randomUUID();
-                    remarkRequests.current.set(key, requestId);
-                    if (task.clientId) await addClientChatRemark(task.clientId, task._id, text, mentions, requestId);
-                    else await addProjectChatRemark(task.projectId, task._id, text, mentions, requestId);
-                    const result = task.clientId ? await getClientChatTask(task.clientId, task._id) : await getProjectChatTask(task.projectId, task._id);
-                    setProjectTask(result.data.task);
-                    remarkRequests.current.delete(key);
-                }} />}
             <div className="chat-input-area">
                 <div className="chat-quick-replies">
                     {quickReplies.map(reply => (
@@ -3136,20 +2998,6 @@ useEffect(() => {
                                         <Headphones size={18} strokeWidth={2} />
                                     </span>
                                     <span className="attachment-label">Audio</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="attachment-menu-item"
-                                    onClick={() => {
-                                        setShowAttachmentMenu(false);
-                                        openAssignModal();
-                                    }}
-                                >
-                                    <span className="attachment-icon-wrap icon-assign">
-                                        <CheckSquare size={18} strokeWidth={2} />
-                                    </span>
-                                    <span className="attachment-label">Assign Task</span>
                                 </button>
                             </div>
                         )}
@@ -3368,12 +3216,27 @@ useEffect(() => {
             )}
 
             {confirmDeleteMessage && (
-                <div className="chat-confirm-overlay" role="dialog" aria-modal="true">
-                    <div className="chat-confirm-modal">
-                        <strong>Delete message for everyone?</strong>
-                        <p>This message will be deleted for all members in this chat.</p>
+                <div
+                    className="chat-confirm-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="chat-confirm-delete-title"
+                    onClick={() => !isSendingAction && setConfirmDeleteMessage(null)}
+                >
+                    <div className="chat-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="chat-confirm-header">
+                            <span className="chat-confirm-icon" aria-hidden="true">
+                                <Trash2 size={20} />
+                            </span>
+                            <div>
+                                <strong id="chat-confirm-delete-title">Delete message for everyone?</strong>
+                                <p>This message will be permanently deleted for all members in this chat.</p>
+                            </div>
+                        </div>
                         <div className="chat-confirm-actions">
-                            <button type="button" onClick={() => setConfirmDeleteMessage(null)} disabled={isSendingAction}>No</button>
+                            <button type="button" className="chat-confirm-cancel" onClick={() => setConfirmDeleteMessage(null)} disabled={isSendingAction}>
+                                Cancel
+                            </button>
                             <button type="button" className="danger" onClick={confirmDeleteForEveryone} disabled={isSendingAction}>
                                 {isSendingAction ? "Deleting..." : "Yes, delete"}
                             </button>
@@ -3678,121 +3541,6 @@ useEffect(() => {
                                 <SendHorizontal size={20} style={{ marginLeft: "2px" }} />
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {assignModal.open && (
-                <div className="chat-assign-modal-overlay" onClick={closeAssignModal}>
-                    <div className="chat-assign-modal" onClick={e => e.stopPropagation()}>
-                        <div className="chat-assign-modal-header">
-                            <div className="chat-assign-modal-title">
-                                <CheckSquare size={20} className="chat-assign-modal-title-icon" />
-                                <h3>
-                                    {selectedUser?.isGroup
-                                        ? `Assign Task (${selectedUser.name || "Group"})`
-                                        : `Assign Task to ${selectedUser?.name || "Employee"}`}
-                                </h3>
-                            </div>
-                            <button type="button" className="chat-assign-modal-close" onClick={closeAssignModal} aria-label="Close">
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleAssignSubmit} className="chat-assign-modal-form">
-                            {assignModal.error && (
-                                <div className="chat-assign-error">{assignModal.error}</div>
-                            )}
-
-                            {selectedUser?.isGroup && (
-                                <div className="chat-assign-form-group">
-                                    <label>Assign To <span style={{ color: "#ef4444" }}>*</span></label>
-                                    <select
-                                        value={assignModal.targetUserId}
-                                        onChange={e => setAssignModal(prev => ({ ...prev, targetUserId: e.target.value }))}
-                                        className="chat-assign-select"
-                                        required
-                                    >
-                                        <option value="">Select Group Member</option>
-                                        {(selectedUser?.members || selectedUser?.groupMembers || conversation?.members || []).map(member => {
-                                            const mId = member?._id || member?.id;
-                                            return (
-                                                <option key={mId} value={mId}>
-                                                    {member.name || "Member"} {member.email ? `(${member.email})` : ""}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="chat-assign-form-group">
-                                <label>Task Title <span style={{ color: "#ef4444" }}>*</span></label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Enter task title"
-                                    value={assignModal.title}
-                                    onChange={e => setAssignModal(prev => ({ ...prev, title: e.target.value }))}
-                                    className="chat-assign-input"
-                                />
-                            </div>
-
-                            <div className="chat-assign-form-group">
-                                <label>Description</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Add details, instructions or expectations..."
-                                    value={assignModal.description}
-                                    onChange={e => setAssignModal(prev => ({ ...prev, description: e.target.value }))}
-                                    className="chat-assign-textarea"
-                                />
-                            </div>
-
-                            <div className="chat-assign-form-row">
-                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
-                                    <label>Priority</label>
-                                    <select
-                                        value={assignModal.priority}
-                                        onChange={e => setAssignModal(prev => ({ ...prev, priority: e.target.value }))}
-                                        className="chat-assign-select"
-                                    >
-                                        <option value="low">Low</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="high">High</option>
-                                    </select>
-                                </div>
-
-                                <div className="chat-assign-form-group" style={{ flex: 1 }}>
-                                    <label>Due Date & Time <span style={{ color: "#ef4444" }}>*</span></label>
-                                    <input
-                                        type="datetime-local"
-                                        required
-                                        value={assignModal.dueDateTime}
-                                        onChange={e => setAssignModal(prev => ({ ...prev, dueDateTime: e.target.value }))}
-                                        className="chat-assign-input"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="chat-assign-modal-footer">
-                                <button
-                                    type="button"
-                                    className="chat-assign-btn-cancel"
-                                    disabled={assignModal.submitting}
-                                    onClick={closeAssignModal}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="chat-assign-btn-submit"
-                                    disabled={assignModal.submitting}
-                                >
-                                    {assignModal.submitting ? "Assigning..." : "Assign Task"}
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             )}

@@ -14,14 +14,17 @@ import {
   FiCreditCard,
   FiDownload,
   FiEdit,
+  FiExternalLink,
   FiEye,
   FiEyeOff,
   FiFileText,
   FiHeart,
+  FiImage,
   FiLock,
   FiMail,
   FiMoreVertical,
   FiPhone,
+  FiRotateCw,
   FiSave,
   FiShield,
   FiTrash2,
@@ -29,6 +32,8 @@ import {
   FiUser,
   FiUsers,
   FiX,
+  FiZoomIn,
+  FiZoomOut,
 } from "react-icons/fi";
 
 const getStoredUser = () => {
@@ -298,6 +303,8 @@ const Profile = () => {
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState("");
   const [documentPreview, setDocumentPreview] = useState(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const [previewRotation, setPreviewRotation] = useState(0);
   const activeBlobUrlRef = useRef(null);
   const [openingDocId, setOpeningDocId] = useState(null);
   const [previewItem, setPreviewItem] = useState(null);
@@ -756,6 +763,8 @@ const Profile = () => {
         activeBlobUrlRef.current = blobUrl;
         setPreviewItem(item);
         setImageLoadError(false);
+        setPreviewZoom(1);
+        setPreviewRotation(0);
         setDocumentPreview({
           url: blobUrl,
           name: item.name || "Document Preview",
@@ -781,7 +790,20 @@ const Profile = () => {
     setDocumentPreview(null);
     setPreviewItem(null);
     setImageLoadError(false);
+    setPreviewZoom(1);
+    setPreviewRotation(0);
   };
+
+  useEffect(() => {
+    if (!documentPreview) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeDocumentPreview();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [documentPreview]);
 
   // Revoke active blob URL only on component unmount
   useEffect(() => {
@@ -1342,11 +1364,34 @@ const Profile = () => {
             <InfoItem label="Aadhaar Number" value={maskAccountNumber(profile?.aadhaar || profile?.aadhar || profile?.aadharCard)} required />
             <InfoItem label="PAN Number" value={maskAccountNumber(profile?.panCard || profile?.pan)} required />
           </div>
-          <div className="UserDetails-identity-documents">
+          <div ref={documentsSectionRef} className="UserDetails-identity-documents">
             <div className="UserDetails-identity-documents-head">
               <span><FiFileText /> Documents</span>
               <b>{documents.length}</b>
             </div>
+            {documentUploadOpen && <div className="UserDetails-document-form">
+              <label>
+                Document Name *
+                <input
+                  type="text"
+                  value={documentName}
+                  onChange={(event) => setDocumentName(event.target.value)}
+                  placeholder="e.g. Aadhaar Card, PAN Card"
+                  autoFocus
+                />
+              </label>
+              <input
+                ref={documentInputRef}
+                className="UserDetails-hidden-file-input"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
+                onChange={handleDocumentSelected}
+                tabIndex={-1}
+              />
+              <button className="UserDetails-primary-btn" type="button" onClick={handleDocumentButtonClick} disabled={uploadingDocument}>
+                <FiUpload /> {uploadingDocument ? `Uploading ${uploadProgress}%` : "Choose File"}
+              </button>
+            </div>}
             {documentsLoading ? <p className="UserDetails-empty-note">Loading documents...</p> : documents.length === 0 ? (
               <div className="UserDetails-identity-empty">
                 <FiFileText />
@@ -1386,73 +1431,6 @@ const Profile = () => {
             <InfoItem label="Emergency Contact Name" value={profile?.emergencyName} required />
             <InfoItem label="Emergency Contact Number" value={profile?.emergencyPhone} required />
             <InfoItem label="Emergency Address" value={profile?.emergencyAddress} required />
-          </div>
-        </section>
-
-        <section ref={documentsSectionRef} className="UserDetails-section-card UserDetails-section-wide UserDetails-documents-card">
-          <div className="UserDetails-documents-heading">
-            <div>
-              <h3><FiFileText /> Uploaded Documents</h3>
-            </div>
-            <button className="UserDetails-primary-btn" type="button" onClick={() => setDocumentUploadOpen((open) => !open)}>
-              <FiUpload /> Upload Document
-            </button>
-          </div>
-
-          {documentUploadOpen && <div className="UserDetails-document-form">
-              <label>
-                Document Name *
-                <input
-                  type="text"
-                  value={documentName}
-                  onChange={(event) => setDocumentName(event.target.value)}
-                  placeholder="e.g. Aadhaar Card, PAN Card"
-                  autoFocus
-                />
-              </label>
-              <input
-                ref={documentInputRef}
-                className="UserDetails-hidden-file-input"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods"
-                onChange={handleDocumentSelected}
-                tabIndex={-1}
-              />
-              <button className="UserDetails-primary-btn" type="button" onClick={handleDocumentButtonClick} disabled={uploadingDocument}>
-                <FiUpload /> {uploadingDocument ? `Uploading ${uploadProgress}%` : "Choose File"}
-              </button>
-            </div>}
-          <p className="UserDetails-document-hint">Supported formats: PDF, images, Word, Excel &nbsp;•&nbsp; Maximum file size: 25 MB</p>
-
-          <div className="UserDetails-document-list">
-            <div className="UserDetails-document-table-head"><span>Document</span><span>Category</span><span>Status</span><span>Uploaded On</span><span>Action</span></div>
-            {documentsLoading ? (
-              <p className="UserDetails-empty-note">Loading documents...</p>
-            ) : documents.length === 0 ? (
-              <div className="UserDetails-document-empty"><FiFileText /><p>No documents uploaded yet.</p></div>
-            ) : documents.map((item) => {
-              const categoryLabel = item.category || (item.type?.includes("pdf") ? "PDF" : item.type?.includes("image") ? "Image" : "Document");
-              return (
-                <div className="UserDetails-document-row" key={item._id}>
-                  <div className="UserDetails-document-main">
-                    <div className="UserDetails-document-icon"><FiFileText /></div>
-                    <div className="UserDetails-document-info">
-                      <strong>{item.name}</strong>
-                    </div>
-                  </div>
-                  <span className="UserDetails-document-meta">{categoryLabel}</span>
-                  <span className="UserDetails-document-status">{item.status || "Uploaded"}</span>
-                  <span className="UserDetails-document-date">{item.uploadedAt ? new Date(item.uploadedAt).toLocaleDateString("en-IN") : "—"}</span>
-                  <div className="UserDetails-document-actions">
-                    <button type="button" disabled={openingDocId === item._id} onClick={() => openDocument(item)}>
-                      <FiEye /> {openingDocId === item._id ? "Opening..." : "View"}
-                    </button>
-                    <button type="button" onClick={() => openDocument(item, true)}><FiDownload /> Download</button>
-                    <button type="button" className="danger" onClick={() => deleteDocument(item._id)}><FiTrash2 /></button>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </section>
       </div>
@@ -1874,11 +1852,82 @@ const Profile = () => {
         <div className="UserDetails-document-preview-overlay" onClick={closeDocumentPreview} role="presentation">
           <div className="UserDetails-document-preview-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={documentPreview.name}>
             <div className="UserDetails-document-preview-header">
-              <div>
-                <h2>{documentPreview.name}</h2>
-                <p>Document preview</p>
+              <div className="UserDetails-preview-title-group">
+                <div className="UserDetails-preview-file-badge" aria-hidden="true">
+                  {documentPreview.type.startsWith("image/") ? <FiImage /> : <FiFileText />}
+                </div>
+                <div className="UserDetails-preview-title-meta">
+                  <h2>{documentPreview.name}</h2>
+                  <div className="UserDetails-preview-subtitle">
+                    <span className="UserDetails-preview-type-tag">
+                      {documentPreview.type.startsWith("image/")
+                        ? "Image"
+                        : documentPreview.type === "application/pdf"
+                        ? "PDF"
+                        : "File"}
+                    </span>
+                    <span>Document preview</span>
+                  </div>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+
+              <div className="UserDetails-preview-actions">
+                {documentPreview.type.startsWith("image/") && !imageLoadError && (
+                  <div className="UserDetails-preview-toolbar" aria-label="Image controls">
+                    <button
+                      type="button"
+                      className="UserDetails-preview-tool-btn"
+                      onClick={() => setPreviewZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                      disabled={previewZoom <= 0.5}
+                      title="Zoom out"
+                      aria-label="Zoom out"
+                    >
+                      <FiZoomOut />
+                    </button>
+                    <button
+                      type="button"
+                      className="UserDetails-preview-zoom-readout"
+                      onClick={() => {
+                        setPreviewZoom(1);
+                        setPreviewRotation(0);
+                      }}
+                      title="Reset view"
+                    >
+                      {Math.round(previewZoom * 100)}%
+                    </button>
+                    <button
+                      type="button"
+                      className="UserDetails-preview-tool-btn"
+                      onClick={() => setPreviewZoom((z) => Math.min(2.5, +(z + 0.25).toFixed(2)))}
+                      disabled={previewZoom >= 2.5}
+                      title="Zoom in"
+                      aria-label="Zoom in"
+                    >
+                      <FiZoomIn />
+                    </button>
+                    <span className="UserDetails-preview-tool-divider" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="UserDetails-preview-tool-btn"
+                      onClick={() => setPreviewRotation((r) => (r + 90) % 360)}
+                      title="Rotate 90°"
+                      aria-label="Rotate 90 degrees"
+                    >
+                      <FiRotateCw />
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="UserDetails-preview-tool-btn standalone"
+                  onClick={() => window.open(documentPreview.url, "_blank", "noopener,noreferrer")}
+                  title="Open in new tab"
+                  aria-label="Open in new tab"
+                >
+                  <FiExternalLink />
+                </button>
+
                 {previewItem && (
                   <button
                     type="button"
@@ -1890,7 +1939,8 @@ const Profile = () => {
                     <span>Download</span>
                   </button>
                 )}
-                <button type="button" className="UserDetails-icon-btn" onClick={closeDocumentPreview} aria-label="Close preview">
+
+                <button type="button" className="UserDetails-icon-btn" onClick={closeDocumentPreview} aria-label="Close preview" title="Close (Esc)">
                   <FiX />
                 </button>
               </div>
@@ -1917,6 +1967,9 @@ const Profile = () => {
                   <img
                     src={documentPreview.url}
                     alt={documentPreview.name}
+                    style={{
+                      transform: `scale(${previewZoom}) rotate(${previewRotation}deg)`,
+                    }}
                     onError={() => setImageLoadError(true)}
                   />
                 )

@@ -647,7 +647,7 @@ const EmployeeProject = () => {
               Select a project to view its details, team members, and all tasks
             </p>
           </div>
-          <div className="EmployeeProject-header-actions" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div className="EmployeeProject-header-actions">
             <button
               type="button"
               className="EmployeeProject-button EmployeeProject-button-outline"
@@ -1078,7 +1078,7 @@ const EmployeeProject = () => {
                 </div>
 
                 {/* Priority & Due Date in 2 columns */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginTop: "14px" }}>
+                <div className="EmployeeProject-create-task-two-col">
                   <div className="EmployeeProject-form-group">
                     <label style={{ display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: "#1e293b" }}>
                       Priority

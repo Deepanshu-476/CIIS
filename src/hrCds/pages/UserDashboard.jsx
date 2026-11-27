@@ -324,10 +324,30 @@ const formatClockTime = value => {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 };
 
-const getTrackedBreakTime = attendance => {
-  const value = attendance?.breakTime || attendance?.totalBreakTime || attendance?.breakDuration;
-  if (value === undefined || value === null || value === '') return 'Not tracked';
-  return typeof value === 'number' ? `${value}m` : String(value);
+const getTrackedBreakSeconds = attendance => {
+  const minutes = attendance?.breakMinutes ?? attendance?.breakTime ?? attendance?.totalBreakTime ?? attendance?.breakDuration;
+  if (minutes !== undefined && minutes !== null && minutes !== '') {
+    const numericMinutes = Number(minutes);
+    if (Number.isFinite(numericMinutes)) return Math.max(0, Math.round(numericMinutes * 60));
+  }
+
+  // Older attendance records may only contain the individual break entries.
+  if (Array.isArray(attendance?.breaks)) {
+    return attendance.breaks.reduce((total, entry) => {
+      const entryMinutes = Number(entry?.minutes);
+      if (Number.isFinite(entryMinutes)) return total + Math.max(0, Math.round(entryMinutes * 60));
+      const start = new Date(entry?.start).getTime();
+      const end = new Date(entry?.end).getTime();
+      return Number.isFinite(start) && Number.isFinite(end) && end > start ? total + Math.floor((end - start) / 1000) : total;
+    }, 0);
+  }
+  return null;
+};
+
+const formatBreakTime = seconds => {
+  if (seconds === null || seconds === undefined) return 'Not tracked';
+  const totalMinutes = Math.max(0, Math.floor(Number(seconds) / 60));
+  return totalMinutes < 60 ? `${totalMinutes}m` : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
 };
 
 const getAttendanceRecordDateKey = record => getIndiaDateKey(record?.date || record?.inTime || record?.createdAt);
@@ -499,6 +519,7 @@ const UserDashboard = () => {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
 
   const [attendanceData, setAttendanceData] = useState([]);
+  const [breakStatus, setBreakStatus] = useState(null);
   const [leaveData, setLeaveData] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
   const [recentTaskEvents, setRecentTaskEvents] = useState([]);
@@ -1104,6 +1125,26 @@ const UserDashboard = () => {
 
   }, [token, isUserInCurrentCompany]);
 
+  // The attendance list persists completed breaks as `breakMinutes`; this endpoint also
+  // tells us about a currently running break so the dashboard can count it live.
+  const fetchBreakStatus = useCallback(async () => {
+    if (!isUserInCurrentCompany) {
+      setBreakStatus(null);
+      return;
+    }
+    try {
+      const response = await axios.get('/breaks/today', {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
+      setBreakStatus(response.data?.success ? response.data : null);
+    } catch (error) {
+      // Break tracking can be disabled for a company; the attendance record remains the fallback.
+      if (![401, 403, 404].includes(error?.response?.status)) console.error('Failed to load break status:', error);
+      setBreakStatus(null);
+    }
+  }, [token, isUserInCurrentCompany]);
+
   const fetchRecentTaskActivity = useCallback(async () => {
     if (!isUserInCurrentCompany) return;
     if (fetchInProgress.current.taskActivity) return;
@@ -1508,6 +1549,7 @@ const UserDashboard = () => {
 
       try {
         const summaryLoaded = await fetchDashboardSummary();
+        fetchBreakStatus();
         if (!summaryLoaded) {
           fetchCurrentStatus();
           fetchDashboardTaskStats();
@@ -1533,7 +1575,7 @@ const UserDashboard = () => {
     loadData();
 
     return () => cancelPendingRequests();
-  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchDashboardTaskStats, fetchProductivity, fetchDashboardProjects, productivityDates, cancelPendingRequests, isUserInCurrentCompany]);
+  }, [fetchDashboardSummary, fetchDashboardConfig, fetchJobRoles, fetchHolidays, fetchAttendanceData, fetchLeaveData, fetchCurrentStatus, fetchBreakStatus, fetchDashboardTaskStats, fetchProductivity, fetchDashboardProjects, productivityDates, cancelPendingRequests, isUserInCurrentCompany]);
 
   useEffect(() => {
     fetchFocusStats();
@@ -1592,6 +1634,15 @@ const UserDashboard = () => {
       window.removeEventListener('ciis:task-updated', fetchFocusStats);
     };
   }, [fetchRecentTaskActivity, fetchFocusStats, fetchDashboardSummary]);
+
+  useEffect(() => {
+    const refreshBreakStatus = () => {
+      fetchBreakStatus();
+      fetchAttendanceData(true);
+    };
+    window.addEventListener('ciis-break-updated', refreshBreakStatus);
+    return () => window.removeEventListener('ciis-break-updated', refreshBreakStatus);
+  }, [fetchBreakStatus, fetchAttendanceData]);
 
 
 
@@ -2185,6 +2236,14 @@ const UserDashboard = () => {
     ? <LiveTime seconds={timer} running />
     : formatTotalTimeValue(todayAttendance?.totalTime) || '00:00:00';
   const displayTimer = isRunning ? timer : getTotalTimeSeconds(todayAttendance?.totalTime);
+  const recordedBreakSeconds = getTrackedBreakSeconds(todayAttendance);
+  const activeBreakStartedAt = breakStatus?.onBreak ? new Date(breakStatus?.runningBreak?.start).getTime() : NaN;
+  const activeBreakSeconds = Number.isFinite(activeBreakStartedAt)
+    ? Math.max(0, Math.floor((Date.now() - activeBreakStartedAt) / 1000))
+    : 0;
+  const breakSeconds = breakStatus
+    ? Math.max(0, Math.round(Number(breakStatus.breakMinutes) || 0) * 60) + activeBreakSeconds
+    : recordedBreakSeconds;
 
   const isSelectedDateToday = useMemo(
     () => getIndiaDateKey(selectedCalendarDate) === getIndiaDateKey(currentDate),
@@ -3408,7 +3467,7 @@ const UserDashboard = () => {
                   <div><dt>Check Out</dt><dd>{isSelectedDateToday && isRunning ? 'In progress' : formatClockTime(selectedDateAttendance?.outTime)}</dd></div>
                   <div><dt>Total Working</dt><dd>{isSelectedDateToday ? totalWorkingDisplay : (formatTotalTimeValue(selectedDateAttendance?.totalTime) || (selectedDateAttendance?.inTime ? '00:00:00' : '—'))}</dd></div>
                   <div><dt>Late</dt><dd>{selectedDateAttendance ? (['LATE', 'HALF DAY'].includes(normalizeAttendanceStatus(selectedDateAttendance.status)) ? `Yes${selectedDateAttendance.lateBy && selectedDateAttendance.lateBy !== '00:00:00' ? ` (${selectedDateAttendance.lateBy})` : ''}` : 'No') : '--'}</dd></div>
-                  <div><dt>Break Time</dt><dd>{getTrackedBreakTime(selectedDateAttendance)}</dd></div>
+                  <div><dt>Break Time</dt><dd>{isSelectedDateToday && breakStatus?.onBreak ? <LiveTime seconds={breakSeconds} running /> : formatBreakTime(isSelectedDateToday ? breakSeconds : getTrackedBreakSeconds(selectedDateAttendance))}</dd></div>
                   <div><dt>Tasks Completed</dt><dd>{isSelectedDateToday ? (focusStats.loading ? '—' : focusStats.completedToday) : taskActivity.filter(t => getIndiaDateKey(t.date) === getIndiaDateKey(selectedCalendarDate) && String(t.status || '').toLowerCase().includes('complete')).length}</dd></div>
                 </dl>
                 <button onClick={() => navigate('/ciisUser/attendance')}>View Full Attendance</button>

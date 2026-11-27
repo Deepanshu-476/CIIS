@@ -513,7 +513,7 @@ const AllCompany = () => {
         navigate(`/Ciis-network/all-company/${company._id}/users`);
         break;
       case "admins":
-        openPortalTab(`/Ciis-network/all-company/${company._id}/admins`);
+        navigate(`/Ciis-network/all-company/${company._id}/admins`);
         break;
       case "data":
         navigate(`/Ciis-network/all-company/${company._id}/view`);
@@ -793,17 +793,15 @@ const AllCompany = () => {
                         </td>
                         <td>
                           <div className="AllCompany-row-actions">
-                            {/* Opens the company's owner / admin details in a new tab; this tab stays as it is. */}
-                            <a
+                            <button
+                              type="button"
                               className="AllCompany-icon-button AllCompany-admin-link"
-                              href={`/Ciis-network/all-company/${companyId}/admins`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="View admin details (new tab)"
-                              aria-label={`View admin details of ${company.companyName || "company"} in a new tab`}
+                              onClick={() => navigate(`/Ciis-network/all-company/${companyId}/admins`)}
+                              title="View admin details"
+                              aria-label={`View admin details of ${company.companyName || "company"}`}
                             >
                               <span className="material-icons">admin_panel_settings</span>
-                            </a>
+                            </button>
                             {canViewCompanyData && (
                               <button
                                 type="button"

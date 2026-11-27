@@ -94,7 +94,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.EmployeeProject-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .EmployeeProject-title {
@@ -2462,6 +2470,13 @@
   flex: 0 0 auto;
 }
 
+.EmployeeProject-create-task-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
 .EmployeeProject-create-task-modal .EmployeeProject-modal-header {
   min-height: 84px;
   padding: 16px 22px;
@@ -3039,17 +3054,150 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .EmployeeProject-container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    padding: 10px 12px 84px;
+  }
+
+  .EmployeeProject-snackbar {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    max-width: calc(100vw - 24px);
+  }
+
+  .EmployeeProject-header {
     padding: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .EmployeeProject-header-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .EmployeeProject-header-text {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .EmployeeProject-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .EmployeeProject-subtitle {
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .EmployeeProject-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .EmployeeProject-header-actions .EmployeeProject-button {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px 10px !important;
+    font-size: 0.8125rem;
+    justify-content: center;
+    text-align: center;
   }
   
   .EmployeeProject-grid {
     grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .EmployeeProject-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .EmployeeProject-card:hover {
+    transform: none;
+  }
+
+  .EmployeeProject-card-content {
+    padding: 1rem;
+  }
+
+  .EmployeeProject-card-title {
+    font-size: 1.0625rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .EmployeeProject-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .EmployeeProject-card-footer-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .EmployeeProject-card-footer-actions .EmployeeProject-button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 36px;
+    justify-content: center;
   }
   
   .EmployeeProject-stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.625rem;
+  }
+
+  .EmployeeProject-stat-card {
+    padding: 0.75rem;
+    min-height: 92px;
+    box-sizing: border-box;
+  }
+
+  .EmployeeProject-stat-card:hover {
+    transform: none;
+  }
+
+  .EmployeeProject-stat-value {
+    font-size: 1.25rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .EmployeeProject-stat-label {
+    font-size: 0.75rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .EmployeeProject-stat-subtext {
+    font-size: 0.68rem;
+  }
+
+  .EmployeeProject-stat-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    font-size: 1rem;
+  }
+
+  .EmployeeProject-search-row {
+    margin-top: 1rem !important;
+    margin-bottom: 0.25rem;
   }
 
   .EmployeeProject-tasks-list {
@@ -3129,7 +3277,13 @@
   }
   
   .EmployeeProject-drawer-right {
-    width: 100vw;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .EmployeeProject-drawer-header,
+  .EmployeeProject-drawer-body {
+    padding: 1rem;
   }
 
   .EmployeeProject-activity-modal {
@@ -3148,18 +3302,79 @@
   .EmployeeProject-activity-modal-body {
     padding: 1rem;
   }
+
+  .EmployeeProject-modal {
+    padding: 12px;
+    box-sizing: border-box;
+  }
+
+  .EmployeeProject-modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+    box-sizing: border-box;
+  }
   
   .EmployeeProject-modal-sm,
   .EmployeeProject-modal-md,
   .EmployeeProject-modal-lg {
-    width: 95vw;
-    margin: 1rem;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .EmployeeProject-modal-header,
+  .EmployeeProject-modal-body,
+  .EmployeeProject-modal-footer {
+    padding: 1rem;
+  }
+
+  .EmployeeProject-modal-footer {
+    flex-wrap: wrap;
+  }
+
+  .EmployeeProject-create-task-two-col {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 
 @media (max-width: 480px) {
   .EmployeeProject-container {
-    padding: 0.75rem;
+    padding: 8px 10px 84px;
+  }
+
+  .EmployeeProject-header {
+    padding: 0.875rem;
+  }
+
+  .EmployeeProject-header-actions .EmployeeProject-button {
+    font-size: 0.75rem;
+    padding: 8px !important;
+  }
+
+  .EmployeeProject-stats-grid {
+    gap: 0.5rem;
+  }
+
+  .EmployeeProject-stat-card {
+    padding: 0.65rem;
+    min-height: 84px;
+  }
+
+  .EmployeeProject-stat-value {
+    font-size: 1.125rem;
+  }
+
+  .EmployeeProject-stat-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    font-size: 0.95rem;
+  }
+
+  .EmployeeProject-card-content {
+    padding: 0.875rem;
   }
 
   .EmployeeProject-tasks-list {
@@ -3168,13 +3383,13 @@
 
   .EmployeeProject-task-card {
     width: 100%;
-    max-width: 380px;
+    max-width: 100%;
     margin: 0 auto;
     border-radius: 10px;
   }
 
   .EmployeeProject-title {
-    font-size: 1.5rem;
+    font-size: 1.375rem;
   }
   
   .EmployeeProject-card-title {

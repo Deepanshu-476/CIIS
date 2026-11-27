@@ -3795,7 +3795,7 @@ const CompanyAllTaskTasks = () => {
                 <div className="work-hours-strip">
                   <div className="hours-item">
                     <span>Worked Today</span>
-                    <strong>{workSummary?.totalClockedLabel || "0m"}</strong>
+                    <strong>{workSummary?.workedLabel || workSummary?.trackedTaskLabel || "0m"}</strong>
                   </div>
                   <div className="hours-item">
                     <span>Task Tracked</span>
@@ -3956,7 +3956,7 @@ const CompanyAllTaskTasks = () => {
                     <div className="summary-icon green"><FiClock size={18} /></div>
                     <div className="summary-info">
                       <span>Worked Today</span>
-                      <strong>{workSummary?.totalClockedLabel || "0m"}</strong>
+                      <strong>{workSummary?.workedLabel || workSummary?.trackedTaskLabel || "0m"}</strong>
                     </div>
                   </div>
 
@@ -4570,7 +4570,7 @@ const CompanyAllTaskTasks = () => {
                 <FiClock size={20} />
                 <div>
                   <span className="lbl">Total Worked Today</span>
-                  <h3>{workSummary?.totalClockedLabel || "0m"}</h3>
+                  <h3>{workSummary?.workedLabel || workSummary?.trackedTaskLabel || "0m"}</h3>
                 </div>
               </div>
               <div className="time-stat-box blue">

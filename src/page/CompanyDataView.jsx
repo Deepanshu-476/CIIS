@@ -789,28 +789,31 @@ function UsageTab({ companyId, allowedPages }) {
   const used = new Set(allPages.map(p => normalizePage(p.path)));
   const unusedPlanPages = allowedPages.filter(key => !used.has(key) && !key.includes("/") && !key.startsWith("client"));
 
-  // Hourly Activity Bars (9 AM to 6 PM IST)
+  // Hourly Activity Bars (Full 24h IST)
   const hourlyData = useMemo(() => {
-    const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+    const hours = Array.from({ length: 24 }, (_, i) => i);
     const map = new Map((data?.hourly || []).map(h => [h.hour, h.count]));
     const max = Math.max(1, ...Array.from(map.values()));
     return hours.map(hr => {
       const count = map.get(hr) || 0;
-      const label = hr > 12 ? `${hr - 12} PM` : hr === 12 ? '12 PM' : `${hr} AM`;
+      const fullLabel = hr === 0 ? '12 AM' : hr === 12 ? '12 PM' : hr > 12 ? `${hr - 12} PM` : `${hr} AM`;
+      const shortLabel = hr % 3 === 0 ? (hr === 0 ? '12a' : hr === 12 ? '12p' : hr > 12 ? `${hr - 12}p` : `${hr}a`) : '';
       const height = Math.max(4, Math.round((count / max) * 100));
-      return { hr, label, count, height };
+      return { hr, label: fullLabel, shortLabel, count, height };
     });
   }, [data?.hourly]);
 
   // Source Stats
   const sourceStats = useMemo(() => {
-    const s = data?.sources || { web: 0, app: 0 };
-    const total = (s.web || 0) + (s.app || 0) || 1;
+    const s = data?.sources || { web: 0, app: 0, unknown: 0 };
+    const total = (s.web || 0) + (s.app || 0) + (s.unknown || 0) || 1;
     return {
       web: s.web || 0,
       webPct: Math.round(((s.web || 0) / total) * 100),
       app: s.app || 0,
       appPct: Math.round(((s.app || 0) / total) * 100),
+      other: s.unknown || 0,
+      otherPct: Math.round(((s.unknown || 0) / total) * 100),
     };
   }, [data?.sources]);
 
@@ -870,7 +873,7 @@ function UsageTab({ companyId, allowedPages }) {
             <div className="CDV-analytics-card">
               <div className="CDV-card-title-row">
                 <span className="CDV-card-title">
-                  <Clock size={16} color="#2563eb" /> Peak Business Traffic (9 AM - 6 PM IST)
+                  <Clock size={16} color="#2563eb" /> Peak Business Traffic (24h IST)
                 </span>
                 <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Hourly Distribution</span>
               </div>
@@ -880,7 +883,7 @@ function UsageTab({ companyId, allowedPages }) {
                     <div className="CDV-hour-bar-wrap">
                       <div className="CDV-hour-bar-fill" style={{ height: `${h.height}%` }} />
                     </div>
-                    <span className="CDV-hour-label">{h.label}</span>
+                    <span className="CDV-hour-label">{h.shortLabel}</span>
                   </div>
                 ))}
               </div>
@@ -914,9 +917,40 @@ function UsageTab({ companyId, allowedPages }) {
                     <div className="CDV-source-fill" style={{ width: `${sourceStats.appPct}%`, background: '#7c3aed' }} />
                   </div>
                 </div>
+
+                {sourceStats.other > 0 && (
+                  <div className="CDV-source-item" style={{ marginTop: 6 }}>
+                    <div className="CDV-source-info">
+                      <span style={{ color: '#0f172a' }}>Other / Direct API</span>
+                      <span style={{ color: '#64748b' }}>{sourceStats.other} hits ({sourceStats.otherPct}%)</span>
+                    </div>
+                    <div className="CDV-source-bar">
+                      <div className="CDV-source-fill" style={{ width: `${sourceStats.otherPct}%`, background: '#64748b' }} />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {(data.modules || []).length > 0 && (
+            <div className="CDV-card" style={{ marginBottom: 16 }}>
+              <div className="CDV-card-title-row" style={{ marginBottom: 10 }}>
+                <span className="CDV-card-title">Module Adoption & Activity</span>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{data.modules.length} modules</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
+                {data.modules.slice(0, 12).map(mod => (
+                  <div key={mod.module} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#0f172a' }}>{mod.module}</div>
+                    <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: 4 }}>
+                      {mod.views} views · {mod.actions} changes · {mod.uniqueUsers} users
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Unused Plan Features Alert */}
           {unusedPlanPages.length > 0 && (

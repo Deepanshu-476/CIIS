@@ -3,11 +3,10 @@ import axios from "./axiosConfig";
 import { CRM_PAGES, resolveCrmPermissionPath } from "../config/crmPages";
 import { TELECALLER_PAGES } from "../crm/telecaller/telecallerPages";
 
-const pagePermissionCache = globalThis.__CIIS_PAGE_PERMISSION_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CACHE__ = new Map());
-const pagePermissionCatalogCache = globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ || (globalThis.__CIIS_PAGE_PERMISSION_CATALOG_CACHE__ = { createdAt: 0, value: null });
+const pagePermissionCache = new Map();
 const PAGE_PERMISSION_TTL_MS = 5 * 60 * 1000;
-const PAGE_PERMISSION_SESSION_PREFIX = 'ciis-page-permission-catalog:';
 const permissionRequests = new Map();
+let activeScope;
 const normalizePermissionPath = path => String(path || '').trim().toLowerCase().replace(/\/+$/, '');
 const PERMISSION_RETRY_DELAYS_MS = [400, 800, 1600, 3000];
 
@@ -29,50 +28,26 @@ const withPermissionRetry = async load => {
   }
   throw lastError;
 };
-const permissionScope = () => {
+export const getPagePermissionScope = () => {
   const user = getStoredUser();
-  return JSON.stringify([user?._id || user?.id, user?.company || user?.companyId,
-    accountStorage.getItem('companyDetails'), accountStorage.getItem('token')]);
-};
-
-const permissionSessionKey = () => {
-  const user = getStoredUser();
-  const userId = String(user?._id || user?.id || '').trim();
-  const company = user?.company || user?.companyId || user?.companyDetails;
-  const companyId = String(
-    (typeof company === 'object' ? company?._id || company?.id : company) || ''
-  ).trim();
-  return userId ? `${PAGE_PERMISSION_SESSION_PREFIX}${userId}:${companyId}` : '';
-};
-
-export const getCachedPagePermissionCatalog = () => {
-  const key = permissionSessionKey();
-  if (!key) return null;
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(key) || 'null');
-    if (!cached?.createdAt || Date.now() - cached.createdAt >= PAGE_PERMISSION_TTL_MS) {
-      sessionStorage.removeItem(key);
-      return null;
-    }
-    return cached?.value || null;
-  } catch {
-    return null;
+  const companyId = normalizeUserId(user?.company || user?.companyId || user?.companyDetails);
+  const scope = JSON.stringify([normalizeUserId(user?._id || user?.id), companyId, accountStorage?.getItem('token')]);
+  if (scope !== activeScope) {
+    pagePermissionCache.clear();
+    permissionRequests.clear();
+    activeScope = scope;
   }
+  return scope;
 };
 
-const cachePagePermissionCatalogForSession = value => {
-  const key = permissionSessionKey();
-  if (!key) return;
-  try {
-    sessionStorage.setItem(key, JSON.stringify({ createdAt: Date.now(), value }));
-  } catch {
-    // Continue with the in-memory cache when storage is unavailable or full.
-  }
-};
-
-const loadPermissionResource = (key, load) => {
+const readPermissionResource = key => {
   const cached = pagePermissionCache.get(key);
-  if (cached && Date.now() - cached.createdAt < PAGE_PERMISSION_TTL_MS) return Promise.resolve(cached.value);
+  return cached && Date.now() - cached.createdAt < PAGE_PERMISSION_TTL_MS ? cached.value : null;
+};
+
+const loadPermissionResource = (key, load, force = false) => {
+  const cached = readPermissionResource(key);
+  if (!force && cached !== null) return Promise.resolve(cached);
   if (permissionRequests.has(key)) return permissionRequests.get(key);
   const request = load().then(value => {
     if (permissionRequests.get(key) === request) {
@@ -231,20 +206,28 @@ export const hasPageAccess = (page, userId, accessType = 'view') => {
   return getPageAccessUserIds(page, type).includes(normalizedUserId);
 };
 
+const pagePermissionKey = path => `${getPagePermissionScope()}|${getManagedPermissionPath(resolveCrmPermissionPath(normalizePagePath(path)) || path)}`;
+const catalogKey = () => `${getPagePermissionScope()}|catalog`;
+
+export const getCachedPagePermissionCatalog = () => readPermissionResource(catalogKey());
+const findCatalogPage = (catalog, path) => getCatalogAccessPages(catalog).find(page =>
+  getManagedPermissionPath(page.path) === getManagedPermissionPath(path));
+export const getCachedPagePermission = path => {
+  const permissionPath = resolveCrmPermissionPath(normalizePagePath(path)) || path;
+  return findCatalogPage(getCachedPagePermissionCatalog(), permissionPath) || readPermissionResource(pagePermissionKey(path));
+};
+
 export const loadPagePermission = async (path, options = {}) => {
   const permissionPath = resolveCrmPermissionPath(normalizePagePath(path)) || path;
-  const normalizedPath = normalizePermissionPath(permissionPath);
-  const cacheKey = `${permissionScope()}|${normalizedPath}`;
-  if (options?.force) {
-    pagePermissionCache.delete(cacheKey);
-    permissionRequests.delete(cacheKey);
-  }
+  const catalog = getCachedPagePermissionCatalog();
+  const catalogPage = findCatalogPage(catalog, permissionPath);
+  if (catalogPage) return catalogPage;
+  const cacheKey = pagePermissionKey(path);
 
   return loadPermissionResource(cacheKey, async () => {
     if (requiresPageAccess(permissionPath)) {
       try {
-        const catalog = await loadPagePermissionCatalog();
-        const page = getCatalogAccessPages(catalog).find(item => getManagedPermissionPath(item.path) === getManagedPermissionPath(normalizedPath));
+        const page = findCatalogPage(await loadPagePermissionCatalog(), permissionPath);
         if (page) return page;
       } catch { /* Fall back to the by-path endpoint when the batch is unavailable. */ }
     }
@@ -262,13 +245,11 @@ export const loadPagePermission = async (path, options = {}) => {
       lockUsers: [],
       unlockUsers: []
     };
-  });
+  }, options.force);
 };
 
-export const loadPagePermissionCatalog = async (options = {}) => {
-  const scope = permissionScope();
-  const cacheKey = `${scope}|catalog`;
-  const loadCatalog = async () => {
+export const loadPagePermissionCatalog = (options = {}) =>
+  loadPermissionResource(catalogKey(), async () => {
     const response = await withPermissionRetry(() => axios.get("/page-permissions/pages", {
       params: { includeAccess: true },
       noCache: true,
@@ -276,53 +257,56 @@ export const loadPagePermissionCatalog = async (options = {}) => {
     }));
     const pages = Array.isArray(response.data?.pages) ? response.data.pages : [];
     const accessPages = Array.isArray(response.data?.accessPages) ? response.data.accessPages : undefined;
-    const value = {
+    return {
       ...response.data,
       pages,
       ...(accessPages ? { accessPages } : {})
     };
 
-    pagePermissionCatalogCache.scope = scope;
-    pagePermissionCatalogCache.createdAt = Date.now();
-    pagePermissionCatalogCache.value = value;
-    cachePagePermissionCatalogForSession(value);
-    return value;
-  };
+  }, options.force);
 
-  if (options?.force) {
-    const value = await loadCatalog();
-    pagePermissionCache.set(cacheKey, { createdAt: Date.now(), value });
-    return value;
+const SPECIAL_PAGE_PATHS = ['/ciisuser/register-request', '/ciisuser/company-ai-settings'];
+const specialPermissionKey = path => `${getPagePermissionScope()}|special|${getManagedPermissionPath(path)}`;
+export const getCachedSpecialPageAccess = path => readPermissionResource(specialPermissionKey(path));
+
+export const loadSpecialPageAccess = (path, options = {}) => loadPermissionResource(specialPermissionKey(path), async () => {
+  const user = getStoredUser();
+  const companyId = normalizeUserId(user?.company || user?.companyId);
+  const isRegisterRequest = getManagedPermissionPath(path) === SPECIAL_PAGE_PATHS[0];
+  if (!isRegisterRequest && !companyId) return false;
+  const endpoint = isRegisterRequest
+    ? '/users/register-requests/access'
+    : `/company/${encodeURIComponent(companyId)}/ai-settings/access`;
+  try {
+    await axios.get(endpoint, { noCache: true, _skipRequestCache: true, _skipErrorNotify: true });
+    return true;
+  } catch (error) {
+    if ([403, 404].includes(error?.response?.status)) return false;
+    throw error;
   }
+}, options.force);
 
-  if (pagePermissionCatalogCache.scope === scope && pagePermissionCatalogCache.value && (Date.now() - pagePermissionCatalogCache.createdAt) < PAGE_PERMISSION_TTL_MS) {
-    return pagePermissionCatalogCache.value;
-  }
-
-  return loadPermissionResource(cacheKey, loadCatalog);
+export const preloadPagePermissions = async (options = {}) => {
+  const scope = getPagePermissionScope();
+  const catalog = await loadPagePermissionCatalog(options);
+  if (scope !== getPagePermissionScope()) return;
+  const pages = Array.isArray(catalog.managedPages) ? catalog.managedPages : [];
+  await Promise.allSettled(SPECIAL_PAGE_PATHS.filter(path => pages.some(page =>
+    page.entitled && getManagedPermissionPath(page.path) === path)).map(path => loadSpecialPageAccess(path, options)));
 };
 
 export const invalidatePagePermissionCache = (path) => {
-  pagePermissionCatalogCache.value = null;
   if (!path) {
     pagePermissionCache.clear();
     permissionRequests.clear();
-    const sessionKey = permissionSessionKey();
-    try {
-      if (sessionKey) sessionStorage.removeItem(sessionKey);
-    } catch { /* Storage can be unavailable in restricted browser modes. */ }
     return;
   }
-  const suffix = `|${normalizePermissionPath(path)}`;
+  const suffix = `|${getManagedPermissionPath(path)}`;
   for (const cache of [pagePermissionCache, permissionRequests]) {
     for (const key of cache.keys()) {
       if (key.endsWith(suffix) || key.endsWith('|catalog')) cache.delete(key);
     }
   }
-  const sessionKey = permissionSessionKey();
-  try {
-    if (sessionKey) sessionStorage.removeItem(sessionKey);
-  } catch { /* Storage can be unavailable in restricted browser modes. */ }
 };
 
 export const getUserPageScope = (page, userId, accessType = '') => {

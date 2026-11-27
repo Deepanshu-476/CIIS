@@ -579,6 +579,7 @@ function PagesTab({ pages, onOpenPage }) {
 function UsersTab({ users, onOpenUser }) {
   const [search, setSearch] = useState('');
   const [show, setShow] = useState('all');
+  const [userTypeFilter, setUserTypeFilter] = useState('all');
   const [selectedBranch, setSelectedBranch] = useState('all');
 
   // Extract unique branches
@@ -593,7 +594,9 @@ function UsersTab({ users, onOpenUser }) {
   const list = useMemo(() => {
     const term = search.trim().toLowerCase();
     return users.filter(user => {
-      if (user.isActive === false) return false;
+      if (userTypeFilter === 'staff' && user.userType === 'client') return false;
+      if (userTypeFilter === 'client' && user.userType !== 'client') return false;
+      if (userTypeFilter === 'inactive' && user.isActive !== false) return false;
 
       // Branch filter
       if (selectedBranch !== 'all') {
@@ -606,10 +609,10 @@ function UsersTab({ users, onOpenUser }) {
       if (show === 'inactive' && totalActivities) return false;
       if (show === 'never' && user.lastLogin) return false;
       if (!term) return true;
-      return [user.name, user.email, user.department, user.role, ...(user.branches || [])]
+      return [user.name, user.email, user.department, user.role, user.userType, ...(user.branches || [])]
         .some(value => String(value || '').toLowerCase().includes(term));
     });
-  }, [users, search, show, selectedBranch]);
+  }, [users, search, show, userTypeFilter, selectedBranch]);
 
   return (
     <div>
@@ -618,11 +621,22 @@ function UsersTab({ users, onOpenUser }) {
           <Search size={15} className="ua-search-icon" />
           <input
             type="text"
-            placeholder="Search staff by name, role, department or branch..."
+            placeholder="Search people by name, role, department or branch..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
+        <select
+          className="ua-select-custom"
+          value={userTypeFilter}
+          onChange={e => setUserTypeFilter(e.target.value)}
+        >
+          <option value="all">All People (Staff & Clients)</option>
+          <option value="staff">Staff Only</option>
+          <option value="client">Clients Only</option>
+          <option value="inactive">Inactive Accounts</option>
+        </select>
 
         {/* Multi-Branch Filter Dropdown */}
         {availableBranches.length > 0 && (
@@ -687,7 +701,15 @@ function UsersTab({ users, onOpenUser }) {
                         <div className={`ua-status-badge-dot ${isOnlineToday ? 'dot-online' : 'dot-offline'}`} />
                       </div>
                       <div>
-                        <div className="ua-user-name">{user.name}</div>
+                        <div className="ua-user-name">
+                          {user.name}
+                          {user.userType === 'client' ? (
+                            <span className="ua-badge" style={{ marginLeft: 6, background: '#e0f2fe', color: '#0369a1', fontSize: '0.68rem' }}>Client</span>
+                          ) : null}
+                          {user.isActive === false ? (
+                            <span className="ua-badge" style={{ marginLeft: 6, background: '#f1f5f9', color: '#64748b', fontSize: '0.68rem' }}>Inactive</span>
+                          ) : null}
+                        </div>
                         <div className="ua-user-meta">
                           {[user.role, user.department].filter(Boolean).join(' • ') || user.email}
                         </div>
@@ -732,6 +754,7 @@ function UsersTab({ users, onOpenUser }) {
                     actionText="Reset All Filters"
                     onAction={() => {
                       setSearch('');
+                      setUserTypeFilter('all');
                       setSelectedBranch('all');
                       setShow('all');
                     }}
@@ -1107,29 +1130,47 @@ export default function UserActivity() {
     return (summary?.pages || []).slice(0, 5);
   }, [summary]);
 
-  // Hourly Activity Bars (9 AM to 6 PM IST)
+  // Hourly Activity Bars (Full 24h IST so morning, afternoon and night shifts all show)
   const hourlyData = useMemo(() => {
-    const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+    const hours = Array.from({ length: 24 }, (_, i) => i);
     const map = new Map((summary?.hourly || []).map(h => [h.hour, h.count]));
     const max = Math.max(1, ...Array.from(map.values()));
     return hours.map(hr => {
       const count = map.get(hr) || 0;
-      const label = hr > 12 ? `${hr - 12} PM` : hr === 12 ? '12 PM' : `${hr} AM`;
+      const shortLabel = hr === 0 ? '12a' : hr === 12 ? '12p' : hr > 12 ? `${hr - 12}p` : `${hr}a`;
+      const fullLabel = hr === 0 ? '12 AM' : hr === 12 ? '12 PM' : hr > 12 ? `${hr - 12} PM` : `${hr} AM`;
+      const showLabel = hr % 3 === 0;
       const height = Math.max(4, Math.round((count / max) * 100));
-      return { hr, label, count, height };
+      return { hr, label: fullLabel, shortLabel: showLabel ? shortLabel : '', count, height };
     });
   }, [summary]);
 
-  // Device Source distribution
+  // Device Source distribution (includes Web, Mobile App and Other/API hits)
   const deviceStats = useMemo(() => {
-    const s = summary?.sources || { web: 0, app: 0 };
-    const total = (s.web || 0) + (s.app || 0) || 1;
+    const s = summary?.sources || { web: 0, app: 0, unknown: 0 };
+    const total = (s.web || 0) + (s.app || 0) + (s.unknown || 0) || 1;
     return {
       webCount: s.web || 0,
       webPct: Math.round(((s.web || 0) / total) * 100),
       appCount: s.app || 0,
       appPct: Math.round(((s.app || 0) / total) * 100),
+      otherCount: s.unknown || 0,
+      otherPct: Math.round(((s.unknown || 0) / total) * 100),
     };
+  }, [summary]);
+
+  const dailyTrendData = useMemo(() => {
+    const rows = summary?.days || [];
+    const max = Math.max(1, ...rows.map(d => (d.views || 0) + (d.actions || 0) + (d.logins || 0)));
+    return rows.map(d => {
+      const total = (d.views || 0) + (d.actions || 0) + (d.logins || 0);
+      return {
+        ...d,
+        total,
+        shortDate: String(d.date || '').slice(5),
+        height: Math.max(6, Math.round((total / max) * 100)),
+      };
+    });
   }, [summary]);
 
   const openUsersModal = (title, userList) => {
@@ -1160,17 +1201,21 @@ export default function UserActivity() {
   // Simple CSV export function
   const handleExportCSV = () => {
     if (!allUsers.length) return;
-    const headers = ['Name', 'Email', 'Role', 'Department', 'Branch', 'Last Login', 'Last Active', 'Views', 'Changes'];
+    const headers = ['Name', 'Email', 'Type', 'Status', 'Role', 'Department', 'Branch', 'Last Login', 'Last Active', 'Logins', 'Views', 'Changes', 'Active Time'];
     const rows = allUsers.map(u => [
       `"${u.name || ''}"`,
       `"${u.email || ''}"`,
+      `"${u.userType === 'client' ? 'Client' : 'Staff'}"`,
+      `"${u.isActive === false ? 'Inactive' : 'Active'}"`,
       `"${u.role || ''}"`,
       `"${u.department || ''}"`,
       `"${(u.branches || []).join(', ')}"`,
       `"${fmtDateTime(u.lastLogin)}"`,
       `"${fmtDateTime(u.lastActiveAt)}"`,
+      u.logins || 0,
       u.views || 0,
-      u.actions || 0
+      u.actions || 0,
+      `"${fmtDuration(u.timeMs)}"`
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -1312,11 +1357,14 @@ export default function UserActivity() {
 
               <div
                 className="ua-presence-pill pill-slate"
-                onClick={() => openUsersModal('All Active Employees', allUsers)}
+                onClick={() => openUsersModal('All Users (Staff & Clients)', allUsers)}
                 title="Click to see total directory"
               >
                 <Users size={13} />
-                <span>{allUsers.length} Total Staff</span>
+                <span>
+                  {allUsers.length} Total ({t.staffCount ?? allUsers.filter(u => u.userType !== 'client').length} Staff
+                  {(t.clientsCount || allUsers.some(u => u.userType === 'client')) ? ` · ${t.clientsCount ?? allUsers.filter(u => u.userType === 'client').length} Clients` : ''})
+                </span>
               </div>
             </div>
           </div>
@@ -1415,9 +1463,9 @@ export default function UserActivity() {
               <div className="ua-sub-card-header">
                 <div className="ua-sub-card-title">
                   <Clock size={16} color="#2563eb" />
-                  <span>Peak Working Hours (IST)</span>
+                  <span>Peak Working Hours (24h IST)</span>
                 </div>
-                <span className="ua-sub-card-hint">Hourly system load</span>
+                <span className="ua-sub-card-hint">All-hours system load</span>
               </div>
               <div className="ua-hourly-chart">
                 {hourlyData.map(h => (
@@ -1426,7 +1474,7 @@ export default function UserActivity() {
                       <strong>{h.label}</strong>: {h.count} actions
                     </div>
                     <div className="ua-hour-bar" style={{ height: `${h.height}%` }} />
-                    <span className="ua-hour-label">{h.label}</span>
+                    <span className="ua-hour-label">{h.shortLabel}</span>
                   </div>
                 ))}
               </div>
@@ -1439,7 +1487,7 @@ export default function UserActivity() {
                   <Smartphone size={16} color="#8b5cf6" />
                   <span>Platform Usage</span>
                 </div>
-                <span className="ua-sub-card-hint">Web vs App</span>
+                <span className="ua-sub-card-hint">Web vs App vs API</span>
               </div>
               <div className="ua-device-list">
                 <div className="ua-device-item">
@@ -1461,9 +1509,135 @@ export default function UserActivity() {
                     <div className="ua-progress-bar-fill" style={{ width: `${deviceStats.appPct}%`, background: '#8b5cf6' }} />
                   </div>
                 </div>
+
+                {deviceStats.otherCount > 0 && (
+                  <div className="ua-device-item">
+                    <div className="ua-device-row">
+                      <span className="ua-device-label"><Radio size={14} color="#64748b" /> Other / Direct API</span>
+                      <span><strong>{deviceStats.otherPct}%</strong> ({deviceStats.otherCount})</span>
+                    </div>
+                    <div className="ua-progress-bar-thin">
+                      <div className="ua-progress-bar-fill" style={{ width: `${deviceStats.otherPct}%`, background: '#64748b' }} />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Daily Activity Trend + Module Adoption */}
+          {(dailyTrendData.length > 0 || (summary.modules || []).length > 0) && (
+            <div className="ua-insights-grid" style={{ marginBottom: 22 }}>
+              <div className="ua-sub-card">
+                <div className="ua-sub-card-header">
+                  <div className="ua-sub-card-title">
+                    <TrendingUp size={16} color="#059669" />
+                    <span>Daily Activity Trend ({rangeLabel})</span>
+                  </div>
+                  <span className="ua-sub-card-hint">{dailyTrendData.length} day(s)</span>
+                </div>
+                {dailyTrendData.length > 0 ? (
+                  <div className="ua-hourly-chart">
+                    {dailyTrendData.slice(-14).map(d => (
+                      <div key={d.date} className="ua-hour-col">
+                        <div className="ua-hour-tooltip">
+                          <strong>{d.date}</strong>: {d.views} views, {d.actions} changes, {d.logins} logins ({d.activeUsers} users)
+                        </div>
+                        <div className="ua-hour-bar" style={{ height: `${d.height}%`, background: '#10b981' }} />
+                        <span className="ua-hour-label">{d.shortDate}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', padding: '12px 0' }}>No daily activity recorded yet.</div>
+                )}
+              </div>
+
+              <div className="ua-sub-card">
+                <div className="ua-sub-card-header">
+                  <div className="ua-sub-card-title">
+                    <Layers size={16} color="#2563eb" />
+                    <span>Module Adoption Breakdown</span>
+                  </div>
+                  <span className="ua-sub-card-hint">{(summary.modules || []).length} modules</span>
+                </div>
+                <div className="ua-insight-list">
+                  {(summary.modules || []).slice(0, 7).map(mod => (
+                    <div key={mod.module} className="ua-insight-row">
+                      <div>
+                        <div style={{ fontWeight: 500, fontSize: '0.84rem', color: '#0f172a' }}>{mod.module}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{mod.uniqueUsers} active users</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.84rem', color: '#2563eb' }}>{mod.views} views</div>
+                        <div style={{ fontSize: '0.7rem', color: '#ea580c' }}>{mod.actions} changes</div>
+                      </div>
+                    </div>
+                  ))}
+                  {!(summary.modules || []).length && (
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', padding: '12px 0' }}>No module activity recorded yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Department & Branch Analytics */}
+          {((summary.departments || []).length > 0 || (summary.branches || []).length > 0) && (
+            <div className="ua-insights-grid" style={{ marginBottom: 22 }}>
+              <div className="ua-sub-card">
+                <div className="ua-sub-card-header">
+                  <div className="ua-sub-card-title">
+                    <ShieldCheck size={16} color="#7c3aed" />
+                    <span>Department Analytics</span>
+                  </div>
+                  <span className="ua-sub-card-hint">{(summary.departments || []).length} departments</span>
+                </div>
+                <div className="ua-insight-list">
+                  {(summary.departments || []).slice(0, 8).map(dept => (
+                    <div key={dept.name} className="ua-insight-row">
+                      <div>
+                        <div style={{ fontWeight: 500, fontSize: '0.84rem', color: '#0f172a' }}>{dept.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          {dept.loggedInToday}/{dept.users} logged in today · {dept.activeInRange} active
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.84rem', color: '#0f172a' }}>{dept.views} views</div>
+                        <div style={{ fontSize: '0.7rem', color: '#ea580c' }}>{dept.actions} changes</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ua-sub-card">
+                <div className="ua-sub-card-header">
+                  <div className="ua-sub-card-title">
+                    <Building2 size={16} color="#0284c7" />
+                    <span>Branch Analytics</span>
+                  </div>
+                  <span className="ua-sub-card-hint">{(summary.branches || []).length} branches</span>
+                </div>
+                <div className="ua-insight-list">
+                  {(summary.branches || []).slice(0, 8).map(br => (
+                    <div key={br.name} className="ua-insight-row">
+                      <div>
+                        <div style={{ fontWeight: 500, fontSize: '0.84rem', color: '#0f172a' }}>{br.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          {br.loggedInToday}/{br.users} logged in today · {br.activeInRange} active
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.84rem', color: '#0f172a' }}>{br.views} views</div>
+                        <div style={{ fontSize: '0.7rem', color: '#ea580c' }}>{br.actions} changes</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Insights 2-Widgets Grid (People & Top Modules) */}
           <div className="ua-insights-grid">
@@ -1567,7 +1741,7 @@ export default function UserActivity() {
                 className={`ua-tab-btn ${tab === 'users' ? 'active' : ''}`}
                 onClick={() => setTab('users')}
               >
-                <Users size={15} /> Active Staff ({allUsers.length})
+                <Users size={15} /> All People ({allUsers.length})
               </button>
               <button
                 className={`ua-tab-btn ${tab === 'feed' ? 'active' : ''}`}

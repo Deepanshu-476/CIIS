@@ -2215,7 +2215,7 @@ const companyAccessFallbackItems = [
 
 const filterItemsByCompanyAccess = (items, companyData, permissionPages) => {
   const managed = new Map((permissionPages || []).filter(page => typeof page.entitled === 'boolean')
-    .map(page => [getManagedPermissionPath(page.path), page.entitled]));
+    .map(page => [getManagedPermissionPath(page.path), page.entitled || page.canManageRegistrationRequests === true]));
   const allowedPages = Array.isArray(companyData?.allowedPages) ? companyData.allowedPages : [];
   if (allowedPages.length === 0) return items.filter(item => {
     const entitled = managed.get(getManagedPermissionPath(item.path));
@@ -3044,53 +3044,61 @@ const Sidebar = ({
     }
 
     let cancelled = false;
-    // Do not render permissions remembered by an older session while the
-    // authoritative catalog is being refreshed.
-    setPagePermissions(null);
-    const refreshPermissions = () => loadPagePermissionCatalog({ force: true })
-      .then(async catalog => {
-        if (Array.isArray(catalog.managedPages)) {
-          if (!cancelled) setPagePermissions(getCatalogAccessPages(catalog));
-          return;
-        }
-        const pages = Array.isArray(catalog?.pages) ? catalog.pages : [];
-        // Older servers can omit CRM entries from their page catalog even
-        // though by-path permissions already exist for those pages.
-        const pagesByPath = new Map(pages.map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page]));
-        [...CRM_PAGES.map(page => ({ ...page, path: `/ciisUser/${page.path}` })), ...TELECALLER_PAGES].forEach(page => {
-          const key = page.path.toLowerCase();
-          if (!pagesByPath.has(key)) pagesByPath.set(key, { ...page, pageKey: page.id });
-        });
-        const completePages = [...pagesByPath.values()];
-        const strictPages = completePages.filter(page => requiresPageAccess(page?.path));
-        const detailedPages = [...(catalog.accessPages || [])];
-        // Older servers do not support the batch. Bound their request concurrency.
-        if (!Array.isArray(catalog.accessPages)) {
-          for (let offset = 0; offset < strictPages.length && !cancelled; offset += 4) {
-            detailedPages.push(...await Promise.all(strictPages.slice(offset, offset + 4).map(async page => {
-              try { return await loadPagePermission(page.path); }
-              catch { return page; }
-            })));
+    let permissionRequest = 0;
+    setPagePermissions(permissionPagesFromCatalog(getCachedPagePermissionCatalog()));
+    const refreshPermissions = (options = {}) => {
+      const request = ++permissionRequest;
+      const isCurrent = () => !cancelled && request === permissionRequest;
+      return loadPagePermissionCatalog(options)
+        .then(async catalog => {
+          if (!isCurrent()) return;
+          if (Array.isArray(catalog.managedPages)) {
+            setPagePermissions(getCatalogAccessPages(catalog));
+            return;
           }
-        }
-        const detailsByPath = new Map(detailedPages.map(page => [
-          String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
-          page
-        ]));
-        const permissionPages = completePages.map(page => (
-          detailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
-        ));
+          const pages = Array.isArray(catalog?.pages) ? catalog.pages : [];
+          // Older servers can omit CRM entries from their page catalog even
+          // though by-path permissions already exist for those pages.
+          const pagesByPath = new Map(pages.map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page]));
+          [...CRM_PAGES.map(page => ({ ...page, path: `/ciisUser/${page.path}` })), ...TELECALLER_PAGES].forEach(page => {
+            const key = page.path.toLowerCase();
+            if (!pagesByPath.has(key)) pagesByPath.set(key, { ...page, pageKey: page.id });
+          });
+          const completePages = [...pagesByPath.values()];
+          const strictPages = completePages.filter(page => requiresPageAccess(page?.path));
+          const detailedPages = [...(catalog.accessPages || [])];
+          // Older servers do not support the batch. Bound their request concurrency.
+          if (!Array.isArray(catalog.accessPages)) {
+            for (let offset = 0; offset < strictPages.length && isCurrent(); offset += 4) {
+              detailedPages.push(...await Promise.all(strictPages.slice(offset, offset + 4).map(async page => {
+                try { return await loadPagePermission(page.path); }
+                catch { return page; }
+              })));
+            }
+          }
+          const detailsByPath = new Map(detailedPages.map(page => [
+            String(page?.path || '').toLowerCase().replace(/\/+$/, ''),
+            page
+          ]));
+          const permissionPages = completePages.map(page => (
+            detailsByPath.get(String(page?.path || '').toLowerCase().replace(/\/+$/, '')) || page
+          ));
 
-        if (!cancelled) setPagePermissions(permissionPages);
-      })
-      // Keep the last verified permissions visible during a temporary API
-      // failure. Route-level access checks still protect page navigation.
-      .catch(() => undefined);
+          if (isCurrent()) setPagePermissions(permissionPages);
+        })
+        // Keep the last verified permissions visible during a temporary API
+        // failure. Route-level access checks still protect page navigation.
+        .catch(() => undefined);
+    };
 
     refreshPermissions();
-    window.addEventListener('ciis:page-permissions-refresh', refreshPermissions);
+    const refreshOnFocus = () => refreshPermissions({ force: true });
+    const refreshAfterChange = () => refreshPermissions();
+    window.addEventListener('ciis:page-permissions-refresh', refreshAfterChange);
+    window.addEventListener('focus', refreshOnFocus);
     return () => {
-      window.removeEventListener('ciis:page-permissions-refresh', refreshPermissions);
+      window.removeEventListener('ciis:page-permissions-refresh', refreshAfterChange);
+      window.removeEventListener('focus', refreshOnFocus);
       cancelled = true;
     };
   }, [userId, sidebarCompanyId, isClientUser]);
@@ -3330,6 +3338,7 @@ const Sidebar = ({
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
         const managedPage = managedPageFor(itemPath);
+        if (itemPath === '/ciisuser/register-request' && managedPage?.canManageRegistrationRequests === true) return true;
         if (typeof managedPage?.entitled === 'boolean') {
           return managedPage.entitled && (hasPageAccess(managedPage, userId, 'view') ||
             (!isCrmPage(itemPath) && item.category !== 'admin-telecaller' && isCompanyPageOwner(userData)));
@@ -3457,7 +3466,7 @@ const Sidebar = ({
         'owner', 'admin', 'hr', 'super_admin', 'superadmin',
         'company_owner', 'companyowner'
       ]);
-      const canManageRegisterRequests = [
+      const canManageRegisterRequests = managedPageFor('/ciisuser/register-request')?.canManageRegistrationRequests === true || [
         userData?.companyRole,
         userData?.jobRole,
         userData?.role

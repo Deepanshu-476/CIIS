@@ -12,6 +12,19 @@ const KNOWN = [
   { path: '/ciisUser/user-activity', name: 'Employee Activity' },
   { path: '/ciisUser/promotions', name: 'Promotions' },
   { path: '/ciisUser/page-management', name: 'Page Management' },
+  { path: '/ciisUser/company-ai-settings', name: 'Company AI & Tokens' },
+  { path: '/ciisUser/dashboard-overview', name: 'Dashboard Overview' },
+  { path: '/ciisUser/crm/admin/marketing-ads', name: 'Marketing Ads Integrations' },
+  { path: '/ciisUser/client-plans', name: 'Client Plans' },
+  { path: '/ciisUser/client-documents', name: 'Client Documents' },
+  { path: '/ciisUser/support-desk', name: 'Support Desk' },
+  { path: '/ciisUser/company-assets', name: 'Asset Management' },
+  { path: '/ciisUser/client-dashboard', name: 'Client Dashboard' },
+  { path: '/ciisUser/client-my-services', name: 'Client Services' },
+  { path: '/ciisUser/client-tasks-updates', name: 'Client Task Updates' },
+  { path: '/ciisUser/client-payments', name: 'Client Payments & Invoices' },
+  { path: '/ciisUser/register-request', name: 'Register Requests' },
+  { path: '/ciisUser/SidebarManagement', name: 'Sidebar Management' },
 ].filter(item => item.path && item.name);
 
 const segments = path => String(path || '').toLowerCase().replace(/\/+$/, '').split('/').filter(Boolean);
@@ -83,6 +96,24 @@ const EXACT_ACTIONS = {
 
   'POST /api/payroll/generate': 'Generated Salary Slips',
   'PUT /api/payroll/:id': 'Updated Payroll Record',
+
+  'POST /api/ai/task-agent/parse': 'Used AI Assistant',
+  'PUT /api/company/:id/ai-settings/key': 'Updated Company AI Key',
+  'PUT /api/company/:id/ai-settings/employees/:id': 'Updated Employee AI Quota',
+  'PUT /api/company/:id/ai-settings/employees/bulk': 'Bulk Updated AI Quotas',
+  'POST /api/mcp/keys': 'Generated MCP API Key',
+  'POST /api/projects': 'Created New Project',
+  'PUT /api/projects/:id': 'Updated Project',
+  'POST /api/clientsservice': 'Added New Client',
+  'PUT /api/clientsservice/:id': 'Updated Client Details',
+  'POST /api/client-plans': 'Created Client Plan',
+  'PUT /api/client-plans/:id': 'Updated Client Plan',
+  'POST /api/breaks/start': 'Started Break',
+  'POST /api/breaks/stop': 'Ended Break',
+  'POST /api/week-off/request': 'Requested Week-Off Change',
+  'POST /api/meetings/create': 'Scheduled Meeting',
+  'POST /api/cmeeting/create': 'Scheduled Client Meeting',
+  'POST /api/support/tickets': 'Created Support Ticket',
 };
 
 export const describeAction = (method = '', endpoint = '', summary = '') => {
@@ -114,14 +145,29 @@ export const describeAction = (method = '', endpoint = '', summary = '') => {
 // Module badge metadata helper
 export const getModuleInfo = (path = '', endpoint = '', explicitModule = '') => {
   const text = `${explicitModule} ${path} ${endpoint}`.toLowerCase();
+  if (text.includes('ai-settings') || text.includes('/api/ai') || text.includes('/mcp') || text.includes('ai assistant') || text.includes('company-ai')) {
+    return { name: 'AI Assistant', color: '#4338ca', bg: '#eef2ff', border: '#c7d2fe' };
+  }
+  if (text.includes('marketing-ads') || text.includes('marketing ads')) {
+    return { name: 'Marketing Ads', color: '#be185d', bg: '#fdf2f8', border: '#fbcfe8' };
+  }
+  if (text.includes('telecall')) {
+    return { name: 'Telecalling', color: '#c026d3', bg: '#fdf4ff', border: '#fae8ff' };
+  }
   if (text.includes('crm') || text.includes('lead')) {
     return { name: 'CRM Leads', color: '#d97706', bg: '#fffbeb', border: '#fef3c7' };
+  }
+  if (text.includes('project')) {
+    return { name: 'Projects', color: '#0f766e', bg: '#f0fdfa', border: '#99f6e4' };
+  }
+  if (text.includes('client-plan') || text.includes('client-document') || text.includes('clientsservice') || text.includes('emp-client') || text.includes('client portal') || text.includes('clients & plans')) {
+    return { name: 'Clients & Plans', color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd' };
   }
   if (text.includes('task')) {
     return { name: 'Tasks', color: '#2563eb', bg: '#eff6ff', border: '#dbeafe' };
   }
-  if (text.includes('attendance') || text.includes('clock')) {
-    return { name: 'Attendance', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
+  if (text.includes('attendance') || text.includes('clock') || text.includes('break') || text.includes('week-off') || text.includes('overtime')) {
+    return { name: 'Attendance & Breaks', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
   }
   if (text.includes('leave')) {
     return { name: 'Leaves & HR', color: '#7c3aed', bg: '#f5f3ff', border: '#ede9fe' };
@@ -132,8 +178,17 @@ export const getModuleInfo = (path = '', endpoint = '', explicitModule = '') => 
   if (text.includes('chat') || text.includes('message')) {
     return { name: 'Team Chat', color: '#0284c7', bg: '#f0f9ff', border: '#e0f2fe' };
   }
-  if (text.includes('telecall')) {
-    return { name: 'Telecalling', color: '#c026d3', bg: '#fdf4ff', border: '#fae8ff' };
+  if (text.includes('meeting') || text.includes('cmeeting')) {
+    return { name: 'Meetings', color: '#7c2d12', bg: '#fff7ed', border: '#fed7aa' };
+  }
+  if (text.includes('support')) {
+    return { name: 'Support Desk', color: '#b45309', bg: '#fef3c7', border: '#fde68a' };
+  }
+  if (text.includes('asset')) {
+    return { name: 'Assets', color: '#334155', bg: '#f1f5f9', border: '#cbd5e1' };
+  }
+  if (text.includes('dashboard-overview') || text.includes('export-reports') || text.includes('user-activity') || text.includes('analytics')) {
+    return { name: 'Dashboard & Reports', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' };
   }
   if (text.includes('profile') || text.includes('users/me')) {
     return { name: 'Profile', color: '#4f46e5', bg: '#eef2ff', border: '#e0e7ff' };

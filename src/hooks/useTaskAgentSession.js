@@ -47,6 +47,12 @@ import {
 
 const axios = axiosInstance;
 
+const EXPLICIT_CREATE_PHRASE_RX = /^(?:(?:haan|ha|yes|हाँ|हां|ji)\s+)?(?:create\s*(?:it|this|now|task|kar\s*do|kardo|karo)|task\s+create\s+kar\s*do|submit(?:\s+task)?|confirm(?:\s+and\s+create)?|bana\s*do|banado|banao|kar\s*do|kardo|टास्क\s*बना\s*दो|क्रिएट\s*कर\s*दो)[\s!.,?।]*$/iu;
+const ACK_OR_PAUSE_ONLY_RX = /^(?:(?:ok(?:ay|ey|e)?|kk?|yes|yep|yeah|haan(?:\s+ji)?|hanji|ji|acha|achha|theek\s*(?:hai|h)?|thik\s*(?:hai|h)?|sahi\s*(?:hai|h)?|alright|all\s*right|fine|sure|hmm+|hm+)\s*[,.]?\s*)?(?:wait(?:\s+a\s+(?:sec(?:ond)?|min(?:ute)?|moment|bit))?|hold\s+on|just\s+a\s+(?:sec(?:ond)?|min(?:ute)?|moment)|(?:one|1|ek)\s+(?:sec(?:ond)?|min(?:ute)?)|ruko(?:\s+(?:zara|thoda))?|thoda\s+ruko|zara\s+ruko|wait\s+karo)?[\s!.,?।]*$/iu;
+
+const isExplicitCreatePhrase = (text) => Boolean(text && EXPLICIT_CREATE_PHRASE_RX.test(String(text).trim()));
+const isAckOrPauseOnly = (text) => Boolean(text && String(text).trim() && ACK_OR_PAUSE_ONLY_RX.test(String(text).trim()) && !isExplicitCreatePhrase(text));
+
 let currentSessionUser = null;
 
 const getUser = () => {
@@ -1086,10 +1092,30 @@ export default function useTaskAgentSession({
             }
 
             // When ready to create, check if message is a field change, confirmation, or refusal
-            const isReady = !isEditingRef.current && (readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready');
-            if (isEditingRef.current) {
+            const isEditing = isEditingRef.current || Boolean(resultRef.current?.draft?.awaitingEdit || draftRef.current?.awaitingEdit);
+            const isReady = !isEditing && (readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready');
+            if (isEditing) {
+                if (isExplicitCreatePhrase(text)) {
+                    isEditingRef.current = false;
+                    setLoading(false);
+                    if (!isCreatingRef.current) {
+                        const currentDraft = resultRef.current?.draft || draftRef.current || result?.draft;
+                        confirmHandlerRef.current?.(resolveConfirmPayload(null, resultRef.current?.payload || result?.payload, currentDraft));
+                    }
+                    return;
+                }
+                if (isAckOrPauseOnly(text)) {
+                    isEditingRef.current = true;
+                    setLoading(false);
+                    const isEn = sessionLangRef.current === 'en';
+                    const replyMsg = isEn
+                        ? "Yes, please tell me what changes you want to make (e.g. title, priority, due date/time), or say 'Create task' / 'Create it' when ready."
+                        : "Haan ji! Batayein kya changes karne hain (jaise title, priority, due date/time), ya task create karne ke liye 'Create task' / 'Create it' bolein.";
+                    pushMsg('assistant', replyMsg);
+                    return;
+                }
                 isEditingRef.current = false;
-                // In edit mode: user's message is an edit command, fall straight through to backend parse!
+                // In edit mode with an actual edit instruction: fall through to backend parse to update draft!
             } else if (isReady && text && !action && !pick) {
                 if (hasFieldChangeIntent(text)) {
                     // Field modification requested (e.g. "due time change karo 7 baaj kar 10 min ka karo")
@@ -1123,6 +1149,15 @@ export default function useTaskAgentSession({
                     } else {
                         (ensureListeningRef.current || ensureListening)();
                     }
+                    return;
+                } else if (isAckOrPauseOnly(text) && !isExplicitCreatePhrase(text)) {
+                    cancelReadyCountdown();
+                    setLoading(false);
+                    const isEn = sessionLangRef.current === 'en';
+                    const replyMsg = isEn
+                        ? "Yes, please click Create or say 'Create task' / 'Create it' to create, or tell me what you'd like to change."
+                        : "Haan ji! Task create karne ke liye Create dabayein ya 'Create task' / 'Create it' bolein, ya batayein kya change karna hai.";
+                    pushMsg('assistant', replyMsg);
                     return;
                 } else if (isConfirmationIntent(text)) {
                     setLoading(false);
@@ -1390,14 +1425,16 @@ export default function useTaskAgentSession({
             if (variant === 'voice' || autoSpeak) {
                 const lower = clean.toLowerCase();
 
-                // If currently in ready state:
-                const isReady = readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready';
+                // If currently in ready state (and NOT actively editing):
+                const isEditingVoice = isEditingRef.current || Boolean(resultRef.current?.draft?.awaitingEdit || draftRef.current?.awaitingEdit);
+                const isReady = !isEditingVoice && (readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready');
                 if (isReady) {
                     // Dev-only logging for turns in confirming/ready state
                     if (import.meta.env?.DEV) {
                         let intentDecision = 'none';
                         if (hasFieldChangeIntent(clean)) intentDecision = 'field_change';
                         else if (isRefusalOrEditIntent(clean)) intentDecision = 'refusal_or_edit';
+                        else if (isAckOrPauseOnly(clean)) intentDecision = 'ack_or_pause';
                         else if (isConfirmationIntent(clean)) intentDecision = 'confirm';
                         else intentDecision = 'unmatched';
 
@@ -1417,6 +1454,7 @@ export default function useTaskAgentSession({
                     }
 
                     if (isRefusalOrEditIntent(clean)) {
+                        isEditingRef.current = true;
                         cancelReadyCountdown();
                         pushMsg('user', clean);
                         const replyMsg = 'Ji batayein kya changes karne hain? Main kar dungi.';
@@ -1424,6 +1462,24 @@ export default function useTaskAgentSession({
                         pushMsg('assistant', replyMsg);
                         if (autoSpeak) {
                             speak(speechMsg, replyMsg, () => {
+                                setTimeout(() => start(), 300);
+                            });
+                        } else {
+                            setTimeout(() => start(), 300);
+                        }
+                        return;
+                    }
+
+                    if (isAckOrPauseOnly(clean)) {
+                        cancelReadyCountdown();
+                        pushMsg('user', clean);
+                        const isEn = sessionLangRef.current === 'en';
+                        const replyMsg = isEn
+                            ? "Yes, please click Create or say 'Create task' / 'Create it' to create, or tell me what to change."
+                            : "Haan ji! Create dabayein ya 'Create task' / 'Create it' bolein, ya batayein kya change karna hai.";
+                        pushMsg('assistant', replyMsg);
+                        if (autoSpeak) {
+                            speak(replyMsg, replyMsg, () => {
                                 setTimeout(() => start(), 300);
                             });
                         } else {
@@ -1503,8 +1559,10 @@ export default function useTaskAgentSession({
 
             // In Side mode: manual input or countdown
             setInput(clean);
-            const isReadySide = readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready';
-            if (isReadySide && isConfirmationIntent(clean)) {
+            const isEditingSide = isEditingRef.current || Boolean(resultRef.current?.draft?.awaitingEdit || draftRef.current?.awaitingEdit);
+            const isReadySide = !isEditingSide && (readyCountdown !== null || resultRef.current?.status === 'ready' || result?.status === 'ready');
+            if ((isReadySide && !isAckOrPauseOnly(clean) && isConfirmationIntent(clean)) || (isEditingSide && isExplicitCreatePhrase(clean))) {
+                isEditingRef.current = false;
                 cancelAutoSend();
                 cancelReadyCountdown();
                 pushMsg('user', clean);
@@ -2503,8 +2561,20 @@ export default function useTaskAgentSession({
         micModeRef.current = 'typed';
         inputSourceRef.current = 'typed';
 
-        const isReady = (resultRef.current?.status === 'ready' || result?.status === 'ready');
-        if (isReady && isConfirmationIntent(trimmed)) {
+        const isEditing = isEditingRef.current || Boolean(resultRef.current?.draft?.awaitingEdit || draftRef.current?.awaitingEdit);
+        const isReady = !isEditing && (resultRef.current?.status === 'ready' || result?.status === 'ready');
+        if (isEditing) {
+            if (isExplicitCreatePhrase(trimmed)) {
+                isEditingRef.current = false;
+                pushMsg('user', trimmed);
+                setInput('');
+                handleConfirm(resultRef.current?.payload || result?.payload);
+                return;
+            }
+            sendTurn({ text: input, source: 'typed', draftPatch: { awaitingEdit: true } });
+            return;
+        }
+        if (isReady && !isAckOrPauseOnly(trimmed) && isConfirmationIntent(trimmed)) {
             pushMsg('user', trimmed);
             setInput('');
             handleConfirm(resultRef.current?.payload || result?.payload);

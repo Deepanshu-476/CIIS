@@ -4,7 +4,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from "../../crm/telecaller/telecallerPages";
-import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, loadPagePermission } from "../../utils/pageAccess";
+import {
+  getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess,
+  loadPagePermission, loadPagePermissionCatalog, getCatalogAccessPages, getManagedPermissionPath,
+  isCompanyPageOwner, getPagePermissionScope, getCachedPagePermissionCatalog, getCachedPagePermission,
+  getCachedSpecialPageAccess, loadSpecialPageAccess, preloadPagePermissions,
+} from "../../utils/pageAccess";
 import api from '../../utils/axiosConfig';
 
 const PRIVILEGED_ROLES = new Set([
@@ -434,35 +439,115 @@ export const PageStatusCard = ({ status = 404, reason = "not_found", pathname = 
   );
 };
 
+const accessDecision = (allowed, reason = "permission") => ({ allowed, reason: allowed ? null : reason });
+
+const CORE_PAGE_KEYS = new Set([...PLAN_FREE_PATHS].filter(key => !["promotions", "user-activity"].includes(key)));
+
+const getAccessContext = path => {
+  const user = getStoredUser();
+  return {
+    user,
+    userId: String(user?._id || user?.id || ''),
+    telecallerPage: TELECALLER_PAGES.find(page => page.path.toLowerCase() === path),
+    isSpecial: path === '/ciisuser/register-request' || path === '/ciisuser/company-ai-settings',
+    isPrivileged: [user?.companyRole, user?.jobRole, user?.role]
+      .some(role => PRIVILEGED_ROLES.has(normalizeRole(role?.name || role))),
+  };
+};
+
+const getStoredCompany = () => {
+  try { return JSON.parse(accountStorage.getItem('companyDetails') || '{}'); }
+  catch { return {}; }
+};
+
+const decidePageAccess = (pagePath, catalog, { user, userId, telecallerPage, isSpecial, isPrivileged }) => {
+  const path = getManagedPermissionPath(pagePath);
+  if (CORE_PAGE_KEYS.has(normalizePlanKey(path)) || !path.startsWith('/ciisuser/')) {
+    return accessDecision(hasCompanyPlanAccess(pagePath), 'plan');
+  }
+
+  const managedPage = Array.isArray(catalog?.managedPages) && getCatalogAccessPages(catalog).find(page =>
+    getManagedPermissionPath(page.path) === path);
+  if (managedPage) {
+    if (path === '/ciisuser/register-request' && managedPage.canManageRegistrationRequests === true) {
+      return accessDecision(true);
+    }
+    if (!managedPage.entitled) return accessDecision(false, 'plan');
+    if (!isSpecial) {
+      return accessDecision(hasPageAccess(managedPage, userId, 'view') ||
+        (!telecallerPage && !isCrmPage(pagePath) && isCompanyPageOwner(user)));
+    }
+  }
+
+  if (telecallerPage) {
+    const page = getCachedPagePermission(pagePath);
+    return page && hasTelecallerCompanyAccess(telecallerPage, getStoredCompany())
+      ? accessDecision(hasPageAccess(page, userId, 'view')) : null;
+  }
+  if (!catalog) return null;
+  if (!hasCompanyPlanAccess(pagePath)) return accessDecision(false, 'plan');
+  if (isSpecial) {
+    const allowed = getCachedSpecialPageAccess(pagePath);
+    return allowed === null ? null : accessDecision(allowed);
+  }
+  if (!requiresPageAccess(pagePath) || (isPrivileged && path === '/ciisuser/client-plans')) {
+    return accessDecision(true);
+  }
+  const page = getCachedPagePermission(pagePath);
+  return page ? accessDecision(page.entitled !== false && (hasPageAccess(page, userId, 'view') ||
+    (!isCrmPage(pagePath) && isCompanyPageOwner(user)))) : null;
+};
+
 const PageAccessGate = ({ children }) => {
   const location = useLocation();
-  const [state, setState] = useState({ loading: true, allowed: true, reason: null });
+  const [checked, setChecked] = useState(null);
+  const [permissionRevision, setPermissionRevision] = useState(0);
   const isValidRoute = useMemo(() => isKnownAppRoute(location.pathname), [location.pathname]);
   const pagePath = useMemo(() => resolveCrmPermissionPath(getPagePath(location.pathname)), [location.pathname]);
+  const scope = getPagePermissionScope();
+  const path = getManagedPermissionPath(pagePath);
+  const cachedDecision = isValidRoute ? decidePageAccess(pagePath, getCachedPagePermissionCatalog(), getAccessContext(path)) : null;
+  const decision = cachedDecision || (checked?.pagePath === pagePath && checked.scope === scope &&
+    checked.revision === permissionRevision ? checked.decision : null);
+  const needsCheck = isValidRoute && !decision;
 
   useEffect(() => {
-    if (!isValidRoute) {
-      setState({ path: pagePath, loading: false, allowed: false, reason: "not_found" });
-      return undefined;
-    }
+    const revise = () => setPermissionRevision(revision => revision + 1);
+    const refreshOnFocus = () => {
+      if (!accountStorage.getItem('token') || !getCurrentUserId()) return;
+      // Keep the current decision while refreshing. Sidebar and route share the request.
+      preloadPagePermissions({ force: true }).then(revise).catch(() => undefined);
+    };
+    window.addEventListener('ciis:page-permissions-refresh', revise);
+    window.addEventListener('focus', refreshOnFocus);
+    return () => {
+      window.removeEventListener('ciis:page-permissions-refresh', revise);
+      window.removeEventListener('focus', refreshOnFocus);
+    };
+  }, []);
 
+  useEffect(() => {
+    if (!needsCheck) return undefined;
+    const context = getAccessContext(path);
+    const { user, userId, telecallerPage, isSpecial, isPrivileged } = context;
     let cancelled = false;
-    const currentUser = getStoredUser();
-    const userId = getCurrentUserId();
-    const roleValues = [currentUser?.companyRole, currentUser?.jobRole, currentUser?.role];
-    const isPrivileged = roleValues.some(role => PRIVILEGED_ROLES.has(normalizeRole(role?.name || role)));
-    const telecallerPage = TELECALLER_PAGES.find(page => page.path.toLowerCase() === pagePath.toLowerCase());
-    const isRegisterRequest = pagePath.toLowerCase() === '/ciisuser/register-request';
-    const isCompanyAiSettings = pagePath.toLowerCase() === '/ciisuser/company-ai-settings';
-    const requiresExplicitAccess = isRegisterRequest || isCompanyAiSettings || requiresPageAccess(pagePath);
+    const finish = decision => {
+      if (!cancelled && scope === getPagePermissionScope()) {
+        setChecked({ pagePath, scope, revision: permissionRevision, decision });
+      }
+    };
 
     const checkAccess = async () => {
+      const catalog = await loadPagePermissionCatalog().catch(() => null);
+      if (cancelled || scope !== getPagePermissionScope()) return;
+      const catalogDecision = decidePageAccess(pagePath, catalog, context);
+      if (catalogDecision) return finish(catalogDecision);
+
       if (telecallerPage) {
-        let company;
-        try { company = JSON.parse(accountStorage.getItem('companyDetails') || '{}'); } catch { company = {}; }
+        let company = getStoredCompany();
         if (!hasTelecallerCompanyAccess(telecallerPage, company)) {
-          const companyRef = currentUser?.companyId || currentUser?.company;
-          const companyId = company?._id || company?.id || currentUser?.companyDetails?._id
+          const companyRef = user?.companyId || user?.company;
+          const companyId = company?._id || company?.id || user?.companyDetails?._id
             || (typeof companyRef === 'object' ? companyRef?._id || companyRef?.id : companyRef);
           if (companyId) {
             try {
@@ -470,85 +555,35 @@ const PageAccessGate = ({ children }) => {
               const latest = data?.company || data?.data || data;
               if (Array.isArray(latest?.allowedPages)) {
                 company = { ...company, ...latest };
-                if (!cancelled) accountStorage.setItem('companyDetails', JSON.stringify(company));
+                if (!cancelled && scope === getPagePermissionScope()) accountStorage.setItem('companyDetails', JSON.stringify(company));
               }
             } catch { /* An unavailable company lookup must not grant access. */ }
           }
         }
-        if (!hasTelecallerCompanyAccess(telecallerPage, company)) {
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "plan" });
-          return;
-        }
-        try {
-          const page = await loadPagePermission(pagePath);
-          const allowed = hasPageAccess(page, userId, "view");
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed, reason: allowed ? null : "permission" });
-        } catch {
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "permission" });
-        }
-        return;
-      }
-      if (!hasCompanyPlanAccess(pagePath)) {
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "plan" });
-        return;
-      }
-      if (isCompanyAiSettings) {
-        const companyRef = currentUser?.company || currentUser?.companyId;
-        const companyId = companyRef?._id || companyRef?.id || companyRef;
-        try {
-          if (!companyId) throw new Error('Company required');
-          await api.get(`/company/${encodeURIComponent(companyId)}/ai-settings/access`, { noCache: true, _skipErrorNotify: true });
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true, reason: null });
-        } catch {
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: 'permission' });
-        }
-        return;
-      }
-      if (isRegisterRequest) {
-        try {
-          await api.get('/users/register-requests/access', { noCache: true, _skipRequestCache: true, _skipErrorNotify: true });
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: true, reason: null });
-        } catch {
-          if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "permission" });
-        }
-        return;
-      }
-      if (isPrivileged && !isCrmPage(pagePath)) {
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed: true, reason: null });
-        return;
-      }
-      if (!pagePath || !requiresExplicitAccess) {
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed: true, reason: null });
-        return;
-      }
-      try {
+        if (!hasTelecallerCompanyAccess(telecallerPage, company)) return finish(accessDecision(false, "plan"));
         const page = await loadPagePermission(pagePath);
-        // CRM is fail-closed and page-specific, matching the backend
-        // middleware. Company plan access alone must not grant an employee
-        // access to an unassigned CRM page.
-        const allowed = isCrmPage(pagePath) || requiresExplicitAccess
-          ? hasPageAccess(page, userId, "view")
-          : hasPageAccess(page, userId, "view") || (!hasConfiguredPageAccess(page) && hasCompanyPlanAccess(pagePath));
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed, reason: allowed ? null : "permission" });
-      } catch {
-        if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "permission" });
+        return finish(accessDecision(hasPageAccess(page, userId, "view")));
       }
+      if (!hasCompanyPlanAccess(pagePath)) return finish(accessDecision(false, "plan"));
+      if (isSpecial) return finish(accessDecision(await loadSpecialPageAccess(pagePath)));
+      if (!requiresPageAccess(pagePath) || (isPrivileged && path === '/ciisuser/client-plans')) {
+        return finish(accessDecision(true));
+      }
+      const page = await loadPagePermission(pagePath);
+      return finish(accessDecision(page?.entitled !== false && (hasPageAccess(page, userId, 'view') ||
+        (!isCrmPage(pagePath) && isCompanyPageOwner(user)))));
     };
 
-    setState({ path: pagePath, loading: requiresExplicitAccess || !isPrivileged || Boolean(telecallerPage), allowed: !requiresExplicitAccess && !telecallerPage, reason: null });
-    checkAccess();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pagePath, isValidRoute]);
+    checkAccess().catch(() => finish(accessDecision(false)));
+    return () => { cancelled = true; };
+  }, [pagePath, path, scope, permissionRevision, needsCheck]);
 
   if (!isValidRoute) {
     return <PageStatusCard status={404} reason="not_found" pathname={location.pathname} />;
   }
-  if (state.path !== pagePath || state.loading) return <RouteBoundaryLoader label="Checking page access..." />;
-  if (!state.allowed) {
-    return <PageStatusCard status={403} reason={state.reason || "permission"} pathname={location.pathname} />;
+  if (!decision) return <RouteBoundaryLoader label="Checking page access..." />;
+  if (!decision.allowed) {
+    return <PageStatusCard status={403} reason={decision.reason} pathname={location.pathname} />;
   }
 
   return children;

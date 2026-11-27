@@ -61,6 +61,8 @@ const APP_ROUTES = [
   { id: "leave-policy", path: "leave-policy", name: "Leave Policy", category: "administration" },
   { id: "emp-assets", path: "emp-assets", name: "Employee Assets", category: "administration" },
   { id: "company-assets", path: "company-assets", name: "Asset Management", category: "administration" },
+  { id: "holiday", path: "holiday", name: "Holiday", category: "administration" },
+  { id: "user-activity", path: "user-activity", name: "Employee Activity", category: "administration" },
   { id: "emp-attendance", path: "emp-attendance", name: "Employee Attendance", category: "administration" },
   { id: "department", path: "department", name: "Department Management", category: "administration" },
   { id: "JobRoleManagement", path: "JobRoleManagement", name: "Job Role Management", category: "administration" },

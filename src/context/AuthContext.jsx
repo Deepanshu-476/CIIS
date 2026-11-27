@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axiosInstance from '../utils/axiosConfig';
 import { accountStorage, AUTH_SYNC_EVENT, endTabSession } from '../utils/authSession';
+import { getPagePermissionScope, normalizeUserId, preloadPagePermissions } from '../utils/pageAccess';
 
 
 export const AuthContext = createContext(null);
@@ -88,6 +89,16 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(initialAuth.user);
   const [token, setToken] = useState(initialAuth.token);
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
+  const userId = normalizeUserId(user?._id || user?.id);
+  const companyId = normalizeUserId(user?.company || user?.companyId || user?.companyDetails);
+  const isClient = String(user?.companyRole || user?.role || '').toLowerCase() === 'client';
+
+  useEffect(() => {
+    getPagePermissionScope();
+    if (token && userId && companyId && !isClient) {
+      void preloadPagePermissions().catch(() => undefined);
+    }
+  }, [token, userId, companyId, isClient]);
 
   const syncAuthState = useCallback(() => {
     const nextAuth = readStoredAuth();

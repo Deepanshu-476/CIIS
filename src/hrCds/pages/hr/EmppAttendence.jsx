@@ -6,7 +6,7 @@ import WeekOffAdminPanel from "../../components/WeekOffAdminPanel";
 import BreakAdminPanel from "../../components/BreakAdminPanel";
 import axios from "../../../utils/axiosConfig";
 import './employee-attendance.css';
-import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission } from '../../../utils/pageAccess';
+import { getCurrentUserId, getStoredUser, getPageAccessUserIds, loadPagePermission, isCompanyPageOwner } from '../../../utils/pageAccess';
 
 const loadXlsx = () => import('xlsx').then(module => module.default || module);
 const loadPdfModules = async () => {
@@ -764,7 +764,7 @@ const getDepartmentName = (deptId, departmentsMap, departmentsList) => {
 };
 
 
-const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit }) => {
+const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit, canDelete }) => {
   const [editedRecord, setEditedRecord] = useState({
     user: '',
     date: '',
@@ -783,7 +783,7 @@ const EditAttendanceModal = ({ record, onClose, onSave, onDelete, users, canEdit
   const [errorMessage, setErrorMessage] = useState('');
 
   const canEditRecord = Boolean(canEdit);
-  const canDeleteRecord = Boolean(canEdit);
+  const canDeleteRecord = Boolean(canDelete);
 
   const shiftInfo = useMemo(() => resolveRecordShift(record), [record]);
 
@@ -1595,6 +1595,7 @@ const EmployeeAttendance = () => {
   const [currentUserName, setCurrentUserName] = useState('');
   
   const [canEditAttendance, setCanEditAttendance] = useState(false);
+  const [canDeleteAttendance, setCanDeleteAttendance] = useState(false);
   const [canViewAllAttendance, setCanViewAllAttendance] = useState(false);
   const [pageAccessReady, setPageAccessReady] = useState(false);
 
@@ -1628,31 +1629,14 @@ const EmployeeAttendance = () => {
         const currentUser = getStoredUser();
         const viewUserIds = getPageAccessUserIds(page, 'view');
         const editUserIds = getPageAccessUserIds(page, 'edit');
-        const configuredIds = [
-          ...getPageAccessUserIds(page, 'approve'),
-          ...viewUserIds,
-          ...editUserIds,
-          ...getPageAccessUserIds(page, 'delete')
-        ];
-        const hasPermissionConfig = configuredIds.length > 0;
-        const roleCandidates = [
-          currentUser?.companyRole,
-          currentUser?.jobRole,
-          currentUser?.role,
-          currentUser?.userType
-        ].filter(Boolean).map(r => String(r).trim().toLowerCase().replace(/[\s_-]+/g, '_'));
-
-        const fallbackAllowed = roleCandidates.some(r => [
-          'owner', 'company_owner', 'companyowner',
-          'admin', 'company_admin', 'companyadmin',
-          'hr', 'hr_manager', 'manager',
-          'super_admin', 'superadmin'
-        ].includes(r));
-
-        const canEdit = editUserIds.includes(currentUserIdValue) || (!hasPermissionConfig && fallbackAllowed);
-        const canView = canEdit || viewUserIds.includes(currentUserIdValue) || (!hasPermissionConfig && fallbackAllowed);
+        const owner = isCompanyPageOwner(currentUser);
+        const entitled = page?.entitled !== false;
+        const canEdit = entitled && (owner || editUserIds.includes(currentUserIdValue));
+        const canDelete = entitled && (owner || getPageAccessUserIds(page, 'delete').includes(currentUserIdValue));
+        const canView = entitled && (canEdit || canDelete || viewUserIds.includes(currentUserIdValue));
 
         setCanEditAttendance(canEdit);
+        setCanDeleteAttendance(canDelete);
         setCanViewAllAttendance(canView);
       } catch (error) {
         console.error('Failed to load attendance page permissions:', error);
@@ -2621,7 +2605,7 @@ const EmployeeAttendance = () => {
   };
 
   const handleEditRecord = (record) => {
-    if (!canEditAttendance) {
+    if (!canEditAttendance && !canDeleteAttendance) {
       showSnackbar("You don't have permission to edit attendance", "error");
       return;
     }
@@ -2713,7 +2697,7 @@ const EmployeeAttendance = () => {
   };
 
   const handleDeleteRecord = async (recordId) => {
-    if (!canEditAttendance) {
+    if (!canDeleteAttendance) {
       showSnackbar("You don't have permission to delete attendance", "error");
       return;
     }
@@ -4221,6 +4205,7 @@ const EmployeeAttendance = () => {
           }}
           onSave={handleSaveRecord}
           onDelete={handleDeleteRecord}
+          canDelete={canDeleteAttendance}
           users={allUsers}
           canEdit={canEditAttendance}
         />

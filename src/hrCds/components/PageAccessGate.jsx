@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from "../../crm/telecaller/telecallerPages";
-import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, loadPagePermission } from "../../utils/pageAccess";
+import { getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, loadPagePermission, loadPagePermissionCatalog, getCatalogAccessPages, getManagedPermissionPath, isCompanyPageOwner } from "../../utils/pageAccess";
 import api from '../../utils/axiosConfig';
 
 const PRIVILEGED_ROLES = new Set([
@@ -439,6 +439,18 @@ const PageAccessGate = ({ children }) => {
   const [state, setState] = useState({ loading: true, allowed: true, reason: null });
   const isValidRoute = useMemo(() => isKnownAppRoute(location.pathname), [location.pathname]);
   const pagePath = useMemo(() => resolveCrmPermissionPath(getPagePath(location.pathname)), [location.pathname]);
+  const [permissionRevision, setPermissionRevision] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setPermissionRevision(revision => revision + 1);
+    window.addEventListener('ciis:page-permissions-refresh', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.removeEventListener('ciis:page-permissions-refresh', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
+
 
   useEffect(() => {
     if (!isValidRoute) {
@@ -488,6 +500,23 @@ const PageAccessGate = ({ children }) => {
         }
         return;
       }
+      if (!isCompanyAiSettings &&
+          String(pagePath || '').toLowerCase().startsWith('/ciisuser/')) {
+        try {
+          const catalog = await loadPagePermissionCatalog({force: permissionRevision > 0});
+          const managedPage = getCatalogAccessPages(catalog).find(page =>
+            getManagedPermissionPath(page.path) === getManagedPermissionPath(pagePath));
+          if (managedPage && Array.isArray(catalog.managedPages)) {
+            const entitled = managedPage.entitled;
+            if (!entitled || !isRegisterRequest) {
+              const allowed = entitled && (hasPageAccess(managedPage, userId, 'view') ||
+                (!isCrmPage(pagePath) && isCompanyPageOwner(currentUser)));
+              if (!cancelled) setState({ path: pagePath, loading: false, allowed, reason: entitled ? 'permission' : 'plan' });
+              return;
+            }
+          }
+        } catch { /* Managed routes below still require a successful permission check. */ }
+      }
       if (!hasCompanyPlanAccess(pagePath)) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "plan" });
         return;
@@ -513,7 +542,7 @@ const PageAccessGate = ({ children }) => {
         }
         return;
       }
-      if (isPrivileged && !isCrmPage(pagePath)) {
+      if (isPrivileged && (!requiresExplicitAccess || getManagedPermissionPath(pagePath) === '/ciisuser/client-plans')) {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: true, reason: null });
         return;
       }
@@ -523,12 +552,8 @@ const PageAccessGate = ({ children }) => {
       }
       try {
         const page = await loadPagePermission(pagePath);
-        // CRM is fail-closed and page-specific, matching the backend
-        // middleware. Company plan access alone must not grant an employee
-        // access to an unassigned CRM page.
-        const allowed = isCrmPage(pagePath) || requiresExplicitAccess
-          ? hasPageAccess(page, userId, "view")
-          : hasPageAccess(page, userId, "view") || (!hasConfiguredPageAccess(page) && hasCompanyPlanAccess(pagePath));
+        const allowed = page?.entitled !== false && (hasPageAccess(page, userId, 'view') ||
+          (!isCrmPage(pagePath) && isCompanyPageOwner(currentUser)));
         if (!cancelled) setState({ path: pagePath, loading: false, allowed, reason: allowed ? null : "permission" });
       } catch {
         if (!cancelled) setState({ path: pagePath, loading: false, allowed: false, reason: "permission" });
@@ -541,7 +566,7 @@ const PageAccessGate = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [pagePath, isValidRoute]);
+  }, [pagePath, isValidRoute, permissionRevision]);
 
   if (!isValidRoute) {
     return <PageStatusCard status={404} reason="not_found" pathname={location.pathname} />;

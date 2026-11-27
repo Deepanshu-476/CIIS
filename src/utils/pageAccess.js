@@ -87,6 +87,11 @@ const loadPermissionResource = (key, load) => {
 };
 
 const STRICT_PAGE_PATHS = new Set([
+  ...['emp-details', 'emp-leaves', 'emp-assets', 'emp-attendance', 'department',
+    'jobrolemanagement', 'manage-groups', 'company-all-task', 'company-all-task/tasks',
+    'company-assets', 'asset-management', 'sidebarmanagement', 'emp-client',
+    'leave-policy', 'admin-task-create', 'task-management', 'user-activity'
+  ].map(page => `/ciisuser/${page}`),
   '/ciisuser/active-clients',
   '/ciisuser/client-plans',
   '/ciisuser/holiday',
@@ -166,6 +171,27 @@ export const requiresPageAccess = path => {
     || STRICT_PAGE_PATHS.has(normalizedPath);
 };
 
+export const isCompanyPageOwner = user => Boolean(user?.isCompanyOwner || user?.isSuperAdmin || user?.superAdmin) ||
+  [user?.companyRole, user?.role].some(role => ['owner', 'company_owner', 'companyowner', 'super_admin', 'superadmin']
+    .includes(String(role?.name || role || '').trim().toLowerCase().replace(/[\s-]+/g, '_')));
+
+export const getManagedPermissionPath = path => {
+  const normalized = normalizePermissionPath(path);
+  if (normalized === '/ciisuser/asset-management') return '/ciisuser/company-assets';
+  if (normalized === '/ciisuser/job-role-management') return '/ciisuser/jobrolemanagement';
+  return normalized;
+};
+
+export const getCatalogAccessPages = catalog => {
+  const accessPages = Array.isArray(catalog?.accessPages) ? catalog.accessPages : [];
+  if (!Array.isArray(catalog?.managedPages)) return accessPages;
+  const details = new Map(accessPages.map(page => [getManagedPermissionPath(page.path), page]));
+  return catalog.managedPages.map(page => ({
+    ...details.get(getManagedPermissionPath(page.path)),
+    ...page,
+  }));
+};
+
 export const getPageAccessUserIds = (page, accessType = 'view') => {
   const type = String(accessType || 'view').trim().toLowerCase();
   const field = ACCESS_FIELD_BY_TYPE[type] || ACCESS_FIELD_BY_TYPE.view;
@@ -189,7 +215,7 @@ export const hasConfiguredPageAccess = (page) => [
 
 export const hasPageAccess = (page, userId, accessType = 'view') => {
   const normalizedUserId = normalizeUserId(userId);
-  if (!normalizedUserId) return false;
+  if (!normalizedUserId || page?.entitled === false) return false;
   const type = String(accessType || 'view').trim().toLowerCase();
   if (type === 'view') {
     return [
@@ -218,7 +244,7 @@ export const loadPagePermission = async (path, options = {}) => {
     if (requiresPageAccess(permissionPath)) {
       try {
         const catalog = await loadPagePermissionCatalog();
-        const page = catalog.accessPages?.find(item => normalizePermissionPath(item.path) === normalizedPath);
+        const page = getCatalogAccessPages(catalog).find(item => getManagedPermissionPath(item.path) === getManagedPermissionPath(normalizedPath));
         if (page) return page;
       } catch { /* Fall back to the by-path endpoint when the batch is unavailable. */ }
     }
@@ -256,6 +282,7 @@ export const loadPagePermissionCatalog = async (options = {}) => {
       ...(accessPages ? { accessPages } : {})
     };
 
+    pagePermissionCatalogCache.scope = scope;
     pagePermissionCatalogCache.createdAt = Date.now();
     pagePermissionCatalogCache.value = value;
     cachePagePermissionCatalogForSession(value);
@@ -268,7 +295,7 @@ export const loadPagePermissionCatalog = async (options = {}) => {
     return value;
   }
 
-  if (pagePermissionCatalogCache.value && (Date.now() - pagePermissionCatalogCache.createdAt) < PAGE_PERMISSION_TTL_MS) {
+  if (pagePermissionCatalogCache.scope === scope && pagePermissionCatalogCache.value && (Date.now() - pagePermissionCatalogCache.createdAt) < PAGE_PERMISSION_TTL_MS) {
     return pagePermissionCatalogCache.value;
   }
 
@@ -276,6 +303,7 @@ export const loadPagePermissionCatalog = async (options = {}) => {
 };
 
 export const invalidatePagePermissionCache = (path) => {
+  pagePermissionCatalogCache.value = null;
   if (!path) {
     pagePermissionCache.clear();
     permissionRequests.clear();

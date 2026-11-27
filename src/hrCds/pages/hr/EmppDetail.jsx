@@ -324,7 +324,8 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   jobRoles,
   departments,
   branches,
-  canEditOtherEmployees
+  canEditOtherEmployees,
+  canDeleteEmployee
 }) => {
   const completion = getProfileCompletion(emp);
 
@@ -435,7 +436,7 @@ const EmployeeDirectoryEmployeeCard = React.memo(({
   const isOtherUser = !isCurrentUserEmp;
   
   
-  const showMenu = canEditOtherEmployees && isOtherUser;
+  const showMenu = (canEditOtherEmployees || canDeleteEmployee) && isOtherUser;
   
   return (
     <div 
@@ -1990,7 +1991,8 @@ const EmployeeDirectory = () => {
   const restrictToAssignedBranches = !hasCompanyWideBranchAccess && currentUserBranchIds.length > 0;
   const [pageAccessReady, setPageAccessReady] = useState(false);
   const [pageCanViewEmployees, setPageCanViewEmployees] = useState(true);
-  const [pageCanEditEmployees, setPageCanEditEmployees] = useState(true);
+  const [pageCanEditEmployees, setPageCanEditEmployees] = useState(false);
+  const [pageCanDeleteEmployees, setPageCanDeleteEmployees] = useState(false);
   // Branch / department scope granted on the Page Management screen for this page.
   // null means "no scope configured for this user" (no extra restriction).
   const [pageScopeBranchIds, setPageScopeBranchIds] = useState(null);
@@ -2005,7 +2007,7 @@ const EmployeeDirectory = () => {
   const allowedDepartmentIds = useMemo(() => (
     pageScopeDepartmentIds && pageScopeDepartmentIds.length > 0 ? pageScopeDepartmentIds : null
   ), [pageScopeDepartmentIds]);
-  const canEditOtherEmployees = pageAccessReady ? pageCanEditEmployees : user.canEditOtherEmployees;
+  const canEditOtherEmployees = pageAccessReady && pageCanEditEmployees;
   const canSeeAllCompanyUsers = pageAccessReady ? pageCanViewEmployees : user.canSeeAllCompanyUsers;
   
   // Snackbar helper
@@ -2034,19 +2036,15 @@ const EmployeeDirectory = () => {
         const currentUser = getStoredUser();
         const viewUserIds = getPageAccessUserIds(page, 'view');
         const editUserIds = getPageAccessUserIds(page, 'edit');
-        const configuredIds = [
-          ...getPageAccessUserIds(page, 'approve'),
-          ...viewUserIds,
-          ...editUserIds,
-          ...getPageAccessUserIds(page, 'delete')
-        ];
-        const hasConfig = configuredIds.length > 0;
-        const { fallbackAllowed, isMasterRole } = getDirectoryRoleAccess(currentUser);
-
-        const canEdit = editUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
-        const canView = isMasterRole || canEdit || viewUserIds.includes(currentUserIdValue) || (!hasConfig && fallbackAllowed);
+        const deleteUserIds = getPageAccessUserIds(page, 'delete');
+        const { isMasterRole } = getDirectoryRoleAccess(currentUser);
+        const entitled = page?.entitled !== false;
+        const canEdit = entitled && (isMasterRole || editUserIds.includes(currentUserIdValue));
+        const canDelete = entitled && (isMasterRole || deleteUserIds.includes(currentUserIdValue));
+        const canView = entitled && (isMasterRole || canEdit || canDelete || viewUserIds.includes(currentUserIdValue));
 
         setPageCanEditEmployees(canEdit);
+        setPageCanDeleteEmployees(canDelete);
         setPageCanViewEmployees(canView);
 
         // Owners / super admins always keep the whole company in view.
@@ -2275,13 +2273,9 @@ const EmployeeDirectory = () => {
       return false;
     }
     
-    const jobRole = user.getCurrentUserJobRole();
-    const companyRole = user.getCurrentUserCompanyRole();
-    const allowedDeleteRoles = ['super_admin', 'admin', 'owner', 'hr', 'manager'];
+    return pageCanDeleteEmployees;
+  }, [currentUserId, pageCanDeleteEmployees]);
 
-    return allowedDeleteRoles.includes(jobRole) || allowedDeleteRoles.includes(companyRole);
-  }, [currentUserId, user]);
-  
   // Responsive check
   useEffect(() => {
     const checkMobile = () => {
@@ -3473,6 +3467,7 @@ const EmployeeDirectory = () => {
                       departments={departments}
                       branches={branches}
                       canEditOtherEmployees={canEditOtherEmployees}
+                canDeleteEmployee={canDeleteUser(emp)}
                     />
                   ))}
                 </div>
@@ -3493,6 +3488,7 @@ const EmployeeDirectory = () => {
                 departments={departments}
                 branches={branches}
                 canEditOtherEmployees={canEditOtherEmployees}
+                canDeleteEmployee={canDeleteUser(emp)}
               />
             ))}
           </div>
@@ -4158,6 +4154,7 @@ const EmployeeDirectory = () => {
               zIndex: 1100
             }}
           >
+            {canEditOtherEmployees && (<>
             <button 
               type="button"
               className="EmployeeDirectory-menu-item" 
@@ -4188,6 +4185,7 @@ const EmployeeDirectory = () => {
               )}
             </button>
             
+            </>)}
             {canDeleteUser(selectedMenuUser) && (
               <button 
                 type="button"

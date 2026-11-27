@@ -31,6 +31,8 @@ import {
 import './MyServicesPage.css';
 
 const getInitials = value => String(value || 'U').trim().slice(0, 1).toUpperCase();
+const taskFilters = ['All', 'Pending', 'In Progress', 'Completed', 'Overdue'];
+const normalizeStatusKey = value => String(value || '').toLowerCase().replace(/\s+/g, '-');
 const tones = ['blue', 'green', 'coral', 'violet', 'sky', 'rose'];
 const getServiceIcon = service => {
   const name = String(service || '').toLowerCase();
@@ -121,12 +123,12 @@ const MyServicesPage = () => {
 
   const getServiceTasks = serviceName => tasks.filter(task => task.serviceName === serviceName);
   const getTaskStatus = task => task?.completed ? 'Completed' : task?.status || 'Pending';
-  const normalizeTaskStatus = task => getTaskStatus(task).toLowerCase().replace(/\s+/g, '-');
+  const normalizeTaskStatus = task => normalizeStatusKey(getTaskStatus(task));
   const taskPageSize = 7;
   const modalTasks = useMemo(() => {
     if (!tasksService) return [];
     const filtered = getServiceTasks(tasksService.rawTitle).filter(task => (
-      taskFilter === 'All' || normalizeTaskStatus(task) === taskFilter.toLowerCase().replace(/\s+/g, '-')
+      taskFilter === 'All' || normalizeTaskStatus(task) === normalizeStatusKey(taskFilter)
     ));
     return [...filtered].sort((a, b) => {
       const aDate = new Date(a.updatedAt || a.createdAt || a.dueDate || 0).getTime();
@@ -136,12 +138,17 @@ const MyServicesPage = () => {
   }, [taskFilter, taskSort, tasks, tasksService]);
   const modalTaskPages = Math.max(1, Math.ceil(modalTasks.length / taskPageSize));
   const visibleModalTasks = modalTasks.slice((taskPage - 1) * taskPageSize, taskPage * taskPageSize);
+  const visibleTaskPages = useMemo(() => {
+    const windowSize = Math.min(5, modalTaskPages);
+    const start = Math.max(1, Math.min(taskPage - 2, modalTaskPages - windowSize + 1));
+    return Array.from({ length: windowSize }, (_, index) => start + index);
+  }, [modalTaskPages, taskPage]);
   const taskFilterCounts = useMemo(() => {
     const serviceTasks = tasksService ? getServiceTasks(tasksService.rawTitle) : [];
-    return ['All', 'Pending', 'Completed', 'Overdue'].reduce((counts, filter) => {
+    return taskFilters.reduce((counts, filter) => {
       counts[filter] = filter === 'All'
         ? serviceTasks.length
-        : serviceTasks.filter(task => normalizeTaskStatus(task) === filter.toLowerCase()).length;
+        : serviceTasks.filter(task => normalizeTaskStatus(task) === normalizeStatusKey(filter)).length;
       return counts;
     }, {});
   }, [tasks, tasksService]);
@@ -263,7 +270,7 @@ const MyServicesPage = () => {
                       </div>
                       <div className="MyServices-dates">
                         <span><FiCalendar /><strong>Start Date</strong></span><time>{service.start}</time>
-                        <span><FiCalendar /></span><time>{service.end}</time>
+                        <span><FiCalendar /><strong>End Date</strong></span><time>{service.end}</time>
                       </div>
                       <div className="MyServices-progress-row">
                         <div className="MyServices-avatars">
@@ -324,7 +331,7 @@ const MyServicesPage = () => {
             <div className="MyServices-modalBody">
               <div className="MyServices-detailGrid MyServices-detailVisualGrid">
                 <section className="MyServices-detailCard status">
-                  <i><FiCheckCircle /></i><div><small>Status</small><strong>{detailsService.status}</strong><em>Active</em></div>
+                  <i><FiCheckCircle /></i><div><small>Status</small><strong>{detailsService.status}</strong><em>{detailsService.status === 'Completed' ? 'All tasks done' : detailsService.status === 'In Progress' ? 'Tasks in progress' : 'Active service'}</em></div>
                 </section>
                 <section className="MyServices-detailCard progress">
                   <i><FiBarChart2 /></i><div><small>Progress</small><strong>{detailsService.progress}%</strong><b><span style={{ width: `${detailsService.progress}%` }} /></b></div>
@@ -345,7 +352,7 @@ const MyServicesPage = () => {
               <div className="MyServices-latestTask">
                 <i><FiFileText /></i>
                 <div><small>Latest Task</small><strong>{detailsService.description.replace(/^Latest task:\s*/i, '')}</strong><p>{detailsService.description}</p></div>
-                <span><FiClock /> Updated today</span>
+
               </div>
             </div>
           </div>
@@ -366,7 +373,7 @@ const MyServicesPage = () => {
               <div className="MyServices-taskToolbar">
                 <div className="MyServices-taskTotal"><i><FiSend /></i><div><small>Total Tasks</small><strong>{getServiceTasks(tasksService.rawTitle).length}</strong></div></div>
                 <div className="MyServices-taskTabs" role="tablist" aria-label="Filter tasks">
-                  {['All', 'Pending', 'Completed', 'Overdue'].map(filter => <button key={filter} type="button" className={taskFilter === filter ? 'active' : ''} onClick={() => { setTaskFilter(filter); setTaskPage(1); }}>{filter}<span>{taskFilterCounts[filter]}</span></button>)}
+                  {taskFilters.map(filter => <button key={filter} type="button" className={taskFilter === filter ? 'active' : ''} onClick={() => { setTaskFilter(filter); setTaskPage(1); }}>{filter}<span>{taskFilterCounts[filter]}</span></button>)}
                 </div>
                 <label className="MyServices-taskSort"><span>Sort by:</span><select value={taskSort} onChange={event => { setTaskSort(event.target.value); setTaskPage(1); }}><option>Newest</option><option>Oldest</option></select><FiChevronDown /></label>
               </div>
@@ -388,8 +395,8 @@ const MyServicesPage = () => {
             </div>
             <footer className="MyServices-tasksFooter">
               <div><i><FiBriefcase /></i><span>Showing {modalTasks.length ? ((taskPage - 1) * taskPageSize) + 1 : 0} to {Math.min(taskPage * taskPageSize, modalTasks.length)} of {modalTasks.length} tasks</span></div>
-              <nav aria-label="Task pages"><button type="button" className="MyServices-pageStep" disabled={taskPage === 1} onClick={() => setTaskPage(page => page - 1)}><FiChevronLeft /> Previous</button>{Array.from({ length: modalTaskPages }, (_, index) => index + 1).slice(0, 4).map(page => <button key={page} type="button" className={taskPage === page ? 'active' : ''} onClick={() => setTaskPage(page)}>{page}</button>)}<button type="button" className="MyServices-pageStep" disabled={taskPage === modalTaskPages} onClick={() => setTaskPage(page => page + 1)}>Next <FiChevronRight /></button></nav>
-              <button type="button" className="MyServices-exportTasks" onClick={exportServiceTasks}><FiDownload /> Export Tasks</button>
+              <nav aria-label="Task pages"><button type="button" className="MyServices-pageStep" disabled={taskPage === 1} onClick={() => setTaskPage(page => page - 1)}><FiChevronLeft /> Previous</button>{visibleTaskPages.map(page => <button key={page} type="button" className={taskPage === page ? 'active' : ''} onClick={() => setTaskPage(page)}>{page}</button>)}<button type="button" className="MyServices-pageStep" disabled={taskPage === modalTaskPages} onClick={() => setTaskPage(page => page + 1)}>Next <FiChevronRight /></button></nav>
+              <button type="button" className="MyServices-exportTasks" onClick={exportServiceTasks} disabled={!modalTasks.length}><FiDownload /> Export Tasks</button>
             </footer>
           </div>
         </div>

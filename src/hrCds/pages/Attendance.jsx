@@ -18,7 +18,7 @@ const formatBreakLabel = minutes => {
   return total < 60 ? `${total}m` : `${Math.floor(total / 60)}h ${total % 60}m`;
 };
 import "../Css/Attendance.css";
-
+  
 import {
   FiCalendar,
   FiClock,

@@ -1189,76 +1189,6 @@ const Dashboard = () => {
         </section>
       </div>
 
-      {/* SECTION 2: Your Companies */}
-      <section className="ClientDashboard-companies-section">
-        <div className="ClientDashboard-companies-header">
-          <div className="ClientDashboard-companies-title">
-            <div className="ClientDashboard-companies-icon-badge">
-              <FiCalendar />
-            </div>
-            <div>
-              <h3>Your Companies</h3>
-              <p>Manage and switch between your connected companies.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="ClientDashboard-companies-grid">
-          {displayCompanyCards.length > 0 ? displayCompanyCards.map((company) => (
-            <div
-              key={company.id}
-              className={`ClientDashboard-company-box ${company.isActive ? 'active' : ''}`}
-              onClick={() => company.client && handleCompanySelect(company.client)}
-              role="button"
-              tabIndex={0}
-            >
-              <div className={`ClientDashboard-company-initial-badge ${company.bgType}`}>
-                {company.logo ? (
-                  <img
-                    src={company.logo}
-                    alt={company.companyName}
-                    className="ClientDashboard-company-badge-logo"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      if (e.target.nextSibling) e.target.nextSibling.style.display = 'inline';
-                    }}
-                  />
-                ) : null}
-                <span style={{ display: company.logo ? 'none' : 'inline' }}>
-                  {company.initial}
-                </span>
-              </div>
-
-              <div className="ClientDashboard-company-box-info">
-                <h4>{company.companyName}</h4>
-                <p>{company.serviceCount} services • {company.taskCount} tasks</p>
-              </div>
-
-              <span className="ClientDashboard-company-status-badge">
-                {company.status}
-              </span>
-
-              <div className="ClientDashboard-company-thumb-wrap">
-                <img
-                  src={company.logo || "/company_building.jpg"}
-                  alt={company.companyName}
-                  className="ClientDashboard-company-thumb-img"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "/company_building.jpg";
-                  }}
-                />
-                <FiChevronRight className="ClientDashboard-company-chevron" />
-              </div>
-            </div>
-          )) : (
-            <div className="ClientDashboard-modal-empty" style={{ padding: '16px', gridColumn: '1 / -1' }}>
-              No client companies found in this workspace.
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* SECTION 3: KPI Metrics Row (4 Cards) */}
       <section className="ClientDashboard-kpi-grid">
         {/* KPI 1: Active Services */}
@@ -1482,7 +1412,7 @@ const Dashboard = () => {
             <button
               type="button"
               className="ClientDashboard-view-all-link"
-              onClick={() => navigate('/client/tasks')}
+              onClick={() => navigate('/client/tasks-updates')}
             >
               View All
             </button>
@@ -1579,7 +1509,9 @@ const Dashboard = () => {
                     <p className="ClientDashboard-peach-sub">{paymentSummary.hasActiveSubscription ? 'Active Plan' : 'Subscription Status'}</p>
                   </div>
                 </div>
-                <span className="ClientDashboard-peach-val">₹{(paymentSummary.totalDue || 0).toLocaleString('en-IN')}</span>
+                <span className="ClientDashboard-peach-val">
+                  ₹{Number(paymentSummary.totalDue > 0 ? paymentSummary.totalDue : (paymentSummary.subscriptionPrice || 0)).toLocaleString('en-IN')}
+                </span>
               </div>
 
               <button

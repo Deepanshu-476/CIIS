@@ -167,7 +167,6 @@ const DocumentsPage = () => {
   const [documentError, setDocumentError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [documentActionId, setDocumentActionId] = useState("");
-  const [selectedDocIds, setSelectedDocIds] = useState([]);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -246,31 +245,7 @@ const DocumentsPage = () => {
 
   useEffect(() => {
     setPage(1);
-    setSelectedDocIds([]);
   }, [search, activeTab, client?._id]);
-
-  const allVisibleSelected =
-    visibleDocuments.length > 0 &&
-    visibleDocuments.every(doc => selectedDocIds.includes(doc._id || doc.name));
-
-  const someVisibleSelected =
-    visibleDocuments.some(doc => selectedDocIds.includes(doc._id || doc.name));
-
-  const handleSelectAll = e => {
-    if (e.target.checked) {
-      const visibleIds = visibleDocuments.map(doc => doc._id || doc.name);
-      setSelectedDocIds(prev => Array.from(new Set([...prev, ...visibleIds])));
-    } else {
-      const visibleIds = new Set(visibleDocuments.map(doc => doc._id || doc.name));
-      setSelectedDocIds(prev => prev.filter(id => !visibleIds.has(id)));
-    }
-  };
-
-  const handleToggleSelectDoc = docId => {
-    setSelectedDocIds(prev =>
-      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
-    );
-  };
 
   const handleUploadDocument = async event => {
     const file = event.target.files?.[0];
@@ -610,44 +585,10 @@ const DocumentsPage = () => {
           </div>
         )}
 
-        {selectedDocIds.length > 0 && (
-          <div className="DocumentsPage-inlineNotice" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>
-              <strong>{selectedDocIds.length}</strong> {selectedDocIds.length === 1 ? "document" : "documents"} selected
-            </span>
-            <button
-              type="button"
-              style={{
-                background: "none",
-                border: "none",
-                color: "inherit",
-                textDecoration: "underline",
-                cursor: "pointer",
-                fontWeight: "bold",
-                fontSize: "12px",
-              }}
-              onClick={() => setSelectedDocIds([])}
-            >
-              Clear Selection
-            </button>
-          </div>
-        )}
-
         <div className="DocumentsPage-tableWrap">
           <table>
             <thead>
               <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    aria-label="Select all documents"
-                    checked={allVisibleSelected}
-                    ref={el => {
-                      if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected;
-                    }}
-                    onChange={handleSelectAll}
-                  />
-                </th>
                 <th>Document Name <span>↑</span></th>
                 <th>Type</th>
                 <th>Category</th>
@@ -660,14 +601,6 @@ const DocumentsPage = () => {
             <tbody>
               {visibleDocuments.map(doc => (
                 <tr key={doc._id || doc.name}>
-                  <td data-label="Select">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${doc.name}`}
-                      checked={selectedDocIds.includes(doc._id || doc.name)}
-                      onChange={() => handleToggleSelectDoc(doc._id || doc.name)}
-                    />
-                  </td>
                   <td data-label="Document Name">
                     <div className="DocumentsPage-nameCell">
                       {iconMap[doc.icon] || <FiFile />}
@@ -729,7 +662,7 @@ const DocumentsPage = () => {
               ))}
               {visibleDocuments.length === 0 && (
                 <tr>
-                  <td colSpan="8">
+                  <td colSpan="7" className="DocumentsPage-emptyCell">
                     <div className="DocumentsPage-emptyRow">
                       No documents found in {documentTabs.find(tab => tab.id === activeTab)?.label}.
                     </div>

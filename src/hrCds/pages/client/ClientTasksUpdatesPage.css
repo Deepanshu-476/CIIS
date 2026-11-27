@@ -1,5 +1,7 @@
 .ClientTasksUpdatesPage-page {
   min-height: 100vh;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 18px 20px 24px;
   background: #f5f7fb;
   color: #17213b;
@@ -395,6 +397,11 @@
   border-radius: 8px;
   font-size: 11px;
   font-weight: 800;
+}
+
+.ClientTasksUpdatesPage-filter:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .ClientTasksUpdatesPage-add {
@@ -1374,6 +1381,18 @@
   background: #0b72f0;
 }
 
+.ClientTasksUpdatesPage-projectTable {
+  display: block;
+  min-width: 0;
+}
+
+.ClientTasksUpdatesPage-projectTable .ClientTasksUpdatesPage-modalTableHead,
+.ClientTasksUpdatesPage-projectTable .ClientTasksUpdatesPage-modalTableRow {
+  grid-template-columns: 1fr auto;
+  min-width: 0;
+  margin: 0;
+}
+
 .ClientTasksUpdatesPage-taskDetails {
   display: grid;
   gap: 10px;
@@ -1419,7 +1438,7 @@
 .ClientTasksUpdatesPage-modalRowAction:hover { background: #f0edff; color: #7057e8; }
 
 .ClientTasksUpdatesPage-modalPagination { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px; padding-top: 14px; border-top: 1px solid #e9edf4; color: #71809a; font-size: 12px; font-weight: 700; }
-.ClientTasksUpdatesPage-modalPagination > div { display: flex; gap: 6px; }
+.ClientTasksUpdatesPage-modalPagination > div { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .ClientTasksUpdatesPage-modalPagination button { display: grid; place-items: center; min-width: 30px; height: 30px; border: 1px solid #dfe5ef; border-radius: 6px; color: #4b5d7d; background: #fff; cursor: pointer; font: inherit; font-weight: 800; }
 .ClientTasksUpdatesPage-modalPagination button.is-active { border-color: #7251e8; color: #fff; background: #7251e8; }
 .ClientTasksUpdatesPage-modalPagination button:disabled { cursor: not-allowed; opacity: .45; }
@@ -2166,4 +2185,67 @@
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskDetailsSide small { font-size: 7px; }
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing { width: 46px; height: 46px; border-width: 4px; }
   .ClientTasksUpdatesPage-taskModal .ClientTasksUpdatesPage-taskCompleteRing svg { width: 22px; height: 22px; }
+}
+
+@media (max-width: 760px) {
+  .ClientTasksUpdatesPage-page {
+    overflow-x: hidden;
+    max-width: 100%;
+    padding-bottom: 84px;
+  }
+
+  .ClientTasksUpdatesPage-toolbar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .ClientTasksUpdatesPage-tableSearch {
+    flex: 1 1 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ClientTasksUpdatesPage-toolbar select,
+  .ClientTasksUpdatesPage-filter {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    width: auto;
+  }
+
+  .ClientTasksUpdatesPage-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ClientTasksUpdatesPage-pagination > div {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+
+  .ClientTasksUpdatesPage-modalPagination {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .ClientTasksUpdatesPage-projectTable .ClientTasksUpdatesPage-modalTableRow {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .ClientTasksUpdatesPage-page {
+    padding-bottom: 84px;
+  }
+
+  .ClientTasksUpdatesPage-pagination select {
+    width: 100%;
+  }
 }

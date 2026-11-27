@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import {
   FiBell,
   FiBriefcase,
+  FiCheck,
   FiMail,
+  FiMapPin,
   FiShield,
   FiSmartphone,
   FiUser,
@@ -13,7 +15,8 @@ import {
   FiCheckCircle,
   FiAlertCircle,
   FiSave,
-  FiKey
+  FiKey,
+  FiCreditCard
 } from 'react-icons/fi';
 import CIISLoader from '../../../Loader/CIISLoader';
 import axiosInstance from '../../../utils/axiosConfig';
@@ -82,9 +85,13 @@ const AccountSettingsPage = () => {
 
   if (error || !client) {
     return (
-      <section className="ClientPageBase-root">
-        <p>{error || 'No client data found.'}</p>
-        <button type="button" onClick={refetch}>Try Again</button>
+      <section className="AccountSettings-page">
+        <div className="AccountSettings-errorCard">
+          <FiAlertCircle />
+          <h2>Unable to load Account Settings</h2>
+          <p>{error || 'No client data found for this account.'}</p>
+          <button type="button" className="AccountSettings-submitBtn" onClick={refetch}>Try Again</button>
+        </div>
       </section>
     );
   }
@@ -214,87 +221,127 @@ const AccountSettingsPage = () => {
     }
   };
 
+  const clientDisplayName = getClientDisplayName(client);
+  const clientInitials = String(clientDisplayName || 'C')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() || '')
+    .join('') || 'C';
+  const formattedPrice = `₹${Number(payment.subscriptionPrice || 0).toLocaleString('en-IN')}`;
+  const hasMinLen = passwordForm.newPassword.length >= 6;
+  const hasAlphaNum = /[a-zA-Z]/.test(passwordForm.newPassword) && /\d/.test(passwordForm.newPassword);
+  const passwordsMatch = Boolean(passwordForm.newPassword) && passwordForm.newPassword === passwordForm.confirmPassword;
+
   const cards = [
     {
       icon: <FiUser />,
+      tone: 'blue',
       label: 'Profile',
-      title: getClientDisplayName(client),
+      title: clientDisplayName,
       text: `${client.email || user?.email || 'No email'}${client.phone ? ` • ${client.phone}` : ''}`
     },
     {
       icon: <FiBriefcase />,
+      tone: 'indigo',
       label: 'Company',
       title: client.company || client.companyName || 'Company profile',
-      text: `${services.length} active service${services.length === 1 ? '' : 's'} assigned.`
+      text: `${services.length} active service${services.length === 1 ? '' : 's'} assigned to this account.`
     },
     {
-      icon: <FiShield />,
+      icon: <FiCreditCard />,
+      tone: 'emerald',
       label: 'Subscription',
       title: payment.planName,
-      text: `Renewal: ${formatDate(payment.nextDueDate)} • Price: ${payment.subscriptionPrice || 0}`
+      text: `Renewal: ${formatDate(payment.nextDueDate)} • Price: ${formattedPrice}`
     },
     {
       icon: <FiBell />,
+      tone: 'amber',
       label: 'Notifications',
       title: 'Service and billing alerts',
       text: 'Updates are based on your active tasks, payments, and services.'
     },
     {
       icon: <FiMail />,
+      tone: 'violet',
       label: 'Account Manager',
       title: manager.name || 'Not assigned',
       text: `${manager.email || 'No email assigned'}${manager.phone ? ` • ${manager.phone}` : ''}`
     },
     {
       icon: <FiSmartphone />,
+      tone: 'slate',
       label: 'Login User',
       title: getUserDisplayName(user),
-      text: user?.companyRole || user?.role || 'Client account'
+      text: `Role: ${user?.companyRole || user?.role || 'Client account'}`
     }
   ];
 
   return (
-    <section className="ClientPageBase-root">
-      <div className="ClientPageBase-header">
-        <div>
-          <p>Account Settings</p>
-          <h1>Manage {getClientDisplayName(client)} profile, security, and credentials</h1>
+    <section className="AccountSettings-page">
+      {/* Hero Header */}
+      <header className="AccountSettings-hero">
+        <div className="AccountSettings-heroIdentity">
+          <div className="AccountSettings-avatar" aria-hidden="true">{clientInitials}</div>
+          <div className="AccountSettings-heroText">
+            <span className="AccountSettings-eyebrow">Account Settings</span>
+            <h1>{clientDisplayName}</h1>
+            <p>{client.email || user?.email || 'Client Portal'} • Manage profile, security, and credentials</p>
+          </div>
         </div>
-      </div>
+        <div className="AccountSettings-heroBadges">
+          <span className="AccountSettings-pill is-emerald">
+            <FiShield /> {payment.planName}
+          </span>
+          <span className="AccountSettings-pill is-blue">
+            <FiBriefcase /> {services.length} Active Service{services.length === 1 ? '' : 's'}
+          </span>
+        </div>
+      </header>
 
       {/* Tabs */}
-      <div className="AccountSettings-tabs">
-        <button
-          type="button"
-          className={`AccountSettings-tabBtn ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
-        >
-          <FiUser /> Profile & Details
-        </button>
-        <button
-          type="button"
-          className={`AccountSettings-tabBtn ${activeTab === 'password' ? 'active' : ''}`}
-          onClick={() => setActiveTab('password')}
-        >
-          <FiLock /> Security & Password
-        </button>
-        <button
-          type="button"
-          className={`AccountSettings-tabBtn ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          <FiShield /> Account Overview
-        </button>
+      <div className="AccountSettings-tabsWrap">
+        <div className="AccountSettings-tabs" role="tablist" aria-label="Account settings sections">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'profile'}
+            className={`AccountSettings-tabBtn ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            <FiUser /> <span>Profile & Details</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'password'}
+            className={`AccountSettings-tabBtn ${activeTab === 'password' ? 'active' : ''}`}
+            onClick={() => setActiveTab('password')}
+          >
+            <FiLock /> <span>Security & Password</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'overview'}
+            className={`AccountSettings-tabBtn ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            <FiShield /> <span>Account Overview</span>
+          </button>
+        </div>
       </div>
 
       {/* Tab 1: Profile & Details */}
       {activeTab === 'profile' && (
-        <div className="AccountSettings-tabContent">
+        <div className="AccountSettings-workspace">
           <div className="AccountSettings-formCard">
             <div className="AccountSettings-cardHeader">
+              <span className="AccountSettings-sectionIcon is-blue"><FiUser /></span>
               <div>
-                <h2>Edit Personal & Business Details</h2>
-                <p>Update your display name, phone number, and address details.</p>
+                <h2>Personal & Business Details</h2>
+                <p>Update your contact name, phone number, and company address.</p>
               </div>
             </div>
 
@@ -306,6 +353,7 @@ const AccountSettingsPage = () => {
             )}
 
             <form onSubmit={handleSaveProfile} className="AccountSettings-form">
+              <div className="AccountSettings-sectionLabel">Contact Information</div>
               <div className="AccountSettings-formRow">
                 <div className="AccountSettings-formGroup">
                   <label htmlFor="account-name">Your Full Name *</label>
@@ -329,7 +377,7 @@ const AccountSettingsPage = () => {
                     value={client.email || user?.email || ''}
                     title="Email is tied to your account credentials"
                   />
-                  <small className="AccountSettings-helperText">Email address is your primary login identifier.</small>
+                  <small className="AccountSettings-helperText">Primary login identifier (read-only).</small>
                 </div>
               </div>
 
@@ -359,6 +407,9 @@ const AccountSettingsPage = () => {
                 </div>
               </div>
 
+              <div className="AccountSettings-divider" />
+              <div className="AccountSettings-sectionLabel"><FiMapPin /> Business & Billing Address</div>
+
               <div className="AccountSettings-formRow">
                 <div className="AccountSettings-formGroup">
                   <label htmlFor="account-address">Street Address</label>
@@ -385,7 +436,7 @@ const AccountSettingsPage = () => {
                 </div>
               </div>
 
-              <div className="AccountSettings-formRow">
+              <div className="AccountSettings-formRow is-three">
                 <div className="AccountSettings-formGroup">
                   <label htmlFor="account-state">State / Province</label>
                   <input
@@ -434,17 +485,45 @@ const AccountSettingsPage = () => {
               </div>
             </form>
           </div>
+
+          <aside className="AccountSettings-sideCard">
+            <h3>Account Snapshot</h3>
+            <p className="AccountSettings-sideSubtitle">Quick reference for your active workspace subscription.</p>
+            <div className="AccountSettings-snapshotList">
+              <div>
+                <span>Subscription Plan</span>
+                <strong>{payment.planName}</strong>
+              </div>
+              <div>
+                <span>Next Renewal</span>
+                <strong>{formatDate(payment.nextDueDate)}</strong>
+              </div>
+              <div>
+                <span>Plan Amount</span>
+                <strong>{formattedPrice}</strong>
+              </div>
+              <div>
+                <span>Login Account</span>
+                <strong>{getUserDisplayName(user)}</strong>
+              </div>
+              <div>
+                <span>Account Manager</span>
+                <strong>{manager.name || 'Not assigned'}</strong>
+              </div>
+            </div>
+          </aside>
         </div>
       )}
 
       {/* Tab 2: Security & Password */}
       {activeTab === 'password' && (
-        <div className="AccountSettings-tabContent">
-          <div className="AccountSettings-formCard AccountSettings-passwordCard">
+        <div className="AccountSettings-workspace">
+          <div className="AccountSettings-formCard">
             <div className="AccountSettings-cardHeader">
+              <span className="AccountSettings-sectionIcon is-indigo"><FiLock /></span>
               <div>
                 <h2>Change Account Password</h2>
-                <p>Ensure your account remains secure by choosing a strong password.</p>
+                <p>Keep your client portal secure with a strong unique password.</p>
               </div>
             </div>
 
@@ -502,7 +581,6 @@ const AccountSettingsPage = () => {
                       {showPassword.new ? <FiEyeOff /> : <FiEye />}
                     </button>
                   </div>
-                  <small className="AccountSettings-helperText">Must be at least 6 characters with letters and numbers.</small>
                 </div>
 
                 <div className="AccountSettings-formGroup">
@@ -541,16 +619,37 @@ const AccountSettingsPage = () => {
               </div>
             </form>
           </div>
+
+          <aside className="AccountSettings-sideCard">
+            <h3>Password Requirements</h3>
+            <p className="AccountSettings-sideSubtitle">Follow these checks for strong account protection.</p>
+            <ul className="AccountSettings-checklist">
+              <li className={hasMinLen ? 'is-met' : ''}>
+                <span><FiCheck /></span>
+                At least 6 characters long
+              </li>
+              <li className={hasAlphaNum ? 'is-met' : ''}>
+                <span><FiCheck /></span>
+                Mix of letters and numbers recommended
+              </li>
+              <li className={passwordsMatch ? 'is-met' : ''}>
+                <span><FiCheck /></span>
+                New & confirm password match
+              </li>
+            </ul>
+          </aside>
         </div>
       )}
 
-      {/* Tab 3: Account Overview (Original Cards) */}
+      {/* Tab 3: Account Overview */}
       {activeTab === 'overview' && (
-        <div className="ClientPageBase-grid ClientPageBase-settings-grid">
+        <div className="AccountSettings-overviewGrid">
           {cards.map(card => (
-            <article className="ClientPageBase-card" key={card.label}>
-              <div className="ClientPageBase-card-icon">{card.icon}</div>
-              <span>{card.label}</span>
+            <article className="AccountSettings-overviewCard" key={card.label}>
+              <div className="AccountSettings-overviewCardTop">
+                <div className={`AccountSettings-overviewIcon is-${card.tone}`}>{card.icon}</div>
+                <span className="AccountSettings-overviewLabel">{card.label}</span>
+              </div>
               <h2>{card.title}</h2>
               <p>{card.text}</p>
             </article>

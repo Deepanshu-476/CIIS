@@ -431,8 +431,27 @@ export const calculatePaymentSummary = client => {
   ), 0);
   const endDate = latest?.endDate || client?.subscriptionEndDate || '';
   const isExpired = endDate ? isSubscriptionEnded(endDate) : false;
+  const latestStatus = String(latest?.status || '').trim().toLowerCase();
+  const hasActiveSubscription = Boolean(
+    latest &&
+    !isExpired &&
+    latestStatus !== 'expired' &&
+    latestStatus !== 'cancelled'
+  );
   const dueAmount = dueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
   const outstanding = dueAmount || (isExpired ? subscriptionPrice : 0);
+  const resolvedPlanName = String(
+    latest?.planName ||
+    latest?.plan ||
+    latest?.name ||
+    latest?.subscriptionName ||
+    client?.activeClientPlan?.name ||
+    client?.planName ||
+    client?.plan ||
+    ''
+  ).trim();
+  const activePlanName = resolvedPlanName || (hasActiveSubscription ? 'Active Plan' : '');
+  const monthsCount = Number(latest?.months || 0);
 
   return {
     latest,
@@ -440,10 +459,13 @@ export const calculatePaymentSummary = client => {
     dueInvoices,
     paidAmount,
     outstanding,
+    totalDue: outstanding,
+    hasActiveSubscription,
+    activePlanName,
     unpaidInvoices: dueInvoices.length || (outstanding > 0 ? 1 : 0),
     nextDueDate: dueInvoices[0]?.dueDate || endDate,
-    planName: latest?.plan || latest?.name || latest?.subscriptionName || client?.plan || 'Active Plan',
-    billingCycle: latest?.billingCycle || latest?.cycle || `${latest?.months || 1} Month`,
+    planName: activePlanName || (latest ? 'Active Plan' : 'No Active Plan'),
+    billingCycle: latest?.billingCycle || latest?.cycle || (monthsCount > 0 ? `${monthsCount} Month${monthsCount > 1 ? 's' : ''}` : '1 Month'),
     subscriptionPrice
   };
 };
@@ -513,6 +535,22 @@ const getPersonEmail = person => (
     : ''
 );
 
+const getMemberRole = person => {
+  if (!person || typeof person !== 'object') return 'Project Team';
+  const rawJobRole = typeof person.jobRole === 'string' && !mongoObjectIdPattern.test(person.jobRole.trim())
+    ? person.jobRole
+    : '';
+  return (
+    person.jobRoleName ||
+    person.role ||
+    person.designation ||
+    person.position ||
+    person.employeeRole ||
+    rawJobRole ||
+    'Project Team'
+  );
+};
+
 const normalizeProjectMember = person => {
   const name = getPersonName(person).trim();
   if (!name) return null;
@@ -521,7 +559,7 @@ const normalizeProjectMember = person => {
     name,
     email: getPersonEmail(person),
     phone: typeof person === 'object' && person ? person.phone || person.mobile || '' : '',
-    role: typeof person === 'object' && person ? person.role || person.designation || person.position || person.employeeRole || 'Project Team' : 'Project Team'
+    role: getMemberRole(person)
   };
 };
 
@@ -542,23 +580,29 @@ const findUserForAssignedMember = (member, users = []) => {
     const userId = String(user._id || user.id || user.userId || user.employeeId || '').toLowerCase();
     const userName = String(user.name || user.fullName || user.employeeName || '').trim().toLowerCase();
     const userEmail = String(user.email || user.employeeEmail || '').trim().toLowerCase();
-    return (
-      (memberId && userId && String(memberId).toLowerCase() === userId) ||
-      (memberEmail && userEmail && memberEmail === userEmail) ||
-      (memberName && userName && memberName === userName)
-    );
+    if (memberId && userId && String(memberId).toLowerCase() === userId) return true;
+    if (memberEmail && userEmail && memberEmail === userEmail) return true;
+    if (memberName && userName) {
+      if (memberName === userName) return true;
+      const cleanMember = memberName.replace(/[^a-z0-9]/g, '');
+      const cleanUser = userName.replace(/[^a-z0-9]/g, '');
+      if (cleanMember.length >= 3 && (cleanUser.startsWith(cleanMember) || cleanMember.startsWith(cleanUser))) {
+        return true;
+      }
+    }
+    return false;
   });
 };
 
 export const collectProjectMembers = (client, users = []) => {
   const membersMap = new Map();
   const availableUsers = users.filter(user => !isBlockedRecord(user));
-  [client?.projectManagers, client?.projectManager].forEach(group => {
+  [client?.projectManagers, client?.projectManager, client?.accountManager, client?.assignedTo].forEach(group => {
     if (Array.isArray(group)) {
       group
         .filter(person => !isBlockedRecord(person))
         .forEach(person => addUniqueProjectMember(membersMap, findUserForAssignedMember(person, availableUsers) || person));
-    } else {
+    } else if (group) {
       addUniqueProjectMember(membersMap, findUserForAssignedMember(group, availableUsers) || group);
     }
   });

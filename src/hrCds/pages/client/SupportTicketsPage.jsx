@@ -71,9 +71,17 @@ const SupportTicketsPage = () => {
   const [actionLoading, setActionLoading] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const clientName = getClientDisplayName(client);
-  const manager = projectManagers[0] || {};
-  const managerName = manager.name || 'Account Manager';
-  const managerRole = String(manager.role || '').trim();
+  const manager =
+    projectManagers.find(member => /manager|lead|head|admin/i.test(String(member?.role || '')) && (member?.email || member?.phone)) ||
+    projectManagers.find(member => member?.email || member?.phone) ||
+    projectManagers[0] ||
+    {};
+  const managerName = manager.name || 'Not assigned';
+  const managerInitials = manager.name ? getInitials(manager.name) : 'AM';
+  const rawManagerRole = String(manager.role || '').trim();
+  const managerRole = rawManagerRole && !/^project team$/i.test(rawManagerRole)
+    ? rawManagerRole
+    : (manager.name ? 'Account Manager' : '');
 
   useEffect(() => {
     const fetchClientMeetings = async () => {
@@ -357,12 +365,13 @@ const SupportTicketsPage = () => {
         <section className="ClientMeetings-panel ClientMeetings-manager">
           <h2>Your Account Manager</h2>
           <div className="ClientMeetings-managerInfo">
-            <div className="ClientMeetings-managerPhoto">RS</div>
+            <div className="ClientMeetings-managerPhoto">{managerInitials}</div>
             <div>
               <strong>{managerName}</strong>
-              {managerRole && !/project team/i.test(managerRole) && <span>{managerRole}</span>}
+              {managerRole && <span>{managerRole}</span>}
               {manager.phone && <a href={`tel:${manager.phone}`}><FiPhone /> {manager.phone}</a>}
               {manager.email && <a href={`mailto:${manager.email}`}><FiMail /> {manager.email}</a>}
+              {!manager.name && <span>Account manager will appear once assigned.</span>}
             </div>
           </div>
         </section>

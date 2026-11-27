@@ -540,7 +540,29 @@ const ServicesTasks = () => {
   const safeModalPage = Math.min(modalPage, modalTotalPages);
   const modalStartIndex = (safeModalPage - 1) * pageSize;
   const visibleModalTaskRows = modalTaskRows.slice(modalStartIndex, modalStartIndex + pageSize);
-  const modalPageNumbers = Array.from({ length: Math.min(3, modalTotalPages) }, (_, index) => index + 1);
+  const modalPageWindowStart = Math.max(1, Math.min(safeModalPage - 2, modalTotalPages - 4));
+  const modalPageNumbers = Array.from(
+    { length: Math.min(5, modalTotalPages) },
+    (_, index) => modalPageWindowStart + index
+  );
+
+  const hasActiveFilters = (
+    activeTaskFilter !== 'total' ||
+    taskSearch.trim() !== '' ||
+    statusFilter !== 'all' ||
+    priorityFilter !== 'all' ||
+    serviceFilter !== 'all' ||
+    dueFilter !== 'any'
+  );
+
+  const clearToolbarFilters = () => {
+    setActiveTaskFilter('total');
+    setTaskSearch('');
+    setStatusFilter('all');
+    setPriorityFilter('all');
+    setServiceFilter('all');
+    setDueFilter('any');
+  };
 
   useEffect(() => {
     setModalPage(1);
@@ -671,6 +693,7 @@ const ServicesTasks = () => {
                 <option value="all">All Status</option>
                 <option value="completed">Completed</option>
                 <option value="in-progress">In Progress</option>
+                <option value="pending">Pending</option>
                 <option value="overdue">Overdue</option>
               </select>
               <select value={priorityFilter} onChange={event => setPriorityFilter(event.target.value)} aria-label="Filter by priority">
@@ -689,7 +712,14 @@ const ServicesTasks = () => {
                 <option value="upcoming">Upcoming</option>
                 <option value="overdue">Overdue</option>
               </select>
-              <button type="button" className="ClientTasksUpdatesPage-filter"><FiFilter /> Filters</button>
+              <button
+                type="button"
+                className="ClientTasksUpdatesPage-filter"
+                onClick={clearToolbarFilters}
+                disabled={!hasActiveFilters}
+              >
+                <FiFilter /> {hasActiveFilters ? 'Reset Filters' : 'All Clear'}
+              </button>
               
             </div>
 
@@ -736,7 +766,7 @@ const ServicesTasks = () => {
                             setDetailsModal('task');
                           }}
                         >
-                          {pageStartIndex + index === 0 ? 'Review' : 'View Details'}
+                          View Details
                         </button>
                       </td>
                     </tr>
@@ -860,10 +890,10 @@ const ServicesTasks = () => {
         <article className="ClientTasksUpdatesPage-widget ClientTasksUpdatesPage-quick">
           <h3>Quick Actions</h3>
           <div>
-            <button type="button" onClick={() => navigate('/client/marketplace')}><FiGrid /><span>View Service</span><small>See project details</small></button>
-            <button type="button"><FiUpload /><span>Upload Feedback</span><small>Share your feedback</small></button>
-            <button type="button" onClick={() => navigate('/client/support-tickets')}><FiCalendar /><span>Book Meeting</span><small>Schedule with team</small></button>
-            <button type="button" onClick={() => navigate('/client/support-tickets')}><FiAlertCircle /><span>Raise Ticket</span><small>Get support</small></button>
+            <button type="button" onClick={() => navigate('/client/my-services')}><FiGrid /><span>View Service</span><small>See project details</small></button>
+            <button type="button" onClick={() => navigate('/client/documents')}><FiUpload /><span>Upload Feedback</span><small>Share your feedback</small></button>
+            <button type="button" onClick={() => navigate('/client/support-tickets', { state: { action: 'meeting' } })}><FiCalendar /><span>Book Meeting</span><small>Schedule with team</small></button>
+            <button type="button" onClick={() => navigate('/client/support-tickets', { state: { action: 'ticket' } })}><FiAlertCircle /><span>Raise Ticket</span><small>Get support</small></button>
           </div>
           <button type="button" onClick={() => navigate('/client/marketplace')}><FiGrid /> View All Services <FiChevronRight /></button>
         </article>
@@ -936,7 +966,19 @@ const ServicesTasks = () => {
                     <span>Showing {modalStartIndex + 1} to {Math.min(modalStartIndex + visibleModalTaskRows.length, modalTaskRows.length)} of {modalTaskRows.length} tasks</span>
                     <div>
                       <button type="button" onClick={() => setModalPage(Math.max(1, safeModalPage - 1))} disabled={safeModalPage === 1} aria-label="Previous page"><FiChevronLeft /></button>
+                      {modalPageWindowStart > 1 && (
+                        <>
+                          <button type="button" onClick={() => setModalPage(1)}>1</button>
+                          {modalPageWindowStart > 2 && <span>...</span>}
+                        </>
+                      )}
                       {modalPageNumbers.map(page => <button type="button" key={page} className={safeModalPage === page ? 'is-active' : ''} onClick={() => setModalPage(page)}>{page}</button>)}
+                      {modalPageWindowStart + modalPageNumbers.length - 1 < modalTotalPages && (
+                        <>
+                          {modalPageWindowStart + modalPageNumbers.length < modalTotalPages && <span>...</span>}
+                          <button type="button" onClick={() => setModalPage(modalTotalPages)}>{modalTotalPages}</button>
+                        </>
+                      )}
                       <button type="button" onClick={() => setModalPage(Math.min(modalTotalPages, safeModalPage + 1))} disabled={safeModalPage === modalTotalPages} aria-label="Next page"><FiChevronRight /></button>
                     </div>
                     <select value={pageSize} onChange={handlePageSizeChange} aria-label="Tasks per page"><option value="10">10 / page</option><option value="20">20 / page</option><option value="50">50 / page</option></select>
@@ -998,15 +1040,14 @@ const ServicesTasks = () => {
                   <div><i style={{ width: `${projectProgress.progress}%` }}></i></div>
                   <small>{projectProgress.progress}% overall progress - {projectProgress.done || 0}/{projectProgress.taskTotal || 0} tasks complete</small>
                 </div>
-                <div className="ClientTasksUpdatesPage-modalTable">
+                <div className="ClientTasksUpdatesPage-modalTable ClientTasksUpdatesPage-projectTable">
                   <div className="ClientTasksUpdatesPage-modalTableHead">
-                    <span>Milestone</span><span>Status</span><span></span><span></span><span></span><span></span>
+                    <span>Milestone</span><span>Status</span>
                   </div>
                   {projectMilestones.map((step, index) => (
                     <div className="ClientTasksUpdatesPage-modalTableRow" key={`${step.title}-project-${index}`}>
                       <strong>{step.title}</strong>
                       <em className={`ClientTasksUpdatesPage-status ClientTasksUpdatesPage-${step.status.replace(/\s/g, '').toLowerCase()}`}>{step.status}</em>
-                      <span></span><span></span><span></span><span></span>
                     </div>
                   ))}
                 </div>

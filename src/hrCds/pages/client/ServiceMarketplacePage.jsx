@@ -213,14 +213,15 @@ const ServiceMarketplacePage = () => {
         copy: service.description || service.details || `${title} is available from your company service catalog.`,
         icon: [<FiBriefcase />, <FiCode />, <FiTarget />, <FiShield />, <FiGrid />, <FiPackage />][index % 6],
         tone: ["blue", "green", "purple", "orange", "slate", "pink"][index % 6],
-        category: service.category || service.serviceCategory || "Company Services",
+        category: service.category || service.serviceCategory || "",
         action: clientServices.includes(title) ? "View Service" : "Get Proposal",
       };
     })
   ), [companyServices, clientServices]);
 
   const marketplaceServices = companyMarketplaceServices;
-  const dynamicCategories = ["All Services", ...new Set(marketplaceServices.map(service => service.category).filter(Boolean))];
+  const realCategories = [...new Set(marketplaceServices.map(service => service.category).filter(Boolean))];
+  const dynamicCategories = realCategories.length > 1 ? ["All Services", ...realCategories] : [];
   const activeServiceNames = clientServices.map(service => String(service).toLowerCase());
   const recommendedDynamicServices = marketplaceServices.filter(service => (
     !activeServiceNames.some(active => service.title.toLowerCase().includes(active) || active.includes(service.title.toLowerCase()))
@@ -318,18 +319,20 @@ const ServiceMarketplacePage = () => {
                 <p>Browse our complete range of services across different categories.</p>
               </div>
             </div>
-            <div className="ServiceMarketplacePage-tabs">
-              {dynamicCategories.map((category) => (
-                <button
-                  type="button"
-                  key={category}
-                  className={activeCategory === category ? "active" : ""}
-                  onClick={() => handleCategoryChange(category)}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
+            {dynamicCategories.length > 0 && (
+              <div className="ServiceMarketplacePage-tabs">
+                {dynamicCategories.map((category) => (
+                  <button
+                    type="button"
+                    key={category}
+                    className={activeCategory === category ? "active" : ""}
+                    onClick={() => handleCategoryChange(category)}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="ServiceMarketplacePage-servicesGrid">
               {servicesLoading && <p>Loading company services...</p>}
               {!servicesLoading && servicesError && <p>{servicesError}</p>}

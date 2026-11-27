@@ -1,115 +1,245 @@
-.ClientPageBase-root {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.ClientPageBase-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 18px;
-  padding: 26px 28px;
-  border-radius: 22px;
-  background: white;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
-}
-
-.ClientPageBase-header p {
-  margin: 0 0 10px;
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.ClientPageBase-header h1 {
-  margin: 0;
-  font-size: 28px;
-  color: #0f172a;
-}
-
-/* Tabs */
-.AccountSettings-tabs {
-  display: flex;
-  gap: 12px;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 4px;
-  overflow-x: auto;
-}
-
-.AccountSettings-tabBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 14px;
-  font-weight: 700;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.AccountSettings-tabBtn:hover {
-  background: #f1f5f9;
-  color: #1e293b;
-}
-
-.AccountSettings-tabBtn.active {
-  background: #eff6ff;
-  color: #2563eb;
-  box-shadow: inset 0 -2px 0 #2563eb;
-}
-
-/* Form Cards */
-.AccountSettings-tabContent {
+.AccountSettings-page {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 28px 48px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.AccountSettings-page * {
+  box-sizing: border-box;
+}
+
+/* Hero Banner */
+.AccountSettings-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 22px 26px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+}
+
+.AccountSettings-heroIdentity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.AccountSettings-avatar {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.24);
+}
+
+.AccountSettings-heroText {
+  min-width: 0;
+}
+
+.AccountSettings-eyebrow {
+  display: inline-block;
+  margin-bottom: 4px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.AccountSettings-heroText h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.AccountSettings-heroText p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.AccountSettings-heroBadges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.AccountSettings-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.AccountSettings-pill.is-emerald {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+.AccountSettings-pill.is-blue {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+/* Segmented Tabs */
+.AccountSettings-tabsWrap {
+  display: flex;
+  align-items: center;
+}
+
+.AccountSettings-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.AccountSettings-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.AccountSettings-tabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.AccountSettings-tabBtn:hover:not(.active) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.AccountSettings-tabBtn.active {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+}
+
+/* 2-Column Workspace */
+.AccountSettings-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.AccountSettings-formCard,
+.AccountSettings-sideCard,
+.AccountSettings-errorCard {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
 }
 
 .AccountSettings-formCard {
-  background: white;
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
-  border: 1px solid #f1f5f9;
+  padding: 26px 28px;
 }
 
-.AccountSettings-passwordCard {
-  max-width: 720px;
+.AccountSettings-sideCard {
+  padding: 22px 24px;
 }
 
 .AccountSettings-cardHeader {
-  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.AccountSettings-sectionIcon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 18px;
+}
+
+.AccountSettings-sectionIcon.is-blue {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #dbeafe;
+}
+
+.AccountSettings-sectionIcon.is-indigo {
+  background: #eef2ff;
+  color: #4f46e5;
+  border: 1px solid #e0e7ff;
 }
 
 .AccountSettings-cardHeader h2 {
-  margin: 0 0 6px;
-  font-size: 20px;
-  color: #0f172a;
+  margin: 0 0 4px;
+  font-size: 17px;
   font-weight: 800;
+  color: #0f172a;
 }
 
 .AccountSettings-cardHeader p {
   margin: 0;
   color: #64748b;
-  font-size: 14px;
+  font-size: 13px;
 }
 
-/* Alert Banners */
+/* Alerts */
 .AccountSettings-alert {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .AccountSettings-alert.is-success {
@@ -124,61 +254,85 @@
   border: 1px solid #fecaca;
 }
 
-/* Form Layout */
+/* Form Sections & Inputs */
 .AccountSettings-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+}
+
+.AccountSettings-sectionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.AccountSettings-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 0;
 }
 
 .AccountSettings-formRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.AccountSettings-formRow.is-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .AccountSettings-formGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .AccountSettings-formGroup label {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: #334155;
 }
 
 .AccountSettings-formGroup input {
-  height: 44px;
-  padding: 0 14px;
-  border: 1.5px solid #cbd5e1;
+  width: 100%;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13.5px;
   color: #0f172a;
-  background: #fff;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #f8fafc;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   outline: none;
 }
 
 .AccountSettings-formGroup input:focus {
+  background: #ffffff;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .AccountSettings-formGroup input:disabled {
-  background: #f8fafc;
+  background: #f1f5f9;
   color: #64748b;
   cursor: not-allowed;
   border-color: #e2e8f0;
 }
 
 .AccountSettings-helperText {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 12px;
 }
 
-/* Password Input with eye */
+/* Password Eye Button */
 .AccountSettings-passwordInputWrap {
   position: relative;
   display: flex;
@@ -186,57 +340,60 @@
 }
 
 .AccountSettings-passwordInputWrap input {
-  width: 100%;
-  padding-right: 44px;
+  padding-right: 42px;
 }
 
 .AccountSettings-eyeBtn {
   position: absolute;
-  right: 12px;
+  right: 10px;
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #64748b;
   display: grid;
   place-items: center;
-  font-size: 18px;
+  font-size: 17px;
   cursor: pointer;
-  padding: 4px;
+  padding: 5px;
   border-radius: 6px;
-  transition: color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 
 .AccountSettings-eyeBtn:hover {
-  color: #334155;
+  color: #0f172a;
+  background: #e2e8f0;
 }
 
-/* Submit Actions */
+/* Actions Footer */
 .AccountSettings-formActions {
   display: flex;
-  justify-content: flex-start;
-  padding-top: 10px;
+  justify-content: flex-end;
+  padding-top: 14px;
+  margin-top: 6px;
+  border-top: 1px solid #f1f5f9;
 }
 
 .AccountSettings-submitBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  height: 44px;
-  padding: 0 24px;
+  height: 42px;
+  padding: 0 22px;
   background: #2563eb;
-  color: white;
+  color: #ffffff;
   border: none;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.24);
+  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
 }
 
 .AccountSettings-submitBtn:hover:not(:disabled) {
   background: #1d4ed8;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
 }
 
 .AccountSettings-submitBtn:disabled {
@@ -245,52 +402,265 @@
   transform: none;
 }
 
-/* Overview Cards */
-.ClientPageBase-grid {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Side Cards */
+.AccountSettings-sideCard h3 {
+  margin: 0 0 4px;
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #0f172a;
 }
 
-.ClientPageBase-card {
-  background: white;
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
+.AccountSettings-sideSubtitle {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.AccountSettings-snapshotList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.AccountSettings-snapshotList > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.AccountSettings-snapshotList span {
+  font-size: 12.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.AccountSettings-snapshotList strong {
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 700;
+  text-align: right;
+  word-break: break-word;
+}
+
+.AccountSettings-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.AccountSettings-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.18s ease;
+}
+
+.AccountSettings-checklist li span {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
   display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.AccountSettings-checklist li.is-met {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+  font-weight: 600;
+}
+
+.AccountSettings-checklist li.is-met span {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* Account Overview 3-Column Grid */
+.AccountSettings-overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
-.ClientPageBase-card-icon {
-  width: 44px;
-  height: 44px;
+.AccountSettings-overviewCard {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 22px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.AccountSettings-overviewCard:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07);
+}
+
+.AccountSettings-overviewCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.AccountSettings-overviewIcon {
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: #eff6ff;
-  color: #2563eb;
+  border-radius: 12px;
+  font-size: 18px;
 }
 
-.ClientPageBase-card span {
+.AccountSettings-overviewIcon.is-blue { background: #eff6ff; color: #2563eb; }
+.AccountSettings-overviewIcon.is-indigo { background: #eef2ff; color: #4f46e5; }
+.AccountSettings-overviewIcon.is-emerald { background: #ecfdf5; color: #059669; }
+.AccountSettings-overviewIcon.is-amber { background: #fffbeb; color: #d97706; }
+.AccountSettings-overviewIcon.is-violet { background: #f5f3ff; color: #7c3aed; }
+.AccountSettings-overviewIcon.is-slate { background: #f1f5f9; color: #475569; }
+
+.AccountSettings-overviewLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.AccountSettings-overviewCard h2 {
+  margin: 4px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.AccountSettings-overviewCard p {
+  margin: 0;
   color: #64748b;
   font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
-.ClientPageBase-card h2 {
+.AccountSettings-errorCard {
+  padding: 36px 24px;
+  text-align: center;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+}
+
+.AccountSettings-errorCard svg {
+  font-size: 36px;
+  color: #dc2626;
+}
+
+.AccountSettings-errorCard h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   color: #0f172a;
-  font-weight: 800;
 }
 
-.ClientPageBase-card p {
-  margin: 0;
+.AccountSettings-errorCard p {
+  margin: 0 0 8px;
   color: #64748b;
-  line-height: 1.7;
+  font-size: 14px;
 }
 
+/* Responsive Breakpoints */
 @media (max-width: 1080px) {
-  .ClientPageBase-grid {
+  .AccountSettings-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .AccountSettings-overviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .AccountSettings-page {
+    padding: 12px 12px 84px;
+    gap: 14px;
+  }
+
+  .AccountSettings-hero {
+    padding: 16px;
+    border-radius: 14px;
+    gap: 12px;
+  }
+
+  .AccountSettings-avatar {
+    width: 46px;
+    height: 46px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+
+  .AccountSettings-heroText h1 {
+    font-size: 18px;
+  }
+
+  .AccountSettings-heroText p {
+    font-size: 12px;
+  }
+
+  .AccountSettings-tabs {
+    width: 100%;
+    padding: 4px;
+  }
+
+  .AccountSettings-tabBtn {
+    flex: 1 0 auto;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 12.5px;
+  }
+
+  .AccountSettings-formCard,
+  .AccountSettings-sideCard {
+    padding: 18px 16px;
+    border-radius: 14px;
+  }
+
+  .AccountSettings-formRow,
+  .AccountSettings-formRow.is-three,
+  .AccountSettings-overviewGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .AccountSettings-formActions {
+    justify-content: stretch;
+  }
+
+  .AccountSettings-submitBtn {
+    width: 100%;
   }
 }

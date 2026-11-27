@@ -558,6 +558,7 @@ function App() {
               <Route index element={<ClientDashboardPage />} />
               <Route path="dashboard" element={<ClientDashboardPage />} />
               <Route path="tasks-updates" element={<ClientTasksUpdatesPage />} />
+              <Route path="tasks" element={<Navigate to="/client/tasks-updates" replace />} />
               <Route
                 path="task-management"
                 element={(

@@ -925,18 +925,29 @@ const CompanyAllTaskTasks = () => {
 
     const loadTaskPermissions = async () => {
       try {
-        const page = await loadPagePermission("/ciisUser/company-all-task");
+        const [page, tasksPage] = await Promise.all([
+          loadPagePermission("/ciisUser/company-all-task"),
+          loadPagePermission("/ciisUser/company-all-task/tasks")
+        ]);
         if (!active) return;
 
         const currentUserIdValue = getCurrentUserId();
         const currentUser = getStoredUser();
-        const viewUserIds = getPageAccessUserIds(page, 'view');
-        const editUserIds = getPageAccessUserIds(page, 'edit');
+        const viewUserIds = [
+          ...getPageAccessUserIds(page, 'view'),
+          ...getPageAccessUserIds(tasksPage, 'view')
+        ];
+        const editUserIds = [
+          ...getPageAccessUserIds(page, 'edit'),
+          ...getPageAccessUserIds(tasksPage, 'edit')
+        ];
         const configuredIds = [
           ...getPageAccessUserIds(page, 'approve'),
+          ...getPageAccessUserIds(tasksPage, 'approve'),
           ...viewUserIds,
           ...editUserIds,
-          ...getPageAccessUserIds(page, 'delete')
+          ...getPageAccessUserIds(page, 'delete'),
+          ...getPageAccessUserIds(tasksPage, 'delete')
         ];
 
         const roleTokens = [
@@ -950,11 +961,18 @@ const CompanyAllTaskTasks = () => {
         const isSuperRole = Boolean(currentUser?.isSuperAdmin || currentUser?.superAdmin || currentUser?.isCompanyOwner) ||
           roleTokens.some((role) => ['owner', 'companyowner', 'admin', 'companyadmin', 'superadmin'].includes(role));
         const isSelf = String(effectiveUserId || '') === String(currentUserIdValue || '');
-        const hasDirectAccess = configuredIds.includes(currentUserIdValue);
+        const hasFullTasksAccess = tasksPage?.hasAutoFullAccess === true ||
+          (tasksPage?.autoFullAccess === true && [
+            ...getPageAccessUserIds(tasksPage, 'view'),
+            ...getPageAccessUserIds(tasksPage, 'edit'),
+            ...getPageAccessUserIds(tasksPage, 'delete'),
+            ...getPageAccessUserIds(tasksPage, 'approve')
+          ].includes(currentUserIdValue));
+        const hasDirectAccess = configuredIds.includes(currentUserIdValue) || hasFullTasksAccess;
         const hasAccess = isSuperRole || isSelf || hasDirectAccess;
 
         setCanViewCompanyTasks(hasAccess);
-        setCanEditCompanyTasks(isSuperRole || editUserIds.includes(currentUserIdValue));
+        setCanEditCompanyTasks(isSuperRole || hasFullTasksAccess || editUserIds.includes(currentUserIdValue));
       } catch (err) {
         console.error("Error loading task permissions:", err);
       } finally {

@@ -63,7 +63,7 @@ const loadPermissionResource = (key, load, force = false) => {
 
 const STRICT_PAGE_PATHS = new Set([
   ...['emp-details', 'emp-leaves', 'emp-assets', 'emp-attendance', 'department',
-    'jobrolemanagement', 'manage-groups', 'company-all-task', 'company-all-task/tasks',
+    'jobrolemanagement', 'manage-groups', 'company-all-task',
     'company-assets', 'asset-management', 'sidebarmanagement', 'emp-client',
     'leave-policy', 'admin-task-create', 'task-management', 'user-activity'
   ].map(page => `/ciisuser/${page}`),
@@ -152,9 +152,25 @@ export const isCompanyPageOwner = user => Boolean(user?.isCompanyOwner || user?.
 
 export const getManagedPermissionPath = path => {
   const normalized = normalizePermissionPath(path);
-  if (normalized === '/ciisuser/asset-management') return '/ciisuser/company-assets';
-  if (normalized === '/ciisuser/job-role-management') return '/ciisuser/jobrolemanagement';
-  return normalized;
+  const aliases = {
+    '/ciisuser/asset-management': '/ciisuser/company-assets',
+    '/ciisuser/job-role-management': '/ciisuser/jobrolemanagement',
+    '/ciisuser/employee-details': '/ciisuser/emp-details',
+    '/ciisuser/employee-leaves': '/ciisuser/emp-leaves',
+    '/ciisuser/employee-assets': '/ciisuser/emp-assets',
+    '/ciisuser/employee-attendance': '/ciisuser/emp-attendance',
+    '/ciisuser/create-task': '/ciisuser/task-management',
+    '/ciisuser/admin-create-task': '/ciisuser/admin-task-create',
+    '/ciisuser/company-all-tasks': '/ciisuser/company-all-task',
+    '/ciisuser/department-all-tasks': '/ciisuser/department-all-task',
+    '/ciisuser/client-management': '/ciisuser/emp-client',
+    '/ciisuser/admin-projects': '/ciisuser/adminproject',
+    '/ciisuser/projects': '/ciisuser/project',
+    '/ciisuser/create-employee-meeting': '/ciisuser/admin-meeting',
+    '/ciisuser/alerts': '/ciisuser/alert',
+    '/ciisuser/dashboard': '/ciisuser/user-dashboard',
+  };
+  return aliases[normalized] || normalized;
 };
 
 export const getCatalogAccessPages = catalog => {
@@ -188,20 +204,45 @@ export const hasConfiguredPageAccess = (page) => [
   'unlock'
 ].some(accessType => getPageAccessUserIds(page, accessType).length > 0);
 
+const AUTO_FULL_ACCESS_PATHS = new Set([
+  '/ciisuser/register-request',
+  '/ciisuser/company-all-task/tasks',
+  '/ciisuser/user-dashboard',
+  '/ciisuser/attendance',
+  '/ciisuser/my-leaves',
+  '/ciisuser/my-assets',
+  '/ciisuser/profile',
+  '/ciisuser/change-password',
+  '/ciisuser/create-user',
+  '/ciisuser/alert',
+  '/ciisuser/chat',
+]);
+
+export const isAutoFullAccessPath = (pagePath) =>
+  AUTO_FULL_ACCESS_PATHS.has(getManagedPermissionPath(pagePath));
+
 export const hasPageAccess = (page, userId, accessType = 'view') => {
   const normalizedUserId = normalizeUserId(userId);
   if (!normalizedUserId || page?.entitled === false) return false;
+  if (page?.hasAutoFullAccess === true) return true;
+  const allActions = [
+    'view',
+    'edit',
+    'delete',
+    'approve',
+    'generate',
+    'lock',
+    'unlock'
+  ];
+  const hasAnyExplicitGrant = allActions.some(action =>
+    getPageAccessUserIds(page, action).includes(normalizedUserId)
+  );
+  if ((page?.autoFullAccess === true || isAutoFullAccessPath(page?.path)) && hasAnyExplicitGrant) {
+    return true;
+  }
   const type = String(accessType || 'view').trim().toLowerCase();
   if (type === 'view') {
-    return [
-      'view',
-      'edit',
-      'delete',
-      'approve',
-      'generate',
-      'lock',
-      'unlock'
-    ].some(action => getPageAccessUserIds(page, action).includes(normalizedUserId));
+    return hasAnyExplicitGrant;
   }
   return getPageAccessUserIds(page, type).includes(normalizedUserId);
 };

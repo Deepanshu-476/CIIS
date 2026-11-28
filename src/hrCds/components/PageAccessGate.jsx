@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import RouteBoundaryLoader from "../../components/RouteBoundaryLoader";
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from "../../crm/telecaller/telecallerPages";
 import {
-  getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess,
+  getCurrentUserId, getStoredUser, isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess,
   loadPagePermission, loadPagePermissionCatalog, getCatalogAccessPages, getManagedPermissionPath,
   isCompanyPageOwner, getPagePermissionScope, getCachedPagePermissionCatalog, getCachedPagePermission,
   getCachedSpecialPageAccess, loadSpecialPageAccess, preloadPagePermissions,
@@ -460,6 +460,23 @@ const getStoredCompany = () => {
   catch { return {}; }
 };
 
+const SELF_SERVICE_MANAGED_PATHS = new Set([
+  '/ciisuser/user-dashboard',
+  '/ciisuser/dashboard-1',
+  '/ciisuser/dashboard-overview',
+  '/ciisuser/attendance',
+  '/ciisuser/my-leaves',
+  '/ciisuser/my-assets',
+  '/ciisuser/profile',
+  '/ciisuser/change-password',
+  '/ciisuser/chat',
+  '/ciisuser/alert',
+  '/ciisuser/project',
+  '/ciisuser/employee-meeting',
+  '/ciisuser/client-meeting',
+  '/ciisuser/support-desk',
+]);
+
 const decidePageAccess = (pagePath, catalog, { user, userId, telecallerPage, isSpecial, isPrivileged }) => {
   const path = getManagedPermissionPath(pagePath);
   if (CORE_PAGE_KEYS.has(normalizePlanKey(path)) || !path.startsWith('/ciisuser/')) {
@@ -469,13 +486,25 @@ const decidePageAccess = (pagePath, catalog, { user, userId, telecallerPage, isS
   const managedPage = Array.isArray(catalog?.managedPages) && getCatalogAccessPages(catalog).find(page =>
     getManagedPermissionPath(page.path) === path);
   if (managedPage) {
-    if (path === '/ciisuser/register-request' && managedPage.canManageRegistrationRequests === true) {
+    if (path === '/ciisuser/register-request' && (managedPage.canManageRegistrationRequests === true || managedPage.hasAutoFullAccess === true)) {
       return accessDecision(true);
     }
     if (!managedPage.entitled) return accessDecision(false, 'plan');
+    if (managedPage.hasAutoFullAccess === true) {
+      return accessDecision(true);
+    }
     if (!isSpecial) {
-      return accessDecision(hasPageAccess(managedPage, userId, 'view') ||
-        (!telecallerPage && !isCrmPage(pagePath) && isCompanyPageOwner(user)));
+      if (managedPage.requiresExplicitGrant !== false) {
+        return accessDecision(hasPageAccess(managedPage, userId, 'view') ||
+          (!telecallerPage && !isCrmPage(pagePath) && isCompanyPageOwner(user)));
+      }
+      if (hasPageAccess(managedPage, userId, 'view') || isPrivileged || isCompanyPageOwner(user)) {
+        return accessDecision(true);
+      }
+      if (SELF_SERVICE_MANAGED_PATHS.has(path)) {
+        return accessDecision(true);
+      }
+      return accessDecision(!hasConfiguredPageAccess(managedPage));
     }
   }
 

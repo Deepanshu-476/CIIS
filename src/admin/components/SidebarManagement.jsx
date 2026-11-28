@@ -508,7 +508,7 @@ const SidebarManagement = () => {
         let activeCompany = companyFromStorage;
 
         try {
-          const latestCompanyResponse = await axiosInstance.get(`/company/${companyFromStorage._id}`);
+          const latestCompanyResponse = await axiosInstance.get(`/company/${companyFromStorage._id}`, { noCache: true });
           const latestCompany = latestCompanyResponse.data?.company;
 
           if (latestCompany?._id) {

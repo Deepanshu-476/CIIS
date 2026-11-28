@@ -478,6 +478,12 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
     const [availableUsers, setAvailableUsers] = useState([]);
     const [selectedInviteIds, setSelectedInviteIds] = useState([]);
     const [isInvitingPeople, setIsInvitingPeople] = useState(false);
+    const [pendingTaskPrompt, setPendingTaskPrompt] = useState(null);
+    const [remarkPrompts, setRemarkPrompts] = useState([]);
+    const [remarkText, setRemarkText] = useState("");
+    const [remarkSubmitting, setRemarkSubmitting] = useState(false);
+    const [remarkError, setRemarkError] = useState("");
+    const [remarkNotice, setRemarkNotice] = useState("");
     const localVideoRef = useRef(null);
     const peerConnectionsRef = useRef(new Map());
     const localStreamRef = useRef(null);
@@ -1284,7 +1290,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         });
     };
 
-    const startCall = async (callType, user) => {
+    const startCall = async (callType, user, options = {}) => {
         if (!socket || !user) {
             setError("Unable to start the call.");
             return;
@@ -1310,6 +1316,19 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         }
 
         const isGroupCall = Boolean(user.isGroup || (Array.isArray(user.members) && user.members.length > 2) || participantIds.length > 1);
+        const callTitle = isGroupCall ? getGroupName(user) : (user.name || user.fullName || "User");
+
+        if (typeof options.createTask !== "boolean") {
+            setPendingTaskPrompt({
+                callType,
+                user,
+                title: callTitle,
+                isGroupCall,
+            });
+            return;
+        }
+
+        const createTask = Boolean(options.createTask);
         const nextCall = {
             callId: `${myId || "user"}-${Date.now()}`,
             type: callType,
@@ -1319,7 +1338,8 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             participantIds,
             isCaller: true,
             isGroupCall,
-            title: isGroupCall ? getGroupName(user) : (user.name || user.fullName || "User"),
+            createTask,
+            title: callTitle,
         };
 
         activeCallRef.current = nextCall;
@@ -1346,6 +1366,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 toUserId: participantIds[0],
                 callType,
                 isGroupCall,
+                createTask,
                 conversationId: convId,
                 groupTitle: isGroupCall ? getGroupName(user) : "",
                 title: isGroupCall ? getGroupName(user) : "",
@@ -1864,6 +1885,18 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.emit("call:rebind", { callId: activeCall.callId, muted: isMutedRef.current });
         };
 
+        const handleTaskRemarkPrompt = (data) => {
+            if (!data?.taskId) return;
+            setRemarkPrompts(prev => {
+                const next = [...prev.filter(item => String(item.taskId) !== String(data.taskId)), data];
+                if (prev.length === 0) {
+                    setRemarkText("");
+                    setRemarkError("");
+                }
+                return next;
+            });
+        };
+
         socket.on("connect", handleConnect);
         socket.on("call:answered-elsewhere", handleAnsweredElsewhere);
         socket.on("call:incoming", handleIncoming);
@@ -1888,6 +1921,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         socket.on("call:screen-share", handleScreenShare);
         socket.on("call:notice", handleNotice);
         socket.on("call:removed", handleRemoved);
+        socket.on("call:task-remark-prompt", handleTaskRemarkPrompt);
 
         return () => {
             socket.off("connect", handleConnect);
@@ -1908,6 +1942,7 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
             socket.off("call:screen-share", handleScreenShare);
             socket.off("call:notice", handleNotice);
             socket.off("call:removed", handleRemoved);
+            socket.off("call:task-remark-prompt", handleTaskRemarkPrompt);
         };
     }, [socket, currentUserId, currentUser, onCallEvent]);
 
@@ -2011,6 +2046,173 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
         };
     }, [socket]);
 
+    useEffect(() => {
+        if (!remarkNotice) return;
+        const timer = setTimeout(() => setRemarkNotice(""), 4000);
+        return () => clearTimeout(timer);
+    }, [remarkNotice]);
+
+    const dismissRemarkPrompt = () => {
+        setRemarkPrompts(prev => prev.slice(1));
+        setRemarkText("");
+        setRemarkError("");
+    };
+
+    const submitCallRemark = async (event) => {
+        event?.preventDefault?.();
+        const activePrompt = remarkPrompts[0];
+        const trimmed = remarkText.trim();
+        if (!activePrompt?.taskId || !trimmed || remarkSubmitting) {
+            if (!trimmed) setRemarkError("Please enter a remark before saving.");
+            return;
+        }
+        setRemarkSubmitting(true);
+        setRemarkError("");
+        try {
+            const token = accountStorage.getItem("token");
+            const response = await fetch(`${API_URL}/tasks/self/${activePrompt.taskId}/remarks`, {
+                method: "POST",
+                credentials: "omit",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ text: trimmed }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data?.success === false) {
+                throw new Error(data?.error || data?.message || "Failed to save remark.");
+            }
+            dismissRemarkPrompt();
+            setRemarkNotice("Remark saved to your personal call task.");
+        } catch (err) {
+            setRemarkError(err?.message || "Unable to save remark. Please try again.");
+        } finally {
+            setRemarkSubmitting(false);
+        }
+    };
+
+    const activeRemarkPrompt = remarkPrompts[0] || null;
+
+    const renderTaskPromptModal = () => {
+        if (!pendingTaskPrompt) return null;
+        const isVideo = pendingTaskPrompt.callType === "video";
+        return (
+            <div className="call-task-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="call-task-prompt-title">
+                <div className="call-task-modal">
+                    <div className="call-task-modal-header">
+                        <span className="call-task-modal-icon">
+                            {isVideo ? <Video size={20} /> : <Phone size={20} />}
+                        </span>
+                        <div>
+                            <h3 id="call-task-prompt-title">Create task for this call?</h3>
+                            <p>{isVideo ? "Video Call" : "Voice Call"} with {pendingTaskPrompt.title}</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="call-task-modal-close"
+                            onClick={() => setPendingTaskPrompt(null)}
+                            aria-label="Cancel call"
+                            title="Cancel"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                    <p className="call-task-modal-body">
+                        If enabled, a personal task will be created for both you and the recipient once answered, and the call duration will be logged in Active Time (In Progress).
+                    </p>
+                    <div className="call-task-modal-actions">
+                        <button
+                            type="button"
+                            className="call-task-btn secondary"
+                            onClick={() => {
+                                const promptData = pendingTaskPrompt;
+                                setPendingTaskPrompt(null);
+                                startCall(promptData.callType, promptData.user, { createTask: false });
+                            }}
+                        >
+                            Call Without Task
+                        </button>
+                        <button
+                            type="button"
+                            className="call-task-btn primary"
+                            onClick={() => {
+                                const promptData = pendingTaskPrompt;
+                                setPendingTaskPrompt(null);
+                                startCall(promptData.callType, promptData.user, { createTask: true });
+                            }}
+                        >
+                            Create Task &amp; Call
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderRemarkPromptModal = () => {
+        if (!activeRemarkPrompt) return null;
+        const isVideo = activeRemarkPrompt.callType === "video";
+        const activeTimeLabel = activeRemarkPrompt.durationLabel || formatCallDuration(activeRemarkPrompt.durationSeconds || 0);
+        return (
+            <div className="call-task-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="call-remark-modal-title">
+                <form className="call-task-modal" onSubmit={submitCallRemark}>
+                    <div className="call-task-modal-header">
+                        <span className="call-task-modal-icon success">
+                            {isVideo ? <Video size={20} /> : <Phone size={20} />}
+                        </span>
+                        <div>
+                            <h3 id="call-remark-modal-title">Call Ended — Add Remark</h3>
+                            <p>{isVideo ? "Video Call" : "Voice Call"} with {activeRemarkPrompt.peerName}</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="call-task-modal-close"
+                            onClick={dismissRemarkPrompt}
+                            aria-label="Skip remark"
+                            title="Skip"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                    <div className="call-task-meta-pills">
+                        <span className="call-task-pill">Task: {activeRemarkPrompt.taskTitle}</span>
+                        <span className="call-task-pill time">Active Time: {activeTimeLabel}</span>
+                    </div>
+                    <textarea
+                        className="call-task-remark-input"
+                        rows={3}
+                        value={remarkText}
+                        onChange={(e) => {
+                            setRemarkText(e.target.value);
+                            if (remarkError) setRemarkError("");
+                        }}
+                        placeholder="Write a remark about what was discussed in this call..."
+                        autoFocus
+                    />
+                    {remarkError && <div className="call-task-remark-error">{remarkError}</div>}
+                    <div className="call-task-modal-actions">
+                        <button
+                            type="button"
+                            className="call-task-btn secondary"
+                            onClick={dismissRemarkPrompt}
+                            disabled={remarkSubmitting}
+                        >
+                            Skip
+                        </button>
+                        <button
+                            type="submit"
+                            className="call-task-btn primary"
+                            disabled={remarkSubmitting || !remarkText.trim()}
+                        >
+                            {remarkSubmitting ? "Saving..." : "Save Remark"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        );
+    };
+
     // Hooks must run on every render, so this stays above the early return below
     // (calling it only during a call crashed React with "Rendered more hooks").
     const localIsSpeaking = useAudioActivity(localStream, Boolean(call) && !isMuted);
@@ -2047,22 +2249,39 @@ const CallOverlay = forwardRef(({ socket, currentUser, onCallEvent }, ref) => {
                 </button>
             </div>
         ) : null;
-        if (!error) return rejoinBar;
         return (
             <>
-            {rejoinBar}
-            <div className="call-toast" role="status" aria-live="polite">
-                <span className="call-toast-msg">{error}</span>
-                <button
-                    type="button"
-                    className="call-toast-dismiss-btn"
-                    onClick={() => setError("")}
-                    aria-label="Dismiss call message"
-                    title="Dismiss"
-                >
-                    <X size={15} />
-                </button>
-            </div>
+                {rejoinBar}
+                {renderTaskPromptModal()}
+                {renderRemarkPromptModal()}
+                {remarkNotice && (
+                    <div className="call-toast call-toast-success" role="status" aria-live="polite">
+                        <span className="call-toast-msg">{remarkNotice}</span>
+                        <button
+                            type="button"
+                            className="call-toast-dismiss-btn"
+                            onClick={() => setRemarkNotice("")}
+                            aria-label="Dismiss message"
+                            title="Dismiss"
+                        >
+                            <X size={15} />
+                        </button>
+                    </div>
+                )}
+                {error && (
+                    <div className="call-toast" role="status" aria-live="polite">
+                        <span className="call-toast-msg">{error}</span>
+                        <button
+                            type="button"
+                            className="call-toast-dismiss-btn"
+                            onClick={() => setError("")}
+                            aria-label="Dismiss call message"
+                            title="Dismiss"
+                        >
+                            <X size={15} />
+                        </button>
+                    </div>
+                )}
             </>
         );
     }

@@ -69,6 +69,28 @@ const ICON_MAP = {
   "payroll-process": WorkOutline,
   payslip: WorkOutline,
   "payroll-reports": WorkOutline,
+  "create-user": PersonOutline,
+  "department-all-task": ViewColumnOutlined,
+  project: WorkOutline,
+  adminproject: WorkOutline,
+  "employee-meeting": GroupsOutlined,
+  "client-meeting": GroupsOutlined,
+  "admin-meeting": GroupsOutlined,
+  alert: DescriptionOutlined,
+  "create-alert": DescriptionOutlined,
+  chat: GroupsOutlined,
+  "support-desk": WorkOutline,
+  "bulk-email": DescriptionOutlined,
+  "support-operations": WorkOutline,
+  "feedback-questionnaire": DescriptionOutlined,
+  "user-dashboard": DashboardCustomizeOutlined,
+  "dashboard-1": DashboardCustomizeOutlined,
+  "dashboard-overview": DashboardCustomizeOutlined,
+  attendance: CalendarMonthOutlined,
+  "my-leaves": CalendarMonthOutlined,
+  "my-assets": WorkOutline,
+  profile: PersonOutline,
+  "change-password": LockOutlined,
 };
 
 const getRecordId = (value) => {
@@ -454,7 +476,7 @@ const normalizePage = (page) => ({
   accessRoles: Array.isArray(page?.accessRoles) ? page.accessRoles : [],
   userAccessScopes: Array.isArray(page?.userAccessScopes) ? page.userAccessScopes : [],
   approvers: normalizeUserIds(page?.approvers || []),
-  viewUsers: normalizeUserIds(page?.explicitViewUsers ?? page?.viewUsers ?? []),
+  viewUsers: normalizeUserIds(page?.viewUsers ?? page?.explicitViewUsers ?? []),
   editUsers: normalizeUserIds(page?.editUsers || []),
   deleteUsers: normalizeUserIds(page?.deleteUsers || []),
   generateUsers: normalizeUserIds(page?.generateUsers || []),
@@ -644,7 +666,7 @@ const PageManagement = () => {
     if (page._detailsLoaded) return page;
     setDetailLoadingKey(page.pageKey);
     try {
-      const res = await axios.get("/page-permissions/by-path", { params: { path: page.path } });
+      const res = await axios.get("/page-permissions/by-path", { params: { path: page.path }, noCache: true });
       if (res.data?.page?.entitled === false) {
         setPages(previous => previous.filter(item => item.pageKey !== page.pageKey));
         return null;
@@ -948,26 +970,40 @@ const PageManagement = () => {
 
   const confirmCandidateSelection = () => {
     const scopeKey = getActiveScopeKey();
+    const selectedIds = [...candidateSelection];
     const nextUserScopes = {
       ...draftUserScopes,
       [scopeKey]: Object.fromEntries(
-        [...candidateSelection].map((userId) => [
+        selectedIds.map((userId) => [
           userId,
           normalizeScopeValue(candidateUserScopes[userId] || DEFAULT_SCOPE),
         ])
       ),
     };
 
-    if (activeTab === "edit") {
-      const editScopeEntries = nextUserScopes["edit"] || {};
+    const nextPermissions = buildDraftPermissionsForTab(draftPermissions, selectedPage, activeTab, selectedIds);
+
+    if (scopeKey !== "view") {
       const currentViewScopes = { ...(nextUserScopes["view"] || {}) };
-      Object.entries(editScopeEntries).forEach(([userId, scope]) => {
-        currentViewScopes[userId] = scope;
+      selectedIds.forEach((userId) => {
+        if (!currentViewScopes[userId] || scopeKey === "edit") {
+          currentViewScopes[userId] = normalizeScopeValue(candidateUserScopes[userId] || DEFAULT_SCOPE);
+        }
       });
       nextUserScopes["view"] = currentViewScopes;
+      nextPermissions.viewIds = normalizeUserIds([...nextPermissions.viewIds, ...selectedIds]);
+    } else {
+      const nonViewGrantIds = normalizeUserIds([
+        ...nextPermissions.editIds,
+        ...nextPermissions.approverIds,
+        ...nextPermissions.deleteIds,
+        ...nextPermissions.generateIds,
+        ...nextPermissions.lockIds,
+        ...nextPermissions.unlockIds,
+      ]);
+      nextPermissions.viewIds = normalizeUserIds([...nextPermissions.viewIds, ...nonViewGrantIds]);
     }
 
-    const nextPermissions = buildDraftPermissionsForTab(draftPermissions, selectedPage, activeTab, [...candidateSelection]);
     setDraftUserScopes(nextUserScopes);
     setDraftPermissions(nextPermissions);
     setAddUsersOpen(false);

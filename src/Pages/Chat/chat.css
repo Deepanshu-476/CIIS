@@ -9983,3 +9983,152 @@ body.chat-sidebar-resizing * {
 .call-rejoin-join:hover { background: #15803d; }
 .call-rejoin-dismiss { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .12); color: #fff; cursor: pointer; }
 .call-rejoin-join:focus-visible, .call-rejoin-dismiss:focus-visible { outline: 2px solid #86efac; outline-offset: 2px; }
+
+/* ---- Call Task Creation Prompt & Post-Call Remark Popup ---- */
+.call-task-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(9, 18, 35, 0.72);
+    backdrop-filter: blur(4px);
+}
+.call-task-modal {
+    width: min(440px, calc(100vw - 32px));
+    display: grid;
+    gap: 14px;
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: #0f1b2e;
+    color: #f8fafc;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+.call-task-modal-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.call-task-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+}
+.call-task-modal-header p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #94a3b8;
+}
+.call-task-modal-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: rgba(37, 99, 235, 0.22);
+    color: #60a5fa;
+}
+.call-task-modal-icon.success {
+    background: rgba(22, 163, 74, 0.22);
+    color: #4ade80;
+}
+.call-task-modal-close {
+    margin-left: auto;
+    border: 0;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+.call-task-modal-close:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+.call-task-modal-body {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #cbd5e1;
+}
+.call-task-meta-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.call-task-pill {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+}
+.call-task-pill.time {
+    background: rgba(22, 163, 74, 0.18);
+    color: #86efac;
+}
+.call-task-remark-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.8);
+    color: #ffffff;
+    font: inherit;
+    font-size: 13.5px;
+    resize: vertical;
+}
+.call-task-remark-input:focus {
+    outline: 2px solid #3b82f6;
+    border-color: transparent;
+}
+.call-task-remark-error {
+    font-size: 12.5px;
+    color: #fca5a5;
+}
+.call-task-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.call-task-btn {
+    border: 0;
+    border-radius: 9px;
+    padding: 9px 15px;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.call-task-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+}
+.call-task-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+.call-task-btn.primary {
+    background: #2563eb;
+    color: #ffffff;
+}
+.call-task-btn.primary:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+.call-task-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.call-toast.call-toast-success {
+    background: #ecfdf5;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}

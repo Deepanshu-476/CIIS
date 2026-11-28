@@ -129,7 +129,7 @@ import Swal from "sweetalert2";
 import { handleAppLogout } from '../utils/logoutModal';
 import axiosInstance from '../utils/axiosConfig';
 import { sanitizeUserForStorage } from '../context/AuthContext';
-import { isCrmPage, requiresPageAccess, hasPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission, getCatalogAccessPages, getManagedPermissionPath, isCompanyPageOwner } from '../utils/pageAccess';
+import { isCrmPage, requiresPageAccess, hasPageAccess, hasConfiguredPageAccess, getCachedPagePermissionCatalog, loadPagePermissionCatalog, loadPagePermission, getCatalogAccessPages, getManagedPermissionPath, isCompanyPageOwner } from '../utils/pageAccess';
 import { TELECALLER_PAGES, hasTelecallerCompanyAccess } from '../crm/telecaller/telecallerPages';
 import { CRM_PAGES } from '../config/crmPages';
 import { preloadRouteByPath, preloadRouteChunks } from '../utils/routePreloader';
@@ -1232,6 +1232,14 @@ const allPagesItems = [
     order: 11
   },
   {
+    id: 'company-assets',
+    name: 'Asset Management',
+    icon: 'Boxes',
+    path: '/ciisUser/company-assets',
+    category: 'administration',
+    order: 11.5
+  },
+  {
     id: 'employee-attendance',
     name: 'Employee Attendance',
     icon: 'CalendarDays',
@@ -1334,6 +1342,14 @@ const allPagesItems = [
     path: '/ciisUser/emp-client',
     category: 'clients',
     order: 22
+  },
+  {
+    id: 'client-plans',
+    name: 'Client Plans',
+    icon: 'Crown',
+    path: '/ciisUser/client-plans',
+    category: 'clients',
+    order: 22.4
   },
   {
     id: 'active-clients',
@@ -2710,7 +2726,7 @@ const Sidebar = ({
         const storedUser = user ? JSON.parse(user) : null;
         const storedCompany = companyDetails ? JSON.parse(companyDetails) : null;
         const earlyCompanyId = getCompanyId(storedCompany, storedUser);
-        const fetchCompany = id => axiosInstance.get(`/company/${id}`)
+        const fetchCompany = id => axiosInstance.get(`/company/${id}`, { noCache: true })
           .then(response => ({ response }), companyError => ({ companyError }));
         const earlyCompanyRequest = earlyCompanyId ? fetchCompany(earlyCompanyId) : null;
 
@@ -3311,7 +3327,7 @@ const Sidebar = ({
     );
     const allPermissionPages = new Map(
       (Array.isArray(pagePermissions) ? pagePermissions : [])
-        .map(page => [String(page.path || '').toLowerCase().replace(/\/+$/, ''), page])
+        .map(page => [getManagedPermissionPath(page.path), page])
     );
     const roleConfiguredPaths = new Set(
       (Array.isArray(sidebarConfig?.menuItems) ? sidebarConfig.menuItems : [])
@@ -3319,6 +3335,22 @@ const Sidebar = ({
         .filter(Boolean)
     );
     const managedPageFor = path => allPermissionPages.get(getManagedPermissionPath(path));
+    const selfServiceManagedPaths = new Set([
+      '/ciisuser/user-dashboard',
+      '/ciisuser/dashboard-1',
+      '/ciisuser/dashboard-overview',
+      '/ciisuser/attendance',
+      '/ciisuser/my-leaves',
+      '/ciisuser/my-assets',
+      '/ciisuser/profile',
+      '/ciisuser/change-password',
+      '/ciisuser/chat',
+      '/ciisuser/alert',
+      '/ciisuser/project',
+      '/ciisuser/employee-meeting',
+      '/ciisuser/client-meeting',
+      '/ciisuser/support-desk',
+    ]);
     const filterItemsByPageAccess = items => {
       items = items.filter(item => {
         if (item.category !== 'admin-telecaller') return true;
@@ -3337,24 +3369,38 @@ const Sidebar = ({
       }
       return items.filter(item => {
         const itemPath = String(item?.path || '').toLowerCase().replace(/\/+$/, '');
+        const managedPath = getManagedPermissionPath(itemPath);
         const managedPage = managedPageFor(itemPath);
-        if (itemPath === '/ciisuser/register-request' && managedPage?.canManageRegistrationRequests === true) return true;
+        if (itemPath === '/ciisuser/register-request' && (managedPage?.canManageRegistrationRequests === true || managedPage?.hasAutoFullAccess === true)) return true;
         if (typeof managedPage?.entitled === 'boolean') {
-          return managedPage.entitled && (hasPageAccess(managedPage, userId, 'view') ||
-            (!isCrmPage(itemPath) && item.category !== 'admin-telecaller' && isCompanyPageOwner(userData)));
+          if (!managedPage.entitled) return false;
+          if (managedPage.requiresExplicitGrant !== false) {
+            return hasPageAccess(managedPage, userId, 'view') ||
+              (!isCrmPage(itemPath) && item.category !== 'admin-telecaller' && isCompanyPageOwner(userData));
+          }
+          if (hasPageAccess(managedPage, userId, 'view') || isPageAccessAdmin || isCompanyPageOwner(userData)) {
+            return true;
+          }
+          if (selfServiceManagedPaths.has(managedPath)) {
+            return roleConfiguredPaths.has(itemPath) || !hasCustomSidebarConfig;
+          }
+          if (!hasConfiguredPageAccess(managedPage)) {
+            return roleConfiguredPaths.has(itemPath) || !hasCustomSidebarConfig;
+          }
+          return false;
         }
         // A saved role menu controls placement, not individual CRM access.
-        if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+        if (isCrmPage(itemPath)) return hasPageAccess(allPermissionPages.get(managedPath), userId, 'view');
         // Client Plans is a sensitive client-management page.  Its presence
         // in a role's saved sidebar only controls placement; it must never
         // grant a user access to the page.
         if (itemPath === '/ciisuser/client-plans') {
-          return isPageAccessAdmin || hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+          return isPageAccessAdmin || hasPageAccess(allPermissionPages.get(managedPath), userId, 'view');
         }
         if (roleConfiguredPaths.has(itemPath)) return true;
         if (isPageAccessAdmin) return true;
         if (requiresPageAccess(itemPath)) {
-          return hasPageAccess(allPermissionPages.get(itemPath), userId, 'view');
+          return hasPageAccess(allPermissionPages.get(managedPath), userId, 'view');
         }
         const page = configuredPages.get(itemPath);
         if (!page) return true;
@@ -3444,12 +3490,40 @@ const Sidebar = ({
       items = [{ ...fixedDefaultItems[0], order: 1 }, ...items];
     }
 
-    // A saved/custom sidebar is authoritative for what the role can see.
-    // Fallback items are only used when no custom config exists.
+    // A saved/custom sidebar is authoritative for role defaults, while explicit
+    // per-user Page Management grants also surface the assigned pages in the sidebar.
+    const baseItems = hasCustomSidebarConfig
+      ? items
+      : addCompanyAccessFallbackItems(items, companyData, isPageAccessAdmin);
+
+    const existingSidebarPaths = new Set(
+      baseItems.map(item => getManagedPermissionPath(item?.path || '')).filter(Boolean)
+    );
+    const existingSidebarIds = new Set(
+      baseItems.map(item => String(item?.id || '').trim().toLowerCase()).filter(Boolean)
+    );
+    const excludedAutoSidebarIds = new Set([
+      'admin-telecaller-call-workspace',
+      'admin-telecaller-lead-detail',
+    ]);
+    const grantedItems = Array.isArray(pagePermissions)
+      ? allPagesItems.filter(page => {
+          if (excludedAutoSidebarIds.has(page.id)) return false;
+          if (String(page.path || '').toLowerCase().startsWith('/client/')) return false;
+          const managedPath = getManagedPermissionPath(page.path);
+          const idKey = String(page.id || '').trim().toLowerCase();
+          if (existingSidebarPaths.has(managedPath) || existingSidebarIds.has(idKey)) return false;
+          const permission = managedPageFor(page.path);
+          if (!permission || permission.entitled === false) return false;
+          if (!hasPageAccess(permission, userId, 'view')) return false;
+          existingSidebarPaths.add(managedPath);
+          existingSidebarIds.add(idKey);
+          return true;
+        })
+      : [];
+
     let accessFilteredItems = filterItemsByCompanyAccess(
-      hasCustomSidebarConfig
-        ? items
-        : addCompanyAccessFallbackItems(items, companyData, isPageAccessAdmin),
+      grantedItems.length ? [...baseItems, ...grantedItems] : baseItems,
       companyData,
       pagePermissions
     );
@@ -3466,7 +3540,9 @@ const Sidebar = ({
         'owner', 'admin', 'hr', 'super_admin', 'superadmin',
         'company_owner', 'companyowner'
       ]);
-      const canManageRegisterRequests = managedPageFor('/ciisuser/register-request')?.canManageRegistrationRequests === true || [
+      const canManageRegisterRequests =
+        managedPageFor('/ciisuser/register-request')?.canManageRegistrationRequests === true ||
+        managedPageFor('/ciisuser/register-request')?.hasAutoFullAccess === true || [
         userData?.companyRole,
         userData?.jobRole,
         userData?.role
@@ -3520,7 +3596,7 @@ const Sidebar = ({
       normalizeAdministrativeRole(getRecordDisplayName(value) || value)
     ));
 
-    if (!canManageSidebar) {
+    if (!canManageSidebar && !hasPageAccess(managedPageFor('/ciisuser/sidebarmanagement'), userId, 'view')) {
       accessFilteredItems = accessFilteredItems.filter(item => (
         item.id !== 'SidebarManagement' &&
         String(item.path || '').toLowerCase() !== '/ciisuser/sidebarmanagement'
@@ -3536,9 +3612,10 @@ const Sidebar = ({
       userData?.role
     ].some(value => companyAiRoles.has(
       normalizeAdministrativeRole(getRecordDisplayName(value) || value)
-    ));
+    )) || hasPageAccess(managedPageFor('/ciisuser/company-ai-settings'), userId, 'view');
 
     const hasAiEntitlement = Boolean(
+      managedPageFor('/ciisuser/company-ai-settings')?.entitled ||
       (companyData?.allowedPages || []).some(value =>
         ['company-ai-settings', 'company-ai'].includes(String(value).trim().toLowerCase()
           .replace(/^\/+/, '').replace(/^ciisuser\//, '').replace(/\/+$/, '')))
@@ -3552,7 +3629,7 @@ const Sidebar = ({
     }
 
     // Client Plans is an administrative pricing/package configuration tool.
-    // Ordinary employees must never have Client Plans in their sidebar.
+    // Ordinary employees must never have Client Plans in their sidebar unless granted in Page Management.
     const clientPlanAdminRoles = new Set([
       'owner', 'admin', 'super_admin', 'superadmin',
       'company_owner', 'companyowner'
@@ -3563,7 +3640,7 @@ const Sidebar = ({
       userData?.role
     ].some(value => clientPlanAdminRoles.has(
       normalizeAdministrativeRole(getRecordDisplayName(value) || value)
-    ));
+    )) || hasPageAccess(managedPageFor('/ciisuser/client-plans'), userId, 'view');
 
     if (!canManageClientPlans) {
       accessFilteredItems = accessFilteredItems.filter(item => (
